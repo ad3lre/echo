@@ -89,7 +89,7 @@ function openSettings() {
       <img
         :src="icons.settings"
         alt=""
-        class="h-4 w-4 opacity-80"
+        class="echo-ink-icon h-4 w-4 opacity-85"
         aria-hidden="true"
       />
     </button>

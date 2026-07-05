@@ -348,6 +348,7 @@ function minimalAssembleDeps(): AssembleAppLayoutContextDeps {
       onLeaveVoice: noop,
       onLeaveVoiceUi: noop,
       onVcChatButtonClick: noop,
+      handleMinimizeVoiceView: noop,
       isViewingVoiceChannel: c(false),
       isScreenSharePickerOpen: r(false),
       isDesktopStreamingControlOpen: r(false),

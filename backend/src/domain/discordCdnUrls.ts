@@ -3,28 +3,41 @@
  * discord.js models use camelCase for the same fields).
  */
 
-import { canSafelyResolveUrlForOutboundFetch } from '../services/linkUnfurl/linkUnfurlFetch';
+import { ssrfSafeFetch } from '../services/linkUnfurl/linkUnfurlFetch';
 
 const URL_KEYS_DEFAULT = ['url', 'proxy_url', 'proxyURL'] as const;
 
-const DISCORD_IMPORT_MEDIA_HOSTS = new Set([
-  'cdn.discordapp.com',
-  'media.discordapp.net',
-]);
+/** Discord-controlled CDN zones (incl. `images-ext-*.discordapp.net` embed proxies). */
+export function isDiscordImportMediaHostname(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase();
+  if (!h) return false;
+  return h.endsWith('.discordapp.com') || h.endsWith('.discordapp.net');
+}
+
+function normalizeDiscordCdnSearch(search: string): string {
+  if (!search || search === '?') return '';
+  return search.replace(/&+$/, '');
+}
 
 /**
  * Prefer the canonical CDN `url`, then Discord's `proxy_url` / `proxyURL` so imports
- * still work when only the media proxy is present.
+ * still work when only the media proxy is present. When `url` is a third-party link,
+ * prefer Discord's proxied CDN URL so mirroring and refresh stay on Discord hosts.
  */
 export function pickDiscordUrlOrProxy(
   o: Record<string, unknown>,
   keys: readonly string[] = URL_KEYS_DEFAULT,
 ): string {
+  let fallback = '';
   for (const k of keys) {
     const v = o[k];
-    if (typeof v === 'string' && v.trim()) return v.trim();
+    if (typeof v !== 'string') continue;
+    const t = v.trim();
+    if (!t) continue;
+    if (isDiscordHostedImportMediaUrl(t)) return t;
+    if (!fallback) fallback = t;
   }
-  return '';
+  return fallback;
 }
 
 /** Embed footer / author icons: `icon_url` or `proxy_icon_url`. */
@@ -50,8 +63,9 @@ export function canonicalDiscordHostedImportMediaUrl(
   if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
   if (u.username || u.password) return null;
   const h = u.hostname.toLowerCase();
-  if (!DISCORD_IMPORT_MEDIA_HOSTS.has(h)) return null;
-  return new URL(`${u.pathname}${u.search}`, `https://${h}`).href;
+  if (!isDiscordImportMediaHostname(h)) return null;
+  const search = normalizeDiscordCdnSearch(u.search);
+  return new URL(`${u.pathname}${search}`, `https://${h}`).href;
 }
 
 /** True when `url` is a Discord attachment/media host we may fetch during import mirroring. */
@@ -66,13 +80,12 @@ export async function fetchDiscordHostedImportMedia(
 ): Promise<Response | null> {
   const url = canonicalDiscordHostedImportMediaUrl(raw);
   if (!url) return null;
-  if (!(await canSafelyResolveUrlForOutboundFetch(url))) return null;
   try {
-    // Allowlisted Discord CDN hosts only. Plain fetch after DNS validation: the
-    // pinned `safeFetchAgent` TLS path often hangs on Discord's CDN edge.
-    return await fetch(url, {
+    // Host allowlist + DNS validation via ssrfSafeFetch; plain fetch (no pinned TLS agent)
+    // because Discord's CDN edge often hangs on the pinned agent path.
+    return await ssrfSafeFetch(url, {
+      redirect: 'follow',
       ...init,
-      redirect: 'error',
     });
   } catch {
     return null;

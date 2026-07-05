@@ -12,6 +12,7 @@ import {
   isLegacyKrispOnlyProcessor,
   setEchoMicSendLinearGain,
 } from '@/services/livekit/echoLocalMicSendGain';
+import { ensureLocalMicSendPathReady } from '@/services/livekit/echoLocalMicPublishHealth';
 import { isKrispNoiseFilterSupportedSafe } from '@/services/livekit/krispNoiseFilter';
 import {
   LK_KIND_AUDIO,
@@ -207,6 +208,8 @@ export function createMicSendController(ctx: LiveKitVoiceSessionContext) {
         });
       }
       applyLocalMicGain(room);
+      await ensureLocalMicSendPathReady(room);
+      actions.refreshLocalMicLevelMonitor(room);
     } catch (e) {
       voiceClientDiag('error', 'voice.client:mic_send_processor_failed', {
         err: e instanceof Error ? e.message : String(e),

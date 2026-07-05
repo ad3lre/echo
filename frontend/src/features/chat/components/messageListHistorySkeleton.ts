@@ -23,6 +23,35 @@ export type HistorySkeletonRow = {
   imageBlocks?: HistorySkeletonImageBlock[];
 };
 
+const SKELETON_HEADER_CHROME_PX = 50;
+const SKELETON_GROUPED_CHROME_PX = 6;
+const SKELETON_BODY_LINE_PX = 22;
+/** Matches `.skeleton-media { max-height: 12rem }` plus vertical margin. */
+const SKELETON_MEDIA_BLOCK_PX = 12 * 16 + 16;
+
+/** Spinner + label row shown above scroll-up placeholders (Discord-style). */
+export const OLDER_FETCH_LOADING_HEADER_PX = 44;
+
+/**
+ * Viewport-sized count for scroll-up placeholders — enough to cover ~720p without
+ * reserving a full page (80) of phantom height.
+ */
+export const OLDER_FETCH_SKELETON_ROW_COUNT = 12;
+
+/** TanStack row height guess for a single history skeleton row. */
+export function estimateHistorySkeletonRowSizePx(
+  row: HistorySkeletonRow,
+): number {
+  let height = row.grouped
+    ? SKELETON_GROUPED_CHROME_PX
+    : SKELETON_HEADER_CHROME_PX;
+  height += row.lineWidths.length * SKELETON_BODY_LINE_PX;
+  if (row.imageBlocks?.length) {
+    height += SKELETON_MEDIA_BLOCK_PX * row.imageBlocks.length;
+  }
+  return height;
+}
+
 export const HISTORY_SKELETON_ROWS: HistorySkeletonRow[] = [
   {
     grouped: false,
@@ -91,3 +120,7 @@ export const HISTORY_SKELETON_ROWS: HistorySkeletonRow[] = [
   },
   { grouped: true, lineWidths: ['w-[min(94%,25rem)]'] },
 ];
+
+/** Generic varied rows for scroll-up fetch — not derived from visible window edge. */
+export const OLDER_FETCH_SKELETON_ROWS: HistorySkeletonRow[] =
+  HISTORY_SKELETON_ROWS.slice(0, OLDER_FETCH_SKELETON_ROW_COUNT);

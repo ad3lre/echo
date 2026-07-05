@@ -31,7 +31,8 @@ export default async function giphyRoutes(
 ): Promise<void> {
   await fastify.register(async (scope) => {
     await scope.register(rateLimit, {
-      max: 20,
+      /** Picker warmup walks categories sequentially; headroom for reload + open picker. */
+      max: 40,
       timeWindow: '1 minute',
       keyGenerator: (req) => `giphy:${req.ip}`,
       addHeaders: { 'retry-after': true },

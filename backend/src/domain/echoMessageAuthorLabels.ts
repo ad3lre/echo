@@ -1,6 +1,6 @@
 import type pg from 'pg';
 import {
-  isCorruptedDiscordImportPfp,
+  needsDiscordImportPfpRepair,
   repairDiscordImportUserPfpIfNeeded,
 } from '../services/discordImportAvatarMirror';
 
@@ -54,7 +54,7 @@ export async function loadEchoMessageAuthorLabelMap(
       row.shadow_avatar_url != null ? String(row.shadow_avatar_url).trim() : '';
     let pfp = pfpRaw;
     const discordUserId = shadowDid || linkedDid;
-    if (discordUserId && isCorruptedDiscordImportPfp(pfp)) {
+    if (discordUserId && needsDiscordImportPfpRepair(pfp, discordUserId)) {
       pfp = await repairDiscordImportUserPfpIfNeeded({
         pool,
         userId: id,

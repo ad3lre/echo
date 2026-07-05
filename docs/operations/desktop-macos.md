@@ -72,6 +72,18 @@ See [tauri-phase2.md](tauri-phase2.md) and [Tauri — updater](https://v2.tauri.
 
 The `echo://` scheme is registered for the installed app (see [Tauri deep linking](https://v2.tauri.app/plugin/deep-linking/)). The frontend handler in `frontend/src/platform/desktopDeepLink.ts` matches Windows/Linux behavior.
 
+## Privacy usage strings (microphone, camera, screen share)
+
+macOS shows system permission prompts only when the app bundle includes the matching `Info.plist` keys. Echo merges [`src-tauri/Info.macos.plist`](../src-tauri/Info.macos.plist) via `bundle.macOS.infoPlist` in [`tauri.macos.conf.json`](../src-tauri/tauri.macos.conf.json):
+
+- `NSMicrophoneUsageDescription` — voice channels and calls
+- `NSCameraUsageDescription` — video chat
+- `NSScreenCaptureUsageDescription` — screen sharing
+
+After changing these strings, rebuild the `.app` / `.dmg`. Users who previously denied access must re-enable Echo under **System Settings → Privacy & Security**.
+
+Permission-denied UI in the SPA uses desktop-aware copy (`isWebKitDesktop()` → System Settings paths instead of “browser bar”).
+
 ## Password AutoFill (Touch ID / iCloud Keychain)
 
 The desktop shell loads the SPA from Tauri’s local origin (`https://tauri.localhost`), not from `chat-echo.com`. macOS links the app to your saved **chat-echo.com** credentials via **Associated Domains**:

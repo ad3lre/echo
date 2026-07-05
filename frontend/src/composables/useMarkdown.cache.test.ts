@@ -98,7 +98,7 @@ describe('useMarkdown parse cache', () => {
       customEmojiImageUrl: (id) =>
         id === '987654321' ? 'https://cdn.test/party_blob.webp' : undefined,
     });
-    expect(out).toContain('class="emoji custom-emoji"');
+    expect(out).toMatch(/class="emoji custom-emoji/);
     expect(out).toContain('src="https://cdn.test/party_blob.webp"');
   });
 
@@ -109,7 +109,8 @@ describe('useMarkdown parse cache', () => {
       customEmojiImageUrl: () => undefined,
     };
     const first = parseMessageContent(input, undefined, resolversV0);
-    expect(first).toContain('mention--custom-emoji');
+    expect(first).toContain('custom-emoji-skeleton');
+    expect(first).toContain('custom-emoji-inline--pending');
 
     const resolversV1: IdTokenResolvers = {
       _cacheVersion: 1,
@@ -119,7 +120,7 @@ describe('useMarkdown parse cache', () => {
           : undefined,
     };
     const second = parseMessageContent(input, undefined, resolversV1);
-    expect(second).toContain('class="emoji custom-emoji"');
+    expect(second).toMatch(/class="emoji custom-emoji/);
     expect(second).toContain('/api/v1/echo/emoji/304238867010606080/asset');
   });
 });

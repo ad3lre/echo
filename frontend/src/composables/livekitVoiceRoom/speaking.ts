@@ -21,6 +21,11 @@ import {
   mergeSpeakingMapIfChanged,
   SPEAKING_INDICATOR_REMOTE_POLL_MS,
 } from '@/composables/voiceGate';
+import { resolveLocalMicMonitorTrack } from '@/services/livekit/echoLocalMicMonitorTrack';
+import {
+  ensureLocalMicSendPathReady,
+  isLocalMicPublicationLive,
+} from '@/services/livekit/echoLocalMicPublishHealth';
 import { useVoiceLevelsStore } from '@/stores/voiceLevels';
 import type { ParticipantAudioLevel } from '@/composables/livekitVoiceRoom.types';
 import type { LiveKitVoiceSessionContext } from '@/composables/livekitVoiceRoom/context';
@@ -42,6 +47,8 @@ export function createSpeakingController(ctx: LiveKitVoiceSessionContext) {
     vcDeafenedInternal,
     lastOutputVolumePercent,
     micAttachDiagLogs,
+    lastVcAudioOpts,
+    actions,
   } = ctx;
   const voiceLevels = useVoiceLevelsStore();
 
@@ -143,6 +150,21 @@ export function createSpeakingController(ctx: LiveKitVoiceSessionContext) {
       }
       dumpRemoteAudioTrackState(room, 'health_poll');
       dumpLiveKitDomAudioElements();
+      const opts = lastVcAudioOpts.value;
+      if (!opts.muted && !opts.deafened) {
+        if (!isLocalMicPublicationLive(room)) {
+          voiceClientDiag('warn', 'voice.client:mic_pub_missing_health', {
+            roomName: room.name,
+          });
+          void actions.recoverVoiceMediaSession({ ...opts });
+          return;
+        }
+        void ensureLocalMicSendPathReady(room).then((running) => {
+          if (!running) {
+            void actions.recoverVoiceMediaSession({ ...opts });
+          }
+        });
+      }
     }, 5000);
   }
 
@@ -158,12 +180,13 @@ export function createSpeakingController(ctx: LiveKitVoiceSessionContext) {
       return;
     }
     const lat = track as LocalAudioTrack;
-    const mst = lat.mediaStreamTrack;
-    if (!mst || mst.readyState === 'ended') {
+    const mst = resolveLocalMicMonitorTrack(lat);
+    if (!mst) {
       localMicMonitor.stop();
       return;
     }
     localMicMonitor.attachStream(new MediaStream([mst]));
+    void localMicMonitor.ensureAudioContextRunning();
     if (micAttachDiagLogs.value < MIC_ATTACH_LOG_MAX) {
       micAttachDiagLogs.value++;
       voiceClientDiag('info', 'voice.client:mic_monitor_attached', {
@@ -171,6 +194,7 @@ export function createSpeakingController(ctx: LiveKitVoiceSessionContext) {
         mstReadyState: mst.readyState,
         mstEnabled: mst.enabled,
         mstMuted: mst.muted === true,
+        monitorUsesSourceTrack: mst !== lat.mediaStreamTrack,
         audioCtx: localMicMonitor.audioContextState.value ?? 'unknown',
         audioCtxSampleRate: localMicMonitor.audioContextSampleRate.value ?? 0,
       });

@@ -33,6 +33,16 @@ describe('useMarkdown with KaTeX', () => {
     expect(out).toMatch(/style="/);
   });
 
+  it('renders inline integrals with limits above and below the integral sign', () => {
+    const out = parseMessageContent(
+      String.raw`$\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}$`,
+    );
+    expect(out).toContain('class="katex"');
+    expect(out).not.toContain('katex-error');
+    expect(out).toContain('large-op');
+    expect(out).not.toContain('small-op');
+  });
+
   it('keeps inline code delimiters literal', () => {
     const out = parseMessageContent('`\\(x\\)` and `$$y$$`');
     expect(out).toContain('\\(x\\)');

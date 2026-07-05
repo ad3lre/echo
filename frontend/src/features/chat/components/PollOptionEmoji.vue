@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch, type ComputedRef } from 'vue';
 import { getTwemojiSrc } from '@/utils/twemoji';
-import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
+import {
+  resolveCustomEmojiImageUrlForDisplay,
+  shouldAllowDiscordCdnGuessForEmojiId,
+} from '@/utils/customEmojiUrl';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import { parsePollOptionCustomEmojiToken } from '@/utils/pollOptionEmojiDisplay';
 
@@ -34,12 +37,20 @@ const customToken = computed(() =>
 const customSrc = computed(() => {
   const token = customToken.value;
   if (!token) return '';
+  const cache = customEmojiUrlById?.value;
+  const echoMissed = isEchoEmojiTokenResolveMiss(token.id);
   const url = resolveCustomEmojiImageUrlForDisplay(
     token.id,
     token.animated,
-    customEmojiUrlById?.value,
-    isEchoEmojiTokenResolveMiss(token.id),
-    { allowDiscordCdnGuess: isEchoEmojiTokenResolveMiss(token.id) },
+    cache,
+    echoMissed,
+    {
+      allowDiscordCdnGuess: shouldAllowDiscordCdnGuessForEmojiId(
+        token.id,
+        cache,
+        echoMissed,
+      ),
+    },
   );
   if (!url) ensureCustomEmojiId?.(token.id);
   return url ?? '';

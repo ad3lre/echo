@@ -11,6 +11,11 @@ import {
 import { isSafariLikeBrowser } from '@/platform/browserCompatibility';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 import { echoPlaybackEnsureAudioContextRunning } from '@/services/livekit/echoRemotePlaybackWebAudio';
+import {
+  ensureLocalMicSendPathReady,
+  isLocalMicPublicationLive,
+} from '@/services/livekit/echoLocalMicPublishHealth';
+import { ensureEchoMicSendProcessorAudioContextRunning } from '@/services/livekit/echoLocalMicSendGain';
 import { LK_SOURCE_MICROPHONE } from '@/services/livekit/livekitTrackDuckTypes';
 import {
   formatVoiceClientError,
@@ -187,8 +192,10 @@ export function createSessionController(
       ? (mst as unknown as { muted?: boolean }).muted === true
       : false;
     const pubMuted = pub?.isMuted === true;
+    const noPublication = shouldMicLive && !pub;
     const needsRepublish =
-      shouldMicLive && (trackEnded || hardwareMuted || pubMuted || !track);
+      shouldMicLive &&
+      (noPublication || trackEnded || hardwareMuted || pubMuted || !track);
 
     if (needsRepublish) {
       try {
@@ -203,12 +210,43 @@ export function createSessionController(
           dispatchAppToastDetail({
             message: 'Microphone may need attention',
             subtitle:
-              'Safari sometimes pauses or blocks the mic after a tab switch. Check the address-bar mic icon or Voice settings, then unmute again.',
+              'WebKit sometimes blocks outgoing voice until you unmute again. Check Voice settings or toggle the mic button, then speak.',
             severity: 'warning',
             durationMs: 8000,
           });
         }
         return;
+      }
+    } else if (shouldMicLive && track) {
+      const sendReady = await ensureLocalMicSendPathReady(room);
+      if (!sendReady) {
+        try {
+          await runApplyVcAudioState(opts);
+        } catch (e) {
+          voiceClientDiag(
+            'warn',
+            'voice.client:recoverVoiceMediaSession_failed',
+            {
+              err: formatVoiceClientError(e),
+            },
+          );
+        }
+      } else if (!isLocalMicPublicationLive(room)) {
+        try {
+          await runApplyVcAudioState(opts);
+        } catch (e) {
+          voiceClientDiag(
+            'warn',
+            'voice.client:recoverVoiceMediaSession_failed',
+            {
+              err: formatVoiceClientError(e),
+            },
+          );
+        }
+      } else {
+        await ensureEchoMicSendProcessorAudioContextRunning(track);
+        actions.refreshLocalMicLevelMonitor(room);
+        actions.applyLocalMicGain(room);
       }
     } else {
       actions.refreshLocalMicLevelMonitor(room);
@@ -245,10 +283,12 @@ export function createSessionController(
           ) as AudioCaptureOptions,
         );
         if (!opts.muted) {
-          void actions.attachMicSendProcessorIfNeeded(room);
+          await actions.attachMicSendProcessorIfNeeded(room);
+          await ensureLocalMicSendPathReady(room);
         }
       }
       actions.refreshLocalMicLevelMonitor(room);
+      await localMicMonitor.ensureAudioContextRunning();
     } catch (e) {
       voiceClientDiag('error', 'voice.client:applyVcAudioState_failed', {
         err: formatVoiceClientError(e),

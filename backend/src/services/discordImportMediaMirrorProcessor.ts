@@ -4,7 +4,10 @@ import type { Server } from 'socket.io';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import type pg from 'pg';
 import { config } from '../config';
-import { isDiscordHostedImportMediaUrl } from '../domain/discordCdnUrls';
+import {
+  fetchDiscordHostedImportMedia,
+  isDiscordHostedImportMediaUrl,
+} from '../domain/discordCdnUrls';
 import {
   getEchoMessageById,
   updateEchoMessageDiscordImportMirroredMedia,
@@ -86,11 +89,11 @@ async function fetchDiscordMedia(
   url: string,
   maxBytes: number,
 ): Promise<{ buf: Buffer; contentType: string }> {
-  const res = await fetch(url, {
+  const res = await fetchDiscordHostedImportMedia(url, {
     headers: { 'User-Agent': 'EchoDiscordImportMirror/1.0' },
     signal: AbortSignal.timeout(120_000),
-    redirect: 'follow',
   });
+  if (!res) throw new Error('Discord CDN fetch failed');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const ct = res.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
   const cl = res.headers.get('content-length');
@@ -120,9 +123,10 @@ async function mirrorDiscordUrlToEcho(opts: {
     buf = r.buf;
     headerCt = r.contentType;
   } catch (e) {
-    log.debug(
+    log.warn(
       {
         err: e instanceof Error ? e.message : String(e),
+        discordUrl,
         msg: 'discord_import_media_mirror.fetch_failed',
       },
       'Discord CDN fetch failed',
@@ -134,8 +138,13 @@ async function mirrorDiscordUrlToEcho(opts: {
     coerceAllowedChatContentType(headerCt, filenameHint) ??
     coerceAllowedChatContentType(null, filenameHint);
   if (!ct) {
-    log.debug(
-      { headerCt, filenameHint, msg: 'discord_import_media_mirror.bad_ct' },
+    log.warn(
+      {
+        headerCt,
+        filenameHint,
+        discordUrl,
+        msg: 'discord_import_media_mirror.bad_ct',
+      },
       'Could not map Discord media to allowed chat content type',
     );
     return null;
@@ -224,7 +233,8 @@ function collectDiscordUrlWork(row: EchoMessageRow): UrlWork[] {
   }
   if (Array.isArray(row.stickers)) {
     for (const s of row.stickers) {
-      if (s?.url) push(s.url, `${s.id}.${s.format}`);
+      if (!s?.url || s.format === 'lottie') continue;
+      push(s.url, `${s.id}.${s.format}`);
     }
   }
   if (Array.isArray(row.embeds)) {

@@ -313,7 +313,7 @@ async function handleSubmit() {
     <Transition name="report-overlay">
       <div
         v-if="isOpen && context"
-        class="report-modal-overlay fixed inset-0 z-[10000] flex items-center justify-center px-4 py-6 bg-overlay-dim backdrop-blur-sm"
+        class="fixed inset-0 z-[160] flex items-center justify-center px-4 py-6 bg-overlay-dim backdrop-blur-sm"
         @click.self="handleClose"
       >
         <Transition name="report-card">
@@ -323,7 +323,7 @@ async function handleSubmit() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="report-modal-title"
-            class="report-modal-panel relative flex w-full max-w-[520px] flex-col overflow-hidden rounded-3xl text-[var(--text)]"
+            class="report-card relative flex w-full max-w-[520px] flex-col overflow-hidden rounded-3xl text-foreground"
             :class="
               needsScrollBody
                 ? 'max-h-[min(44rem,94vh)]'
@@ -355,10 +355,10 @@ async function handleSubmit() {
                   </svg>
                 </div>
                 <div>
-                  <p class="text-base font-semibold text-[var(--text)]">
+                  <p class="text-base font-semibold text-foreground">
                     Report submitted
                   </p>
-                  <p class="mt-1 text-sm text-[var(--muted)]">
+                  <p class="mt-1 text-sm text-fg-subtle">
                     Thank you — our Trust &amp; Safety team will review it.
                   </p>
                 </div>
@@ -372,7 +372,7 @@ async function handleSubmit() {
 
             <button
               type="button"
-              class="chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-glass-hover hover:text-[var(--text)]"
+              class="report-close-btn chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-glass-hover hover:text-foreground"
               aria-label="Close"
               :disabled="submitting"
               @click="handleClose"
@@ -392,24 +392,38 @@ async function handleSubmit() {
             </button>
 
             <div
-              class="relative shrink-0 border-b border-[var(--border)] px-5 pb-3 pt-4 pr-12"
+              class="relative shrink-0 border-b border-border px-5 pb-4 pt-5 pr-12"
             >
-              <h2
-                id="report-modal-title"
-                class="text-lg font-bold leading-tight tracking-tight"
-              >
-                {{ title }}
-              </h2>
-              <p
-                v-if="!targetCard"
-                class="mt-1 text-sm leading-snug text-[var(--muted)]"
-              >
-                {{ subtitle }}
-              </p>
+              <div class="flex items-start gap-3">
+                <span
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 ring-1 ring-rose-500/25"
+                  aria-hidden="true"
+                >
+                  <img
+                    :src="icons.shield"
+                    alt=""
+                    class="echo-ink-icon h-5 w-5 opacity-90"
+                  />
+                </span>
+                <div class="min-w-0 flex-1">
+                  <h2
+                    id="report-modal-title"
+                    class="text-lg font-bold leading-tight tracking-tight text-foreground"
+                  >
+                    {{ title }}
+                  </h2>
+                  <p
+                    v-if="!targetCard"
+                    class="mt-0.5 text-sm leading-snug text-fg-subtle"
+                  >
+                    {{ subtitle }}
+                  </p>
+                </div>
+              </div>
 
               <div
                 v-if="targetCard"
-                class="mt-2.5 flex items-start gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+                class="mt-3.5 flex items-start gap-2.5 rounded-xl bg-glass-2 px-3 py-2.5"
               >
                 <div
                   class="report-avatar-initial flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
@@ -418,12 +432,22 @@ async function handleSubmit() {
                   {{ initial(targetCard.label) }}
                 </div>
                 <div class="min-w-0 flex-1">
-                  <span class="text-sm font-semibold text-[var(--text)]">{{
-                    targetCard.label
-                  }}</span>
+                  <span
+                    class="block text-[10px] font-semibold uppercase tracking-widest text-fg-subtle"
+                  >
+                    {{
+                      targetCard.kind === 'user'
+                        ? 'Reporting'
+                        : 'Message preview'
+                    }}
+                  </span>
+                  <span
+                    class="mt-0.5 block text-sm font-semibold text-foreground"
+                    >{{ targetCard.label }}</span
+                  >
                   <p
                     v-if="targetCard.kind === 'message' && targetCard.preview"
-                    class="mt-0.5 line-clamp-2 text-xs leading-snug text-[var(--muted)]"
+                    class="mt-0.5 line-clamp-2 text-sm leading-snug text-fg-soft"
                   >
                     {{ targetCard.preview }}
                   </p>
@@ -441,7 +465,7 @@ async function handleSubmit() {
             >
               <template v-if="context.kind === 'general'">
                 <div
-                  class="flex rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1"
+                  class="flex rounded-xl border border-border bg-elevated p-1"
                   role="tablist"
                   aria-label="Report type"
                 >
@@ -452,8 +476,8 @@ async function handleSubmit() {
                     class="flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors"
                     :class="
                       generalTargetType === 'user'
-                        ? 'bg-[var(--accent)]/15 text-[var(--text)] shadow-sm'
-                        : 'text-[var(--muted)] hover:text-[var(--text)]'
+                        ? 'bg-accent text-[var(--accent-contrast-fg)]'
+                        : 'text-muted hover:bg-glass-hover hover:text-foreground'
                     "
                     @click="generalTargetType = 'user'"
                   >
@@ -466,8 +490,8 @@ async function handleSubmit() {
                     class="flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors"
                     :class="
                       generalTargetType === 'message'
-                        ? 'bg-[var(--accent)]/15 text-[var(--text)] shadow-sm'
-                        : 'text-[var(--muted)] hover:text-[var(--text)]'
+                        ? 'bg-accent text-[var(--accent-contrast-fg)]'
+                        : 'text-muted hover:bg-glass-hover hover:text-foreground'
                     "
                     @click="generalTargetType = 'message'"
                   >
@@ -486,7 +510,7 @@ async function handleSubmit() {
                     ref="targetSearchRef"
                     v-model="targetSearchQuery"
                     type="search"
-                    class="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-2.5 pl-10 pr-3 text-sm text-[var(--text)] placeholder:text-[var(--muted)] outline-none focus:border-[var(--accent)]"
+                    class="w-full rounded-xl border border-border bg-glass-2 py-2.5 pl-10 pr-3 text-sm text-foreground placeholder:text-fg-subtle outline-none transition-colors focus:border-border focus:bg-glass-2"
                     :placeholder="
                       generalTargetType === 'user'
                         ? 'Search friends and members…'
@@ -501,7 +525,7 @@ async function handleSubmit() {
                 <template v-if="generalTargetType === 'user'">
                   <div
                     v-if="pickedUser"
-                    class="mt-3 flex items-center gap-3 rounded-xl border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3 py-2"
+                    class="mt-3 flex items-center gap-3 rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 py-2 ring-1 ring-rose-400/25"
                   >
                     <img
                       v-if="hasRealAvatar(pickedUser.avatarUrl)"
@@ -522,14 +546,14 @@ async function handleSubmit() {
                       </div>
                       <div
                         v-if="pickedUser.username"
-                        class="truncate text-xs text-[var(--muted)]"
+                        class="truncate text-xs text-fg-subtle"
                       >
                         @{{ pickedUser.username }}
                       </div>
                     </div>
                     <button
                       type="button"
-                      class="text-xs font-medium text-[var(--muted)] hover:text-[var(--text)]"
+                      class="text-xs font-medium text-fg-subtle transition-colors hover:text-foreground"
                       @click="pickedUserId = ''"
                     >
                       Change
@@ -562,23 +586,20 @@ async function handleSubmit() {
                           {{ user.name }}
                           <span
                             v-if="user.isFriend"
-                            class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]"
+                            class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
                             >Friend</span
                           >
                         </div>
                         <div
                           v-if="user.username"
-                          class="truncate text-xs text-[var(--muted)]"
+                          class="truncate text-xs text-fg-subtle"
                         >
                           @{{ user.username }}
                         </div>
                       </div>
                     </button>
                   </div>
-                  <p
-                    v-else
-                    class="mt-4 text-center text-sm text-[var(--muted)]"
-                  >
+                  <p v-else class="mt-4 text-center text-sm text-fg-subtle">
                     No people match your search. Try another name or use manual
                     entry below.
                   </p>
@@ -587,19 +608,19 @@ async function handleSubmit() {
                 <template v-else>
                   <div
                     v-if="pickedChannel"
-                    class="mt-3 flex items-center justify-between gap-2 rounded-xl border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3 py-2"
+                    class="mt-3 flex items-center justify-between gap-2 rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 py-2 ring-1 ring-rose-400/25"
                   >
                     <div class="min-w-0">
                       <div class="truncate text-sm font-semibold">
                         {{ pickedChannel.channelLabel }}
                       </div>
-                      <div class="truncate text-xs text-[var(--muted)]">
+                      <div class="truncate text-xs text-fg-subtle">
                         {{ pickedChannel.serverName }}
                       </div>
                     </div>
                     <button
                       type="button"
-                      class="shrink-0 text-xs font-medium text-[var(--muted)] hover:text-[var(--text)]"
+                      class="shrink-0 text-xs font-medium text-fg-subtle transition-colors hover:text-foreground"
                       @click="
                         pickedChannelId = '';
                         pickedMessageId = '';
@@ -621,7 +642,7 @@ async function handleSubmit() {
                       @click="selectChannel(ch.channelId)"
                     >
                       <div
-                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-glass-2 text-sm font-bold text-[var(--muted)]"
+                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-glass-2 text-sm font-bold text-fg-subtle"
                       >
                         #
                       </div>
@@ -629,7 +650,7 @@ async function handleSubmit() {
                         <div class="truncate text-sm font-medium">
                           {{ ch.channelLabel }}
                         </div>
-                        <div class="truncate text-xs text-[var(--muted)]">
+                        <div class="truncate text-xs text-fg-subtle">
                           {{ ch.serverName }}
                         </div>
                       </div>
@@ -637,7 +658,7 @@ async function handleSubmit() {
                   </div>
                   <p
                     v-else-if="!pickedChannelId"
-                    class="mt-4 text-center text-sm text-[var(--muted)]"
+                    class="mt-4 text-center text-sm text-fg-subtle"
                   >
                     No channels match. Open a server first or use manual entry
                     below.
@@ -646,9 +667,9 @@ async function handleSubmit() {
                   <template v-if="pickedChannelId">
                     <div
                       v-if="pickedMessage"
-                      class="mt-3 rounded-xl border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3 py-2"
+                      class="mt-3 rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 py-2 ring-1 ring-rose-400/25"
                     >
-                      <div class="text-xs font-semibold text-[var(--muted)]">
+                      <div class="text-xs font-semibold text-fg-subtle">
                         {{ pickedMessage.authorName }}
                       </div>
                       <p class="mt-1 line-clamp-2 text-sm">
@@ -656,7 +677,7 @@ async function handleSubmit() {
                       </p>
                       <button
                         type="button"
-                        class="mt-2 text-xs font-medium text-[var(--muted)] hover:text-[var(--text)]"
+                        class="mt-2 text-xs font-medium text-fg-subtle transition-colors hover:text-foreground"
                         @click="pickedMessageId = ''"
                       >
                         Pick a different message
@@ -673,7 +694,7 @@ async function handleSubmit() {
                         class="chat-focus-ring w-full rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-glass-hover"
                         @click="selectMessage(msg.messageId, msg.channelId)"
                       >
-                        <div class="text-xs font-semibold text-[var(--muted)]">
+                        <div class="text-xs font-semibold text-fg-subtle">
                           {{ msg.authorName }}
                         </div>
                         <p class="mt-0.5 line-clamp-2 text-sm">
@@ -681,10 +702,7 @@ async function handleSubmit() {
                         </p>
                       </button>
                     </div>
-                    <p
-                      v-else
-                      class="mt-4 text-center text-sm text-[var(--muted)]"
-                    >
+                    <p v-else class="mt-4 text-center text-sm text-fg-subtle">
                       No messages loaded in this channel yet. Scroll the chat to
                       load history, or use manual entry below.
                     </p>
@@ -693,7 +711,7 @@ async function handleSubmit() {
 
                 <button
                   type="button"
-                  class="mt-4 text-xs font-medium text-[var(--muted)] underline-offset-2 hover:text-[var(--text)] hover:underline"
+                  class="mt-4 text-xs font-medium text-fg-subtle underline-offset-2 transition-colors hover:text-foreground hover:underline"
                   @click="showManualIds = !showManualIds"
                 >
                   {{
@@ -705,40 +723,44 @@ async function handleSubmit() {
 
                 <div
                   v-if="showManualIds"
-                  class="mt-2 space-y-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-3"
+                  class="mt-2 space-y-3 rounded-xl border border-dashed border-border bg-scrim-1 p-3"
                 >
                   <label
                     v-if="generalTargetType === 'user'"
-                    class="block text-xs font-medium text-[var(--text)]"
+                    class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                   >
                     User ID
                     <input
                       v-model="generalTargetUserId"
                       type="text"
-                      class="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--echo-modal-bg,var(--surface))] px-3 py-2 text-sm"
+                      class="mt-1.5 w-full rounded-lg border border-border bg-scrim-2 px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-rose-400/40 focus:ring-1 focus:ring-rose-400/30"
                       placeholder="Paste user ID"
                       autocomplete="off"
                       @input="pickedUserId = ''"
                     />
                   </label>
                   <template v-else>
-                    <label class="block text-xs font-medium text-[var(--text)]">
+                    <label
+                      class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
+                    >
                       Message ID
                       <input
                         v-model="generalMessageId"
                         type="text"
-                        class="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--echo-modal-bg,var(--surface))] px-3 py-2 text-sm"
+                        class="mt-1.5 w-full rounded-lg border border-border bg-scrim-2 px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-rose-400/40 focus:ring-1 focus:ring-rose-400/30"
                         placeholder="Paste message ID"
                         autocomplete="off"
                         @input="pickedMessageId = ''"
                       />
                     </label>
-                    <label class="block text-xs font-medium text-[var(--text)]">
+                    <label
+                      class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
+                    >
                       Channel ID
                       <input
                         v-model="generalChannelId"
                         type="text"
-                        class="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--echo-modal-bg,var(--surface))] px-3 py-2 text-sm"
+                        class="mt-1.5 w-full rounded-lg border border-border bg-scrim-2 px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-rose-400/40 focus:ring-1 focus:ring-rose-400/30"
                         placeholder="Paste channel ID"
                         autocomplete="off"
                         @input="pickedChannelId = ''"
@@ -748,37 +770,40 @@ async function handleSubmit() {
                 </div>
               </template>
 
-              <fieldset>
+              <fieldset class="mt-1">
                 <legend
-                  class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]"
+                  class="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                 >
                   Category
                 </legend>
-                <div class="flex flex-wrap gap-1.5">
+                <div class="flex flex-wrap gap-2">
                   <button
                     v-for="opt in categoryOptions"
                     :key="opt.id"
                     type="button"
-                    class="chat-focus-ring rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors"
+                    class="chat-focus-ring rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
                     :class="
                       category === opt.id
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--text)]'
-                        : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:border-[var(--accent)]/40 hover:text-[var(--text)]'
+                        ? 'bg-rose-500/35 text-foreground ring-1 ring-rose-400/45'
+                        : 'bg-glass-1 text-fg-soft hover:bg-glass-2'
                     "
                     @click="category = opt.id"
                   >
                     {{ opt.label }}
                   </button>
                 </div>
-                <p class="mt-1.5 text-xs leading-snug text-[var(--muted)]">
+                <p class="mt-2 text-xs leading-snug text-fg-subtle">
                   {{ selectedCategoryHint }}
                 </p>
               </fieldset>
 
-              <label class="mt-3 block">
-                <span class="text-xs font-semibold text-[var(--text)]">
+              <label class="mt-4 block">
+                <span
+                  class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
+                >
                   Additional details
-                  <span class="font-normal text-[var(--muted)]"
+                  <span
+                    class="font-normal normal-case tracking-normal text-fg-subtle"
                     >(optional)</span
                   >
                 </span>
@@ -786,17 +811,17 @@ async function handleSubmit() {
                   ref="reasonInputRef"
                   v-model="reason"
                   rows="2"
-                  class="mt-1 w-full min-h-[4.5rem] resize-y rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:outline-none"
+                  class="mt-2 w-full min-h-[4.5rem] resize-y rounded-xl border border-border bg-scrim-1 px-3 py-2 text-sm text-foreground placeholder:text-fg-subtle focus:border-rose-400/40 focus:outline-none focus:ring-1 focus:ring-rose-400/30"
                   maxlength="2000"
                   placeholder="Tell us what happened"
                 />
               </label>
             </div>
 
-            <div class="shrink-0 border-t border-[var(--border)] px-5 py-3">
+            <div class="shrink-0 border-t border-border px-5 py-3.5">
               <p
                 v-if="errorMessage"
-                class="mb-2.5 text-sm text-red-400"
+                class="mb-2.5 text-sm text-rose-400"
                 role="alert"
               >
                 {{ errorMessage }}
@@ -804,7 +829,7 @@ async function handleSubmit() {
               <div class="flex justify-end gap-2">
                 <button
                   type="button"
-                  class="rounded-lg px-4 py-2 text-sm font-semibold text-[var(--muted)] hover:bg-glass-hover"
+                  class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
                   :disabled="submitting || submitted"
                   @click="handleClose"
                 >
@@ -812,7 +837,7 @@ async function handleSubmit() {
                 </button>
                 <button
                   type="button"
-                  class="rounded-lg bg-rose-600/90 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
+                  class="rounded-lg bg-rose-600/85 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-600 disabled:opacity-50"
                   :disabled="submitting || submitted || !canSubmit"
                   @click="handleSubmit"
                 >
@@ -828,16 +853,12 @@ async function handleSubmit() {
 </template>
 
 <style scoped lang="scss">
-.report-modal-overlay {
-  background-color: var(--overlay-dim);
-}
-
-.report-modal-panel {
-  background: var(--echo-modal-bg, var(--surface));
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-4);
+.report-card {
+  background: var(--echo-modal-bg);
   backdrop-filter: blur(24px) saturate(1.3);
   -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-4);
 }
 
 .report-search-icon {
@@ -848,7 +869,7 @@ async function handleSubmit() {
 .report-top-accent {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--accent) 12%, transparent) 0%,
+    color-mix(in srgb, rgb(244 63 94) 18%, transparent) 0%,
     transparent 100%
   );
 }

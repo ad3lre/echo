@@ -9,6 +9,7 @@ import {
   voiceClientTrace,
 } from '@/observability/voiceClientTrace';
 import { echoPlaybackEnsureAudioContextRunning } from '@/services/livekit/echoRemotePlaybackWebAudio';
+import { ensureLocalMicSendPathReady } from '@/services/livekit/echoLocalMicPublishHealth';
 import {
   jsonPlainClone,
   LIVEKIT_ROOM_VIDEO_CAPTURE_DEFAULTS_PLAIN,
@@ -49,6 +50,7 @@ export function createConnectController(
     liveKitMlsKeyProvider,
     lastVcAudioOpts,
     vcDeafenedInternal,
+    localMicMonitor,
     actions,
   } = ctx;
 
@@ -250,6 +252,8 @@ export function createConnectController(
 
       if (shouldPublishInitialMic) {
         await actions.attachMicSendProcessorIfNeeded(room);
+        await ensureLocalMicSendPathReady(room);
+        await localMicMonitor.ensureAudioContextRunning();
       }
       if (myGen !== connectGeneration.value) {
         connectAbortTarget.value = null;

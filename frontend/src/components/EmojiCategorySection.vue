@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import type { EmojiCategory, EmojiEntry } from '@/composables/useEmojiData';
 import GifImage from '@/features/chat/components/GifImage.vue';
+import { markCustomEmojiImgLoaded } from '@/composables/useCustomEmojiImgLoadRecovery';
 import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
 import { getTwemojiSrc } from '@/utils/twemoji';
 
@@ -155,6 +156,33 @@ function isStickerGif(entry: EmojiEntry): boolean {
 function unicodeEmojiSrc(entry: EmojiEntry): string | null {
   return getTwemojiSrc(entry.emoji);
 }
+
+function isCustomOrSticker(entry: EmojiEntry): boolean {
+  return entry.kind === 'custom' || entry.kind === 'sticker';
+}
+
+function onCustomEmojiImgReady(ev: Event) {
+  const img = ev.target;
+  if (img instanceof HTMLImageElement) {
+    markCustomEmojiImgLoaded(img);
+  }
+}
+
+function onCustomEmojiImgRef(el: unknown) {
+  const img = el instanceof HTMLImageElement ? el : null;
+  if (!img) return;
+  nextTick(() => {
+    if (img.complete && img.naturalWidth > 0) {
+      markCustomEmojiImgLoaded(img);
+    }
+  });
+}
+
+const skeletonCellCount = computed(() => {
+  const count = props.category.emojis.length;
+  if (count <= 0) return 8;
+  return Math.min(count, 24);
+});
 </script>
 
 <template>
@@ -187,16 +215,26 @@ function unicodeEmojiSrc(entry: EmojiEntry): string | null {
           :src="entry.imageUrl"
           :alt="`:${entry.name}:`"
         />
-        <img
-          v-else-if="
-            (entry.kind === 'custom' || entry.kind === 'sticker') &&
-            entry.imageUrl
-          "
-          class="emoji custom-emoji"
-          :src="entry.imageUrl"
-          :alt="`:${entry.name}:`"
-          draggable="false"
-        />
+        <span
+          v-else-if="isCustomOrSticker(entry) && entry.imageUrl"
+          class="emoji-btn__custom-wrap custom-emoji-inline custom-emoji-inline--loading"
+        >
+          <span
+            class="custom-emoji-skeleton emoji-btn__skeleton"
+            aria-hidden="true"
+          />
+          <img
+            :ref="onCustomEmojiImgRef"
+            class="emoji custom-emoji custom-emoji--pending-load"
+            :src="entry.imageUrl"
+            :alt="`:${entry.name}:`"
+            draggable="false"
+            loading="lazy"
+            decoding="async"
+            @load="onCustomEmojiImgReady"
+            @error="onCustomEmojiImgReady"
+          />
+        </span>
         <img
           v-else-if="unicodeEmojiSrc(entry)"
           class="emoji"
@@ -209,27 +247,17 @@ function unicodeEmojiSrc(entry: EmojiEntry): string | null {
     </div>
     <div
       v-else
-      class="flex min-h-[2.5rem] w-full items-center justify-center py-2"
+      class="emoji-grid"
       role="status"
       aria-live="polite"
       aria-label="Loading emoji section"
     >
-      <svg
-        class="echo-ios-spinner"
-        viewBox="0 0 44 44"
-        width="24"
-        height="24"
+      <div
+        v-for="n in skeletonCellCount"
+        :key="`skeleton-${n}`"
+        class="emoji-skeleton"
         aria-hidden="true"
-      >
-        <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
-        <circle
-          class="echo-ios-spinner__arc"
-          cx="22"
-          cy="22"
-          r="18"
-          transform="rotate(-90 22 22)"
-        />
-      </svg>
+      />
     </div>
   </div>
 </template>
@@ -303,5 +331,60 @@ function unicodeEmojiSrc(entry: EmojiEntry): string | null {
   width: 22px;
   height: 22px;
   object-fit: contain;
+}
+
+.emoji-btn__custom-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+
+.emoji-btn__skeleton {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: var(--vue-auto-001);
+  animation: emoji-btn-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.emoji-btn__custom-wrap:not(.custom-emoji-inline--loading)
+  .emoji-btn__skeleton {
+  display: none;
+}
+
+.emoji-btn__custom-wrap :deep(img.custom-emoji--pending-load) {
+  opacity: 0;
+}
+
+.emoji-skeleton {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 1;
+  height: auto;
+  border-radius: 6px;
+  background: var(--vue-auto-001);
+  animation: emoji-btn-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes emoji-btn-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emoji-btn__skeleton,
+  .emoji-skeleton {
+    animation: none;
+    opacity: 0.7;
+  }
 }
 </style>

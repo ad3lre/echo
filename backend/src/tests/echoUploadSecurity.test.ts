@@ -74,6 +74,13 @@ async function runMediaUrlPolicyTests(): Promise<void> {
       true,
       'known GIF CDN URLs are allowed without host allowlist',
     );
+    assert.equal(
+      mediaUrlPassesEchoPolicy(
+        'https://images-ext-1.discordapp.net/external/x/https/example.com/a.png',
+      ),
+      true,
+      'Discord CDN proxy URLs are allowed without host allowlist',
+    );
   } finally {
     restore();
     await clearConfigAndRoutes();

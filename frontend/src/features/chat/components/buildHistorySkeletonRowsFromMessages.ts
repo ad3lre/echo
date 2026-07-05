@@ -80,13 +80,23 @@ function toGroupingMap(
  * Derive skeleton rows from cached message snapshots so loading placeholders
  * mirror real author grouping, line lengths, and attachment aspect boxes.
  */
+export type BuildHistorySkeletonRowsOptions = {
+  /** `tail` mirrors the newest messages (initial load); `head` mirrors the oldest in-window rows (scroll-up). */
+  edge?: 'head' | 'tail';
+};
+
 export function buildHistorySkeletonRowsFromMessages(
   messages: readonly RawMessage[],
   resolveAuthorName?: (authorId: string) => string,
+  options?: BuildHistorySkeletonRowsOptions,
 ): HistorySkeletonRow[] {
   if (messages.length === 0) return HISTORY_SKELETON_ROWS;
 
-  const tail = messages.slice(-MAX_SKELETON_ROWS);
+  const edge = options?.edge ?? 'tail';
+  const tail =
+    edge === 'head'
+      ? messages.slice(0, MAX_SKELETON_ROWS)
+      : messages.slice(-MAX_SKELETON_ROWS);
   const orderedIds = tail.map((m) => m.id!).filter(Boolean);
   const entitiesById = new Map(tail.map((m) => [m.id!, m]));
   const groupingMap = toGroupingMap(tail);

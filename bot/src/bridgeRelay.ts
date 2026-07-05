@@ -27,7 +27,7 @@ function serializeAuthor(m: Message): Record<string, unknown> {
 
 function serializeAttachments(m: Message): unknown {
   return [...m.attachments.values()].map((a) => ({
-    url: a.url,
+    url: (a.url || a.proxyURL || '').trim(),
     filename: a.name,
     contentType: a.contentType ?? undefined,
   }));

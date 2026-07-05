@@ -74,6 +74,7 @@
     "backfill:default-pfp": "ts-node src/scripts/backfillDefaultAvatarPfp.ts",
     "backfill:discord-import-cdn": "ts-node src/scripts/backfillDiscordImportCdnUrls.ts",
     "backfill:discord-import-avatar-pfp": "ts-node src/scripts/backfillDiscordImportAvatarPfp.ts",
+    "drain:discord-import-media-mirror": "ts-node src/scripts/drainDiscordImportMediaMirrorQueue.ts",
     "backfill:emoji-cdn": "node --import tsx ../scripts/backfill-echo-emoji-cdn.mjs",
     "guest:soft-delete-stale": "ts-node src/scripts/softDeleteStaleGuests.ts",
     "guest:purge-inactive": "ts-node src/scripts/purgeInactiveGuests.ts",

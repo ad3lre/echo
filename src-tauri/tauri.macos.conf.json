@@ -25,6 +25,7 @@
     "targets": ["dmg"],
     "macOS": {
       "entitlements": "./Entitlements.macos.plist",
+      "infoPlist": "./Info.macos.plist",
       "hardenedRuntime": true
     }
   }

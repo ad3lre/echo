@@ -19,6 +19,11 @@ import {
   type MobileBottomTabId,
 } from '@/features/layout/mobileBottomTab';
 import { planMobileBottomTabNavigation } from '@/features/layout/applyMobileBottomTabNavigation';
+import {
+  shouldOpenPhoneMembersOverlayOnEnteringPhone,
+  shouldResetPhoneServersUiState,
+} from '@/features/layout/phoneShellOverlayState';
+import { shouldShowPhoneBottomTabBar } from '@/features/layout/phoneBottomTabBarVisibility';
 import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { ECHO_SCREEN_SHARE_USE_CONFIG_MODAL } from '@/config/screenShareUi';
 
@@ -556,6 +561,7 @@ const {
   onSettingsModalActiveSectionUpdate,
   onServerSettingsModalActiveSectionUpdate,
   onVcChatButtonClick,
+  handleMinimizeVoiceView,
   openAddServerModal,
   openCategorySettings,
   openChannelSettings,
@@ -888,6 +894,7 @@ const serverVoiceSurfaceActive = computed(
 
 const membersColumnVisible = computed(
   () =>
+    !useCompactPhoneTabShell.value &&
     !unref(isExploreView) &&
     !unref(memberPanelCollapsedEffective) &&
     !unref(isDmUiContext) &&
@@ -1078,20 +1085,21 @@ const hideChannelPanelVoiceChromeEffective = computed(() =>
   Boolean(showGuildMobileVoiceDock.value),
 );
 
-const voiceMobileDockReservePxComputed = computed(() =>
-  showGuildMobileVoiceDock.value ? 120 : 0,
-);
+/** In-voice CallView reserve (~dock height). Text-channel browsing uses main-content pad instead. */
+const voiceMobileDockReservePxComputed = computed(() => {
+  if (!showGuildMobileVoiceDock.value) return 0;
+  if (unref(isViewingVoiceChannel)) return 88;
+  return 0;
+});
 
 const mainContentVcDockBottomPadClass = computed(() => {
+  if (!showGuildMobileVoiceDock.value) return '';
+  // In voice view the dock overlays CallView; voice-section-root handles inset.
+  if (unref(isViewingVoiceChannel)) return '';
   if (useCompactPhoneTabShell.value) {
-    return showGuildMobileVoiceDock.value
-      ? 'main-content-area--phone-tab-shell-voice-dock'
-      : 'main-content-area--phone-tab-shell';
+    return 'main-content-area--phone-voice-dock-reserve';
   }
-  if (showGuildMobileVoiceDock.value) {
-    return 'pb-[7.5rem]';
-  }
-  return '';
+  return 'pb-[7.5rem]';
 });
 
 function handleGuildMobileVcLobbyJoin() {
@@ -1372,6 +1380,18 @@ const isDmThreadSurface = computed(
   () => unref(isDmUiContext) && unref(mainSurface)?.type === 'dmThread',
 );
 
+/** Phone home tab: hub list vs full-screen DM subviews (thread, friends, notifications, requests). */
+const isPhoneHomeThreadStack = computed(() => {
+  if (!unref(isDmUiContext)) return false;
+  const surfaceType = unref(mainSurface)?.type;
+  return (
+    surfaceType === 'dmThread' ||
+    surfaceType === 'dmFriends' ||
+    surfaceType === 'dmNotifications' ||
+    surfaceType === 'dmRequests'
+  );
+});
+
 let syncingMobileBottomTab = false;
 
 function applyMobileBottomTabNavigation(tab: MobileBottomTabId) {
@@ -1390,23 +1410,32 @@ function applyMobileBottomTabNavigation(tab: MobileBottomTabId) {
     mobileServersStack.value = plan.mobileServersStack;
 }
 
-watch(mobileBottomTab, (tab) => {
+watch(mobileBottomTab, (tab, prevTab) => {
   if (!useCompactPhoneTabShell.value || syncingMobileBottomTab) return;
-  applyMobileBottomTabNavigation(tab);
-});
-
-watch(activeRailTab, (rail) => {
-  if (!useCompactPhoneTabShell.value) return;
-  const tab = railTabToMobileBottomTab(rail);
-  syncingMobileBottomTab = true;
-  if (mobileBottomTab.value !== tab) {
-    mobileBottomTab.value = tab;
+  if (prevTab && shouldResetPhoneServersUiState(prevTab, tab)) {
+    mobileMembersOverlayOpen.value = false;
+    mobileChannelSheetOpen.value = false;
   }
   applyMobileBottomTabNavigation(tab);
-  syncingMobileBottomTab = false;
 });
 
-watch(useCompactPhoneTabShell, (on) => {
+watch(useCompactPhoneTabShell, (on, wasOn) => {
+  if (on && wasOn === false) {
+    mobileChannelSheetOpen.value = false;
+    if (
+      shouldOpenPhoneMembersOverlayOnEnteringPhone({
+        memberPanelCollapsed: memberPanelCollapsed.value,
+      })
+    ) {
+      mobileMembersOverlayOpen.value = true;
+    } else {
+      mobileMembersOverlayOpen.value = false;
+    }
+  }
+  if (!on && wasOn) {
+    mobileMembersOverlayOpen.value = false;
+    mobileChannelSheetOpen.value = false;
+  }
   if (!on) return;
   syncingMobileBottomTab = true;
   mobileBottomTab.value = railTabToMobileBottomTab(activeRailTab.value);
@@ -1420,7 +1449,18 @@ watch(useCompactPhoneTabShell, (on) => {
   }
 });
 
-watch(isDmThreadSurface, (thread) => {
+watch(activeRailTab, (rail) => {
+  if (!useCompactPhoneTabShell.value) return;
+  const tab = railTabToMobileBottomTab(rail);
+  syncingMobileBottomTab = true;
+  if (mobileBottomTab.value !== tab) {
+    mobileBottomTab.value = tab;
+  }
+  applyMobileBottomTabNavigation(tab);
+  syncingMobileBottomTab = false;
+});
+
+watch(isPhoneHomeThreadStack, (thread) => {
   if (!useCompactPhoneTabShell.value || mobileBottomTab.value !== 'home')
     return;
   mobileHomeStack.value = thread ? 'thread' : 'hub';
@@ -1433,11 +1473,30 @@ const phoneDmUnreadTotal = computed(
 const phoneServersHasActivity = computed(() => {
   const bubbles = serverPingBubbleByServerId.value;
   const dots = serverUnreadActivityDotByServerId.value;
-  return Object.keys(bubbles).length > 0 || Object.keys(dots).length > 0;
+  const voice = serverActiveVoiceByServerId.value;
+  return (
+    Object.keys(bubbles).length > 0 ||
+    Object.keys(dots).length > 0 ||
+    Object.keys(voice).length > 0
+  );
 });
 
 const phoneExploreHasActivity = computed(
-  () => showWelcomeBackSlimBanner.value || welcomeBackExploreGate.value,
+  () =>
+    mobileBottomTab.value !== 'explore' &&
+    (showWelcomeBackSlimBanner.value || welcomeBackExploreGate.value),
+);
+
+const showPhoneBottomTabBar = computed(
+  () =>
+    !inviteLandingActive.value &&
+    shouldShowPhoneBottomTabBar({
+      mobileBottomTab: mobileBottomTab.value,
+      mobileHomeStack: mobileHomeStack.value,
+      mobileServersStack: mobileServersStack.value,
+      mobileChannelSheetOpen: mobileChannelSheetOpen.value,
+      mobileMembersOverlayOpen: mobileMembersOverlayOpen.value,
+    }),
 );
 
 const appToastLayoutContext: AppToastLayoutContext = {
@@ -1664,6 +1723,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   getChannelDisplayName: chatSurfaceGetChannelDisplayName,
   togglePinsDropdown,
   expandChannels: openChannelPaneFromHeader,
+  handleMinimizeVoiceView,
   collapseMembers,
   expandMembers,
   isRolePreviewActiveForServer,
@@ -2422,18 +2482,7 @@ useAppLayoutGlobalShortcuts({
 });
 
 onMounted(() => {
-  void nextTick(() => {
-    if (typeof ResizeObserver === 'undefined') return;
-    const el = mainContentAreaEl.value;
-    if (!el) return;
-    memberPanelMainWidthObserver = new ResizeObserver(() => {
-      maybeAutoCollapseMemberPanelForMainWidth();
-      maybeAutoCollapseDmProfilePanelForMainWidth();
-    });
-    memberPanelMainWidthObserver.observe(el);
-    maybeAutoCollapseMemberPanelForMainWidth();
-    maybeAutoCollapseDmProfilePanelForMainWidth();
-  });
+  void nextTick(bindMemberPanelMainWidthObserver);
 
   void nextTick(() => {
     try {
@@ -2671,6 +2720,9 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   dmMentionNotifications,
   dmNotificationReadStateByChannelId,
   mentionNotificationCategoriesByServer,
+  mentionNotificationServers,
+  dmNotificationsReadPreset,
+  dmNotificationsSourceKey,
   isPersistedEchoDmThread,
   dmCallWithUserId,
   dmCallRinging,
@@ -2929,6 +2981,21 @@ function disposeAppLayoutSideEffects() {
   memberPanelMainWidthObserver = null;
 }
 
+function bindMemberPanelMainWidthObserver() {
+  memberPanelMainWidthObserver?.disconnect();
+  memberPanelMainWidthObserver = null;
+  if (typeof ResizeObserver === 'undefined') return;
+  const el = mainContentAreaEl.value;
+  if (!el) return;
+  memberPanelMainWidthObserver = new ResizeObserver(() => {
+    maybeAutoCollapseMemberPanelForMainWidth();
+    maybeAutoCollapseDmProfilePanelForMainWidth();
+  });
+  memberPanelMainWidthObserver.observe(el);
+  maybeAutoCollapseMemberPanelForMainWidth();
+  maybeAutoCollapseDmProfilePanelForMainWidth();
+}
+
 function maybeAutoCollapseMemberPanelForMainWidth() {
   if (unref(isCompactShell)) return;
   if (
@@ -2941,7 +3008,6 @@ function maybeAutoCollapseMemberPanelForMainWidth() {
   if (unref(isViewingVoiceChannel)) return;
   if (unref(callOverlay).type === 'dmCall') return;
   if (memberPanelCollapsed.value) return;
-  if (memberPanelAutoCollapseUserOverride.value) return;
   const el = mainContentAreaEl.value;
   if (!el) return;
   const w = el.clientWidth;
@@ -2955,6 +3021,7 @@ function maybeAutoCollapseMemberPanelForMainWidth() {
       MEMBER_PANEL_MIN_CHAT_BODY_PX,
     });
     memberPanelCollapsed.value = true;
+    memberPanelAutoCollapseUserOverride.value = false;
   }
 }
 
@@ -3000,10 +3067,26 @@ watch(dmCallFullscreen, (fullscreen) => {
   collapseDmProfileOverviewForDmCallFullscreen();
 });
 
+watch(mainContentAreaEl, () => {
+  void nextTick(bindMemberPanelMainWidthObserver);
+});
+
 watch([memberPanelCollapsed, memberPanelWidth], () => {
   if (memberPanelCollapsed.value) return;
   void nextTick(maybeAutoCollapseMemberPanelForMainWidth);
 });
+
+watch(
+  [
+    channelPanelCollapsed,
+    _channelPanelWidth,
+    appGridTemplateColumns,
+    membersColumnVisible,
+  ],
+  () => {
+    void nextTick(maybeAutoCollapseMemberPanelForMainWidth);
+  },
+);
 
 watch(
   () =>
@@ -3118,7 +3201,7 @@ watch(
       <CompactPhoneTabShell
         v-model="mobileBottomTab"
         class="relative min-h-0 flex-1"
-        :show-bar="!inviteLandingActive"
+        :show-bar="showPhoneBottomTabBar"
         :dm-unread-total="phoneDmUnreadTotal"
         :servers-has-activity="phoneServersHasActivity"
         :explore-has-activity="phoneExploreHasActivity"
@@ -3137,7 +3220,7 @@ watch(
                 gridTemplateColumns: mainContentAreaGridColumns,
               }"
             >
-              <AppLayoutMainSurface members-column />
+              <AppLayoutMainSurface />
             </div>
           </template>
         </MobileHomeSurface>
@@ -3157,21 +3240,25 @@ watch(
                 gridTemplateColumns: mainContentAreaGridColumns,
               }"
             >
-              <AppLayoutMainSurface members-column />
+              <AppLayoutMainSurface />
             </div>
           </template>
         </MobileServersSurface>
         <div
           v-else
-          ref="mainContentAreaEl"
-          class="main-content-area main-content-area--explore relative grid min-h-0 min-w-0 flex-1 overflow-hidden"
-          :class="mainContentVcDockBottomPadClass"
-          :style="{
-            gridTemplateRows: mainContentGridTemplateRows,
-            gridTemplateColumns: mainContentAreaGridColumns,
-          }"
+          class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
         >
-          <AppLayoutMainSurface surface="explore" />
+          <div
+            ref="mainContentAreaEl"
+            class="main-content-area main-content-area--explore relative grid min-h-0 min-w-0 flex-1 overflow-hidden"
+            :class="mainContentVcDockBottomPadClass"
+            :style="{
+              gridTemplateRows: mainContentGridTemplateRows,
+              gridTemplateColumns: mainContentAreaGridColumns,
+            }"
+          >
+            <AppLayoutMainSurface surface="explore" />
+          </div>
         </div>
       </CompactPhoneTabShell>
       <AppLayoutGuildModals />
@@ -3372,6 +3459,7 @@ watch(
     <GuildMobileVoiceDock
       v-if="showGuildMobileVoiceDock"
       :stack-above-bottom-tab="useCompactPhoneTabShell"
+      :show-minimize-voice-view="isViewingVoiceChannel"
       :live-kit-state="liveKitState"
       :vc-muted="channelPanelVcMutedEffective"
       :vc-deafened="channelPanelVcDeafenedEffective"
@@ -3385,6 +3473,7 @@ watch(
       :on-toggle-screenshare="onChannelPanelVcScreenshare"
       :on-open-voice-settings="handleGuildMobileVcLobbyOpenAudioSettings"
       :on-toggle-voice-chat="onVcChatButtonClick"
+      :on-minimize-voice-view="handleMinimizeVoiceView"
       :on-leave-voice="handleChannelVoicePanelLeave"
     />
 

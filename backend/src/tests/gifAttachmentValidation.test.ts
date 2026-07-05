@@ -30,8 +30,31 @@ function testEchoHostedGifAttachmentAccepted() {
   assert.equal(validated.value.gif, true);
 }
 
+function testTenorGifPassthroughAttachmentAccepted() {
+  const url = 'https://media.tenor.com/abc123/tenor.gif';
+  assert.equal(mediaUrlPassesEchoPolicy(url), true);
+
+  const validated = validateMessagePayload({
+    channelId: 'ch1',
+    content: '',
+    attachments: [
+      {
+        url,
+        kind: 'gif',
+        mimeType: 'image/gif',
+      },
+    ],
+  });
+  assert.equal(validated.ok, true, validated.ok ? '' : validated.error);
+  if (!validated.ok) return;
+  assert.equal(validated.value.attachments?.[0]?.url, url);
+  assert.equal(validated.value.attachments?.[0]?.kind, 'gif');
+  assert.equal(validated.value.gif, true);
+}
+
 async function main() {
   testEchoHostedGifAttachmentAccepted();
+  testTenorGifPassthroughAttachmentAccepted();
   console.log('gifAttachmentValidation.test.ts: ok');
 }
 

@@ -214,6 +214,11 @@ export function validateInstancePolicy(
     issues,
     'limits.http.echoApi.maxPerMinute must be >= 1',
   );
+  pushIf(
+    policy.limits.http.authSessionRead.maxPerMinute < 1,
+    issues,
+    'limits.http.authSessionRead.maxPerMinute must be >= 1',
+  );
   validateRouteBuckets(policy.limits.http.routes, issues);
 
   pushIf(

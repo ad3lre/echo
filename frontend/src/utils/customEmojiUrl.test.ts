@@ -7,6 +7,7 @@ import {
   renderCustomEmojiHtml,
   resolveCustomEmojiImageUrlForDisplay,
   safeCustomEmojiUrl,
+  shouldAllowDiscordCdnGuessForEmojiId,
 } from './customEmojiUrl';
 import { rewriteR2EchoUploadUrlForReadThrough } from './rewriteR2EchoUploadUrlForReadThrough';
 
@@ -45,10 +46,11 @@ describe('customEmojiUrl', () => {
     expect(safeCustomEmojiUrl(gif)).toBe(gif);
   });
 
-  it('renders sanitized img html only for safe custom emoji URLs', () => {
-    expect(renderCustomEmojiHtml('https://cdn.test/emoji.webp', 'wave')).toBe(
-      '<img class="emoji custom-emoji" draggable="false" alt=":wave:" src="https://cdn.test/emoji.webp">',
-    );
+  it('renders sanitized inline html only for safe custom emoji URLs', () => {
+    const html = renderCustomEmojiHtml('https://cdn.test/emoji.webp', 'wave');
+    expect(html).toContain('custom-emoji-skeleton');
+    expect(html).toContain('https://cdn.test/emoji.webp');
+    expect(html).toMatch(/class="emoji custom-emoji/);
     expect(
       renderCustomEmojiHtml('data:image/svg+xml,<svg onload=alert(1)>', 'wave'),
     ).toBeNull();
@@ -135,5 +137,22 @@ describe('customEmojiUrl', () => {
         },
       ),
     ).toMatch(/cdn\.discordapp\.com/);
+  });
+
+  it('shouldAllowDiscordCdnGuessForEmojiId enables cross-guild guess before resolve miss', () => {
+    const cache = new Map<string, string>();
+    expect(
+      shouldAllowDiscordCdnGuessForEmojiId('304238867010606080', cache, false),
+    ).toBe(true);
+    expect(
+      shouldAllowDiscordCdnGuessForEmojiId('304238867010606080', cache, true),
+    ).toBe(true);
+    cache.set('304238867010606080', 'https://echo.test/e.webp');
+    expect(
+      shouldAllowDiscordCdnGuessForEmojiId('304238867010606080', cache, false),
+    ).toBe(false);
+    expect(shouldAllowDiscordCdnGuessForEmojiId('12', cache, false)).toBe(
+      false,
+    );
   });
 });

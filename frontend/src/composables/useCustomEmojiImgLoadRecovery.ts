@@ -2,6 +2,7 @@ import { watchEffect, type Ref } from 'vue';
 import {
   discordCustomEmojiCandidateUrls,
   resolveCustomEmojiImageUrlForDisplay,
+  shouldAllowDiscordCdnGuessForEmojiId,
 } from '@/utils/customEmojiUrl';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 
@@ -12,11 +13,19 @@ function nextCandidateSrc(
   tryIndex: number,
   cachedById: ReadonlyMap<string, string> | undefined,
 ): string | null {
+  const echoMissed = isEchoEmojiTokenResolveMiss(id);
   const primary = resolveCustomEmojiImageUrlForDisplay(
     id,
     animated,
     cachedById,
-    isEchoEmojiTokenResolveMiss(id),
+    echoMissed,
+    {
+      allowDiscordCdnGuess: shouldAllowDiscordCdnGuessForEmojiId(
+        id,
+        cachedById,
+        echoMissed,
+      ),
+    },
   );
   const candidates: string[] = [];
   if (primary) candidates.push(primary);
@@ -30,6 +39,25 @@ function nextCandidateSrc(
     start = idx >= 0 ? idx + 1 : 0;
   }
   return candidates[start] ?? null;
+}
+
+export function markCustomEmojiImgLoaded(img: HTMLImageElement): void {
+  img.classList.remove('custom-emoji--pending-load');
+  const shell = img.closest('.custom-emoji-inline');
+  shell?.classList.remove('custom-emoji-inline--loading');
+}
+
+/** Reveal skeleton-backed emojis that were already in the browser cache. */
+export function reconcileCustomEmojiInlineImgs(root: ParentNode | null): void {
+  if (!root) return;
+  root
+    .querySelectorAll('img.custom-emoji.custom-emoji--pending-load')
+    .forEach((node) => {
+      if (!(node instanceof HTMLImageElement)) return;
+      if (node.complete && node.naturalWidth > 0) {
+        markCustomEmojiImgLoaded(node);
+      }
+    });
 }
 
 /**
@@ -48,9 +76,23 @@ export function handleCustomEmojiImgErrorEvent(
   const animated = img.dataset.emojiAnimated === 'true';
   const tryIndex = Number.parseInt(img.dataset.emojiSrcTry ?? '0', 10) || 0;
   const next = nextCandidateSrc(id, animated, img.src, tryIndex, cachedById);
-  if (!next || next === img.src) return;
+  if (!next || next === img.src) {
+    markCustomEmojiImgLoaded(img);
+    return;
+  }
+  img.classList.add('custom-emoji--pending-load');
+  img
+    .closest('.custom-emoji-inline')
+    ?.classList.add('custom-emoji-inline--loading');
   img.dataset.emojiSrcTry = String(tryIndex + 1);
   img.src = next;
+}
+
+function handleCustomEmojiImgLoadEvent(ev: Event): void {
+  const img = ev.target;
+  if (!(img instanceof HTMLImageElement)) return;
+  if (!img.classList.contains('custom-emoji')) return;
+  markCustomEmojiImgLoaded(img);
 }
 
 export function useCustomEmojiImgLoadRecovery(
@@ -65,6 +107,11 @@ export function useCustomEmojiImgLoadRecovery(
     const el = rootRef.value;
     if (!el) return;
     el.addEventListener('error', onError, true);
-    onCleanup(() => el.removeEventListener('error', onError, true));
+    el.addEventListener('load', handleCustomEmojiImgLoadEvent, true);
+    reconcileCustomEmojiInlineImgs(el);
+    onCleanup(() => {
+      el.removeEventListener('error', onError, true);
+      el.removeEventListener('load', handleCustomEmojiImgLoadEvent, true);
+    });
   });
 }

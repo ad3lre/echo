@@ -2,13 +2,11 @@
 import { computed, inject, unref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useServerStore } from '@/stores/server';
+import { useMoreServers } from '@/composables/useMoreServers';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
 import { safeImageUrl } from '@/utils/safeImageUrl';
-import {
-  LAYOUT_LEFT_CHROME_KEY,
-  LAYOUT_MAIN_SURFACE_KEY,
-} from '@/features/layout/layoutInjectionKeys';
+import { LAYOUT_LEFT_CHROME_KEY } from '@/features/layout/layoutInjectionKeys';
 import { describeServerPingBubbleLine } from '@/features/server-notifications/serverPing';
 import type { ServerPingBubbleDisplay } from '@shared/attentionPing';
 import { VISIBLE_SERVER_RAIL_SLOT_COUNT } from '@/utils/serverRailReorder';
@@ -18,13 +16,15 @@ const emit = defineEmits<{
 }>();
 
 const layoutLeft = inject(LAYOUT_LEFT_CHROME_KEY, null);
-const mainSurface = inject(LAYOUT_MAIN_SURFACE_KEY, null);
 const serverStore = useServerStore();
-const { selectedServerId, servers } = storeToRefs(serverStore);
+const { selectedServerId } = storeToRefs(serverStore);
+const { moreServersList } = useMoreServers();
 
 const showAllServersHint = computed(
-  () => servers.value.length > VISIBLE_SERVER_RAIL_SLOT_COUNT,
+  () => serverStore.servers.length > VISIBLE_SERVER_RAIL_SLOT_COUNT,
 );
+
+const isEmpty = computed(() => moreServersList.value.length === 0);
 
 const serverPingBubbles = computed(
   (): Record<string, ServerPingBubbleDisplay> =>
@@ -56,10 +56,6 @@ function hasActivity(serverId: string): boolean {
 function selectServer(serverId: string) {
   emit('select-server', serverId);
 }
-
-function openCreateServer() {
-  mainSurface?.openAddServerModal?.('create');
-}
 </script>
 
 <template>
@@ -75,10 +71,11 @@ function openCreateServer() {
       </p>
     </div>
     <ul
+      v-if="!isEmpty"
       class="custom-scrollbar min-h-0 flex-1 list-none overflow-y-auto p-2"
       role="list"
     >
-      <li v-for="server in servers" :key="server.id">
+      <li v-for="server in moreServersList" :key="server.id">
         <button
           type="button"
           class="mobile-server-list__row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-glass-1"
@@ -93,11 +90,15 @@ function openCreateServer() {
             class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-glass-1"
           >
             <PausedGifAvatar
-              :src="safeImageUrl(serverGuildIconDisplayUrl(server.imageUrl))"
+              v-if="serverGuildIconDisplayUrl(server.icon)"
+              :src="safeImageUrl(serverGuildIconDisplayUrl(server.icon)!)"
               :alt="`${server.name} icon`"
               :session-key="server.id"
               img-class="h-full w-full object-cover"
             />
+            <span v-else class="text-sm font-bold uppercase text-fg-soft">
+              {{ server.name.slice(0, 2) }}
+            </span>
             <span
               v-if="serverActiveVoice[server.id]"
               class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--bg)] bg-emerald-500"
@@ -124,16 +125,13 @@ function openCreateServer() {
       </li>
     </ul>
     <div
-      v-if="mainSurface?.openAddServerModal"
-      class="shrink-0 border-t border-border p-3"
+      v-else
+      class="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-8 text-center"
     >
-      <button
-        type="button"
-        class="w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
-        @click="openCreateServer"
-      >
-        Create Server
-      </button>
+      <p class="text-sm font-semibold text-foreground">No servers yet</p>
+      <p class="text-xs text-fg-subtle">
+        Join one from Explore to get started.
+      </p>
     </div>
   </div>
 </template>

@@ -5,6 +5,7 @@ import {
   avatarHashFromInput,
   isEchoStoredProfileImageUrl,
   isCorruptedDiscordImportPfp,
+  needsDiscordImportPfpRepair,
   mirrorDiscordImportAvatarToEcho,
   repairDiscordImportUserPfpIfNeeded,
   resolveStoredDiscordAvatarHash,
@@ -149,7 +150,7 @@ export async function ensureEchoUserForDiscordMember(
         String(row.username ?? '').trim() ||
         'user';
       const storedPfp = row.pfp != null ? String(row.pfp).trim() : '';
-      if (storedPfp && isCorruptedDiscordImportPfp(storedPfp)) {
+      if (needsDiscordImportPfpRepair(storedPfp, discordUserId)) {
         await repairDiscordImportUserPfpIfNeeded({
           pool,
           userId: canonicalId,

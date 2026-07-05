@@ -36,6 +36,7 @@ import {
 } from '@/features/layout/domain/voiceParticipantState';
 import { playEchoSound } from '@/composables/useEchoSounds';
 import { liveKitRemoteParticipantByIdentity } from '@/services/livekit/liveKitRoomParticipants';
+import { isLocalMicPublicationLive } from '@/services/livekit/echoLocalMicPublishHealth';
 import {
   findEchoVoiceChannelIdContainingUserOnServer,
   resolveEchoServerIdContainingChannel,
@@ -2655,12 +2656,24 @@ export function useServerVoiceSession(deps: {
         : serverDeafened || simDeafened;
       const stageAudience =
         ch.type === 'stage' && !ch.voiceStageSpeakerByUserId?.[id];
+      const localMicPubLive =
+        isCurrentUser &&
+        liveKitState.value === 'connected' &&
+        room &&
+        !vcMuted.value &&
+        !vcDeafened.value &&
+        !serverMuted &&
+        !serverDeafened &&
+        !stageAudience
+          ? isLocalMicPublicationLive(room)
+          : null;
       const muted = isCurrentUser
         ? serverMuted ||
           serverDeafened ||
           vcMuted.value ||
           vcDeafened.value ||
-          stageAudience
+          stageAudience ||
+          localMicPubLive === false
         : serverMuted ||
           serverDeafened ||
           simMuted ||

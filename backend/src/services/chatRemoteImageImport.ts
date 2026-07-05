@@ -1,6 +1,7 @@
 import path from 'path';
 import type { FastifyBaseLogger } from 'fastify';
 import type pg from 'pg';
+import { isLikelyGifMediaUrl } from '../../../shared/gifHostLinks';
 import { config } from '../config';
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import {
@@ -11,6 +12,7 @@ import { safeFetchAgent } from './linkUnfurl/safeFetchAgent';
 import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
 import { resolveEchoUploadStorageKey } from './echoUploadResolveDest';
 import { storeEchoUploadBuffer } from './echoUploadStoreBuffer';
+import { mediaUrlPassesEchoPolicy } from './mediaUrlPolicy';
 import {
   buildEchoUploadPublicUrlForStorageKey,
   isAllowedChatUploadContentType,
@@ -131,11 +133,12 @@ export type ImportChatRemoteImageResult =
   | {
       ok: true;
       url: string;
-      storageKey: string;
+      storageKey?: string;
       mimeType: string;
       fileSize: number;
       width?: number;
       height?: number;
+      passthrough?: boolean;
     }
   | {
       ok: false;
@@ -176,6 +179,17 @@ export async function importChatRemoteImage(opts: {
         fileSize: 0,
       };
     }
+  }
+
+  /** Tenor/Giphy CDN and other trusted GIF media — keep original URL (Discord-style). */
+  if (isLikelyGifMediaUrl(trimmed) && mediaUrlPassesEchoPolicy(trimmed)) {
+    return {
+      ok: true,
+      url: trimmed,
+      mimeType: 'image/gif',
+      fileSize: 0,
+      passthrough: true,
+    };
   }
 
   if (!isEchoS3UploadConfigured() && !config.echoLocalUploadDir) {

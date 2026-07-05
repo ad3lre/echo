@@ -55,6 +55,7 @@ import {
   createAppLayoutToggleMemberList,
   useAppLayoutCompactShellExpand,
 } from './useAppLayoutCompactShellExpand';
+import { hasActivePhoneGuildChannel } from '@/features/layout/phoneShellOverlayState';
 import { useAppLayoutNotificationPrefsSync } from './useAppLayoutNotificationPrefsSync';
 
 import type { WireAppLayoutVoiceAndRealtimeResult } from './wireAppLayoutVoiceAndRealtime';
@@ -417,7 +418,9 @@ export function wireAppLayoutMessagingAndProfiles(
     memberPanelCollapsed,
     memberPanelCollapsedEffective,
     memberPanelWidth,
+    mobileBottomTab,
     mobileMembersOverlayOpen,
+    mobileServersStack,
     memberPopoutAnchor,
     memberPopoutOpenRolesPanel,
     mergeEchoBlockedFromApi,
@@ -1102,6 +1105,13 @@ export function wireAppLayoutMessagingAndProfiles(
     compactPagerPane,
     memberPanelCollapsed,
     mobileMembersOverlayOpen,
+    mobileBottomTab,
+    mobileServersStack,
+    hasActiveGuildChannel: () =>
+      hasActivePhoneGuildChannel(
+        serverStore.selectedServerId,
+        activeChannelId.value,
+      ),
     toggleMemberListBase,
     markMemberPanelExpandedByUser,
     markMemberPanelCollapsedByUser,

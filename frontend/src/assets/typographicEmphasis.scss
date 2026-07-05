@@ -7,6 +7,23 @@
   font-synthesis: none;
 }
 
+@mixin echo-markdown-blockquote {
+  @include echo-typographic-italic;
+  margin: 0.5em 0;
+  padding: 0.35em 0 0.35em 0.85em;
+  border-left: 4px solid color-mix(in srgb, var(--muted) 45%, var(--border));
+  color: var(--muted);
+}
+
+@mixin echo-markdown-blockquote-code-reset {
+  pre,
+  code,
+  kbd {
+    font-style: normal;
+    font-synthesis: auto;
+  }
+}
+
 .message-content :deep(em),
 .message-content :deep(i) {
   @include echo-typographic-italic;
@@ -37,4 +54,13 @@
 .chat-input-surface :deep(.tiptap .composer-md-italic),
 .chat-input-surface :deep(.tiptap .composer-md-blockquote) {
   @include echo-typographic-italic;
+}
+
+.message-content :deep(blockquote),
+.message-preview :deep(blockquote),
+.message-preview-snippet :deep(blockquote),
+.discord-embed-md :deep(blockquote),
+.markdown-preview__content blockquote {
+  @include echo-markdown-blockquote;
+  @include echo-markdown-blockquote-code-reset;
 }

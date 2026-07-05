@@ -5,6 +5,7 @@ import {
   chatVideoContentTypeForPresign,
   inferChatPendingMediaKind,
   isChatAudioUpload,
+  isChatImageUpload,
   isChatVideoUpload,
   resolveChatUploadContentTypeAndKind,
 } from './chatUploadMediaTypes';
@@ -27,6 +28,10 @@ describe('chatUploadMediaTypes', () => {
     expect(isChatVideoUpload(file('clip.mov', ''))).toBe(true);
     expect(isChatVideoUpload(file('clip.mp4', ''))).toBe(true);
     expect(isChatAudioUpload(file('memo.m4a', ''))).toBe(true);
+    expect(isChatImageUpload(file('IMG_0001.HEIC', ''))).toBe(true);
+    expect(
+      isChatImageUpload(file('photo.jpg', 'application/octet-stream')),
+    ).toBe(true);
     expect(inferChatPendingMediaKind(file('IMG_0001.HEIC', ''))).toBe('image');
     expect(inferChatPendingMediaKind(file('clip.mov', ''))).toBe('video');
     expect(inferChatPendingMediaKind(file('memo.m4a', ''))).toBe('audio');

@@ -307,6 +307,22 @@ function resolveDiscordUserIdForAvatarRepair(opts: {
 }
 
 /**
+ * True when a Discord-linked user's pfp should be mirrored onto Echo storage.
+ * Includes empty pfps (when `discordUserId` is known), Discord CDN URLs, and bare avatar hashes.
+ */
+export function needsDiscordImportPfpRepair(
+  pfp: string,
+  discordUserId?: string,
+): boolean {
+  const raw = pfp.trim();
+  const discordId = discordUserId?.trim() ?? '';
+  if (raw && isEchoStoredProfileImageUrl(raw)) return false;
+  if (isCorruptedDiscordImportPfp(raw)) return true;
+  if (!raw && discordId) return true;
+  return false;
+}
+
+/**
  * Re-host Discord CDN / hash-only pfps onto Echo storage. Persists when `persist` is true.
  * Falls back to mirrored default Discord avatar, then a generated initials avatar.
  */
@@ -323,13 +339,12 @@ export async function repairDiscordImportUserPfpIfNeeded(opts: {
   const userId = opts.userId.trim();
   const raw = opts.pfp.trim();
   if (!userId) return raw;
-  if (raw && isEchoStoredProfileImageUrl(raw)) return raw;
-  if (!raw || !isCorruptedDiscordImportPfp(raw)) return raw;
 
   const discordUserId = resolveDiscordUserIdForAvatarRepair({
     discordUserId: opts.discordUserId,
     pfp: raw,
   });
+  if (!needsDiscordImportPfpRepair(raw, discordUserId)) return raw;
   if (!discordUserId) return raw;
 
   let repaired = await ensureDiscordImportAvatarStoredInEcho(
@@ -371,6 +386,107 @@ export async function repairDiscordImportUserPfpIfNeeded(opts: {
   }
 
   return repaired;
+}
+
+export type DiscordImportPfpRepairRow = {
+  userId: string;
+  pfp: string;
+  displayName: string;
+  discordUserId?: string;
+  shadowAvatarMeta?: string;
+  isShadow?: boolean;
+};
+
+/** Build a Discord-import pfp repair candidate from a workspace member SQL row. */
+export function discordImportPfpRepairCandidateFromMemberRow(
+  row: Record<string, unknown>,
+): DiscordImportPfpRepairRow | null {
+  const rawPfp = String(row.pfp ?? '').trim();
+  const shadowDiscordUserId =
+    row.shadow_discord_user_id != null
+      ? String(row.shadow_discord_user_id).trim()
+      : '';
+  const linkedDiscordUserId =
+    row.linked_discord_user_id != null
+      ? String(row.linked_discord_user_id).trim()
+      : '';
+  const discordUserId = shadowDiscordUserId || linkedDiscordUserId;
+  const shadowAvatarMeta =
+    row.shadow_avatar_url != null ? String(row.shadow_avatar_url).trim() : '';
+  if (!needsDiscordImportPfpRepair(rawPfp, discordUserId)) return null;
+  return {
+    userId: String(row.user_id ?? ''),
+    pfp: rawPfp,
+    displayName: String(row.name ?? 'Unknown'),
+    discordUserId: discordUserId || undefined,
+    shadowAvatarMeta: shadowAvatarMeta || undefined,
+    isShadow: row.is_discord_shadow === true,
+  };
+}
+
+/** Collect workspace member rows that need Discord-import pfp repair. */
+export function collectDiscordImportPfpRepairCandidatesFromMemberRows(
+  rows: Record<string, unknown>[],
+): DiscordImportPfpRepairRow[] {
+  const candidates: DiscordImportPfpRepairRow[] = [];
+  for (const row of rows) {
+    const candidate = discordImportPfpRepairCandidateFromMemberRow(row);
+    if (candidate) candidates.push(candidate);
+  }
+  return candidates;
+}
+
+/** Apply repaired pfps onto workspace member lists keyed by server id. */
+export function applyRepairedDiscordImportPfpsToMembersByServer<
+  T extends { userId: string; pfp: string },
+>(
+  membersByServer: Record<string, T[]>,
+  repairedPfps: Map<string, string>,
+): void {
+  if (repairedPfps.size === 0) return;
+  for (const sid of Object.keys(membersByServer)) {
+    for (const member of membersByServer[sid]!) {
+      const repaired = repairedPfps.get(member.userId);
+      if (repaired) member.pfp = repaired;
+    }
+  }
+}
+
+/** Repair Discord-import pfps for many users (deduped by user id). */
+export async function repairDiscordImportPfpsForUsers(
+  pool: pg.Pool,
+  users: DiscordImportPfpRepairRow[],
+  opts?: { persist?: boolean },
+): Promise<Map<string, string>> {
+  const persist = opts?.persist !== false;
+  const out = new Map<string, string>();
+  const seen = new Set<string>();
+
+  for (const user of users) {
+    const userId = user.userId.trim();
+    if (!userId || seen.has(userId)) continue;
+    seen.add(userId);
+
+    const pfp = user.pfp.trim();
+    const discordUserId = user.discordUserId?.trim() ?? '';
+    if (!needsDiscordImportPfpRepair(pfp, discordUserId)) continue;
+
+    const repaired = await repairDiscordImportUserPfpIfNeeded({
+      pool,
+      userId,
+      pfp,
+      displayName: user.displayName,
+      discordUserId: discordUserId || undefined,
+      shadowAvatarMeta: user.shadowAvatarMeta,
+      isShadow: user.isShadow,
+      persist,
+    });
+    if (repaired !== pfp) {
+      out.set(userId, repaired);
+    }
+  }
+
+  return out;
 }
 
 /** True when `pfp` is a Discord CDN URL or bare avatar hash that should be re-hosted on Echo. */

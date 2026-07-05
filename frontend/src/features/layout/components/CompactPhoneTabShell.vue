@@ -35,10 +35,11 @@ useMobileBottomBarInsetReporter(barEl);
 <template>
   <div
     class="compact-phone-tab-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    :class="{ 'compact-phone-tab-shell--no-bar': showBar === false }"
     :style="rootStyle"
   >
     <div
-      class="compact-phone-tab-shell__content min-h-0 min-w-0 flex-1 overflow-hidden"
+      class="compact-phone-tab-shell__content flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     >
       <slot />
     </div>
@@ -56,6 +57,15 @@ useMobileBottomBarInsetReporter(barEl);
 
 <style scoped lang="scss">
 .compact-phone-tab-shell {
-  --echo-mobile-bottom-bar-height: 3.25rem;
+  --echo-mobile-bottom-bar-pill-height: 3.25rem;
+  --echo-mobile-bottom-bar-float-gap: 0.625rem;
+  --echo-mobile-bottom-bar-height: calc(
+    var(--echo-mobile-bottom-bar-pill-height) +
+      var(--echo-mobile-bottom-bar-float-gap)
+  );
+}
+
+.compact-phone-tab-shell--no-bar {
+  --echo-mobile-bottom-bar-height: 0px;
 }
 </style>

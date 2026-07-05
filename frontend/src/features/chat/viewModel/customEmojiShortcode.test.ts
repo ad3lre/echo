@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { parseMessageContent } from '@/composables/useMarkdown';
+import {
+  resolveCustomEmojiImageUrlForDisplay,
+  shouldAllowDiscordCdnGuessForEmojiId,
+} from '@/utils/customEmojiUrl';
 
 describe('custom emoji shortcodes in messages', () => {
   it('expands :name: to img when customEmojiByName is provided', () => {
@@ -12,7 +16,7 @@ describe('custom emoji shortcodes in messages', () => {
       customEmojiImageUrl: (id) =>
         id === '304238867010606080' ? 'https://cdn.test/adel.webp' : undefined,
     });
-    expect(out).toContain('class="emoji custom-emoji"');
+    expect(out).toMatch(/class="emoji custom-emoji/);
     expect(out).toContain('https://cdn.test/adel.webp');
     expect(out).not.toContain('>hello :adel: there<');
   });
@@ -28,7 +32,8 @@ describe('custom emoji shortcodes in messages', () => {
       customEmojiByName: byName,
       customEmojiImageUrl: () => undefined,
     });
-    expect(v0).toContain('mention--custom-emoji');
+    expect(v0).toContain('custom-emoji-skeleton');
+    expect(v0).toContain('custom-emoji-inline--pending');
 
     const v1 = parseMessageContent(input, undefined, {
       _cacheVersion: 1,
@@ -38,7 +43,25 @@ describe('custom emoji shortcodes in messages', () => {
           ? 'https://cdn.test/cheese.webp'
           : undefined,
     });
-    expect(v1).toContain('class="emoji custom-emoji"');
+    expect(v1).toMatch(/class="emoji custom-emoji/);
     expect(v1).toContain('https://cdn.test/cheese.webp');
+  });
+
+  it('renders cross-server custom emoji token via optimistic Discord CDN guess', () => {
+    const id = '304238867010606080';
+    const out = parseMessageContent(`hi <:adel:${id}> there`, undefined, {
+      _cacheVersion: 1,
+      customEmojiImageUrl: (emojiId) =>
+        resolveCustomEmojiImageUrlForDisplay(emojiId, false, new Map(), false, {
+          allowDiscordCdnGuess: shouldAllowDiscordCdnGuessForEmojiId(
+            emojiId,
+            new Map(),
+            false,
+          ),
+        }) ?? undefined,
+    });
+    expect(out).toMatch(/class="emoji custom-emoji/);
+    expect(out).toContain(`cdn.discordapp.com/emojis/${id}`);
+    expect(out).not.toMatch(/>[^<]*:adel:[^<]*</);
   });
 });

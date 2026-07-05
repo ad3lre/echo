@@ -84,7 +84,10 @@ function collectRowDiscordUrls(row: EchoMessageRow): string[] {
     for (const a of row.attachments) push(a?.url);
   }
   if (Array.isArray(row.stickers)) {
-    for (const s of row.stickers) push(s?.url);
+    for (const s of row.stickers) {
+      if (s?.format === 'lottie') continue;
+      push(s?.url);
+    }
   }
   if (Array.isArray(row.embeds)) {
     for (const e of row.embeds) {

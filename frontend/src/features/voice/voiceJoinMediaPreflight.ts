@@ -3,6 +3,11 @@
  * Ensures microphone access works; validates speaker/headphone enumeration when the browser exposes it.
  */
 
+import {
+  echoCameraPermissionDeniedHint,
+  echoMicPermissionDeniedHint,
+} from '@/utils/mediaPermissionHints';
+
 export class VoiceJoinMediaPreflightError extends Error {
   override readonly name = 'VoiceJoinMediaPreflightError';
 }
@@ -41,9 +46,7 @@ function throwMicPreflightFromGetUserMediaError(e: unknown): never {
     msgLower.includes('permission denied') ||
     msgLower.includes('not allowed')
   ) {
-    throw new VoiceJoinMediaPreflightError(
-      'Microphone access was blocked. Allow the mic for this site in your browser bar, then tap Retry.',
-    );
+    throw new VoiceJoinMediaPreflightError(echoMicPermissionDeniedHint());
   }
   if (
     name === 'notfounderror' ||
@@ -302,9 +305,7 @@ export async function assertCameraCaptureReady(
         ? String((e as DOMException).name)
         : '';
     if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-      throw new VoiceJoinMediaPreflightError(
-        'Camera access was blocked. Allow the camera for this site in your browser bar, then turn video on again.',
-      );
+      throw new VoiceJoinMediaPreflightError(echoCameraPermissionDeniedHint());
     }
     if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
       throw new VoiceJoinMediaPreflightError(

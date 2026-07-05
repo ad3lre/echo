@@ -94,6 +94,8 @@ export type AppLayoutChatSurfaceProps = {
   getChannelDisplayName: (name?: string) => string;
   togglePinsDropdown: (...args: unknown[]) => unknown;
   expandChannels: () => void;
+  /** Compact mobile: leave CallView while staying in VC. */
+  handleMinimizeVoiceView: () => void;
   collapseMembers: () => void;
   expandMembers: () => void;
   memberPanelWidth: number;
@@ -499,6 +501,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'getChannelDisplayName',
   'togglePinsDropdown',
   'expandChannels',
+  'handleMinimizeVoiceView',
   'collapseMembers',
   'expandMembers',
   'memberPanelWidth',

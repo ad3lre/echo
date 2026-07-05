@@ -28,6 +28,7 @@ export type AppLayoutVoiceShellDepsSlice = {
   vcMuted: Ref<boolean>;
   vcDeafened: Ref<boolean>;
   micTestListenDeafenActive: Ref<boolean>;
+  setMicTestListenDeafen: (active: boolean) => void;
   applyVcDeafened: (next: boolean) => void;
   vcVideo: Ref<boolean>;
   vcScreenshare: Ref<boolean>;

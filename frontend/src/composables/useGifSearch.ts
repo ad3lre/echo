@@ -141,7 +141,14 @@ async function fetchGifsFromApi(
 /** Preload first N category preview stills for instant picker landing. */
 const PREVIEW_PER_CATEGORY = 2;
 
+/** Space Giphy proxy calls so picker warmup does not burst against the per-IP bucket. */
+const GIF_LIBRARY_WARM_GAP_MS = 250;
+
 let libraryWarmInflight: Promise<void> | null = null;
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** Bumps when category warmup fills the in-memory cache (picker previews react to this). */
 export const gifCategoryLibraryRevision: Ref<number> = ref(0);
@@ -160,22 +167,22 @@ export function __clearGifSearchCacheForTests(): void {
 export function warmGifCategoryLibrary(): Promise<void> {
   if (libraryWarmInflight) return libraryWarmInflight;
   libraryWarmInflight = (async () => {
-    const jobs: Promise<void>[] = [];
+    let warmedAny = false;
     for (const cat of GIF_BROWSE_CATEGORIES) {
       const q = cat.query;
       if (getCachedSearch(q)?.length) continue;
-      jobs.push(
-        fetchGifsFromApi(q)
-          .then((mapped) => {
-            if (mapped.length) setCachedSearch(q, mapped);
-          })
-          .catch(() => {
-            /* non-blocking warmup */
-          }),
-      );
+      if (warmedAny) await delayMs(GIF_LIBRARY_WARM_GAP_MS);
+      try {
+        const mapped = await fetchGifsFromApi(q);
+        if (mapped.length) {
+          setCachedSearch(q, mapped);
+          warmedAny = true;
+        }
+      } catch {
+        /* non-blocking warmup */
+      }
     }
-    await Promise.all(jobs);
-    gifCategoryLibraryRevision.value += 1;
+    if (warmedAny) gifCategoryLibraryRevision.value += 1;
   })().finally(() => {
     libraryWarmInflight = null;
   });

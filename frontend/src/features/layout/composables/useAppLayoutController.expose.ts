@@ -463,6 +463,7 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     onServerSettingsModalActiveSectionUpdate:
       ctx.onServerSettingsModalActiveSectionUpdate,
     onVcChatButtonClick: ctx.onVcChatButtonClick,
+    handleMinimizeVoiceView: ctx.handleMinimizeVoiceView,
     openCategorySettings: ctx.openCategorySettings,
     openChannelSettings: ctx.openChannelSettings,
     openCreateCategoryModal: ctx.openCreateCategoryModal,

@@ -1,3 +1,5 @@
+import { isDesktop } from '@/platform/desktopBridge';
+
 export type EchoPageNotificationPreviewMode =
   | 'supported'
   | 'standalone-only'
@@ -46,6 +48,11 @@ export function isSafariLikeBrowser(): boolean {
   if (!vendor.includes('Apple')) return false;
   if (!/Safari/i.test(ua)) return false;
   return !/(Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|SamsungBrowser)/i.test(ua);
+}
+
+/** Tauri macOS desktop (WKWebView / WebKit), not iOS. */
+export function isWebKitDesktop(): boolean {
+  return isDesktop() && isSafariLikeBrowser();
 }
 
 /** Sync hint: Brave exposes `navigator.brave.isBrave` (often async-only). */
@@ -170,6 +177,9 @@ export const echoBrowserCompatibility = {
   },
   get isSafariLike(): boolean {
     return isSafariLikeBrowser();
+  },
+  get isWebKitDesktop(): boolean {
+    return isWebKitDesktop();
   },
   get isBraveSyncHint(): boolean {
     return isBraveBrowserSyncHint();

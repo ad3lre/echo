@@ -15,66 +15,26 @@ const layout = inject(
 ) as LayoutChatSurfaceContext | null;
 const { speakingMap, localSpeaking, localUserId } = useSpeakingState();
 
-const STORAGE_KEY = 'echoGuildVcSpeakerPillPos';
-
-const pos = ref({ x: 16, y: 120 });
-
-/**
- * Floating VC pill is mobile-only (Tailwind `md` breakpoint). Desktop has channel
- * list / voice chrome — a draggable “phone” chip must not appear on wide screens
- * even when `(pointer: coarse)` matches (touch laptops).
- */
 const narrowViewport = ref(
   typeof window !== 'undefined' ? window.innerWidth < 768 : false,
 );
-/** Draggable grip: only when the pill is shown (narrow layout). */
-const dragEnabled = ref(narrowViewport.value);
+const expanded = ref(false);
 
-function syncNarrowViewportAndDrag() {
+function syncNarrowViewport() {
   if (typeof window === 'undefined') return;
   narrowViewport.value = window.innerWidth < 768;
-  dragEnabled.value = narrowViewport.value;
-}
-
-function readPos() {
-  if (typeof window === 'undefined') return;
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const j = JSON.parse(raw) as { x: number; y: number };
-    if (Number.isFinite(j.x) && Number.isFinite(j.y)) pos.value = j;
-  } catch {
-    /* ignore */
-  }
-}
-
-function savePos() {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(pos.value));
-  } catch {
-    /* ignore */
-  }
 }
 
 onMounted(() => {
-  readPos();
-  syncNarrowViewportAndDrag();
+  syncNarrowViewport();
   if (typeof window !== 'undefined') {
-    window.addEventListener('resize', syncNarrowViewportAndDrag);
-  }
-  if (typeof window === 'undefined') return;
-  if (dragEnabled.value && (!pos.value.y || pos.value.y < 40)) {
-    const h = window.innerHeight;
-    pos.value = {
-      x: pos.value.x || 16,
-      y: Math.max(100, Math.floor(h * 0.35)),
-    };
+    window.addEventListener('resize', syncNarrowViewport);
   }
 });
 
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', syncNarrowViewportAndDrag);
+    window.removeEventListener('resize', syncNarrowViewport);
   }
 });
 
@@ -113,58 +73,30 @@ const dominant = computed(() => {
   return p ?? { id: bestId, name: 'Someone', pfp: '' };
 });
 
-const pillStyle = computed(() => {
-  if (!dragEnabled.value) {
-    return {
-      left: 'auto',
-      right: '16px',
-      top: 'auto',
-      bottom: 'max(96px, calc(72px + env(safe-area-inset-bottom, 0px)))',
-    };
-  }
-  return {
-    left: `${pos.value.x}px`,
-    top: `${pos.value.y}px`,
-    right: 'auto',
-    bottom: 'auto',
-  };
+const isSpeaking = computed(() => !!dominant.value);
+
+const voiceChannelName = computed(() => {
+  const ch = unref(layout?.effectiveActiveChannel) as
+    | { name?: string }
+    | null
+    | undefined;
+  const getName = unref(layout?.getChannelDisplayName) as
+    | ((name?: string) => string)
+    | undefined;
+  const raw = ch?.name ?? 'Voice';
+  return getName?.(raw) ?? raw;
 });
 
-const dragging = ref(false);
-let startX = 0;
-let startY = 0;
-let originX = 0;
-let originY = 0;
-
-function onGripDown(e: PointerEvent) {
-  if (!dragEnabled.value) return;
-  dragging.value = true;
-  startX = e.clientX;
-  startY = e.clientY;
-  originX = pos.value.x;
-  originY = pos.value.y;
-  window.addEventListener('pointermove', onGripMove);
-  window.addEventListener('pointerup', onGripUp, { once: true });
+function toggleExpanded() {
+  expanded.value = !expanded.value;
 }
 
-function onGripMove(e: PointerEvent) {
-  if (!dragging.value) return;
-  const dx = e.clientX - startX;
-  const dy = e.clientY - startY;
-  const w = typeof window !== 'undefined' ? window.innerWidth : 400;
-  const h = typeof window !== 'undefined' ? window.innerHeight : 800;
-  const nx = Math.min(Math.max(8, originX + dx), Math.max(48, w - 200));
-  const ny = Math.min(Math.max(56, originY + dy), Math.max(120, h - 64));
-  pos.value = { x: nx, y: ny };
-}
-
-function onGripUp() {
-  dragging.value = false;
-  window.removeEventListener('pointermove', onGripMove);
-  savePos();
+function collapseIfExpanded() {
+  expanded.value = false;
 }
 
 function goToVoiceChannel() {
+  collapseIfExpanded();
   if (!layout) return;
   const vid = String(unref(layout.currentVoiceChannelId) ?? '').trim();
   if (!vid) return;
@@ -203,6 +135,7 @@ function toggleDeafen() {
 }
 
 function leaveVoice() {
+  collapseIfExpanded();
   if (!layout) return;
   const leave = unref(layout.handleChannelVoicePanelLeave) as
     | (() => void | Promise<void>)
@@ -215,150 +148,371 @@ function leaveVoice() {
   <Teleport to="body">
     <div
       v-if="visible"
-      class="guild-vc-speaker-pill pointer-events-none fixed z-[95]"
-      :style="pillStyle"
+      class="guild-vc-island-host pointer-events-none fixed inset-x-0 top-0 z-[95] flex justify-center"
+      :style="{ paddingTop: 'max(0.5rem, env(safe-area-inset-top, 0px))' }"
     >
+      <!-- Backdrop tap target when expanded -->
+      <button
+        v-if="expanded"
+        type="button"
+        class="guild-vc-island-backdrop pointer-events-auto fixed inset-0 z-[-1] border-0 bg-scrim-1"
+        aria-label="Close voice controls"
+        @click="collapseIfExpanded"
+      />
+
       <div
-        class="guild-vc-speaker-pill__shell pointer-events-auto flex max-w-[min(92vw,17rem)] cursor-default items-stretch overflow-hidden rounded-2xl border border-border bg-elevated/92 shadow-4 backdrop-blur-md"
+        class="guild-vc-island pointer-events-auto"
+        :class="{
+          'guild-vc-island--expanded': expanded,
+          'guild-vc-island--speaking': isSpeaking,
+        }"
       >
         <button
-          v-if="dragEnabled"
           type="button"
-          class="guild-vc-speaker-pill__grip flex w-7 shrink-0 cursor-grab touch-none items-center justify-center border-r border-border bg-glass-1 active:cursor-grabbing"
-          aria-label="Move voice indicator"
-          @pointerdown.prevent="onGripDown"
+          class="guild-vc-island__bubble"
+          :aria-expanded="expanded"
+          aria-label="Voice session indicator"
+          @click="toggleExpanded"
         >
-          <span class="h-8 w-0.5 rounded-full bg-glass-active" />
-        </button>
-        <button
-          type="button"
-          class="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
-          @click="goToVoiceChannel"
-        >
-          <template v-if="dominant">
-            <div
-              class="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-glass-2"
-            >
+          <div
+            class="guild-vc-island__avatar-wrap"
+            :class="{ 'guild-vc-island__avatar-wrap--live': isSpeaking }"
+          >
+            <template v-if="dominant">
               <PausedGifAvatar
                 :src="resolveCallTileAvatarUrl(dominant.pfp, dominant.id)"
                 :alt="dominant.name"
                 :session-key="dominant.id"
-                img-class="rounded-full object-cover"
+                img-class="h-full w-full rounded-full object-cover"
               />
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="truncate text-xs font-semibold text-fg">
-                {{ dominant.name }}
-              </div>
-              <div
-                class="guild-vc-speaker-pill__speaking-label truncate text-[10px] font-semibold uppercase tracking-wide"
-              >
-                Speaking
-              </div>
-            </div>
-          </template>
-          <template v-else>
+              <span
+                v-if="isSpeaking"
+                class="guild-vc-island__speak-ring"
+                aria-hidden="true"
+              />
+            </template>
             <div
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15"
-              aria-hidden="true"
+              v-else
+              class="flex h-full w-full items-center justify-center rounded-full bg-accent/15"
             >
               <img
                 :src="icons.mic"
                 alt=""
-                class="guild-vc-speaker-pill__glyph h-4 w-4"
+                class="guild-vc-island__glyph h-4 w-4"
               />
             </div>
-            <div class="min-w-0 flex-1">
-              <div class="truncate text-xs font-semibold text-fg">In voice</div>
-              <div
-                class="truncate text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
+          </div>
+
+          <Transition name="island-label">
+            <div v-if="!expanded" class="guild-vc-island__label min-w-0">
+              <span class="guild-vc-island__name truncate">
+                {{ dominant?.name ?? voiceChannelName }}
+              </span>
+              <span
+                class="guild-vc-island__status truncate"
+                :class="{ 'guild-vc-island__status--live': isSpeaking }"
               >
-                Tap to open
-              </div>
+                {{ isSpeaking ? 'Speaking' : 'In voice' }}
+              </span>
             </div>
-          </template>
+          </Transition>
+
+          <Transition name="island-label">
+            <span
+              v-if="expanded"
+              class="guild-vc-island__expanded-title truncate"
+            >
+              {{ voiceChannelName }}
+            </span>
+          </Transition>
         </button>
-        <div
-          class="flex shrink-0 items-center gap-1 border-l border-border px-1.5"
-        >
-          <button
-            type="button"
-            class="flex h-7 w-7 items-center justify-center rounded-md text-fg-soft transition hover:bg-glass-1 hover:text-fg"
-            :title="unref(layout?.vcMuted) ? 'Unmute' : 'Mute'"
-            :aria-label="unref(layout?.vcMuted) ? 'Unmute' : 'Mute'"
-            @click.stop="toggleMute"
+
+        <Transition name="island-controls">
+          <div
+            v-if="expanded"
+            class="guild-vc-island__controls"
+            role="toolbar"
+            aria-label="Voice controls"
           >
-            <img
-              :src="icons.mic"
-              alt=""
-              class="guild-vc-speaker-pill__glyph h-3.5 w-3.5"
-            />
-          </button>
-          <button
-            type="button"
-            class="flex h-7 w-7 items-center justify-center rounded-md text-fg-soft transition hover:bg-glass-1 hover:text-fg"
-            :title="unref(layout?.vcDeafened) ? 'Undeafen' : 'Deafen'"
-            :aria-label="unref(layout?.vcDeafened) ? 'Undeafen' : 'Deafen'"
-            @click.stop="toggleDeafen"
-          >
-            <img
-              :src="icons.headphones"
-              alt=""
-              class="guild-vc-speaker-pill__glyph h-3.5 w-3.5"
-            />
-          </button>
-          <button
-            type="button"
-            class="guild-vc-speaker-pill__leave flex h-7 w-7 items-center justify-center rounded-md transition"
-            title="Leave voice"
-            aria-label="Leave voice"
-            @click.stop="leaveVoice"
-          >
-            <img
-              :src="icons.logOut"
-              alt=""
-              class="guild-vc-speaker-pill__glyph h-3.5 w-3.5"
-            />
-          </button>
-        </div>
+            <button
+              type="button"
+              class="guild-vc-island__ctrl"
+              :title="unref(layout?.vcMuted) ? 'Unmute' : 'Mute'"
+              :aria-label="unref(layout?.vcMuted) ? 'Unmute' : 'Mute'"
+              @click.stop="toggleMute"
+            >
+              <img
+                :src="icons.mic"
+                alt=""
+                class="guild-vc-island__glyph h-4 w-4"
+              />
+            </button>
+            <button
+              type="button"
+              class="guild-vc-island__ctrl"
+              :title="unref(layout?.vcDeafened) ? 'Undeafen' : 'Deafen'"
+              :aria-label="unref(layout?.vcDeafened) ? 'Undeafen' : 'Deafen'"
+              @click.stop="toggleDeafen"
+            >
+              <img
+                :src="icons.headphones"
+                alt=""
+                class="guild-vc-island__glyph h-4 w-4"
+              />
+            </button>
+            <button
+              type="button"
+              class="guild-vc-island__ctrl guild-vc-island__ctrl--accent"
+              title="Open voice channel"
+              aria-label="Open voice channel"
+              @click.stop="goToVoiceChannel"
+            >
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                <polyline points="10 17 15 12 10 7" />
+                <line x1="15" y1="12" x2="3" y2="12" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="guild-vc-island__ctrl guild-vc-island__ctrl--danger"
+              title="Leave voice"
+              aria-label="Leave voice"
+              @click.stop="leaveVoice"
+            >
+              <img
+                :src="icons.logOut"
+                alt=""
+                class="guild-vc-island__glyph h-4 w-4"
+              />
+            </button>
+          </div>
+        </Transition>
       </div>
     </div>
   </Teleport>
 </template>
 
 <style scoped lang="scss">
-.guild-vc-speaker-pill__speaking-label {
-  color: rgba(52, 211, 153, 0.92);
+.guild-vc-island {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: min(92vw, 20rem);
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, black 12%);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent),
+    0 12px 40px color-mix(in srgb, black 42%, transparent);
+  backdrop-filter: blur(20px) saturate(1.35);
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
+  overflow: hidden;
+  transition:
+    max-width 420ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 420ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 320ms ease;
 }
 
-[data-theme='light'] .guild-vc-speaker-pill__speaking-label {
+[data-theme='light'] .guild-vc-island {
+  background: color-mix(in srgb, var(--bg-elevated) 92%, white 8%);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--border) 40%, transparent),
+    0 14px 36px color-mix(in srgb, black 14%, transparent);
+}
+
+.guild-vc-island--expanded {
+  max-width: min(92vw, 17.5rem);
+  border-radius: 1.35rem;
+}
+
+.guild-vc-island--speaking:not(.guild-vc-island--expanded) {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, rgb(52 211 153) 35%, transparent),
+    0 12px 40px color-mix(in srgb, rgb(16 185 129) 18%, transparent);
+}
+
+.guild-vc-island__bubble {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.75rem 0.35rem 0.35rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.guild-vc-island__avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 999px;
+  overflow: visible;
+}
+
+.guild-vc-island__avatar-wrap :deep(img),
+.guild-vc-island__avatar-wrap > div {
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.guild-vc-island__speak-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 2px solid rgba(52, 211, 153, 0.85);
+  animation: island-speak-pulse 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes island-speak-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.55;
+  }
+}
+
+.guild-vc-island__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+  padding-right: 0.25rem;
+}
+
+.guild-vc-island__name {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.guild-vc-island__status {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.guild-vc-island__status--live {
+  color: rgba(52, 211, 153, 0.95);
+}
+
+[data-theme='light'] .guild-vc-island__status--live {
   color: rgb(4 120 87);
 }
 
-/* Icons are authored dark; invert only on dark chrome. */
-.guild-vc-speaker-pill__glyph {
-  opacity: 0.9;
+.guild-vc-island__expanded-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  padding-right: 0.35rem;
 }
 
-[data-theme='dark'] .guild-vc-speaker-pill__glyph {
+.guild-vc-island__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 0.25rem;
+  padding: 0 0.5rem 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.guild-vc-island__ctrl {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ui-glass-1) 85%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+
+  &:hover {
+    background: var(--ui-glass-2);
+  }
+  &:active {
+    transform: scale(0.94);
+  }
+}
+
+.guild-vc-island__ctrl--accent {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.guild-vc-island__ctrl--danger {
+  color: rgb(251 113 133);
+}
+
+[data-theme='light'] .guild-vc-island__ctrl--danger {
+  color: rgb(190 18 60);
+}
+
+.guild-vc-island__glyph {
+  opacity: 0.92;
+}
+
+[data-theme='dark'] .guild-vc-island__glyph {
   filter: invert(1);
 }
 
-.guild-vc-speaker-pill__leave {
-  color: rgb(251 113 133);
-
-  &:hover {
-    background: rgba(244, 63, 94, 0.15);
-    color: rgb(254 205 211);
-  }
+.island-label-enter-active,
+.island-label-leave-active {
+  transition:
+    opacity 220ms ease,
+    transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-[data-theme='light'] .guild-vc-speaker-pill__leave {
-  color: rgb(190 18 60);
+.island-label-enter-from,
+.island-label-leave-to {
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+}
 
-  &:hover {
-    background: rgba(225, 29, 72, 0.12);
-    color: rgb(159 18 57);
-  }
+.island-controls-enter-active,
+.island-controls-leave-active {
+  transition:
+    opacity 260ms ease,
+    max-height 380ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 380ms cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+}
+
+.island-controls-enter-from,
+.island-controls-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-6px);
+}
+
+.island-controls-enter-to,
+.island-controls-leave-from {
+  max-height: 3rem;
 }
 </style>

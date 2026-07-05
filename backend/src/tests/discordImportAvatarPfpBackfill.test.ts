@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { isCorruptedDiscordImportPfp } from '../services/discordImportAvatarMirror';
+import {
+  isCorruptedDiscordImportPfp,
+  needsDiscordImportPfpRepair,
+} from '../services/discordImportAvatarMirror';
 import { parseDiscordUserIdFromAvatarCdnUrl } from '../domain/discordNormalized';
 import { resolveDiscordUserIdForPfpBackfill } from '../services/discordImportAvatarPfpBackfill';
 
@@ -24,6 +27,20 @@ function run(): void {
   assert.equal(isCorruptedDiscordImportPfp('data:image/svg+xml,abc'), false);
   assert.equal(isCorruptedDiscordImportPfp(''), false);
   assert.equal(isCorruptedDiscordImportPfp('data:image/png;base64,abc'), false);
+
+  assert.equal(needsDiscordImportPfpRepair('', '123456789012345678'), true);
+  assert.equal(needsDiscordImportPfpRepair('', ''), false);
+  assert.equal(
+    needsDiscordImportPfpRepair(
+      'https://cdn.discordapp.com/avatars/123456789012345678/abc.webp?size=128',
+      '123456789012345678',
+    ),
+    true,
+  );
+  assert.equal(
+    needsDiscordImportPfpRepair('https://echo.example/uploads/u1.webp', '123'),
+    false,
+  );
 
   assert.equal(
     parseDiscordUserIdFromAvatarCdnUrl(

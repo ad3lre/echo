@@ -41,10 +41,10 @@ export function useLayout() {
   /** Guild member panel: show guest accounts in the roster (default hidden). */
   const memberListShowGuests = ref(false);
   /**
-   * When true, narrow viewport (`max-width: 972px`) auto-collapse and AppLayout’s
-   * measured main-area width auto-collapse must not hide the member list — the user
-   * explicitly expanded it. Cleared when the user collapses, drags the panel closed, or
-   * the viewport leaves the narrow media query.
+   * When true, the narrow viewport (`max-width: 972px`) auto-collapse must not hide
+   * the member list — the user explicitly expanded it. Cleared when the user
+   * collapses, drags the panel closed, the viewport leaves the narrow media query,
+   * or AppLayout auto-collapses for insufficient main-area width.
    */
   const memberPanelAutoCollapseUserOverride = ref(false);
   const voiceSideChatCollapsed = ref(false);

@@ -147,6 +147,13 @@ export default async function registerRoutes(fastify: FastifyInstance) {
     verifyEmailScope.post<{ Body: { token?: string } }>(
       '/verify-email',
       {
+        config: {
+          rateLimit: {
+            max: verifyEmailRate.max,
+            timeWindow: verifyEmailRate.timeWindow,
+            keyGenerator: (req) => `auth_verify_email:${req.ip}`,
+          },
+        },
         schema: {
           body: {
             type: 'object',
@@ -189,6 +196,13 @@ export default async function registerRoutes(fastify: FastifyInstance) {
     }>(
       '/register',
       {
+        config: {
+          rateLimit: {
+            max: registerRate.max,
+            timeWindow: registerRate.timeWindow,
+            keyGenerator: (req) => `auth_register:${req.ip}`,
+          },
+        },
         schema: {
           body: {
             type: 'object',

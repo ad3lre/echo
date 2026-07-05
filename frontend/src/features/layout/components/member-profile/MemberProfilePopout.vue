@@ -22,9 +22,11 @@ import MemberProfileHeader from './MemberProfileHeader.vue';
 import MemberProfileContent from './MemberProfileContent.vue';
 import MemberProfileRolePanel from './MemberProfileRolePanel.vue';
 import UserProfileMoreMenu from '@/features/layout/components/member-profile/UserProfileMoreMenu.vue';
+import MemberProfileVoiceActions from '@/features/layout/components/member-profile/MemberProfileVoiceActions.vue';
 import type { MemberRoleManagementSpec } from '@/features/layout/components/MemberList.vue';
 import { icons } from '@/assets/icons';
 import { useCompactShell } from '@/composables/useCompactShell';
+import { selectFriendshipUiState } from '@/services/domain/friendshipUi';
 
 const props = withDefaults(
   defineProps<{
@@ -41,10 +43,19 @@ const props = withDefaults(
     /** Signed-in user id — hides safety menu on your own popout. */
     currentUserId?: string;
     isTargetBlocked?: boolean;
-    /** Accepted friendship with the viewed member (Echo / workspace). */
+    /** @deprecated Prefer friendship graph props; kept for callers not yet migrated. */
     isFriend?: boolean;
-    /** Friendship data is loaded and viewer can send a request to this member. */
+    /** @deprecated Prefer friendship graph props; kept for callers not yet migrated. */
     canSendFriendRequest?: boolean;
+    /** Whether the social graph is authoritative enough for friend actions. */
+    friendshipKnown?: boolean;
+    /** Echo guests cannot use Friends. */
+    guestFriendsLocked?: boolean;
+    friendIds?: string[];
+    friendIdsByUserId?: Record<string, string[]>;
+    friendRequestsIncoming?: { fromUserId: string }[];
+    friendRequestsOutgoing?: { toUserId: string }[];
+    blockedUserIds?: string[];
     /** DM inbox / rail: hide server “Roles” (e.g. Direct Contact) in quick profile. */
     hideGuildRolesSection?: boolean;
   }>(),
@@ -52,6 +63,13 @@ const props = withDefaults(
     isTargetBlocked: false,
     isFriend: false,
     canSendFriendRequest: false,
+    friendshipKnown: false,
+    guestFriendsLocked: false,
+    friendIds: () => [],
+    friendIdsByUserId: () => ({}),
+    friendRequestsIncoming: () => [],
+    friendRequestsOutgoing: () => [],
+    blockedUserIds: () => [],
     hideGuildRolesSection: false,
   },
 );
@@ -66,6 +84,9 @@ const emit = defineEmits<{
   'unblock-user': [userId: string];
   'remove-friend': [userId: string];
   'send-friend-request': [userId: string];
+  'cancel-outgoing-friend-request': [userId: string];
+  'accept-incoming-friend-request': [userId: string];
+  'decline-incoming-friend-request': [userId: string];
   'report-user': [payload: { userId: string; reason: string }];
   'quick-dm': [text: string];
 }>();
@@ -128,25 +149,66 @@ const quickDmEnabled = computed(
     !props.isTargetBlocked,
 );
 
+const friendshipUi = computed(() => {
+  const p = props.profile;
+  if (!p) {
+    return selectFriendshipUiState({
+      viewerUserId: props.currentUserId,
+      targetUserId: '',
+      friendshipKnown: false,
+      guestFriendsLocked: true,
+      targetIsDiscordShadow: false,
+      blockedUserIds: [],
+      friendIds: [],
+      friendRequestsIncoming: [],
+      friendRequestsOutgoing: [],
+    });
+  }
+  const viewer = props.currentUserId?.trim() ?? '';
+  const fromMap =
+    viewer && props.friendIdsByUserId
+      ? (props.friendIdsByUserId[viewer] ?? [])
+      : undefined;
+  return selectFriendshipUiState({
+    viewerUserId: props.currentUserId,
+    targetUserId: p.id,
+    friendshipKnown: !!props.friendshipKnown,
+    guestFriendsLocked: !!props.guestFriendsLocked,
+    targetIsDiscordShadow: !!p.isDiscordShadow,
+    blockedUserIds: props.blockedUserIds ?? [],
+    friendIds: props.friendIds ?? [],
+    viewerFriendIdsFromMap: fromMap,
+    friendRequestsIncoming: props.friendRequestsIncoming ?? [],
+    friendRequestsOutgoing: props.friendRequestsOutgoing ?? [],
+  });
+});
+
+const showFriendAction = computed(() => {
+  const p = props.profile;
+  if (!p) return false;
+  if (p.isGuest) return false;
+  if (props.guestFriendsLocked) return false;
+  if (!props.currentUserId) return true;
+  return p.id !== props.currentUserId;
+});
+
 const showFriendsBadge = computed(
   () =>
-    !!props.isFriend &&
+    friendshipUi.value.kind === 'friend' &&
     !!props.profile &&
     !!props.currentUserId &&
     props.profile.id !== props.currentUserId &&
     !props.profile.isDiscordShadow,
 );
 
-/** Banner action button for “Add friend”; ⋮ omits duplicate when this is true. */
-const showBannerAddFriendButton = computed(
+/** Banner friend action (Add friend / Pending / Accept); ⋮ omits duplicate when this is true. */
+const showBannerFriendButton = computed(
   () =>
-    !!props.canSendFriendRequest &&
-    !!props.currentUserId &&
+    showFriendAction.value &&
     !!props.profile &&
-    props.profile.id !== props.currentUserId &&
-    !props.isFriend &&
-    !props.isTargetBlocked &&
-    !props.profile.isDiscordShadow,
+    !props.profile.isDiscordShadow &&
+    friendshipUi.value.kind !== 'friend' &&
+    friendshipUi.value.kind !== 'blocked',
 );
 
 const showProfileMoreMenu = computed(
@@ -158,12 +220,29 @@ const showProfileMoreMenu = computed(
 
 const canSendFriendRequestInEllipsisMenu = computed(
   () =>
-    !!props.canSendFriendRequest &&
-    !showBannerAddFriendButton.value &&
-    !props.isFriend &&
+    showFriendAction.value &&
+    !showBannerFriendButton.value &&
+    friendshipUi.value.kind === 'none' &&
     !props.isTargetBlocked &&
     !props.profile?.isDiscordShadow,
 );
+
+function handleAddFriendClick() {
+  if (!props.profile) return;
+  const ui = friendshipUi.value;
+  if (!ui.primaryEnabled) return;
+  if (ui.primaryIntent === 'send_request') {
+    emit('send-friend-request', props.profile.id);
+    return;
+  }
+  if (ui.primaryIntent === 'cancel_outgoing') {
+    emit('cancel-outgoing-friend-request', props.profile.id);
+    return;
+  }
+  if (ui.primaryIntent === 'accept_incoming') {
+    emit('accept-incoming-friend-request', props.profile.id);
+  }
+}
 
 function disconnectPopoutResizeObserver() {
   popoutResizeObserver?.disconnect();
@@ -875,7 +954,7 @@ function handleViewportUpdate() {
       <article
         v-if="!rolesStandaloneUi"
         ref="popoutArticleRef"
-        class="member-popout member-popout--card flex flex-col overflow-hidden fixed rounded-[24px] shadow-2xl"
+        class="member-popout member-popout--card flex flex-col fixed rounded-[24px] shadow-2xl"
         :class="[
           placement.side === 'right'
             ? 'member-popout--right'
@@ -895,87 +974,107 @@ function handleViewportUpdate() {
           aria-hidden="true"
         />
 
-        <MemberProfileHeader
-          class="shrink-0"
-          :profile="profile"
-          :banner-refraction-style="bannerRefractionStyle"
-          @open-full-profile="onOpenFullProfile"
-        >
-          <template #banner-actions>
-            <div
-              v-if="showProfileMoreMenu || showBannerAddFriendButton"
-              class="flex items-center gap-2"
-              aria-label="Profile actions"
-            >
-              <button
-                v-if="showBannerAddFriendButton"
-                type="button"
-                class="ep-profile-banner-friend-btn ep-profile-banner-friend-btn--labeled"
-                title="Add friend"
-                aria-label="Add friend"
-                @click="emit('send-friend-request', profile.id)"
-              >
-                <img
-                  :src="icons.friendAdd"
-                  alt=""
-                  class="ep-profile-banner-friend-btn__icon"
-                  aria-hidden="true"
-                />
-                <span class="ep-profile-banner-friend-btn__text"
-                  >Add friend</span
-                >
-              </button>
-              <UserProfileMoreMenu
-                v-if="showProfileMoreMenu"
-                :user-id="profile.id"
-                :mention-display-name="profile.displayName"
-                :is-blocked="!!isTargetBlocked"
-                :is-friend="!!isFriend"
-                :can-send-friend-request="canSendFriendRequestInEllipsisMenu"
-                :show-message-menu-item="!!quickDmEnabled"
-                :message-menu-item-disabled="
-                  !!isTargetBlocked || !!profile.isDiscordShadow
-                "
-                trigger-class="ep-profile-banner-more-btn"
-                @block="emitPopoutProfileBlock"
-                @unblock="emitPopoutProfileUnblock"
-                @remove-friend="emit('remove-friend', profile.id)"
-                @send-friend-request="emit('send-friend-request', profile.id)"
-                @message="handleOpenDm"
-              />
-            </div>
-          </template>
-        </MemberProfileHeader>
-
-        <div
-          ref="popoutScrollRef"
-          class="member-popout__scroll custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-        >
-          <MemberProfileContent
-            ref="contentRef"
+        <div class="member-popout__surface flex min-h-0 flex-1 flex-col">
+          <MemberProfileHeader
+            class="shrink-0"
             :profile="profile"
-            :show-friends-badge="showFriendsBadge"
-            :note="note"
-            :quick-dm-enabled="quickDmEnabled"
-            :is-target-blocked="isTargetBlocked"
-            :is-friend="isFriend"
-            :hide-guild-roles-section="hideGuildRolesSection"
-            :displayed-roles="displayedRoles"
-            :assigned-role-ids="assignedRoleIds"
-            :role-management-enabled="roleManagement?.enabled"
-            :hovered-displayed-role-id="hoveredDisplayedRoleId"
-            @update:note="emit('update:note', $event)"
-            @toggle-role-panel="toggleRolePanel"
-            @remove-role="removeRole"
-            @role-mouseenter="onDisplayedRoleMouseEnter"
-            @role-mouseleave="onDisplayedRoleMouseLeave"
-            @quick-dm="emit('quick-dm', $event)"
-            @send-friend-request="emit('send-friend-request', profile.id)"
-            @block="emitPopoutProfileBlock"
-            @unblock="emitPopoutProfileUnblock"
-            @remove-friend="emit('remove-friend', profile.id)"
-            @open-dm="handleOpenDm"
-          />
+            :banner-refraction-style="bannerRefractionStyle"
+            @open-full-profile="onOpenFullProfile"
+          >
+            <template #banner-actions>
+              <div
+                v-if="showProfileMoreMenu || showBannerFriendButton"
+                class="flex items-center gap-2"
+                aria-label="Profile actions"
+              >
+                <button
+                  v-if="showBannerFriendButton"
+                  type="button"
+                  class="ep-profile-banner-friend-btn ep-profile-banner-friend-btn--labeled"
+                  :title="
+                    friendshipUi.kind === 'unknown'
+                      ? 'Checking friendship...'
+                      : friendshipUi.kind === 'incoming_request'
+                        ? 'Accept friend request'
+                        : friendshipUi.kind === 'outgoing_request'
+                          ? 'Pending friend request'
+                          : 'Add friend'
+                  "
+                  :aria-label="friendshipUi.primaryLabel"
+                  :disabled="!friendshipUi.primaryEnabled"
+                  @click="handleAddFriendClick"
+                >
+                  <img
+                    :src="
+                      friendshipUi.kind === 'unknown' ||
+                      friendshipUi.kind === 'outgoing_request'
+                        ? icons.stopwatch
+                        : icons.friendAdd
+                    "
+                    alt=""
+                    class="ep-profile-banner-friend-btn__icon"
+                    aria-hidden="true"
+                  />
+                  <span class="ep-profile-banner-friend-btn__text">{{
+                    friendshipUi.primaryLabel
+                  }}</span>
+                </button>
+                <UserProfileMoreMenu
+                  v-if="showProfileMoreMenu"
+                  :user-id="profile.id"
+                  :mention-display-name="profile.displayName"
+                  :is-blocked="!!isTargetBlocked"
+                  :is-friend="friendshipUi.kind === 'friend'"
+                  :can-send-friend-request="canSendFriendRequestInEllipsisMenu"
+                  :show-message-menu-item="!!quickDmEnabled"
+                  :message-menu-item-disabled="
+                    !!isTargetBlocked || !!profile.isDiscordShadow
+                  "
+                  trigger-class="ep-profile-banner-more-btn"
+                  @block="emitPopoutProfileBlock"
+                  @unblock="emitPopoutProfileUnblock"
+                  @remove-friend="emit('remove-friend', profile.id)"
+                  @send-friend-request="emit('send-friend-request', profile.id)"
+                  @message="handleOpenDm"
+                />
+              </div>
+            </template>
+          </MemberProfileHeader>
+
+          <div
+            ref="popoutScrollRef"
+            class="member-popout__scroll custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+          >
+            <MemberProfileContent
+              ref="contentRef"
+              :profile="profile"
+              :show-friends-badge="showFriendsBadge"
+              :note="note"
+              :quick-dm-enabled="quickDmEnabled"
+              :is-target-blocked="isTargetBlocked"
+              :is-friend="friendshipUi.kind === 'friend'"
+              :hide-guild-roles-section="hideGuildRolesSection"
+              :displayed-roles="displayedRoles"
+              :assigned-role-ids="assignedRoleIds"
+              :role-management-enabled="roleManagement?.enabled"
+              :hovered-displayed-role-id="hoveredDisplayedRoleId"
+              @update:note="emit('update:note', $event)"
+              @toggle-role-panel="toggleRolePanel"
+              @remove-role="removeRole"
+              @role-mouseenter="onDisplayedRoleMouseEnter"
+              @role-mouseleave="onDisplayedRoleMouseLeave"
+              @quick-dm="emit('quick-dm', $event)"
+              @send-friend-request="emit('send-friend-request', profile.id)"
+              @block="emitPopoutProfileBlock"
+              @unblock="emitPopoutProfileUnblock"
+              @remove-friend="emit('remove-friend', profile.id)"
+              @open-dm="handleOpenDm"
+            />
+            <MemberProfileVoiceActions
+              :target-user-id="profile.id"
+              :current-user-id="currentUserId"
+            />
+          </div>
         </div>
       </article>
 
@@ -1017,26 +1116,45 @@ function handleViewportUpdate() {
 .member-popout--card {
   display: flex;
   flex-direction: column;
+}
+
+/*
+ * Single clip authority for banner + body (EchoRailCorner .echo-logo-wrapper pattern).
+ * Transform for the enter animation lives on this same layer — WebKit only honors
+ * rounded clipping at the compositor when clip-path shares the element that transforms.
+ * Kept off the outer shell so the side arrow can extend past the card edge.
+ */
+.member-popout__surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border-radius: 24px;
   background:
     radial-gradient(circle at top right, var(--vue-auto-182), transparent 36%),
     linear-gradient(180deg, var(--vue-auto-183), var(--vue-auto-184));
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
+  clip-path: inset(0 round 24px);
+  -webkit-clip-path: inset(0 round 24px);
+  contain: paint;
+  isolation: isolate;
+  overflow: hidden;
   transform: translate3d(0, 0, 0);
   animation: member-popout-in 190ms cubic-bezier(0.16, 1, 0.3, 1);
-  /*
-   * `overflow-x: clip` (vs hidden) follows the border-radius mask more reliably on WebKit when
-   * combined with backdrop-filter — avoids a 1px “step” where the banner layer snaps to a
-   * different subpixel grid than the card body (Safari / some DPIs).
-   */
-  overflow-x: clip;
 }
 
-.member-popout--right {
+.member-popout--sheet .member-popout__surface {
+  border-radius: 20px 20px 0 0;
+  clip-path: inset(0 round 20px 20px 0 0);
+  -webkit-clip-path: inset(0 round 20px 20px 0 0);
+}
+
+.member-popout--right .member-popout__surface {
   transform-origin: left center;
 }
 
-.member-popout--left {
+.member-popout--left .member-popout__surface {
   transform-origin: right center;
 }
 

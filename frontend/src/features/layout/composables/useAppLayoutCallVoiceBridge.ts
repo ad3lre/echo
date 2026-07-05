@@ -116,6 +116,7 @@ export function useAppLayoutCallVoiceBridge(
     vcMuted: deps.vcMuted,
     vcDeafened: deps.vcDeafened,
     micTestListenDeafenActive: deps.micTestListenDeafenActive,
+    setMicTestListenDeafen: deps.setMicTestListenDeafen,
     applyVcDeafened: deps.applyVcDeafened,
     vcVideo: deps.vcVideo,
     vcScreenshare: deps.vcScreenshare,

@@ -167,6 +167,45 @@ html[data-theme='light'] .reaction-pill--others .reaction-count {
 }
 
 /* Twemoji is <img class="emoji"> — use fixed rem size (em on img was unreliable and parent rules never hit). */
+.reaction-emoji :deep(.custom-emoji-inline) {
+  position: relative;
+  display: inline-block;
+  width: 1.125rem;
+  height: 1.125rem;
+  vertical-align: middle;
+}
+
+.reaction-emoji :deep(.custom-emoji-skeleton) {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: var(--vue-auto-001);
+  animation: reaction-custom-emoji-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.reaction-emoji
+  :deep(
+    .custom-emoji-inline:not(.custom-emoji-inline--loading):not(
+        .custom-emoji-inline--pending
+      )
+      .custom-emoji-skeleton
+  ) {
+  display: none;
+}
+
+.reaction-emoji :deep(.custom-emoji-inline img.custom-emoji) {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+.reaction-emoji :deep(.custom-emoji-inline img.custom-emoji--pending-load) {
+  opacity: 0;
+}
+
 .reaction-emoji :deep(img.emoji) {
   width: 1.125rem !important;
   height: 1.125rem !important;
@@ -192,5 +231,22 @@ html[data-theme='light'] .reaction-pill--others .reaction-count {
 .add-react-pill:hover .add-react-emoji :deep(img.emoji) {
   filter: grayscale(0.2);
   opacity: 1;
+}
+
+@keyframes reaction-custom-emoji-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reaction-emoji :deep(.custom-emoji-skeleton) {
+    animation: none;
+    opacity: 0.7;
+  }
 }
 </style>

@@ -14,7 +14,14 @@ import type { MessageWithAuthor, EchoChannelType } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import MessageBubble from './MessageBubble.vue';
 import MessageListHistorySkeleton from './MessageListHistorySkeleton.vue';
+import MessageListHistorySkeletonRow from './MessageListHistorySkeletonRow.vue';
+import MessageListOlderFetchLoadingHeader from './MessageListOlderFetchLoadingHeader.vue';
 import { buildHistorySkeletonRowsFromMessages } from './buildHistorySkeletonRowsFromMessages';
+import {
+  resolveHistorySkeletonAuthorName,
+  useMessageListOlderFetchSkeleton,
+} from '@/features/chat/domain/messageListOlderFetchSkeleton';
+import type { HistorySkeletonRow } from './messageListHistorySkeleton';
 import { readMessageSessionCacheForChannel } from '@/utils/messageSessionCache';
 import MessageListJumpFab from './MessageListJumpFab.vue';
 import {
@@ -550,22 +557,13 @@ const historySkeletonRows = computed(() => {
   if (!cid || !userId) return undefined;
   const cached = readMessageSessionCacheForChannel(userId, cid);
   if (!cached?.messages.length) return undefined;
-  return buildHistorySkeletonRowsFromMessages(cached.messages, (authorId) => {
-    for (const msg of cached.messages) {
-      if (msg.authorId === authorId && msg.authorDisplayName?.trim()) {
-        return msg.authorDisplayName.trim();
-      }
-    }
-    for (const msg of props.messages.values()) {
-      if (msg.authorId === authorId) {
-        const name =
-          (msg as MessageWithAuthor & { authorName?: string }).authorName ??
-          msg.author?.name;
-        if (name?.trim()) return name.trim();
-      }
-    }
-    return 'Member';
-  });
+  return buildHistorySkeletonRowsFromMessages(cached.messages, (authorId) =>
+    resolveHistorySkeletonAuthorName(
+      authorId,
+      new Map(cached.messages.map((m) => [m.id ?? '', m])),
+      props.messages,
+    ),
+  );
 });
 
 const showNoServersYet = computed(
@@ -890,6 +888,44 @@ const measureRowPendingKeys = new Set<string>();
 /** Skip re-measure for stable rows whose rendered height did not change. */
 const measureRowLastHeightByKey = new Map<string, number>();
 const prependTransactionActive = ref(false);
+/** Virtualizer skeleton slots above the live window while `loadOlder` fetches. */
+const olderFetchSkeletonActive = ref(false);
+/** Fades out over newly prepended rows so placeholders dissolve into real messages. */
+const prependMorphRows = ref<HistorySkeletonRow[] | null>(null);
+const {
+  olderHistorySkeletonRows,
+  virtualizerOrderedIds,
+  isPrependSkeletonVirtualIndex,
+  virtualIndexToMessageIndex,
+  estimatePrependSkeletonRowSizePx,
+} = useMessageListOlderFetchSkeleton({
+  olderFetchSkeletonActive,
+  displayOrderedIds,
+  mergedEntitiesForList,
+  propsMessages: computed(() => props.messages),
+  currentUserId: computed(() => props.currentUserId),
+  channelId: computed(() => props.channelId),
+});
+
+function prependMorphRowAt(messageIndex: number): HistorySkeletonRow | null {
+  const rows = prependMorphRows.value;
+  if (!rows?.length || messageIndex < 0 || messageIndex >= rows.length) {
+    return null;
+  }
+  return rows[messageIndex] ?? null;
+}
+
+async function fadePrependMorphOverlay(
+  rows: HistorySkeletonRow[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  prependMorphRows.value = rows;
+  await nextTick();
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+  prependMorphRows.value = null;
+}
 const activePrependTxId = ref(0);
 const activePrependChannelId = ref<string | null>(null);
 let nextPrependTxId = 0;
@@ -926,19 +962,19 @@ function emitSeenMessageId(next: string | null): void {
   emit('seen-message-id-changed', next);
 }
 
-function estimateMessageRowSize(index: number): number {
-  const msgId = displayOrderedIds.value[index];
+function estimateMessageRowSizeForMessage(messageIndex: number): number {
+  const msgId = displayOrderedIds.value[messageIndex];
   const message = msgId ? mergedMessagesForList.value.get(msgId) : undefined;
   if (!message) return MESSAGE_LIST_DEFAULT_ROW_ESTIMATE_PX;
 
-  const rowVm = messageListRowPresentations.value[index];
+  const rowVm = messageListRowPresentations.value[messageIndex];
   const groupedWithPrevious = rowVm?.layout.groupedWithPrevious ?? false;
   const showDaySeparatorBefore =
     rowVm?.showDaySeparatorBefore ??
     shouldShowDaySeparatorBefore(
       displayOrderedIds.value,
       mergedMessagesForList.value,
-      index,
+      messageIndex,
     );
 
   return estimateMessageListRowSizePx({
@@ -946,6 +982,18 @@ function estimateMessageRowSize(index: number): number {
     showDaySeparatorBefore,
     message,
   });
+}
+
+function estimateMessageRowSize(virtualIndex: number): number {
+  if (isPrependSkeletonVirtualIndex(virtualIndex)) {
+    return estimatePrependSkeletonRowSizePx(
+      virtualIndex,
+      MESSAGE_LIST_DEFAULT_ROW_ESTIMATE_PX,
+    );
+  }
+  return estimateMessageRowSizeForMessage(
+    virtualIndexToMessageIndex(virtualIndex),
+  );
 }
 
 const virtualizerScrollPaddingStart = computed(
@@ -958,7 +1006,7 @@ const virtualizerScrollPaddingStart = computed(
  * instead of flashing the top and scrolling down on the next frame.
  */
 function estimateVirtualListTotalSizePx(): number {
-  const n = displayOrderedIds.value.length;
+  const n = virtualizerOrderedIds.value.length;
   let sum = virtualizerScrollPaddingStart.value + 16;
   for (let i = 0; i < n; i++) {
     sum += estimateMessageRowSize(i);
@@ -968,16 +1016,18 @@ function estimateVirtualListTotalSizePx(): number {
 
 /** Virtual list: display ids (may include DM call-log rollup row); row identity = message id (viewport contract). */
 const virtualizerOptions = computed(() => ({
-  count: displayOrderedIds.value.length,
+  count: virtualizerOrderedIds.value.length,
   getScrollElement: () => containerRef.value,
   estimateSize: estimateMessageRowSize,
-  overscan: coarsePointer.value
-    ? MESSAGE_LIST_OVERSCAN_COARSE
-    : MESSAGE_LIST_OVERSCAN,
+  overscan: olderFetchSkeletonActive.value
+    ? MESSAGE_LIST_OVERSCAN * 2
+    : coarsePointer.value
+      ? MESSAGE_LIST_OVERSCAN_COARSE
+      : MESSAGE_LIST_OVERSCAN,
   scrollPaddingStart: virtualizerScrollPaddingStart.value,
   scrollPaddingEnd: 16,
   /** TanStack row identity: message id string only — no index, no composite, no revision churn. */
-  getItemKey: (index: number) => displayOrderedIds.value[index] ?? '',
+  getItemKey: (index: number) => virtualizerOrderedIds.value[index] ?? '',
   /**
    * Reset when switching channels and when the window goes from empty → first messages.
    * The empty/has suffix ensures a fresh virtualizer on first history paint so
@@ -999,7 +1049,7 @@ const virtualizerOptions = computed(() => ({
         if (anchorIndex >= 0) {
           let offset = 0;
           for (let i = 0; i < anchorIndex; i++) {
-            offset += estimateMessageRowSize(i);
+            offset += estimateMessageRowSizeForMessage(i);
           }
           return Math.max(0, offset - saved.anchorTop);
         }
@@ -1543,11 +1593,15 @@ async function loadOlderWithTransaction() {
   });
 
   const txId = beginPrependTransaction(channelId, snapshot);
+  olderFetchSkeletonActive.value = true;
+  const morphRowsSnapshot = olderHistorySkeletonRows.value.slice();
+  const messageCountBeforeFetch = displayOrderedIds.value.length;
   let restoreRan = false;
   let lastAnchorRestoreOk = false;
   try {
     const added = await fn();
     if (!added || !isPrependTransactionCurrent(channelId, txId)) {
+      olderFetchSkeletonActive.value = false;
       logMessageList('prepend', 'prepend_tx_after_fetch', {
         txId,
         added: !!added,
@@ -1569,6 +1623,7 @@ async function loadOlderWithTransaction() {
       });
       return;
     }
+    olderFetchSkeletonActive.value = false;
     await nextTick();
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => resolve());
@@ -1577,6 +1632,10 @@ async function loadOlderWithTransaction() {
       performance.mark(`messagelist-prepend-nexttick-${txId}`);
     restoreRan = true;
     const restore = restorePrependScroll(el, snapshot);
+    const addedCount = displayOrderedIds.value.length - messageCountBeforeFetch;
+    void fadePrependMorphOverlay(
+      morphRowsSnapshot.slice(0, Math.max(0, addedCount)),
+    );
     lastObservedScrollTop = el.scrollTop;
     const anchorAfter = measureMessageTopInContainer(
       el,
@@ -1609,6 +1668,7 @@ async function loadOlderWithTransaction() {
       clientHeight: el.clientHeight,
     });
   } finally {
+    olderFetchSkeletonActive.value = false;
     finalizePrependTransaction(channelId, txId);
     if (t0) {
       logMessageList('prepend', 'prepend_tx_done', {
@@ -2046,6 +2106,8 @@ watch(
     coldLoadInProgress.value = !!cid && isEmpty.value;
     suppressLoadOlderUntilLeaveTopZone = false;
     prependTransactionActive.value = false;
+    olderFetchSkeletonActive.value = false;
+    prependMorphRows.value = null;
     activePrependChannelId.value = null;
     activePrependTxId.value = 0;
     if (cid) {
@@ -2463,18 +2525,21 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
         const idxAttr = element.getAttribute('data-index');
         const idx = idxAttr != null ? Number(idxAttr) : NaN;
         if (messageListDebugEnabled()) {
-          const rowVm = Number.isFinite(idx)
-            ? (messageListRowPresentations.value[idx] ?? null)
+          const messageIndex = virtualIndexToMessageIndex(idx);
+          const rowVm = Number.isFinite(messageIndex)
+            ? (messageListRowPresentations.value[messageIndex] ?? null)
             : null;
           const est =
-            Number.isFinite(idx) &&
-            idx >= 0 &&
-            idx < displayOrderedIds.value.length
-              ? estimateMessageRowSize(idx)
-              : null;
+            Number.isFinite(messageIndex) &&
+            messageIndex >= 0 &&
+            messageIndex < displayOrderedIds.value.length
+              ? estimateMessageRowSizeForMessage(messageIndex)
+              : isPrependSkeletonVirtualIndex(idx)
+                ? estimateMessageRowSize(idx)
+                : null;
           if (est != null && Math.abs(est - h) >= 24) {
-            const msgId = Number.isFinite(idx)
-              ? (displayOrderedIds.value[idx] ?? null)
+            const msgId = Number.isFinite(messageIndex)
+              ? (displayOrderedIds.value[messageIndex] ?? null)
               : null;
             logMessageList('measure', 'row_height_est_mismatch', {
               channelId: props.channelId ?? null,
@@ -2605,30 +2670,6 @@ defineExpose({
         />
       </div>
       <div v-else class="relative w-full min-h-0">
-        <div
-          v-if="loadingOlder"
-          class="message-list-older-loader sticky top-0 z-10 flex w-full justify-center py-2"
-          role="status"
-          aria-live="polite"
-          aria-label="Loading older messages"
-        >
-          <svg
-            class="echo-ios-spinner"
-            viewBox="0 0 44 44"
-            width="28"
-            height="28"
-            aria-hidden="true"
-          >
-            <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
-            <circle
-              class="echo-ios-spinner__arc"
-              cx="22"
-              cy="22"
-              r="18"
-              transform="rotate(-90 22 22)"
-            />
-          </svg>
-        </div>
         <DmHistoryIntroCard
           v-if="showDmHistoryIntro && props.dmHistoryIntro"
           class="mb-3"
@@ -2650,48 +2691,122 @@ defineExpose({
         >
           <div
             v-for="virtualRow in virtualizerItems"
-            :key="displayOrderedIds[virtualRow.index] ?? ''"
+            :key="virtualizerOrderedIds[virtualRow.index] ?? ''"
             :data-index="virtualRow.index"
             :ref="measureRowRef"
             class="absolute left-0 top-0 w-full max-w-full [contain:layout]"
             :style="{ transform: `translateY(${virtualRow.start}px)` }"
           >
             <div class="w-full max-w-full">
-              <MessageBubble
-                :row="messageListRowPresentations[virtualRow.index]!"
-                :channel-id="channelId"
-                :is-forum-post-channel="isForumPostChannel"
-                :server-id="serverId"
-                :resolve-author-role="resolveAuthorRole"
-                :current-user-id="currentUserId"
-                :linked-discord-user-id="linkedDiscordUserId"
-                :current-user-name="currentUserName"
-                :resolve-poll-voter-display="resolvePollVoterDisplay"
-                :resolve-poll-voter-avatar="resolvePollVoterAvatar"
-                :on-vote="getVoteHandler(displayOrderedIds[virtualRow.index])"
-                :on-react="getReactHandler(displayOrderedIds[virtualRow.index])"
-                :fill-image-slot="forwardFillImageSlot"
-                :on-go-to-channel="onGoToChannel"
-                :on-go-to-message="onGoToMessage"
-                :on-open-profile="onOpenProfile"
-                :on-open-profile-from-context-menu="
-                  onOpenProfileFromContextMenu
+              <div
+                v-if="isPrependSkeletonVirtualIndex(virtualRow.index)"
+                :role="virtualRow.index === 0 ? 'status' : undefined"
+                :aria-live="virtualRow.index === 0 ? 'polite' : undefined"
+                :aria-label="
+                  virtualRow.index === 0 ? 'Loading older messages' : undefined
                 "
-                @delete="forwardBubbleDelete"
-                @reply="forwardBubbleReply"
-                @edit="forwardBubbleEdit"
-                @expand-dm-call-roll="handleExpandDmCallRollFromBubble"
-                :is-pinned="
-                  displayOrderedIds[virtualRow.index]
-                    ? pinnedIdSet.has(displayOrderedIds[virtualRow.index])
-                    : false
-                "
-                :on-pin="getPinHandler(displayOrderedIds[virtualRow.index])"
-                :on-unpin="getUnpinHandler(displayOrderedIds[virtualRow.index])"
-                :can-moderate-author="canModerateAuthor"
-                @moderate-user="onModerateUser?.($event)"
-                :on-request-forward="onRequestForward"
-              />
+                :aria-hidden="virtualRow.index === 0 ? undefined : true"
+              >
+                <MessageListOlderFetchLoadingHeader
+                  v-if="virtualRow.index === 0"
+                />
+                <MessageListHistorySkeletonRow
+                  :row="olderHistorySkeletonRows[virtualRow.index]!"
+                  :is-first="virtualRow.index === 0"
+                />
+              </div>
+              <div v-else class="relative w-full max-w-full">
+                <MessageBubble
+                  :row="
+                    messageListRowPresentations[
+                      virtualIndexToMessageIndex(virtualRow.index)
+                    ]!
+                  "
+                  :channel-id="channelId"
+                  :is-forum-post-channel="isForumPostChannel"
+                  :server-id="serverId"
+                  :resolve-author-role="resolveAuthorRole"
+                  :current-user-id="currentUserId"
+                  :linked-discord-user-id="linkedDiscordUserId"
+                  :current-user-name="currentUserName"
+                  :resolve-poll-voter-display="resolvePollVoterDisplay"
+                  :resolve-poll-voter-avatar="resolvePollVoterAvatar"
+                  :on-vote="
+                    getVoteHandler(
+                      displayOrderedIds[
+                        virtualIndexToMessageIndex(virtualRow.index)
+                      ],
+                    )
+                  "
+                  :on-react="
+                    getReactHandler(
+                      displayOrderedIds[
+                        virtualIndexToMessageIndex(virtualRow.index)
+                      ],
+                    )
+                  "
+                  :fill-image-slot="forwardFillImageSlot"
+                  :on-go-to-channel="onGoToChannel"
+                  :on-go-to-message="onGoToMessage"
+                  :on-open-profile="onOpenProfile"
+                  :on-open-profile-from-context-menu="
+                    onOpenProfileFromContextMenu
+                  "
+                  @delete="forwardBubbleDelete"
+                  @reply="forwardBubbleReply"
+                  @edit="forwardBubbleEdit"
+                  @expand-dm-call-roll="handleExpandDmCallRollFromBubble"
+                  :is-pinned="
+                    displayOrderedIds[
+                      virtualIndexToMessageIndex(virtualRow.index)
+                    ]
+                      ? pinnedIdSet.has(
+                          displayOrderedIds[
+                            virtualIndexToMessageIndex(virtualRow.index)
+                          ],
+                        )
+                      : false
+                  "
+                  :on-pin="
+                    getPinHandler(
+                      displayOrderedIds[
+                        virtualIndexToMessageIndex(virtualRow.index)
+                      ],
+                    )
+                  "
+                  :on-unpin="
+                    getUnpinHandler(
+                      displayOrderedIds[
+                        virtualIndexToMessageIndex(virtualRow.index)
+                      ],
+                    )
+                  "
+                  :can-moderate-author="canModerateAuthor"
+                  @moderate-user="onModerateUser?.($event)"
+                  :on-request-forward="onRequestForward"
+                />
+                <Transition name="prepend-skeleton-fade">
+                  <div
+                    v-if="
+                      prependMorphRowAt(
+                        virtualIndexToMessageIndex(virtualRow.index),
+                      )
+                    "
+                    class="prepend-morph-overlay pointer-events-none absolute inset-0 z-[1]"
+                  >
+                    <MessageListHistorySkeletonRow
+                      :row="
+                        prependMorphRowAt(
+                          virtualIndexToMessageIndex(virtualRow.index),
+                        )!
+                      "
+                      :is-first="
+                        virtualIndexToMessageIndex(virtualRow.index) === 0
+                      "
+                    />
+                  </div>
+                </Transition>
+              </div>
             </div>
           </div>
         </div>
@@ -2767,6 +2882,25 @@ defineExpose({
 }
 .msg-skeleton-fade-enter-active {
   transition: opacity 140ms ease;
+}
+
+/*
+ * Scroll-up fill-in: skeleton overlay dissolves over freshly prepended messages
+ * (Discord-style — placeholders morph into real rows instead of vanishing).
+ */
+.prepend-morph-overlay {
+  background: var(--echo-chat-view-bg);
+}
+.prepend-skeleton-fade-leave-active {
+  transition: opacity 200ms ease;
+}
+.prepend-skeleton-fade-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .prepend-skeleton-fade-leave-active {
+    transition: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .msg-skeleton-fade-leave-active,

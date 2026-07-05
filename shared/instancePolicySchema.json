@@ -148,6 +148,13 @@
                 "maxPerMinute": { "type": "integer", "minimum": 1 }
               }
             },
+            "authSessionRead": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "maxPerMinute": { "type": "integer", "minimum": 1 }
+              }
+            },
             "routes": { "type": "object" },
             "absolute": { "type": "object" }
           }

@@ -36,6 +36,12 @@ import {
 } from './forumCreatorAccess';
 import { parseAutoDeleteAfterSecondsPatch } from './messageAutoDelete';
 import { bootstrapEchoPaperDocument } from './paper';
+import {
+  discordImportPfpRepairCandidateFromMemberRow,
+  applyRepairedDiscordImportPfpsToMembersByServer,
+  repairDiscordImportPfpsForUsers,
+  type DiscordImportPfpRepairRow,
+} from '../../services/discordImportAvatarMirror';
 
 export async function listEchoChannels(
   pool: pg.Pool,
@@ -597,6 +603,8 @@ export async function listEchoWorkspaceForUser(
              COALESCE(u.pfp, '') AS pfp,
              u.is_discord_shadow,
              d.discord_user_id AS shadow_discord_user_id,
+             NULLIF(TRIM(d.avatar_url), '') AS shadow_avatar_url,
+             l.discord_user_id AS linked_discord_user_id,
              COALESCE(u.is_guest, false) AS is_guest,
              COALESCE(NULLIF(TRIM(u.echo_plan), ''), 'free') AS echo_plan,
              u.signup_ordinal,
@@ -613,6 +621,7 @@ export async function listEchoWorkspaceForUser(
       FROM echo_server_members m
       INNER JOIN auth_users u ON u.id = m.user_id
       LEFT JOIN echo_discord_shadow_users d ON d.shadow_user_id = u.id
+      LEFT JOIN auth_discord_user_links l ON l.user_id = u.id
       LEFT JOIN echo_server_member_timeouts t
         ON t.server_id = m.server_id
        AND t.user_id = m.user_id
@@ -635,10 +644,13 @@ export async function listEchoWorkspaceForUser(
   for (const sid of serverIds) {
     membersByServer[sid] = [];
   }
+  const pfpRepairCandidates: DiscordImportPfpRepairRow[] = [];
   for (const row of memRes.rows as Record<string, unknown>[]) {
     const sid = String(row.server_id ?? '');
     if (!sid || !membersByServer[sid]) continue;
     const rawPfp = String(row.pfp ?? '').trim();
+    const repairCandidate = discordImportPfpRepairCandidateFromMemberRow(row);
+    if (repairCandidate) pfpRepairCandidates.push(repairCandidate);
     const pfp = rawPfp;
     const joinedRaw = (row as { joined_at?: unknown }).joined_at;
     const joinedAt =
@@ -733,6 +745,16 @@ export async function listEchoWorkspaceForUser(
       timeZone,
     });
   }
+
+  const repairedPfps = await repairDiscordImportPfpsForUsers(
+    pool,
+    pfpRepairCandidates,
+    { persist: true },
+  );
+  applyRepairedDiscordImportPfpsToMembersByServer(
+    membersByServer,
+    repairedPfps,
+  );
 
   const categoriesByServerId = new Map<
     string,

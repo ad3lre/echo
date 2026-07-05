@@ -772,6 +772,8 @@ export interface AppLayoutControllerContext {
 
   // Voice / Calls
   onVcChatButtonClick: () => void;
+  /** Compact mobile: leave CallView while staying in VC. */
+  handleMinimizeVoiceView: () => void;
   handleJoinVoice: (payload: {
     channelId: string;
     channelName: string;

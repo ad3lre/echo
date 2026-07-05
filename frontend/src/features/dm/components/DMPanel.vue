@@ -138,7 +138,7 @@ const props = defineProps<{
   phoneCallIcon?: string;
   /** When true, Friends and Notifications tabs prompt upgrade instead of opening. */
   guestFriendsLocked?: boolean;
-  /** Phone home tab: messages list only (no header/tabs; friends live in MobileHomeSurface). */
+  /** Phone home tab: messages list with Friends/Notifications widget rows (full views open in main column). */
   phoneCombinedHub?: boolean;
   /**
    * Live presence overlay keyed by user id — from presenceByUserId in the layout controller.
@@ -715,6 +715,20 @@ const pendingFriendRequestCount = computed(
     props.friendRequestsIncoming.length + props.friendRequestsOutgoing.length,
 );
 
+const friendsRowSelected = computed(() => props.activeTab === 'friends');
+
+const friendsLatestPreview = computed(() => {
+  const count = friendUsers.value.length;
+  if (count === 0) return 'Add friends to get started';
+  const online = friendUsers.value.filter(
+    (u) => friendRowPresence(u).status === 'online',
+  ).length;
+  if (online > 0) {
+    return `${online} online · ${count} total`;
+  }
+  return `${count} friend${count === 1 ? '' : 's'}`;
+});
+
 const showSidebarRingtonePlayer = computed(
   () =>
     !!props.dmCallWithUserId &&
@@ -761,17 +775,17 @@ watch(
 <template>
   <aside
     v-bind="$attrs"
-    class="dm-panel relative min-w-0 overflow-hidden"
+    class="dm-panel relative min-w-0"
     :class="[
       open ? 'pointer-events-auto dm-panel--open' : 'pointer-events-none',
-      phoneCombinedHub ? 'h-auto' : 'h-full',
+      phoneCombinedHub ? 'h-auto overflow-visible' : 'h-full overflow-hidden',
     ]"
   >
     <div
-      class="dm-panel__inner flex min-w-0 flex-col overflow-hidden"
+      class="dm-panel__inner flex min-w-0 flex-col"
       :class="[
         open ? 'dm-panel__inner--open' : 'dm-panel__inner--closed',
-        phoneCombinedHub ? 'h-auto' : 'h-full',
+        phoneCombinedHub ? 'h-auto overflow-visible' : 'h-full overflow-hidden',
       ]"
       :inert="!open"
     >
@@ -811,6 +825,14 @@ watch(
           </svg>
           <span>Collapse</span>
         </button>
+      </div>
+
+      <div v-if="phoneCombinedHub" class="shrink-0 px-3 pb-1 pt-2">
+        <h2
+          class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Messages
+        </h2>
       </div>
 
       <!-- Tab bar: switches main content -->
@@ -865,9 +887,16 @@ watch(
         </button>
       </div>
 
-      <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div
+        class="flex flex-col"
+        :class="phoneCombinedHub ? '' : 'min-h-0 flex-1 overflow-hidden'"
+      >
         <div
-          class="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 py-2.5"
+          :class="
+            phoneCombinedHub
+              ? 'px-3 py-2.5'
+              : 'custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 py-2.5'
+          "
         >
           <!-- Messages tab: search + DM list (also shown while the Notifications
                conversation is open, so the pinned row stays visible). -->
@@ -949,6 +978,80 @@ watch(
                 </div>
                 <div class="truncate text-xs text-fg-soft">
                   {{ notificationLatestPreview }}
+                </div>
+              </div>
+            </button>
+
+            <button
+              v-if="phoneCombinedHub"
+              type="button"
+              class="dm-user-row relative flex w-full shrink-0 items-center gap-3 rounded-xl text-left transition-colors"
+              :class="
+                friendsRowSelected
+                  ? 'dm-user-row--selected'
+                  : 'dm-user-row--idle'
+              "
+              :title="
+                guestFriendsLocked
+                  ? 'Create an account to use Friends'
+                  : pendingFriendRequestCount > 0
+                    ? `${pendingFriendRequestCount} pending friend request(s)`
+                    : undefined
+              "
+              :aria-label="
+                guestFriendsLocked
+                  ? 'Friends (account required)'
+                  : pendingFriendRequestCount > 0
+                    ? `Friends, ${pendingFriendRequestCount} pending friend requests`
+                    : 'Friends'
+              "
+              @click="setActiveTab('friends')"
+            >
+              <div class="relative h-10 w-10 shrink-0">
+                <div
+                  class="dm-friends-avatar flex h-10 w-10 items-center justify-center overflow-hidden rounded-full"
+                >
+                  <svg
+                    class="h-5 w-5 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </div>
+                <span
+                  v-if="guestFriendsLocked"
+                  class="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"
+                  title="Upgrade to unlock Friends"
+                />
+                <span
+                  v-else-if="pendingFriendRequestCount > 0"
+                  class="dm-unread-badge pointer-events-none absolute -right-1 -top-1 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full border-[2.5px] border-[var(--echo-dm-chrome-bg)] bg-[#f23f42] px-[5px] text-[10px] font-bold leading-none text-white shadow-sm"
+                  :title="`${pendingFriendRequestCount} pending`"
+                >
+                  {{
+                    pendingFriendRequestCount > 99
+                      ? '99+'
+                      : pendingFriendRequestCount
+                  }}
+                </span>
+              </div>
+              <div class="min-w-0 flex-1 truncate">
+                <div class="flex min-w-0 items-center gap-2">
+                  <span class="truncate text-sm font-medium text-foreground"
+                    >Friends</span
+                  >
+                </div>
+                <div class="truncate text-xs text-fg-soft">
+                  {{ friendsLatestPreview }}
                 </div>
               </div>
             </button>
@@ -1273,7 +1376,10 @@ watch(
           </div>
 
           <!-- Friends tab: list of friends (main view has full Friends UI) -->
-          <div v-else-if="activeTab === 'friends'" class="flex flex-col gap-2">
+          <div
+            v-else-if="activeTab === 'friends' && !phoneCombinedHub"
+            class="flex flex-col gap-2"
+          >
             <div class="dm-list-search-wrap relative shrink-0">
               <input
                 v-model="friendListSearch"
@@ -1649,6 +1755,15 @@ watch(
     140deg,
     color-mix(in srgb, var(--accent) 92%, white 8%) 0%,
     color-mix(in srgb, var(--accent) 62%, black 12%) 100%
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 14%, transparent);
+}
+
+.dm-friends-avatar {
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, #23a559 92%, white 8%) 0%,
+    color-mix(in srgb, #1a7f45 62%, black 12%) 100%
   );
   box-shadow: inset 0 0 0 1px color-mix(in srgb, white 14%, transparent);
 }

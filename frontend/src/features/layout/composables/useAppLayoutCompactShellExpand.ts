@@ -1,4 +1,5 @@
 import type { ComputedRef, Ref } from 'vue';
+import type { MobileBottomTabId } from '@/features/layout/mobileBottomTab';
 
 export function useAppLayoutCompactShellExpand(deps: {
   isCompactShell: Ref<boolean>;
@@ -10,6 +11,9 @@ export function useAppLayoutCompactShellExpand(deps: {
   memberPanelCollapsed: Ref<boolean>;
   mobileChannelSheetOpen: Ref<boolean>;
   mobileMembersOverlayOpen: Ref<boolean>;
+  mobileBottomTab?: Ref<MobileBottomTabId>;
+  mobileServersStack?: Ref<'list' | 'guild'>;
+  hasActiveGuildChannel?: () => boolean;
   expandChannelsGrid: () => void;
   markMemberPanelExpandedByUser: () => void;
   markMemberPanelCollapsedByUser: () => void;
@@ -18,8 +22,18 @@ export function useAppLayoutCompactShellExpand(deps: {
   expandMembers: () => void;
   collapseMembers: () => void;
 } {
+  function focusPhoneServersGuildSurface() {
+    if (deps.mobileBottomTab) {
+      deps.mobileBottomTab.value = 'servers';
+    }
+    if (deps.mobileServersStack && deps.hasActiveGuildChannel?.()) {
+      deps.mobileServersStack.value = 'guild';
+    }
+  }
+
   function expandChannels() {
     if (deps.useCompactPhoneTabShell.value) {
+      focusPhoneServersGuildSurface();
       deps.mobileChannelSheetOpen.value = true;
       return;
     }
@@ -40,6 +54,7 @@ export function useAppLayoutCompactShellExpand(deps: {
 
   function expandMembers() {
     if (deps.useCompactPhoneTabShell.value) {
+      focusPhoneServersGuildSurface();
       deps.mobileMembersOverlayOpen.value = true;
       deps.memberPanelCollapsed.value = false;
       deps.markMemberPanelExpandedByUser();
@@ -101,6 +116,9 @@ export function createAppLayoutToggleMemberList(deps: {
   compactPagerPane: Ref<number>;
   memberPanelCollapsed: Ref<boolean>;
   mobileMembersOverlayOpen: Ref<boolean>;
+  mobileBottomTab?: Ref<MobileBottomTabId>;
+  mobileServersStack?: Ref<'list' | 'guild'>;
+  hasActiveGuildChannel?: () => boolean;
   toggleMemberListBase: () => void;
   markMemberPanelExpandedByUser: () => void;
   markMemberPanelCollapsedByUser: () => void;
@@ -108,6 +126,14 @@ export function createAppLayoutToggleMemberList(deps: {
   return function toggleMemberList() {
     if (deps.useCompactPhoneTabShell.value) {
       const opening = !deps.mobileMembersOverlayOpen.value;
+      if (opening) {
+        if (deps.mobileBottomTab) {
+          deps.mobileBottomTab.value = 'servers';
+        }
+        if (deps.mobileServersStack && deps.hasActiveGuildChannel?.()) {
+          deps.mobileServersStack.value = 'guild';
+        }
+      }
       deps.mobileMembersOverlayOpen.value = opening;
       deps.memberPanelCollapsed.value = !opening;
       if (opening) {

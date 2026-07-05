@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeKatexInput } from './normalizeKatexInput';
+import {
+  ensureDisplayStyleForOperatorLimits,
+  normalizeKatexInput,
+} from './normalizeKatexInput';
 
 describe('normalizeKatexInput', () => {
   it('normalizes the invariant-set formula (golden)', () => {
@@ -59,5 +62,25 @@ describe('normalizeKatexInput', () => {
     const raw = String.raw`\begin{array}{cc} 1 & 2 \ \ 3 & 4 \end{array}`;
     const want = String.raw`\begin{array}{cc} 1 & 2\\3 & 4 \end{array}`;
     expect(normalizeKatexInput(raw)).toBe(want);
+  });
+});
+
+describe('ensureDisplayStyleForOperatorLimits', () => {
+  it('prepends \\displaystyle for inline integrals and sums with limits', () => {
+    const latex = String.raw`\int_{-\infty}^{\infty} e^{-x^2}\,dx`;
+    expect(ensureDisplayStyleForOperatorLimits(latex, false)).toBe(
+      String.raw`\displaystyle ${latex}`,
+    );
+    expect(ensureDisplayStyleForOperatorLimits(latex, true)).toBe(latex);
+  });
+
+  it('leaves inline math without large-operator limits unchanged', () => {
+    const latex = String.raw`\frac{1}{2} + x_i^2`;
+    expect(ensureDisplayStyleForOperatorLimits(latex, false)).toBe(latex);
+  });
+
+  it('does not double-apply when \\displaystyle is already present', () => {
+    const latex = String.raw`\displaystyle \sum_{i=1}^{n} x_i`;
+    expect(ensureDisplayStyleForOperatorLimits(latex, false)).toBe(latex);
   });
 });

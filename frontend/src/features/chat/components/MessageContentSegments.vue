@@ -25,6 +25,7 @@ const props = defineProps<{
   onJumpToMessage?: (channelId: string, messageId: string) => void;
   magicTime?: MagicTimeRenderContext | null;
   canFillImageSlots?: boolean;
+  imageSlotUploading?: boolean;
   onFillImageSlot?: (slotId: string) => void;
 }>();
 
@@ -168,6 +169,7 @@ function rowKey(row: EchoRenderedMessageRow, i: number): string {
       :width="row.width"
       :height="row.height"
       :can-fill="canFillImageSlots"
+      :uploading="imageSlotUploading"
       :class="embedMarginClass(i)"
       @fill="(slotId) => onFillImageSlot?.(slotId)"
     />

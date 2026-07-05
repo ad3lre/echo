@@ -61,11 +61,9 @@ export function echoMessageRowNeedsDiscordMediaMirror(
   const st = row.stickers;
   if (Array.isArray(st)) {
     for (const s of st) {
-      if (
-        s &&
-        typeof s.url === 'string' &&
-        isDiscordHostedImportMediaUrl(s.url)
-      )
+      // Lottie stickers stay on Discord's unsigned CDN; mirroring JSON is unsupported.
+      if (!s || s.format === 'lottie') continue;
+      if (typeof s.url === 'string' && isDiscordHostedImportMediaUrl(s.url))
         return true;
     }
   }

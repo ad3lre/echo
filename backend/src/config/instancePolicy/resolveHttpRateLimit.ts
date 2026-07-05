@@ -81,3 +81,7 @@ export function resolveGlobalHttpRateLimitMaxPerMinute(): number {
 export function resolveEchoApiRateLimitMaxPerMinute(): number {
   return getInstancePolicy().limits.http.echoApi.maxPerMinute;
 }
+
+export function resolveAuthSessionReadRateLimitMaxPerMinute(): number {
+  return getInstancePolicy().limits.http.authSessionRead.maxPerMinute;
+}

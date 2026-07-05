@@ -7,6 +7,7 @@ import {
   applyOutputSink,
   applyOutputSinkToAudioContext,
 } from '@/audio/applyOutputSink';
+import { primeEchoAudioPlayback } from '@/composables/useEchoSounds';
 import { supportsAudioContextOutputSelection } from '@/platform/browserCompatibility';
 
 function linearGainFromVolumePct(volumePct: number): number {
@@ -63,6 +64,7 @@ export function useMicTestMonitor() {
     inputVolumePct = 100,
   ) {
     stop();
+    primeEchoAudioPlayback();
     const outputVol = linearGainFromVolumePct(outputVolumePct);
     const inputVol = linearGainFromVolumePct(inputVolumePct);
     htmlInputLinearGain = inputVol;

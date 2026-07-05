@@ -61,6 +61,13 @@ function sessionTtlSeconds(): number {
 function getRedis(): Redis | null {
   if (!config.redisUrl?.trim()) return null;
   const rt = sessionRuntime();
+  const status = rt.redisClient?.status;
+  if (
+    rt.redisClient &&
+    (status === 'end' || status === 'close' || status === 'wait')
+  ) {
+    rt.redisClient = null;
+  }
   if (!rt.redisClient) {
     rt.redisClient = new Redis(
       config.redisUrl.trim(),
@@ -106,6 +113,13 @@ async function updateRedisSessionWithCas(
   }
 }
 
+/** Matches `randomBytes(24).toString('base64url')` session ids. */
+const SERVER_SESSION_ID_RE = /^[A-Za-z0-9_-]{32}$/;
+
+export function isServerSessionIdFormat(sessionId: string): boolean {
+  return SERVER_SESSION_ID_RE.test(sessionId);
+}
+
 export function createSessionId(): string {
   return randomBytes(24).toString('base64url');
 }
@@ -145,6 +159,17 @@ export async function saveServerSession(
     rt.memUserIndex.set(payload.userId, set);
   }
   set.add(sessionId);
+}
+
+/** Lightweight existence probe for rate-limit keying (no JSON parse). */
+export async function serverSessionExists(sessionId: string): Promise<boolean> {
+  if (!isServerSessionIdFormat(sessionId)) return false;
+  const r = getRedis();
+  if (r) {
+    return (await r.exists(REDIS_KEY(sessionId))) === 1;
+  }
+  const row = sessionRuntime().memSessions.get(sessionId);
+  return row !== undefined && row.expiresAt > Date.now();
 }
 
 export async function getServerSession(

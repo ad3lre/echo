@@ -804,6 +804,7 @@ export function wireAppLayoutDmAndShell() {
     vcMuted,
     vcDeafened,
     micTestListenDeafenActive,
+    setMicTestListenDeafen,
     applyVcDeafened,
     vcVideo,
     vcScreenshare,

@@ -37,10 +37,15 @@ import {
   GOOGLE_INTEGRATION_ENABLED,
   YOUTUBE_INTEGRATION_ENABLED,
 } from '../../../../shared/integrationKillSwitches';
-import { getAccessUserIdFromAuthHeader } from '../../auth/token';
-import { isEchoApiReadRequest } from '../../bootstrap/echoReadRateLimitPaths';
-import { clientIpFromFastifyRequest } from '../../net/clientIp';
-import { resolveEchoApiRateLimitMaxPerMinute } from '../../config/instancePolicy/resolveHttpRateLimit';
+import { globalHttpRateLimitKey } from '../../api/globalRateLimitKey';
+import {
+  isAuthSessionReadRequest,
+  isEchoApiReadRequest,
+} from '../../bootstrap/echoReadRateLimitPaths';
+import {
+  resolveAuthSessionReadRateLimitMaxPerMinute,
+  resolveEchoApiRateLimitMaxPerMinute,
+} from '../../config/instancePolicy/resolveHttpRateLimit';
 
 /**
  * Registers all REST API routes under /api/v1.
@@ -62,17 +67,33 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(imageBrowseCategoriesRoutes, { prefix: '/api/v1' });
   await fastify.register(serperImageSearchRoutes, { prefix: '/api/v1' });
   await fastify.register(honchoMemoryRoutes, { prefix: '/api/v1' });
-  await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
-  await fastify.register(passkeyRoutes, { prefix: '/api/v1/auth' });
-  await fastify.register(discordOAuthRoutes, { prefix: '/api/v1/auth' });
-  // Sign in with Apple — native identity-token flow (POST /api/v1/auth/apple/login).
-  await fastify.register(appleOAuthRoutes, { prefix: '/api/v1/auth' });
+  await fastify.register(
+    async function authSessionReadRateLimitScope(instance) {
+      await instance.register(rateLimit, {
+        max: () => resolveAuthSessionReadRateLimitMaxPerMinute(),
+        timeWindow: '1 minute',
+        keyGenerator: globalHttpRateLimitKey,
+        allowList: (req: FastifyRequest) =>
+          !isAuthSessionReadRequest(req.method, req.url),
+        addHeaders: { 'retry-after': true },
+      });
+      await instance.register(authRoutes);
+      await instance.register(passkeyRoutes);
+      await instance.register(discordOAuthRoutes);
+      await instance.register(appleOAuthRoutes);
+      if (GOOGLE_INTEGRATION_ENABLED) {
+        await instance.register(googleOAuthRoutes);
+      }
+      if (YOUTUBE_INTEGRATION_ENABLED) {
+        await instance.register(youtubeOAuthRoutes);
+      }
+    },
+    { prefix: '/api/v1/auth' },
+  );
   if (GOOGLE_INTEGRATION_ENABLED) {
-    await fastify.register(googleOAuthRoutes, { prefix: '/api/v1/auth' });
     await fastify.register(meGoogleRoutes, { prefix: '/api/v1' });
   }
   if (YOUTUBE_INTEGRATION_ENABLED) {
-    await fastify.register(youtubeOAuthRoutes, { prefix: '/api/v1/auth' });
     await fastify.register(meYoutubeRoutes, { prefix: '/api/v1' });
   }
   await fastify.register(meDiscordRoutes, { prefix: '/api/v1' });
@@ -97,14 +118,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
       await instance.register(rateLimit, {
         max: () => resolveEchoApiRateLimitMaxPerMinute(),
         timeWindow: '1 minute',
-        keyGenerator: (req) => {
-          const userId = getAccessUserIdFromAuthHeader(
-            req.headers.authorization,
-          );
-          return userId
-            ? `uid:${userId}`
-            : `ip:${clientIpFromFastifyRequest(req)}`;
-        },
+        keyGenerator: globalHttpRateLimitKey,
         allowList: (req: FastifyRequest) =>
           !isEchoApiReadRequest(req.method, req.url),
         addHeaders: { 'retry-after': true },

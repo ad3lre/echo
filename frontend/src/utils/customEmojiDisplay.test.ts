@@ -42,15 +42,18 @@ describe('customEmojiDisplay', () => {
     const html = renderSingleEmojiHtml('<:wave:42>', {
       cachedById: new Map([['42', 'https://cdn.test/wave.webp']]),
     });
-    expect(html).toContain('class="emoji custom-emoji"');
+    expect(html).toMatch(/class="emoji custom-emoji/);
+    expect(html).toContain('custom-emoji-skeleton');
     expect(html).toContain('https://cdn.test/wave.webp');
   });
 
-  it('falls back to :name: when custom emoji cannot resolve', () => {
+  it('shows skeleton while custom emoji cannot resolve', () => {
     const html = renderSingleEmojiHtml('<:gone:7>', {
       cachedById: new Map(),
       echoResolveMissed: () => true,
     });
-    expect(html).toBe(':gone:');
+    expect(html).toContain('custom-emoji-inline--pending');
+    expect(html).toContain('custom-emoji-skeleton');
+    expect(html).not.toMatch(/>[^<]*:gone:[^<]*</);
   });
 });

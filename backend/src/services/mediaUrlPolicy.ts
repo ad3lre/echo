@@ -1,5 +1,6 @@
 import { isLikelyGifMediaUrl } from '../../../shared/gifHostLinks';
 import { config } from '../config';
+import { isDiscordHostedImportMediaUrl } from '../domain/discordCdnUrls';
 import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from './localUploadDisk';
 
@@ -24,6 +25,10 @@ export function mediaUrlPassesEchoPolicy(url: string): boolean {
   }
   /** GIF picker / Tenor-Giphy CDN direct media (not arbitrary third-party https). */
   if (isLikelyGifMediaUrl(t)) {
+    return true;
+  }
+  /** Discord import / bridge attachment and embed CDN URLs (incl. images-ext proxies). */
+  if (isDiscordHostedImportMediaUrl(t)) {
     return true;
   }
   if (config.echoMediaUrlRequireHttps && !t.startsWith('https://')) {

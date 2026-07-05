@@ -1,3 +1,4 @@
+import { AuthApiError } from '@/api/authClientCore';
 import { EchoApiError } from '@/api/echo/transport';
 
 export type PrimaryFlowFailureDetail = {
@@ -92,13 +93,17 @@ export function isBenignPrimaryFlowError(
   _context?: Record<string, unknown>,
 ): boolean {
   if (cause instanceof DOMException && cause.name === 'AbortError') return true;
-  if (!(cause instanceof EchoApiError)) return false;
+  if (!(cause instanceof EchoApiError || cause instanceof AuthApiError)) {
+    return false;
+  }
 
   const detail = cause.body.detail?.trim();
   if (detail && BENIGN_ECHO_API_DETAILS.has(detail)) return true;
 
   if (cause.status === 403) {
-    if (isPrefetchViewDeniedError(cause)) return true;
+    if (cause instanceof EchoApiError && isPrefetchViewDeniedError(cause)) {
+      return true;
+    }
     if (
       detail === 'NOT_SERVER_MEMBER' &&
       flow != null &&
@@ -106,6 +111,10 @@ export function isBenignPrimaryFlowError(
     ) {
       return true;
     }
+  }
+
+  if (cause.status === 429 && flow === 'restoreSessionFromApi') {
+    return true;
   }
 
   return false;

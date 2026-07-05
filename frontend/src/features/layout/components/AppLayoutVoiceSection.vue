@@ -333,6 +333,8 @@ const props = defineProps<{
   channelPanelCollapsed?: boolean;
   expandChannels?: () => void;
   onMobileBackToChannels?: () => void;
+  /** Compact mobile: leave CallView while staying connected. */
+  onMinimizeVoiceView?: () => void;
   /** Jump to owning guild and highlight this VC in the channel list. */
   focusGuildVoiceChannelInSidebar?: () => void;
   /** Join the guild voice/stage channel (used when entering stage from the lobby). */
@@ -497,6 +499,14 @@ const voiceMobileChatOverlayStyle = computed(() => {
     paddingBottom: `calc(3.5rem${dock} + env(safe-area-inset-bottom, 0px))`,
   };
 });
+
+/** Reserve space for the floating dock inside CallView (compact mobile). */
+const voiceSectionDockPadStyle = computed(() => {
+  if (!props.isCompactMobileGuild) return undefined;
+  const px = dockReservePx.value;
+  if (px <= 0) return undefined;
+  return { paddingBottom: `${px}px` };
+});
 </script>
 
 <template>
@@ -505,6 +515,7 @@ const voiceMobileChatOverlayStyle = computed(() => {
     <div
       class="voice-section-root flex min-h-0 min-w-0 flex-1 flex-col"
       :class="{ 'voice-section-root--mobile': isCompactMobileGuild }"
+      :style="voiceSectionDockPadStyle"
     >
       <div
         class="voice-section-main flex min-h-0 min-w-0 flex-1"
@@ -592,6 +603,33 @@ const voiceMobileChatOverlayStyle = computed(() => {
               class="h-3.5 w-3.5 brightness-0 invert"
             />
             <span>Back</span>
+          </button>
+          <button
+            v-if="
+              isCompactMobileGuild &&
+              onMinimizeVoiceView &&
+              !vcActivitySurfaceOpen &&
+              !stageShowLobby
+            "
+            type="button"
+            class="absolute right-3 top-[calc(env(safe-area-inset-top,0px)+0.45rem)] z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
+            aria-label="Browse chat while in voice"
+            title="Browse chat"
+            @click="onMinimizeVoiceView()"
+          >
+            <svg
+              class="h-3.5 w-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 15l-6-6-6 6" />
+            </svg>
+            <span>Chat</span>
           </button>
           <StageVcLobby
             v-if="stageShowLobby && voiceUiChannel"

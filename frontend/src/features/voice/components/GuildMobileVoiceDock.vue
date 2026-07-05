@@ -22,6 +22,10 @@ const props = defineProps<{
   onOpenVoiceSettings: () => void;
   onToggleVoiceChat: () => void;
   onLeaveVoice: () => void;
+  /** Leave CallView while staying connected (compact mobile). */
+  onMinimizeVoiceView?: () => void;
+  /** When true, show the minimize-to-chat control in the dock header. */
+  showMinimizeVoiceView?: boolean;
 }>();
 
 const micOff = computed(() => props.vcMuted || !!props.vcSelfServerMuted);
@@ -34,6 +38,11 @@ const serverModActive = computed(
 );
 
 const layoutChat = inject(LAYOUT_CHAT_SURFACE_KEY, null);
+
+const showMinimizeVoiceView = computed(
+  () => props.showMinimizeVoiceView ?? false,
+);
+const onMinimizeVoiceView = () => props.onMinimizeVoiceView?.();
 
 function openVoiceActivities() {
   const host = layoutChat as { openVcActivityPicker?: () => void } | null;
@@ -85,6 +94,27 @@ watch(
             />
           </button>
           <div class="flex shrink-0 items-center gap-0.5">
+            <button
+              v-if="showMinimizeVoiceView && onMinimizeVoiceView"
+              type="button"
+              class="vc-mobile-dock__minimize-btn"
+              aria-label="Browse channels while in voice"
+              title="Browse chat"
+              @click="onMinimizeVoiceView"
+            >
+              <svg
+                class="h-[20px] w-[20px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M18 15l-6-6-6 6" />
+              </svg>
+            </button>
             <button
               type="button"
               class="vc-mobile-dock__chat-btn"
@@ -339,6 +369,35 @@ html[data-theme='light'][data-echo-light-variant='sunny']
 .vc-mobile-dock__chat-btn--on:hover {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--accent);
+}
+
+.vc-mobile-dock__minimize-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+
+  &:hover {
+    background: var(--ui-glass-1);
+    color: var(--text);
+  }
+  &:active {
+    opacity: 0.85;
+  }
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: 2px;
+  }
 }
 
 .guild-mobile-voice-dock--above-tab-bar {

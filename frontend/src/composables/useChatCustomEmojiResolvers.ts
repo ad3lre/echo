@@ -4,6 +4,7 @@ import { useServerEmojiLibrary } from '@/composables/useServerEmojiLibrary';
 import {
   resolveCustomEmojiImageUrlForDisplay,
   safeCustomEmojiUrl,
+  shouldAllowDiscordCdnGuessForEmojiId,
 } from '@/utils/customEmojiUrl';
 import { collectCustomEmojiIdsFromTexts } from '@/utils/collectCustomEmojiIdsFromText';
 import {
@@ -130,22 +131,36 @@ export function useChatCustomEmojiResolvers(
     name: string,
     animated: boolean,
   ): string | undefined {
+    const cache = customEmojiUrlById.value;
+    const echoMissed = isEchoEmojiTokenResolveMiss(id);
+    const allowDiscordGuess = shouldAllowDiscordCdnGuessForEmojiId(
+      id,
+      cache,
+      echoMissed,
+    );
     let url = resolveCustomEmojiImageUrlForDisplay(
       id,
       animated,
-      customEmojiUrlById.value,
-      isEchoEmojiTokenResolveMiss(id),
-      { allowDiscordCdnGuess: isEchoEmojiTokenResolveMiss(id) },
+      cache,
+      echoMissed,
+      { allowDiscordCdnGuess: allowDiscordGuess },
     );
     if (!url && name.trim()) {
       const byName = customEmojiByName.value.get(name.trim().toLowerCase());
       if (byName) {
+        const byNameMissed = isEchoEmojiTokenResolveMiss(byName.id);
         url = resolveCustomEmojiImageUrlForDisplay(
           byName.id,
           byName.animated,
-          customEmojiUrlById.value,
-          isEchoEmojiTokenResolveMiss(byName.id),
-          { allowDiscordCdnGuess: isEchoEmojiTokenResolveMiss(byName.id) },
+          cache,
+          byNameMissed,
+          {
+            allowDiscordCdnGuess: shouldAllowDiscordCdnGuessForEmojiId(
+              byName.id,
+              cache,
+              byNameMissed,
+            ),
+          },
         );
         if (!url) globalEmojiResolver.ensureEmojiId(byName.id);
       }

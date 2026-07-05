@@ -72,6 +72,29 @@ async function main(): Promise<void> {
   console.log(
     `\n${execute ? 'Updated' : 'Would update'} ${totalUpdated} message(s) total.`,
   );
+
+  if (execute) {
+    const requeued = await pool.query(
+      `UPDATE echo_discord_import_media_mirror_queue
+       SET status = 'pending', last_error = NULL, attempts = 0, updated_at = NOW()
+       WHERE status = 'failed'
+       RETURNING message_id`,
+    );
+    console.log(
+      `Requeued ${requeued.rowCount ?? 0} failed Discord media mirror job(s).`,
+    );
+  } else {
+    const { rows: failedRows } = await pool.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM echo_discord_import_media_mirror_queue WHERE status = 'failed'`,
+    );
+    const failedCount = Number(failedRows[0]?.count ?? 0);
+    if (failedCount > 0) {
+      console.log(
+        `Would requeue ${failedCount} failed Discord media mirror job(s) when run with --execute.`,
+      );
+    }
+  }
+
   if (!execute) {
     console.log('Dry run. Re-run with --execute to apply.');
   }

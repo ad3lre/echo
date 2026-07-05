@@ -686,6 +686,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :channel-panel-collapsed="chatCtx.channelPanelCollapsed"
         :expand-channels="chatCtx.expandChannels"
         :on-mobile-back-to-channels="chatCtx.expandChannels"
+        :on-minimize-voice-view="chatCtx.handleMinimizeVoiceView"
         :focus-guild-voice-channel-in-sidebar="
           chatCtx.focusGuildVoiceChannelInSidebar
         "

@@ -32,6 +32,8 @@ const props = defineProps<{
   selectedUserId: string | null;
   echoPeerByChannelId?: ReadonlyMap<string, string>;
   messages?: Record<string, RawMessage[]>;
+  /** Phone home hub: friends block below DM list; scrolls with parent. */
+  phoneCombinedHub?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -222,20 +224,65 @@ function sendFriendRequestTo(userId: string) {
 </script>
 
 <template>
-  <div class="friends-view-root h-full min-h-0">
-    <div class="friends-view flex h-full flex-col overflow-hidden">
+  <div
+    class="friends-view-root"
+    :class="phoneCombinedHub ? 'friends-view-root--embedded' : 'h-full min-h-0'"
+  >
+    <div
+      class="friends-view flex flex-col"
+      :class="
+        phoneCombinedHub ? 'friends-view--embedded' : 'h-full overflow-hidden'
+      "
+    >
       <div
-        class="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-5 pt-0"
+        class="flex flex-col"
+        :class="
+          phoneCombinedHub
+            ? 'px-1 pb-1'
+            : 'custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-5 pt-0'
+        "
       >
-        <div class="flex min-h-0 w-full flex-1 flex-col">
+        <div
+          class="flex w-full flex-col"
+          :class="phoneCombinedHub ? '' : 'min-h-0 flex-1'"
+        >
           <header
-            class="friends-header sticky top-0 z-10 flex min-h-[3.25rem] w-full items-center px-4 py-2"
+            class="friends-header flex w-full flex-col"
+            :class="
+              phoneCombinedHub
+                ? 'gap-2 pb-1'
+                : 'sticky top-0 z-10 min-h-[3.25rem] px-4 py-2'
+            "
           >
-            <div class="grid w-full grid-cols-[auto_1fr] items-center gap-3">
-              <div class="flex shrink-0 items-center justify-start">
+            <div
+              v-if="phoneCombinedHub"
+              class="flex min-w-0 items-center justify-between gap-2 px-1"
+            >
+              <h2
+                class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
+              >
+                Friends
+              </h2>
+              <span
+                v-if="pendingCount > 0"
+                class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-glass-2 px-1.5 text-[10px] font-bold text-foreground"
+              >
+                {{ pendingCount }}
+              </span>
+            </div>
+
+            <div
+              class="grid w-full items-center gap-3"
+              :class="phoneCombinedHub ? 'grid-cols-1' : 'grid-cols-[auto_1fr]'"
+            >
+              <div
+                v-if="!phoneCombinedHub"
+                class="flex shrink-0 items-center justify-start"
+              >
                 <button
+                  v-if="isCompactShell"
                   type="button"
-                  class="flex h-9 w-9 items-center justify-center rounded-xl text-fg-soft transition-colors hover:bg-glass-2 hover:text-fg lg:hidden"
+                  class="flex h-9 w-9 items-center justify-center rounded-xl text-fg-soft transition-colors hover:bg-glass-2 hover:text-fg"
                   aria-label="Back to messages"
                   @click="emit('back-to-messages')"
                 >
@@ -248,16 +295,20 @@ function sendFriendRequestTo(userId: string) {
               </div>
 
               <nav
-                class="friends-tabs flex min-w-0 items-center justify-center gap-1 rounded-2xl p-1.5 backdrop-blur lg:gap-1 lg:rounded-xl lg:p-1"
+                class="friends-tabs flex min-w-0 items-center justify-start gap-1 overflow-x-auto rounded-2xl p-1.5 backdrop-blur [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                :class="
+                  isCompactShell ? '' : 'justify-center gap-1 rounded-xl p-1'
+                "
               >
                 <button
                   type="button"
-                  class="friends-tab rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors lg:rounded-lg lg:px-3 lg:py-1.5 lg:text-[11px]"
-                  :class="
+                  class="friends-tab shrink-0 rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors"
+                  :class="[
                     activeTab === 'all'
                       ? 'friends-tab--active'
-                      : 'friends-tab--inactive'
-                  "
+                      : 'friends-tab--inactive',
+                    isCompactShell ? '' : 'rounded-lg px-3 py-1.5 text-[11px]',
+                  ]"
                   @click="setActiveTab('all')"
                 >
                   <span class="inline-flex items-center gap-2">
@@ -271,12 +322,13 @@ function sendFriendRequestTo(userId: string) {
                 </button>
                 <button
                   type="button"
-                  class="friends-tab rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors lg:rounded-lg lg:px-3 lg:py-1.5 lg:text-[11px]"
-                  :class="
+                  class="friends-tab shrink-0 rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors"
+                  :class="[
                     activeTab === 'online'
                       ? 'friends-tab--active'
-                      : 'friends-tab--inactive'
-                  "
+                      : 'friends-tab--inactive',
+                    isCompactShell ? '' : 'rounded-lg px-3 py-1.5 text-[11px]',
+                  ]"
                   @click="setActiveTab('online')"
                 >
                   <span class="inline-flex items-center gap-2">
@@ -294,14 +346,16 @@ function sendFriendRequestTo(userId: string) {
                   </span>
                   <span
                     v-if="onlineFriendCount > 0"
-                    class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-glass-2 px-1.5 text-[10px] font-bold text-foreground lg:h-4 lg:min-w-4"
+                    class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-glass-2 px-1.5 text-[10px] font-bold text-foreground"
+                    :class="isCompactShell ? '' : 'h-4 min-w-4'"
                   >
                     {{ onlineFriendCount }}
                   </span>
                 </button>
                 <button
+                  v-if="!isCompactShell"
                   type="button"
-                  class="friends-tab hidden rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors lg:inline-flex lg:rounded-lg lg:px-3 lg:py-1.5 lg:text-[11px]"
+                  class="friends-tab shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors"
                   :class="
                     activeTab === 'pending'
                       ? 'friends-tab--active'
@@ -319,7 +373,7 @@ function sendFriendRequestTo(userId: string) {
                   </span>
                   <span
                     v-if="pendingCount > 0"
-                    class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-glass-2 px-1.5 text-[10px] font-bold text-foreground lg:h-4 lg:min-w-4"
+                    class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-glass-2 px-1.5 text-[10px] font-bold text-foreground"
                   >
                     {{ pendingCount }}
                   </span>
@@ -327,12 +381,13 @@ function sendFriendRequestTo(userId: string) {
 
                 <button
                   type="button"
-                  class="friends-tab friends-tab--add inline-flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors lg:min-w-0 lg:px-3 lg:py-1.5 lg:text-[11px]"
-                  :class="
+                  class="friends-tab friends-tab--add inline-flex min-w-0 shrink-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors"
+                  :class="[
                     activeTab === 'add'
                       ? 'friends-tab--active friends-tab--add-active'
-                      : 'friends-tab--inactive friends-tab--add-idle'
-                  "
+                      : 'friends-tab--inactive friends-tab--add-idle',
+                    isCompactShell ? '' : 'rounded-lg px-3 py-1.5 text-[11px]',
+                  ]"
                   title="Add friend"
                   aria-label="Add friend"
                   @click="setActiveTab('add')"
@@ -342,11 +397,12 @@ function sendFriendRequestTo(userId: string) {
                     alt=""
                     class="friend-add-icon--blue"
                   />
-                  <span class="truncate lg:hidden">Add</span>
-                  <span class="hidden truncate lg:inline">Add friend</span>
+                  <span class="truncate">{{
+                    isCompactShell ? 'Add' : 'Add friend'
+                  }}</span>
                   <span
                     v-if="isCompactShell && pendingCount > 0"
-                    class="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-glass-2 px-1.5 text-[10px] font-bold text-foreground lg:hidden"
+                    class="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-glass-2 px-1.5 text-[10px] font-bold text-foreground"
                   >
                     {{ pendingCount }}
                   </span>
@@ -355,8 +411,14 @@ function sendFriendRequestTo(userId: string) {
             </div>
           </header>
 
-          <div class="flex min-h-0 w-full flex-1 items-stretch">
-            <div class="flex min-h-0 min-w-0 flex-1 flex-col space-y-0">
+          <div
+            class="flex w-full items-stretch"
+            :class="phoneCombinedHub ? '' : 'min-h-0 flex-1'"
+          >
+            <div
+              class="flex min-w-0 flex-col space-y-0"
+              :class="phoneCombinedHub ? 'w-full' : 'min-h-0 flex-1'"
+            >
               <section class="space-y-3 pt-0">
                 <template v-if="activeTab === 'all'">
                   <div
@@ -374,7 +436,7 @@ function sendFriendRequestTo(userId: string) {
                       <div
                         v-for="req in incomingFiltered"
                         :key="req.id"
-                        class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
+                        class="friend-row friend-row--request flex w-full flex-col items-stretch gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-glass-2 sm:flex-row sm:items-center sm:gap-4 sm:px-4"
                       >
                         <button
                           type="button"
@@ -410,17 +472,19 @@ function sendFriendRequestTo(userId: string) {
                             </div>
                           </div>
                         </button>
-                        <div class="flex shrink-0 gap-2">
+                        <div
+                          class="friend-row__actions flex w-full shrink-0 gap-2 sm:w-auto"
+                        >
                           <button
                             type="button"
-                            class="rounded-lg bg-green-600/80 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-600"
+                            class="flex-1 rounded-lg bg-green-600/80 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-green-600 sm:flex-none sm:px-4 sm:py-1.5"
                             @click.stop="emit('accept-friend-request', req.id)"
                           >
                             Accept
                           </button>
                           <button
                             type="button"
-                            class="rounded-lg bg-glass-2 px-4 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-glass-3"
+                            class="flex-1 rounded-lg bg-glass-2 px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-glass-3 sm:flex-none sm:px-4 sm:py-1.5"
                             @click.stop="emit('decline-friend-request', req.id)"
                           >
                             Decline
@@ -433,7 +497,7 @@ function sendFriendRequestTo(userId: string) {
                       <div
                         v-for="req in outgoingFiltered"
                         :key="req.id"
-                        class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
+                        class="friend-row friend-row--request flex w-full flex-col items-stretch gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-glass-2 sm:flex-row sm:items-center sm:gap-4 sm:px-4"
                       >
                         <button
                           type="button"
@@ -471,7 +535,7 @@ function sendFriendRequestTo(userId: string) {
                         </button>
                         <button
                           type="button"
-                          class="shrink-0 rounded-lg bg-glass-2 px-4 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-glass-3"
+                          class="friend-row__actions w-full shrink-0 rounded-lg bg-glass-2 px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-glass-3 sm:w-auto sm:px-4 sm:py-1.5"
                           @click.stop="emit('cancel-friend-request', req.id)"
                         >
                           Cancel
@@ -482,7 +546,7 @@ function sendFriendRequestTo(userId: string) {
                     <div
                       v-for="user in friendUsersFiltered"
                       :key="user.id"
-                      class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
+                      class="friend-row flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-glass-2 sm:gap-4 sm:px-4"
                       :class="selectedUserId === user.id ? 'bg-glass-2' : ''"
                     >
                       <button
@@ -559,7 +623,7 @@ function sendFriendRequestTo(userId: string) {
                   <div
                     v-for="user in onlineFriendsFiltered"
                     :key="user.id"
-                    class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
+                    class="friend-row flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-glass-2 sm:gap-4 sm:px-4"
                     :class="selectedUserId === user.id ? 'bg-glass-2' : ''"
                   >
                     <button
@@ -646,7 +710,7 @@ function sendFriendRequestTo(userId: string) {
                       <div
                         v-for="req in incomingFiltered"
                         :key="req.id"
-                        class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
+                        class="friend-row friend-row--request flex w-full flex-col items-stretch gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-glass-2 sm:flex-row sm:items-center sm:gap-4 sm:px-4"
                       >
                         <button
                           type="button"
@@ -682,17 +746,19 @@ function sendFriendRequestTo(userId: string) {
                             </div>
                           </div>
                         </button>
-                        <div class="flex shrink-0 gap-2">
+                        <div
+                          class="friend-row__actions flex w-full shrink-0 gap-2 sm:w-auto"
+                        >
                           <button
                             type="button"
-                            class="rounded-lg bg-green-600/80 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-600"
+                            class="flex-1 rounded-lg bg-green-600/80 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-green-600 sm:flex-none sm:px-4 sm:py-1.5"
                             @click.stop="emit('accept-friend-request', req.id)"
                           >
                             Accept
                           </button>
                           <button
                             type="button"
-                            class="rounded-lg bg-glass-2 px-4 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-glass-3"
+                            class="flex-1 rounded-lg bg-glass-2 px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-glass-3 sm:flex-none sm:px-4 sm:py-1.5"
                             @click.stop="emit('decline-friend-request', req.id)"
                           >
                             Decline
@@ -705,7 +771,7 @@ function sendFriendRequestTo(userId: string) {
                       <div
                         v-for="req in outgoingFiltered"
                         :key="req.id"
-                        class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
+                        class="friend-row friend-row--request flex w-full flex-col items-stretch gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-glass-2 sm:flex-row sm:items-center sm:gap-4 sm:px-4"
                       >
                         <button
                           type="button"
@@ -743,7 +809,7 @@ function sendFriendRequestTo(userId: string) {
                         </button>
                         <button
                           type="button"
-                          class="shrink-0 rounded-lg bg-glass-2 px-4 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-glass-3"
+                          class="friend-row__actions w-full shrink-0 rounded-lg bg-glass-2 px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-glass-3 sm:w-auto sm:px-4 sm:py-1.5"
                           @click.stop="emit('cancel-friend-request', req.id)"
                         >
                           Cancel
@@ -802,7 +868,7 @@ function sendFriendRequestTo(userId: string) {
                         <div
                           v-for="user in addableUsers"
                           :key="user.id"
-                          class="friend-row flex items-center justify-between gap-4 rounded-xl bg-scrim-1 px-4 py-3"
+                          class="friend-row friend-row--request flex w-full flex-col items-stretch gap-3 rounded-xl bg-scrim-1 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4"
                         >
                           <button
                             type="button"
@@ -847,7 +913,7 @@ function sendFriendRequestTo(userId: string) {
 
                           <button
                             type="button"
-                            class="shrink-0 rounded-md bg-blue-600/90 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
+                            class="w-full shrink-0 rounded-md bg-blue-600/90 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600 sm:w-auto sm:px-4 sm:py-1.5"
                             @click="sendFriendRequestTo(user.id)"
                           >
                             Send request
@@ -872,6 +938,11 @@ function sendFriendRequestTo(userId: string) {
   background: var(--echo-chat-view-bg);
 }
 
+.friends-view-root--embedded,
+.friends-view--embedded {
+  background: transparent;
+}
+
 .friend-row {
   background: transparent;
   border: none;
@@ -883,6 +954,11 @@ function sendFriendRequestTo(userId: string) {
   position: relative;
   isolation: isolate;
   background: var(--echo-chat-view-bg);
+}
+
+.friends-view--embedded .friends-header,
+.friends-view--embedded .friends-add-panel {
+  background: transparent;
 }
 
 .friends-add-panel {
@@ -923,7 +999,7 @@ function sendFriendRequestTo(userId: string) {
   opacity: 1;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 800px) {
   .friends-tab-icon {
     width: 0.875rem;
     height: 0.875rem;
@@ -943,7 +1019,7 @@ function sendFriendRequestTo(userId: string) {
     brightness(95%) contrast(95%);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 800px) {
   .friend-add-icon--blue {
     width: 0.875rem;
     height: 0.875rem;

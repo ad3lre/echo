@@ -66,8 +66,18 @@ import {
   linkTokenCustomEmojiAnimated,
 } from '@/utils/idTokens';
 
-export function customEmojiPickerHtml(imageUrl: string, name: string): string {
-  return renderCustomEmojiHtml(imageUrl, name) ?? parseTwemoji('❓');
+export function customEmojiPickerHtml(
+  imageUrl: string,
+  name: string,
+  emojiId?: string,
+  animated?: boolean,
+): string {
+  return (
+    renderCustomEmojiHtml(imageUrl, name, {
+      id: emojiId,
+      animated,
+    }) ?? parseTwemoji('❓')
+  );
 }
 
 /** Prefer API-resolved URLs; fall back to the public emoji CDN route by id. */
@@ -108,7 +118,7 @@ export function libraryEmojiToEntry(
     animated: e.animated,
     imageUrl,
     emoji: token,
-    html: customEmojiPickerHtml(imageUrl, e.name),
+    html: customEmojiPickerHtml(imageUrl, e.name, e.id, e.animated),
     skin_tone_support: false,
   };
 }

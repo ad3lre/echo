@@ -20,7 +20,7 @@ defineEmits<{
 <template>
   <div class="member-profile-header shrink-0">
     <div
-      class="member-popout__banner h-24 w-full min-w-0 rounded-t-[24px]"
+      class="member-popout__banner h-24 w-full min-w-0"
       :style="
         !profile.bannerImage
           ? { '--banner-background': profile.bannerColor }
@@ -117,13 +117,23 @@ defineEmits<{
   position: relative;
   z-index: 0;
   overflow: hidden;
-  isolation: isolate;
   background: var(--banner-background);
-  transform: translateZ(0);
 }
 
 .member-popout__banner-bg {
-  transform: translateZ(0);
+  /**
+   * Per EchoRailCorner .echo-logo guidance: no transform on children inside a
+   * rounded clip wrapper — WebKit promotes the child layer and square corners leak.
+   */
+  transform: none;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.member-popout__banner-bg :is(img, video) {
+  transform: none;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .member-popout__banner::before {
@@ -179,7 +189,7 @@ defineEmits<{
   opacity: var(--profile-banner-refraction-opacity, 0.24);
   filter: blur(28px) saturate(1.25);
   mix-blend-mode: var(--profile-banner-refraction-mix-blend-mode, screen);
-  transform: translateZ(0);
+  transform: none;
 }
 
 :global([data-theme='light'] .member-popout__refraction) {

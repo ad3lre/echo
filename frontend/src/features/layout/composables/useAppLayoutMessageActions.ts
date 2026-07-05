@@ -766,6 +766,18 @@ export function useAppLayoutMessageActions(
         if (patched.ok) {
           index.update(messageId, { contentJson: patched.doc });
           writeSortedMessagesForChannel(messages.value, cid, index);
+        } else {
+          const userMessage =
+            patched.error === 'slot_already_filled'
+              ? 'This image slot is already filled'
+              : patched.error === 'slot_not_found'
+                ? 'Could not find that image slot on this message'
+                : 'Could not fill image slot';
+          propagateActionFailure(failResult('FILL_FAILED', userMessage, true), {
+            flow: 'socket.message_fill_image_slot',
+            context: 'message_fill_image_slot',
+          });
+          return false;
         }
       }
     }

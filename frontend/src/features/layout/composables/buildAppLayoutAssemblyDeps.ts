@@ -180,6 +180,7 @@ export function buildAppLayoutAssemblyDeps(
       onLeaveVoice: $.onLeaveVoice,
       onLeaveVoiceUi: $.onLeaveVoice,
       onVcChatButtonClick: $.onVcChatButtonClickNavigation,
+      handleMinimizeVoiceView: $.handleMinimizeVoiceViewNavigation,
       isViewingVoiceChannel: $.isViewingVoiceChannel,
       isScreenSharePickerOpen: $.isScreenSharePickerOpen,
       isDesktopStreamingControlOpen: $.isDesktopStreamingControlOpen,

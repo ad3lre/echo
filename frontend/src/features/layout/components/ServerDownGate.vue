@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useCompactShell } from '@/composables/useCompactShell';
+
+const { isCompactShell } = useCompactShell();
 
 const props = withDefaults(
   defineProps<{
@@ -120,137 +123,174 @@ const progressAriaLabel = computed(
 <template>
   <Teleport to="body">
     <div
-      class="server-down-overlay fixed inset-0 z-[230] flex items-center justify-center px-4 py-6 sm:px-6 sm:py-8"
+      class="server-down-overlay fixed inset-0 z-[230] overflow-x-hidden overflow-y-auto"
       role="presentation"
     >
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="server-down-title"
-        class="server-down-card w-full max-w-2xl rounded-3xl border border-border p-6 text-fg sm:p-8"
+        class="server-down-overlay-frame flex w-full"
+        :class="
+          isCompactShell
+            ? 'min-h-[100dvh] flex-col'
+            : 'min-h-[100dvh] items-center justify-center px-4 py-6 sm:px-6 sm:py-8'
+        "
       >
         <div
-          class="server-down-icon-wrap mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl"
-          aria-hidden="true"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="server-down-title"
+          class="server-down-card text-fg"
+          :class="
+            isCompactShell
+              ? 'server-down-card--compact flex min-h-[100dvh] w-full flex-col'
+              : 'my-auto w-full max-w-2xl max-h-[min(92dvh,720px)] overflow-y-auto custom-scrollbar rounded-3xl border border-border p-5 sm:p-8'
+          "
         >
-          <svg
-            class="h-6 w-6"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 8v5" />
-            <circle
-              cx="12"
-              cy="16.5"
-              r="0.5"
-              fill="currentColor"
-              stroke="none"
-            />
-          </svg>
-        </div>
-
-        <h1
-          id="server-down-title"
-          class="text-2xl font-extrabold tracking-tight sm:text-3xl"
-        >
-          Echo server is currently down
-        </h1>
-        <p class="mt-2 text-sm leading-relaxed text-fg-soft sm:text-base">
-          We are retrying in real time and will reconnect automatically once
-          service is healthy again.
-        </p>
-
-        <div class="mt-5 grid gap-3 sm:grid-cols-3">
-          <div class="rounded-2xl bg-glass-1 px-4 py-3">
-            <p
-              class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
-            >
-              Downtime
-            </p>
-            <p class="mt-1 text-base font-semibold text-fg">
-              {{ outageDurationLabel }}
-            </p>
-          </div>
-          <div class="rounded-2xl bg-glass-1 px-4 py-3">
-            <p
-              class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
-            >
-              Last health check
-            </p>
-            <p class="mt-1 text-base font-semibold text-fg">
-              {{ checkedAgoLabel }}
-            </p>
-          </div>
-          <div class="rounded-2xl bg-glass-1 px-4 py-3">
-            <p
-              class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
-            >
-              {{ typicalRecoveryTitle }}
-            </p>
-            <p class="mt-1 text-base font-semibold text-fg">
-              {{ typicalRecoveryValue }}
-            </p>
-            <p class="mt-1 text-[11px] leading-snug text-fg-soft">
-              {{ typicalRecoveryHint }}
-            </p>
-          </div>
-        </div>
-
-        <div class="mt-5">
           <div
-            class="server-down-recovery-track overflow-hidden rounded-full"
-            role="progressbar"
-            :aria-label="progressAriaLabel"
-            :aria-valuemin="0"
-            :aria-valuemax="100"
-            :aria-valuenow="Math.round(recoveryProgressPercent)"
+            class="min-w-0"
+            :class="
+              isCompactShell
+                ? 'server-down-card-body custom-scrollbar min-h-0 flex-1 overflow-y-auto'
+                : ''
+            "
           >
             <div
-              class="server-down-recovery-bar h-1.5 rounded-full transition-[width] duration-1000 ease-linear"
-              :style="{ width: recoveryProgressPercent + '%' }"
-            />
+              class="server-down-icon-wrap mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl"
+              aria-hidden="true"
+            >
+              <svg
+                class="h-6 w-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v5" />
+                <circle
+                  cx="12"
+                  cy="16.5"
+                  r="0.5"
+                  fill="currentColor"
+                  stroke="none"
+                />
+              </svg>
+            </div>
+
+            <h1
+              id="server-down-title"
+              class="text-xl font-extrabold tracking-tight sm:text-3xl"
+            >
+              Echo server is currently down
+            </h1>
+            <p class="mt-2 text-sm leading-relaxed text-fg-soft sm:text-base">
+              We are retrying in real time and will reconnect automatically once
+              service is healthy again.
+            </p>
+
+            <div
+              class="mt-5 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3"
+            >
+              <div class="rounded-2xl bg-glass-1 px-4 py-3">
+                <p
+                  class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
+                >
+                  Downtime
+                </p>
+                <p class="mt-1 text-base font-semibold tabular-nums text-fg">
+                  {{ outageDurationLabel }}
+                </p>
+              </div>
+              <div class="rounded-2xl bg-glass-1 px-4 py-3">
+                <p
+                  class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
+                >
+                  Last health check
+                </p>
+                <p class="mt-1 text-base font-semibold tabular-nums text-fg">
+                  {{ checkedAgoLabel }}
+                </p>
+              </div>
+              <div
+                class="rounded-2xl bg-glass-1 px-4 py-3 min-[420px]:col-span-2 sm:col-span-1"
+              >
+                <p
+                  class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
+                >
+                  {{ typicalRecoveryTitle }}
+                </p>
+                <p class="mt-1 text-base font-semibold tabular-nums text-fg">
+                  {{ typicalRecoveryValue }}
+                </p>
+                <p class="mt-1 text-[11px] leading-snug text-fg-soft">
+                  {{ typicalRecoveryHint }}
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-5">
+              <div
+                class="server-down-recovery-track overflow-hidden rounded-full"
+                role="progressbar"
+                :aria-label="progressAriaLabel"
+                :aria-valuemin="0"
+                :aria-valuemax="100"
+                :aria-valuenow="Math.round(recoveryProgressPercent)"
+              >
+                <div
+                  class="server-down-recovery-bar h-1.5 rounded-full transition-[width] duration-1000 ease-linear"
+                  :style="{ width: recoveryProgressPercent + '%' }"
+                />
+              </div>
+              <p
+                class="mt-2 text-center text-xs leading-relaxed tabular-nums text-fg-soft sm:text-left"
+              >
+                {{ recoveryTimerLine }}
+              </p>
+            </div>
+
+            <p
+              v-if="detail"
+              class="server-down-detail mt-4 text-xs leading-relaxed text-fg-soft"
+            >
+              {{ detail }}
+            </p>
+
+            <div
+              class="mt-6 flex items-center gap-2"
+              :class="{ 'pb-1': isCompactShell }"
+            >
+              <span
+                class="server-down-status-dot inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
+                :class="
+                  checking
+                    ? 'server-down-status-dot--checking animate-pulse'
+                    : 'server-down-status-dot--waiting'
+                "
+                aria-hidden="true"
+              />
+              <span class="min-w-0 text-xs leading-snug text-fg-soft">
+                {{
+                  checking ? 'Checking server status…' : 'Waiting for recovery…'
+                }}
+              </span>
+            </div>
           </div>
-          <p
-            class="mt-2 text-center text-xs tabular-nums text-fg-soft sm:text-left"
+
+          <div
+            class="server-down-card-actions shrink-0"
+            :class="isCompactShell ? 'pt-4' : 'mt-5'"
           >
-            {{ recoveryTimerLine }}
-          </p>
+            <button
+              type="button"
+              class="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-glass-2 px-4 text-sm font-semibold text-fg transition-colors hover:bg-glass-hover sm:w-auto"
+              @click="emit('retry')"
+            >
+              Check again now
+            </button>
+          </div>
         </div>
-
-        <p
-          v-if="detail"
-          class="server-down-detail mt-4 text-xs leading-relaxed text-fg-soft"
-        >
-          {{ detail }}
-        </p>
-
-        <div class="mt-6 flex items-center gap-2">
-          <span
-            class="server-down-status-dot inline-flex h-2.5 w-2.5 rounded-full"
-            :class="
-              checking
-                ? 'server-down-status-dot--checking animate-pulse'
-                : 'server-down-status-dot--waiting'
-            "
-            aria-hidden="true"
-          />
-          <span class="text-xs text-fg-soft">
-            {{ checking ? 'Checking server status…' : 'Waiting for recovery…' }}
-          </span>
-        </div>
-
-        <button
-          type="button"
-          class="mt-5 inline-flex h-11 items-center justify-center rounded-2xl bg-glass-2 px-4 text-sm font-semibold text-fg transition-colors hover:bg-glass-hover"
-          @click="emit('retry')"
-        >
-          Check again now
-        </button>
       </div>
     </div>
   </Teleport>
@@ -271,6 +311,18 @@ const progressAriaLabel = computed(
 
 :global(html[data-theme='dark']) .server-down-overlay {
   background: rgba(7, 5, 14, 0.78);
+}
+
+/* --- Compact (mobile/tablet) full-viewport panel ------------------------ */
+.server-down-card--compact {
+  box-sizing: border-box;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 1rem)
+    max(1rem, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 1rem)
+    max(1rem, env(safe-area-inset-left, 0px));
 }
 
 /* --- Card --------------------------------------------------------------- */

@@ -215,6 +215,65 @@
   cursor: pointer;
 }
 
+.message-text :deep(.custom-emoji-inline) {
+  position: relative;
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  max-width: 1.15em;
+  max-height: 1.15em;
+  vertical-align: -0.12em;
+  box-sizing: content-box;
+}
+
+.message-text :deep(.custom-emoji-skeleton) {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: var(--vue-auto-001);
+  animation: custom-emoji-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.message-text :deep(.custom-emoji-inline img.custom-emoji) {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.message-text :deep(.custom-emoji-inline img.custom-emoji--pending-load) {
+  opacity: 0;
+}
+
+.message-text
+  :deep(
+    .custom-emoji-inline:not(.custom-emoji-inline--loading):not(
+        .custom-emoji-inline--pending
+      )
+      .custom-emoji-skeleton
+  ) {
+  display: none;
+}
+
+@keyframes custom-emoji-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-text :deep(.custom-emoji-skeleton) {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
 .message-video-shell {
   position: relative;
   width: fit-content;
@@ -250,6 +309,15 @@
   display: inline-block;
 }
 
+.message-text--emoji-only :deep(.custom-emoji-inline) {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  max-width: 48px;
+  max-height: 48px;
+}
+
 /* Markdown content in messages */
 .message-content :deep(p) {
   margin: 0 0 0.5em;
@@ -282,13 +350,6 @@
   padding: 0;
   background: none;
 }
-.message-content :deep(blockquote) {
-  margin: 0.5em 0;
-  padding-left: 1em;
-  border-left: 3px solid var(--border);
-  color: var(--text);
-}
-
 .message-content {
   @include mdAlerts.echo-markdown-alerts();
 }

@@ -26,12 +26,34 @@ export function isEchoApiReadRequest(method: string, rawUrl: string): boolean {
 }
 
 /** Requests that should not consume the global 150/min mutation budget. */
+export function isAuthSessionReadRequest(
+  method: string,
+  rawUrl: string,
+): boolean {
+  if (method !== 'GET') return false;
+  const path = echoApiPath(rawUrl);
+  return path === '/api/v1/auth/me';
+}
+
+/** Public instance policy — fetched on every client boot; must not share the mutation bucket. */
+export function isInstancePolicyReadRequest(
+  method: string,
+  rawUrl: string,
+): boolean {
+  if (method !== 'GET') return false;
+  const path = echoApiPath(rawUrl);
+  return path === '/api/v1/system/instance-policy';
+}
+
+/** Requests that should not consume the global 150/min mutation budget. */
 export function isEchoApiGlobalRateLimitExempt(
   method: string,
   rawUrl: string,
 ): boolean {
   return (
     isEchoApiReadRequest(method, rawUrl) ||
-    isEchoReadStateWriteRequest(method, rawUrl)
+    isEchoReadStateWriteRequest(method, rawUrl) ||
+    isAuthSessionReadRequest(method, rawUrl) ||
+    isInstancePolicyReadRequest(method, rawUrl)
   );
 }

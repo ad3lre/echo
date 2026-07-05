@@ -59,4 +59,26 @@ describe('echoReadRateLimitPaths', () => {
       false,
     );
   });
+
+  it('exempts GET /auth/me from the global mutation bucket', () => {
+    assert.equal(
+      isEchoApiGlobalRateLimitExempt('GET', '/api/v1/auth/me?recoverProbe=1'),
+      true,
+    );
+    assert.equal(
+      isEchoApiGlobalRateLimitExempt('PATCH', '/api/v1/auth/me'),
+      false,
+    );
+  });
+
+  it('exempts GET /system/instance-policy from the global mutation bucket', () => {
+    assert.equal(
+      isEchoApiGlobalRateLimitExempt('GET', '/api/v1/system/instance-policy'),
+      true,
+    );
+    assert.equal(
+      isEchoApiGlobalRateLimitExempt('POST', '/api/v1/system/instance-policy'),
+      false,
+    );
+  });
 });

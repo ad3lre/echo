@@ -21,6 +21,7 @@ defineProps<{
   messageId?: string;
   magicTime?: MagicTimeRenderContext | null;
   canFillImageSlots?: boolean;
+  imageSlotUploading?: boolean;
   onFillImageSlot?: (slotId: string) => void;
 }>();
 </script>
@@ -44,6 +45,7 @@ defineProps<{
     :on-jump-to-message="onJumpToMessage"
     :magic-time="magicTime"
     :can-fill-image-slots="canFillImageSlots"
+    :image-slot-uploading="imageSlotUploading"
     :on-fill-image-slot="onFillImageSlot"
   />
 </template>

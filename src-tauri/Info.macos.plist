@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Echo uses the microphone for voice and video in your servers.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Echo uses the camera for video chat and sharing images.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Echo uses screen recording to share your screen in voice channels and calls.</string>
+</dict>
+</plist>

@@ -27,9 +27,16 @@ const activeChannelId = computed(
 );
 
 function onSelectServer(serverId: string) {
-  layoutLeft?.onSelectServer?.(serverId);
+  const isSameServer = selectedServer.value?.id === serverId;
+  const hasActiveChannel = !!activeChannelId.value?.trim();
+
+  if (!isSameServer || !hasActiveChannel) {
+    layoutLeft?.onSelectServer?.(serverId);
+  }
+
   emit('update:stack', 'guild');
-  emit('update:channelSheetOpen', true);
+  // Re-entering the guild you were already in: restore chat, not the channel sheet.
+  emit('update:channelSheetOpen', !isSameServer || !hasActiveChannel);
 }
 
 watch(
@@ -66,7 +73,7 @@ function closeMembers() {
         class="pointer-events-auto fixed inset-y-0 right-0 z-40 flex w-[min(18rem,88vw)] min-w-[14rem] flex-col border-l border-border bg-[var(--bg)] shadow-xl"
         style="
           bottom: calc(
-            var(--echo-mobile-bottom-bar-height, 3.25rem) +
+            var(--echo-mobile-bottom-bar-height, 3.75rem) +
               env(safe-area-inset-bottom, 0px)
           );
         "

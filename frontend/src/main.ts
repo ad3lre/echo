@@ -646,12 +646,6 @@ async function bootstrap() {
     startNativeLoginRestorePoll(authSessionStore);
   }
 
-  enqueueStartupTask('gif-library-preload', 'idle', () => {
-    void import('@/composables/useGifSearch').then((m) =>
-      m.warmGifCategoryLibrary(),
-    );
-  });
-
   /** Warm icon catalog shortly after first paint. */
   enqueueStartupTask('icon-catalog-preload', 'high', () => {
     void import('@/assets/iconCatalog').then((m) =>

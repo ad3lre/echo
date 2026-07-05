@@ -1,5 +1,58 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isBraveBrowser, isBraveBrowserSyncHint } from './browserCompatibility';
+import {
+  isBraveBrowser,
+  isBraveBrowserSyncHint,
+  isWebKitDesktop,
+} from './browserCompatibility';
+
+vi.mock('@/platform/desktopBridge', () => ({
+  isDesktop: vi.fn(() => false),
+}));
+
+import { isDesktop } from '@/platform/desktopBridge';
+
+describe('isWebKitDesktop', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.mocked(isDesktop).mockReturnValue(false);
+  });
+
+  it('returns true for Tauri macOS WebKit user agent', () => {
+    vi.mocked(isDesktop).mockReturnValue(true);
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+      vendor: 'Apple Computer, Inc.',
+      platform: 'MacIntel',
+      maxTouchPoints: 0,
+    });
+    expect(isWebKitDesktop()).toBe(true);
+  });
+
+  it('returns false when not desktop even on Safari UA', () => {
+    vi.mocked(isDesktop).mockReturnValue(false);
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+      vendor: 'Apple Computer, Inc.',
+      platform: 'MacIntel',
+      maxTouchPoints: 0,
+    });
+    expect(isWebKitDesktop()).toBe(false);
+  });
+
+  it('returns false for desktop Chrome on macOS', () => {
+    vi.mocked(isDesktop).mockReturnValue(true);
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      vendor: 'Google Inc.',
+      platform: 'MacIntel',
+      maxTouchPoints: 0,
+    });
+    expect(isWebKitDesktop()).toBe(false);
+  });
+});
 
 describe('isBraveBrowserSyncHint', () => {
   afterEach(() => {

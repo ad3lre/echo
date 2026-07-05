@@ -70,16 +70,41 @@ async function main() {
   await rasterizeRounded(32).toFile(join(outDir, 'favicon-32.png'));
   await rasterizeRounded(16).toFile(join(marketingIconsDir, 'favicon-16.png'));
   await rasterizeRounded(32).toFile(join(marketingIconsDir, 'favicon-32.png'));
-  await rasterizeRounded(192).toFile(join(outDir, 'pwa-192.png'));
-  await rasterizeRounded(512).toFile(join(outDir, 'pwa-512.png'));
+  // App / PWA primary icon: full-color gradient mark (echo.svg), not the black-backed rounded variant.
+  const appIcon512Path = join(repoRoot, 'frontend/public/echo-logo.png');
+  await sharp(appIcon512Path)
+    .resize(512, 512, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toFile(join(outDir, 'pwa-512.png'));
+  await sharp(appIcon512Path)
+    .resize(192, 192, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toFile(join(outDir, 'pwa-192.png'));
 
   // iOS / Safari pinned tab
-  const p180 = await rasterizeRounded(180);
-  await p180.toFile(join(outDir, 'apple-touch-icon.png'));
+  await sharp(appIcon512Path)
+    .resize(180, 180, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toFile(join(outDir, 'apple-touch-icon.png'));
 
-  // Maskable: icon centered on theme background (safe for adaptive icon crops)
+  // Maskable: colorful logo centered on theme background (safe for adaptive icon crops)
   const inner = Math.round(512 * 0.72);
-  const innerBuf = await rasterizeRounded(inner, 4).toBuffer();
+  const innerBuf = await sharp(appIcon512Path)
+    .resize(inner, inner, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
   await sharp({
     create: {
       width: 512,

@@ -329,6 +329,7 @@ const canFillImageSlots = computed(
 );
 
 const {
+  filling: imageSlotUploading,
   fileInputRef: imageSlotFileInputRef,
   openFillPicker,
   onFileSelected: onImageSlotFileSelected,
@@ -416,12 +417,13 @@ const showStandaloneMessageComponents = computed(() => {
 
 /** Message body root (markdown / JSON caption) — wires KaTeX overflow scrollbars. */
 const messageContentRef = ref<HTMLElement | null>(null);
+const messageBubbleShellRef = ref<HTMLElement | null>(null);
 
 const customEmojiUrlByIdForImgRecovery = computed(
   (): ReadonlyMap<string, string> | undefined => customEmojiUrlById?.value,
 );
 useCustomEmojiImgLoadRecovery(
-  messageContentRef,
+  messageBubbleShellRef,
   customEmojiUrlByIdForImgRecovery,
 );
 
@@ -1223,7 +1225,7 @@ watch(
           @open-profile="openAuthorProfile"
         />
 
-        <div data-dev-hit="message" class="min-w-0">
+        <div ref="messageBubbleShellRef" data-dev-hit="message" class="min-w-0">
           <div
             v-if="showTextCaption"
             ref="messageContentRef"
@@ -1251,6 +1253,7 @@ watch(
               :message-id="message.id"
               :magic-time="magicTimeContext"
               :can-fill-image-slots="canFillImageSlots"
+              :image-slot-uploading="imageSlotUploading"
               :on-fill-image-slot="handleFillImageSlot"
             />
           </div>

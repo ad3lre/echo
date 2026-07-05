@@ -28,6 +28,18 @@ extensions:
           'request-forgery',
         ]
       - [
+          'linkUnfurlFetch',
+          'Member[ssrfSafeFetch].Argument[0]',
+          'true',
+          'request-forgery',
+        ]
+      - [
+          'backend/src/services/linkUnfurl/linkUnfurlFetch',
+          'Member[ssrfSafeFetch].Argument[0]',
+          'true',
+          'request-forgery',
+        ]
+      - [
           'backend/src/domain/discordCdnUrls',
           'Member[isDiscordHostedImportMediaUrl].Argument[0]',
           'true',

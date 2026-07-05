@@ -11,7 +11,7 @@ export type MediaBrowseCategory = {
   navEmoji: string;
 };
 
-/** First GIF picker view — preview tiles preload via {@link warmGifCategoryLibrary}. */
+/** First GIF picker view — preview tiles preload when the picker opens via {@link warmGifCategoryLibrary}. */
 export const GIF_BROWSE_CATEGORIES: readonly MediaBrowseCategory[] = [
   { slug: 'trending', name: 'Trending', query: '', navEmoji: '🔥' },
   { slug: 'reactions', name: 'Reactions', query: 'reactions', navEmoji: '😂' },

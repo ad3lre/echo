@@ -89,6 +89,7 @@ import {
   createAppLayoutToggleMemberList,
   useAppLayoutCompactShellExpand,
 } from './useAppLayoutCompactShellExpand';
+import { hasActivePhoneGuildChannel } from '@/features/layout/phoneShellOverlayState';
 
 import type { WireAppLayoutDmAndShellResult } from './wireAppLayoutDmAndShell';
 
@@ -532,6 +533,7 @@ export function wireAppLayoutVoiceAndRealtime(
     handleChannelVoicePanelLeave,
     canJoinPreviewVoiceChannel,
     onVcChatButtonClickNavigation,
+    handleMinimizeVoiceViewNavigation,
   } = callVoice;
 
   function getRemoteParticipantVolume(userId: string): number {
@@ -999,6 +1001,13 @@ export function wireAppLayoutVoiceAndRealtime(
       memberPanelCollapsed,
       mobileChannelSheetOpen,
       mobileMembersOverlayOpen,
+      mobileBottomTab,
+      mobileServersStack,
+      hasActiveGuildChannel: () =>
+        hasActivePhoneGuildChannel(
+          serverStore.selectedServerId,
+          activeChannelId.value,
+        ),
       expandChannelsGrid,
       markMemberPanelExpandedByUser,
       markMemberPanelCollapsedByUser,
@@ -1715,6 +1724,7 @@ export function wireAppLayoutVoiceAndRealtime(
     onLeaveServerModalUpdate,
     onModerationModalConfirm,
     onVcChatButtonClickNavigation,
+    handleMinimizeVoiceViewNavigation,
     openCategorySettings,
     openChannelSettings,
     openCreateCategoryModal,
@@ -1837,6 +1847,8 @@ export function wireAppLayoutVoiceAndRealtime(
     welcomeBackExploreGate,
     welcomeBackExploreMemberEmptyDirectory,
     useCompactPhoneTabShell,
+    mobileBottomTab,
+    mobileServersStack,
     wireDmCallSocketSubmitters,
   };
 }

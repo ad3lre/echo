@@ -44,6 +44,23 @@ function fixMatrixLikeRowSeparators(latex: string): string {
   return s;
 }
 
+/**
+ * Inline KaTeX uses textstyle limits beside `\int`, `\sum`, etc. Auto-apply
+ * `\displaystyle` so limits sit above/below the operator like other platforms.
+ */
+const INLINE_LARGE_OP_WITH_LIMITS_RE =
+  /\\(?:oiiint|oiint|oint|iiiint|iiint|iint|idotsint|int|sum|prod|coprod|big(?:cup|cap|vee|wedge|uplus|sqcup|oplus|otimes|odot|circ))(?:\s*[\^_]|\s+\\limits\b)/;
+
+export function ensureDisplayStyleForOperatorLimits(
+  latex: string,
+  displayMode: boolean,
+): string {
+  if (displayMode) return latex;
+  if (/\\displaystyle\b/.test(latex)) return latex;
+  if (!INLINE_LARGE_OP_WITH_LIMITS_RE.test(latex)) return latex;
+  return `\\displaystyle ${latex}`;
+}
+
 export function normalizeKatexInput(latex: string): string {
   let s = latex;
 

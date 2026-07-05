@@ -67,23 +67,18 @@
   background-color: var(--echo-chat-view-bg);
 }
 
-/* Phone bottom tab bar shell */
+/* Phone bottom tab bar shell — floating pill + gap above safe area */
 .compact-phone-tab-shell {
-  --echo-mobile-bottom-bar-height: 3.25rem;
-}
-
-.main-content-area--phone-tab-shell {
-  padding-bottom: calc(
-    var(--echo-mobile-bottom-bar-height, 3.25rem) +
-      env(safe-area-inset-bottom, 0px)
+  --echo-mobile-bottom-bar-pill-height: 3.25rem;
+  --echo-mobile-bottom-bar-float-gap: 0.625rem;
+  --echo-mobile-bottom-bar-height: calc(
+    var(--echo-mobile-bottom-bar-pill-height) +
+      var(--echo-mobile-bottom-bar-float-gap)
   );
 }
 
-.main-content-area--phone-tab-shell-voice-dock {
-  padding-bottom: calc(
-    var(--echo-mobile-bottom-bar-height, 3.25rem) + 7.5rem +
-      env(safe-area-inset-bottom, 0px)
-  );
+.main-content-area--phone-voice-dock-reserve {
+  padding-bottom: 7.5rem;
 }
 
 /* Ensure explore view paints above any grid siblings when it's the only child */

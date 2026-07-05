@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-07-04",
+  "enrolledAt": "2026-07-05",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -20,8 +20,8 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/connect.ts": {
-      "lines": 296,
-      "longestFunction": 258,
+      "lines": 300,
+      "longestFunction": 261,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
     },
@@ -38,8 +38,8 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/micSend.ts": {
-      "lines": 321,
-      "longestFunction": 253,
+      "lines": 324,
+      "longestFunction": 255,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -62,14 +62,14 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/session.ts": {
-      "lines": 337,
-      "longestFunction": 302,
-      "deepNestingLines": 3,
+      "lines": 377,
+      "longestFunction": 337,
+      "deepNestingLines": 5,
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/speaking.ts": {
-      "lines": 324,
-      "longestFunction": 254,
+      "lines": 348,
+      "longestFunction": 273,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },
@@ -140,8 +140,8 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/buildAppLayoutAssemblyDeps.ts": {
-      "lines": 772,
-      "longestFunction": 761,
+      "lines": 773,
+      "longestFunction": 762,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -152,14 +152,14 @@
       "maxNestingSpaces": 10
     },
     "frontend/src/features/layout/composables/useAppLayoutCompactShellExpand.ts": {
-      "lines": 137,
-      "longestFunction": 92,
+      "lines": 163,
+      "longestFunction": 106,
       "deepNestingLines": 0,
-      "maxNestingSpaces": 8
+      "maxNestingSpaces": 10
     },
     "frontend/src/features/layout/composables/useAppLayoutDmInboxPanel.ts": {
-      "lines": 280,
-      "longestFunction": 242,
+      "lines": 278,
+      "longestFunction": 240,
       "deepNestingLines": 3,
       "maxNestingSpaces": 14
     },
@@ -194,8 +194,8 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/useAppLayoutServerLayoutPrefs.ts": {
-      "lines": 155,
-      "longestFunction": 141,
+      "lines": 153,
+      "longestFunction": 139,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -218,20 +218,20 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/features/layout/composables/wireAppLayoutDmAndShell.ts": {
-      "lines": 1123,
-      "longestFunction": 1013,
+      "lines": 1124,
+      "longestFunction": 1014,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
     "frontend/src/features/layout/composables/wireAppLayoutMessagingAndProfiles.ts": {
-      "lines": 1437,
-      "longestFunction": 1370,
+      "lines": 1447,
+      "longestFunction": 1379,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/wireAppLayoutVoiceAndRealtime.ts": {
-      "lines": 1846,
-      "longestFunction": 1747,
+      "lines": 1855,
+      "longestFunction": 1755,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -386,8 +386,8 @@
       "maxNestingSpaces": 8
     },
     "backend/src/services/chatRemoteImageImport.ts": {
-      "lines": 277,
-      "longestFunction": 129,
+      "lines": 291,
+      "longestFunction": 140,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },

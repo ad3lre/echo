@@ -79,19 +79,14 @@ const props = withDefaults(
 
 const reducedMotion = ref(false);
 const loadFailed = ref(false);
-
-watch(
-  () => [props.src, props.sessionKey, props.storageKey] as const,
-  () => {
-    loadFailed.value = false;
-  },
-);
+const imageLoaded = ref(false);
 
 function onImgError() {
   loadFailed.value = true;
 }
 
 function onImgLoad() {
+  imageLoaded.value = true;
   emit('load');
 }
 
@@ -144,6 +139,7 @@ const session = computed(() =>
 const {
   safeUrl,
   isGif,
+  preferNativePlayback,
   staticFrame,
   showAnimated,
   animSrc,
@@ -160,8 +156,42 @@ const {
   staticOnly: () => props.staticOnly,
 });
 
-watch(safeUrl, () => {
-  loadFailed.value = false;
+watch(
+  () =>
+    [
+      props.src,
+      props.sessionKey,
+      props.storageKey,
+      safeUrl.value,
+      staticFrame.value,
+    ] as const,
+  () => {
+    loadFailed.value = false;
+    imageLoaded.value = false;
+  },
+);
+
+const showAvatarSkeleton = computed(
+  () =>
+    props.unavailableVariant === 'avatar' &&
+    !loadFailed.value &&
+    (!safeUrl.value || !imageLoaded.value),
+);
+
+const avatarSkeletonRadiusClass = computed(() => {
+  const ic = props.imgClass ?? '';
+  if (/\brounded-full\b/.test(ic)) return 'rounded-full';
+  if (/\brounded-3xl\b/.test(ic)) return 'rounded-3xl';
+  if (/\brounded-2xl\b/.test(ic)) return 'rounded-2xl';
+  if (/\brounded-xl\b/.test(ic)) return 'rounded-xl';
+  if (/\brounded-lg\b/.test(ic)) return 'rounded-lg';
+  return 'rounded-full';
+});
+
+const resolvedImgClass = computed(() => {
+  const base = props.imgClass?.trim() ?? '';
+  if (!showAvatarSkeleton.value || !safeUrl.value) return base;
+  return [base, 'opacity-0'].filter(Boolean).join(' ');
 });
 
 const mediaUnavailableHeadline = computed(() => {
@@ -185,10 +215,11 @@ const layoutMode = computed(() => layoutModeFromImgClass(props.imgClass));
 /** Stabilized layouts need `relative` for absolutely layered poster/animated. */
 const mergedWrapperClass = computed(() => {
   const base = props.wrapperClass ?? '';
-  if (
+  const needsRelative =
     layoutMode.value === 'intrinsic-contain' ||
-    layoutMode.value === 'fill-cover'
-  ) {
+    layoutMode.value === 'fill-cover' ||
+    showAvatarSkeleton.value;
+  if (needsRelative) {
     return ['relative', base].filter(Boolean).join(' ');
   }
   return base;
@@ -212,6 +243,12 @@ const imgReferrerPolicy = 'no-referrer';
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
   >
+    <div
+      v-if="showAvatarSkeleton"
+      class="avatar-img-skeleton absolute inset-0 z-0"
+      :class="avatarSkeletonRadiusClass"
+      aria-hidden="true"
+    />
     <MediaUnavailablePanel
       v-if="loadFailed"
       :variant="unavailableVariant === 'avatar' ? 'avatar' : 'default'"
@@ -223,7 +260,21 @@ const imgReferrerPolicy = 'no-referrer';
       <img
         :src="safeUrl"
         :alt="alt"
-        :class="props.imgClass"
+        :class="resolvedImgClass"
+        :style="imgStyle"
+        draggable="false"
+        :referrerpolicy="imgReferrerPolicy"
+        :loading="props.loading"
+        @error="onImgError"
+        @load="onImgLoad"
+      />
+    </template>
+    <!-- CDN GIF fast path: single native animated img (Discord-style). -->
+    <template v-else-if="preferNativePlayback && safeUrl">
+      <img
+        :src="safeUrl"
+        :alt="alt"
+        :class="resolvedImgClass"
         :style="imgStyle"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
@@ -238,7 +289,7 @@ const imgReferrerPolicy = 'no-referrer';
       <img
         :src="staticFrame ?? safeUrl"
         :alt="alt"
-        :class="props.imgClass"
+        :class="resolvedImgClass"
         :style="imgStyle"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
@@ -251,7 +302,7 @@ const imgReferrerPolicy = 'no-referrer';
         :key="epoch"
         :src="animSrc"
         :alt="alt"
-        :class="props.imgClass"
+        :class="resolvedImgClass"
         :style="imgStyle"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
@@ -278,7 +329,7 @@ const imgReferrerPolicy = 'no-referrer';
         :alt="alt"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[props.imgClass, fillOverlayClass]"
+        :class="[resolvedImgClass, fillOverlayClass]"
         :style="imgStyle"
         :loading="props.loading"
         @error="onImgError"
@@ -291,7 +342,7 @@ const imgReferrerPolicy = 'no-referrer';
         :alt="alt"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[props.imgClass, fillAnimatedOverlayClass]"
+        :class="[resolvedImgClass, fillAnimatedOverlayClass]"
         :style="imgStyle"
         :loading="props.loading"
         @error="onImgError"
@@ -316,7 +367,7 @@ const imgReferrerPolicy = 'no-referrer';
         :alt="alt"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[props.imgClass, intrinsicPosterOverlayClass]"
+        :class="[resolvedImgClass, intrinsicPosterOverlayClass]"
         :style="imgStyle"
         :loading="props.loading"
         @error="onImgError"
@@ -329,7 +380,7 @@ const imgReferrerPolicy = 'no-referrer';
         :alt="alt"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[props.imgClass, intrinsicAnimatedOverlayClass]"
+        :class="[resolvedImgClass, intrinsicAnimatedOverlayClass]"
         :style="imgStyle"
         :loading="props.loading"
         @error="onImgError"
@@ -338,3 +389,27 @@ const imgReferrerPolicy = 'no-referrer';
     </template>
   </div>
 </template>
+
+<style scoped lang="scss">
+.avatar-img-skeleton {
+  background: color-mix(in srgb, var(--text) 11%, transparent);
+  animation: avatar-img-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes avatar-img-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-img-skeleton {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+</style>

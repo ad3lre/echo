@@ -17,6 +17,7 @@ import {
 import { memberRoleIconImgSrc } from '@/utils/memberRoleIconDisplay';
 import { useThemeStore } from '@/stores/theme';
 import { useUserVoiceChannelPresenceForProfile } from '@/composables/useUserVoiceChannelPresenceForProfile';
+import { useCompactShell } from '@/composables/useCompactShell';
 
 const props = withDefaults(
   defineProps<{
@@ -56,6 +57,7 @@ const props = withDefaults(
 const workspace = useEchoWorkspace();
 const serverStore = useServerStore();
 const themeStore = useThemeStore();
+const { isCompactShell } = useCompactShell();
 
 /** Guild server quick profile only — matches AppLayoutModals guild-context gate. */
 const showGuildRolesInline = computed(() => !props.hideGuildRolesSection);
@@ -155,6 +157,13 @@ const badgesForNameRow = computed(() => props.profile.badges ?? []);
 const quickDmDraft = ref('');
 const quickDmInputRef = ref<HTMLInputElement | null>(null);
 
+const showQuickDmInput = computed(
+  () => !!props.quickDmEnabled && !isCompactShell.value,
+);
+const showMessageButton = computed(
+  () => !!props.quickDmEnabled && isCompactShell.value,
+);
+
 const communicationTimeoutUntilEpochMs = computed(() => {
   const serverId = serverStore.selectedServerId?.trim();
   const userId = props.profile.id?.trim();
@@ -227,7 +236,7 @@ function submitQuickDm() {
 }
 
 function focusQuickDmInput() {
-  if (!props.quickDmEnabled) return;
+  if (!showQuickDmInput.value) return;
   nextTick(() => {
     quickDmInputRef.value?.focus();
   });
@@ -451,7 +460,34 @@ defineExpose({
       </section>
 
       <section
-        v-if="quickDmEnabled"
+        v-if="showMessageButton"
+        class="member-popout__quick-dm mt-3 border-t border-border pt-3"
+      >
+        <button
+          type="button"
+          class="member-popout__message-btn inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-3 py-2.5 text-[13px] font-semibold text-foreground transition"
+          @click="$emit('open-dm')"
+        >
+          <svg
+            class="h-[18px] w-[18px] shrink-0 opacity-90"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+            />
+          </svg>
+          Message
+        </button>
+      </section>
+
+      <section
+        v-else-if="showQuickDmInput"
         class="member-popout__quick-dm mt-3 border-t border-border pt-3"
       >
         <form
@@ -545,6 +581,21 @@ defineExpose({
   &:focus {
     border-color: var(--vue-auto-001);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+}
+
+.member-popout__message-btn {
+  border: 1px solid var(--vue-auto-008);
+  background: var(--vue-auto-007);
+
+  &:hover {
+    background: var(--vue-auto-002);
+    border-color: var(--vue-auto-001);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
   }
 }
 

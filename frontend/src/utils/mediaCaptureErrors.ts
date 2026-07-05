@@ -1,4 +1,8 @@
 import { UIErrorBus } from '@/utils/uiErrorBus';
+import {
+  echoCameraPublishPermissionDeniedHint,
+  echoScreenCapturePermissionDeniedHint,
+} from '@/utils/mediaPermissionHints';
 
 const MEDIA_CAPTURE_UI_DEDUPE_MS = 4500;
 let lastMediaCaptureUiEmit: {
@@ -55,12 +59,7 @@ export function screenShareFailureUserMessage(e: unknown): string {
     msgLower.includes('permission denied') ||
     msgLower.includes('not allowed')
   ) {
-    return (
-      'Screen capture was blocked or the picker was closed without a selection. ' +
-      'Allow screen capture for this site from the address bar (lock or site icon → permissions). ' +
-      'On macOS, open System Settings → Privacy & Security → Screen Recording and enable your browser; restart the browser if macOS asks. ' +
-      'Then tap Share screen again.'
-    );
+    return echoScreenCapturePermissionDeniedHint();
   }
   if (
     name === 'notfounderror' ||
@@ -110,10 +109,7 @@ export function cameraPublishFailureUserMessage(e: unknown): string {
     msgLower.includes('permission denied') ||
     msgLower.includes('not allowed')
   ) {
-    return (
-      'Camera access was blocked. Allow the camera for this site from the address bar (lock or site icon → permissions). ' +
-      'On macOS, check System Settings → Privacy & Security → Camera for your browser. Then turn video on again.'
-    );
+    return echoCameraPublishPermissionDeniedHint();
   }
   if (
     name === 'notfounderror' ||

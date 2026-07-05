@@ -28,3 +28,31 @@ export function sanitizeEmojiImgHtmlForVHtml(html: string): string {
     'echo-emoji-sanitize-root',
   );
 }
+
+/** Custom emoji inline shells (skeleton + img) for reaction pills and similar `v-html`. */
+export function sanitizeCustomEmojiInlineHtmlForVHtml(html: string): string {
+  return domPurifyHtmlFragment(
+    html,
+    {
+      ALLOWED_TAGS: ['span', 'img'],
+      ALLOWED_ATTR: [
+        'class',
+        'draggable',
+        'alt',
+        'title',
+        'src',
+        'loading',
+        'decoding',
+        'role',
+        'aria-label',
+        'aria-hidden',
+        'tabindex',
+        'data-emoji-id',
+        'data-emoji-name',
+        'data-emoji-animated',
+        'data-emoji-src-try',
+      ],
+    },
+    'echo-custom-emoji-inline-sanitize-root',
+  );
+}

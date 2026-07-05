@@ -82,15 +82,20 @@ export type ChatPendingMediaKind =
  * Classify a file for pending previews (composer). Video before audio so `.mp4` with no
  * type maps to video.
  */
+export function isChatImageUpload(file: File): boolean {
+  const t = (file.type || '').trim().toLowerCase();
+  if (t.startsWith('image/')) return true;
+  if (LOOSE_TYPE(t) && IMAGE_EXT_RE.test(file.name || '')) {
+    return true;
+  }
+  return false;
+}
+
 export function inferChatPendingMediaKind(file: File): ChatPendingMediaKind {
   if (isChatVideoUpload(file)) return 'video';
   if (isChatDocumentUpload(file)) return 'document';
   if (isChatAudioUpload(file)) return 'audio';
-  const t = (file.type || '').trim().toLowerCase();
-  if (t.startsWith('image/')) return 'image';
-  if (LOOSE_TYPE(t) && IMAGE_EXT_RE.test(file.name || '')) {
-    return 'image';
-  }
+  if (isChatImageUpload(file)) return 'image';
   return 'unknown';
 }
 

@@ -19,6 +19,7 @@ import {
 import {
   fallbackDiscordCdnCustomEmojiImageUrl,
   safeCustomEmojiUrl,
+  shouldAllowDiscordCdnGuessForEmojiId,
 } from '@/utils/customEmojiUrl';
 
 type ChannelLike = {
@@ -54,7 +55,14 @@ export function useChannelIconResolver(
       const safe = safeCustomEmojiUrl(cached);
       if (safe) return safe;
     }
-    if (isEchoEmojiTokenResolveMiss(id)) {
+    const echoMissed = isEchoEmojiTokenResolveMiss(id);
+    if (
+      shouldAllowDiscordCdnGuessForEmojiId(
+        id,
+        globalEmoji.urlById.value,
+        echoMissed,
+      )
+    ) {
       const cdn = fallbackDiscordCdnCustomEmojiImageUrl(id, false);
       if (cdn) return cdn;
     }

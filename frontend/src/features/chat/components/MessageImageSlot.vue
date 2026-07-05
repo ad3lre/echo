@@ -11,6 +11,7 @@ const props = defineProps<{
   width?: number | null;
   height?: number | null;
   canFill?: boolean;
+  uploading?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -46,7 +47,7 @@ const imgClass = computed(() =>
 );
 
 function onClick() {
-  if (!props.canFill || filled.value) return;
+  if (!props.canFill || filled.value || props.uploading) return;
   emit('fill', props.slotId);
 }
 
@@ -62,22 +63,29 @@ function onImageReady() {
       type="button"
       class="message-image-slot__empty flex h-full w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-scrim-1 text-fg-subtle transition-colors"
       :class="
-        canFill
+        canFill && !uploading
           ? 'cursor-pointer hover:border-[#00a8fc] hover:bg-scrim-2 hover:text-fg'
-          : 'cursor-default'
+          : uploading
+            ? 'cursor-wait opacity-80'
+            : 'cursor-default'
       "
-      :disabled="!canFill"
+      :disabled="!canFill || uploading"
       :aria-label="
-        canFill
-          ? `Add image to ${aspectW}:${aspectH} slot`
-          : `Image slot ${aspectW}:${aspectH}`
+        uploading
+          ? `Uploading image for ${aspectW}:${aspectH} slot`
+          : canFill
+            ? `Add image to ${aspectW}:${aspectH} slot`
+            : `Image slot ${aspectW}:${aspectH}`
       "
       @click="onClick"
     >
       <span class="text-xs font-semibold uppercase tracking-wide">
         Image {{ aspectW }}:{{ aspectH }}
       </span>
-      <span v-if="canFill" class="mt-1 text-[11px]">Click to add image</span>
+      <span v-if="uploading" class="mt-1 text-[11px]">Uploading…</span>
+      <span v-else-if="canFill" class="mt-1 text-[11px]"
+        >Click to add image</span
+      >
     </button>
     <div
       v-else

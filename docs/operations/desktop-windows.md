@@ -167,7 +167,7 @@ Only `echo:` is accepted; paths are validated before `history.pushState` + `pops
 
 ## Icons
 
-Regenerate platform icons from the PWA asset:
+Regenerate platform icons from the full-color Echo logo (`frontend/public/echo-logo.png` — purple gradient, not the black-backed rounded mark):
 
 ```powershell
 npm run tauri:icon

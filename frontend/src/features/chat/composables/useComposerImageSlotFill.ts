@@ -6,6 +6,7 @@ import {
   updateImageSlotInEditor,
 } from '@/features/chat/editor/composerModel';
 import { formatChatUploadErrorMessage } from '@/services/domain/chatUploads';
+import { isChatImageUpload } from '@/utils/chatUploadMediaTypes';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
 type PendingSlotTarget = {
@@ -84,8 +85,11 @@ async function handleComposerImageSlotFileSelected(
     state.pendingTarget.target = null;
     return;
   }
-  if (!file.type.startsWith('image/')) {
-    dispatchAppToast('Please choose an image file', 'warning');
+  if (!isChatImageUpload(file)) {
+    dispatchAppToast(
+      'Please choose an image file (JPEG, PNG, WebP, GIF, or HEIC)',
+      'warning',
+    );
     state.pendingTarget.target = null;
     return;
   }
@@ -133,14 +137,30 @@ export function useComposerImageSlotFill(opts: {
 
   function handleComposerImageSlotPointerDown(event: MouseEvent) {
     if (event.button !== 0) return;
-    if (opts.composerDisabled()) return;
+    const clickTarget = event.target;
+    if (!(clickTarget instanceof HTMLElement)) return;
+    if (!clickTarget.closest('[data-rich-block="image"]')) return;
+    if (opts.composerDisabled()) {
+      const reason = opts.composerDisabledReason?.()?.trim();
+      dispatchAppToast(
+        reason || 'Composer is locked — you cannot add images right now',
+        'warning',
+      );
+      return;
+    }
     const editor = opts.getEditor();
     if (!editor) {
       dispatchAppToast('Composer is not ready — try again', 'warning');
       return;
     }
     const target = resolveComposerImageSlotTarget(editor, event);
-    if (!target) return;
+    if (!target) {
+      dispatchAppToast(
+        'Could not add image to this slot — try again',
+        'warning',
+      );
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     openFillPicker(target);

@@ -5,6 +5,10 @@
  */
 
 import { vcDebugLog } from '@/utils/vcDebugLog';
+import {
+  isAudioPlaybackUnlocked,
+  whenAudioPlaybackUnlocked,
+} from '@/audio/audioPlaybackUnlock';
 
 type TrackLike = {
   attachedElements?: HTMLMediaElement[];
@@ -42,16 +46,28 @@ function getSharedPlaybackAudioContext(): AudioContext {
   return sharedContext;
 }
 
-export function echoPlaybackEnsureAudioContextRunning(): Promise<void> {
+async function resumeSharedPlaybackContext(): Promise<boolean> {
   try {
     const ctx = getSharedPlaybackAudioContext();
-    if (ctx.state === 'suspended') {
-      return ctx.resume().catch(() => undefined);
-    }
+    if (ctx.state === 'running') return true;
+    if (ctx.state === 'closed') return false;
+    await ctx.resume();
+    return getSharedPlaybackAudioContext().state === 'running';
   } catch {
-    /* ignore */
+    return false;
   }
-  return Promise.resolve();
+}
+
+export function echoPlaybackEnsureAudioContextRunning(): Promise<void> {
+  return resumeSharedPlaybackContext().then((ok) => {
+    if (ok) return;
+    if (isAudioPlaybackUnlocked()) return;
+    return new Promise((resolve) => {
+      whenAudioPlaybackUnlocked(() => {
+        void resumeSharedPlaybackContext().finally(resolve);
+      });
+    });
+  });
 }
 
 function trackElementSet(track: object): Set<HTMLMediaElement> {
@@ -75,7 +91,7 @@ export function echoPlaybackRegisterTrackElement(
   element: HTMLMediaElement,
 ): boolean {
   const ctx = getSharedPlaybackAudioContext();
-  void ctx.resume().catch(() => undefined);
+  void echoPlaybackEnsureAudioContextRunning();
 
   const trackSid = (track as { sid?: string }).sid ?? 'unknown';
 

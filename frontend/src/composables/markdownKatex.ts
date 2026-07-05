@@ -1,6 +1,9 @@
 import { ref } from 'vue';
 import DOMPurify from 'dompurify';
-import { normalizeKatexInput } from '@/composables/normalizeKatexInput';
+import {
+  ensureDisplayStyleForOperatorLimits,
+  normalizeKatexInput,
+} from '@/composables/normalizeKatexInput';
 
 export const MARKDOWN_KATEX_PIPELINE_VERSION = 'katex-shared1';
 
@@ -201,24 +204,25 @@ export function renderMarkdownKatexHtml(
   displayMode: boolean,
 ): string {
   const normalized = normalizeKatexInput(latex);
-  const key = `${displayMode ? 'd' : 'i'}:${normalized}`;
+  const src = ensureDisplayStyleForOperatorLimits(normalized, displayMode);
+  const key = `${displayMode ? 'd' : 'i'}:${src}`;
   const hit = getCachedString(katexRenderCache, key);
   if (hit !== undefined) return hit;
 
   if (!katexModule) {
     ensureMarkdownKatexLoaded();
-    return renderMarkdownKatexPlaceholderHtml(normalized, displayMode);
+    return renderMarkdownKatexPlaceholderHtml(src, displayMode);
   }
 
-  const src =
-    normalized.length > MAX_KATEX_SOURCE_CHARS
-      ? `${normalized.slice(0, MAX_KATEX_SOURCE_CHARS)}\\text{...}`
-      : normalized;
+  const renderSrc =
+    src.length > MAX_KATEX_SOURCE_CHARS
+      ? `${src.slice(0, MAX_KATEX_SOURCE_CHARS)}\\text{...}`
+      : src;
   try {
     return setCachedString(
       katexRenderCache,
       key,
-      katexModule.renderToString(src, {
+      katexModule.renderToString(renderSrc, {
         displayMode,
         throwOnError: false,
         trust: false,
@@ -238,7 +242,8 @@ export function renderMarkdownKatexSafeHtml(
   displayMode: boolean,
 ): string {
   const normalized = normalizeKatexInput(latex);
-  const key = `${displayMode ? 'd' : 'i'}:${normalized}:safe`;
+  const src = ensureDisplayStyleForOperatorLimits(normalized, displayMode);
+  const key = `${displayMode ? 'd' : 'i'}:${src}:safe`;
   const hit = getCachedString(katexSafeRenderCache, key);
   if (hit !== undefined) return hit;
 
@@ -247,7 +252,7 @@ export function renderMarkdownKatexSafeHtml(
     katexSafeRenderCache,
     key,
     DOMPurify.sanitize(
-      renderMarkdownKatexHtml(normalized, displayMode),
+      renderMarkdownKatexHtml(latex, displayMode),
       KATEX_ONLY_SANITIZE_OPTS,
     ),
   );

@@ -297,9 +297,14 @@ onMounted(() => {
     :note="m.activeMemberNote"
     :open-roles-panel-with-profile="m.memberPopoutOpenRolesPanel ?? false"
     :current-user-id="m.currentUserIdForProfiles"
-    :is-friend="m.isMemberPopoutFriend ?? false"
-    :can-send-friend-request="m.isMemberPopoutCanSendFriendRequest ?? false"
     :is-target-blocked="m.isMemberPopoutTargetBlocked"
+    :friendship-known="expandedProfileModel.friendshipKnown"
+    :guest-friends-locked="expandedProfileModel.guestFriendsLocked"
+    :friend-ids="expandedProfileModel.friendIds"
+    :friend-ids-by-user-id="expandedProfileModel.friendIdsByUserId"
+    :friend-requests-incoming="expandedProfileModel.friendRequestsIncoming"
+    :friend-requests-outgoing="expandedProfileModel.friendRequestsOutgoing"
+    :blocked-user-ids="expandedProfileModel.blockedUserIds"
     @update:model-value="m.onUpdateMemberPopoutOpen"
     @update:note="m.onUpdateMemberNote"
     @open-full-profile="m.onOpenExpandedProfileFromMemberPopout"
@@ -307,6 +312,15 @@ onMounted(() => {
     @unblock-user="m.onProfileUnblockUser($event)"
     @remove-friend="m.onExpandedProfileRemoveFriend($event)"
     @send-friend-request="m.onMemberPopoutSendFriendRequest?.($event)"
+    @cancel-outgoing-friend-request="
+      expandedProfileIntents.cancelOutgoingFriendRequest
+    "
+    @accept-incoming-friend-request="
+      expandedProfileIntents.acceptIncomingFriendRequest
+    "
+    @decline-incoming-friend-request="
+      expandedProfileIntents.declineIncomingFriendRequest
+    "
     @report-user="m.onProfileReportUser($event)"
     @quick-dm="
       (text) => {

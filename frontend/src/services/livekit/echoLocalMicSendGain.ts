@@ -57,24 +57,44 @@ export class EchoMicSendGainStage {
   private source?: MediaStreamAudioSourceNode;
   private gainNode?: GainNode;
   private destination?: MediaStreamAudioDestinationNode;
+  private audioContext?: AudioContext;
+  private sourceTrack?: MediaStreamTrack;
   processedTrack?: MediaStreamTrack;
+
+  getSourceTrack(): MediaStreamTrack | undefined {
+    return this.sourceTrack;
+  }
+
+  async ensureAudioContextRunning(): Promise<boolean> {
+    const ctx = this.audioContext;
+    if (!ctx || ctx.state === 'closed') return false;
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {
+        voiceClientDiag(
+          'warn',
+          'voice.client:mic_send_gain_ctx_resume_failed',
+          {},
+        );
+        return false;
+      }
+    }
+    return ctx.state === 'running';
+  }
 
   async init(opts: AudioProcessorOptions): Promise<void> {
     await this.destroy();
     const { track, audioContext } = opts;
+    this.sourceTrack = track;
+    this.audioContext = audioContext;
     // Safari/iOS routinely hand us a *suspended* AudioContext here. A suspended context
     // makes the MediaStreamAudioDestinationNode emit silence, so remote participants hear
     // nothing even though the local mic track is "live" — the classic "my mic does not work
     // in Safari" report. Resume before wiring the graph. Harmless on other browsers: it only
     // resumes when actually suspended, and a failure still attaches the graph for a later
     // gesture-driven resume.
-    if (audioContext.state === 'suspended') {
-      try {
-        await audioContext.resume();
-      } catch {
-        /* best-effort */
-      }
-    }
+    await this.ensureAudioContextRunning();
     this.source = audioContext.createMediaStreamSource(
       new MediaStream([track]),
     );
@@ -97,6 +117,8 @@ export class EchoMicSendGainStage {
     this.source = undefined;
     this.gainNode = undefined;
     this.destination = undefined;
+    this.audioContext = undefined;
+    this.sourceTrack = undefined;
     this.processedTrack = undefined;
   }
 
@@ -164,6 +186,14 @@ export class EchoMicSendProcessor implements TrackProcessor<
 
   getKrispProcessor(): KrispProcessorLike | undefined {
     return this.krisp;
+  }
+
+  getSourceTrack(): MediaStreamTrack | undefined {
+    return this.gainStage.getSourceTrack();
+  }
+
+  async ensureSendAudioContextRunning(): Promise<boolean> {
+    return this.gainStage.ensureAudioContextRunning();
   }
 
   private async rebuild(opts: AudioProcessorOptions): Promise<void> {
@@ -264,6 +294,20 @@ export function setEchoMicSendLinearGain(
   if (!processor) return false;
   processor.setLinearGain(linearGain);
   return true;
+}
+
+export function getEchoMicSendProcessorSourceTrack(
+  localAudio: LocalAudioTrack,
+): MediaStreamTrack | undefined {
+  return getEchoMicSendProcessor(localAudio)?.getSourceTrack();
+}
+
+export async function ensureEchoMicSendProcessorAudioContextRunning(
+  localAudio: LocalAudioTrack,
+): Promise<boolean> {
+  const processor = getEchoMicSendProcessor(localAudio);
+  if (!processor) return true;
+  return processor.ensureSendAudioContextRunning();
 }
 
 /** Legacy Krisp-only processor from older sessions — tear down before attaching send gain. */

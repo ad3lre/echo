@@ -2,6 +2,7 @@
  * Shared upload path for chat composer + message edit (pending media → persisted URLs).
  */
 import type { MessageAttachmentPayload } from '@shared/types';
+import { isLikelyGifMediaUrl } from '@shared/gifHostLinks';
 import {
   importChatRemoteImage,
   uploadChatAttachmentFile,
@@ -28,6 +29,25 @@ import type {
 export type PendingMediaUploadOptions = {
   onMediaUploadProgress?: (e: ChatMediaUploadProgressEvent) => void;
 };
+
+function passthroughGifAttachment(
+  url: string,
+  opts: {
+    width?: number;
+    height?: number;
+    spoiler?: boolean;
+  } = {},
+): MessageAttachmentPayload {
+  return {
+    url: url.trim(),
+    kind: 'gif',
+    mimeType: 'image/gif',
+    ...(opts.width && opts.height
+      ? { width: opts.width, height: opts.height }
+      : {}),
+    ...(opts.spoiler ? { spoiler: true } : {}),
+  };
+}
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -522,6 +542,17 @@ export async function uploadPendingMediaAsAttachments(
     };
     emitIf('preparing', null);
     emitIf('uploading', null);
+    if (isLikelyGifMediaUrl(x.url)) {
+      emitIf('done', null);
+      attachments.push(
+        passthroughGifAttachment(x.url, {
+          width: x.width,
+          height: x.height,
+          spoiler: x.spoiler,
+        }),
+      );
+      continue;
+    }
     try {
       const imported = await importChatRemoteImage(token, channelId, x.url);
       emitIf('finishing', null);
@@ -567,6 +598,17 @@ export async function uploadPendingMediaAsAttachments(
     };
     emitIf('preparing', null);
     emitIf('uploading', null);
+    if (isLikelyGifMediaUrl(gif.url)) {
+      emitIf('done', null);
+      attachments.push(
+        passthroughGifAttachment(gif.url, {
+          width: gif.width,
+          height: gif.height,
+          spoiler: gif.spoiler,
+        }),
+      );
+      continue;
+    }
     try {
       const imported = await importChatRemoteImage(token, channelId, gif.url);
       emitIf('finishing', null);

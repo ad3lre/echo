@@ -1,5 +1,8 @@
-import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
-import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
+import {
+  resolveCustomEmojiImageUrlForDisplay,
+  shouldAllowDiscordCdnGuessForEmojiId,
+} from '@/utils/customEmojiUrl';
+import { sanitizeCustomEmojiInlineHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
 import { parseSingleEmoji } from '@/utils/twemoji';
 
 /** Discord custom emoji token embedded in message content or reactions. */
@@ -56,6 +59,44 @@ function escReactionAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
+export type CustomEmojiInlineAttrs = {
+  id: string;
+  name: string;
+  animated: boolean;
+};
+
+/** Skeleton placeholder while a custom emoji URL is still resolving. */
+export function renderCustomEmojiPendingInlineHtml(
+  attrs: CustomEmojiInlineAttrs,
+  opts?: { interactive?: boolean },
+): string {
+  const token = `:${attrs.name}:`;
+  const id = escReactionAttr(attrs.id);
+  const name = escReactionAttr(attrs.name);
+  const animated = attrs.animated ? 'true' : 'false';
+  const interactive = opts?.interactive !== false;
+  const classes = interactive
+    ? 'custom-emoji-inline custom-emoji-inline--pending mention mention--custom-emoji id-token'
+    : 'custom-emoji-inline custom-emoji-inline--pending';
+  const roleAttrs = interactive ? ' tabindex="0" role="button"' : ' role="img"';
+  return `<span class="${classes}" data-emoji-id="${id}" data-emoji-name="${name}" data-emoji-animated="${animated}" aria-label="${escReactionAttr(token)}"${roleAttrs}><span class="custom-emoji-skeleton" aria-hidden="true"></span></span>`;
+}
+
+/** Skeleton + image while the custom emoji asset decodes. */
+export function renderCustomEmojiLoadingInlineHtml(
+  attrs: CustomEmojiInlineAttrs,
+  url: string,
+  opts?: { tryIndex?: number },
+): string {
+  const token = `:${attrs.name}:`;
+  const id = escReactionAttr(attrs.id);
+  const name = escReactionAttr(attrs.name);
+  const animated = attrs.animated ? 'true' : 'false';
+  const safeUrl = escReactionAttr(url);
+  const tryIndex = opts?.tryIndex ?? 0;
+  return `<span class="custom-emoji-inline custom-emoji-inline--loading" role="img" aria-label="${escReactionAttr(token)}" data-emoji-id="${id}" data-emoji-name="${name}" data-emoji-animated="${animated}"><span class="custom-emoji-skeleton" aria-hidden="true"></span><img class="emoji custom-emoji custom-emoji--pending-load" draggable="false" alt="${escReactionAttr(token)}" title="${escReactionAttr(token)}" src="${safeUrl}" data-emoji-id="${id}" data-emoji-name="${name}" data-emoji-animated="${animated}" data-emoji-src-try="${tryIndex}" loading="lazy" decoding="async"/></span>`;
+}
+
 export type RenderSingleEmojiHtmlOpts = {
   cachedById?: ReadonlyMap<string, string> | null;
   echoResolveMissed?: (id: string) => boolean;
@@ -80,15 +121,24 @@ export function renderSingleEmojiHtml(
       opts?.cachedById,
       echoMissed,
       {
-        allowDiscordCdnGuess: opts?.allowDiscordCdnGuess ?? echoMissed,
+        allowDiscordCdnGuess:
+          opts?.allowDiscordCdnGuess ??
+          shouldAllowDiscordCdnGuessForEmojiId(
+            custom.id,
+            opts?.cachedById,
+            echoMissed,
+          ),
       },
     );
     if (url) {
-      const raw = `<img class="emoji custom-emoji" draggable="false" alt="${escReactionAttr(`:${custom.name}:`)}" src="${escReactionAttr(url)}"/>`;
-      return sanitizeEmojiImgHtmlForVHtml(raw);
+      return sanitizeCustomEmojiInlineHtmlForVHtml(
+        renderCustomEmojiLoadingInlineHtml(custom, url),
+      );
     }
     opts?.ensureEmojiId?.(custom.id);
-    return escReactionAttr(`:${custom.name}:`);
+    return sanitizeCustomEmojiInlineHtmlForVHtml(
+      renderCustomEmojiPendingInlineHtml(custom, { interactive: false }),
+    );
   }
   return parseSingleEmoji(emoji);
 }

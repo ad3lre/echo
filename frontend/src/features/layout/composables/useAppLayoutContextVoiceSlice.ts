@@ -105,6 +105,7 @@ type VoiceSliceKeys =
   | 'onLeaveVoice'
   | 'onLeaveVoiceUi'
   | 'onVcChatButtonClick'
+  | 'handleMinimizeVoiceView'
   | 'isViewingVoiceChannel'
   | 'updateVcVideoIfAllowed'
   | 'isScreenSharePickerOpen'

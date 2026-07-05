@@ -14,6 +14,10 @@ import {
   twemojiHtmlFromSegments,
 } from '@/utils/twemoji';
 import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
+import {
+  renderCustomEmojiLoadingInlineHtml,
+  renderCustomEmojiPendingInlineHtml,
+} from '@/utils/customEmojiDisplay';
 import type { MentionEntity } from '@shared/types';
 import { findAllIdTokenMatches, type ParsedIdToken } from '@/utils/idTokens';
 import {
@@ -341,14 +345,20 @@ export function renderComposerOverlayPlainSegment(
       );
       const url = rawUrl ? safeCustomEmojiUrl(rawUrl) : null;
       if (url) {
-        const t = `:${token.name}:`;
         const w =
           Number.isFinite(token.rawLen) &&
           token.rawLen > 0 &&
           token.rawLen < 512
             ? token.rawLen
             : 4;
-        out += `<span class="composer-emoji-token-slot" style="width:${w}ch"><img class="emoji custom-emoji" draggable="false" alt="${escapeAttr(t)}" title="${escapeAttr(t)}" src="${escapeAttr(url)}" data-emoji-id="${escapeAttr(token.id)}" data-emoji-name="${escapeAttr(token.name)}" data-emoji-animated="${token.animated ? 'true' : 'false'}" data-emoji-src-try="0"/></span>`;
+        out += `<span class="composer-emoji-token-slot" style="width:${w}ch">${renderCustomEmojiLoadingInlineHtml(
+          {
+            id: token.id,
+            name: token.name,
+            animated: token.animated,
+          },
+          url,
+        )}</span>`;
       } else {
         out += renderIdTokenHtml(token, r);
       }
@@ -430,10 +440,20 @@ function renderIdTokenHtml(
       const url = rawUrl ? safeCustomEmojiUrl(rawUrl) : null;
       if (url) {
         const t = `:${parsed.name}:`;
-        return `<img class="emoji custom-emoji" draggable="false" alt="${attr(t)}" title="${attr(t)}" src="${attr(url)}" data-emoji-id="${attr(parsed.id)}" data-emoji-name="${attr(parsed.name)}" data-emoji-animated="${parsed.animated ? 'true' : 'false'}" data-emoji-src-try="0"/>`;
+        return renderCustomEmojiLoadingInlineHtml(
+          {
+            id: parsed.id,
+            name: parsed.name,
+            animated: parsed.animated,
+          },
+          url,
+        );
       }
-      const disp = `:${parsed.name}:`;
-      return `<span class="mention mention--custom-emoji id-token" data-emoji-id="${attr(parsed.id)}" data-emoji-name="${attr(parsed.name)}" tabindex="0" role="button">${safe(disp)}</span>`;
+      return renderCustomEmojiPendingInlineHtml({
+        id: parsed.id,
+        name: parsed.name,
+        animated: parsed.animated,
+      });
     }
     case 'appIcon': {
       const url = resolvers.appIconImageUrl?.(parsed.filename);

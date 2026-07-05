@@ -2,6 +2,7 @@ import {
   assertVoiceJoinMediaReady,
   VoiceJoinMediaPreflightError,
 } from '@/features/voice/voiceJoinMediaPreflight';
+import { echoVoiceJoinPreflightRetrySuffix } from '@/utils/mediaPermissionHints';
 import { requestAppTwoChoice } from '@/utils/appDialogs';
 
 export type VoiceJoinMediaPreflightOutcome =
@@ -28,7 +29,7 @@ export async function runVoiceJoinMediaPreflightInteractive(): Promise<VoiceJoin
       const detail = preflightErrorMessage(e);
       const choice = await requestAppTwoChoice({
         title: 'Microphone not ready',
-        message: `${detail}\n\nAllow the mic in your browser bar, check Voice & Video settings, or plug in a headset, then try again.`,
+        message: `${detail}\n\n${echoVoiceJoinPreflightRetrySuffix()}`,
         primaryLabel: 'Retry',
         secondaryLabel: 'Join muted',
         dismissLabel: 'Cancel',

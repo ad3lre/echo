@@ -18,6 +18,9 @@ import BannerRepositionModal from '@/features/server-settings/components/BannerR
 import EmojiPackTagsField from '@/features/server-settings/components/EmojiPackTagsField.vue';
 import { useVanityAvailabilityCheck } from '@/features/server-settings/composables/useVanityAvailabilityCheck';
 import type { ChannelCategory } from '@/composables/useChannels';
+import { useChannelIconResolver } from '@/composables/useChannelIconResolver';
+import EchoDropdown from '@/components/EchoDropdown.vue';
+import type { EchoDropdownOption } from '@/components/EchoDropdown.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -108,22 +111,31 @@ function onBannerBlackoutInput(e: Event) {
   emit('update:bannerBlackoutEnabled', el.checked);
 }
 
-const welcomeTextChannels = computed(() => {
-  const out: Array<{ id: string; name: string; categoryName: string }> = [];
+const channelIconResolver = useChannelIconResolver(serverIdRef);
+
+const welcomeChannelDropdownOptions = computed((): EchoDropdownOption[] => {
+  const opts: EchoDropdownOption[] = [{ value: '', label: 'None' }];
   for (const cat of props.categories ?? []) {
     for (const ch of cat.channels ?? []) {
       if (ch.type !== 'text') continue;
-      out.push({ id: ch.id, name: ch.name, categoryName: cat.name });
+      const iconSrc = channelIconResolver.getIconUrl(ch);
+      opts.push({
+        value: ch.id,
+        label: cat.name ? `${cat.name} / ${ch.name}` : ch.name,
+        iconSrc: iconSrc || undefined,
+        iconMono: channelIconResolver.usesSvgInvert(ch),
+      });
     }
   }
-  return out;
+  return opts;
 });
 
-function onWelcomeChannelSelect(e: Event) {
-  const el = e.target as HTMLSelectElement;
-  const value = el.value.trim();
-  emit('update:welcomeChannelId', value ? value : null);
-}
+const welcomeChannelModel = computed({
+  get: () => props.welcomeChannelId ?? '',
+  set: (value: string) => {
+    emit('update:welcomeChannelId', value.trim() ? value : null);
+  },
+});
 
 /** File input stacks above the icon; drive GIF play from label hover. */
 const serverIconHover = ref(false);
@@ -531,20 +543,18 @@ function saveReposition(nextY: number) {
         <p class="mb-3 text-xs text-fg-subtle">
           Post a system message when someone joins. Leave unset to disable.
         </p>
-        <select
-          class="server-settings-tickets__select w-full max-w-md rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
-          :value="props.welcomeChannelId ?? ''"
-          :disabled="
-            !props.canManageServer || props.bannerChannelPrefsPersisting
-          "
-          aria-label="Welcome channel"
-          @change="onWelcomeChannelSelect"
-        >
-          <option value="">None</option>
-          <option v-for="ch in welcomeTextChannels" :key="ch.id" :value="ch.id">
-            {{ ch.categoryName ? `${ch.categoryName} / ${ch.name}` : ch.name }}
-          </option>
-        </select>
+        <div class="max-w-md">
+          <EchoDropdown
+            v-model="welcomeChannelModel"
+            :options="welcomeChannelDropdownOptions"
+            surface="server"
+            teleport-menu
+            searchable
+            :disabled="
+              !props.canManageServer || props.bannerChannelPrefsPersisting
+            "
+          />
+        </div>
       </div>
     </div>
   </div>

@@ -2,6 +2,7 @@ import type pg from 'pg';
 import { parseDiscordUserIdFromAvatarCdnUrl } from '../domain/discordNormalized';
 import {
   isCorruptedDiscordImportPfp,
+  needsDiscordImportPfpRepair,
   repairDiscordImportUserPfpIfNeeded,
 } from './discordImportAvatarMirror';
 
@@ -53,6 +54,8 @@ export async function listUsersWithCorruptedDiscordImportPfp(
     LEFT JOIN echo_discord_shadow_users s ON s.shadow_user_id = u.id
     LEFT JOIN auth_discord_user_links l ON l.user_id = u.id
     WHERE TRIM(COALESCE(u.pfp, '')) <> ''
+       OR s.discord_user_id IS NOT NULL
+       OR l.discord_user_id IS NOT NULL
     ORDER BY u.id ASC
     `,
   );
@@ -60,13 +63,13 @@ export async function listUsersWithCorruptedDiscordImportPfp(
   const out: DiscordAvatarPfpBackfillRow[] = [];
   for (const row of rows) {
     const pfp = String(row.pfp ?? '').trim();
-    if (!isCorruptedDiscordImportPfp(pfp)) continue;
 
     const discordUserId = resolveDiscordUserIdForPfpBackfill({
       pfp,
       shadowDiscordUserId: row.shadow_discord_user_id,
       linkedDiscordUserId: row.linked_discord_user_id,
     });
+    if (!needsDiscordImportPfpRepair(pfp, discordUserId)) continue;
     if (!discordUserId) continue;
 
     out.push({
@@ -97,8 +100,8 @@ export async function backfillDiscordImportAvatarPfpForUser(
     return { status: 'skipped', userId, reason: 'missing_user_or_discord_id' };
   }
 
-  if (!isCorruptedDiscordImportPfp(row.pfp)) {
-    return { status: 'skipped', userId, reason: 'not_corrupted' };
+  if (!needsDiscordImportPfpRepair(row.pfp, discordUserId)) {
+    return { status: 'skipped', userId, reason: 'not_needing_repair' };
   }
 
   let mirrored: string;
@@ -144,7 +147,15 @@ export async function runDiscordImportAvatarPfpBackfill(
   opts: { execute: boolean },
 ): Promise<DiscordAvatarPfpBackfillSummary> {
   const { rows: allRows } = await pool.query<{ count: string }>(
-    `SELECT COUNT(*)::text AS count FROM auth_users WHERE TRIM(COALESCE(pfp, '')) <> ''`,
+    `
+    SELECT COUNT(*)::text AS count
+    FROM auth_users u
+    LEFT JOIN echo_discord_shadow_users s ON s.shadow_user_id = u.id
+    LEFT JOIN auth_discord_user_links l ON l.user_id = u.id
+    WHERE TRIM(COALESCE(u.pfp, '')) <> ''
+       OR s.discord_user_id IS NOT NULL
+       OR l.discord_user_id IS NOT NULL
+    `,
   );
   const scanned = Number(allRows[0]?.count ?? 0);
 

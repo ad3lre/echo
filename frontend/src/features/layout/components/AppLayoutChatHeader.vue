@@ -22,6 +22,7 @@ import { resolveChannelIconRasterUrl } from '@/utils/channelIconKeys';
 import {
   fallbackDiscordCdnCustomEmojiImageUrl,
   safeCustomEmojiUrl,
+  shouldAllowDiscordCdnGuessForEmojiId,
 } from '@/utils/customEmojiUrl';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import { useCompactShell } from '@/composables/useCompactShell';
@@ -509,7 +510,14 @@ const leadingChannelRasterIconUrl = computed(() => {
         const s = safeCustomEmojiUrl(url);
         if (s) return s;
       }
-      if (isEchoEmojiTokenResolveMiss(id)) {
+      const echoMissed = isEchoEmojiTokenResolveMiss(id);
+      if (
+        shouldAllowDiscordCdnGuessForEmojiId(
+          id,
+          customEmojiUrlById?.value,
+          echoMissed,
+        )
+      ) {
         const cdn = fallbackDiscordCdnCustomEmojiImageUrl(id, false);
         if (cdn) return cdn;
       }

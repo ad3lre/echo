@@ -27,9 +27,26 @@ async function testRejectsPrivateUrl() {
   assert.equal(result.code, 'REMOTE_IMAGE_FETCH_FAILED');
 }
 
+async function testPassthroughTenorGifWithoutFetch() {
+  const url = 'https://media.tenor.com/abc123/tenor.gif';
+  const result = await importChatRemoteImage({
+    pool: {} as never,
+    userId: 'user-1',
+    channelId: 'ch-1',
+    sourceUrl: url,
+    maxBytes: 8 * 1024 * 1024,
+  });
+  assert.equal(result.ok, true, result.ok ? '' : result.message);
+  if (!result.ok) return;
+  assert.equal(result.url, url);
+  assert.equal(result.passthrough, true);
+  assert.equal(result.storageKey, undefined);
+}
+
 async function main() {
   await testRejectsEmptyUrl();
   await testRejectsPrivateUrl();
+  await testPassthroughTenorGifWithoutFetch();
   console.log('chatRemoteImageImport.test.ts: ok');
 }
 

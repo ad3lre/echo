@@ -2415,13 +2415,6 @@ onMounted(() => {
     padding: 0;
   }
 
-  .markdown-preview__content blockquote {
-    margin: 0.5rem 0;
-    border-left: 3px solid var(--vue-auto-004);
-    padding-left: 0.75rem;
-    color: var(--vue-auto-060);
-  }
-
   .markdown-preview__content ul {
     margin: 0.5em 0;
     padding-left: 1.5em;

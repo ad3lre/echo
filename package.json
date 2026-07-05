@@ -159,7 +159,7 @@
     "verify:ios-version": "node scripts/verify-ios-version.mjs",
     "verify:aasa": "node scripts/verify-apple-app-site-association.mjs",
     "android:play-whatsnew": "node scripts/android-play-whatsnew.mjs",
-    "tauri:icon": "tauri icon frontend/public/icons/pwa-512.png && node scripts/sync-tauri-ios-icons.mjs && node scripts/sync-tauri-ios-launch-logo.mjs"
+    "tauri:icon": "tauri icon frontend/public/echo-logo.png && node scripts/sync-tauri-ios-icons.mjs && node scripts/sync-tauri-ios-launch-logo.mjs"
   },
   "workspaces": [
     "frontend",

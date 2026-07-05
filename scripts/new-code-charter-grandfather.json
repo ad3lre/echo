@@ -302,6 +302,7 @@
     "backend/src/scripts/backfillDefaultAvatarPfp.ts",
     "backend/src/scripts/backfillDiscordImportAvatarPfp.ts",
     "backend/src/scripts/backfillDiscordImportCdnUrls.ts",
+    "backend/src/scripts/drainDiscordImportMediaMirrorQueue.ts",
     "backend/src/scripts/backfillMessageUuidToSnowflake.ts",
     "backend/src/scripts/migrateEchoIdsToSnowflake.ts",
     "backend/src/scripts/purgeInactiveGuests.ts",

@@ -29,6 +29,7 @@ import { logShellNav } from '@/features/layout/shellNavDebugLog';
 import { isEchoGraphId } from '@/utils/echoIds';
 import type { AppLayoutDmCallsVoiceBinding } from './useAppLayoutDmCalls';
 import { runVoiceJoinMediaPreflightInteractive } from '@/features/voice/voiceJoinMediaPreflightFlow';
+import { dispatchVoiceJoinPrepareMicTest } from '@/audio/echoVoiceMicTestBridge';
 import { EchoApiError } from '@/api/echo/transport';
 import {
   requestGuildVoiceDiscordMirrorModal,
@@ -85,6 +86,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     vcMuted,
     vcDeafened,
     micTestListenDeafenActive,
+    setMicTestListenDeafen,
     applyVcDeafened,
     vcVideo,
     vcScreenshare,
@@ -524,6 +526,10 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
       return;
     }
     let joinWithoutMic = false;
+    if (micTestListenDeafenActive.value) {
+      dispatchVoiceJoinPrepareMicTest();
+      setMicTestListenDeafen(false);
+    }
     if (!vcMuted.value) {
       const preflight = await runVoiceJoinMediaPreflightInteractive();
       if (preflight === 'cancelled') return;
@@ -618,6 +624,21 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
       return;
     }
     toggleVoiceSideChat();
+  }
+
+  /** Compact mobile: leave CallView while staying connected — browse text channels + floating pill. */
+  function handleMinimizeVoiceViewNavigation() {
+    if (!currentVoiceChannelId.value?.trim()) return;
+    const t = findChannelContextById(activeChannelId.value)?.channel?.type;
+    if (t !== 'voice' && t !== 'stage') return;
+    const textId = getFirstTextChannelId(categoriesForServer.value);
+    if (!textId) return;
+    logShellNav('handleMinimizeVoiceViewNavigation', 'minimize_to_text', {
+      textId,
+      voiceChannelId: currentVoiceChannelId.value,
+    });
+    activeChannelId.value = textId;
+    voiceSideChatCollapsed.value = true;
   }
 
   function buildVoiceBindingForDmCalls(): AppLayoutDmCallsVoiceBinding {
@@ -747,6 +768,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     handleChannelVoicePanelLeave,
     canJoinPreviewVoiceChannel,
     onVcChatButtonClickNavigation,
+    handleMinimizeVoiceViewNavigation,
     buildVoiceBindingForDmCalls,
     applyVoiceMediaModerationFromSocket,
   };

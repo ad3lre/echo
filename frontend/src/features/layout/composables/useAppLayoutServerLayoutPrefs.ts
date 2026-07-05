@@ -107,9 +107,7 @@ export function useAppLayoutServerLayoutPrefs(deps: {
         channelPanelCollapsed.value = prefs.channelPanelCollapsed;
         channelPanelBubbleMode.value = prefs.channelPanelBubbleMode ?? false;
         memberPanelCollapsed.value = prefs.memberPanelCollapsed;
-        if (!prefs.memberPanelCollapsed) {
-          markMemberPanelExpandedByUser();
-        } else {
+        if (prefs.memberPanelCollapsed) {
           markMemberPanelCollapsedByUser();
         }
         voiceSideChatCollapsed.value = prefs.voiceSideChatCollapsed;

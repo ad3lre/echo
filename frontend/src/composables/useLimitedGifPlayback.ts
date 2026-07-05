@@ -12,6 +12,7 @@ import {
   resolveSignedEchoMediaUrl,
 } from '@/services/mediaCdn';
 import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
+import { isLikelyGifMediaUrl } from '@shared/gifHostLinks';
 import { captureImageFirstFrameDataUrl } from '@/utils/gifFirstFrame';
 import {
   fetchGifOneLoopDurationMs,
@@ -74,6 +75,12 @@ export function useLimitedGifPlayback(options: {
       toValue(options.forceGif) === true ||
       isLikelyGifImageUrl(toValue(options.imageUrl)),
   );
+  /** Tenor/Giphy CDN GIFs: one native `<img>`, no rehost/signing/static-frame decode. */
+  const preferNativePlayback = computed(() => {
+    const url = safeUrl.value.trim();
+    if (!url || !isGif.value) return false;
+    return isLikelyGifMediaUrl(url) && !echoMediaUrlNeedsSigning(url);
+  });
   const forceActiveRef = computed(() => toValue(options.forceActive) ?? false);
   const reducedMotionRef = computed(
     () => toValue(options.reducedMotion) ?? false,
@@ -108,6 +115,11 @@ export function useLimitedGifPlayback(options: {
     if (reducedMotionRef.value) {
       introElapsed.value = true;
       showAnimated.value = false;
+      return;
+    }
+    if (preferNativePlayback.value) {
+      introElapsed.value = false;
+      showAnimated.value = true;
       return;
     }
     void fetchGifOneLoopDurationMs(safeUrl.value).then((ms) => {
@@ -147,6 +159,11 @@ export function useLimitedGifPlayback(options: {
 
       if (!isGif.value) {
         showAnimated.value = true;
+        return;
+      }
+
+      if (preferNativePlayback.value) {
+        showAnimated.value = !reducedMotionRef.value;
         return;
       }
 
@@ -220,6 +237,7 @@ export function useLimitedGifPlayback(options: {
   return {
     safeUrl,
     isGif,
+    preferNativePlayback,
     staticFrame,
     showAnimated,
     animSrc,

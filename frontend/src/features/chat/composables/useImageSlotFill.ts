@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { uploadPendingMediaAsAttachments } from '@/composables/uploadPendingMediaAsAttachments';
 import { formatChatUploadErrorMessage } from '@/services/domain/chatUploads';
+import { isChatImageUpload } from '@/utils/chatUploadMediaTypes';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import type { ActionResult } from '@/types/actionResult';
 
@@ -92,8 +93,11 @@ async function handleImageSlotFileSelected(
     state.pending.slotId = '';
     return;
   }
-  if (!file.type.startsWith('image/')) {
-    dispatchAppToast('Please choose an image file', 'warning');
+  if (!isChatImageUpload(file)) {
+    dispatchAppToast(
+      'Please choose an image file (JPEG, PNG, WebP, GIF, or HEIC)',
+      'warning',
+    );
     state.pending.messageId = '';
     state.pending.slotId = '';
     return;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted, inject, computed } from 'vue';
+import { ref, watch, onUnmounted, inject, computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import CameraPreview from '@/features/voice/components/CameraPreview.vue';
@@ -8,6 +8,7 @@ import { useAudioLevelMonitor } from '@/composables/useAudioLevelMonitor';
 import { useMicTestMonitor } from '@/composables/useMicTestMonitor';
 import { buildMediaTrackConstraintsFromForm } from '@/composables/voiceProcessingPreferences';
 import { isKrispNoiseFilterSupportedSafe } from '@/services/livekit/krispNoiseFilter';
+import { ECHO_VOICE_JOIN_PREPARE_MIC_TEST_EVENT } from '@/audio/echoVoiceMicTestBridge';
 import {
   ECHO_VOICE_PROCESSING_KEY,
   type EchoVoiceProcessingApi,
@@ -18,7 +19,11 @@ import { useCameraPreferencesStore } from '@/stores/cameraPreferences';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import type { VideoQualityPreset } from '@/composables/useLiveKitVoiceRoom';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
-import { isIosLikeBrowser } from '@/platform/browserCompatibility';
+import {
+  isIosLikeBrowser,
+  isWebKitDesktop,
+} from '@/platform/browserCompatibility';
+import { primeEchoAudioPlayback } from '@/composables/useEchoSounds';
 import { rmsToDbfs, thresholdPercentToRms } from '@/composables/voiceGate';
 import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
@@ -105,8 +110,13 @@ const audioOutputSelectionSupported = computed(
   () => echoSyncCapabilities.browser.supportsAudioOutputSelection,
 );
 
-const iosLikeOutputHint = computed(
-  () => !audioOutputSelectionSupported.value && isIosLikeBrowser(),
+const outputDeviceLimitedHint = computed(
+  (): 'ios' | 'mac-desktop' | 'generic' | null => {
+    if (audioOutputSelectionSupported.value) return null;
+    if (isIosLikeBrowser()) return 'ios';
+    if (isWebKitDesktop()) return 'mac-desktop';
+    return 'generic';
+  },
 );
 
 function settingsSliderFillPct(vol: number): string {
@@ -143,6 +153,7 @@ const micGateOpen = computed(() => effectiveMicDbfs.value > -99);
 async function startMicTest() {
   const sessionId = ++micTestSessionId;
   resetMicTestResources();
+  primeEchoAudioPlayback();
   const form = props.form;
   try {
     const krispUnsupported =
@@ -409,6 +420,26 @@ onUnmounted(() => {
   stopMicTest();
   onWindowPointerUpForThreshold();
   cameraPreviewRef.value?.stopPreview();
+  if (typeof window !== 'undefined') {
+    window.removeEventListener(
+      ECHO_VOICE_JOIN_PREPARE_MIC_TEST_EVENT,
+      onVoiceJoinPrepareMicTest,
+    );
+  }
+});
+
+function onVoiceJoinPrepareMicTest() {
+  if (!micTestActive.value) return;
+  stopMicTest();
+  micTestActive.value = false;
+}
+
+onMounted(() => {
+  if (typeof window === 'undefined') return;
+  window.addEventListener(
+    ECHO_VOICE_JOIN_PREPARE_MIC_TEST_EVENT,
+    onVoiceJoinPrepareMicTest,
+  );
 });
 
 watch(
@@ -447,11 +478,16 @@ watch(
         />
       </div>
       <p
-        v-if="!audioOutputSelectionSupported"
+        v-if="outputDeviceLimitedHint"
         class="mt-3 text-[11px] leading-snug text-fg-subtle"
       >
-        <template v-if="iosLikeOutputHint">
+        <template v-if="outputDeviceLimitedHint === 'ios'">
           On iPhone and iPad Safari, audio playback follows the system speaker —
+          Echo cannot apply a separate output device here (this is not a bug
+          with saving).
+        </template>
+        <template v-else-if="outputDeviceLimitedHint === 'mac-desktop'">
+          In the Mac app, audio playback follows the system default output —
           Echo cannot apply a separate output device here (this is not a bug
           with saving).
         </template>

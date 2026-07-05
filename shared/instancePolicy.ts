@@ -111,6 +111,9 @@ export type InstancePolicyHttpLimits = {
   echoApi: {
     maxPerMinute: number;
   };
+  authSessionRead: {
+    maxPerMinute: number;
+  };
   routes: InstancePolicyHttpRouteLimits;
   absolute: {
     register: {
@@ -237,6 +240,9 @@ export const DEFAULT_INSTANCE_POLICY: InstancePolicy = {
       },
       echoApi: {
         maxPerMinute: 500,
+      },
+      authSessionRead: {
+        maxPerMinute: 300,
       },
       routes: {
         auth: {

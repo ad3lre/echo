@@ -38,6 +38,7 @@ import {
   parseJson,
   throwIfError,
 } from './authClientCore';
+import { fetchAuthMeWith429Retry } from './authFetchMe429Retry';
 import type {
   AuthUserPublic,
   EchoPlusInterestBillingCycle,
@@ -1127,7 +1128,7 @@ async function authFetchMeInner(): Promise<{
 }> {
   assertAuthDomainNetworkAllowed();
   const authGenAtStart = captureAuthStateGeneration();
-  const res = await fetch(`${AUTH_BASE}/me`, {
+  const res = await fetchAuthMeWith429Retry(`${AUTH_BASE}/me`, {
     method: 'GET',
     credentials: 'include',
     headers: nativeAuthRequestHeaders(),
