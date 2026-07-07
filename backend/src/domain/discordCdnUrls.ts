@@ -16,7 +16,11 @@ export function isDiscordImportMediaHostname(hostname: string): boolean {
 
 function normalizeDiscordCdnSearch(search: string): string {
   if (!search || search === '?') return '';
-  return search.replace(/&+$/, '');
+  let normalized = search;
+  while (normalized.endsWith('&')) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
 }
 
 /**

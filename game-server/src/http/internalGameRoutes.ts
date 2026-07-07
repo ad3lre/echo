@@ -50,6 +50,13 @@ function replyError(
   return reply.status(status).send({ ok: false, reason });
 }
 
+const GAME_INTERNAL_ROUTE_RATE = {
+  max: 600,
+  timeWindow: '1 minute' as const,
+  keyGenerator: (req: import('fastify').FastifyRequest) =>
+    `game_internal_ip:${req.ip}`,
+};
+
 export function registerInternalGameRoutes(
   app: FastifyInstance,
   manager: RoomManager,
@@ -69,72 +76,84 @@ export function registerInternalGameRoutes(
     return verifyEchoForwardSignature(req, raw, secret);
   }
 
-  app.post('/internal/v1/game/join', async (req, reply) => {
-    const raw = typeof req.body === 'string' ? req.body : '';
-    if (!verify(req, raw)) return reply.status(401).send({ ok: false });
-    let body: JoinBody;
-    try {
-      body = JSON.parse(raw) as JoinBody;
-    } catch {
-      return replyError(reply, 'rejected');
-    }
-    const parsed = parseRoomUser(body);
-    if (!parsed?.gameKey) return replyError(reply, 'rejected');
-    tunneled.add(parsed.roomId, parsed.userId);
-    const err = manager.join(
-      parsed.roomId,
-      parsed.gameKey,
-      parsed.userId,
-      Date.now(),
-    );
-    if (err) {
-      tunneled.remove(parsed.roomId, parsed.userId);
-      return replyError(reply, err);
-    }
-    const snapshot = manager.getSnapshotForUser(parsed.roomId, parsed.userId);
-    return reply.send({ ok: true, snapshot });
-  });
+  app.post(
+    '/internal/v1/game/join',
+    { config: { rateLimit: GAME_INTERNAL_ROUTE_RATE } },
+    async (req, reply) => {
+      const raw = typeof req.body === 'string' ? req.body : '';
+      if (!verify(req, raw)) return reply.status(401).send({ ok: false });
+      let body: JoinBody;
+      try {
+        body = JSON.parse(raw) as JoinBody;
+      } catch {
+        return replyError(reply, 'rejected');
+      }
+      const parsed = parseRoomUser(body);
+      if (!parsed?.gameKey) return replyError(reply, 'rejected');
+      tunneled.add(parsed.roomId, parsed.userId);
+      const err = manager.join(
+        parsed.roomId,
+        parsed.gameKey,
+        parsed.userId,
+        Date.now(),
+      );
+      if (err) {
+        tunneled.remove(parsed.roomId, parsed.userId);
+        return replyError(reply, err);
+      }
+      const snapshot = manager.getSnapshotForUser(parsed.roomId, parsed.userId);
+      return reply.send({ ok: true, snapshot });
+    },
+  );
 
-  app.post('/internal/v1/game/action', async (req, reply) => {
-    const raw = typeof req.body === 'string' ? req.body : '';
-    if (!verify(req, raw)) return reply.status(401).send({ ok: false });
-    let body: ActionBody;
-    try {
-      body = JSON.parse(raw) as ActionBody;
-    } catch {
-      return replyError(reply, 'rejected');
-    }
-    const parsed = parseRoomUser(body);
-    if (!parsed || typeof body.type !== 'string' || !body.type.trim()) {
-      return replyError(reply, 'invalid_action');
-    }
-    const err = manager.dispatch(
-      parsed.roomId,
-      parsed.userId,
-      body.type,
-      body.payload,
-      Date.now(),
-    );
-    if (err) return replyError(reply, err);
-    const snapshot = manager.getSnapshotForUser(parsed.roomId, parsed.userId);
-    return reply.send({ ok: true, snapshot });
-  });
+  app.post(
+    '/internal/v1/game/action',
+    { config: { rateLimit: GAME_INTERNAL_ROUTE_RATE } },
+    async (req, reply) => {
+      const raw = typeof req.body === 'string' ? req.body : '';
+      if (!verify(req, raw)) return reply.status(401).send({ ok: false });
+      let body: ActionBody;
+      try {
+        body = JSON.parse(raw) as ActionBody;
+      } catch {
+        return replyError(reply, 'rejected');
+      }
+      const parsed = parseRoomUser(body);
+      if (!parsed || typeof body.type !== 'string' || !body.type.trim()) {
+        return replyError(reply, 'invalid_action');
+      }
+      const err = manager.dispatch(
+        parsed.roomId,
+        parsed.userId,
+        body.type,
+        body.payload,
+        Date.now(),
+      );
+      if (err) return replyError(reply, err);
+      const snapshot = manager.getSnapshotForUser(parsed.roomId, parsed.userId);
+      return reply.send({ ok: true, snapshot });
+    },
+  );
 
-  app.post('/internal/v1/game/leave', async (req, reply) => {
-    const raw = typeof req.body === 'string' ? req.body : '';
-    if (!verify(req, raw)) return reply.status(401).send({ ok: false });
-    let body: LeaveBody;
-    try {
-      body = JSON.parse(raw) as LeaveBody;
-    } catch {
-      return replyError(reply, 'rejected');
-    }
-    const roomId = body.roomId?.trim() ?? '';
-    const userId = body.userId?.trim() ?? '';
-    if (!roomId || !userId) return replyError(reply, 'rejected');
-    if (tunneled.remove(roomId, userId)) {
-      manager.leave(roomId, userId, Date.now());
-    }
-    return reply.send({ ok: true });
-  });
+  app.post(
+    '/internal/v1/game/leave',
+    { config: { rateLimit: GAME_INTERNAL_ROUTE_RATE } },
+    async (req, reply) => {
+      const raw = typeof req.body === 'string' ? req.body : '';
+      if (!verify(req, raw)) return reply.status(401).send({ ok: false });
+      let body: LeaveBody;
+      try {
+        body = JSON.parse(raw) as LeaveBody;
+      } catch {
+        return replyError(reply, 'rejected');
+      }
+      const roomId = body.roomId?.trim() ?? '';
+      const userId = body.userId?.trim() ?? '';
+      if (!roomId || !userId) return replyError(reply, 'rejected');
+      if (tunneled.remove(roomId, userId)) {
+        manager.leave(roomId, userId, Date.now());
+      }
+      return reply.send({ ok: true });
+    },
+  );
 }

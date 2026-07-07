@@ -59,6 +59,13 @@ export const DISCORD_BOT_WEBHOOK_ROUTE_RATE = {
   keyGenerator: (req: FastifyRequest) => `discord_webhook_ip:${req.ip}`,
 };
 
+/** Game-server → Echo relay (HMAC); bounded per source IP. */
+export const GAME_SERVER_OUTBOUND_ROUTE_RATE = {
+  max: 600,
+  timeWindow: '1 minute' as const,
+  keyGenerator: (req: FastifyRequest) => `game_outbound_ip:${req.ip}`,
+};
+
 export const DISCORD_BOT_API_ROUTE_RATE = {
   max: 120,
   timeWindow: '1 minute' as const,
