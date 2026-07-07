@@ -1,5 +1,8 @@
-import { stripEphemeralVoiceFromWorkspaceSnapshot } from '@/services/domain/workspaceVoiceEphemeralStrip';
 import type { EchoWorkspaceState } from '@/services/domain/workspaceEchoApiSnapshot';
+import {
+  stripForWorkspaceCache,
+  type WorkspaceCacheTier,
+} from '@/utils/workspacePersistence';
 
 /** Mirrors `EchoWorkspaceState` from echoClient (duplicated shape to avoid import cycles). */
 export type CachedEchoWorkspaceState = {
@@ -52,8 +55,9 @@ export function readWorkspaceSessionCache(
       !o.state.categoriesByServer
     )
       return null;
-    const stripped = stripEphemeralVoiceFromWorkspaceSnapshot(
+    const stripped = stripForWorkspaceCache(
       o.state as unknown as EchoWorkspaceState,
+      'full',
     );
     return stripped as unknown as CachedEchoWorkspaceState;
   } catch {
@@ -66,18 +70,27 @@ export function writeWorkspaceSessionCache(
   state: CachedEchoWorkspaceState,
 ): void {
   if (typeof sessionStorage === 'undefined' || !userId) return;
-  try {
-    const stripped = stripEphemeralVoiceFromWorkspaceSnapshot(
-      state as unknown as EchoWorkspaceState,
-    ) as unknown as CachedEchoWorkspaceState;
-    const payload: WorkspaceSessionCachePayload = {
-      userId,
-      state: stripped,
-      ts: Date.now(),
-    };
-    sessionStorage.setItem(WS_CACHE_KEY, JSON.stringify(payload));
-  } catch {
-    /* quota / private mode */
+  const tiers: WorkspaceCacheTier[] = ['full', 'light', 'minimal'];
+  for (const tier of tiers) {
+    try {
+      const stripped = stripForWorkspaceCache(
+        state as unknown as EchoWorkspaceState,
+        tier,
+      ) as unknown as CachedEchoWorkspaceState;
+      const payload: WorkspaceSessionCachePayload = {
+        userId,
+        state: stripped,
+        ts: Date.now(),
+      };
+      sessionStorage.setItem(WS_CACHE_KEY, JSON.stringify(payload));
+      return;
+    } catch {
+      try {
+        sessionStorage.removeItem(WS_CACHE_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 }
 

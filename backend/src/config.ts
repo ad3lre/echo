@@ -111,6 +111,14 @@ interface AppConfig {
    */
   readonly serperRefreshFailureMaxCount: number;
   /**
+   * LiveKit E2EE for DM / group-DM ("private") voice calls. On by default:
+   * clients join a per-call MLS group (RFC 9420) and derive frame-encryption
+   * keys from the group epoch secret, so the SFU only ever sees ciphertext.
+   * Set `ECHO_DM_VOICE_E2EE_ENABLED=false` to fall back to transport-only
+   * (DTLS-SRTP) encryption for private calls.
+   */
+  readonly dmVoiceE2eeEnabled: boolean;
+  /**
    * Honcho conversational memory (https://honcho.dev). Off unless `HONCHO_ENABLED=true`
    * and `HONCHO_API_KEY` is set. Keys: https://app.honcho.dev/api-keys
    */
@@ -644,6 +652,10 @@ interface AppConfig {
   readonly gameServerJwtSecret: string;
   /** Lifetime of minted game join tokens in seconds. */
   readonly gameServerJoinTokenTtlSec: number;
+  /** Internal game-server HTTP origin for backend→game-server forwards. */
+  readonly gameServerInternalUrl: string;
+  /** HMAC secret shared with game-server (`GAME_SERVER_FORWARD_SECRET`). */
+  readonly gameServerForwardSecret: string;
 }
 
 /**
@@ -730,6 +742,12 @@ export const config: AppConfig = {
   serperGlobalMaxPerMonth:
     instancePolicy.limits.upstream.serper.globalMaxPerMonth,
   serperRefreshFailureMaxCount: envSerperRefreshFailureMaxCount(),
+  dmVoiceE2eeEnabled: (() => {
+    const raw = (process.env.ECHO_DM_VOICE_E2EE_ENABLED ?? '')
+      .trim()
+      .toLowerCase();
+    return !(raw === '0' || raw === 'false' || raw === 'no' || raw === 'off');
+  })(),
   honchoEnabled: (() => {
     const raw = (process.env.HONCHO_ENABLED ?? '').trim().toLowerCase();
     return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
@@ -1421,6 +1439,12 @@ export const config: AppConfig = {
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 60 && n <= 3600 ? n : 300;
   })(),
+  gameServerInternalUrl:
+    process.env.GAME_SERVER_INTERNAL_URL?.trim() ||
+    process.env.GAME_SERVER_PUBLIC_URL?.trim() ||
+    'http://127.0.0.1:3060',
+  gameServerForwardSecret:
+    process.env.GAME_SERVER_FORWARD_SECRET?.trim() || resolvedJwtSecret,
 };
 
 try {

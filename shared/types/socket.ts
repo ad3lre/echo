@@ -9,6 +9,14 @@ import type {
   ReplyTo,
 } from './message';
 import type { EchoServerNotificationLevel } from './server';
+import type {
+  GameActionMsg,
+  GameErrorMsg,
+  GameEventMsg,
+  GameJoinMsg,
+  GameLeaveMsg,
+  GameSnapshotMsg,
+} from '../games/protocol';
 
 /** Server → client when a `poll:vote` is rejected. */
 export type PollVoteFailedCode =
@@ -584,6 +592,15 @@ export interface ClientToServerEvents {
     displayName?: string;
     color?: string;
   }) => void;
+
+  /** Join authoritative VC game room (tunneled via Echo backend). */
+  'game:join': (payload: GameJoinMsg) => void;
+
+  /** Leave authoritative VC game room. */
+  'game:leave': (payload: GameLeaveMsg) => void;
+
+  /** Game intent (authoritative server validates and applies). */
+  'game:action': (payload: GameActionMsg) => void;
 }
 
 /**
@@ -784,6 +801,15 @@ export interface ServerToClientEvents {
     endsAt: number;
     secondsTotal: number;
   }) => void;
+
+  /** Authoritative per-viewer game state (VC activities). */
+  'game:snapshot': (payload: GameSnapshotMsg) => void;
+
+  /** Transient game cue (sfx, toast, relay). */
+  'game:event': (payload: GameEventMsg) => void;
+
+  /** Game join/action rejected. */
+  'game:error': (payload: GameErrorMsg) => void;
 }
 
 /**

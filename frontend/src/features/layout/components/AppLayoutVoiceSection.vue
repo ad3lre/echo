@@ -224,6 +224,10 @@ const props = defineProps<{
   openVcActivityTicTacToe: () => void;
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
+  hangmanGameRoomConnected: ComputedRef<boolean>;
+  hangmanGameRoomLastError: ComputedRef<
+    import('@shared/games').GameErrorMsg | null
+  >;
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
@@ -708,6 +712,8 @@ const voiceSectionDockPadStyle = computed(() => {
             :effective-vc-activity-king-user-id="effectiveVcActivityKingUserId"
             :vc-hangman-activity="vcHangmanActivity"
             :hangman-roster-user-ids="hangmanRosterUserIds"
+            :hangman-game-room-connected="hangmanGameRoomConnected"
+            :hangman-game-room-last-error="hangmanGameRoomLastError"
             :commit-vc-hangman-word="commitVcHangmanWord"
             :request-vc-hangman-guess-letter="requestVcHangmanGuessLetter"
             :request-vc-hangman-next-round="requestVcHangmanNextRound"

@@ -25,6 +25,7 @@ import {
 import { propagateActionFailure } from '@/utils/actionFailurePropagation';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { createVoiceService } from '@/services/orchestration/voice';
+import { activeVoiceE2eeChannelKey } from '@/services/voice/voiceE2eeActiveState';
 import { deriveCallOverlay } from '@/features/layout/callOverlay';
 import { resolveEchoDmWireChannelId } from '@/features/layout/resolveEchoDmWireChannelId';
 import { isEchoGraphId } from '@/utils/echoIds';
@@ -732,11 +733,14 @@ export function useAppLayoutDmCalls(deps: {
   }
 
   function dmThreadVoiceE2eeActive(threadId: string): boolean {
+    // Truthful badge: only claim E2EE when this call's MLS session is live,
+    // not merely when the feature flag is on (the server may have it off).
     const wire = resolveEchoDmWireChannelId(
       threadId.trim(),
       echoDmPeerByChannelId.value,
     ).trim();
-    return wire.length > 0;
+    if (!wire) return false;
+    return activeVoiceE2eeChannelKey.value === `dm:${wire}`;
   }
 
   const activeDmThreadCallUi = computed<ActiveDmThreadCallUi | null>(() => {
@@ -894,9 +898,16 @@ export function useAppLayoutDmCalls(deps: {
     }
   }
 
+  function applyDmCallMuted(next: boolean) {
+    if (dmCallDeafened.value) {
+      dmCallMutedBeforeDeafen.value = next;
+      return;
+    }
+    dmCallMuted.value = next;
+  }
+
   function toggleDmCallMuted() {
-    if (dmCallDeafened.value) return;
-    dmCallMuted.value = !dmCallMuted.value;
+    applyDmCallMuted(!dmCallMuted.value);
   }
 
   function guestCannotUseDmCallsToast(action: 'start' | 'answer'): void {
@@ -2109,6 +2120,7 @@ export function useAppLayoutDmCalls(deps: {
     dmCallSignal,
     dmCallInviteSentChannelId,
     applyDmCallDeafened,
+    applyDmCallMuted,
     toggleDmCallMuted,
     dmPartnerUser,
     activeGroupId,

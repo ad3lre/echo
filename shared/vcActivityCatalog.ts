@@ -23,8 +23,8 @@ export const TIC_TAC_TOE_SERVER_MODE = true;
  */
 export const HANGMAN_SERVER_MODE = true;
 
-/** Route Wordline through the authoritative game server (`useGameRoom`). */
-export const WORDLE_SERVER_MODE = true;
+/** Wordline is solo/local — no authoritative game-server room needed. */
+export const WORDLE_SERVER_MODE = false;
 
 /**
  * Route Codenames through the authoritative game server instead of LiveKit P2P

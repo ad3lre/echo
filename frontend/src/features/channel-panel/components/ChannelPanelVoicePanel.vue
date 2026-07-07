@@ -15,6 +15,12 @@ const props = defineProps<{
   vcOutputListOpen: boolean;
   vcInputListOpen: boolean;
   vcCameraListOpen?: boolean;
+  /** null when the browser can pick speakers; otherwise why only system output is shown. */
+  audioOutputSelectionLimited?:
+    | 'ios'
+    | 'mac-desktop'
+    | 'unsupported-browser'
+    | null;
   currentOutputLabel: string;
   currentInputLabel: string;
   currentCameraLabel?: string;
@@ -383,6 +389,7 @@ function formatBitrate(kbps: number): string {
             <div class="flex flex-col gap-4">
               <div class="vc-device-block">
                 <button
+                  v-if="!audioOutputSelectionLimited"
                   type="button"
                   class="vc-device-name"
                   :class="{ 'vc-device-name--open': vcOutputListOpen }"
@@ -409,8 +416,44 @@ function formatBitrate(kbps: number): string {
                     />
                   </svg>
                 </button>
+                <div
+                  v-else
+                  class="vc-device-name vc-device-name--static"
+                  aria-live="polite"
+                >
+                  <img
+                    :src="icons.headphones"
+                    alt=""
+                    class="vc-device-name-icon"
+                    aria-hidden="true"
+                  />
+                  <span>{{ currentOutputLabel }}</span>
+                </div>
+                <p
+                  v-if="audioOutputSelectionLimited"
+                  class="vc-device-output-hint"
+                >
+                  <template v-if="audioOutputSelectionLimited === 'ios'">
+                    On iPad and iPhone Safari, voice output follows the system
+                    speaker. Use Control Center to switch to AirPods or other
+                    headphones.
+                  </template>
+                  <template
+                    v-else-if="audioOutputSelectionLimited === 'mac-desktop'"
+                  >
+                    In the Mac app, voice output follows the system default
+                    speaker.
+                  </template>
+                  <template v-else>
+                    This browser cannot route voice to a specific speaker from
+                    Echo — output stays on the system default.
+                  </template>
+                </p>
                 <Transition name="vc-device-list">
-                  <div v-if="vcOutputListOpen" class="vc-device-list">
+                  <div
+                    v-if="vcOutputListOpen && !audioOutputSelectionLimited"
+                    class="vc-device-list"
+                  >
                     <button
                       v-for="opt in vcOutputDeviceOptions"
                       :key="opt.value"
@@ -427,7 +470,7 @@ function formatBitrate(kbps: number): string {
                   </div>
                 </Transition>
                 <div
-                  v-show="!vcOutputListOpen"
+                  v-show="!vcOutputListOpen || !!audioOutputSelectionLimited"
                   class="vc-device-volume vc-device-volume--stacked"
                 >
                   <div class="vc-volume-label-row">

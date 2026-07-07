@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useSignedEchoMediaUrl } from '@/composables/useSignedEchoMediaUrl';
+import { useSignedEchoMediaResponsive } from '@/composables/useSignedEchoMediaResponsive';
+import {
+  ECHO_CHAT_MEDIA_COLLAGE_SIZES,
+  ECHO_CHAT_MEDIA_RESPONSIVE_WIDTHS,
+} from '@/utils/echoMediaResponsive';
 import {
   observeChatMediaRetentionVisible,
   queueChatMediaRetentionTouch,
@@ -24,8 +28,15 @@ const loadFailed = ref(false);
 const loaded = ref(false);
 const revealed = ref(false);
 
-const resolved = useSignedEchoMediaUrl(() => props.item.url, {
+const {
+  src: resolved,
+  srcset,
+  sizes,
+} = useSignedEchoMediaResponsive(() => props.item.url, {
   storageKey: () => props.item.storageKey,
+  widths: ECHO_CHAT_MEDIA_RESPONSIVE_WIDTHS,
+  sizes: ECHO_CHAT_MEDIA_COLLAGE_SIZES,
+  fallbackWidth: 640,
 });
 
 watch(
@@ -115,6 +126,8 @@ onUnmounted(() => stopObserve?.());
       <img
         v-else
         :src="resolved"
+        :srcset="srcset || undefined"
+        :sizes="srcset ? sizes : undefined"
         :alt="item.alt || 'Image'"
         loading="lazy"
         class="collage-cell__img"

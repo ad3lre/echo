@@ -174,6 +174,7 @@ export function createEchoRealtimeChatIngestPort(opts: {
         payload as Parameters<typeof applyRemoteMessageReactions>[0],
         {
           ...indexSink,
+          viewerUserId: opts.getViewerUserId?.(),
           onAfterReactions: (channelId, messageId) =>
             opts.uiTx.commitPendingReactionTogglesForMessage(
               channelId,

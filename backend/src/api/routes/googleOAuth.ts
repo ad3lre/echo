@@ -29,6 +29,9 @@ import { createPkceChallengeS256, createPkceVerifier } from '../../auth/pkce';
 import {
   createGoogleOAuthState,
   decodeGoogleOAuthCookieValue,
+  decodeGoogleLoginSignedState,
+  encodeGoogleLoginSignedState,
+  type DecodedGoogleOAuthCookie,
   googleOAuthCookieMaxAgeSec,
   googleOAuthCookieName,
   encodeGoogleOAuthLinkCookieValue,
@@ -136,10 +139,22 @@ async function beginGoogleLogin(
     return null;
   }
 
-  const state = createGoogleOAuthState();
   const pkceVerifier = createPkceVerifier();
   const pkceChallenge = createPkceChallengeS256(pkceVerifier);
-  const exp = Date.now() + googleOAuthCookieMaxAgeSec() * 1000;
+  let state: string;
+  let exp: number;
+  if (desktopBrowserHandoff && desktopHandoffNonceHash) {
+    const signed = encodeGoogleLoginSignedState(
+      true,
+      desktopHandoffNonceHash,
+      pkceVerifier,
+    );
+    state = signed.stateForGoogle;
+    exp = signed.exp;
+  } else {
+    state = createGoogleOAuthState();
+    exp = Date.now() + googleOAuthCookieMaxAgeSec() * 1000;
+  }
   const cookieVal = encodeGoogleOAuthLoginCookieValue(
     state,
     pkceVerifier,
@@ -359,10 +374,36 @@ export default async function googleOAuthRoutes(
       (req.cookies as Record<string, string | undefined>)?.[
         googleOAuthCookieName()
       ] ?? '';
-    const payload = rawCookie ? decodeGoogleOAuthCookieValue(rawCookie) : null;
+    const signedLogin = decodeGoogleLoginSignedState(state);
+    const cookiePayload = rawCookie
+      ? decodeGoogleOAuthCookieValue(rawCookie)
+      : null;
     clearOAuthCookie(reply);
 
-    if (!payload || payload.state !== state) {
+    let payload: DecodedGoogleOAuthCookie | null = null;
+
+    if (
+      signedLogin?.desktopHandoff &&
+      signedLogin.desktopHandoffNonceHash &&
+      signedLogin.pkceVerifier
+    ) {
+      /**
+       * Desktop handoff may complete in a system browser that never received the
+       * API OAuth cookie (Safari ITP / cross-context navigation).
+       */
+      payload = {
+        flow: 'login',
+        state,
+        pkceVerifier: signedLogin.pkceVerifier,
+        exp: signedLogin.exp,
+        desktopHandoff: true,
+        desktopHandoffNonceHash: signedLogin.desktopHandoffNonceHash,
+      };
+    } else if (cookiePayload && cookiePayload.state === state) {
+      payload = cookiePayload;
+    }
+
+    if (!payload) {
       return reply
         .code(302)
         .redirect(googleOAuthAppRedirect(false, 'bad_state'));

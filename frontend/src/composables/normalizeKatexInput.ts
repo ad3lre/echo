@@ -61,6 +61,41 @@ export function ensureDisplayStyleForOperatorLimits(
   return `\\displaystyle ${latex}`;
 }
 
+function replaceOutsideMatrixLikeEnvs(
+  latex: string,
+  transform: (segment: string) => string,
+): string {
+  const envRe = new RegExp(
+    `\\\\begin\\{(${SIMPLE_MATRIX_LIKE_ENVS})\\}[\\s\\S]*?\\\\end\\{\\1\\}|` +
+      `\\\\begin\\{array\\}\\{[^}]*\\}[\\s\\S]*?\\\\end\\{array\\}|` +
+      `\\\\begin\\{alignedat\\}\\{[^}]*\\}[\\s\\S]*?\\\\end\\{alignedat\\}`,
+    'g',
+  );
+  const parts: string[] = [];
+  let lastIndex = 0;
+  for (const match of latex.matchAll(envRe)) {
+    const index = match.index ?? 0;
+    parts.push(transform(latex.slice(lastIndex, index)));
+    parts.push(match[0]);
+    lastIndex = index + match[0].length;
+  }
+  parts.push(transform(latex.slice(lastIndex)));
+  return parts.join('');
+}
+
+/**
+ * In display mode, bare `\\` and `\newline` are no-ops and spam strict warnings.
+ * Outside matrix-like environments, treat `\\` + whitespace as horizontal space.
+ */
+export function normalizeKatexDisplaySpacing(latex: string): string {
+  return replaceOutsideMatrixLikeEnvs(latex, (segment) => {
+    let s = segment.replace(/\\newline\b/g, '\\quad');
+    s = s.replace(/\\\\(\s+)/g, '\\quad$1');
+    s = s.replace(/\\\\$/g, '');
+    return s;
+  });
+}
+
 export function normalizeKatexInput(latex: string): string {
   let s = latex;
 

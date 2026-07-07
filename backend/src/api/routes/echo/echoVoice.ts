@@ -13,6 +13,7 @@ import {
   cancelEchoStageSpeakRequest,
   getActiveVoiceE2eeEpoch,
   getEchoChannelVoiceE2eeEnabled,
+  getMlsGroupInfo,
   userHasVoiceE2eeEnvelopeForJoin,
   insertEchoAudit,
   joinEchoVoiceChannel,
@@ -393,8 +394,10 @@ export default async function echoVoiceRoutes(
       }
       const roomName = liveKitRoomName(serverId, channelId);
       const uid = getAuthUser(req).id;
-      const rejectJoinedVoiceForE2ee = async (code: string) => {
-        await leaveEchoVoiceChannel(pool, serverId, uid);
+      const logE2eeMintRejected = async (code: string) => {
+        // Keep the REST voice-participant row: the client runs MLS / epoch
+        // prepare after a 409 and must stay in `echo_voice_participants` for
+        // `actorInVoiceChannel` guards on MLS init/commit.
         const auditId = await insertEchoAudit(
           pool,
           serverId,
@@ -412,22 +415,6 @@ export default async function echoVoiceRoutes(
             serverId,
           },
           { serverId },
-        );
-        publishVoiceRosterDelta(
-          fastify,
-          serverId,
-          {
-            channelId,
-            userId: uid,
-            action: 'leave',
-          },
-          auditId,
-        );
-        await trySyncStageProgramRoomMetadata(
-          pool,
-          serverId,
-          channelId,
-          req.log,
         );
       };
       const modRow = await pool.query(
@@ -464,9 +451,20 @@ export default async function echoVoiceRoutes(
       const activeEpoch = voiceE2eeRequired
         ? await getActiveVoiceE2eeEpoch(pool, serverId, channelId)
         : null;
-      if (voiceE2eeRequired) {
+      /**
+       * MLS (v2, RFC 9420) satisfies the E2EE join requirement: the client
+       * creates or externally joins the channel's MLS group during its prepare
+       * step (before this mint), and derives media keys from the group's epoch
+       * secret — there are no server-distributed envelopes to verify. The
+       * legacy v1 epoch/envelope checks below only apply when no MLS group
+       * exists for this channel (old clients).
+       */
+      const mlsGroupActive =
+        voiceE2eeRequired &&
+        (await getMlsGroupInfo(pool, serverId, channelId)) !== null;
+      if (voiceE2eeRequired && !mlsGroupActive) {
         if (!activeEpoch) {
-          await rejectJoinedVoiceForE2ee('VOICE_E2EE_EPOCH_REQUIRED');
+          await logE2eeMintRejected('VOICE_E2EE_EPOCH_REQUIRED');
           return sendError(
             reply,
             409,
@@ -487,7 +485,7 @@ export default async function echoVoiceRoutes(
             e2eeDeviceId || null,
           );
           if (!hasEnvelope) {
-            await rejectJoinedVoiceForE2ee('VOICE_E2EE_ENVELOPE_MISSING');
+            await logE2eeMintRejected('VOICE_E2EE_ENVELOPE_MISSING');
             return sendError(
               reply,
               409,

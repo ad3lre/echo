@@ -27,6 +27,8 @@ import { shouldShowPhoneBottomTabBar } from '@/features/layout/phoneBottomTabBar
 import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { ECHO_SCREEN_SHARE_USE_CONFIG_MODAL } from '@/config/screenShareUi';
 
+import { shouldShowGuildMobileVoiceDock } from '@/features/layout/guildMobileVoiceDockVisibility';
+
 const GuildMobileVoiceLobbySheet = defineAsyncComponent(
   () => import('@/features/voice/components/GuildMobileVoiceLobbySheet.vue'),
 );
@@ -113,6 +115,7 @@ import {
 } from '@/features/discord/discordProfileImportFlow';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { isDesktop } from '@/platform/desktopBridge';
+import { reloadEchoApp } from '@/platform/reloadEchoApp';
 import { provideSpeakingState } from '@/composables/useSpeakingState';
 import { ECHO_VOICE_PROCESSING_KEY } from '@/composables/voiceProcessingInjection';
 import { watchBugHunterAppContext } from '@/composables/useBugHunterAppTrace';
@@ -710,6 +713,8 @@ const {
   openVcActivityTicTacToe,
   vcHangmanActivity,
   hangmanRosterUserIds,
+  hangmanGameRoomConnected,
+  hangmanGameRoomLastError,
   commitVcHangmanWord,
   requestVcHangmanGuessLetter,
   requestVcHangmanNextRound,
@@ -1072,7 +1077,7 @@ const guildMobileVcLobbyParticipants = computed(() => {
   return [];
 });
 
-const showGuildMobileVoiceDock = computed(
+const guildMobileVoiceConnected = computed(
   () =>
     !!(
       isCompactShell.value &&
@@ -1081,14 +1086,29 @@ const showGuildMobileVoiceDock = computed(
     ),
 );
 
+const showGuildMobileVoiceDock = computed(() =>
+  shouldShowGuildMobileVoiceDock({
+    connected: guildMobileVoiceConnected.value,
+    voiceSideChatCollapsed: voiceSideChatCollapsed.value,
+    isSettingsModalOpen: isSettingsModalOpen.value,
+    isServerSettingsModalOpen: isServerSettingsModalOpen.value,
+    guildMobileVcLobbyOpen: !!guildMobileVcLobby.value,
+    forwardModalOpen: forwardModalOpen.value,
+    vcActivityPhase: vcActivityUi.value.phase,
+    mobileChannelSheetOpen: mobileChannelSheetOpen.value,
+    mobileMembersOverlayOpen: mobileMembersOverlayOpen.value,
+    memberPopoutOpen: isMemberPopoutOpen.value || isSelfProfilePopoutOpen.value,
+  }),
+);
+
 const hideChannelPanelVoiceChromeEffective = computed(() =>
-  Boolean(showGuildMobileVoiceDock.value),
+  Boolean(guildMobileVoiceConnected.value),
 );
 
 /** In-voice CallView reserve (~dock height). Text-channel browsing uses main-content pad instead. */
 const voiceMobileDockReservePxComputed = computed(() => {
   if (!showGuildMobileVoiceDock.value) return 0;
-  if (unref(isViewingVoiceChannel)) return 88;
+  if (unref(isViewingVoiceChannel)) return 72;
   return 0;
 });
 
@@ -1952,6 +1972,8 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   openVcActivityTicTacToe,
   vcHangmanActivity,
   hangmanRosterUserIds,
+  hangmanGameRoomConnected,
+  hangmanGameRoomLastError,
   commitVcHangmanWord,
   requestVcHangmanGuessLetter,
   requestVcHangmanNextRound,
@@ -2607,6 +2629,10 @@ function handleChannelInviteRequest(payload?: {
     dispatchAppToast('Select a server before inviting people.', 'warning');
     return;
   }
+  if (!currentUser.value?.id) {
+    dispatchAppToast('Sign in to invite people to a server.', 'info');
+    return;
+  }
   if (!canInviteToCurrentServer.value) {
     dispatchAppToast(
       'You don’t have permission to invite people to this server.',
@@ -3163,6 +3189,15 @@ watch(
             :action-rail-top-layout="actionRailTopLayout"
             :compact-guild-split-nav="true"
             @channel-invite="handleChannelInviteRequest"
+            @channel-open-notification-settings="openServerNotificationSettings"
+            @channel-open-server-settings="
+              () => openServerSettingsIfAllowed(unref(selectedServer)?.id ?? '')
+            "
+            @channel-open-voice-audio-settings="
+              () => openUserSettingsModal('Voice & Video')
+            "
+            @expand-channels="expandChannels"
+            @expand-members="expandMembers"
             @channel-delete-channel="onChannelPanelDeleteChannel"
             @channel-delete-category="onChannelPanelDeleteCategory"
           />
@@ -3274,6 +3309,15 @@ watch(
             :action-rail-top-layout="actionRailTopLayout"
             :compact-tri-pane-guild-nav="true"
             @channel-invite="handleChannelInviteRequest"
+            @channel-open-notification-settings="openServerNotificationSettings"
+            @channel-open-server-settings="
+              () => openServerSettingsIfAllowed(unref(selectedServer)?.id ?? '')
+            "
+            @channel-open-voice-audio-settings="
+              () => openUserSettingsModal('Voice & Video')
+            "
+            @expand-channels="expandChannels"
+            @expand-members="expandMembers"
             @channel-delete-channel="onChannelPanelDeleteChannel"
             @channel-delete-category="onChannelPanelDeleteCategory"
           />
@@ -3328,6 +3372,15 @@ watch(
             chrome-wrap="stack"
             :action-rail-top-layout="actionRailTopLayout"
             @channel-invite="handleChannelInviteRequest"
+            @channel-open-notification-settings="openServerNotificationSettings"
+            @channel-open-server-settings="
+              () => openServerSettingsIfAllowed(unref(selectedServer)?.id ?? '')
+            "
+            @channel-open-voice-audio-settings="
+              () => openUserSettingsModal('Voice & Video')
+            "
+            @expand-channels="expandChannels"
+            @expand-members="expandMembers"
             @channel-delete-channel="onChannelPanelDeleteChannel"
             @channel-delete-category="onChannelPanelDeleteCategory"
           />
@@ -3364,6 +3417,15 @@ watch(
             chrome-wrap="stack"
             :action-rail-top-layout="actionRailTopLayout"
             @channel-invite="handleChannelInviteRequest"
+            @channel-open-notification-settings="openServerNotificationSettings"
+            @channel-open-server-settings="
+              () => openServerSettingsIfAllowed(unref(selectedServer)?.id ?? '')
+            "
+            @channel-open-voice-audio-settings="
+              () => openUserSettingsModal('Voice & Video')
+            "
+            @expand-channels="expandChannels"
+            @expand-members="expandMembers"
             @channel-delete-channel="onChannelPanelDeleteChannel"
             @channel-delete-category="onChannelPanelDeleteCategory"
           />
@@ -3377,6 +3439,15 @@ watch(
           chrome-wrap="stack"
           :action-rail-top-layout="actionRailTopLayout"
           @channel-invite="handleChannelInviteRequest"
+          @channel-open-notification-settings="openServerNotificationSettings"
+          @channel-open-server-settings="
+            () => openServerSettingsIfAllowed(unref(selectedServer)?.id ?? '')
+          "
+          @channel-open-voice-audio-settings="
+            () => openUserSettingsModal('Voice & Video')
+          "
+          @expand-channels="expandChannels"
+          @expand-members="expandMembers"
           @channel-delete-channel="onChannelPanelDeleteChannel"
           @channel-delete-category="onChannelPanelDeleteCategory"
         />
@@ -3415,6 +3486,15 @@ watch(
       <AppLayoutLeftChrome
         :action-rail-top-layout="actionRailTopLayout"
         @channel-invite="handleChannelInviteRequest"
+        @channel-open-notification-settings="openServerNotificationSettings"
+        @channel-open-server-settings="
+          () => openServerSettingsIfAllowed(unref(selectedServer)?.id ?? '')
+        "
+        @channel-open-voice-audio-settings="
+          () => openUserSettingsModal('Voice & Video')
+        "
+        @expand-channels="expandChannels"
+        @expand-members="expandMembers"
         @channel-delete-channel="onChannelPanelDeleteChannel"
         @channel-delete-category="onChannelPanelDeleteCategory"
       />
@@ -3459,7 +3539,6 @@ watch(
     <GuildMobileVoiceDock
       v-if="showGuildMobileVoiceDock"
       :stack-above-bottom-tab="useCompactPhoneTabShell"
-      :show-minimize-voice-view="isViewingVoiceChannel"
       :live-kit-state="liveKitState"
       :vc-muted="channelPanelVcMutedEffective"
       :vc-deafened="channelPanelVcDeafenedEffective"
@@ -3473,7 +3552,6 @@ watch(
       :on-toggle-screenshare="onChannelPanelVcScreenshare"
       :on-open-voice-settings="handleGuildMobileVcLobbyOpenAudioSettings"
       :on-toggle-voice-chat="onVcChatButtonClick"
-      :on-minimize-voice-view="handleMinimizeVoiceView"
       :on-leave-voice="handleChannelVoicePanelLeave"
     />
 
@@ -3496,6 +3574,7 @@ watch(
       v-if="showServerDownGate"
       v-bind="serverDownGateBind"
       @retry="checkServerHealthNow"
+      @refresh="reloadEchoApp"
     />
     <ReportModal />
 

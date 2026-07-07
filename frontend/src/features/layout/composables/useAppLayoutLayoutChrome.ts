@@ -186,6 +186,18 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       vcMuted.value = vcMutedBeforeDeafen.value;
     }
   }
+
+  /**
+   * Local mic mute (distinct from deafen). While deafened, records intent in
+   * `vcMutedBeforeDeafen` so undeafen restores the mic state the user chose.
+   */
+  function applyVcMuted(next: boolean) {
+    if (vcDeafened.value) {
+      vcMutedBeforeDeafen.value = next;
+      return;
+    }
+    vcMuted.value = next;
+  }
   const vcVideo = ref(false);
   const vcScreenshare = ref(false);
   const isScreenSharePickerOpen = ref(false);
@@ -936,6 +948,7 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
     micTestListenDeafenActive,
     setMicTestListenDeafen,
     applyVcDeafened,
+    applyVcMuted,
     vcVideo,
     vcScreenshare,
     isScreenSharePickerOpen,

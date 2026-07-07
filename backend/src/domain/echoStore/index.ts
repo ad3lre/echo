@@ -80,6 +80,7 @@ export {
   type DeleteEchoCategoryResult,
   type DeleteEchoChannelResult,
   type EchoWorkspaceCategoryBootstrap,
+  type EchoWorkspaceMemberDetail,
   type EchoWorkspaceMemberDto,
   type UpdateEchoCategoryResult,
 } from './categoriesWorkspace';
@@ -402,6 +403,7 @@ export {
   publishMlsKeyPackages,
   claimMlsKeyPackage,
   getMlsGroupInfo,
+  resetMlsGroupForChannel,
   initMlsGroupIfAbsent,
   appendMlsCommit,
   appendMlsProposal,

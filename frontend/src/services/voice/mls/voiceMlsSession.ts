@@ -1,4 +1,8 @@
-import { getOrCreateLocalE2eeDevice } from '@/services/e2ee/e2eeDeviceStore';
+import {
+  getOrCreateLocalE2eeDevice,
+  syncEchoE2eeLocalProtocolDeviceId,
+} from '@/services/e2ee/e2eeDeviceStore';
+import { activeVoiceE2eeChannelKey } from '@/services/voice/voiceE2eeActiveState';
 import { ECHO_MLS_KEYRING_SIZE } from './echoMlsKeyProvider';
 import { EchoMlsGroupClient, type EchoMlsEpochKey } from './mlsGroupClient';
 import type { MlsScope } from './mlsDeliveryClient';
@@ -59,6 +63,8 @@ export async function startVoiceMlsSession(
 ): Promise<{ epochKey: EchoMlsEpochKey; senderDeviceId: string }> {
   await stopVoiceMlsSession();
   const dev = await getOrCreateLocalE2eeDevice(opts.viewerUserId, opts.token);
+  // MLS commits are rejected when the device row is missing on the server.
+  await syncEchoE2eeLocalProtocolDeviceId(opts.viewerUserId, opts.token);
   const channelKey = mlsChannelKey(opts.scope);
   const initialRoster = [
     ...new Set(
@@ -83,6 +89,7 @@ export async function startVoiceMlsSession(
   });
   const epochKey = await session.client.start();
   active = session;
+  activeVoiceE2eeChannelKey.value = channelKey;
   return { epochKey, senderDeviceId: dev.deviceId };
 }
 
@@ -108,6 +115,7 @@ export async function reconcileVoiceMlsSession(
 export async function stopVoiceMlsSession(): Promise<void> {
   const prev = active;
   active = null;
+  activeVoiceE2eeChannelKey.value = null;
   if (prev) {
     try {
       await prev.client.leave();

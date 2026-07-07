@@ -1,6 +1,7 @@
 import {
   isBraveBrowserSyncHint,
   isBraveBrowser,
+  isWebKitDesktop,
 } from '@/platform/browserCompatibility';
 
 export interface AccessibilityPreferences {
@@ -41,11 +42,17 @@ function readStored(): Partial<AccessibilityPreferences> {
   }
 }
 
+function shouldDefaultSolidGlassSurfaces(): boolean {
+  /* WKWebView (macOS Tauri) and Brave often fail to composite backdrop-filter
+   * after theme token swaps — opaque glass keeps the shell visible. */
+  return isBraveBrowserSyncHint() || isWebKitDesktop();
+}
+
 function resolveSolidGlassSurfacesDefault(
   stored: Partial<AccessibilityPreferences>,
 ): boolean {
   if (isBool(stored.solidGlassSurfaces)) return stored.solidGlassSurfaces;
-  return isBraveBrowserSyncHint() ? true : DEFAULTS.solidGlassSurfaces;
+  return shouldDefaultSolidGlassSurfaces() ? true : DEFAULTS.solidGlassSurfaces;
 }
 
 export function loadAccessibilityPreferences(): AccessibilityPreferences {
@@ -75,14 +82,16 @@ export function loadAccessibilityPreferences(): AccessibilityPreferences {
 }
 
 /**
- * When Brave is detected asynchronously and the user has not chosen solid-glass
- * explicitly, enable it and persist so later loads stay consistent.
+ * When a weak compositor (Brave, macOS WKWebView) is detected and the user has
+ * not chosen solid-glass explicitly, enable it and persist so later loads stay
+ * consistent.
  */
-export async function reconcileBraveSolidGlassPreference(): Promise<void> {
+export async function reconcileSolidGlassPreferenceForWeakCompositors(): Promise<void> {
   const stored = readStored();
   if (isBool(stored.solidGlassSurfaces)) return;
 
-  if (!(await isBraveBrowser())) return;
+  const needsSolidGlass = isWebKitDesktop() || (await isBraveBrowser());
+  if (!needsSolidGlass) return;
 
   const prefs = loadAccessibilityPreferences();
   if (prefs.solidGlassSurfaces) return;
@@ -91,6 +100,10 @@ export async function reconcileBraveSolidGlassPreference(): Promise<void> {
   const updated = saveAccessibilityPreferences({ solidGlassSurfaces: true });
   applyAccessibilityPreferences(updated);
 }
+
+/** @deprecated Prefer {@link reconcileSolidGlassPreferenceForWeakCompositors}. */
+export const reconcileBraveSolidGlassPreference =
+  reconcileSolidGlassPreferenceForWeakCompositors;
 
 export function saveAccessibilityPreferences(
   next: Partial<AccessibilityPreferences>,

@@ -103,6 +103,7 @@ export function createSessionController(
     });
     clearLocalVoiceUiState();
     lkRoom.value = null;
+    connectLifecycle.releaseLiveKitE2eeWorker();
     roomState.value = setError ? 'error' : 'idle';
     voiceClientDiag('info', 'voice.client:session_torn_down', {
       state: roomState.value,
@@ -262,6 +263,7 @@ export function createSessionController(
     const room = lkRoom.value;
     if (!room || roomState.value !== 'connected') return;
     lastVcAudioOpts.value = { ...opts };
+    void echoPlaybackEnsureAudioContextRunning();
     voiceClientTrace('voice.client:applyVcAudioState', {
       roomName: room.name,
       ...opts,

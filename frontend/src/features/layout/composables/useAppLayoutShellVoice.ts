@@ -64,6 +64,7 @@ export type UseAppLayoutShellVoiceDeps = {
     >
   >;
   applyDmCallDeafened: (next: boolean) => void;
+  applyDmCallMuted: (next: boolean) => void;
   endDmCall: (options?: {
     emitSignal?: boolean;
     reason?: EchoDmCallEndedReason;
@@ -88,6 +89,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     micTestListenDeafenActive,
     setMicTestListenDeafen,
     applyVcDeafened,
+    applyVcMuted,
     vcVideo,
     vcScreenshare,
     isScreenSharePickerOpen,
@@ -107,6 +109,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     dmVoiceJoinTargetId,
     groupDMs,
     applyDmCallDeafened,
+    applyDmCallMuted,
     endDmCall,
     leaveDmCallVoice,
     dmCallLobbyAfterSelfLeave,
@@ -134,6 +137,8 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     getVcChannelActivityPresenceForChannel,
     vcHangmanActivity,
     hangmanRosterUserIds,
+    hangmanGameRoomConnected,
+    hangmanGameRoomLastError,
     vcSkrigglesActivity,
     skrigglesRosterUserIds,
     skrigglesCanvasEvents,
@@ -300,14 +305,37 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
   });
   const desktopStreamingControlTarget = ref<'guild' | 'dm'>('guild');
 
+  function recoverGuildVcAudioAfterUserUnmuteOrUndeafen() {
+    if (liveKitState.value !== 'connected' || !liveKitVoiceApi) return;
+    if (isDmVoiceCallUi.value) return;
+    void liveKitVoiceApi.recoverVoiceMediaSession({
+      muted: vcMuted.value,
+      deafened: vcDeafened.value || micTestListenDeafenActive.value,
+    });
+  }
+
+  function recoverDmCallAudioAfterUserUnmuteOrUndeafen() {
+    if (liveKitState.value !== 'connected' || !liveKitVoiceApi) return;
+    if (!isDmVoiceCallUi.value) return;
+    void liveKitVoiceApi.recoverVoiceMediaSession({
+      muted: dmCallMuted.value,
+      deafened: dmCallDeafened.value,
+    });
+  }
+
   function onGuildChannelVcMuted(next: boolean) {
     if (!currentVoiceChannelId.value?.trim()) return;
-    vcMuted.value = next;
+    const wasDeafened = vcDeafened.value;
+    applyVcMuted(next);
+    if (!next && (!wasDeafened || !vcDeafened.value)) {
+      recoverGuildVcAudioAfterUserUnmuteOrUndeafen();
+    }
   }
 
   function onGuildChannelVcDeafened(next: boolean) {
     if (!currentVoiceChannelId.value?.trim()) return;
     applyVcDeafened(next);
+    if (!next) recoverGuildVcAudioAfterUserUnmuteOrUndeafen();
   }
 
   function onGuildChannelVcVideo(next: boolean) {
@@ -339,12 +367,17 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
 
   function onDmCallVcMuted(next: boolean) {
     if (!dmCallWithUserId.value?.trim()) return;
-    dmCallMuted.value = next;
+    const wasDeafened = dmCallDeafened.value;
+    applyDmCallMuted(next);
+    if (!next && (!wasDeafened || !dmCallDeafened.value)) {
+      recoverDmCallAudioAfterUserUnmuteOrUndeafen();
+    }
   }
 
   function onDmCallVcDeafened(next: boolean) {
     if (!dmCallWithUserId.value?.trim()) return;
     applyDmCallDeafened(next);
+    if (!next) recoverDmCallAudioAfterUserUnmuteOrUndeafen();
   }
 
   function onDmCallVcVideo(next: boolean) {
@@ -672,6 +705,8 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     getVcChannelActivityPresenceForChannel,
     vcHangmanActivity,
     hangmanRosterUserIds,
+    hangmanGameRoomConnected,
+    hangmanGameRoomLastError,
     vcSkrigglesActivity,
     skrigglesRosterUserIds,
     skrigglesCanvasEvents,

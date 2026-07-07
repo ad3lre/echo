@@ -230,10 +230,21 @@
             debugEl.textContent += line + '\n';
           }
         }
+        function isSafariLikeBrowser() {
+          var ua = navigator.userAgent || '';
+          var vendor = navigator.vendor || '';
+          if (vendor.indexOf('Apple') === -1) return false;
+          if (!/Safari/i.test(ua)) return false;
+          return !/(Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|SamsungBrowser)/i.test(
+            ua,
+          );
+        }
+        var safariLike = isSafariLikeBrowser();
         log('bridge_loaded', {
           hasHandoff: !!c,
           visibilityState: document.visibilityState,
           userAgent: navigator.userAgent,
+          safariLike: safariLike,
         });
         window.addEventListener('pagehide', function () {
           log('pagehide');
@@ -251,7 +262,10 @@
         });
         if (c) {
           var deepLink = 'echo://oauth?echo_handoff=' + encodeURIComponent(c);
-          log('deep_link_built', { length: deepLink.length });
+          log('deep_link_built', {
+            length: deepLink.length,
+            safariLike: safariLike,
+          });
           if (linkEl) {
             linkEl.href = deepLink;
             linkEl.style.display = 'inline-block';
@@ -259,30 +273,41 @@
               log('manual_open_click');
             });
           }
-          // First attempt: auto-open app quickly.
-          log('auto_open_attempt', { attempt: 1 });
-          window.location.href = deepLink;
-          log('assigned_location_href', {
-            href: deepLink,
-            attempt: 1,
-          });
-          // Some browsers block non-user-gesture protocol launches. If the page
-          // remains visible, surface manual fallback and retry once.
-          window.setTimeout(function () {
+          if (safariLike) {
             if (statusEl) {
-              statusEl.textContent = 'Echo may be blocked by your browser.';
-              statusEl.className = '';
+              statusEl.textContent =
+                'Safari blocked automatic open — tap Open Echo below.';
             }
             if (helpEl) {
               helpEl.style.display = 'block';
             }
-            log('auto_open_retry', { attempt: 2 });
+            log('safari_manual_open_required');
+          } else {
+            // First attempt: auto-open app quickly.
+            log('auto_open_attempt', { attempt: 1 });
             window.location.href = deepLink;
             log('assigned_location_href', {
               href: deepLink,
-              attempt: 2,
+              attempt: 1,
             });
-          }, 1200);
+            // Some browsers block non-user-gesture protocol launches. If the page
+            // remains visible, surface manual fallback and retry once.
+            window.setTimeout(function () {
+              if (statusEl) {
+                statusEl.textContent = 'Echo may be blocked by your browser.';
+                statusEl.className = '';
+              }
+              if (helpEl) {
+                helpEl.style.display = 'block';
+              }
+              log('auto_open_retry', { attempt: 2 });
+              window.location.href = deepLink;
+              log('assigned_location_href', {
+                href: deepLink,
+                attempt: 2,
+              });
+            }, 1200);
+          }
         } else {
           log('missing_handoff_code');
           if (statusEl) {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { reloadEchoApp } from '@/platform/reloadEchoApp';
 
 /**
  * Shown when the AppLayout lazy chunk fails to load or hits defineAsyncComponent timeout.
@@ -10,7 +11,7 @@ const props = defineProps<{
 }>();
 
 function reload() {
-  window.location.reload();
+  reloadEchoApp();
 }
 
 const errorDetail = computed(() => {

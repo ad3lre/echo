@@ -2,7 +2,7 @@
   "siteName": "Echo",
   "home": {
     "title": "Echo | Where communities come to life",
-    "description": "Echo is an open source (GNU AGPL v3) community platform for connection, conversation, and collaboration. Voice, chat, and privacy-minded design—try Echo at chat-echo.com.",
+    "description": "Echo is an open source (GNU AGPL v3) community platform for connection, conversation, and collaboration. Voice, chat, and privacy-minded design—try Echo in your browser or download the app.",
     "heroLabel": "Echo",
     "heroTitle": "Where communities come to life.",
     "heroLede": "Echo is a modern community platform built for connection, conversation, and collaboration.",
@@ -31,7 +31,7 @@
       },
       {
         "question": "Where can I try Echo?",
-        "answer": "Open the live app at chat-echo.com. This site (app-echo.net) is the marketing home for discovery and SEO."
+        "answer": "Open Echo in your browser or download the app from the Download page."
       },
       {
         "question": "Who is Echo for?",

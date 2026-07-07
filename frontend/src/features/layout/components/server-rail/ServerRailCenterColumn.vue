@@ -420,6 +420,51 @@ const emit = defineEmits<{
         </button>
       </div>
       <div
+        v-if="
+          authenticated &&
+          !props.horizontal &&
+          (showChannelButton || showMemberButton)
+        "
+        class="mt-2 flex w-full flex-col items-center gap-1"
+      >
+        <button
+          v-if="showChannelButton"
+          type="button"
+          class="explore-trigger relative flex h-10 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
+          title="Show channels"
+          aria-label="Show channels"
+          @click="emit('expand-channels')"
+        >
+          <div
+            class="explore-trigger__button flex h-10 w-10 items-center justify-center transition-colors duration-200 explore-trigger__button--close"
+          >
+            <img
+              :src="icons.list"
+              alt=""
+              class="rail-icon h-4 w-4 filter invert opacity-90"
+            />
+          </div>
+        </button>
+        <button
+          v-if="showMemberButton"
+          type="button"
+          class="explore-trigger relative flex h-10 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
+          title="Show members"
+          aria-label="Show members"
+          @click="emit('expand-members')"
+        >
+          <div
+            class="explore-trigger__button flex h-10 w-10 items-center justify-center transition-colors duration-200 explore-trigger__button--close"
+          >
+            <img
+              :src="icons.usersAvatar"
+              alt=""
+              class="rail-icon h-4 w-4 filter invert opacity-90"
+            />
+          </div>
+        </button>
+      </div>
+      <div
         v-if="authenticated && showDmListButton && !props.horizontal"
         class="mt-2 flex w-full flex-col items-center gap-1"
       >

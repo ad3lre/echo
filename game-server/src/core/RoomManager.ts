@@ -1,5 +1,5 @@
 import type { EchoVcActivityKey } from '../../../shared/vcActivityCatalog';
-import type { GameErrorReason } from '../../../shared/games';
+import type { GameErrorReason, GameSnapshotMsg } from '../../../shared/games';
 import { GameInstance, type GameEmitter } from './GameInstance';
 import type { GameModule } from './GameModule';
 
@@ -83,5 +83,11 @@ export class RoomManager {
 
   get size(): number {
     return this.instances.size;
+  }
+
+  getSnapshotForUser(roomId: string, userId: string): GameSnapshotMsg | null {
+    const inst = this.instances.get(roomId);
+    if (!inst) return null;
+    return inst.snapshotForUser(userId);
   }
 }

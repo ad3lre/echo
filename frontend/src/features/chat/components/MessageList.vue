@@ -13,6 +13,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual';
 import type { MessageWithAuthor, EchoChannelType } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import MessageBubble from './MessageBubble.vue';
+import MessageRowShell from './MessageRowShell.vue';
 import MessageListHistorySkeleton from './MessageListHistorySkeleton.vue';
 import MessageListHistorySkeletonRow from './MessageListHistorySkeletonRow.vue';
 import MessageListOlderFetchLoadingHeader from './MessageListOlderFetchLoadingHeader.vue';
@@ -53,6 +54,13 @@ import {
   MESSAGE_LIST_DEFAULT_ROW_ESTIMATE_PX,
   estimateMessageListRowSizePx,
 } from '@/features/chat/domain/messageListRowEstimate';
+import { buildMessageRowRevisionKey } from '@/features/chat/domain/messageRowRevisionKey';
+import {
+  buildInitialMeasurementsCacheForChannel,
+  getCachedMessageRowHeightPx,
+  setMessageRowHeightPx,
+} from '@/features/chat/domain/messageRowHeightStore';
+import { useMessageRowHydration } from '@/features/chat/composables/useMessageRowHydration';
 import {
   ANCHOR_DRIFT_THRESHOLD_PX,
   getAnchorMessageIdFromViewport,
@@ -66,6 +74,7 @@ import {
   restoreViewportAnchorInContainer,
   VIEWPORT_RESTORE_DOM_RETRY,
 } from '@/features/chat/domain/messageListViewportRestore';
+import { resolveMessageListInitialOffsetPx } from '@/features/chat/domain/messageListInitialOffset';
 import {
   clearMessageListViewport,
   flushMessageListViewportStorage,
@@ -824,9 +833,12 @@ const BOTTOM_JUMP_SHOW_MESSAGES = 30;
  * Deliberately high: retain more DOM, fewer mount/unmount cycles and measurement races.
  * Trade memory for scroll stability — do not tune this like a mobile list from 2012.
  */
-const MESSAGE_LIST_OVERSCAN = 100;
-/** Fewer off-screen rows on touch devices (GPU / layout budget on WebKit mobile). */
-const MESSAGE_LIST_OVERSCAN_COARSE = 56;
+/** Idle overscan — shells are cheap; moderate window keeps scroll continuity. */
+const MESSAGE_LIST_OVERSCAN_IDLE = 40;
+const MESSAGE_LIST_OVERSCAN_IDLE_COARSE = 24;
+/** Fast-scroll overscan — keep mounted surface small while shells paint synchronously. */
+const MESSAGE_LIST_OVERSCAN_FAST = 10;
+const MESSAGE_LIST_OVERSCAN_FAST_COARSE = 8;
 /**
  * Space above each row for `MessageActionBar` (`absolute -top-3`) so hover actions
  * are not clipped by the scroll container's overflow. Must stay in sync with
@@ -834,6 +846,9 @@ const MESSAGE_LIST_OVERSCAN_COARSE = 56;
  */
 const MESSAGE_LIST_ACTION_BAR_GUTTER_PX = 14;
 const USER_SCROLL_SETTLE_MS = 180;
+/** While true, visible rows render lightweight shells instead of full bubbles. */
+const deferFullRowHydration = ref(false);
+let hydrationSettleTimer: ReturnType<typeof setTimeout> | null = null;
 
 function nowMs(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -977,11 +992,24 @@ function estimateMessageRowSizeForMessage(messageIndex: number): number {
       messageIndex,
     );
 
-  return estimateMessageListRowSizePx({
+  const estimate = estimateMessageListRowSizePx({
     groupedWithPrevious,
     showDaySeparatorBefore,
     message,
   });
+  if (!msgId || !rowVm) return estimate;
+  const revisionKey = buildMessageRowRevisionKey(rowVm, message);
+  return (
+    getCachedMessageRowHeightPx(props.channelId, msgId, revisionKey) ?? estimate
+  );
+}
+
+function revisionKeyForMessageIndex(messageIndex: number): string | null {
+  const msgId = displayOrderedIds.value[messageIndex];
+  const message = msgId ? mergedMessagesForList.value.get(msgId) : undefined;
+  const rowVm = messageListRowPresentations.value[messageIndex];
+  if (!message || !rowVm) return null;
+  return buildMessageRowRevisionKey(rowVm, message);
 }
 
 function estimateMessageRowSize(virtualIndex: number): number {
@@ -1014,16 +1042,52 @@ function estimateVirtualListTotalSizePx(): number {
   return sum;
 }
 
+/** First-paint scroll offset that pins the list to the estimated bottom. */
+function estimateInitialOffsetAtBottomPx(): number {
+  const n = displayOrderedIds.value.length;
+  if (n === 0) return 0;
+  const estimated = estimateVirtualListTotalSizePx();
+  const el = containerRef.value;
+  const viewport = el?.clientHeight ?? 0;
+  if (viewport <= 0) {
+    const h =
+      typeof window !== 'undefined'
+        ? Math.max(200, Math.floor(window.innerHeight * 0.45))
+        : 400;
+    return Math.max(0, estimated - h);
+  }
+  return Math.max(0, estimated - viewport);
+}
+
+/** Mode-aware overscan: small during active scroll, moderate when idle. */
+function resolveMessageListOverscan(): number {
+  if (olderFetchSkeletonActive.value) {
+    return deferFullRowHydration.value
+      ? MESSAGE_LIST_OVERSCAN_FAST * 2
+      : MESSAGE_LIST_OVERSCAN_IDLE * 2;
+  }
+  if (deferFullRowHydration.value) {
+    return coarsePointer.value
+      ? MESSAGE_LIST_OVERSCAN_FAST_COARSE
+      : MESSAGE_LIST_OVERSCAN_FAST;
+  }
+  return coarsePointer.value
+    ? MESSAGE_LIST_OVERSCAN_IDLE_COARSE
+    : MESSAGE_LIST_OVERSCAN_IDLE;
+}
+
 /** Virtual list: display ids (may include DM call-log rollup row); row identity = message id (viewport contract). */
 const virtualizerOptions = computed(() => ({
   count: virtualizerOrderedIds.value.length,
   getScrollElement: () => containerRef.value,
   estimateSize: estimateMessageRowSize,
-  overscan: olderFetchSkeletonActive.value
-    ? MESSAGE_LIST_OVERSCAN * 2
-    : coarsePointer.value
-      ? MESSAGE_LIST_OVERSCAN_COARSE
-      : MESSAGE_LIST_OVERSCAN,
+  overscan: resolveMessageListOverscan(),
+  useCachedMeasurements: true,
+  initialMeasurementsCache: buildInitialMeasurementsCacheForChannel(
+    props.channelId,
+    virtualizerOrderedIds.value,
+    estimateMessageRowSize,
+  ),
   scrollPaddingStart: virtualizerScrollPaddingStart.value,
   scrollPaddingEnd: 16,
   /** TanStack row identity: message id string only — no index, no composite, no revision churn. */
@@ -1040,34 +1104,19 @@ const virtualizerOptions = computed(() => ({
    */
   initialOffset: () => {
     const cid = props.channelId?.trim();
-    if (cid) {
-      const saved = readMessageListViewport(cid);
-      if (saved) {
-        const anchorIndex = displayOrderedIds.value.indexOf(
-          saved.anchorMessageId,
-        );
-        if (anchorIndex >= 0) {
-          let offset = 0;
-          for (let i = 0; i < anchorIndex; i++) {
-            offset += estimateMessageRowSizeForMessage(i);
-          }
-          return Math.max(0, offset - saved.anchorTop);
+    const saved = cid ? readMessageListViewport(cid) : null;
+    return resolveMessageListInitialOffsetPx({
+      saved,
+      orderedIds: displayOrderedIds.value,
+      estimateOffsetToAnchor: (anchorIndex, anchorTop) => {
+        let offset = 0;
+        for (let i = 0; i < anchorIndex; i++) {
+          offset += estimateMessageRowSizeForMessage(i);
         }
-      }
-    }
-    const n = displayOrderedIds.value.length;
-    if (n === 0) return 0;
-    const estimated = estimateVirtualListTotalSizePx();
-    const el = containerRef.value;
-    const viewport = el?.clientHeight ?? 0;
-    if (viewport <= 0) {
-      const h =
-        typeof window !== 'undefined'
-          ? Math.max(200, Math.floor(window.innerHeight * 0.45))
-          : 400;
-      return Math.max(0, estimated - h);
-    }
-    return Math.max(0, estimated - viewport);
+        return offset - anchorTop;
+      },
+      estimateBottomOffset: estimateInitialOffsetAtBottomPx,
+    });
   },
   /**
    * Two cases compensate; otherwise we leave the row where it is.
@@ -1109,7 +1158,8 @@ function persistViewportMemoryForChannel(
     !cid ||
     !el ||
     displayOrderedIds.value.length === 0 ||
-    virtualItems.length === 0
+    virtualItems.length === 0 ||
+    suppressListUntilInitialAnchor.value
   ) {
     return;
   }
@@ -1178,7 +1228,42 @@ async function restoreViewportMemoryForChannel(
   followNewMessagesToBottom.value = entry.followNewMessages;
 
   if (entry.followNewMessages) {
-    return false;
+    if (!scrollOwnership.canCommit('viewport-restore')) return false;
+    let restored = false;
+    for (let attempt = 0; attempt < VIEWPORT_RESTORE_DOM_RETRY; attempt++) {
+      await nextTick();
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      if (!scrollOwnership.canCommit('viewport-restore')) return false;
+      const v = virtualizer.value;
+      if (!v || displayOrderedIds.value.length === 0) continue;
+      commitScrollToLatest({
+        forceScrollToIndex: true,
+        intent: 'viewport-restore',
+      });
+      if (distanceFromBottomPx() < FOLLOW_NEW_ATTACH_PX) {
+        restored = true;
+        break;
+      }
+    }
+    if (!restored) return false;
+
+    persistViewportMemoryForChannel(channelId);
+
+    if (messageListDebugEnabled()) {
+      logMessageList('viewport_memory', 'viewport_memory_restored', {
+        channelId,
+        anchorMessageId: entry.anchorMessageId,
+        anchorTopBefore: entry.anchorTop,
+        followNewMessages: entry.followNewMessages,
+        messageCount: displayOrderedIds.value.length,
+        outcomeOk: true,
+        expectation:
+          'returning to a channel at the tail restores the bottom, not an anchor estimate',
+      });
+    }
+    return true;
   }
 
   if (!displayOrderedIds.value.includes(entry.anchorMessageId)) {
@@ -1311,6 +1396,9 @@ function flushScrollSideEffects(): void {
     },
   );
   schedulePersistViewportMemory();
+  if (!deferFullRowHydration.value) {
+    rowHydration.scheduleHydrationPass();
+  }
 }
 
 /**
@@ -1330,6 +1418,7 @@ function onScrollCombined() {
   // Distinguish our own programmatic scrolls from user-driven ones (e.g. scrollbar
   // drag); only the latter refreshes the user-active window.
   scrollOwnership.noteScrollEvent();
+  markScrollHydrationDeferral();
   scheduleScrollIdleWork();
 }
 
@@ -1341,6 +1430,7 @@ function onScrollCombined() {
 function onUserScrollGesture() {
   if (prependTransactionActive.value) return;
   scrollOwnership.markUserGesture();
+  markScrollHydrationDeferral();
 }
 
 const NAVIGATION_SCROLL_KEYS = new Set([
@@ -1795,14 +1885,50 @@ const virtualizer = useVirtualizer(
 const virtualizerTotalSize = computed(() => virtualizer.value.getTotalSize());
 const virtualizerItems = computed(() => virtualizer.value.getVirtualItems());
 
+const rowHydration = useMessageRowHydration({
+  channelId: () => props.channelId,
+  isUserScrollActive: () =>
+    deferFullRowHydration.value || scrollOwnership.isUserActive(),
+  getVisibleMessageIds: () => {
+    const items = virtualizer.value?.getVirtualItems() ?? [];
+    const ids: string[] = [];
+    for (const item of items) {
+      if (isPrependSkeletonVirtualIndex(item.index)) continue;
+      const messageIndex = virtualIndexToMessageIndex(item.index);
+      const messageId = displayOrderedIds.value[messageIndex];
+      if (messageId) ids.push(messageId);
+    }
+    return ids;
+  },
+});
+
+function resolveShellAuthorName(row: MessageListRowPresentation): string {
+  return row.message.author?.name?.trim() || 'Unknown';
+}
+
+function isMessageRowHydratedForVirtualIndex(virtualIndex: number): boolean {
+  const messageIndex = virtualIndexToMessageIndex(virtualIndex);
+  const messageId = displayOrderedIds.value[messageIndex];
+  return messageId ? rowHydration.isRowHydrated(messageId) : false;
+}
+
+function markScrollHydrationDeferral(): void {
+  deferFullRowHydration.value = true;
+  if (hydrationSettleTimer != null) clearTimeout(hydrationSettleTimer);
+  hydrationSettleTimer = setTimeout(() => {
+    hydrationSettleTimer = null;
+    deferFullRowHydration.value = false;
+    rowHydration.onScrollActivityChanged(false);
+    rowHydration.scheduleHydrationPass();
+  }, USER_SCROLL_SETTLE_MS);
+}
+
 if (import.meta.env.DEV) {
   watch(
     () => ({
       channelId: props.channelId ?? null,
       count: displayOrderedIds.value.length,
-      overscan: coarsePointer.value
-        ? MESSAGE_LIST_OVERSCAN_COARSE
-        : MESSAGE_LIST_OVERSCAN,
+      overscan: resolveMessageListOverscan(),
       channelIndexOrderRevision: null,
       hasChannelIndex: !!activeChannelIndex.value,
     }),
@@ -1915,8 +2041,8 @@ const coldLoadInProgress = ref(false);
  *
  * For a WARM switch (revisiting a cached channel) `coldLoadInProgress` stays false, so the cached
  * content swaps in instantly — no skeleton over content, no "second of nothing". The remembered
- * position comes from the virtualizer's `initialOffset` on first paint, which is already correct
- * because the anchor message is in the cached window.
+ * position comes from the virtualizer's `initialOffset` on first paint (bottom estimate when
+ * `followNewMessages`, otherwise anchor estimate).
  */
 const showInitialLoadOverlay = computed(
   () =>
@@ -2032,7 +2158,7 @@ function applyInitialScrollAnchor() {
       ) => {
         requestAnimationFrame(() => {
           if (scheduleId !== initialAnchorScheduleGeneration) return;
-          if (anchor === 'bottom') {
+          if (anchor === 'bottom' || followNewMessagesToBottom.value) {
             snapContainerScrollToBottom('initial-anchor');
           }
           persistViewportMemoryForChannel(channelId);
@@ -2043,6 +2169,16 @@ function applyInitialScrollAnchor() {
       const commitInitialAnchorFallback = (): boolean => {
         if (!scrollOwnership.canCommit('initial-anchor')) {
           finish('user_owned');
+          return false;
+        }
+        const saved = channelId ? readMessageListViewport(channelId) : null;
+        if (saved && !saved.followNewMessages) {
+          // Mid-history restore failed — keep the initialOffset estimate; never jump to tail.
+          requestAnimationFrame(() => {
+            if (scheduleId !== initialAnchorScheduleGeneration) return;
+            persistViewportMemoryForChannel(channelId);
+            finish('restored_memory');
+          });
           return false;
         }
         commitScrollToLatest({ intent: 'initial-anchor' });
@@ -2172,8 +2308,21 @@ watch(
 
 watch(suppressListUntilInitialAnchor, (hidden) => {
   if (hidden) return;
-  void nextTick(() => updateJumpUiFromScroll());
+  void nextTick(() => {
+    updateJumpUiFromScroll();
+    if (!deferFullRowHydration.value) {
+      rowHydration.scheduleHydrationPass();
+    }
+  });
 });
+
+watch(
+  () => virtualizerItems.value.length,
+  () => {
+    if (deferFullRowHydration.value) return;
+    rowHydration.scheduleHydrationPass();
+  },
+);
 
 watch(
   () =>
@@ -2235,6 +2384,9 @@ onMounted(() => {
         outcomeOk: true,
         expectation: 'passive scroll — no preventDefault; idle work in rAF',
       });
+      if (displayOrderedIds.value.length > 0 && !deferFullRowHydration.value) {
+        rowHydration.scheduleHydrationPass();
+      }
     }
   });
 });
@@ -2256,6 +2408,10 @@ onUnmounted(() => {
   if (viewportMemoryRaf != null) {
     cancelAnimationFrame(viewportMemoryRaf);
     viewportMemoryRaf = null;
+  }
+  if (hydrationSettleTimer != null) {
+    clearTimeout(hydrationSettleTimer);
+    hydrationSettleTimer = null;
   }
   const el = containerRef.value;
   if (el) {
@@ -2442,6 +2598,8 @@ async function scrollMessageIntoView(messageId: string): Promise<boolean> {
     await new Promise<void>((r) => requestAnimationFrame(() => r()));
   }
   if (idx < 0) return false;
+  deferFullRowHydration.value = false;
+  rowHydration.forceHydrateMessage(messageId);
   await nextTick();
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => {
@@ -2517,15 +2675,31 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
       if (deferKey) measureRowPendingKeys.delete(deferKey);
       if (!element.isConnected) return;
       if (deferKey) {
+        const idxAttr = element.getAttribute('data-index');
+        const idx = idxAttr != null ? Number(idxAttr) : NaN;
+        const messageIndex = Number.isFinite(idx)
+          ? virtualIndexToMessageIndex(idx)
+          : -1;
+        const messageId =
+          messageIndex >= 0
+            ? (displayOrderedIds.value[messageIndex] ?? null)
+            : null;
+        const revisionKey =
+          messageIndex >= 0 ? revisionKeyForMessageIndex(messageIndex) : null;
+        if (
+          deferFullRowHydration.value &&
+          messageId &&
+          revisionKey &&
+          getCachedMessageRowHeightPx(cid, messageId, revisionKey) != null
+        ) {
+          return;
+        }
         const h = element.getBoundingClientRect().height;
         const prev = measureRowLastHeightByKey.get(deferKey);
         if (prev !== undefined && Math.abs(prev - h) < 0.5) {
           return;
         }
-        const idxAttr = element.getAttribute('data-index');
-        const idx = idxAttr != null ? Number(idxAttr) : NaN;
         if (messageListDebugEnabled()) {
-          const messageIndex = virtualIndexToMessageIndex(idx);
           const rowVm = Number.isFinite(messageIndex)
             ? (messageListRowPresentations.value[messageIndex] ?? null)
             : null;
@@ -2538,12 +2712,9 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
                 ? estimateMessageRowSize(idx)
                 : null;
           if (est != null && Math.abs(est - h) >= 24) {
-            const msgId = Number.isFinite(messageIndex)
-              ? (displayOrderedIds.value[messageIndex] ?? null)
-              : null;
             logMessageList('measure', 'row_height_est_mismatch', {
               channelId: props.channelId ?? null,
-              messageId: msgId,
+              messageId,
               index: Number.isFinite(idx) ? idx : null,
               measuredPx: Math.round(h),
               estimatePx: Math.round(est),
@@ -2557,6 +2728,9 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
           }
         }
         measureRowLastHeightByKey.set(deferKey, h);
+        if (messageId && revisionKey) {
+          setMessageRowHeightPx(cid, messageId, h, revisionKey);
+        }
       }
       virtualizer.value.measureElement(element);
     });
@@ -2716,7 +2890,23 @@ defineExpose({
                 />
               </div>
               <div v-else class="relative w-full max-w-full">
+                <MessageRowShell
+                  v-if="!isMessageRowHydratedForVirtualIndex(virtualRow.index)"
+                  :row="
+                    messageListRowPresentations[
+                      virtualIndexToMessageIndex(virtualRow.index)
+                    ]!
+                  "
+                  :author-name="
+                    resolveShellAuthorName(
+                      messageListRowPresentations[
+                        virtualIndexToMessageIndex(virtualRow.index)
+                      ]!,
+                    )
+                  "
+                />
                 <MessageBubble
+                  v-else
                   :row="
                     messageListRowPresentations[
                       virtualIndexToMessageIndex(virtualRow.index)

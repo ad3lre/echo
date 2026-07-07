@@ -7,6 +7,23 @@
  */
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+function runNodeScript(script) {
+  const result = spawnSync('node', [script], {
+    stdio: 'inherit',
+    cwd: repoRoot,
+  });
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+// Twemoji WebP assets are gitignored and must exist before Vite copies public/.
+runNodeScript('scripts/copy-twemoji.mjs');
+runNodeScript('scripts/build-emoji-secondary-aliases.mjs');
+runNodeScript('scripts/build-emoji-search-index.mjs');
 
 const fast = process.env.ECHO_TAURI_FAST_FRONTEND === '1';
 const script = fast ? 'build:no-typecheck' : 'build';

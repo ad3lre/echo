@@ -2,12 +2,16 @@ import type { InjectionKey } from 'vue';
 import type { EchoSessionStore } from '@/stores/echoSession';
 import type { WorkspaceStateApi } from '@/composables/workspace/types';
 import type { EchoPageNotificationPreviewMode } from '@/platform/browserCompatibility';
+import type { AudioOutputLimitedReason } from '@/platform/browserCompatibility';
 
 export type EchoBrowserCompatibility = {
   readonly isIosLike: boolean;
   readonly isSafariLike: boolean;
+  readonly isWebKitDesktop: boolean;
   readonly isStandaloneDisplayMode: boolean;
   readonly supportsAudioOutputSelection: boolean;
+  readonly isAudioOutputDeviceSelectionAvailable: boolean;
+  readonly audioOutputDeviceLimitedReason: AudioOutputLimitedReason | null;
   readonly supportsAudioContextOutputSelection: boolean;
   readonly supportsScreenShare: boolean;
   readonly prefersPromptingForScreenShareOptions: boolean;

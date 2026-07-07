@@ -13,7 +13,10 @@ export default defineConfig({
       '../backend/src/tests/messagePlainTextProjectionImageSlot.test.ts',
       '../backend/src/tests/imageSlotFillOps.test.ts',
     ],
-    exclude: ['../shared/mediaCdn.test.ts'],
+    exclude: [
+      '../shared/mediaCdn.test.ts',
+      '../shared/mediaCdnVariants.test.ts',
+    ],
     setupFiles: ['./src/test/vitestSetup.ts'],
     coverage: {
       provider: 'v8',

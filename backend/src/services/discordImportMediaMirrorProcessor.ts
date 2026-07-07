@@ -31,6 +31,8 @@ import {
 } from './s3UploadPresign';
 import { writeLocalEchoUploadFile } from './localUploadDisk';
 import { registerChatUploadRetention } from './chatUploadRetention';
+import { prepareRasterForEchoStorage } from './rasterImageTranscode';
+import { isRasterImageContentType } from '../../../shared/mediaCdnVariants';
 import type {
   Embed,
   ForwardedFrom,
@@ -150,14 +152,24 @@ async function mirrorDiscordUrlToEcho(opts: {
     return null;
   }
 
-  const ext =
-    (filenameHint && path.extname(filenameHint.trim())) ||
-    extForContentType(ct) ||
-    '.bin';
+  const prepared = isRasterImageContentType(ct)
+    ? await prepareRasterForEchoStorage(buf, ct)
+    : {
+        buf,
+        contentType: ct,
+        ext:
+          (filenameHint && path.extname(filenameHint.trim())) ||
+          extForContentType(ct) ||
+          '.bin',
+        transcoded: false,
+      };
+  buf = prepared.buf;
+  const storedCt = prepared.contentType;
+  const ext = prepared.ext || '.bin';
   const objectKey = `discord-import-media-${nextEchoSnowflakeId()}${ext}`;
   const dest = await resolveEchoUploadStorageKey(pool, actorId, {
     channelId,
-    contentType: ct,
+    contentType: storedCt,
     objectKey,
   });
   if (!dest.ok) {
@@ -175,7 +187,7 @@ async function mirrorDiscordUrlToEcho(opts: {
         `INSERT INTO echo_upload_served_content_type (storage_key, content_type)
          VALUES ($1, $2)
          ON CONFLICT (storage_key) DO UPDATE SET content_type = EXCLUDED.content_type`,
-        [dest.storageKey, ct],
+        [dest.storageKey, storedCt],
       );
     } else {
       const client = createEchoS3UploadClient();
@@ -186,7 +198,7 @@ async function mirrorDiscordUrlToEcho(opts: {
           Bucket: bucket,
           Key: dest.storageKey,
           Body: buf,
-          ContentType: ct,
+          ContentType: storedCt,
         }),
       );
     }

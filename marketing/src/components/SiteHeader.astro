@@ -1,5 +1,5 @@
 ---
-import { CHAT_APP_ORIGIN, GITHUB_REPO_URL } from '../site';
+import { CHAT_APP_ORIGIN, GITHUB_REPO_URL, MARKETING_SITE_NAME } from '../site';
 
 const pathname = Astro.url.pathname.replace(/\/$/, '') || '/';
 
@@ -14,15 +14,16 @@ const nav = [
 
 <header class="site-header">
   <div class="container header-inner">
-    <a class="header-brand" href="/" aria-label="Echo home">
+    <a class="header-brand" href="/" aria-label={`${MARKETING_SITE_NAME} home`}>
       <img
         class="header-logo"
         src="/echo-rounded-logo.png"
         width="44"
         height="44"
-        alt="Echo"
+        alt=""
         decoding="async"
       />
+      <span class="header-wordmark">{MARKETING_SITE_NAME}</span>
     </a>
 
     <nav class="nav-main" aria-label="Primary">

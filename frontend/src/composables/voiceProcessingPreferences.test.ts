@@ -5,6 +5,7 @@ import {
   buildKrispNoiseFilterOptions,
   DEFAULT_VOICE_PROCESSING,
   loadVoiceProcessingPreferences,
+  resolveDefaultVoiceProcessingPreferences,
   saveVoiceProcessingPreferences,
 } from './voiceProcessingPreferences';
 
@@ -42,6 +43,26 @@ describe('voiceProcessingPreferences', () => {
 
   it('defaults to browser mode in DEFAULT_VOICE_PROCESSING', () => {
     expect(DEFAULT_VOICE_PROCESSING.mode).toBe('browser');
+  });
+
+  it('defaults Safari clients to native mode when no stored preference', () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+      vendor: 'Apple Computer, Inc.',
+    });
+    expect(resolveDefaultVoiceProcessingPreferences().mode).toBe('native');
+    expect(loadVoiceProcessingPreferences().mode).toBe('native');
+  });
+
+  it('defaults non-Safari clients to browser mode when no stored preference', () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      vendor: 'Google Inc.',
+    });
+    expect(resolveDefaultVoiceProcessingPreferences().mode).toBe('browser');
+    expect(loadVoiceProcessingPreferences().mode).toBe('browser');
   });
 
   it('Krisp mode uses browser NS off in capture options', () => {

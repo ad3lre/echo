@@ -170,6 +170,18 @@ export async function authTryCookieRefresh(options?: {
   return cookieRefreshInFlight;
 }
 
+/**
+ * When a Tauri shell authenticated via HttpOnly cookies alone (OAuth webview
+ * redirect, legacy login, etc.), persist bearer tokens to the OS keychain so
+ * the next cold start can restore without relying on cross-site cookies.
+ */
+export async function backfillNativeBearerFromCookiesIfNeeded(): Promise<void> {
+  if (!isNativeBearerClient()) return;
+  const existing = await getNativeRefreshTokenForLogout();
+  if (existing) return;
+  await authTryCookieRefresh({ quietExpectedNoRefreshCookie: true });
+}
+
 export async function authDiscordOAuthStart(): Promise<{
   authorizeUrl: string;
   /** Echo sends this to Discord; it must be listed verbatim in Developer Portal → OAuth2 → Redirects. */
@@ -381,6 +393,7 @@ export async function authDesktopRedeemHandoff(
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            ...nativeAuthRequestHeaders(),
           },
           credentials: 'include',
           body: (() => {
@@ -1415,6 +1428,7 @@ export async function authSignInWithApple(input: {
   }
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'POST /auth/apple/login');
+  await finalizeAuthSessionResponse(data);
   return data as { user: AuthUserPublic };
 }
 
@@ -1625,14 +1639,17 @@ export async function authPasskeyLoginVerify(body: {
   assertAuthDomainNetworkAllowed();
   const res = await fetch(`${AUTH_BASE}/passkey/login/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...nativeAuthRequestHeaders(),
+    },
     credentials: 'include',
     body: JSON.stringify(body),
   });
   const data = await parseJson(res);
   throwIfError(res, data, 'POST /auth/passkey/login/verify');
   if (data && typeof data === 'object') {
-    applyEchoCsrfFromAuthJson(data as Record<string, unknown>);
+    await finalizeAuthSessionResponse(data as Record<string, unknown>);
   }
   return parseAuthLoginResult(data);
 }

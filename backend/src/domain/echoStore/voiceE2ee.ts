@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { config } from '../../config';
 import { isPostgresUndefinedRelationError } from '../../db/pgErrors';
 import { liveKitRoomName } from '../../services/livekit/livekitAdapter';
 import {
@@ -66,11 +67,17 @@ export async function getEchoChannelVoiceE2eeEnabled(
   }
 }
 
-/** All DM and group-DM voice calls use LiveKit E2EE (independent of chat encryption). */
+/**
+ * Whether this DM / group-DM voice call must use LiveKit E2EE.
+ * Gated by `config.dmVoiceE2eeEnabled` (default off): when disabled, private
+ * calls skip epoch/envelope requirements entirely and connect like regular
+ * (transport-encrypted) voice.
+ */
 export async function echoDmVoiceE2eeRequired(
   pool: pg.Pool,
   channelId: string,
 ): Promise<boolean> {
+  if (!config.dmVoiceE2eeEnabled) return false;
   const cid = channelId.trim();
   if (!cid) return false;
   if (await isEchoGroupDmChannel(pool, cid)) return true;

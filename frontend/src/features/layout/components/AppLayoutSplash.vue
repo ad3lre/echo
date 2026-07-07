@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue';
 import { resolveAppLayoutLoadHintMs } from '@/config/appLoadUi';
+import { reloadEchoApp } from '@/platform/reloadEchoApp';
 
 const showSlowHint = ref(false);
 let hintTimer: ReturnType<typeof setTimeout> | undefined;
@@ -16,7 +17,7 @@ onUnmounted(() => {
 });
 
 function reload() {
-  window.location.reload();
+  reloadEchoApp();
 }
 </script>
 

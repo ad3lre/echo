@@ -12,6 +12,7 @@ import type {
   PollData,
   ReplyTo,
 } from '@shared/types';
+import { mergeFanoutMessageReactions } from '@shared/messageReactionsWire';
 import { sortMessageReactionsForDisplay } from '@shared/types';
 
 /** Read channel list, mutate index, then materialize bucket via sink (index is canonical). */
@@ -132,6 +133,7 @@ export function applyRemoteMessageReactions(
   p: RemoteMessageReactionsPayload,
   sink: ChannelMessagesIndexSink & {
     onAfterReactions?: (channelId: string, messageId: string) => void;
+    viewerUserId?: string;
   },
 ): void {
   const list = sink.getChannelList(p.channelId);
@@ -155,9 +157,14 @@ export function applyRemoteMessageReactions(
     });
     return;
   }
+  const merged = mergeFanoutMessageReactions(
+    index.byId.get(p.messageId)?.reactions,
+    p.reactions,
+    sink.viewerUserId,
+  );
   const reactionsOrdered =
-    p.reactions.length > 0
-      ? (sortMessageReactionsForDisplay(p.reactions) ?? p.reactions)
+    merged.length > 0
+      ? (sortMessageReactionsForDisplay(merged) ?? merged)
       : undefined;
   index.update(p.messageId, {
     reactions: reactionsOrdered,

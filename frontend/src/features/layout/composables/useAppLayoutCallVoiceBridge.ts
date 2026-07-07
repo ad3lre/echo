@@ -15,6 +15,7 @@ import {
   type DmCallSocketSubmitters,
 } from './useAppLayoutDmCalls';
 import { useAppLayoutShellVoice } from './useAppLayoutShellVoice';
+import { DM_VOICE_E2EE_ENABLED } from '@/config';
 // `voiceE2eePrepare` pulls in the libsignal crypto stack (~780 KB raw); it is
 // dynamically imported at the call site below so that stack stays off the
 // first-paint AppLayout chunk and only loads when an encrypted DM call starts.
@@ -74,6 +75,13 @@ export function useAppLayoutCallVoiceBridge(
     releaseGuildVoiceIfHeldForDmCall: () =>
       releaseGuildVoiceIfHeldForDmCallRef.value?.(),
     getDmVoiceE2eeMediaKey: async (channelId) => {
+      // Client-side opt-out only (`VITE_DM_VOICE_E2EE=0`): skip key
+      // preparation and connect with transport (DTLS-SRTP) encryption.
+      // Otherwise the backend decides — prepare returns a null key when the
+      // server reports voice E2EE disabled for this conversation.
+      if (!DM_VOICE_E2EE_ENABLED) {
+        return { mediaKey: null, senderDeviceId: '' };
+      }
       const token = deps.authSession.accessToken?.trim() ?? '';
       const uid = deps.authSession.backendUser?.id?.trim() ?? '';
       if (!token || !uid) return { mediaKey: null, senderDeviceId: '' };
@@ -118,6 +126,7 @@ export function useAppLayoutCallVoiceBridge(
     micTestListenDeafenActive: deps.micTestListenDeafenActive,
     setMicTestListenDeafen: deps.setMicTestListenDeafen,
     applyVcDeafened: deps.applyVcDeafened,
+    applyVcMuted: deps.applyVcMuted,
     vcVideo: deps.vcVideo,
     vcScreenshare: deps.vcScreenshare,
     isScreenSharePickerOpen: deps.isScreenSharePickerOpen,
@@ -139,6 +148,7 @@ export function useAppLayoutCallVoiceBridge(
     dmVoiceJoinTargetId: dmCalls.dmVoiceJoinTargetId,
     groupDMs: deps.groupDMs,
     applyDmCallDeafened: dmCalls.applyDmCallDeafened,
+    applyDmCallMuted: dmCalls.applyDmCallMuted,
     endDmCall: dmCalls.endDmCall,
     isDmUiContext: deps.isDmUiContext,
     activeChannelId: deps.activeChannelId,

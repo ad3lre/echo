@@ -13,12 +13,14 @@ import {
   teardownGameRoomSession,
 } from '@/features/games/gameRoomSocketLifecycle';
 import type { GameSocketSession } from '@/services/games/gameSocket';
+import {
+  getEchoGameSocket,
+  getEchoGameSocketConnectedRef,
+} from '@/services/games/echoGameSocketRegistry';
 
 export type UseGameRoomOpts<V> = {
   gameKey: EchoVcActivityKey;
   roomId: ComputedRef<string | null>;
-  serverId: ComputedRef<string | null>;
-  accessToken: ComputedRef<string | null>;
   enabled: ComputedRef<boolean>;
   onEvent?: (msg: GameEventMsg) => void;
 };
@@ -32,8 +34,8 @@ export type GameRoomApi<V> = {
 };
 
 /**
- * Authoritative VC game room: mints a backend token, connects Socket.IO to the
- * game server, and keeps the latest per-viewer snapshot in a reactive ref.
+ * Authoritative VC game room tunneled through the main Echo socket.
+ * Keeps the latest per-viewer snapshot in a reactive ref.
  */
 export function useGameRoom<V>(opts: UseGameRoomOpts<V>): GameRoomApi<V> {
   const view = ref<V | null>(null) as Ref<V | null>;
@@ -58,17 +60,27 @@ export function useGameRoom<V>(opts: UseGameRoomOpts<V>): GameRoomApi<V> {
   async function connect(): Promise<void> {
     const epoch = ++connectEpoch;
     teardown();
+    if (!opts.enabled.value) return;
     const roomId = opts.roomId.value?.trim() ?? '';
-    const serverId = opts.serverId.value?.trim() ?? '';
-    const token = opts.accessToken.value?.trim() ?? '';
-    if (!roomId || !serverId || !token || !opts.enabled.value) return;
+    if (!roomId) {
+      if (epoch === connectEpoch) {
+        resetLocal();
+        lastError.value = { reason: 'rejected' };
+      }
+      return;
+    }
+    if (!getEchoGameSocket()) {
+      if (epoch === connectEpoch) {
+        resetLocal();
+        lastError.value = { reason: 'not_configured' };
+      }
+      return;
+    }
 
     try {
       session = await openGameRoomSocket<V>({
         gameKey: opts.gameKey,
         roomId,
-        serverId,
-        accessToken: token,
         rev,
         view,
         lastError,
@@ -80,7 +92,7 @@ export function useGameRoom<V>(opts: UseGameRoomOpts<V>): GameRoomApi<V> {
     } catch {
       if (epoch === connectEpoch) {
         resetLocal();
-        lastError.value = { reason: 'unauthorized' };
+        lastError.value = { reason: 'rejected' };
       }
     }
   }
@@ -89,8 +101,7 @@ export function useGameRoom<V>(opts: UseGameRoomOpts<V>): GameRoomApi<V> {
     () => ({
       enabled: opts.enabled.value,
       roomId: opts.roomId.value,
-      serverId: opts.serverId.value,
-      token: opts.accessToken.value,
+      echoConnected: getEchoGameSocketConnectedRef().value,
     }),
     () => {
       void connect();

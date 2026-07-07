@@ -33,6 +33,9 @@ const props = defineProps<{
   requestVcCodenamesEndTurn: () => void;
   requestVcCodenamesNewGame: () => void;
   requestVcCodenamesPushKeyToOrchestrator: () => void;
+  voiceChannelId?: string;
+  gameRoomConnected?: boolean;
+  gameRoomError?: string | null;
 }>();
 
 const setupError = ref('');
@@ -55,6 +58,30 @@ const isOrchestrator = computed(() => {
 });
 
 const act = computed(() => props.vcCodenamesActivity);
+
+const emptyTitle = computed(() => {
+  if (!props.voiceChannelId?.trim()) return 'Join voice to play';
+  if (props.gameRoomError === 'not_configured') return 'Games unavailable';
+  if (props.gameRoomError) return 'Could not connect to game';
+  if (!props.gameRoomConnected) return 'Connecting to game…';
+  return 'Starting session…';
+});
+
+const emptyBody = computed(() => {
+  if (!props.voiceChannelId?.trim()) {
+    return 'Join a voice channel and open Echoed Names so everyone syncs to the same lobby.';
+  }
+  if (props.gameRoomError === 'not_configured') {
+    return 'The game server is not configured on this Echo instance. Ask an admin to set GAME_SERVER_PUBLIC_URL and run echo-game-server.';
+  }
+  if (props.gameRoomError) {
+    return 'Echo could not reach the game server. Check that echo-game-server is running and reachable from your browser.';
+  }
+  if (!props.gameRoomConnected) {
+    return 'Echoed Names is syncing with the voice room. This usually takes a moment after you join voice.';
+  }
+  return 'The lobby is loading from the game server.';
+});
 
 const myRole = computed(() => {
   const self = props.currentUserId?.trim();
@@ -220,10 +247,9 @@ const roleLabel = computed(() => {
       v-if="!act"
       class="en-panel en-panel--idle mx-auto w-full max-w-2xl px-4 py-10 text-center"
     >
-      <p class="text-sm font-medium text-fg">Waiting for the session host</p>
+      <p class="text-sm font-medium text-fg">{{ emptyTitle }}</p>
       <p class="mt-2 text-xs text-fg-soft">
-        The host opens the lobby from this activity. Solo works with one person;
-        four or more can use suggested teams.
+        {{ emptyBody }}
       </p>
     </div>
 

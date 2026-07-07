@@ -9,6 +9,7 @@ import {
   echoDmVoiceE2eeRequired,
   getEchoChannelVoiceE2eeEnabled,
   insertEchoAudit,
+  resetMlsGroupForChannel,
   supersedeVoiceE2eeEpochsForChannel,
 } from '../../domain/echoStore';
 import { ECHO_DM_REALM_SERVER_ID } from '../../domain/echoStore/dmThreads';
@@ -310,6 +311,7 @@ export default async function livekitWebhookRoutes(
             serverId,
             channelId,
           );
+          await resetMlsGroupForChannel(pool, serverId, channelId);
           if (n > 0) publishVoiceE2eeEpochSuperseded();
         }
       }
@@ -452,6 +454,7 @@ export default async function livekitWebhookRoutes(
             serverId,
             channelId,
           );
+          await resetMlsGroupForChannel(pool, serverId, channelId);
         }
       } else if (
         await getEchoChannelVoiceE2eeEnabled(pool, serverId, channelId)
@@ -461,6 +464,7 @@ export default async function livekitWebhookRoutes(
           serverId,
           channelId,
         );
+        await resetMlsGroupForChannel(pool, serverId, channelId);
       }
       if (superseded > 0) publishVoiceE2eeEpochSuperseded();
     } else if ((event.event as string) === 'active_speakers_changed') {

@@ -134,13 +134,18 @@ export class GameInstance<S = unknown, V = unknown> {
     return true;
   }
 
-  private sendSnapshot(userId: string): void {
-    this.emitter.snapshotToUser(userId, {
+  /** Per-viewer authoritative projection (secrets redacted per viewer). */
+  snapshotForUser(userId: string): GameSnapshotMsg<V> {
+    return {
       roomId: this.roomId,
       gameKey: this.module.key,
       rev: this.rev,
       view: this.module.serializeFor(userId, this.state),
-    });
+    };
+  }
+
+  private sendSnapshot(userId: string): void {
+    this.emitter.snapshotToUser(userId, this.snapshotForUser(userId));
   }
 
   private broadcast(): void {

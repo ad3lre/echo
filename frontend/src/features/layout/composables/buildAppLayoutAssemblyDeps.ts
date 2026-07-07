@@ -80,6 +80,8 @@ export function buildAppLayoutAssemblyDeps(
       effectiveVcActivityKingUserId: $.effectiveVcActivityKingUserId,
       vcHangmanActivity: $.vcHangmanActivity,
       hangmanRosterUserIds: $.hangmanRosterUserIds,
+      hangmanGameRoomConnected: $.hangmanGameRoomConnected,
+      hangmanGameRoomLastError: $.hangmanGameRoomLastError,
       vcSkrigglesActivity: $.vcSkrigglesActivity,
       skrigglesRosterUserIds: $.skrigglesRosterUserIds,
       skrigglesCanvasEvents: $.skrigglesCanvasEvents,
@@ -232,6 +234,7 @@ export function buildAppLayoutAssemblyDeps(
       setRemoteParticipantVolume: $.setRemoteParticipantVolume,
       vcDeafened: $.vcDeafened,
       applyVcDeafened: $.applyVcDeafened,
+      applyVcMuted: $.applyVcMuted,
       vcMuted: $.vcMuted,
       vcScreenshare: $.vcScreenshare,
       vcVideo: $.vcVideo,
@@ -289,6 +292,7 @@ export function buildAppLayoutAssemblyDeps(
         $.inviteModalVoiceChannelName.value = null;
       },
       canOpenInviteForServer: $.canOpenInviteForServer,
+      canOpenServerSettingsForServer: $.canOpenServerSettingsForServer,
     },
     serverRail: {
       handleServerRailInvite: $.handleServerRailInvite,

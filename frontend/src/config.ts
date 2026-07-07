@@ -124,16 +124,64 @@ function resolveGameServerBase(): string {
 
 export const GAME_SERVER_BASE = resolveGameServerBase();
 
+function isLoopbackHostname(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase();
+  return h === '127.0.0.1' || h === 'localhost' || h === '[::1]';
+}
+
+/**
+ * Pick a browser-reachable game-server origin for Socket.IO.
+ * Backend mint responses default to loopback in dev; when the UI is loaded from
+ * another host (LAN IP, tunnel, custom domain), connect via {@link GAME_SERVER_BASE}.
+ */
+export function resolveGameServerConnectUrl(mintedUrl?: string | null): string {
+  if (import.meta.env.VITE_GAME_SERVER_URL?.trim()) {
+    return resolveGameServerBase();
+  }
+  const fromMint = mintedUrl?.trim() ?? '';
+  const fallback = resolveGameServerBase();
+  if (!fromMint) return fallback;
+  if (typeof window === 'undefined') return fromMint;
+  try {
+    const minted = new URL(fromMint);
+    if (
+      isLoopbackHostname(minted.hostname) &&
+      !isLoopbackHostname(window.location.hostname)
+    ) {
+      return fallback;
+    }
+  } catch {
+    /* use minted */
+  }
+  return fromMint;
+}
+
 /**
  * Voice E2EE v2 (MLS / RFC 9420). When on, voice calls use the MLS group-key
- * protocol with in-band epoch rotation instead of the legacy static-seed +
- * per-device envelope scheme. Off by default until rollout validation completes.
+ * protocol with in-band epoch rotation — the same architecture as Discord's
+ * DAVE protocol — instead of the legacy static-seed + per-device envelope
+ * scheme (which cannot rekey late joiners). On by default; set
+ * `VITE_VOICE_E2EE_V2=0` to fall back to the legacy v1 scheme.
  */
 export const VOICE_E2EE_V2_ENABLED: boolean = (() => {
   const raw = (import.meta.env.VITE_VOICE_E2EE_V2 as string | undefined)
     ?.trim()
     .toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+  return !(raw === '0' || raw === 'false' || raw === 'no' || raw === 'off');
+})();
+
+/**
+ * LiveKit E2EE for DM / group-DM ("private") calls. On by default: the client
+ * always attempts E2EE key preparation for private calls; the backend's
+ * `ECHO_DM_VOICE_E2EE_ENABLED` flag is the source of truth, and when the
+ * server reports E2EE disabled the call proceeds with transport encryption
+ * only. Set `VITE_DM_VOICE_E2EE=0` to skip client-side preparation entirely.
+ */
+export const DM_VOICE_E2EE_ENABLED: boolean = (() => {
+  const raw = (import.meta.env.VITE_DM_VOICE_E2EE as string | undefined)
+    ?.trim()
+    .toLowerCase();
+  return !(raw === '0' || raw === 'false' || raw === 'no' || raw === 'off');
 })();
 
 /**

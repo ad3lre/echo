@@ -2712,3 +2712,33 @@ export async function purgeEchoMessagesDeletedBefore(
   );
   return r.rowCount ?? 0;
 }
+
+/** Backfill: replace storage key / URL fragments in message media columns. */
+export async function replaceEchoMessageStorageKeyReferences(
+  pool: pg.Pool,
+  from: string,
+  to: string,
+): Promise<number> {
+  const likeNeedle = `%${from}%`;
+  let updated = 0;
+  const msgCols = [
+    'image_url',
+    'attachments',
+    'embeds',
+    'content_json',
+    'stickers',
+  ] as const;
+  for (const col of msgCols) {
+    const sql =
+      col === 'image_url'
+        ? `UPDATE echo_messages
+           SET ${col} = replace(${col}, $1, $2)
+           WHERE ${col} IS NOT NULL AND ${col} LIKE $3`
+        : `UPDATE echo_messages
+           SET ${col} = replace(${col}::text, $1, $2)::jsonb
+           WHERE ${col} IS NOT NULL AND ${col}::text LIKE $3`;
+    const res = await pool.query(sql, [from, to, likeNeedle]);
+    updated += res.rowCount ?? 0;
+  }
+  return updated;
+}

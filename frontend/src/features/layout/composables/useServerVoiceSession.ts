@@ -71,6 +71,8 @@ import {
   vcActivityPresenceKindsFromUi,
 } from '@/features/voice/vcActivityTypes';
 import { primaryVcActivityPresenceKind } from '@/features/voice/vcActivityJoin';
+import { isVcServerGamePhase } from '@/features/games/vcServerGamePhases';
+import { resolveVcGameRoomChannelId } from '@/features/games/resolveVcGameRoomChannelId';
 import { VOICE_E2EE_V2_ENABLED } from '@/config';
 // `voiceMlsSession` pulls in the ts-mls crypto stack; dynamically imported at the
 // voice-reconcile handler below so it stays off the first-paint AppLayout chunk.
@@ -1743,15 +1745,62 @@ export function useServerVoiceSession(deps: {
     return room.roomState.value;
   });
 
+  /** Voice channel for authoritative game-server rooms (connected VC or voice surface). */
+  const vcGameRoomChannelId = computed(() =>
+    resolveVcGameRoomChannelId({
+      currentVoiceChannelId: currentVoiceChannelId.value,
+      findChannelContextById: (channelId) => {
+        const channel = findChannelContextById(channelId)?.channel;
+        return channel ? { channel } : null;
+      },
+      effectiveActiveChannel: activeChannel.value,
+    }),
+  );
+
+  let vcGameVoiceJoinInFlight: string | null = null;
+
+  async function ensureVoiceJoinedForGameChannel(
+    channelId: string,
+  ): Promise<void> {
+    const cid = channelId.trim();
+    if (!cid || isDmVoiceCallUi.value) return;
+    if (currentVoiceChannelId.value?.trim() === cid) return;
+    if (vcGameVoiceJoinInFlight === cid) return;
+    const ctx = findChannelContextById(cid);
+    const ch = ctx?.channel;
+    if (!ch || (ch.type !== 'voice' && ch.type !== 'stage')) return;
+    vcGameVoiceJoinInFlight = cid;
+    try {
+      await onJoinVoice({
+        channelId: cid,
+        channelName: ch.name?.trim() || 'Voice',
+      });
+    } catch {
+      /* game token mint also joins voice row; LiveKit may still connect later */
+    } finally {
+      if (vcGameVoiceJoinInFlight === cid) vcGameVoiceJoinInFlight = null;
+    }
+  }
+
+  watch(
+    () => ({
+      phase: vcActivityUi.value.phase,
+      channelId: vcGameRoomChannelId.value,
+    }),
+    ({ phase, channelId }) => {
+      if (!isVcServerGamePhase(phase) || !channelId) return;
+      void ensureVoiceJoinedForGameChannel(channelId);
+    },
+    { flush: 'post' },
+  );
+
   const ticTacToeSession: TicTacToeGameSession | null = TIC_TAC_TOE_SERVER_MODE
     ? createTicTacToeGameSession({
         currentUserId: () => currentUser.value?.id,
         vcActivityUi,
         isDmVoiceCallUi,
-        currentVoiceChannelId,
-        liveKitState,
-        accessToken: () => authSession.accessToken ?? undefined,
-        resolveGuildVoiceServerId,
+        gameRoomChannelId: vcGameRoomChannelId,
+        isAuthenticated: () => authSession.isAuthenticated,
       })
     : null;
 
@@ -1760,10 +1809,8 @@ export function useServerVoiceSession(deps: {
         currentUserId: () => currentUser.value?.id,
         vcActivityUi,
         isDmVoiceCallUi,
-        currentVoiceChannelId,
-        liveKitState,
-        accessToken: () => authSession.accessToken ?? undefined,
-        resolveGuildVoiceServerId,
+        gameRoomChannelId: vcGameRoomChannelId,
+        isAuthenticated: () => authSession.isAuthenticated,
       })
     : null;
 
@@ -1772,10 +1819,8 @@ export function useServerVoiceSession(deps: {
         currentUserId: () => currentUser.value?.id,
         vcActivityUi,
         isDmVoiceCallUi,
-        currentVoiceChannelId,
-        liveKitState,
-        accessToken: () => authSession.accessToken ?? undefined,
-        resolveGuildVoiceServerId,
+        gameRoomChannelId: vcGameRoomChannelId,
+        isAuthenticated: () => authSession.isAuthenticated,
       })
     : null;
 
@@ -1784,10 +1829,8 @@ export function useServerVoiceSession(deps: {
         currentUserId: () => currentUser.value?.id,
         vcActivityUi,
         isDmVoiceCallUi,
-        currentVoiceChannelId,
-        liveKitState,
-        accessToken: () => authSession.accessToken ?? undefined,
-        resolveGuildVoiceServerId,
+        gameRoomChannelId: vcGameRoomChannelId,
+        isAuthenticated: () => authSession.isAuthenticated,
       })
     : null;
 
@@ -1798,10 +1841,8 @@ export function useServerVoiceSession(deps: {
           vcActivityUi,
           vcActivityPresenceByUserId,
           isDmVoiceCallUi,
-          currentVoiceChannelId,
-          liveKitState,
-          accessToken: () => authSession.accessToken ?? undefined,
-          resolveGuildVoiceServerId,
+          gameRoomChannelId: vcGameRoomChannelId,
+          isAuthenticated: () => authSession.isAuthenticated,
         })
       : null;
 
@@ -2302,12 +2343,16 @@ export function useServerVoiceSession(deps: {
     if (ch && ch.type !== 'voice' && ch.type !== 'stage') {
       return { mediaKey: null, senderDeviceId: '' };
     }
-    // Normal (non-E2EE) voice must never touch the E2EE/MLS prepare flow: doing
-    // so issues MLS/envelope requests the backend rejects for plain channels
-    // (e.g. 403 VOICE_E2EE_DISABLED), which would fail an otherwise valid join.
-    // `forceE2ee` is set by the orchestrator's retry when the server reports the
-    // channel actually requires E2EE (cached flag was stale).
-    if (!forceE2ee && ch && ch.voiceE2eeEnabled !== true) {
+    // MLS (v2): always prepare before session mint — the server's group-info
+    // endpoint is the source of truth (`enabled: false` for plain channels).
+    // Gating on the workspace cache caused a race: stale `voiceE2eeEnabled`
+    // skipped prepare, mint returned 409, and the retry was still flaky.
+    // Legacy v1: only touch envelope machinery when the channel is E2EE or the
+    // orchestrator's retry set `forceE2ee` after a 409 from session mint.
+    const runMlsPrepare = VOICE_E2EE_V2_ENABLED;
+    const runLegacyPrepare =
+      !runMlsPrepare && (forceE2ee || ch?.voiceE2eeEnabled === true);
+    if (!runMlsPrepare && !runLegacyPrepare) {
       return { mediaKey: null, senderDeviceId: '' };
     }
     // Guild E2EE: the epoch creator must already be a member of
@@ -2382,7 +2427,7 @@ export function useServerVoiceSession(deps: {
     });
     onJoinVoiceUi(payload);
 
-    const sid = selectedServer.value?.id;
+    const sid = resolveGuildVoiceServerId(payload.channelId);
     const voiceService = createVoiceService({
       authSession,
       workspace,
@@ -2391,7 +2436,7 @@ export function useServerVoiceSession(deps: {
       getGuildVoiceE2eeMediaKey: guildVoiceE2eePrepare,
     });
     try {
-      await voiceService.onJoinVoice(sid ?? '', payload.channelId);
+      await voiceService.onJoinVoice(sid, payload.channelId);
       playEchoSound('joinVoiceChannel');
     } catch (e) {
       onLeaveVoiceUi();
@@ -2970,6 +3015,34 @@ export function useServerVoiceSession(deps: {
     ? ticTacToeSession.requestVcTicTacToeRematch
     : () => {};
 
+  type VcGameRoomConnectionCarrier = {
+    gameRoomConnected: ComputedRef<boolean>;
+    gameRoomLastError: ComputedRef<import('@shared/games').GameErrorMsg | null>;
+  };
+
+  const activeVcGameRoomConnection =
+    computed<VcGameRoomConnectionCarrier | null>(() => {
+      switch (vcActivityUi.value.phase) {
+        case 'hangman':
+          return hangmanSession;
+        case 'skriggles':
+          return skrigglesGameSession;
+        case 'codenames':
+          return codenamesSession;
+        case 'tic_tac_toe':
+          return ticTacToeSession;
+        default:
+          return null;
+      }
+    });
+
+  const hangmanGameRoomConnected = computed(
+    () => activeVcGameRoomConnection.value?.gameRoomConnected.value ?? false,
+  );
+  const hangmanGameRoomLastError = computed(
+    () => activeVcGameRoomConnection.value?.gameRoomLastError.value ?? null,
+  );
+
   return {
     onJoinVoice,
     onLeaveVoice,
@@ -2982,6 +3055,8 @@ export function useServerVoiceSession(deps: {
     hangmanRosterUserIds: hangmanSession
       ? hangmanSession.hangmanRosterUserIds
       : computed(() => hangmanRosterFromPresence()),
+    hangmanGameRoomConnected,
+    hangmanGameRoomLastError,
     vcCodenamesActivity: codenamesSession
       ? codenamesSession.vcCodenamesActivity
       : computed(() => vcCodenamesPublic.value),

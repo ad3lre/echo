@@ -303,6 +303,14 @@ export function useAppLayoutProfilesDomain(deps: {
     memberPopoutAnchor,
     selfProfileAnchor,
     selfProfile,
+    getToken: () => authSession.accessToken?.trim() ?? '',
+    canFetchProfileDetail: () =>
+      shouldUseEchoProfileSocialApi({
+        isMockDataMode: echoSyncCapabilities.isMockDataMode,
+        isAuthenticated: authSession.isAuthenticated,
+        isGuest: authSession.backendUser?.isGuest === true,
+        token: authSession.accessToken,
+      }),
   });
 
   let expandedProfileMutualFetchGen = 0;

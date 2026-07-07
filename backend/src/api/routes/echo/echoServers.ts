@@ -19,6 +19,7 @@ import {
   listEchoWorkspaceForUser,
   removeEchoServerMember,
   shouldBlockEchoJoinForPendingApplication,
+  type EchoWorkspaceMemberDetail,
 } from '../../../domain/echoStore';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
 import { evictUserFromEchoServerRealtimeScopes } from '../../../platform/echoRealtimeMembership';
@@ -52,6 +53,16 @@ function guestServerExploreForbidden(reply: Parameters<typeof sendError>[0]) {
   );
 }
 
+function parseWorkspaceMemberDetailQuery(
+  query: Record<string, unknown> | undefined,
+): EchoWorkspaceMemberDetail {
+  const raw = query?.memberDetail;
+  if (typeof raw === 'string' && raw.trim().toLowerCase() === 'roster') {
+    return 'roster';
+  }
+  return 'full';
+}
+
 function workspaceReadRateLimitKey(req: FastifyRequest): string {
   const cookies = req.cookies as Record<string, string | undefined> | undefined;
   const sid = String(
@@ -77,7 +88,7 @@ export default async function echoServersRoutes(
   );
 
   /** Bootstrap: joined servers + full category/channel trees in minimal DB round trips. */
-  fastify.get(
+  fastify.get<{ Querystring: { memberDetail?: string } }>(
     '/workspace',
     {
       preHandler: [requireAuth, requireEchoStore],
@@ -112,6 +123,7 @@ export default async function echoServersRoutes(
           'official_echo_server_workspace_backfill_failed',
         );
       }
+      const memberDetail = parseWorkspaceMemberDetailQuery(req.query);
       const {
         servers,
         categoriesByServer,
@@ -119,7 +131,7 @@ export default async function echoServersRoutes(
         workspaceVersion,
         upcomingEventsByServerId,
         myEventRsvps,
-      } = await listEchoWorkspaceForUser(pool, userId);
+      } = await listEchoWorkspaceForUser(pool, userId, { memberDetail });
       return reply.code(200).send({
         servers,
         categoriesByServer,

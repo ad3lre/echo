@@ -23,7 +23,7 @@ tauri-build = { version = "2", features = [] }
 # No extra `tauri` features are enabled by default; `webview-data-url` would
 # only be needed if we ever loaded `data:text/html,...` URLs into a webview,
 # which the app never does.
-tauri = { version = "2.11", features = ["tray-icon"] }
+tauri = { version = "2.11", features = ["tray-icon", "image-png"] }
 tauri-plugin-deep-link = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
@@ -42,6 +42,9 @@ tauri-plugin-process = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
+
+[target.'cfg(all(not(target_os = "ios"), not(target_os = "macos")))'.dependencies]
+keyring = "3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

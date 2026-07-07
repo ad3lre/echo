@@ -51,6 +51,27 @@ vi.mock('./MessageBubble.vue', async () => {
   };
 });
 
+vi.mock('./MessageRowShell.vue', async () => {
+  const vue = await import('vue');
+  return {
+    default: vue.defineComponent({
+      name: 'MessageRowShell',
+      props: {
+        row: { type: Object, required: true },
+        authorName: { type: String, required: true },
+      },
+      render() {
+        const row = this.row as { message?: { id?: string } };
+        const id = row.message?.id ?? 'unknown';
+        return vue.h('div', {
+          id: `message-${id}`,
+          class: 'message-row-shell-stub',
+        });
+      },
+    }),
+  };
+});
+
 vi.mock('./MessageListJumpFab.vue', () => ({
   default: { name: 'MessageListJumpFab', render: () => null },
 }));
@@ -227,7 +248,9 @@ describe('MessageList load-older skeleton placeholders', () => {
       toJSON: () => ({}),
     } as DOMRect);
 
-    for (const stub of scrollEl.querySelectorAll('.message-bubble-stub')) {
+    for (const stub of scrollEl.querySelectorAll(
+      '.message-bubble-stub, .message-row-shell-stub',
+    )) {
       vi.spyOn(stub, 'getBoundingClientRect').mockReturnValue({
         top: 40,
         left: 16,
@@ -242,6 +265,7 @@ describe('MessageList load-older skeleton placeholders', () => {
     }
 
     expect(scrollEl.querySelector('#message-m12')).not.toBeNull();
+    expect(scrollEl.querySelector('.message-row-shell-stub')).not.toBeNull();
 
     scrollEl.dispatchEvent(
       new WheelEvent('wheel', { deltaY: -1, bubbles: true }),

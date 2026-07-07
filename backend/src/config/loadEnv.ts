@@ -139,3 +139,8 @@ if (repoRoot && process.env.ECHO_CONFIG_TEST_ISOLATION !== '1') {
  * of those known defaults. Opt out with `ECHO_SKIP_ROOT_ENV_DATABASE_URL_RECONCILE=1`.
  */
 reconcileDatabaseUrlFromRootEnv(repoRoot);
+
+// Memory mock stack (Cypress E2E): repo `.env` must not leave DATABASE_URL set.
+if (process.env.ECHO_BACKEND_STORAGE?.trim() === 'memory') {
+  delete process.env.DATABASE_URL;
+}

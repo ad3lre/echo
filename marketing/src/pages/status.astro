@@ -8,7 +8,7 @@ const shortHealthUrl = healthUrl.replace(/^https?:\/\//, '');
 
 const title = 'Status | Echo';
 const description =
-  'Live availability for chat-echo.com from the same health probe Echo’s Discord uptime monitor uses.';
+  'Live availability for Echo from the same health probe Echo’s Discord uptime monitor uses.';
 
 const structuredData = pageStructuredData({
   title,
@@ -35,11 +35,11 @@ const structuredData = pageStructuredData({
             <span class="hero-eyebrow">Systems</span>
             <h1>Echo status</h1>
             <p class="hero-lead">
-              Live health for chat-echo.com—the same GET probe Echo’s Discord bot uses for{' '}
+              Live health for Echo—the same GET probe Echo’s Discord bot uses for{' '}
               <code class="status-code">e!cho uptime</code>, not a separate fleet dashboard.
             </p>
             <div class="status-hero-actions">
-              <a class="btn-primary" href={CHAT_APP_ORIGIN}>Open chat-echo.com</a>
+              <a class="btn-primary" href={CHAT_APP_ORIGIN}>Open Echo</a>
               <a class="btn-secondary" href="/support">Contact support</a>
             </div>
           </div>
@@ -67,7 +67,7 @@ const structuredData = pageStructuredData({
               </div>
               <div class="status-summary-text">
                 <p class="status-headline" id="status-headline" role="status" aria-live="polite">
-                  Checking chat-echo.com…
+                  Checking Echo…
                 </p>
                 <p class="status-subline" id="status-subline">
                   Probing {shortHealthUrl}.

@@ -66,7 +66,8 @@ npm run test -w media-cdn   # sidecar unit tests
 | Prefix                                                              | Header                                |
 | ------------------------------------------------------------------- | ------------------------------------- |
 | `echo/server-icons/`, `echo/server-banners/`, `echo/public-emojis/` | `public, max-age=31536000, immutable` |
-| `*/hls/*.m4s`, `*/hls/*.ts`                                         | `public, max-age=86400`               |
+| `*/hls/*.m3u8` (manifests)                                          | `public, max-age=60, must-revalidate` |
+| `*/hls/*` (segments / init, non-`.m3u8`)                            | `public, max-age=31536000, immutable` |
 | Chat / private uploads                                              | `private, max-age=300`                |
 
 ## CSP

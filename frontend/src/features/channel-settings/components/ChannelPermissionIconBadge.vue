@@ -12,7 +12,7 @@ defineProps<{
     <img
       :src="channelPermissionIconUrl(permissionKey)"
       alt=""
-      class="channel-perm-icon-badge__img"
+      class="channel-perm-icon-badge__img echo-ink-icon"
     />
   </span>
 </template>
@@ -33,6 +33,5 @@ defineProps<{
   width: 16px;
   height: 16px;
   opacity: 0.82;
-  filter: invert(1);
 }
 </style>

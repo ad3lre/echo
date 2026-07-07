@@ -14,7 +14,7 @@ function assertUnderRoot(abs: string, root: string): boolean {
   return normAbs.startsWith(normRoot);
 }
 
-function resolveLocalUploadFilePath(storageKey: string): string | null {
+export function resolveLocalUploadFilePath(storageKey: string): string | null {
   const root = mediaCdnConfig.localUploadDir;
   if (!root) return null;
   const safeKey = normalizeEchoUploadStorageKeyPath(storageKey);

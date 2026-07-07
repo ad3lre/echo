@@ -18,6 +18,7 @@ import {
   userMayJoinDmLiveKitRoom,
   echoDmVoiceE2eeRequired,
   getActiveVoiceE2eeEpoch,
+  getMlsGroupInfo,
   userHasVoiceE2eeEnvelopeForJoin,
 } from '../../../domain/echoStore';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
@@ -641,7 +642,17 @@ export default async function echoDmRoutes(
         ECHO_DM_REALM_SERVER_ID,
         channelId,
       );
-      if (voiceE2eeRequired) {
+      /**
+       * MLS (v2) satisfies the E2EE requirement — the client joins the
+       * channel's MLS group during prepare (before this mint) and derives keys
+       * from the group epoch secret. Legacy v1 epoch/envelope checks apply
+       * only when no MLS group exists (old clients).
+       */
+      const mlsGroupActive =
+        voiceE2eeRequired &&
+        (await getMlsGroupInfo(pool, ECHO_DM_REALM_SERVER_ID, channelId)) !==
+          null;
+      if (voiceE2eeRequired && !mlsGroupActive) {
         if (!activeEpoch) {
           return sendError(
             reply,

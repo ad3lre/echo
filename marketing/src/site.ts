@@ -1,3 +1,6 @@
+/** Public product name (header, meta, CTAs — not the hostname). */
+export const MARKETING_SITE_NAME = 'Echo';
+
 /** Canonical marketing origin (SEO, sitemap, structured data). */
 export const MARKETING_SITE_ORIGIN = 'https://app-echo.net';
 

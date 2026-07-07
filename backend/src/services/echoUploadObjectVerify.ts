@@ -75,3 +75,32 @@ export async function verifyEchoStoredUploadObject(opts: {
 
   return { ok: false, reason: 'NOT_CONFIGURED' };
 }
+
+/** Best-effort object presence check (no size/type validation). */
+export async function echoUploadObjectExists(
+  storageKey: string,
+): Promise<'exists' | 'missing' | 'not_configured'> {
+  const key = storageKey.trim();
+  if (!key) return 'missing';
+
+  if (echoUploadPrefersS3ObjectStore(key)) {
+    const bucket = getEchoS3UploadBucket();
+    const s3 = createEchoS3UploadClient();
+    if (!bucket || !s3) return 'not_configured';
+    try {
+      await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      return 'exists';
+    } catch {
+      return 'missing';
+    }
+  }
+
+  if (config.echoLocalUploadDir) {
+    const abs = resolveLocalUploadFilePath(key);
+    if (!abs) return 'missing';
+    const info = await stat(abs).catch(() => null);
+    return info?.isFile() ? 'exists' : 'missing';
+  }
+
+  return 'not_configured';
+}

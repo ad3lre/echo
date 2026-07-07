@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ensureDisplayStyleForOperatorLimits,
+  normalizeKatexDisplaySpacing,
   normalizeKatexInput,
 } from './normalizeKatexInput';
 
@@ -62,6 +63,18 @@ describe('normalizeKatexInput', () => {
     const raw = String.raw`\begin{array}{cc} 1 & 2 \ \ 3 & 4 \end{array}`;
     const want = String.raw`\begin{array}{cc} 1 & 2\\3 & 4 \end{array}`;
     expect(normalizeKatexInput(raw)).toBe(want);
+  });
+});
+
+describe('normalizeKatexDisplaySpacing', () => {
+  it('maps display-mode spacing \\\\ to \\quad outside matrix-like environments', () => {
+    const s = 'r \\in S, \\\\ \\forall v';
+    expect(normalizeKatexDisplaySpacing(s)).toBe('r \\in S, \\quad \\forall v');
+  });
+
+  it('preserves matrix row breaks when normalizing display spacing', () => {
+    const raw = String.raw`\begin{matrix} a & b \\ c & d \end{matrix}`;
+    expect(normalizeKatexDisplaySpacing(raw)).toBe(raw);
   });
 });
 

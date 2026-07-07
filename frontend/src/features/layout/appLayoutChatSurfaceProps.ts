@@ -317,6 +317,10 @@ export type AppLayoutChatSurfaceProps = {
   openVcActivityTicTacToe: () => void;
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
+  hangmanGameRoomConnected: ComputedRef<boolean>;
+  hangmanGameRoomLastError: ComputedRef<
+    import('@shared/games').GameErrorMsg | null
+  >;
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
@@ -692,6 +696,8 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'openVcActivityTicTacToe',
   'vcHangmanActivity',
   'hangmanRosterUserIds',
+  'hangmanGameRoomConnected',
+  'hangmanGameRoomLastError',
   'commitVcHangmanWord',
   'requestVcHangmanGuessLetter',
   'requestVcHangmanNextRound',

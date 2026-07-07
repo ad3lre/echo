@@ -2,6 +2,9 @@ import { computed, type ComputedRef, type Ref } from 'vue';
 import type { EchoCodenamesRoleAssignmentV1 } from '@/audio/voiceEchoLiveKitData';
 import type { LiveKitRoomState } from '@/composables/useLiveKitVoiceRoom';
 import { useGameRoom } from '@/features/games/useGameRoom';
+import { isVcGameRoomEnabled } from '@/features/games/vcGameRoomEnabled';
+import { vcGameRoomConnectionRefs } from '@/features/games/gameRoomSessionConnection';
+import type { GameErrorMsg } from '@shared/games';
 import { CODENAMES_ACTION, type CodenamesView } from '@shared/games/codenames';
 import { CODENAMES_SERVER_MODE } from '@shared/vcActivityCatalog';
 import type {
@@ -18,10 +21,8 @@ export type CreateCodenamesGameSessionOpts = {
   currentUserId: () => string | undefined;
   vcActivityUi: Ref<VcActivityUiState>;
   isDmVoiceCallUi: Ref<boolean>;
-  currentVoiceChannelId: Ref<string | null>;
-  liveKitState: Ref<LiveKitRoomState>;
-  accessToken: () => string | undefined;
-  resolveGuildVoiceServerId: (channelId: string) => string;
+  gameRoomChannelId: ComputedRef<string | null>;
+  isAuthenticated: () => boolean;
 };
 
 export type CodenamesGameSession = {
@@ -31,6 +32,8 @@ export type CodenamesGameSession = {
   vcCodenamesSpymasterKey: ComputedRef<
     import('@/audio/voiceEchoLiveKitData').EchoCodenamesAffiliationV1[] | null
   >;
+  gameRoomConnected: ComputedRef<boolean>;
+  gameRoomLastError: ComputedRef<GameErrorMsg | null>;
   requestVcCodenamesSetup: (
     assignments: EchoCodenamesRoleAssignmentV1[],
   ) => void;
@@ -48,21 +51,16 @@ function useCodenamesRoom(
 ): GameRoomApi<CodenamesView> {
   return useGameRoom<CodenamesView>({
     gameKey: 'codenames',
-    roomId: computed(() => opts.currentVoiceChannelId.value),
-    serverId: computed(() => {
-      const ch = opts.currentVoiceChannelId.value?.trim() ?? '';
-      return ch ? opts.resolveGuildVoiceServerId(ch) : null;
-    }),
-    accessToken: computed(() => opts.accessToken()?.trim() ?? null),
-    enabled: computed(
-      () =>
-        CODENAMES_SERVER_MODE &&
-        !opts.isDmVoiceCallUi.value &&
-        opts.vcActivityUi.value.phase === 'codenames' &&
-        opts.liveKitState.value === 'connected' &&
-        !!(
-          opts.currentVoiceChannelId.value?.trim() && opts.accessToken()?.trim()
-        ),
+    roomId: computed(() => opts.gameRoomChannelId.value),
+    enabled: computed(() =>
+      isVcGameRoomEnabled({
+        serverMode: CODENAMES_SERVER_MODE,
+        isDmVoiceCallUi: opts.isDmVoiceCallUi,
+        vcActivityUi: opts.vcActivityUi,
+        phase: 'codenames',
+        gameRoomChannelId: opts.gameRoomChannelId,
+        isAuthenticated: opts.isAuthenticated,
+      }),
     ),
   });
 }
@@ -71,7 +69,11 @@ function buildCodenamesActions(
   room: GameRoomApi<CodenamesView>,
 ): Omit<
   CodenamesGameSession,
-  'vcCodenamesActivity' | 'vcCodenamesSpymasterKey' | 'resetIfLeavingPhase'
+  | 'vcCodenamesActivity'
+  | 'vcCodenamesSpymasterKey'
+  | 'gameRoomConnected'
+  | 'gameRoomLastError'
+  | 'resetIfLeavingPhase'
 > {
   return {
     requestVcCodenamesSetup(assignments) {
@@ -121,6 +123,8 @@ export function createCodenamesGameSession(
 ): CodenamesGameSession {
   const room = useCodenamesRoom(opts);
   const actions = buildCodenamesActions(room);
+  const { gameRoomConnected, gameRoomLastError } =
+    vcGameRoomConnectionRefs(room);
 
   const vcCodenamesActivity = computed(() => {
     const v = room.view.value;
@@ -134,6 +138,8 @@ export function createCodenamesGameSession(
     vcCodenamesSpymasterKey: computed(
       () => room.view.value?.spymasterKey ?? null,
     ),
+    gameRoomConnected,
+    gameRoomLastError,
     ...actions,
     resetIfLeavingPhase(phase) {
       if (phase !== 'codenames') {

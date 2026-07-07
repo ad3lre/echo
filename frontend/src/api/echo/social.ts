@@ -15,6 +15,14 @@ export type EchoUserPublicProfileFromApi = {
   username?: string;
   /** Profile badges (Echo+ / Echo Black / OG) when present. */
   badges?: string[];
+  bio?: string;
+  bannerImage?: string;
+  bannerColor?: string;
+  bannerRefractionEnabled?: boolean;
+  bannerBlurEnabled?: boolean;
+  bannerBlackoutEnabled?: boolean;
+  bannerPositionY?: number;
+  timeZone?: string | null;
 };
 
 /** Minimal profile for DM/group peers not yet present in workspace snapshots. */
@@ -29,6 +37,15 @@ export async function fetchEchoUserPublicProfile(
     `/users/${encodeURIComponent(id)}/profile`,
     init,
   );
+}
+
+/** Full profile detail (bio, banner) for guild member popouts after roster workspace bootstrap. */
+export async function fetchEchoUserProfileDetail(
+  token: string,
+  userId: string,
+  init?: Pick<RequestInit, 'signal'>,
+): Promise<EchoUserPublicProfileFromApi> {
+  return fetchEchoUserPublicProfile(token, userId, init);
 }
 
 export async function postEchoOpenDm(

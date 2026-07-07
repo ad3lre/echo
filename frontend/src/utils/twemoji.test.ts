@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { splitTextWithEmoji, twemojiOpts } from './twemoji';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { publicAssetUrl, splitTextWithEmoji, twemojiOpts } from './twemoji';
 
 describe('splitTextWithEmoji', () => {
   it('returns single text segment when no emoji', () => {
@@ -15,6 +15,24 @@ describe('splitTextWithEmoji', () => {
       { type: 'emoji', value: '👋' },
       { type: 'text', value: 'b' },
     ]);
+  });
+});
+
+describe('publicAssetUrl', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('uses root-absolute paths when base is relative (Tauri)', () => {
+    vi.stubEnv('BASE_URL', './');
+    expect(publicAssetUrl('twemoji/1f44b.webp')).toBe('/twemoji/1f44b.webp');
+  });
+
+  it('respects absolute base prefix on web', () => {
+    vi.stubEnv('BASE_URL', '/app/');
+    expect(publicAssetUrl('twemoji/1f44b.webp')).toBe(
+      '/app/twemoji/1f44b.webp',
+    );
   });
 });
 

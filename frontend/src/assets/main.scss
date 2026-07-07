@@ -929,7 +929,8 @@ img.brightness-0.invert {
  * KaTeX in chat, composer preview, settings guide, and Paper.
  *
  * Structural KaTeX rules (fonts, struts, vlist tables, msupsub, …) come
- * exclusively from `katex/dist/katex.min.css`, eagerly imported in main.ts.
+ * from `katex/dist/katex.min.css`, loaded lazily via `markdownKatex.ts` when
+ * a message actually contains math (keeps ~20 KaTeX fonts off the cold path).
  * Do NOT duplicate or override KaTeX internals here: hand-copied subsets
  * drift between KaTeX versions and previously broke sub/sup + fraction
  * layout (collapsed vlists painting glyphs on top of each other).

@@ -163,6 +163,7 @@ export interface AppLayoutControllerContext {
   vcMuted: Ref<boolean>;
   vcDeafened: Ref<boolean>;
   applyVcDeafened: (next: boolean) => void;
+  applyVcMuted: (next: boolean) => void;
   vcVideo: Ref<boolean>;
   vcScreenshare: Ref<boolean>;
   isScreenSharePickerOpen: Ref<boolean>;
@@ -180,6 +181,10 @@ export interface AppLayoutControllerContext {
   openVcActivityTicTacToe: () => void;
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
+  hangmanGameRoomConnected: ComputedRef<boolean>;
+  hangmanGameRoomLastError: ComputedRef<
+    import('@shared/games').GameErrorMsg | null
+  >;
   vcSkrigglesActivity: ComputedRef<EchoSkrigglesActivityV1 | null>;
   skrigglesRosterUserIds: ComputedRef<string[]>;
   skrigglesCanvasEvents: ShallowRef<

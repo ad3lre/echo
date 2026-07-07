@@ -27,6 +27,7 @@ import analyticsRoutes from './analytics';
 import clientEnvironmentAnalyticsRoutes from './clientEnvironmentAnalytics';
 import devDiagnosticsRoutes from './devDiagnostics';
 import agentNetworkDiagnosticsRoutes from './agentNetworkDiagnostics';
+import gameOutboundRoutes from './internal/gameOutbound';
 import echoRoutes from './echo';
 import systemDeployCountdownRoutes from './systemDeployCountdown';
 import systemInstancePolicyRoutes from './systemInstancePolicy';
@@ -113,6 +114,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(agentNetworkDiagnosticsRoutes, {
     prefix: '/api/v1/agent',
   });
+  await fastify.register(gameOutboundRoutes, { prefix: '/api/v1' });
   await fastify.register(
     async function echoRateLimitScope(instance) {
       await instance.register(rateLimit, {

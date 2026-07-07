@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
+import { isWebKitDesktop } from '@/platform/browserCompatibility';
 import { THEMES_SELECTION_COMING_SOON } from '@/features/settings/data';
 import {
   applyBrowserChromeThemeColor,
@@ -75,6 +76,7 @@ export const useThemeStore = defineStore('theme', () => {
   }));
 
   let applyRafId: number | null = null;
+  let themeRepaintRafId: number | null = null;
   let lastApplied: {
     theme: CanonicalThemeId;
     darkVariant: EchoDarkVariantId;
@@ -111,6 +113,20 @@ export const useThemeStore = defineStore('theme', () => {
     applyVibrantAccentsToDocument(next.vibrantAccents);
     applyInterfaceDensityToDocument(next.interfaceDensity);
     lastApplied = next;
+    nudgeWebKitRepaintAfterThemeApply();
+  }
+
+  /** WKWebView can leave backdrop-filter layers blank after CSS variable churn. */
+  function nudgeWebKitRepaintAfterThemeApply(): void {
+    if (!isWebKitDesktop() || typeof document === 'undefined') return;
+    if (themeRepaintRafId != null) cancelAnimationFrame(themeRepaintRafId);
+    const root = document.documentElement;
+    root.dataset.echoThemeRepaint = '1';
+    void root.offsetHeight;
+    themeRepaintRafId = requestAnimationFrame(() => {
+      themeRepaintRafId = null;
+      delete root.dataset.echoThemeRepaint;
+    });
   }
 
   function scheduleApply(): void {
@@ -156,6 +172,7 @@ export const useThemeStore = defineStore('theme', () => {
   function setSyncWithSystem(next: boolean): void {
     syncWithSystem.value = next;
     persistSyncWithSystem(next);
+    scheduleApply();
   }
 
   function setVibrantAccents(next: boolean): void {

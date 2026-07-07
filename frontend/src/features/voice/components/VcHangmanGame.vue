@@ -32,6 +32,9 @@ const props = defineProps<{
   hangmanActivity: EchoHangmanActivityV1 | null;
   hangmanRosterUserIds: string[];
   voiceParticipants: readonly { id: string; name: string; pfp?: string }[];
+  voiceChannelId?: string;
+  gameRoomConnected?: boolean;
+  gameRoomError?: string | null;
   commitWord: (raw: string) => string | null;
   guessLetter: (letter: string) => void;
   nextRound: () => void;
@@ -87,6 +90,30 @@ const rosterLabel = computed(() =>
 );
 
 const act = computed(() => props.hangmanActivity);
+
+const emptyTitle = computed(() => {
+  if (!props.voiceChannelId?.trim()) return 'Join voice to play';
+  if (props.gameRoomError === 'not_configured') return 'Games unavailable';
+  if (props.gameRoomError) return 'Could not connect to game';
+  if (!props.gameRoomConnected) return 'Connecting to game…';
+  return 'Starting round…';
+});
+
+const emptyBody = computed(() => {
+  if (!props.voiceChannelId?.trim()) {
+    return 'Join a voice channel and open Hangman so Echo can sync everyone to the same round.';
+  }
+  if (props.gameRoomError === 'not_configured') {
+    return 'The game server is not configured on this Echo instance. Ask an admin to set GAME_SERVER_PUBLIC_URL and run echo-game-server.';
+  }
+  if (props.gameRoomError) {
+    return 'Echo could not reach the game server. Check that echo-game-server is running and reachable from your browser.';
+  }
+  if (!props.gameRoomConnected) {
+    return 'Hangman is syncing with the voice room. This usually takes a moment after you join voice.';
+  }
+  return 'Hangman is loading the current round from the game server.';
+});
 
 const isSetter = computed(() => {
   const st = act.value;
@@ -287,8 +314,17 @@ watch(
   () => act.value,
   (st) => {
     if (!st) {
-      statusLine.value =
-        'Waiting for the voice room. Join voice and open Hangman here so everyone sees the same game.';
+      if (!props.voiceChannelId?.trim()) {
+        statusLine.value =
+          'Waiting for the voice room. Join voice and open Hangman here so everyone sees the same game.';
+      } else if (props.gameRoomError) {
+        statusLine.value = 'Could not reach the game server.';
+      } else if (!props.gameRoomConnected) {
+        statusLine.value =
+          'Hangman is syncing with the game server. This usually takes a moment after you join voice.';
+      } else {
+        statusLine.value = 'Starting round…';
+      }
       return;
     }
     if (st.phase === 'setter_picking') {
@@ -487,10 +523,9 @@ onUnmounted(() => {
           stroke-linecap="round"
         />
       </svg>
-      <p class="hm-empty__title">Waiting for the game</p>
+      <p class="hm-empty__title">{{ emptyTitle }}</p>
       <p class="hm-empty__body">
-        Join a voice channel and open Hangman so Echo can sync everyone to the
-        same round.
+        {{ emptyBody }}
       </p>
     </div>
 

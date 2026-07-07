@@ -8,6 +8,7 @@ import {
   authFetchMe,
   authLogout,
   authLogoutAllSessions,
+  backfillNativeBearerFromCookiesIfNeeded,
   echoAuthDebugLog,
   invalidateAuthFetchMeCache,
 } from '@/api/authClient';
@@ -53,12 +54,14 @@ const REFRESH_KEY = 'echo_auth_refresh';
  */
 const USER_CACHE_KEY = 'echo_auth_user_cache_v1';
 const USER_CACHE_SCHEMA_VERSION = 1;
+/** Cold-start paint only — `/auth/me` still validates on mount. */
+const USER_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 type CachedAuthUserEnvelope = {
   v: typeof USER_CACHE_SCHEMA_VERSION;
   /** Server-issued user id at the time of caching — used to detect identity churn. */
   userId: string;
-  /** ms epoch — only used for debugging / future TTL policies, not enforced today. */
+  /** ms epoch — entries older than {@link USER_CACHE_MAX_AGE_MS} are discarded. */
   cachedAt: number;
   user: AuthUserPublic;
   planLimits: EchoPlanLimitsPublic | null;
@@ -126,6 +129,8 @@ function loadAuthUserCache(): CachedAuthUserEnvelope | null {
       !parsed ||
       parsed.v !== USER_CACHE_SCHEMA_VERSION ||
       typeof parsed.userId !== 'string' ||
+      typeof parsed.cachedAt !== 'number' ||
+      Date.now() - parsed.cachedAt > USER_CACHE_MAX_AGE_MS ||
       !parsed.user ||
       typeof parsed.user !== 'object' ||
       typeof (parsed.user as { id?: unknown }).id !== 'string'
@@ -396,6 +401,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
       isSessionUnverified.value = false;
       void iosAuthSessionRestored();
       void iosAuthMarkVerified();
+      void backfillNativeBearerFromCookiesIfNeeded();
       return user;
     } catch (e) {
       if (e instanceof AuthApiError) {

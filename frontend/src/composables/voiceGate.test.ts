@@ -92,4 +92,16 @@ describe('voiceGate', () => {
   it('none mode always passes full gain', () => {
     expect(gateMultiplierForDbfs(-90, 80, 'none')).toBe(1);
   });
+
+  it('fails open on dead-silent monitor readings (broken/suspended monitor)', () => {
+    // -100 dBFS means the analyser read all zeros — either the mic is truly
+    // silent (gating irrelevant) or the monitor is broken (gating harmful,
+    // e.g. suspended AudioContext on Safari/iOS). Both modes must pass audio.
+    expect(gateMultiplierForDbfs(-100, 24, 'soft')).toBe(1);
+    expect(gateMultiplierForDbfs(-100, 24, 'hard')).toBe(1);
+    expect(gateMultiplierForDbfs(-95, 50, 'hard')).toBe(1);
+    // Just above the floor the gate still works normally.
+    expect(gateMultiplierForDbfs(-90, 24, 'hard')).toBe(0);
+    expect(gateMultiplierForDbfs(-90, 24, 'soft')).toBeLessThan(1);
+  });
 });

@@ -31,8 +31,22 @@ export function useAppLayoutServerRailActions(deps: {
   }
 
   function handleServerRailSettings(serverId: string) {
-    if (!deps.canOpenServerSettingsForServer(serverId)) return;
-    deps.openServerSurface(serverId);
+    const sid = serverId.trim();
+    if (!sid) {
+      dispatchAppToast(
+        'Select a server before opening server settings.',
+        'warning',
+      );
+      return;
+    }
+    if (!deps.canOpenServerSettingsForServer(sid)) {
+      dispatchAppToast(
+        "You don't have permission to open server settings.",
+        'warning',
+      );
+      return;
+    }
+    deps.openServerSurface(sid);
     deps.isServerSettingsModalOpen.value = true;
   }
 
@@ -62,7 +76,22 @@ export function useAppLayoutServerRailActions(deps: {
   }
 
   function handleServerRailNotificationSettings(serverId: string) {
-    deps.openServerSurface(serverId);
+    const sid = serverId.trim();
+    if (!sid) {
+      dispatchAppToast(
+        'Select a server before changing notification settings.',
+        'warning',
+      );
+      return;
+    }
+    if (sid === 'echo') {
+      dispatchAppToast(
+        'Notification settings are not available for Direct Messages.',
+        'info',
+      );
+      return;
+    }
+    deps.openServerSurface(sid);
     deps.isServerNotificationSettingsOpen.value = true;
   }
 
@@ -72,7 +101,13 @@ export function useAppLayoutServerRailActions(deps: {
 
   function handleServerRailLeave(serverId: string) {
     const s = deps.serverStore.servers.find((x) => x.id === serverId);
-    if (!s) return;
+    if (!s) {
+      dispatchAppToast(
+        "Couldn't find that server. Refresh and try again.",
+        'warning',
+      );
+      return;
+    }
     const uid = deps.currentUser.value?.id;
     const devOverride = deps.devModeIdsEnabled.value;
     if (!canMemberLeaveEchoServer(s, uid) && !devOverride) {

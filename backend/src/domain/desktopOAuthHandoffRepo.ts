@@ -2,7 +2,7 @@ import { randomBytes, scryptSync } from 'crypto';
 import type { Pool } from 'pg';
 import { hashDesktopOauthHandoffNonce } from './desktopOAuthHandoffNonce';
 
-const HANDOFF_TTL_SEC = 120;
+const HANDOFF_TTL_SEC = 300;
 const HANDOFF_CODE_SCRYPT_SALT = 'echo-desktop-handoff-code-v3';
 
 /**

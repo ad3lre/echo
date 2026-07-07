@@ -86,6 +86,7 @@ import {
 } from '../../../sockets/messageValidation';
 import { fillEchoMessageImageSlotAndBroadcast } from '../../../services/echoImageSlotFillBroadcast';
 import { canDeleteOthersMessagesInChannel } from '../../../domain/echoPolicy';
+import { listAggregatedReactionsForMessages } from '../../../domain/echoMessagesDal';
 import type {
   ForwardedFrom,
   MentionEntity,
@@ -617,6 +618,28 @@ export default async function echoMessagesRoutes(
         getAuthUser(req).id,
       );
       return reply.code(200).send({ message: redacted });
+    },
+  );
+
+  fastify.get<{ Params: { channelId: string; messageId: string } }>(
+    '/channels/:channelId/messages/:messageId/reactions',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const messageId = trimEchoPathParam(req.params.messageId);
+      const access = await diagnoseEchoChannelAccess(
+        pool,
+        getAuthUser(req).id,
+        channelId,
+      );
+      if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
+      const row = await getEchoMessageById(pool, messageId);
+      if (!row || row.channelId !== channelId) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Message not found');
+      }
+      const map = await listAggregatedReactionsForMessages(pool, [messageId]);
+      return reply.code(200).send({ reactions: map.get(messageId) ?? [] });
     },
   );
 

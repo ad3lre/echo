@@ -4,10 +4,13 @@ import type { MessageReaction } from '@shared/types';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { useFocusTrap } from '@/composables/useFocusTrap';
+import { useEchoMessageReactionsFetch } from '@/features/chat/composables/useEchoMessageReactionsFetch';
+import { useAuthSessionStore } from '@/stores/authSession';
 
 const props = defineProps<{
   modelValue: boolean;
   reactions: MessageReaction[];
+  channelId?: string;
   /** Short excerpt under the title (like poll question in PollDisplay). */
   messagePreview?: string;
   messageId?: string;
@@ -23,33 +26,52 @@ const emit = defineEmits<{
   'update:modelValue': [open: boolean];
 }>();
 
+const authSession = useAuthSessionStore();
+const {
+  loadedReactions,
+  loading: votersLoading,
+  loadError: votersLoadError,
+  reset: resetVotersFetch,
+  load: loadVoters,
+} = useEchoMessageReactionsFetch(computed(() => authSession.accessToken));
 const modalRef = ref<HTMLElement | null>(null);
 useFocusTrap(modalRef, toRef(props, 'modelValue'));
 
 const activeTabIdx = ref(0);
 
+const displayReactions = computed(
+  () => loadedReactions.value ?? props.reactions,
+);
+
 watch(
   () => props.modelValue,
   (open) => {
-    if (!open) return;
+    if (!open) {
+      resetVotersFetch();
+      return;
+    }
     activeTabIdx.value = 0;
     void Promise.resolve().then(() => {
       modalRef.value?.focus();
     });
+    const channelId = props.channelId?.trim();
+    const messageId = props.messageId?.trim();
+    if (!channelId || !messageId) return;
+    void loadVoters(channelId, messageId);
   },
 );
 
 watch(
-  () => props.reactions,
+  () => displayReactions.value,
   () => {
-    if (activeTabIdx.value >= props.reactions.length) {
-      activeTabIdx.value = Math.max(0, props.reactions.length - 1);
+    if (activeTabIdx.value >= displayReactions.value.length) {
+      activeTabIdx.value = Math.max(0, displayReactions.value.length - 1);
     }
   },
 );
 
 const voterRowsByReaction = computed(() => {
-  return props.reactions.map((r) => {
+  return displayReactions.value.map((r) => {
     const labels = r.userIds
       .map((id) => ({
         id,
@@ -99,7 +121,7 @@ function voterInitials(label: string): string {
 }
 
 function onTabKeydown(e: KeyboardEvent, fromIdx: number) {
-  const n = props.reactions.length;
+  const n = displayReactions.value.length;
   if (n === 0) return;
   if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
   e.preventDefault();
@@ -122,7 +144,7 @@ function close() {
 
 const totalReactors = computed(() => {
   const s = new Set<string>();
-  for (const r of props.reactions) {
+  for (const r of displayReactions.value) {
     for (const id of r.userIds) s.add(id);
   }
   return s.size;
@@ -130,7 +152,7 @@ const totalReactors = computed(() => {
 </script>
 
 <template>
-  <Teleport v-if="modelValue && reactions.length > 0" to="body">
+  <Teleport v-if="modelValue && displayReactions.length > 0" to="body">
     <div
       class="msg-reactions-voters-overlay fixed inset-0 z-[100] flex items-center justify-center px-4 modal-overlay-bg"
       role="presentation"
@@ -183,9 +205,13 @@ const totalReactors = computed(() => {
           <span class="tabular-nums">
             {{ totalReactors }}
             {{ totalReactors === 1 ? 'person' : 'people' }} ·
-            {{ reactions.length }}
-            {{ reactions.length === 1 ? 'emoji' : 'emojis' }}
+            {{ displayReactions.length }}
+            {{ displayReactions.length === 1 ? 'emoji' : 'emojis' }}
           </span>
+          <span v-if="votersLoading" class="text-muted">Loading…</span>
+          <span v-else-if="votersLoadError" class="text-muted"
+            >Could not load full list</span
+          >
         </div>
         <div
           role="tablist"
@@ -193,7 +219,7 @@ const totalReactors = computed(() => {
           class="mt-4 flex gap-1 overflow-x-auto pb-2 -mx-1 px-1 custom-scrollbar shrink-0 border-b border-border"
         >
           <button
-            v-for="(r, i) in reactions"
+            v-for="(r, i) in displayReactions"
             :id="`msg-reactions-tab-${tabDomId(i)}`"
             :key="`${messageId ?? ''}-${i}-${r.emoji}`"
             type="button"

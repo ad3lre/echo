@@ -157,6 +157,7 @@ Use **Performance** + **Vue DevTools (timeline)** + **Layout Shift** (where appl
 
 ## 7. Revision
 
-| Date       | Change                                            |
-| ---------- | ------------------------------------------------- |
-| 2026-04-10 | Initial plan from performance analysis consensus. |
+| Date       | Change                                                                                                |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| 2026-04-10 | Initial plan from performance analysis consensus.                                                     |
+| 2026-07-07 | Message list: shell-first rows + session height cache + mode-aware overscan (fast 8–10 / idle 24–40). |

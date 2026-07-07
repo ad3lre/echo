@@ -6,6 +6,7 @@ import { ipRateLimitKey } from '../rateLimitKeys';
 import { sendError } from '../errors';
 import { getAuthStore } from '../../auth/store';
 import { issueEchoBrowserSession } from '../../auth/issueBrowserSession';
+import { authSessionJsonBody } from '../../auth/authSessionResponse';
 import { loginAuditDigests } from '../../auth/loginAudit';
 import { clearGuestBindingCookie } from '../../auth/sessionCookies';
 import {
@@ -214,7 +215,7 @@ export default async function appleOAuthRoutes(
 
       try {
         clearGuestBindingCookie(reply);
-        await issueEchoBrowserSession(
+        const session = await issueEchoBrowserSession(
           store,
           { id: user.id, username: user.username },
           reply,
@@ -227,6 +228,7 @@ export default async function appleOAuthRoutes(
           ipDigest: audit.ipDigest,
           uaDigest: audit.uaDigest,
         });
+        return reply.code(200).send(authSessionJsonBody(session));
       } catch (err) {
         fastify.log.error({ err }, 'apple_oauth_session_failed');
         return sendError(
@@ -236,9 +238,6 @@ export default async function appleOAuthRoutes(
           'Could not start your session.',
         );
       }
-
-      const fresh = await store.getUserById(user.id);
-      return reply.code(200).send({ user: fresh ?? user });
     },
   );
 }

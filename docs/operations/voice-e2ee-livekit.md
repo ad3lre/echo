@@ -1,6 +1,11 @@
 # Voice end-to-end encryption (LiveKit-native)
 
-Echo uses **LiveKit client-side E2EE** for **all DM/group voice calls** and optionally for **guild voice/stage channels** when enabled in channel settings (`voice_e2ee_enabled`; **off by default** for new voice/stage channels). Chat text is not E2EE; only voice media keys use the LibSignal envelope flow. Media is encrypted after encode and decrypted before decode; the SFU forwards **ciphertext** only.
+Echo uses **LiveKit client-side E2EE** for **all DM/group voice calls** (default on; opt out with `ECHO_DM_VOICE_E2EE_ENABLED=false`) and optionally for **guild voice/stage channels** when enabled in channel settings (`voice_e2ee_enabled`; **off by default** for new voice/stage channels). Chat text is not E2EE. Media is encrypted after encode and decrypted before decode; the SFU forwards **ciphertext** only.
+
+## Key agreement protocols
+
+- **MLS (v2, default):** Each call has an MLS group (RFC 9420, `ts-mls`). Members join via external commit, departures are removed by the deterministic committer, and the LiveKit media key is derived from the group's epoch exporter secret — the same architecture as Discord's DAVE protocol. The server (`echo_mls_*` tables) is an untrusted delivery service and never sees key material. Late joiners rekey themselves; no participant has to redistribute anything. Opt out per client build with `VITE_VOICE_E2EE_V2=0`.
+- **Legacy envelopes (v1):** A static 32-byte seed wrapped per recipient device with LibSignal. Only the epoch creator can rekey, so late joiners without an envelope are locked out until the call ends. Kept for old clients only; the LiveKit session-mint gate accepts **either** an MLS group or a v1 epoch+envelope.
 
 ## Version floor
 
@@ -15,21 +20,19 @@ Echo uses **LiveKit client-side E2EE** for **all DM/group voice calls** and opti
 
 ## Scale limits
 
-- Each voice E2EE epoch accepts at most **512** `(recipient user, device)` envelopes (multi-device distribution).
-- Group DM voice is always E2EE; very large groups may exceed one epoch — cap encrypted group calls to what your plan allows, or ensure participants join in smaller waves so a new epoch can be created with a fresh recipient set.
+- MLS (v2) has no server-imposed envelope cap; group size is bounded by handshake cost per membership change.
+- Legacy v1 epochs accept at most **512** `(recipient user, device)` envelopes (multi-device distribution).
 
-## Epoch rotation policy
+## Key rotation policy
 
-- **Guild/stage:** Active epochs are superseded when the **last** participant leaves the channel (LiveKit `participant_left` with an empty `echo_voice_participants` row). Joining does **not** supersede an epoch created during session mint.
-- **DM/group DM:** Same “empty room” supersede on leave; keys also clear on `room_finished`.
-- **Client rotation:** Only the epoch **creator** (or the first joiner with no active epoch) may POST a new epoch. Other clients must wait for an envelope or refresh — they must not POST a competing epoch (that disconnects everyone).
-- Socket event `voice_e2ee_epoch_superseded` is always delivered (not version-gated). Guild clients auto-reconnect transport; DM clients re-run call join.
+- **MLS (v2):** The group epoch advances on every membership change (external-commit join; committer removal on leave), rotating the media key in-band via the LiveKit key provider's 16-slot keyring — no disconnect required. A client that falls off the epoch (removed, fork, missed history) recovers with a resync external commit. When the room fully empties (`participant_left` with no rows left, or `room_finished`), the server drops the MLS group and handshake log so the next call starts a fresh group at epoch 0.
+- **Legacy v1:** Active epochs are superseded when the **last** participant leaves; only the epoch **creator** may POST a new epoch. Socket event `voice_e2ee_epoch_superseded` triggers disconnect + rejoin.
 
 ## Observability and runbook
 
-- **Epoch rotation:** Clients receive `voice_e2ee_epoch_superseded` when someone else replaces the active epoch. Disconnect LiveKit and re-run prepare + session (or use in-app reconnect).
-- **Session minting:** **409** `VOICE_E2EE_EPOCH_REQUIRED` / `VOICE_E2EE_ENVELOPE_MISSING` — complete epoch POST (or wait for distributor), pass `e2eeDeviceId` on livekit-session when using multi-device accounts.
-- **Client traces:** Search logs for `voice.client:` events (e.g. `guild_e2ee_prepare_failed`, `dm_e2ee_prepare_failed`, LiveKit session and connect stages).
+- **Session minting:** **409** `VOICE_E2EE_EPOCH_REQUIRED` / `VOICE_E2EE_ENVELOPE_MISSING` occurs only on the legacy v1 path (no MLS group exists). MLS clients create/join the group during prepare, before the mint.
+- **MLS handshake fan-out:** Socket event `voice_mls_message` prompts clients to pull the delivery log (`…/voice/mls/messages`) and apply commits/proposals.
+- **Client traces:** Search logs for `voice.client:` events (e.g. `guild_e2ee_prepare_failed`, `dm_e2ee_prepare_failed`, `lk_e2ee_epoch_rotated`, LiveKit session and connect stages).
 
 ## Validation
 

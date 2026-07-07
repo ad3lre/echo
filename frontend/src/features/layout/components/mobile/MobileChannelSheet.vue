@@ -2,6 +2,7 @@
 import { computed, inject, unref } from 'vue';
 import ChannelPanel from '@/features/channel-panel/components/ChannelPanel.vue';
 import { LAYOUT_LEFT_CHROME_KEY } from '@/features/layout/layoutInjectionKeys';
+import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
 const props = defineProps<{
   open: boolean;
@@ -19,6 +20,14 @@ const canManageThisChannel = computed(() =>
   unref(lc.value?.canManageThisChannel),
 );
 
+function callChromeHandler(
+  run: (() => void) | undefined,
+  unavailableMessage: string,
+) {
+  if (run) run();
+  else dispatchAppToast(unavailableMessage, 'warning');
+}
+
 function onActiveChannelChange(id: string) {
   lc.value?.onChannelUpdateActiveId?.(id);
   emit('channel-selected');
@@ -31,6 +40,45 @@ function fireChannelDeleteChannel(payload: { channelId: string }) {
 
 function fireChannelDeleteCategory(payload: { categoryId: string }) {
   lc.value?.onChannelDeleteCategory?.(payload);
+}
+
+function fireChannelInvite(payload?: {
+  voiceChannelId: string;
+  voiceChannelName?: string;
+}) {
+  callChromeHandler(
+    lc.value?.onChannelInvite
+      ? () => lc.value?.onChannelInvite?.(payload)
+      : undefined,
+    'Invite is unavailable. Refresh and try again.',
+  );
+}
+
+function fireChannelOpenServerSettings() {
+  callChromeHandler(
+    lc.value?.onChannelOpenServerSettings
+      ? () => lc.value?.onChannelOpenServerSettings?.()
+      : undefined,
+    'Server settings are unavailable. Refresh and try again.',
+  );
+}
+
+function fireChannelOpenNotificationSettings() {
+  callChromeHandler(
+    lc.value?.onChannelOpenNotificationSettings
+      ? () => lc.value?.onChannelOpenNotificationSettings?.()
+      : undefined,
+    'Notification settings are unavailable. Refresh and try again.',
+  );
+}
+
+function fireChannelOpenVoiceAudioSettings() {
+  callChromeHandler(
+    lc.value?.onChannelOpenVoiceAudioSettings
+      ? () => lc.value?.onChannelOpenVoiceAudioSettings?.()
+      : undefined,
+    'Voice settings are unavailable. Refresh and try again.',
+  );
 }
 </script>
 
@@ -143,8 +191,8 @@ function fireChannelDeleteCategory(payload: { categoryId: string }) {
           @join-voice="lc.onChannelJoinVoice?.($event)"
           @open-voice-lobby="lc.onChannelOpenVoiceLobby?.($event)"
           @leave-voice="lc.onChannelLeaveVoice?.()"
-          @invite="lc.onChannelInvite?.($event)"
-          @open-server-settings="lc.onChannelOpenServerSettings?.()"
+          @invite="fireChannelInvite"
+          @open-server-settings="fireChannelOpenServerSettings"
           @toggle-side-chat="lc.onChannelToggleSideChat?.()"
           @open-create-channel="lc.onChannelOpenCreateChannel?.($event)"
           @open-create-category="lc.onChannelOpenCreateCategory?.()"
@@ -153,8 +201,8 @@ function fireChannelDeleteCategory(payload: { categoryId: string }) {
           @open-category-settings="lc.onChannelOpenCategorySettings?.($event)"
           @delete-channel="fireChannelDeleteChannel"
           @delete-category="fireChannelDeleteCategory"
-          @open-notification-settings="lc.onChannelOpenNotificationSettings?.()"
-          @open-voice-audio-settings="lc.onChannelOpenVoiceAudioSettings?.()"
+          @open-notification-settings="fireChannelOpenNotificationSettings"
+          @open-voice-audio-settings="fireChannelOpenVoiceAudioSettings"
           @leave-server="lc.onChannelLeaveServer?.($event)"
           @mark-read="lc.onChannelMarkRead?.($event)"
           @guild-event-rsvp="lc.onGuildEventRsvp?.($event)"

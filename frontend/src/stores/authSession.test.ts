@@ -40,6 +40,8 @@ vi.mock('@/api/authClient', () => ({
   authFetchMe: mocks.authFetchMe,
   authLogout: mocks.authLogout,
   authLogoutAllSessions: mocks.authLogoutAllSessions,
+  authDebugEnabled: () => false,
+  backfillNativeBearerFromCookiesIfNeeded: vi.fn(),
   echoAuthDebugLog: mocks.echoAuthDebugLog,
   invalidateAuthFetchMeCache: mocks.invalidateAuthFetchMeCache,
 }));
@@ -82,6 +84,20 @@ vi.mock('@/services/orchestration/workspaceSocialRefreshSeq', () => ({
   invalidateInFlightEchoWorkspaceSocialRefresh: vi.fn(),
 }));
 
+function memoryLocalStorage() {
+  const map = new Map<string, string>();
+  return {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      map.set(k, v);
+    },
+    removeItem: (k: string) => {
+      map.delete(k);
+    },
+    clear: () => map.clear(),
+  };
+}
+
 function makeUser(id: string): AuthUserPublic {
   return {
     id,
@@ -106,7 +122,9 @@ function deferred<T>() {
 describe('useAuthSessionStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    vi.stubGlobal('localStorage', memoryLocalStorage());
     vi.clearAllMocks();
+    localStorage.clear();
     mocks.authFetchMe.mockReset();
     mocks.mergeLocalProfileIntoUser.mockImplementation(
       (user: AuthUserPublic) => user,
@@ -200,5 +218,45 @@ describe('useAuthSessionStore', () => {
 
     await expect(restore).resolves.toBeNull();
     expect(store.backendUser?.id).toBe('registered');
+  });
+
+  it('hydrates from a fresh identity cache', () => {
+    const user = makeUser('cached-user');
+    localStorage.setItem(
+      'echo_auth_user_cache_v1',
+      JSON.stringify({
+        v: 1,
+        userId: user.id,
+        cachedAt: Date.now(),
+        user,
+        planLimits: null,
+      }),
+    );
+
+    const store = useAuthSessionStore();
+    store.hydrateFromStorage();
+
+    expect(store.backendUser?.id).toBe(user.id);
+    expect(store.isSessionUnverified).toBe(true);
+  });
+
+  it('discards an expired identity cache', () => {
+    const user = makeUser('stale-user');
+    localStorage.setItem(
+      'echo_auth_user_cache_v1',
+      JSON.stringify({
+        v: 1,
+        userId: user.id,
+        cachedAt: Date.now() - 8 * 24 * 60 * 60 * 1000,
+        user,
+        planLimits: null,
+      }),
+    );
+
+    const store = useAuthSessionStore();
+    store.hydrateFromStorage();
+
+    expect(store.backendUser).toBeNull();
+    expect(localStorage.getItem('echo_auth_user_cache_v1')).toBeNull();
   });
 });

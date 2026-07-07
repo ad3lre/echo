@@ -2,6 +2,7 @@ import { ref, computed, type ComputedRef } from 'vue';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { Server } from '@shared/types/server';
 import type { ServerNotificationLevel } from '@/features/server-notifications/types';
+import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
 export function useAppLayoutServerNotifications(
   workspace: WorkspaceStateApi,
@@ -18,7 +19,21 @@ export function useAppLayoutServerNotifications(
   );
 
   function openServerNotificationSettings() {
-    if (!selectedServer.value || selectedServer.value.id === 'echo') return;
+    const sid = selectedServer.value?.id?.trim();
+    if (!sid) {
+      dispatchAppToast(
+        'Select a server before changing notification settings.',
+        'warning',
+      );
+      return;
+    }
+    if (sid === 'echo') {
+      dispatchAppToast(
+        'Notification settings are not available for Direct Messages.',
+        'info',
+      );
+      return;
+    }
     isServerNotificationSettingsOpen.value = true;
   }
 

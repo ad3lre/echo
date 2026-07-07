@@ -37,7 +37,41 @@ vi.mock('./MessageBubble.vue', async () => {
           required: true,
         },
       },
-      render: () => null,
+      render() {
+        const row = this.row as { message?: { id?: string } };
+        const id = row.message?.id ?? 'unknown';
+        return vue.h('div', {
+          id: `message-${id}`,
+          class: 'message-bubble-stub',
+        });
+      },
+    }),
+  };
+});
+
+vi.mock('./MessageRowShell.vue', async () => {
+  const vue = await import('vue');
+  return {
+    default: vue.defineComponent({
+      name: 'MessageRowShell',
+      props: {
+        row: {
+          type: Object,
+          required: true,
+        },
+        authorName: {
+          type: String,
+          required: true,
+        },
+      },
+      render() {
+        const row = this.row as { message?: { id?: string } };
+        const id = row.message?.id ?? 'unknown';
+        return vue.h('div', {
+          id: `message-${id}`,
+          class: 'message-row-shell-stub',
+        });
+      },
     }),
   };
 });
@@ -494,6 +528,42 @@ describe('MessageList runtime row synchronization', () => {
 
     await nextTick();
     await nextTick();
+
+    const scrollEl = container.querySelector(
+      '[data-cy="message-list"]',
+    ) as HTMLElement | null;
+    if (scrollEl) {
+      vi.spyOn(scrollEl, 'getBoundingClientRect').mockReturnValue({
+        top: 0,
+        left: 0,
+        right: 400,
+        bottom: 300,
+        width: 400,
+        height: 300,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
+      for (const stub of scrollEl.querySelectorAll(
+        '.message-row-shell-stub, .message-bubble-stub',
+      )) {
+        const match = stub.id.match(/^message-m(\d+)$/);
+        const index = match ? Number(match[1]) - 1 : 0;
+        const top = index === 19 ? 60 : 2000 + index;
+        vi.spyOn(stub, 'getBoundingClientRect').mockReturnValue({
+          top,
+          left: 16,
+          right: 384,
+          bottom: top + 72,
+          width: 368,
+          height: 72,
+          x: 16,
+          y: top,
+          toJSON: () => ({}),
+        } as DOMRect);
+      }
+    }
+
     await Promise.resolve();
     await nextTick();
     await Promise.resolve();
@@ -504,6 +574,103 @@ describe('MessageList runtime row synchronization', () => {
       behavior: 'auto',
     });
     expect(readMessageListViewport('ch-restore')?.anchorMessageId).toBe('m20');
+  });
+
+  it('restores bottom when returning to a channel saved with followNewMessages', async () => {
+    const channelId = ref('ch-bottom');
+    const ids = Array.from({ length: 40 }, (_, i) => `m${i + 1}`);
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    writeMessageListViewport('ch-bottom', {
+      anchorMessageId: 'm40',
+      anchorTop: 120,
+      followNewMessages: true,
+    });
+
+    const Wrapper = defineComponent({
+      name: 'MessageListBottomRestoreHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: channelId.value,
+            messages: messages.value,
+            initialHistoryLoading: false,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(scrollToIndexMock).toHaveBeenCalledWith(39, {
+      align: 'end',
+      behavior: 'auto',
+    });
+    expect(readMessageListViewport('ch-bottom')?.followNewMessages).toBe(true);
+  });
+
+  it('does not jump to bottom when mid-history restore cannot measure anchor', async () => {
+    const channelId = ref('ch-restore-fail');
+    const ids = Array.from({ length: 40 }, (_, i) => `m${i + 1}`);
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    writeMessageListViewport('ch-restore-fail', {
+      anchorMessageId: 'm20',
+      anchorTop: 48,
+      followNewMessages: false,
+    });
+
+    const Wrapper = defineComponent({
+      name: 'MessageListViewportRestoreFailHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: channelId.value,
+            messages: messages.value,
+            initialHistoryLoading: false,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(scrollToIndexMock).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ align: 'end' }),
+    );
   });
 
   it('does not fall back to default anchor after user scroll aborts viewport restore', async () => {
@@ -559,5 +726,40 @@ describe('MessageList runtime row synchronization', () => {
     await nextTick();
 
     expect(scrollToIndexMock).not.toHaveBeenCalled();
+  });
+
+  it('renders lightweight row shells before hydration completes', async () => {
+    const ids = ['m1', 'm2'];
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    const Wrapper = defineComponent({
+      name: 'MessageListShellHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: 'ch-shell',
+            messages: messages.value,
+            initialHistoryLoading: false,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+    await nextTick();
+
+    expect(container.querySelector('.message-row-shell-stub')).not.toBeNull();
+    expect(container.querySelector('.message-bubble-stub')).toBeNull();
   });
 });

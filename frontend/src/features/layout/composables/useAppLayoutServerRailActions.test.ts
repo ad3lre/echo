@@ -10,6 +10,7 @@ vi.mock('@/utils/controllerMissingAction', () => ({
 function makeDeps(overrides?: {
   currentUserId?: string | null;
   canOpenInviteForServer?: (serverId: string) => boolean;
+  canOpenServerSettingsForServer?: (serverId: string) => boolean;
   isMoreServersPinned?: boolean;
   isMoreServersPanelOpen?: boolean;
 }) {
@@ -19,6 +20,7 @@ function makeDeps(overrides?: {
       : { id: overrides?.currentUserId ?? 'u1' },
   );
   const isInviteModalOpen = ref(false);
+  const isServerNotificationSettingsOpen = ref(false);
   const isMoreServersPinned = ref(overrides?.isMoreServersPinned ?? false);
   const isMoreServersPanelOpen = ref(overrides?.isMoreServersPanelOpen ?? true);
   const openServerSurface = vi.fn();
@@ -29,12 +31,13 @@ function makeDeps(overrides?: {
     currentUser: computed(() => currentUser.value),
     devModeIdsEnabled: ref(false),
     canOpenServerSettings: computed(() => false),
-    canOpenServerSettingsForServer: () => false,
+    canOpenServerSettingsForServer:
+      overrides?.canOpenServerSettingsForServer ?? (() => true),
     canOpenInviteForServer: overrides?.canOpenInviteForServer ?? (() => true),
     openServerSurface,
     isServerSettingsModalOpen: ref(false),
     isInviteModalOpen,
-    isServerNotificationSettingsOpen: ref(false),
+    isServerNotificationSettingsOpen,
     isMoreServersPinned,
     isMoreServersPanelOpen,
     clearInviteVoiceContext,
@@ -46,6 +49,7 @@ function makeDeps(overrides?: {
   return {
     actions,
     isInviteModalOpen,
+    isServerNotificationSettingsOpen,
     isMoreServersPinned,
     isMoreServersPanelOpen,
     openServerSurface,
@@ -100,6 +104,30 @@ describe('useAppLayoutServerRailActions', () => {
     expect(d.isInviteModalOpen.value).toBe(false);
     expect(dispatchAppToast).toHaveBeenCalledWith(
       "You don't have permission to invite people to this server.",
+      'warning',
+    );
+  });
+
+  it('shows a toast instead of failing silently for Direct Messages notification settings', () => {
+    const d = makeDeps();
+
+    d.actions.handleServerRailNotificationSettings('echo');
+
+    expect(d.isServerNotificationSettingsOpen.value).toBe(false);
+    expect(dispatchAppToast).toHaveBeenCalledWith(
+      'Notification settings are not available for Direct Messages.',
+      'info',
+    );
+  });
+
+  it('shows a permission toast instead of failing silently for server settings', () => {
+    const d = makeDeps({ canOpenServerSettingsForServer: () => false });
+
+    d.actions.handleServerRailSettings('s1');
+
+    expect(d.openServerSurface).not.toHaveBeenCalled();
+    expect(dispatchAppToast).toHaveBeenCalledWith(
+      "You don't have permission to open server settings.",
       'warning',
     );
   });

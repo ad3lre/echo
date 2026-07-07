@@ -19,10 +19,7 @@ import { useCameraPreferencesStore } from '@/stores/cameraPreferences';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import type { VideoQualityPreset } from '@/composables/useLiveKitVoiceRoom';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
-import {
-  isIosLikeBrowser,
-  isWebKitDesktop,
-} from '@/platform/browserCompatibility';
+import { audioOutputDeviceLimitedReason } from '@/platform/browserCompatibility';
 import { primeEchoAudioPlayback } from '@/composables/useEchoSounds';
 import { rmsToDbfs, thresholdPercentToRms } from '@/composables/voiceGate';
 import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
@@ -107,16 +104,11 @@ const draggingThresholdHandle = ref(false);
 let testStream: MediaStream | null = null;
 let micTestSessionId = 0;
 const audioOutputSelectionSupported = computed(
-  () => echoSyncCapabilities.browser.supportsAudioOutputSelection,
+  () => echoSyncCapabilities.browser.isAudioOutputDeviceSelectionAvailable,
 );
 
-const outputDeviceLimitedHint = computed(
-  (): 'ios' | 'mac-desktop' | 'generic' | null => {
-    if (audioOutputSelectionSupported.value) return null;
-    if (isIosLikeBrowser()) return 'ios';
-    if (isWebKitDesktop()) return 'mac-desktop';
-    return 'generic';
-  },
+const outputDeviceLimitedHint = computed(() =>
+  audioOutputDeviceLimitedReason(),
 );
 
 function settingsSliderFillPct(vol: number): string {
@@ -482,9 +474,9 @@ watch(
         class="mt-3 text-[11px] leading-snug text-fg-subtle"
       >
         <template v-if="outputDeviceLimitedHint === 'ios'">
-          On iPhone and iPad Safari, audio playback follows the system speaker —
-          Echo cannot apply a separate output device here (this is not a bug
-          with saving).
+          On iPhone and iPad Safari, audio playback follows the system speaker.
+          Use Control Center to switch to AirPods or other headphones — Echo
+          cannot pick a separate output device here.
         </template>
         <template v-else-if="outputDeviceLimitedHint === 'mac-desktop'">
           In the Mac app, audio playback follows the system default output —
@@ -493,7 +485,7 @@ watch(
         </template>
         <template v-else>
           This browser uses the system default speaker for playback, so Echo
-          keeps Output Device on Default.
+          keeps Output Device on the system default.
         </template>
       </p>
       <div class="mt-8 grid gap-8 md:grid-cols-2">

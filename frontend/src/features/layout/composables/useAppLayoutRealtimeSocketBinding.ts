@@ -9,6 +9,10 @@ import {
 import { useChannelTypingStore } from '@/stores/channelTyping';
 import type { LocalAuthorEchoSnapshot } from '@/services/realtime/socketOutbound';
 import { registerEchoSocketWarmConnect } from '@/services/realtime/echoSocketWarmConnect';
+import {
+  registerEchoGameSocketGetter,
+  setEchoGameSocketConnected,
+} from '@/services/games/echoGameSocketRegistry';
 import type { EchoSocketAuthKey } from '@/services/realtime/echoSocketSessionLifecycle';
 
 export type AppLayoutEchoRealtimeHostCallbacks = Omit<
@@ -59,5 +63,6 @@ export function useAppLayoutRealtimeSocketBinding(deps: {
     onTabResumeWhileConnected: deps.onTabResumeWhileConnected,
   });
   registerEchoSocketWarmConnect(() => binding.wiring.connectSocket());
+  registerEchoGameSocketGetter(() => binding.wiring.io.socket);
   return useSocket(binding);
 }

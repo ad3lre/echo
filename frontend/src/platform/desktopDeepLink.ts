@@ -100,6 +100,17 @@ export async function initDesktopDeepLinks(): Promise<void> {
     // Warm start: app already running, new deep links arrive via events.
     await onOpenUrl(handleOpenUrls);
     console.warn('[echo-desktop] deep-link listener attached');
+    try {
+      const { listen } = await import('@tauri-apps/api/event');
+      await listen<string>('echo-desktop-open-url', (event) => {
+        handleOpenUrls([event.payload]);
+      });
+      console.warn(
+        '[echo-desktop] single-instance deep-link listener attached',
+      );
+    } catch {
+      /* optional on non-Tauri builds */
+    }
     // Cold start: app launched by deep link; process the initial URL immediately.
     const initial = await getCurrent();
     console.warn('[echo-desktop] deep-link getCurrent result', {

@@ -2,6 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import { useLimitedGifPlayback } from '@/composables/useLimitedGifPlayback';
+import { useSignedEchoMediaResponsive } from '@/composables/useSignedEchoMediaResponsive';
+import {
+  ECHO_AVATAR_RESPONSIVE_WIDTHS,
+  ECHO_AVATAR_SIZES,
+} from '@/utils/echoMediaResponsive';
 import {
   requiresBundledMediaFallback,
   safeImageUrl,
@@ -156,6 +161,33 @@ const {
   staticOnly: () => props.staticOnly,
 });
 
+const avatarResponsive = useSignedEchoMediaResponsive(
+  () =>
+    props.unavailableVariant === 'avatar' && !isGif.value
+      ? effectiveImageUrl.value
+      : '',
+  {
+    storageKey: () => props.storageKey,
+    widths: ECHO_AVATAR_RESPONSIVE_WIDTHS,
+    sizes: ECHO_AVATAR_SIZES,
+    fallbackWidth: 128,
+  },
+);
+
+const staticRasterSrc = computed(() =>
+  props.unavailableVariant === 'avatar' && avatarResponsive.src.value
+    ? avatarResponsive.src.value
+    : safeUrl.value,
+);
+const staticRasterSrcset = computed(() =>
+  props.unavailableVariant === 'avatar' ? avatarResponsive.srcset.value : '',
+);
+const staticRasterSizes = computed(() =>
+  props.unavailableVariant === 'avatar' && avatarResponsive.srcset.value
+    ? avatarResponsive.sizes
+    : undefined,
+);
+
 watch(
   () =>
     [
@@ -258,7 +290,9 @@ const imgReferrerPolicy = 'no-referrer';
     />
     <template v-else-if="!isGif && safeUrl">
       <img
-        :src="safeUrl"
+        :src="staticRasterSrc"
+        :srcset="staticRasterSrcset || undefined"
+        :sizes="staticRasterSizes"
         :alt="alt"
         :class="resolvedImgClass"
         :style="imgStyle"

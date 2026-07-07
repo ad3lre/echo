@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit';
 import { sendError } from '../../errors';
 import { getAuthStore } from '../../../auth/store';
 import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
+import { authSessionJsonBody } from '../../../auth/authSessionResponse';
 import { loginAuditDigests } from '../../../auth/loginAudit';
 import { getPgPool } from '../../../db/pg';
 import { consumeDesktopOauthHandoff } from '../../../domain/desktopOAuthHandoffRepo';
@@ -108,7 +109,7 @@ export default async function desktopHandoffRoutes(fastify: FastifyInstance) {
             ipDigest: audit.ipDigest,
             uaDigest: audit.uaDigest,
           });
-          const { user: logged, csrfToken } = await issueEchoBrowserSession(
+          const session = await issueEchoBrowserSession(
             store,
             { id: user.id, username: user.username },
             reply,
@@ -116,11 +117,11 @@ export default async function desktopHandoffRoutes(fastify: FastifyInstance) {
           );
           fastify.log.info(
             {
-              userId: logged.id,
+              userId: session.user.id,
             },
             'desktop_handoff_redeem_success',
           );
-          return reply.code(200).send({ user: logged, csrfToken });
+          return reply.code(200).send(authSessionJsonBody(session));
         } catch (err) {
           fastify.log.error(
             {

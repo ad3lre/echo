@@ -471,6 +471,9 @@ function groupEchoChannelRowsToWorkspaceCategories(
 }
 
 /** Member row for workspace bootstrap (member list, mentions, pings). */
+/** Profile fields included in `/workspace` member rosters (`full` = legacy default). */
+export type EchoWorkspaceMemberDetail = 'full' | 'roster';
+
 export type EchoWorkspaceMemberDto = {
   userId: string;
   /**
@@ -518,6 +521,7 @@ export type EchoWorkspaceMemberDto = {
 export async function listEchoWorkspaceForUser(
   pool: pg.Pool,
   userId: string,
+  opts?: { memberDetail?: EchoWorkspaceMemberDetail },
 ): Promise<{
   servers: Awaited<ReturnType<typeof listEchoServersForUser>>;
   categoriesByServer: Record<string, EchoWorkspaceCategoryBootstrap[]>;
@@ -526,6 +530,8 @@ export async function listEchoWorkspaceForUser(
   upcomingEventsByServerId: Record<string, EchoWorkspaceEventSummary[]>;
   myEventRsvps: EchoWorkspaceMyEventRsvp[];
 }> {
+  const memberDetail: EchoWorkspaceMemberDetail =
+    opts?.memberDetail === 'roster' ? 'roster' : 'full';
   const servers = await listEchoServersForUser(pool, userId);
   if (servers.length === 0) {
     return {
@@ -735,13 +741,17 @@ export async function listEchoWorkspaceForUser(
       ...(joinedAt ? { joinedAt } : {}),
       ...(Number.isFinite(signupOrdinal) ? { signupOrdinal } : {}),
       ...(badges.length ? { badges } : {}),
-      bannerImage,
-      bannerColor,
-      bannerRefractionEnabled: bannerRefraction === true,
-      bannerBlurEnabled: bannerBlur === true,
-      bannerBlackoutEnabled: bannerBlackout === true,
-      bannerPositionY: bannerPositionYClamped,
-      bio: accountBio,
+      ...(memberDetail === 'full'
+        ? {
+            bannerImage,
+            bannerColor,
+            bannerRefractionEnabled: bannerRefraction === true,
+            bannerBlurEnabled: bannerBlur === true,
+            bannerBlackoutEnabled: bannerBlackout === true,
+            bannerPositionY: bannerPositionYClamped,
+            bio: accountBio,
+          }
+        : {}),
       timeZone,
     });
   }

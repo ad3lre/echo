@@ -3,6 +3,7 @@ import {
   clearEchoWorkspaceCache,
   loadEchoWorkspaceFromCache,
   saveEchoWorkspaceToCache,
+  stripForWorkspaceCache,
 } from '@/utils/workspacePersistence';
 import type { EchoWorkspaceState } from '@/api/echoClient';
 
@@ -46,5 +47,53 @@ describe('workspacePersistence', () => {
   it('ignores legacy unscoped cache payloads', () => {
     localStorage.setItem('echo-workspace-v1', JSON.stringify(sampleState));
     expect(loadEchoWorkspaceFromCache('user-a')).toBeNull();
+  });
+
+  it('drops membersByServer in light cache tier', () => {
+    const heavy = {
+      ...sampleState,
+      membersByServer: {
+        s1: [{ userId: 'u1', name: 'A', pfp: '' }],
+      },
+    } as EchoWorkspaceState;
+    const light = stripForWorkspaceCache(heavy, 'light');
+    expect(light.membersByServer).toBeUndefined();
+    expect(light.servers).toHaveLength(1);
+  });
+
+  it('retries with a lighter payload when localStorage quota is exceeded', () => {
+    const heavy = {
+      ...sampleState,
+      membersByServer: {
+        s1: Array.from({ length: 50 }, (_, i) => ({
+          userId: `u${i}`,
+          name: `Member ${i}`,
+          pfp: 'https://example.com/avatar.png',
+        })),
+      },
+    } as EchoWorkspaceState;
+    const store = new Map<string, string>();
+    const setItem = vi.fn((key: string, value: string) => {
+      if (key !== 'echo-workspace-v1') return;
+      const parsed = JSON.parse(value) as { state: EchoWorkspaceState };
+      if (parsed.state.membersByServer) {
+        throw new DOMException('quota', 'QuotaExceededError');
+      }
+      store.set(key, value);
+    });
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem,
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+    });
+    saveEchoWorkspaceToCache('user-a', heavy);
+    expect(setItem).toHaveBeenCalled();
+    const saved = JSON.parse(store.get('echo-workspace-v1')!) as {
+      state: EchoWorkspaceState;
+    };
+    expect(saved.state.membersByServer).toBeUndefined();
+    expect(loadEchoWorkspaceFromCache('user-a')?.servers[0]?.id).toBe('s1');
   });
 });

@@ -1,4 +1,4 @@
-import { CHAT_APP_ORIGIN } from '../site';
+import { CHAT_APP_ORIGIN, MARKETING_SITE_NAME } from '../site';
 
 /** Same default as `bot/src/uptimeMonitor.ts` (`ECHO_UPTIME_URL`). */
 const HEALTH_URL = `${CHAT_APP_ORIGIN.replace(/\/$/, '')}/api/v1/health`;
@@ -106,48 +106,48 @@ function statusVisual(result: ProbeResult): StatusVisual {
     return {
       state: 'down',
       label: 'Unreachable',
-      headline: 'chat-echo.com is unreachable',
+      headline: `${MARKETING_SITE_NAME} is unreachable`,
     };
   }
   if (httpStatus >= 500) {
     return {
       state: 'down',
       label: 'Server error',
-      headline: 'chat-echo.com returned a server error',
+      headline: `${MARKETING_SITE_NAME} returned a server error`,
     };
   }
   if (httpStatus >= 400) {
     return {
       state: 'down',
       label: 'HTTP error',
-      headline: 'chat-echo.com returned an HTTP error',
+      headline: `${MARKETING_SITE_NAME} returned an HTTP error`,
     };
   }
   if (httpStatus >= 300) {
     return {
       state: 'degraded',
       label: 'Redirect',
-      headline: 'chat-echo.com returned a redirect',
+      headline: `${MARKETING_SITE_NAME} returned a redirect`,
     };
   }
   if (latencyMs >= 1500) {
     return {
       state: 'degraded',
       label: 'Degraded',
-      headline: 'chat-echo.com is up but slow',
+      headline: `${MARKETING_SITE_NAME} is up but slow`,
     };
   }
   if (latencyMs >= 800) {
     return {
       state: 'degraded',
       label: 'Slow',
-      headline: 'chat-echo.com is up but responding slowly',
+      headline: `${MARKETING_SITE_NAME} is up but responding slowly`,
     };
   }
   return {
     state: 'operational',
     label: 'Healthy',
-    headline: 'chat-echo.com is healthy',
+    headline: `${MARKETING_SITE_NAME} is healthy`,
   };
 }
 
@@ -279,7 +279,7 @@ function applyProbeResult(root: HTMLElement, result: ProbeResult) {
 async function refresh(root: HTMLElement, options?: { showPending?: boolean }) {
   if (options?.showPending) {
     setAggregate(root, 'pending', {
-      headline: 'Checking chat-echo.com…',
+      headline: `Checking ${MARKETING_SITE_NAME}…`,
       subline: `Probing ${shortEndpoint()} (same as Echo bot uptime).`,
       ms: null,
     });

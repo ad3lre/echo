@@ -46,7 +46,23 @@ export type EchoUserPublicProfileRow = {
   username?: string;
   /** Profile badges (Echo+ / Echo Black / OG) when present. */
   badges?: EchoPublicBadgeId[];
+  /** Profile bio text from `auth_users.bio`. */
+  bio?: string;
+  bannerImage?: string;
+  bannerColor?: string;
+  bannerRefractionEnabled?: boolean;
+  bannerBlurEnabled?: boolean;
+  bannerBlackoutEnabled?: boolean;
+  /** 0–100, vertical focal point for the banner image. */
+  bannerPositionY?: number;
+  /** IANA timezone for Magic Time (`auth_users.time_zone`). */
+  timeZone?: string | null;
 };
+
+function clampBannerPositionY(raw: unknown): number {
+  const n = typeof raw === 'number' && Number.isFinite(raw) ? raw : Number(raw);
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 50;
+}
 
 /** Row shape for GET `/users/:id/profile` when visibility checks pass. */
 export async function getEchoUserPublicProfileRow(
@@ -64,6 +80,14 @@ export async function getEchoUserPublicProfileRow(
             COALESCE(NULLIF(TRIM(u.echo_plan), ''), 'free') AS echo_plan,
             u.signup_ordinal,
             u.awarded_badges,
+            COALESCE(NULLIF(TRIM(u.bio), ''), '') AS bio,
+            COALESCE(NULLIF(TRIM(u.time_zone), ''), '') AS time_zone,
+            COALESCE(NULLIF(TRIM(u.banner_image), ''), '') AS banner_image,
+            COALESCE(NULLIF(TRIM(u.banner_color), ''), '') AS banner_color,
+            COALESCE(u.banner_refraction_enabled, false) AS banner_refraction_enabled,
+            COALESCE(u.banner_blur_enabled, false) AS banner_blur_enabled,
+            COALESCE(u.banner_blackout_enabled, false) AS banner_blackout_enabled,
+            u.banner_position_y,
             d.discord_user_id AS shadow_discord_user_id,
             NULLIF(TRIM(d.avatar_url), '') AS shadow_avatar_url,
             l.discord_user_id AS linked_discord_user_id
@@ -85,6 +109,14 @@ export async function getEchoUserPublicProfileRow(
         echo_plan: string;
         signup_ordinal: unknown;
         awarded_badges: string[] | null;
+        bio: string;
+        time_zone: string;
+        banner_image: string;
+        banner_color: string;
+        banner_refraction_enabled: boolean;
+        banner_blur_enabled: boolean;
+        banner_blackout_enabled: boolean;
+        banner_position_y: unknown;
         shadow_discord_user_id: string | null;
         shadow_avatar_url: string | null;
         linked_discord_user_id: string | null;
@@ -140,5 +172,18 @@ export async function getEchoUserPublicProfileRow(
     pfp,
     ...(un ? { username: un } : {}),
     ...(badges.length ? { badges } : {}),
+    bio: typeof row.bio === 'string' ? row.bio.trim() : '',
+    bannerImage:
+      typeof row.banner_image === 'string' ? row.banner_image.trim() : '',
+    bannerColor:
+      typeof row.banner_color === 'string' ? row.banner_color.trim() : '',
+    bannerRefractionEnabled: row.banner_refraction_enabled === true,
+    bannerBlurEnabled: row.banner_blur_enabled === true,
+    bannerBlackoutEnabled: row.banner_blackout_enabled === true,
+    bannerPositionY: clampBannerPositionY(row.banner_position_y),
+    timeZone:
+      typeof row.time_zone === 'string' && row.time_zone.trim()
+        ? row.time_zone.trim().slice(0, 64)
+        : null,
   };
 }

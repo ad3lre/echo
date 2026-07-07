@@ -3,8 +3,10 @@ import type {
   EchoTicTacToeActivityV1,
   EchoTicTacToeInviteV1,
 } from '@/audio/voiceEchoLiveKitData';
-import type { LiveKitRoomState } from '@/composables/useLiveKitVoiceRoom';
 import { useGameRoom } from '@/features/games/useGameRoom';
+import { isVcGameRoomEnabled } from '@/features/games/vcGameRoomEnabled';
+import { vcGameRoomConnectionRefs } from '@/features/games/gameRoomSessionConnection';
+import type { GameErrorMsg } from '@shared/games';
 import { TTT_ACTION, type TttView } from '@shared/games/ticTacToe';
 import type {
   VcActivityUiPhase,
@@ -16,15 +18,15 @@ export type CreateTicTacToeGameSessionOpts = {
   currentUserId: () => string | undefined;
   vcActivityUi: Ref<VcActivityUiState>;
   isDmVoiceCallUi: Ref<boolean>;
-  currentVoiceChannelId: Ref<string | null>;
-  liveKitState: Ref<LiveKitRoomState>;
-  accessToken: () => string | undefined;
-  resolveGuildVoiceServerId: (channelId: string) => string;
+  gameRoomChannelId: ComputedRef<string | null>;
+  isAuthenticated: () => boolean;
 };
 
 export type TicTacToeGameSession = {
   vcTicTacToeActivity: ComputedRef<EchoTicTacToeActivityV1 | null>;
   vcTicTacToePendingInvite: ComputedRef<EchoTicTacToeInviteV1 | null>;
+  gameRoomConnected: ComputedRef<boolean>;
+  gameRoomLastError: ComputedRef<GameErrorMsg | null>;
   sendVcTicTacToeChallenge: (toUserId: string) => void;
   respondVcTicTacToeInvite: (accept: boolean) => void;
   dismissVcTicTacToeInvite: () => void;
@@ -60,32 +62,34 @@ function mapInvite(view: TttView): EchoTicTacToeInviteV1 | null {
   };
 }
 
+function createTicTacToeGameRoom(opts: CreateTicTacToeGameSessionOpts) {
+  return useGameRoom<TttView>({
+    gameKey: 'tic_tac_toe',
+    roomId: computed(() => opts.gameRoomChannelId.value),
+    enabled: computed(() =>
+      isVcGameRoomEnabled({
+        serverMode: TIC_TAC_TOE_SERVER_MODE,
+        isDmVoiceCallUi: opts.isDmVoiceCallUi,
+        vcActivityUi: opts.vcActivityUi,
+        phase: 'tic_tac_toe',
+        gameRoomChannelId: opts.gameRoomChannelId,
+        isAuthenticated: opts.isAuthenticated,
+      }),
+    ),
+  });
+}
+
 export function createTicTacToeGameSession(
   opts: CreateTicTacToeGameSessionOpts,
 ): TicTacToeGameSession {
-  const room = useGameRoom<TttView>({
-    gameKey: 'tic_tac_toe',
-    roomId: computed(() => opts.currentVoiceChannelId.value),
-    serverId: computed(() => {
-      const ch = opts.currentVoiceChannelId.value?.trim() ?? '';
-      return ch ? opts.resolveGuildVoiceServerId(ch) : null;
-    }),
-    accessToken: computed(() => opts.accessToken()?.trim() ?? null),
-    enabled: computed(
-      () =>
-        TIC_TAC_TOE_SERVER_MODE &&
-        !opts.isDmVoiceCallUi.value &&
-        opts.vcActivityUi.value.phase === 'tic_tac_toe' &&
-        opts.liveKitState.value === 'connected' &&
-        !!(
-          opts.currentVoiceChannelId.value?.trim() && opts.accessToken()?.trim()
-        ),
-    ),
-  });
+  const room = createTicTacToeGameRoom(opts);
+
+  const { gameRoomConnected, gameRoomLastError } =
+    vcGameRoomConnectionRefs(room);
 
   const vcTicTacToeActivity = computed(() => {
     const v = room.view.value;
-    const ch = opts.currentVoiceChannelId.value?.trim() ?? '';
+    const ch = opts.gameRoomChannelId.value?.trim() ?? '';
     if (!v || !ch) return null;
     return mapActivity(v, room.rev.value, ch);
   });
@@ -131,6 +135,8 @@ export function createTicTacToeGameSession(
   return {
     vcTicTacToeActivity,
     vcTicTacToePendingInvite,
+    gameRoomConnected,
+    gameRoomLastError,
     sendVcTicTacToeChallenge,
     respondVcTicTacToeInvite,
     dismissVcTicTacToeInvite,

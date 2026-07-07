@@ -36,6 +36,9 @@ export const ECHO_V1_CLIENT_SOCKET_EVENTS = [
   'paper:lock-request',
   'paper:block-dirty',
   'paper:block-preview',
+  'game:join',
+  'game:leave',
+  'game:action',
 ] as const satisfies readonly (keyof ClientToServerEvents)[];
 
 /** All server → client event names (must match `ServerToClientEvents` keys). */
@@ -65,6 +68,9 @@ export const ECHO_V1_SERVER_SOCKET_EVENTS = [
   'paper:block-dirty',
   'paper:block-previews',
   'app:deploy_countdown',
+  'game:snapshot',
+  'game:event',
+  'game:error',
 ] as const satisfies readonly (keyof ServerToClientEvents)[];
 
 /** Compile-time: allowlist must enumerate every `ClientToServerEvents` key. */

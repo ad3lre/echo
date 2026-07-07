@@ -53,8 +53,7 @@ export function restoreViewportAnchorInContainer(
   if (anchorIndex < 0) return false;
 
   virtualizer.scrollToIndex(anchorIndex, { align: 'start', behavior: 'auto' });
-  applyViewportAnchorPixelDelta(container, snapshot);
-  return true;
+  return applyViewportAnchorPixelDelta(container, snapshot);
 }
 
 export const VIEWPORT_RESTORE_DOM_RETRY = 8;

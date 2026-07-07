@@ -27,6 +27,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   retry: [];
+  refresh: [];
 }>();
 
 /** Ticks every second to drive the live downtime and "checked ago" counters. */
@@ -279,7 +280,7 @@ const progressAriaLabel = computed(
           </div>
 
           <div
-            class="server-down-card-actions shrink-0"
+            class="server-down-card-actions flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap"
             :class="isCompactShell ? 'pt-4' : 'mt-5'"
           >
             <button
@@ -288,6 +289,13 @@ const progressAriaLabel = computed(
               @click="emit('retry')"
             >
               Check again now
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-accent px-4 text-sm font-semibold text-accent-contrast-fg transition-colors hover:brightness-105 sm:w-auto"
+              @click="emit('refresh')"
+            >
+              Refresh app
             </button>
           </div>
         </div>

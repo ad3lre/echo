@@ -1,4 +1,5 @@
 import type { AudioCaptureOptions } from 'livekit-client';
+import { isSafariLikeBrowser } from '@/platform/browserCompatibility';
 import type { EchoKrispNoiseFilterOptions } from '@/services/livekit/echoKrispTypes';
 import { tryLocalStorageSetItem } from '@/utils/localStoragePersist';
 
@@ -49,9 +50,17 @@ export const DEFAULT_VOICE_PROCESSING: VoiceProcessingPreferencesV2 = {
   },
 };
 
+/** Client-aware default when no stored preference exists (Safari → native minimal processing). */
+export function resolveDefaultVoiceProcessingPreferences(): VoiceProcessingPreferencesV2 {
+  return {
+    ...DEFAULT_VOICE_PROCESSING,
+    mode: isSafariLikeBrowser() ? 'native' : DEFAULT_VOICE_PROCESSING.mode,
+  };
+}
+
 function coerceMode(raw: unknown): VoiceProcessingMode {
   if (raw === 'krisp' || raw === 'browser' || raw === 'native') return raw;
-  return 'browser';
+  return resolveDefaultVoiceProcessingPreferences().mode;
 }
 
 function coerceKrispQuality(
@@ -62,14 +71,13 @@ function coerceKrispQuality(
 }
 
 export function loadVoiceProcessingPreferences(): VoiceProcessingPreferencesV2 {
-  if (typeof localStorage === 'undefined')
-    return { ...DEFAULT_VOICE_PROCESSING };
+  const clientDefault = resolveDefaultVoiceProcessingPreferences();
+  if (typeof localStorage === 'undefined') return { ...clientDefault };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_VOICE_PROCESSING };
+    if (!raw) return { ...clientDefault };
     const parsed = JSON.parse(raw) as Partial<VoiceProcessingPreferences>;
-    if (parsed.v !== 1 && parsed.v !== 2)
-      return { ...DEFAULT_VOICE_PROCESSING };
+    if (parsed.v !== 1 && parsed.v !== 2) return { ...clientDefault };
     const mode = coerceMode(parsed.mode);
     const browser = {
       echoCancellation:
@@ -97,7 +105,7 @@ export function loadVoiceProcessingPreferences(): VoiceProcessingPreferencesV2 {
     };
     return { v: 2, mode, browser, krisp };
   } catch {
-    return { ...DEFAULT_VOICE_PROCESSING };
+    return { ...clientDefault };
   }
 }
 

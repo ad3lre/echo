@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { isTrustedMediaUrl } from '@/utils/safeImageUrl';
-import { useSignedEchoMediaUrl } from '@/composables/useSignedEchoMediaUrl';
+import { useSignedEchoMediaResponsive } from '@/composables/useSignedEchoMediaResponsive';
+import {
+  ECHO_CHAT_MEDIA_RESPONSIVE_WIDTHS,
+  ECHO_CHAT_MEDIA_SINGLE_SIZES,
+} from '@/utils/echoMediaResponsive';
 import MediaUnavailablePanel from './MediaUnavailablePanel.vue';
 
 const props = withDefaults(
@@ -41,8 +45,15 @@ watch(
 );
 
 const imgLoading = computed(() => props.loading ?? 'eager');
-const resolved = useSignedEchoMediaUrl(() => props.src, {
+const {
+  src: resolved,
+  srcset,
+  sizes,
+} = useSignedEchoMediaResponsive(() => props.src, {
   storageKey: () => props.storageKey,
+  widths: ECHO_CHAT_MEDIA_RESPONSIVE_WIDTHS,
+  sizes: ECHO_CHAT_MEDIA_SINGLE_SIZES,
+  fallbackWidth: 640,
 });
 watch(resolved, () => {
   loadFailed.value = false;
@@ -84,6 +95,8 @@ function onError() {
   >
     <img
       :src="resolved"
+      :srcset="srcset || undefined"
+      :sizes="srcset ? sizes : undefined"
       :alt="alt"
       :class="imgClass"
       :loading="imgLoading"
@@ -111,6 +124,8 @@ function onError() {
   <img
     v-else
     :src="resolved"
+    :srcset="srcset || undefined"
+    :sizes="srcset ? sizes : undefined"
     :alt="alt"
     :class="imgClass"
     :loading="imgLoading"

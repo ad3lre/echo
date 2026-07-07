@@ -17,6 +17,7 @@ import {
 import { applyEchoSocketActiveChannelChange } from '@/services/realtime/echoSocketSessionLifecycle';
 import type { EchoSocketAuthKey } from '@/services/realtime/echoSocketSessionLifecycle';
 import { registerChannelTypingSocketEmit } from '@/stores/channelTyping';
+import { setEchoGameSocketConnected } from '@/services/games/echoGameSocketRegistry';
 import { createEchoSocketInboundListeners } from '@/services/realtime/echoSocketInboundListeners';
 import { newCorrelationId } from '@/services/realtime/socketOutbound';
 import {
@@ -268,12 +269,14 @@ export function createAppEchoRealtimeSocketBinding(
           onBeforeTeardown: () => {
             presenceHeartbeat.stop();
             registerChannelTypingSocketEmit(null);
+            setEchoGameSocketConnected(false);
             platformSync.setConnected(false);
             input.host.lifecycle.onSocketDisconnected();
           },
           onAfterConnected: (ctx) => {
             clearSocketXhrPollReloadGuard(browser);
             platformSync.setConnected(true);
+            setEchoGameSocketConnected(true);
 
             // Transport is up; app shell owns "join" policy.
             applyEchoSocketActiveChannelChange(
@@ -297,6 +300,7 @@ export function createAppEchoRealtimeSocketBinding(
             });
           },
           onAfterDisconnect: () => {
+            setEchoGameSocketConnected(false);
             // Keep error policy centralized; this just ensures we don't leave sync marked up.
             platformSync.setConnected(false);
           },

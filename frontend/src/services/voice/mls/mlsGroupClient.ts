@@ -2,7 +2,7 @@ import {
   acceptAll,
   createCommit,
   createGroup,
-  createGroupInfoWithExternalPub,
+  createGroupInfoWithExternalPubAndRatchetTree,
   decodeMlsMessage,
   defaultKeyPackageEqualityConfig,
   defaultKeyRetentionConfig,
@@ -20,10 +20,10 @@ import {
   type MLSMessage,
   type Proposal,
 } from 'ts-mls';
+import { ratchetTreeFromExtension } from 'ts-mls/groupInfo.js';
 import { EchoApiError } from '@/api/echo/transport';
 import { bytesToBase64, base64ToBytes } from '@/services/e2ee/e2eeBase64';
 import {
-  echoSignalPersistenceGet,
   echoSignalPersistenceSet,
   echoSignalPersistenceRemove,
 } from '@/services/e2ee/e2eeSignalPersistence';
@@ -68,6 +68,27 @@ export type EchoMlsGroupClientOptions = {
 
 const enc = new TextEncoder();
 const MAX_COMMIT_RETRIES = 4;
+
+/**
+ * Voice E2EE is not enabled for this channel (server policy). Callers treat
+ * this as "connect without E2EE", not as a hard failure.
+ */
+export class VoiceMlsDisabledError extends Error {
+  readonly code = 'VOICE_MLS_DISABLED' as const;
+  constructor() {
+    super('Voice E2EE is not enabled for this channel.');
+    this.name = 'VoiceMlsDisabledError';
+  }
+}
+
+export function isVoiceMlsDisabledError(e: unknown): boolean {
+  if (e instanceof VoiceMlsDisabledError) return true;
+  return (
+    e instanceof EchoApiError &&
+    e.status === 403 &&
+    e.body.code === 'VOICE_E2EE_DISABLED'
+  );
+}
 
 /** Transport a GroupInfo as an MLSMessage envelope (public API only). */
 function encodeGroupInfoWire(groupInfo: GroupInfo): Uint8Array {
@@ -162,7 +183,7 @@ export class EchoMlsGroupClient {
     const cs = await this.ensureInit();
     const info = await fetchMlsGroupInfo(this.opts.token, this.opts.scope);
     if (!info.enabled) {
-      throw new Error('Voice E2EE is not enabled for this channel.');
+      throw new VoiceMlsDisabledError();
     }
     if (!info.groupInfo || info.currentEpoch === null) {
       return this.createFreshGroup(cs);
@@ -182,7 +203,11 @@ export class EchoMlsGroupClient {
       cs,
       this.clientConfig!,
     );
-    const groupInfo = await createGroupInfoWithExternalPub(state, [], cs);
+    const groupInfo = await createGroupInfoWithExternalPubAndRatchetTree(
+      state,
+      [],
+      cs,
+    );
     const res = await postMlsInit(this.opts.token, this.opts.scope, {
       groupInfo: bytesToBase64(encodeGroupInfoWire(groupInfo)),
     });
@@ -204,6 +229,8 @@ export class EchoMlsGroupClient {
     groupInfoB64: string,
     currentEpoch: string,
     attempt = 0,
+    /** RFC 9420 "resync" external commit: replaces our stale leaf on rejoin. */
+    resync = false,
   ): Promise<EchoMlsEpochKey> {
     const groupInfo: GroupInfo = decodeGroupInfoWire(groupInfoB64);
     const kp = this.keyPackage!;
@@ -211,7 +238,7 @@ export class EchoMlsGroupClient {
       groupInfo,
       kp.publicPackage,
       kp.privatePackage,
-      false,
+      resync,
       cs,
       undefined,
       this.clientConfig!,
@@ -221,7 +248,11 @@ export class EchoMlsGroupClient {
       wireformat: 'mls_public_message',
       publicMessage,
     };
-    const newGroupInfo = await createGroupInfoWithExternalPub(newState, [], cs);
+    const newGroupInfo = await createGroupInfoWithExternalPubAndRatchetTree(
+      newState,
+      [],
+      cs,
+    );
     try {
       const res = await postMlsCommit(this.opts.token, this.opts.scope, {
         expectedEpoch: currentEpoch,
@@ -242,10 +273,61 @@ export class EchoMlsGroupClient {
             info.groupInfo,
             info.currentEpoch,
             attempt + 1,
+            resync,
           );
         }
       }
       throw e;
+    }
+  }
+
+  /**
+   * Full recovery when local state diverged from the delivery log (we were
+   * removed, missed a commit we cannot apply, or the group forked): regenerate
+   * a fresh key package and perform a resync external commit against the
+   * server's current group info. Without this, a client that falls off the
+   * epoch keeps encrypting with a stale key and goes silent for everyone else.
+   */
+  private async rejoinAfterDesync(
+    cs: CiphersuiteImpl,
+  ): Promise<EchoMlsEpochKey | null> {
+    const info = await fetchMlsGroupInfo(this.opts.token, this.opts.scope);
+    if (!info.enabled) return null;
+    const sig = await getOrCreateMlsSignatureKeyPair(
+      this.opts.viewerUserId,
+      cs,
+    );
+    this.keyPackage = await generateEchoKeyPackage(
+      this.opts.viewerUserId,
+      this.opts.deviceId,
+      sig,
+      cs,
+    );
+    if (!info.groupInfo || info.currentEpoch === null) {
+      return this.createFreshGroup(cs);
+    }
+    // Resync (remove-then-add of our own leaf) is only valid when our leaf is
+    // still in the tree; if we were already removed by the committer, a plain
+    // external join is required. ts-mls's resync path assumes the former leaf
+    // exists (matched by signature public key), so mirror that predicate here.
+    const resync = this.groupInfoHasOwnLeaf(info.groupInfo);
+    return this.externalJoin(cs, info.groupInfo, info.currentEpoch, 0, resync);
+  }
+
+  /** Whether the published group info's tree contains our current leaf (by signature key). */
+  private groupInfoHasOwnLeaf(groupInfoB64: string): boolean {
+    try {
+      const tree = ratchetTreeFromExtension(decodeGroupInfoWire(groupInfoB64));
+      const own = this.keyPackage?.publicPackage.leafNode.signaturePublicKey;
+      if (!tree || !own) return false;
+      return tree.some(
+        (n) =>
+          n !== undefined &&
+          n.nodeType === 'leaf' &&
+          bytesEqual(n.leaf.signaturePublicKey, own),
+      );
+    } catch {
+      return false;
     }
   }
 
@@ -274,10 +356,19 @@ export class EchoMlsGroupClient {
         try {
           await this.applyWireMessage(m.payload, cs);
         } catch {
-          // A message we cannot apply (e.g. we were removed, or fork) — stop
-          // applying further; caller may re-join. Advance cursor to avoid loops.
+          // We cannot apply this message (removed from the group, missed
+          // history, or a fork). Advance the cursor past it, then recover by
+          // rejoining the group at its current epoch via a resync external
+          // commit — otherwise we'd keep using a stale media key and our
+          // audio would be undecryptable for the rest of the call.
           this.lastSeq = bigintMax(this.lastSeq, seq);
-          continue;
+          try {
+            return await this.rejoinAfterDesync(cs);
+          } catch {
+            // Rejoin failed (transient network/conflict); a later sync or the
+            // session-level reconnect path retries.
+            return null;
+          }
         }
         if (epochOf(this.state) !== beforeEpoch) epochChanged = true;
       }
@@ -341,7 +432,7 @@ export class EchoMlsGroupClient {
       { state: this.state, cipherSuite: cs, pskIndex: emptyPskIndex },
       { extraProposals: proposals, wireAsPublicMessage: true },
     );
-    const newGroupInfo = await createGroupInfoWithExternalPub(
+    const newGroupInfo = await createGroupInfoWithExternalPubAndRatchetTree(
       res.newState,
       [],
       cs,
@@ -442,6 +533,13 @@ export class EchoMlsGroupClient {
       /* ignore */
     }
   }
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a[i]! ^ b[i]!;
+  return diff === 0;
 }
 
 function bigintMax(a: bigint, b: bigint): bigint {

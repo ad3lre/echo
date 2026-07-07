@@ -1,7 +1,7 @@
 # GitLab CI mirror (see docs/operations/ops/REPO_ARTIFACTS_POLICY.md).
 #
 # Public OSS on GitHub: authoritative CI is GitHub Actions (.github/workflows/).
-# GitLab runs Prettier on doc/format paths and a ship gate (test:ci parity) on
+# GitLab runs Prettier on doc/format paths and a ship gate (`ci:precheck` parity) on
 # application code paths so merges do not rely solely on local pre-push hooks.
 #
 # Ignores for `.cursor/`, other AI tool dirs, IDE dirs, and `.env` align with root
@@ -75,5 +75,5 @@ ship-gate:
       changes: *ci_paths
   script:
     - npm ci
-    - npm run test:ci
+    - npm run ci:precheck
     - npm run charter:new-code:test

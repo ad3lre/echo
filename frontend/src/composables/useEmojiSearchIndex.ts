@@ -16,6 +16,7 @@ import {
   type SearchIndex,
 } from '@/composables/emojiSearchIndexState';
 import secondaryAliasesJson from '@/data/emoji-secondary-aliases.json';
+import { publicAssetUrl } from '@/utils/twemoji';
 
 export type { SearchIndex } from '@/composables/emojiSearchIndexState';
 export {
@@ -50,8 +51,7 @@ export function ensureEmojiSearchPrebuildLoaded(): Promise<void> {
     prebuildLoadPromise = (async () => {
       await ensureEmojiCategoriesLoaded();
       try {
-        const base = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '');
-        const res = await fetch(`${base}/emoji-search-index.json`);
+        const res = await fetch(publicAssetUrl('emoji-search-index.json'));
         if (res.ok) {
           setPrebuiltSearchIndex((await res.json()) as PrebuiltIndex);
         }

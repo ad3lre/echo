@@ -37,12 +37,11 @@ import './assets/themes.scss';
 import './assets/density.scss';
 import './assets/accessibility.scss';
 import './assets/main.scss';
-/* Eager load: vlist-t2 sub+sup layout breaks if this arrives after first math paint. */
-import 'katex/dist/katex.min.css';
 import './assets/document-canvas.scss';
 import { registerEchoServiceWorker } from '@/registerServiceWorker';
 import { initDesktopDeepLinks } from '@/platform/desktopDeepLink';
 import { isDesktop } from '@/platform/desktopBridge';
+import { reloadEchoApp } from '@/platform/reloadEchoApp';
 import {
   clearAllPendingDesktopOAuthHandoffState,
   readPendingDesktopOAuthHandoffCode,
@@ -118,8 +117,8 @@ async function bootstrap() {
   const iosBootDecision = await runIosBootCheck();
 
   if (isDesktop()) {
-    /** Attach before mount so cold-start launches from `echo://…` do not miss `getCurrent()`. */
-    void initDesktopDeepLinks();
+    /** Attach before mount so cold-start launches from `echo://…` merge handoff params. */
+    await initDesktopDeepLinks();
     void import('@tauri-apps/api/core')
       .then(({ invoke }) => invoke<string>('desktop_log_path'))
       .then((path) => {
@@ -735,7 +734,7 @@ function renderBootstrapFatalFallback(error: unknown) {
   retryButton.type = 'button';
   retryButton.className = 'echo-app-load-error__retry';
   retryButton.textContent = echoT('common.refreshPage');
-  retryButton.addEventListener('click', () => window.location.reload());
+  retryButton.addEventListener('click', () => reloadEchoApp());
   inner.append(title, detail, retryButton);
   shell.appendChild(inner);
   mount.appendChild(shell);

@@ -57,6 +57,11 @@ export function createMicSendController(ctx: LiveKitVoiceSessionContext) {
   const voiceLevels = useVoiceLevelsStore();
 
   function gateMultiplierFromDbfs(dbfs: number): number {
+    // Fail open when the level monitor is not actually measuring (e.g. its
+    // AudioContext is suspended pending a user gesture on Safari/iOS). Gating
+    // on a dead monitor silences the local user for everyone else even though
+    // the published track carries real audio.
+    if (localMicMonitor.audioContextState.value !== 'running') return 1;
     return gateMultiplierForDbfs(
       dbfs,
       voiceLevels.voiceActivationThresholdPercent,
@@ -308,6 +313,7 @@ export function installMicGainWatch(
     () =>
       [
         localMicMonitor.dbfs.value,
+        localMicMonitor.audioContextState.value,
         voiceLevels.voiceActivationThresholdPercent,
         voiceLevels.outboundGateMode,
         roomState.value,

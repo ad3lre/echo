@@ -56,6 +56,10 @@ export const gameServerConfig = {
     env('JWT_SECRET') ??
     'dev-insecure-secret',
   natsUrl: env('NATS_URL') ?? null,
+  /** Echo backend base URL for tunneled game S2C relay (HMAC POST). */
+  echoRelayBaseUrl:
+    env('ECHO_GAME_RELAY_BASE_URL')?.replace(/\/$/, '') ||
+    'http://127.0.0.1:3000',
   /** Dispose an instance this long after its last member leaves. */
   idleDisposeMs: parsePort(env('GAME_SERVER_IDLE_DISPOSE_MS'), 60_000),
 } as const;

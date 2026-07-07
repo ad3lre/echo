@@ -593,6 +593,8 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :open-vc-activity-tic-tac-toe="chatCtx.openVcActivityTicTacToe"
         :vc-hangman-activity="chatCtx.vcHangmanActivity"
         :hangman-roster-user-ids="chatCtx.hangmanRosterUserIds"
+        :hangman-game-room-connected="chatCtx.hangmanGameRoomConnected"
+        :hangman-game-room-last-error="chatCtx.hangmanGameRoomLastError"
         :commit-vc-hangman-word="chatCtx.commitVcHangmanWord"
         :request-vc-hangman-guess-letter="chatCtx.requestVcHangmanGuessLetter"
         :request-vc-hangman-next-round="chatCtx.requestVcHangmanNextRound"

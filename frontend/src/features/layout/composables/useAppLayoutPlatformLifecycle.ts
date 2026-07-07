@@ -28,6 +28,7 @@ import {
 import { subscribeUIErrors, type UIErrorSeverity } from '@/utils/uiErrorBus';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
+import { reloadEchoApp } from '@/platform/reloadEchoApp';
 import type { SettingsSection } from '@/features/settings/types';
 import { storeToRefs } from 'pinia';
 import { useEchoSessionStore } from '@/stores/echoSession';
@@ -230,7 +231,7 @@ export function useAppLayoutPlatformLifecycle(
     }
     clearServerHealthPolling();
     window.setTimeout(() => {
-      window.location.reload();
+      reloadEchoApp();
     }, 450);
   }
 

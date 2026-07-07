@@ -116,8 +116,12 @@ const KEYCHAIN_ACCOUNT: &str = "session_memory";
 const KEYCHAIN_REFRESH_ACCOUNT: &str = "refresh_token";
 #[cfg(all(target_os = "macos", not(target_os = "ios")))]
 const KEYCHAIN_REFRESH_ACCOUNT: &str = "refresh_token";
+#[cfg(all(not(target_os = "ios"), not(target_os = "macos")))]
+const KEYCHAIN_ACCOUNT: &str = "session_memory";
+#[cfg(all(not(target_os = "ios"), not(target_os = "macos")))]
+const KEYCHAIN_REFRESH_ACCOUNT: &str = "refresh_token";
 
-// ── Keychain: iOS + macOS use security-framework; other platforms use temp file ──
+// ── Keychain: iOS + macOS use security-framework; Windows/Linux use OS credential store ──
 
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 mod keychain {
@@ -207,55 +211,103 @@ mod keychain {
 #[cfg(all(not(target_os = "ios"), not(target_os = "macos")))]
 mod keychain {
     use super::*;
+    use keyring::{Entry, Error};
     use std::path::PathBuf;
 
-    fn session_file_path() -> PathBuf {
-        let dir = std::env::temp_dir().join("echo-dev-keychain");
-        let _ = std::fs::create_dir_all(&dir);
-        dir.join("session_memory.json")
+    const CREDENTIAL_SERVICE: &str = "com.echo.desktop.auth";
+
+    fn credential_entry(account: &str) -> Result<Entry, String> {
+        Entry::new(CREDENTIAL_SERVICE, account)
+            .map_err(|e| format!("keyring entry: {e}"))
     }
 
-    fn refresh_file_path() -> PathBuf {
-        let dir = std::env::temp_dir().join("echo-dev-keychain");
-        let _ = std::fs::create_dir_all(&dir);
-        dir.join("refresh_token.txt")
+    /// Legacy dev builds stored tokens under the OS temp dir; migrate once on read.
+    fn legacy_temp_dir() -> PathBuf {
+        std::env::temp_dir().join("echo-dev-keychain")
+    }
+
+    fn migrate_legacy_file(name: &str, account: &str) -> Option<String> {
+        let path = legacy_temp_dir().join(name);
+        let data = std::fs::read_to_string(&path).ok()?;
+        let trimmed = data.trim().to_string();
+        if trimmed.is_empty() {
+            return None;
+        }
+        if let Ok(entry) = credential_entry(account) {
+            let _ = entry.set_password(&trimmed);
+            let _ = std::fs::remove_file(&path);
+        }
+        Some(trimmed)
+    }
+
+    fn migrate_legacy_session() -> Option<StoredSessionMemory> {
+        let path = legacy_temp_dir().join("session_memory.json");
+        let data = std::fs::read_to_string(&path).ok()?;
+        let session = serde_json::from_str::<StoredSessionMemory>(&data).ok()?;
+        let _ = write_session(&session);
+        let _ = std::fs::remove_file(&path);
+        Some(session)
     }
 
     pub fn read_session() -> Option<StoredSessionMemory> {
-        let path = session_file_path();
-        let data = std::fs::read_to_string(&path).ok()?;
-        serde_json::from_str(&data).ok()
+        let entry = credential_entry(KEYCHAIN_ACCOUNT).ok()?;
+        match entry.get_password() {
+            Ok(json) => serde_json::from_str(&json).ok(),
+            Err(Error::NoEntry) => migrate_legacy_session(),
+            Err(_) => migrate_legacy_session(),
+        }
     }
 
     pub fn write_session(session: &StoredSessionMemory) -> Result<(), String> {
-        let path = session_file_path();
         let json =
-            serde_json::to_string_pretty(session).map_err(|e| format!("serialize: {e}"))?;
-        std::fs::write(&path, json).map_err(|e| format!("write: {e}"))
+            serde_json::to_string(session).map_err(|e| format!("serialize: {e}"))?;
+        let entry = credential_entry(KEYCHAIN_ACCOUNT)?;
+        let _ = delete_session();
+        entry
+            .set_password(&json)
+            .map_err(|e| format!("keychain write: {e}"))
     }
 
     pub fn delete_session() -> Result<(), String> {
-        let path = session_file_path();
-        if path.exists() {
-            std::fs::remove_file(&path).map_err(|e| format!("delete: {e}"))?;
+        match credential_entry(KEYCHAIN_ACCOUNT)?.delete_credential() {
+            Ok(()) => Ok(()),
+            Err(Error::NoEntry) => Ok(()),
+            Err(e) => Err(format!("keychain delete: {e}")),
         }
-        Ok(())
     }
 
     pub fn read_refresh_token() -> Option<String> {
-        std::fs::read_to_string(refresh_file_path()).ok()
+        let entry = credential_entry(KEYCHAIN_REFRESH_ACCOUNT).ok()?;
+        match entry.get_password() {
+            Ok(token) => {
+                let trimmed = token.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            }
+            Err(Error::NoEntry) => {
+                migrate_legacy_file("refresh_token.txt", KEYCHAIN_REFRESH_ACCOUNT)
+            }
+            Err(_) => migrate_legacy_file("refresh_token.txt", KEYCHAIN_REFRESH_ACCOUNT),
+        }
     }
 
     pub fn write_refresh_token(token: &str) -> Result<(), String> {
-        std::fs::write(refresh_file_path(), token).map_err(|e| format!("write refresh: {e}"))
+        let entry = credential_entry(KEYCHAIN_REFRESH_ACCOUNT)?;
+        let _ = delete_refresh_token();
+        entry
+            .set_password(token.trim())
+            .map_err(|e| format!("keychain refresh write: {e}"))
     }
 
     pub fn delete_refresh_token() -> Result<(), String> {
-        let path = refresh_file_path();
-        if path.exists() {
-            std::fs::remove_file(&path).map_err(|e| format!("delete refresh: {e}"))?;
+        match credential_entry(KEYCHAIN_REFRESH_ACCOUNT)?.delete_credential() {
+            Ok(()) => Ok(()),
+            Err(Error::NoEntry) => Ok(()),
+            Err(e) => Err(format!("keychain refresh delete: {e}")),
         }
-        Ok(())
     }
 }
 

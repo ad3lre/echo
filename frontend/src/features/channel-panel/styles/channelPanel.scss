@@ -78,6 +78,15 @@
   font-weight: 500;
   color: var(--vc-device-name-fg);
 }
+.vc-device-name--static {
+  cursor: default;
+}
+.vc-device-output-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--vc-device-name-muted);
+}
 .vc-device-name-icon {
   width: 1rem;
   height: 1rem;

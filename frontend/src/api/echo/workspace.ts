@@ -49,7 +49,7 @@ export async function fetchEchoWorkspaceState(
     upcoming_events_by_server_id?: unknown;
     myEventRsvps?: unknown;
     my_event_rsvps?: unknown;
-  }>(token, '/workspace');
+  }>(token, '/workspace?memberDetail=roster');
   if (
     !Array.isArray(raw.servers) ||
     raw.categoriesByServer == null ||

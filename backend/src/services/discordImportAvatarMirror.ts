@@ -24,6 +24,8 @@ import {
   isAllowedBrandingUploadContentType,
   isEchoS3UploadConfigured,
 } from './s3UploadPresign';
+import { prepareRasterForEchoStorage } from './rasterImageTranscode';
+import { ECHO_MEDIA_AVATAR_MAX_DIMENSION } from '../../../shared/mediaCdnVariants';
 
 const AVATAR_MAX_BYTES = 8 * 1024 * 1024;
 
@@ -223,12 +225,18 @@ export async function mirrorDiscordImportAvatarToEcho(
     extForContentType(fetched.contentType) ||
     '.webp';
 
+  const prepared = await prepareRasterForEchoStorage(
+    fetched.buf,
+    fetched.contentType,
+    { maxDimension: ECHO_MEDIA_AVATAR_MAX_DIMENSION },
+  );
+
   return storeAvatarBuffer({
     pool,
     targetUserId: uid,
-    buf: fetched.buf,
-    contentType: fetched.contentType,
-    filenameExt: ext,
+    buf: prepared.buf,
+    contentType: prepared.contentType,
+    filenameExt: prepared.ext || ext,
   });
 }
 

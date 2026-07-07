@@ -1,4 +1,5 @@
 import { ECHO_SOCKET_XHR_POLL_RELOAD_GUARD_KEY } from '@/services/realtime/socketTransport';
+import { reloadEchoApp } from '@/platform/reloadEchoApp';
 
 export type SocketReloadGuardBrowser = {
   reload: () => void;
@@ -9,7 +10,7 @@ export function defaultSocketReloadGuardBrowser(): SocketReloadGuardBrowser | nu
   if (typeof window === 'undefined') return null;
   if (!('sessionStorage' in window)) return null;
   return {
-    reload: () => window.location.reload(),
+    reload: () => reloadEchoApp(),
     storage: window.sessionStorage,
   };
 }

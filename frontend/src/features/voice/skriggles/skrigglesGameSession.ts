@@ -14,7 +14,10 @@ import type {
 } from '@/audio/voiceEchoLiveKitData';
 import type { LiveKitRoomState } from '@/composables/useLiveKitVoiceRoom';
 import { useGameRoom } from '@/features/games/useGameRoom';
+import { isVcGameRoomEnabled } from '@/features/games/vcGameRoomEnabled';
+import { vcGameRoomConnectionRefs } from '@/features/games/gameRoomSessionConnection';
 import type { GameRoomApi } from '@/features/games/useGameRoom';
+import type { GameErrorMsg } from '@shared/games';
 import { normalizeSkrigglesWord } from '@/features/voice/skriggles/vcSkrigglesGuess';
 import type { SkrigglesCanvasEvent } from '@/features/voice/skriggles/skrigglesVoiceSession';
 import {
@@ -35,14 +38,14 @@ export type CreateSkrigglesGameSessionOpts = {
   vcActivityUi: Ref<VcActivityUiState>;
   vcActivityPresenceByUserId: Ref<Map<string, readonly string[]>>;
   isDmVoiceCallUi: Ref<boolean>;
-  currentVoiceChannelId: Ref<string | null>;
-  liveKitState: Ref<LiveKitRoomState>;
-  accessToken: () => string | undefined;
-  resolveGuildVoiceServerId: (channelId: string) => string;
+  gameRoomChannelId: ComputedRef<string | null>;
+  isAuthenticated: () => boolean;
 };
 
 export type SkrigglesGameSession = {
   vcSkrigglesActivity: ComputedRef<EchoSkrigglesActivityV1 | null>;
+  gameRoomConnected: ComputedRef<boolean>;
+  gameRoomLastError: ComputedRef<GameErrorMsg | null>;
   skrigglesRosterUserIds: ComputedRef<string[]>;
   skrigglesCanvasEvents: ShallowRef<SkrigglesCanvasEvent[]>;
   commitSkrigglesWordChoice: (word: string) => void;
@@ -93,21 +96,16 @@ function useSkrigglesRoom(
 ): GameRoomApi<SkrigglesView> {
   return useGameRoom<SkrigglesView>({
     gameKey: 'skriggles',
-    roomId: computed(() => opts.currentVoiceChannelId.value),
-    serverId: computed(() => {
-      const ch = opts.currentVoiceChannelId.value?.trim() ?? '';
-      return ch ? opts.resolveGuildVoiceServerId(ch) : null;
-    }),
-    accessToken: computed(() => opts.accessToken()?.trim() ?? null),
-    enabled: computed(
-      () =>
-        SKRIGGLES_SERVER_MODE &&
-        !opts.isDmVoiceCallUi.value &&
-        opts.vcActivityUi.value.phase === 'skriggles' &&
-        opts.liveKitState.value === 'connected' &&
-        !!(
-          opts.currentVoiceChannelId.value?.trim() && opts.accessToken()?.trim()
-        ),
+    roomId: computed(() => opts.gameRoomChannelId.value),
+    enabled: computed(() =>
+      isVcGameRoomEnabled({
+        serverMode: SKRIGGLES_SERVER_MODE,
+        isDmVoiceCallUi: opts.isDmVoiceCallUi,
+        vcActivityUi: opts.vcActivityUi,
+        phase: 'skriggles',
+        gameRoomChannelId: opts.gameRoomChannelId,
+        isAuthenticated: opts.isAuthenticated,
+      }),
     ),
     onEvent: (msg) => {
       if (msg.kind !== SKRIGGLES_RELAY_KIND || !msg.data) return;
@@ -178,6 +176,8 @@ export function createSkrigglesGameSession(
   const skrigglesCanvasEvents = shallowRef<SkrigglesCanvasEvent[]>([]);
   const room = useSkrigglesRoom(opts, skrigglesCanvasEvents);
   const gameplay = buildSkrigglesGameplay(room, opts);
+  const { gameRoomConnected, gameRoomLastError } =
+    vcGameRoomConnectionRefs(room);
 
   const vcSkrigglesActivity = computed(() => {
     const v = room.view.value;
@@ -188,6 +188,8 @@ export function createSkrigglesGameSession(
 
   return {
     vcSkrigglesActivity,
+    gameRoomConnected,
+    gameRoomLastError,
     skrigglesRosterUserIds: computed(() => skrigglesRosterFromPresence(opts)),
     skrigglesCanvasEvents,
     ...gameplay,

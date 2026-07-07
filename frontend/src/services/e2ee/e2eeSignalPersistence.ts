@@ -13,6 +13,26 @@ function hasIndexedDb(): boolean {
   return typeof indexedDB !== 'undefined';
 }
 
+function resetDbConnection(): void {
+  dbPromise = null;
+}
+
+function isIdbClosingError(err: unknown): boolean {
+  if (!(err instanceof DOMException)) return false;
+  if (err.name === 'InvalidStateError') return true;
+  return err.message.includes('connection is closing');
+}
+
+function bindDbLifecycle(db: IDBDatabase): void {
+  db.onversionchange = () => {
+    db.close();
+    resetDbConnection();
+  };
+  db.onclose = () => {
+    resetDbConnection();
+  };
+}
+
 function openDb(): Promise<IDBDatabase> {
   if (!hasIndexedDb()) {
     return Promise.reject(new Error('indexedDB unavailable'));
@@ -20,8 +40,15 @@ function openDb(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onerror = () => reject(req.error ?? new Error('idb open failed'));
-      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => {
+        resetDbConnection();
+        reject(req.error ?? new Error('idb open failed'));
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        bindDbLifecycle(db);
+        resolve(db);
+      };
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) {
@@ -33,61 +60,85 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
+async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
+  try {
+    const db = await openDb();
+    return await fn(db);
+  } catch (err) {
+    if (isIdbClosingError(err)) {
+      resetDbConnection();
+      const db = await openDb();
+      return fn(db);
+    }
+    throw err;
+  }
+}
+
 async function idbGet(key: string): Promise<string | undefined> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readonly');
-    const r = tx.objectStore(STORE).get(key);
-    r.onsuccess = () => {
-      const v = r.result;
-      resolve(typeof v === 'string' ? v : undefined);
-    };
-    r.onerror = () => reject(r.error);
-  });
+  return withDb(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readonly');
+        const r = tx.objectStore(STORE).get(key);
+        r.onsuccess = () => {
+          const v = r.result;
+          resolve(typeof v === 'string' ? v : undefined);
+        };
+        r.onerror = () => reject(r.error ?? tx.error);
+        tx.onerror = () => reject(tx.error ?? r.error);
+      }),
+  );
 }
 
 async function idbSet(key: string, value: string): Promise<void> {
-  const db = await openDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.objectStore(STORE).put(value, key);
-  });
+  await withDb(
+    (db) =>
+      new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.objectStore(STORE).put(value, key);
+      }),
+  );
 }
 
 async function idbDelete(key: string): Promise<void> {
-  const db = await openDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.objectStore(STORE).delete(key);
-  });
+  await withDb(
+    (db) =>
+      new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.objectStore(STORE).delete(key);
+      }),
+  );
 }
 
 async function idbEntriesWithPrefix(
   prefix: string,
 ): Promise<[string, string][]> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const out: [string, string][] = [];
-    const tx = db.transaction(STORE, 'readonly');
-    const range = IDBKeyRange.bound(prefix, `${prefix}\uffff`);
-    const cur = tx.objectStore(STORE).openCursor(range);
-    cur.onerror = () => reject(cur.error);
-    cur.onsuccess = () => {
-      const c = cur.result;
-      if (!c) {
-        resolve(out);
-        return;
-      }
-      if (typeof c.key === 'string' && typeof c.value === 'string') {
-        out.push([c.key, c.value]);
-      }
-      c.continue();
-    };
-  });
+  return withDb(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const out: [string, string][] = [];
+        const tx = db.transaction(STORE, 'readonly');
+        const range = IDBKeyRange.bound(prefix, `${prefix}\uffff`);
+        const cur = tx.objectStore(STORE).openCursor(range);
+        cur.onerror = () => reject(cur.error ?? tx.error);
+        tx.onerror = () => reject(tx.error ?? cur.error);
+        cur.onsuccess = () => {
+          const c = cur.result;
+          if (!c) {
+            resolve(out);
+            return;
+          }
+          if (typeof c.key === 'string' && typeof c.value === 'string') {
+            out.push([c.key, c.value]);
+          }
+          c.continue();
+        };
+      }),
+  );
 }
 
 function ls(): Storage | null {

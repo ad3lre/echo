@@ -1,6 +1,7 @@
 import { computed, type ComputedRef, type Ref } from 'vue';
 import type { LiveKitRoomState } from '@/composables/useLiveKitVoiceRoom';
 import { useGameRoom } from '@/features/games/useGameRoom';
+import { isVcGameRoomEnabled } from '@/features/games/vcGameRoomEnabled';
 import type {
   VcActivityUiPhase,
   VcActivityUiState,
@@ -12,10 +13,8 @@ export type CreateWordlineGameSessionOpts = {
   currentUserId: () => string | undefined;
   vcActivityUi: Ref<VcActivityUiState>;
   isDmVoiceCallUi: Ref<boolean>;
-  currentVoiceChannelId: Ref<string | null>;
-  liveKitState: Ref<LiveKitRoomState>;
-  accessToken: () => string | undefined;
-  resolveGuildVoiceServerId: (channelId: string) => string;
+  gameRoomChannelId: ComputedRef<string | null>;
+  isAuthenticated: () => boolean;
 };
 
 export type WordlineGameSession = {
@@ -30,21 +29,16 @@ export function createWordlineGameSession(
 ): WordlineGameSession {
   const room = useGameRoom<WordlineView>({
     gameKey: 'wordle',
-    roomId: computed(() => opts.currentVoiceChannelId.value),
-    serverId: computed(() => {
-      const ch = opts.currentVoiceChannelId.value?.trim() ?? '';
-      return ch ? opts.resolveGuildVoiceServerId(ch) : null;
-    }),
-    accessToken: computed(() => opts.accessToken()?.trim() ?? null),
-    enabled: computed(
-      () =>
-        WORDLE_SERVER_MODE &&
-        !opts.isDmVoiceCallUi.value &&
-        opts.vcActivityUi.value.phase === 'wordle' &&
-        opts.liveKitState.value === 'connected' &&
-        !!(
-          opts.currentVoiceChannelId.value?.trim() && opts.accessToken()?.trim()
-        ),
+    roomId: computed(() => opts.gameRoomChannelId.value),
+    enabled: computed(() =>
+      isVcGameRoomEnabled({
+        serverMode: WORDLE_SERVER_MODE,
+        isDmVoiceCallUi: opts.isDmVoiceCallUi,
+        vcActivityUi: opts.vcActivityUi,
+        phase: 'wordle',
+        gameRoomChannelId: opts.gameRoomChannelId,
+        isAuthenticated: opts.isAuthenticated,
+      }),
     ),
   });
 

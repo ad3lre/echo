@@ -15,7 +15,11 @@ import {
   queueChatMediaRetentionTouch,
 } from '@/composables/useChatMediaRetentionTouch';
 import { isTrustedMediaUrl } from '@/utils/safeImageUrl';
-import { useSignedEchoMediaUrl } from '@/composables/useSignedEchoMediaUrl';
+import { useSignedEchoMediaResponsive } from '@/composables/useSignedEchoMediaResponsive';
+import {
+  ECHO_CHAT_MEDIA_RESPONSIVE_WIDTHS,
+  ECHO_CHAT_MEDIA_SINGLE_SIZES,
+} from '@/utils/echoMediaResponsive';
 import MediaUnavailablePanel from './MediaUnavailablePanel.vue';
 
 const props = defineProps<{
@@ -44,8 +48,15 @@ watch(
   },
 );
 
-const resolved = useSignedEchoMediaUrl(() => props.url, {
+const {
+  src: resolved,
+  srcset,
+  sizes,
+} = useSignedEchoMediaResponsive(() => props.url, {
   storageKey: () => props.storageKey,
+  widths: ECHO_CHAT_MEDIA_RESPONSIVE_WIDTHS,
+  sizes: ECHO_CHAT_MEDIA_SINGLE_SIZES,
+  fallbackWidth: 640,
 });
 
 watch(resolved, () => {
@@ -108,6 +119,8 @@ onUnmounted(() => {
       />
       <img
         :src="resolved"
+        :srcset="srcset || undefined"
+        :sizes="srcset ? sizes : undefined"
         :alt="alt"
         :loading="imgLoading"
         class="message-image message-image--boxed"
@@ -125,6 +138,8 @@ onUnmounted(() => {
     />
     <img
       :src="resolved"
+      :srcset="srcset || undefined"
+      :sizes="srcset ? sizes : undefined"
       :alt="alt"
       :loading="imgLoading"
       class="message-image message-image--boxed"

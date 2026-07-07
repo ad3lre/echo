@@ -1,7 +1,7 @@
 import { computed, type ComputedRef, type Ref } from 'vue';
 import type { EchoHangmanActivityV1 } from '@/audio/voiceEchoLiveKitData';
-import type { LiveKitRoomState } from '@/composables/useLiveKitVoiceRoom';
 import { useGameRoom } from '@/features/games/useGameRoom';
+import { isVcGameRoomEnabled } from '@/features/games/vcGameRoomEnabled';
 import { HANGMAN_ACTION, type HangmanView } from '@shared/games/hangman';
 import { HANGMAN_SERVER_MODE } from '@shared/vcActivityCatalog';
 import type {
@@ -14,15 +14,15 @@ export type CreateHangmanGameSessionOpts = {
   currentUserId: () => string | undefined;
   vcActivityUi: Ref<VcActivityUiState>;
   isDmVoiceCallUi: Ref<boolean>;
-  currentVoiceChannelId: Ref<string | null>;
-  liveKitState: Ref<LiveKitRoomState>;
-  accessToken: () => string | undefined;
-  resolveGuildVoiceServerId: (channelId: string) => string;
+  gameRoomChannelId: ComputedRef<string | null>;
+  isAuthenticated: () => boolean;
 };
 
 export type HangmanGameSession = {
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
+  gameRoomConnected: ComputedRef<boolean>;
+  gameRoomLastError: ComputedRef<import('@shared/games').GameErrorMsg | null>;
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
@@ -75,21 +75,16 @@ export function createHangmanGameSession(
 ): HangmanGameSession {
   const room = useGameRoom<HangmanView>({
     gameKey: 'hangman',
-    roomId: computed(() => opts.currentVoiceChannelId.value),
-    serverId: computed(() => {
-      const ch = opts.currentVoiceChannelId.value?.trim() ?? '';
-      return ch ? opts.resolveGuildVoiceServerId(ch) : null;
-    }),
-    accessToken: computed(() => opts.accessToken()?.trim() ?? null),
-    enabled: computed(
-      () =>
-        HANGMAN_SERVER_MODE &&
-        !opts.isDmVoiceCallUi.value &&
-        opts.vcActivityUi.value.phase === 'hangman' &&
-        opts.liveKitState.value === 'connected' &&
-        !!(
-          opts.currentVoiceChannelId.value?.trim() && opts.accessToken()?.trim()
-        ),
+    roomId: computed(() => opts.gameRoomChannelId.value),
+    enabled: computed(() =>
+      isVcGameRoomEnabled({
+        serverMode: HANGMAN_SERVER_MODE,
+        isDmVoiceCallUi: opts.isDmVoiceCallUi,
+        vcActivityUi: opts.vcActivityUi,
+        phase: 'hangman',
+        gameRoomChannelId: opts.gameRoomChannelId,
+        isAuthenticated: opts.isAuthenticated,
+      }),
     ),
   });
 
@@ -128,14 +123,15 @@ export function createHangmanGameSession(
 
   function resetIfLeavingPhase(phase: VcActivityUiPhase): void {
     if (phase !== 'hangman') {
-      room.view.value = null;
-      room.rev.value = 0;
+      /* useGameRoom tears down when enabled becomes false */
     }
   }
 
   return {
     vcHangmanActivity,
     hangmanRosterUserIds,
+    gameRoomConnected: computed(() => room.connected.value),
+    gameRoomLastError: computed(() => room.lastError.value),
     commitVcHangmanWord,
     requestVcHangmanGuessLetter,
     requestVcHangmanNextRound,

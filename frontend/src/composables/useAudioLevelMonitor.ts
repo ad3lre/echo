@@ -38,6 +38,7 @@ export function useAudioLevelMonitor() {
   let ctx: AudioContext | null = null;
   let analyser: AnalyserNode | null = null;
   let source: MediaStreamAudioSourceNode | null = null;
+  let gestureResumeCleanup: (() => void) | null = null;
   let rafId: number | null = null;
   let silenceTimer: ReturnType<typeof setTimeout> | null = null;
   let dataArray: Float32Array<ArrayBuffer> | null = null;
@@ -64,6 +65,48 @@ export function useAudioLevelMonitor() {
       }
     }
     audioContextState.value = ctx.state;
+  }
+
+  function stopGestureResumeWatch() {
+    gestureResumeCleanup?.();
+    gestureResumeCleanup = null;
+  }
+
+  /**
+   * Safari/iOS reject programmatic `resume()` outside a user gesture, so a
+   * monitor context created mid-join can stay suspended indefinitely. Resume
+   * it from inside the next pointer/key gesture instead.
+   */
+  function installGestureResumeWatch() {
+    stopGestureResumeWatch();
+    if (typeof window === 'undefined') return;
+    const onGesture = () => {
+      if (!ctx || ctx.state !== 'suspended') {
+        stopGestureResumeWatch();
+        return;
+      }
+      void ctx.resume().then(
+        () => {
+          audioContextState.value = ctx?.state ?? 'none';
+          if (ctx?.state === 'running') stopGestureResumeWatch();
+        },
+        () => {},
+      );
+    };
+    window.addEventListener('pointerdown', onGesture, {
+      passive: true,
+      capture: true,
+    });
+    window.addEventListener('keydown', onGesture, { capture: true });
+    window.addEventListener('touchstart', onGesture, {
+      passive: true,
+      capture: true,
+    });
+    gestureResumeCleanup = () => {
+      window.removeEventListener('pointerdown', onGesture, true);
+      window.removeEventListener('keydown', onGesture, true);
+      window.removeEventListener('touchstart', onGesture, true);
+    };
   }
 
   function tick() {
@@ -122,6 +165,7 @@ export function useAudioLevelMonitor() {
     source.connect(analyser);
 
     void ensureAudioContextRunning();
+    if (ctx.state !== 'running') installGestureResumeWatch();
 
     if (ctx.state !== 'running') {
       voiceClientDiag('warn', 'voice.client:audio_ctx_not_running', {
@@ -144,6 +188,7 @@ export function useAudioLevelMonitor() {
   }
 
   function stop() {
+    stopGestureResumeWatch();
     if (rafId != null) {
       cancelAnimationFrame(rafId);
       rafId = null;

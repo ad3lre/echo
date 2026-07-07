@@ -144,6 +144,31 @@ describe('applyRemoteMessageReactions', () => {
     );
     expect(store.c1![0]!.reactions).toBeUndefined();
   });
+
+  it('preserves viewer highlight on count-only fan-out', () => {
+    const store: Record<string, RM[]> = {
+      c1: [
+        {
+          id: 'm1',
+          authorId: 'a',
+          content: 'x',
+          timestamp: '2019-01-01T00:00:00.000Z',
+          reactions: [{ emoji: '🔥', userIds: ['me', 'other'], count: 2 }],
+        },
+      ],
+    };
+    applyRemoteMessageReactions(
+      {
+        channelId: 'c1',
+        messageId: 'm1',
+        reactions: [{ emoji: '🔥', userIds: [], count: 3 }],
+      },
+      { ...sinkFor(store), viewerUserId: 'me' },
+    );
+    expect(store.c1![0]!.reactions).toEqual([
+      { emoji: '🔥', userIds: ['me'], count: 3 },
+    ]);
+  });
 });
 
 describe('applyRemotePollUpdate', () => {

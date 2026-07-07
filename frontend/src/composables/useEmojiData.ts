@@ -8,13 +8,11 @@ import { shallowRef } from 'vue';
 import { getTwemojiSrc } from '@/utils/twemoji';
 import { invalidateEmojiSearchIndex } from '@/composables/emojiSearchIndexState';
 
-const CACHE_KEY = 'echo-emoji-v2';
+const CACHE_KEY = 'echo-emoji-v3';
 const SAFE_HTML = /^<img\s[^>]*>$/i;
 const HAS_EMOJI_CLASS = /class="emoji"/;
 const HAS_TWEMOJI_SRC = /src="[^"]*twemoji\/[^"]+\.webp"/;
 const UNSAFE_PATTERN = /<script|javascript:|on\w+=/i;
-
-const base = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '');
 
 export function parseEmoji(emoji: string): string {
   const src = getTwemojiSrc(emoji);

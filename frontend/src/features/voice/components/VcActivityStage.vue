@@ -71,6 +71,7 @@ import {
   useVcActivityFullscreen,
   useVcActivityOverflowNarrow,
 } from '@/features/voice/composables/useVcActivityStageViewport';
+import { useVcIframeGameEmbed } from '@/features/voice/composables/useVcIframeGameEmbed';
 import { useVcYoutubeBrowse } from '@/features/voice/composables/useVcYoutubeBrowse';
 
 const appBase = import.meta.env.BASE_URL || '/';
@@ -81,7 +82,7 @@ const props = withDefaults(
     state: MaybeRef<VcActivityUiState>;
     voiceChannelLabel: string;
     compactLayout?: boolean;
-    /** When side chat is collapsed, show reopen in the activity header instead of the floating pill. */
+    /** When side chat is collapsed, show reopen in the activity header (desktop/tablet only; mobile uses the voice dock). */
     voiceSideChatCollapsed?: boolean;
     expandVoiceSideChat?: () => void;
     openVcActivityYoutubeBrowse: () => void;
@@ -115,6 +116,10 @@ const props = withDefaults(
     closeVcActivity: () => void;
     vcHangmanActivity: MaybeRef<EchoHangmanActivityV1 | null>;
     hangmanRosterUserIds: MaybeRef<readonly string[]>;
+    hangmanGameRoomConnected?: MaybeRef<boolean>;
+    hangmanGameRoomLastError?: MaybeRef<
+      import('@shared/games').GameErrorMsg | null
+    >;
     commitVcHangmanWord: (raw: string) => string | null;
     requestVcHangmanGuessLetter: (letter: string) => void;
     requestVcHangmanNextRound: () => void;
@@ -219,6 +224,15 @@ const tttLiveKitConnected = computed(() => !!unref(props.liveKitConnected));
 
 const hmActivity = computed(() => unref(props.vcHangmanActivity));
 const hmRoster = computed(() => [...(unref(props.hangmanRosterUserIds) ?? [])]);
+const hmGameRoomConnected = computed(
+  () => !!unref(props.hangmanGameRoomConnected),
+);
+const hmGameRoomError = computed(
+  () => unref(props.hangmanGameRoomLastError)?.reason ?? null,
+);
+/** Phase-aware authoritative game-server connection (shared by Hangman, Skriggles, Codenames, TTT). */
+const vcGameRoomConnected = hmGameRoomConnected;
+const vcGameRoomError = hmGameRoomError;
 const skActivity = computed(() => unref(props.vcSkrigglesActivity));
 const skRoster = computed(() => [
   ...(unref(props.skrigglesRosterUserIds) ?? []),
@@ -374,8 +388,6 @@ watch(
   { immediate: true },
 );
 
-const iframeEmbedKey = ref(0);
-
 const stageRootRef = ref<HTMLElement | null>(null);
 
 const { activityFullscreenActive, toggleActivityFullscreen } =
@@ -389,16 +401,6 @@ useVcActivityOverflowNarrow(stageRootRef, {
   narrowStep: props.narrowChannelPanelForActivityOverflowStep,
 });
 
-watch(
-  () => st.value.phase,
-  (phase) => {
-    if (isVcIframeEmbedPhase(phase)) {
-      iframeEmbedKey.value += 1;
-    }
-  },
-  { immediate: true },
-);
-
 const iframeEmbedPhase = computed(() => {
   // iOS never mounts a third-party game iframe (App Store 4.7 / 2.5.2).
   if (hideThirdPartyEmbeds) return null;
@@ -406,7 +408,7 @@ const iframeEmbedPhase = computed(() => {
   return isVcIframeEmbedPhase(p) ? p : null;
 });
 
-const iframeEmbedSrc = computed(() =>
+const iframeEmbedTargetUrl = computed(() =>
   iframeEmbedPhase.value ? vcIframeEmbedUrl(iframeEmbedPhase.value) : '',
 );
 
@@ -431,10 +433,21 @@ const showIframeGame = computed(
     (!webglBlockedForCurrentGame.value || webglTryAnyway.value),
 );
 
+const {
+  iframeKey: iframeEmbedKey,
+  iframeSrc: iframeEmbedActiveSrc,
+  iframeRef: iframeEmbedRef,
+  reload: reloadIframeEmbed,
+} = useVcIframeGameEmbed({
+  phase: iframeEmbedPhase,
+  url: iframeEmbedTargetUrl,
+  visible: showIframeGame,
+});
+
 const webglBlockReason = computed(() => describeWebglBlock(webglSupport));
 
 function openWebglGameInNewTab() {
-  const url = iframeEmbedSrc.value;
+  const url = iframeEmbedTargetUrl.value;
   if (url) window.open(url, '_blank', 'noopener,noreferrer');
 }
 
@@ -457,7 +470,7 @@ onErrorCaptured((err) => {
 
 function reloadCrashedActivity() {
   activityCrash.value = null;
-  iframeEmbedKey.value += 1;
+  reloadIframeEmbed();
 }
 function closeCrashedActivity() {
   activityCrash.value = null;
@@ -743,7 +756,7 @@ function revealChannelListFromActivity() {
         {{ voiceChannelLabel }}
       </div>
       <button
-        v-if="voiceSideChatCollapsed"
+        v-if="voiceSideChatCollapsed && !compactLayout"
         type="button"
         class="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg sm:px-2"
         aria-label="Reopen chat"
@@ -1635,6 +1648,9 @@ function revealChannelListFromActivity() {
         :hangman-activity="hmActivity"
         :hangman-roster-user-ids="hmRoster"
         :voice-participants="hangmanVoiceParticipants"
+        :voice-channel-id="voiceChannelId"
+        :game-room-connected="hmGameRoomConnected"
+        :game-room-error="hmGameRoomError"
         :commit-word="props.commitVcHangmanWord"
         :guess-letter="props.requestVcHangmanGuessLetter"
         :next-round="props.requestVcHangmanNextRound"
@@ -1652,6 +1668,9 @@ function revealChannelListFromActivity() {
         :skriggles-activity="skActivity"
         :skriggles-roster-user-ids="skRoster"
         :voice-participants="hangmanVoiceParticipants"
+        :voice-channel-id="voiceChannelId"
+        :game-room-connected="vcGameRoomConnected"
+        :game-room-error="vcGameRoomError"
         :canvas-events="skCanvasEvents"
         :commit-word-choice="props.commitSkrigglesWordChoice"
         :submit-guess="props.submitSkrigglesGuess"
@@ -1694,6 +1713,9 @@ function revealChannelListFromActivity() {
         class="min-h-0 min-w-0 flex-1"
         :current-user-id="currentUserId ?? undefined"
         :active-voice-channel-participants="hangmanVoiceParticipants"
+        :voice-channel-id="voiceChannelId"
+        :game-room-connected="vcGameRoomConnected"
+        :game-room-error="vcGameRoomError"
         :vc-codenames-activity="cnActivity"
         :codenames-roster-user-ids="cnRoster"
         :vc-codenames-spymaster-key="cnSpymasterKey"
@@ -1716,8 +1738,9 @@ function revealChannelListFromActivity() {
     >
       <iframe
         v-if="showIframeGame"
+        ref="iframeEmbedRef"
         :key="iframeEmbedKey"
-        :src="iframeEmbedSrc"
+        :src="iframeEmbedActiveSrc"
         class="absolute inset-0 h-full w-full border-0"
         :title="iframeEmbedTitle"
         allow="
@@ -1733,6 +1756,7 @@ function revealChannelListFromActivity() {
           camera;
           payment;
           picture-in-picture;
+          storage-access *;
         "
         referrerpolicy="strict-origin-when-cross-origin"
         allowfullscreen

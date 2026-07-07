@@ -7,7 +7,20 @@
 import twemoji from 'twemoji';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
 
-const base = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '');
+/**
+ * Resolve a path under Vite's public/ folder for img src and fetch().
+ * Tauri uses base `./`; root-absolute paths are required on nested History routes
+ * (e.g. `/channels/…` would resolve `./twemoji/…` to `/channels/twemoji/…`).
+ */
+export function publicAssetUrl(path: string): string {
+  const base = import.meta.env?.BASE_URL ?? '/';
+  const normalized = path.replace(/^\//, '');
+  if (base.startsWith('./') || base.startsWith('../')) {
+    return `/${normalized}`;
+  }
+  const prefix = base.endsWith('/') ? base : `${base}/`;
+  return `${prefix}${normalized}`;
+}
 
 function escapeHtml(s: string): string {
   return s
@@ -35,7 +48,7 @@ function resolveTwemojiIconForAsset(hexFromConvert: string): string {
 
 export const twemojiOpts = {
   callback: (icon: string) =>
-    `${base ? base + '/' : '/'}twemoji/${resolveTwemojiIconForAsset(icon)}.webp`,
+    publicAssetUrl(`twemoji/${resolveTwemojiIconForAsset(icon)}.webp`),
 };
 
 const twemojiApi = twemoji as {
@@ -45,6 +58,15 @@ const twemojiApi = twemoji as {
 };
 
 const TWEMOJI_ICON_CACHE = new Map<string, string | null>();
+const TWEMOJI_ICON_CACHE_MAX = 2048;
+
+function setTwemojiIconCache(emoji: string, icon: string | null): void {
+  if (TWEMOJI_ICON_CACHE.size >= TWEMOJI_ICON_CACHE_MAX) {
+    const oldest = TWEMOJI_ICON_CACHE.keys().next().value as string | undefined;
+    if (oldest !== undefined) TWEMOJI_ICON_CACHE.delete(oldest);
+  }
+  TWEMOJI_ICON_CACHE.set(emoji, icon);
+}
 
 /**
  * Twemoji's parser normalizes codepoint sequences to real asset names
@@ -66,17 +88,17 @@ function resolveTwemojiIconForEmoji(emoji: string): string | null {
   if (cached !== undefined) return cached;
   const rawIcon = twemojiApi.convert?.toCodePoint(emoji)?.toLowerCase() ?? '';
   if (!rawIcon) {
-    TWEMOJI_ICON_CACHE.set(emoji, null);
+    setTwemojiIconCache(emoji, null);
     return null;
   }
   const aliased = TWEMOJI_CODEPOINT_ALIASES[rawIcon];
   if (aliased) {
-    TWEMOJI_ICON_CACHE.set(emoji, aliased);
+    setTwemojiIconCache(emoji, aliased);
     return aliased;
   }
   const parsedIcon =
     parseTwemojiIconFromEmoji(emoji) ?? resolveTwemojiIconForAsset(rawIcon);
-  TWEMOJI_ICON_CACHE.set(emoji, parsedIcon);
+  setTwemojiIconCache(emoji, parsedIcon);
   return parsedIcon;
 }
 
@@ -137,7 +159,7 @@ export function applyTwemojiToHtmlString(html: string): string {
 export function getTwemojiSrc(emoji: string): string | null {
   const icon = resolveTwemojiIconForEmoji(emoji);
   if (!icon) return null;
-  return `${base ? base + '/' : '/'}twemoji/${icon}.webp`;
+  return publicAssetUrl(`twemoji/${icon}.webp`);
 }
 
 function emojiGlyphToImgHtml(emoji: string): string {

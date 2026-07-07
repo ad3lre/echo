@@ -4,6 +4,7 @@ import { useMediaDevices } from '@/composables/useMediaDevices';
 import { useUiAudioDevicesStore } from '@/stores/uiAudioDevices';
 import { useVoiceLevelsStore } from '@/stores/voiceLevels';
 import { useCameraPreferencesStore } from '@/stores/cameraPreferences';
+import { audioOutputDeviceLimitedReason } from '@/platform/browserCompatibility';
 
 export type ChannelPanelVoiceSettingsHandle = ReturnType<
   typeof useChannelPanelVoiceSettings
@@ -43,6 +44,10 @@ export function useChannelPanelVoiceSettings() {
   const vcOutputListOpen = ref(false);
   const vcInputListOpen = ref(false);
   const vcCameraListOpen = ref(false);
+
+  const audioOutputSelectionLimited = computed(() =>
+    audioOutputDeviceLimitedReason(),
+  );
 
   const {
     inputDevices,
@@ -144,6 +149,7 @@ export function useChannelPanelVoiceSettings() {
     vcOutputListOpen,
     vcInputListOpen,
     vcCameraListOpen,
+    audioOutputSelectionLimited,
     vcOutputDeviceOptions,
     vcInputDeviceOptions,
     vcCameraDeviceOptions,

@@ -23,6 +23,7 @@ import type {
   LiveKitVoiceConnectOptions,
 } from '@/composables/livekitVoiceRoom.types';
 import { DESKTOP_NATIVE_AUDIO_ENABLED } from '@/config';
+import { activeVoiceE2eeChannelKey } from '@/services/voice/voiceE2eeActiveState';
 import { initDesktopNativeAudio, isDesktop } from '@/platform/desktopBridge';
 import type { LiveKitVoiceSessionContext } from '@/composables/livekitVoiceRoom/context';
 
@@ -68,9 +69,23 @@ export function createConnectController(
 
   function releaseLiveKitE2eeWorker(): void {
     liveKitMlsKeyProvider.value = null;
+    stopActiveVoiceMlsSession();
     if (!liveKitE2eeWorker.value) return;
     liveKitE2eeWorker.value.terminate();
     liveKitE2eeWorker.value = null;
+  }
+
+  /**
+   * End the MLS group session when the room tears down, so the remaining
+   * deterministic committer removes us (forward secrecy) and the E2EE badge
+   * state clears. Guarded by the lightweight active-state ref so the ts-mls
+   * chunk is only loaded when an MLS session actually exists.
+   */
+  function stopActiveVoiceMlsSession(): void {
+    if (!activeVoiceE2eeChannelKey.value) return;
+    void import('@/services/voice/mls/voiceMlsSession')
+      .then((m) => m.stopVoiceMlsSession())
+      .catch(() => {});
   }
 
   async function rotateEpochKey(

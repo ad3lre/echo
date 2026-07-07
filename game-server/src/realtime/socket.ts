@@ -13,6 +13,10 @@ import type { GameEmitter } from '../core/GameInstance';
 import { gameModules } from '../games/registry';
 import { verifyGameToken } from '../auth/verifyGameToken';
 import { MembershipTracker } from './membership';
+import { TunneledMembership } from './tunneledMembership';
+import { createEchoRelayPoster } from './echoRelayPoster';
+import { makeCompositeEmitter } from './compositeEmitter';
+import { registerInternalGameRoutes } from '../http/internalGameRoutes';
 
 interface GameSocketData {
   userId: string;
@@ -43,7 +47,7 @@ function readHandshakeToken(handshake: {
  * to `u:<room>:<user>` (all that user's sockets, and across nodes via the NATS
  * adapter). Per-user channels are what let `serializeFor` redact per viewer.
  */
-function makeEmitter(io: Server, roomId: string): GameEmitter {
+function makeSocketEmitter(io: Server, roomId: string): GameEmitter {
   return {
     snapshotToUser: (userId, msg) =>
       void io.to(userChannel(roomId, userId)).emit(GAME_S2C.snapshot, msg),
@@ -57,6 +61,7 @@ function makeEmitter(io: Server, roomId: string): GameEmitter {
 export interface GameSocketServer {
   io: Server;
   manager: RoomManager;
+  tunneled: TunneledMembership;
 }
 
 /**
@@ -84,11 +89,17 @@ export function attachGameSocketServer(
   });
 
   const membership = new MembershipTracker();
+  const tunneled = new TunneledMembership();
+  const relay = createEchoRelayPoster({
+    relayBaseUrl: gameServerConfig.echoRelayBaseUrl,
+    forwardSecret: gameServerConfig.echoForwardSecret,
+  });
   const manager = new RoomManager(
     gameModules,
-    (roomId) => makeEmitter(io, roomId),
+    (roomId) => makeCompositeEmitter(io, roomId, tunneled, relay),
     (gameKey, delta) => gameServerActiveInstances.inc({ game: gameKey }, delta),
   );
+  registerInternalGameRoutes(fastify, manager, tunneled);
 
   io.use((socket, next) => {
     try {
@@ -152,5 +163,5 @@ export function attachGameSocketServer(
     });
   });
 
-  return { io, manager };
+  return { io, manager, tunneled };
 }

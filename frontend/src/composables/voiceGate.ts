@@ -130,6 +130,16 @@ export function rmsToDbfs(rms: number): number {
   return Math.max(-100, Math.min(0, 20 * Math.log10(rms)));
 }
 
+/**
+ * Below this reading the level monitor is treated as "not measuring" and the
+ * outbound gate fails open. A pinned -100 dBFS reading almost always means the
+ * monitor itself is broken (suspended AudioContext on Safari/iOS, or WebKit
+ * reading silence from a processed track) while real speech is still being
+ * sent — gating on it silences the user for everyone else. If the mic input is
+ * genuinely silent, passing full gain is harmless anyway.
+ */
+export const GATE_MONITOR_SILENCE_FLOOR_DBFS = -95;
+
 export function gateMultiplierForDbfs(
   dbfs: number,
   thresholdPercent: number,
@@ -137,6 +147,7 @@ export function gateMultiplierForDbfs(
 ): number {
   const thresholdDbfs = rmsToDbfs(thresholdPercentToRms(thresholdPercent));
   if (mode === 'none') return 1;
+  if (dbfs <= GATE_MONITOR_SILENCE_FLOOR_DBFS) return 1;
   if (dbfs >= thresholdDbfs) return 1;
   if (mode === 'hard') return 0;
   const delta = thresholdDbfs - dbfs;

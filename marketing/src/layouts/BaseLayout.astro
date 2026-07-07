@@ -5,7 +5,7 @@ import '@fontsource/inter/600.css';
 import '@fontsource/inter/700.css';
 import '@fontsource/inter/800.css';
 import '../styles/global.scss';
-import { CHAT_APP_ORIGIN } from '../site';
+import { CHAT_APP_ORIGIN, MARKETING_SITE_NAME } from '../site';
 import { marketingCanonicalUrl } from '../lib/canonicalUrl';
 import {
   OG_IMAGE_ALT,
@@ -61,7 +61,7 @@ const ogImageType = ogImagePath.endsWith('.svg')
     />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="application-name" content="Echo" />
+    <meta name="application-name" content={MARKETING_SITE_NAME} />
     <meta name="theme-color" content="#f9f9fb" />
     <meta name="color-scheme" content="light" />
     <meta name="format-detection" content="telephone=no" />
@@ -87,7 +87,7 @@ const ogImageType = ogImagePath.endsWith('.svg')
     <link rel="dns-prefetch" href={CHAT_APP_ORIGIN} />
 
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Echo" />
+    <meta property="og:site_name" content={MARKETING_SITE_NAME} />
     <meta property="og:locale" content={ogLocale} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />

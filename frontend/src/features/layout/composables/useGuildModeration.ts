@@ -310,13 +310,22 @@ export function useGuildModeration(deps: {
   }) {
     const sid = selectedServer.value?.id;
     const cur = currentUser.value?.id;
-    if (!sid || sid === 'echo' || !cur) return;
+    if (!sid || sid === 'echo' || !cur) {
+      dispatchAppToast('Sign in on a server to moderate members.', 'info');
+      return;
+    }
     const action =
       payload.action === 'timeout' &&
       isMemberCommunicationTimedOut(sid, payload.targetUserId)
         ? 'untimeout'
         : payload.action;
-    if (!canModerateMemberActionInServer(payload.targetUserId, action)) return;
+    if (!canModerateMemberActionInServer(payload.targetUserId, action)) {
+      dispatchAppToast(
+        "You don't have permission to moderate this member.",
+        'warning',
+      );
+      return;
+    }
     moderationAction.value = action;
     moderationTargetUserId.value = payload.targetUserId;
     moderationModalOpen.value = true;
@@ -471,7 +480,13 @@ export function useGuildModeration(deps: {
       isEchoAuthUserId(payload.targetUserId);
 
     if (payload.action === 'inviteToSpeak') {
-      if (!useEchoVoiceModerate) return;
+      if (!useEchoVoiceModerate) {
+        dispatchAppToast(
+          'Invite to speak is not available for this server yet.',
+          'info',
+        );
+        return;
+      }
       try {
         await postEchoVoiceModerate(authSession.accessToken, sid, {
           action: 'invite_to_speak',
@@ -484,7 +499,13 @@ export function useGuildModeration(deps: {
         dispatchAppToast(`Could not invite to speak: ${msg}`, 'warning');
       }
     } else if (payload.action === 'moveToAudience') {
-      if (!useEchoVoiceModerate) return;
+      if (!useEchoVoiceModerate) {
+        dispatchAppToast(
+          'Move to audience is not available for this server yet.',
+          'info',
+        );
+        return;
+      }
       try {
         await postEchoVoiceModerate(authSession.accessToken, sid, {
           action: 'move_to_audience',

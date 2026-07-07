@@ -1,7 +1,10 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useUiAudioDevicesStore } from '@/stores/uiAudioDevices';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
-import { supportsAudioOutputSelection } from '@/platform/browserCompatibility';
+import {
+  defaultAudioOutputDeviceLabel,
+  isAudioOutputDeviceSelectionAvailable,
+} from '@/platform/browserCompatibility';
 
 export interface MediaDeviceOption {
   label: string;
@@ -15,6 +18,11 @@ const FRIENDLY_DEFAULT: Record<DeviceKind, string> = {
   audiooutput: 'Default Speaker',
   videoinput: 'Default Camera',
 };
+
+function friendlyDefaultLabel(kind: DeviceKind): string {
+  if (kind === 'audiooutput') return defaultAudioOutputDeviceLabel();
+  return FRIENDLY_DEFAULT[kind];
+}
 
 const NEW_DEVICE_TOAST_MS = 4000;
 const DEVICE_CHANGE_DEBOUNCE_MS = 350;
@@ -81,23 +89,23 @@ function createMediaDevicesState() {
   let deviceChangeDebounce: ReturnType<typeof setTimeout> | null = null;
 
   function toOptions(kind: DeviceKind): MediaDeviceOption[] {
-    if (kind === 'audiooutput' && !supportsAudioOutputSelection()) {
-      return [{ label: FRIENDLY_DEFAULT[kind], value: 'default' }];
+    if (kind === 'audiooutput' && !isAudioOutputDeviceSelectionAvailable()) {
+      return [{ label: defaultAudioOutputDeviceLabel(), value: 'default' }];
     }
     const devices = allDevices.value.filter((d) => d.kind === kind);
     if (devices.length === 0) {
-      return [{ label: FRIENDLY_DEFAULT[kind], value: 'default' }];
+      return [{ label: friendlyDefaultLabel(kind), value: 'default' }];
     }
     const opts: MediaDeviceOption[] = [];
     const hasDefault = devices.some((d) => d.deviceId === 'default');
     if (!hasDefault) {
-      opts.push({ label: FRIENDLY_DEFAULT[kind], value: 'default' });
+      opts.push({ label: friendlyDefaultLabel(kind), value: 'default' });
     }
     for (const d of devices) {
       const label =
         d.label ||
         (d.deviceId === 'default'
-          ? FRIENDLY_DEFAULT[kind]
+          ? friendlyDefaultLabel(kind)
           : `${kind === 'audioinput' ? 'Microphone' : kind === 'audiooutput' ? 'Speaker' : 'Camera'} (${d.deviceId.slice(0, 8)})`);
       opts.push({ label, value: d.deviceId });
     }

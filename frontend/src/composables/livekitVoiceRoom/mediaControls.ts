@@ -382,7 +382,8 @@ export function createMediaControls(ctx: LiveKitVoiceSessionContext) {
         );
       }
     }
-    if (!echoSyncCapabilities.browser.supportsAudioOutputSelection) return;
+    if (!echoSyncCapabilities.browser.isAudioOutputDeviceSelectionAvailable)
+      return;
     try {
       await room.switchActiveDevice('audiooutput', deviceId);
     } catch (e) {

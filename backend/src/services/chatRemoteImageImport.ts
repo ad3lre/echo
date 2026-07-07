@@ -20,6 +20,7 @@ import {
 } from './s3UploadPresign';
 import { registerChatUploadRetention } from './chatUploadRetention';
 import { probeImageDimensionsFromBuffer } from './probeImageDimensionsFromBuffer';
+import { prepareRasterForEchoStorage } from './rasterImageTranscode';
 
 const MAX_REDIRECTS = 4;
 const FETCH_TIMEOUT_MS = 30_000;
@@ -214,10 +215,14 @@ export async function importChatRemoteImage(opts: {
   const ext =
     (fetched.filenameHint && path.extname(fetched.filenameHint.trim())) ||
     extForContentType(fetched.contentType);
-  const objectKey = `remote-image-${nextEchoSnowflakeId()}${ext || '.jpg'}`;
+  const prepared = await prepareRasterForEchoStorage(
+    fetched.buf,
+    fetched.contentType,
+  );
+  const objectKey = `remote-image-${nextEchoSnowflakeId()}${prepared.ext || ext || '.jpg'}`;
   const dest = await resolveEchoUploadStorageKey(pool, userId, {
     channelId,
-    contentType: fetched.contentType,
+    contentType: prepared.contentType,
     objectKey,
   });
   if (!dest.ok) {
@@ -233,8 +238,8 @@ export async function importChatRemoteImage(opts: {
     const stored = await storeEchoUploadBuffer({
       pool,
       storageKey: dest.storageKey,
-      buf: fetched.buf,
-      contentType: fetched.contentType,
+      buf: prepared.buf,
+      contentType: prepared.contentType,
     });
     if (!stored.ok) {
       return {
@@ -272,19 +277,22 @@ export async function importChatRemoteImage(opts: {
 
   await registerChatUploadRetention(pool, {
     storageKey: dest.storageKey,
-    byteLength: fetched.buf.length,
+    byteLength: prepared.buf.length,
     sourceType: 'user',
     uploaderId: userId,
   });
 
-  const dims = probeImageDimensionsFromBuffer(fetched.buf, fetched.contentType);
+  const dims =
+    prepared.width && prepared.height
+      ? { width: prepared.width, height: prepared.height }
+      : probeImageDimensionsFromBuffer(prepared.buf, prepared.contentType);
 
   return {
     ok: true,
     url,
     storageKey: dest.storageKey,
-    mimeType: fetched.contentType,
-    fileSize: fetched.buf.length,
+    mimeType: prepared.contentType,
+    fileSize: prepared.buf.length,
     ...(dims ? { width: dims.width, height: dims.height } : {}),
   };
 }

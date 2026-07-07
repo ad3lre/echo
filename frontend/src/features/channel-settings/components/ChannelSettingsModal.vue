@@ -18,7 +18,6 @@ import PermissionOverwriteEditor from '@/features/channel-settings/components/Pe
 import ChannelDiscordSyncPanel from '@/features/channel-settings/components/ChannelDiscordSyncPanel.vue';
 import ChannelDiscordVoiceMirrorPanel from '@/features/channel-settings/components/ChannelDiscordVoiceMirrorPanel.vue';
 import ChannelWebhooksPanel from '@/features/channel-settings/components/ChannelWebhooksPanel.vue';
-import InstanceVoiceRegionsHint from '@/features/channel-settings/components/InstanceVoiceRegionsHint.vue';
 import {
   getChannelIconKeyForEdit,
   getChannelIconVisual,
@@ -1173,7 +1172,6 @@ async function confirmDeleteChannel() {
                         />
                         Bitrate
                       </div>
-                      <InstanceVoiceRegionsHint class="mt-3" />
                       <div
                         class="server-toggle-row mt-3 w-full min-w-0 items-center !py-3.5"
                       >

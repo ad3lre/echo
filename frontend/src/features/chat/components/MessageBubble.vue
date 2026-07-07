@@ -1326,6 +1326,7 @@ watch(
   <MessageReactionsVotersModal
     v-model="reactionsVotersModalOpen"
     :reactions="message.reactions ?? []"
+    :channel-id="channelId"
     :message-preview="messagePreviewForReactionsModal"
     :message-id="message.id"
     :current-user-id="currentUserId"

@@ -308,6 +308,11 @@ fn build_echo_tray_menu(
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn echo_tray_icon() -> Option<tauri::image::Image<'static>> {
+  tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png")).ok()
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn setup_desktop_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   let default_labels = TrayMenuLabelsPayload {
     show: "Show Echo".into(),
@@ -324,8 +329,8 @@ fn setup_desktop_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>
     .show_menu_on_left_click(true)
     .tooltip(default_labels.tooltip.as_deref().unwrap_or("Echo"));
 
-  if let Some(icon) = app.default_window_icon() {
-    builder = builder.icon(icon.clone());
+  if let Some(icon) = echo_tray_icon().or_else(|| app.default_window_icon().cloned()) {
+    builder = builder.icon(icon);
   }
 
   let app_handle = app.handle().clone();
@@ -455,6 +460,26 @@ fn log_frontend_event(
 fn desktop_shell_bring_main_to_front(app: tauri::AppHandle) -> Result<(), String> {
   bring_main_window_to_front(&app);
   Ok(())
+}
+
+/// Native WebView hard reload (cache flush + reload). Used after backend recovery so the
+/// desktop shell resets like a browser hard refresh — `window.location.reload()` alone
+/// can leave stale WebView state on Tauri.
+#[tauri::command]
+fn desktop_shell_hard_reload(app: tauri::AppHandle) -> Result<(), String> {
+  #[cfg(any(target_os = "android", target_os = "ios"))]
+  {
+    let _ = app;
+    return Err("hard reload is desktop-only".into());
+  }
+  #[cfg(not(any(target_os = "android", target_os = "ios")))]
+  {
+    let Some(w) = app.get_webview_window("main") else {
+      return Err("missing main window".into());
+    };
+    let _ = w.clear_all_browsing_data();
+    w.reload().map_err(|e| format!("reload: {e}"))
+  }
 }
 
 #[tauri::command]
@@ -833,6 +858,12 @@ pub fn run() {
       #[cfg(debug_assertions)]
       eprintln!("[echo-desktop] single-instance argv: {safe_argv:?}");
 
+      for arg in argv {
+        if arg.starts_with("echo://") {
+          let _ = app.emit("echo-desktop-open-url", arg.clone());
+        }
+      }
+
       bring_main_window_to_front(app);
     }));
   }
@@ -883,6 +914,7 @@ pub fn run() {
       desktop_log_path,
       log_frontend_event,
       desktop_shell_bring_main_to_front,
+      desktop_shell_hard_reload,
       desktop_shell_request_user_attention,
       desktop_shell_set_close_to_tray,
       desktop_shell_get_close_to_tray,

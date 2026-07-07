@@ -34,7 +34,7 @@
 	</array>
 	<!--
 	  Export compliance: Echo uses only standard, publicly-available encryption
-	  (HTTPS/TLS in transit + standard primitives for end-to-end encrypted DMs).
+	  (HTTPS/TLS in transit + standard primitives for end-to-end encrypted calls).
 	  `false` declares no use of *non-exempt* encryption under the mass-market
 	  exemption. CONFIRM WITH LEGAL before first submission — shipping E2EE can
 	  require either claiming the exemption explicitly or filing the annual

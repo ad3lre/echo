@@ -52,7 +52,10 @@ import type { ChannelCategory } from '@/composables/useChannels';
 import type { EchoChannelPatch } from '@/api/echo/types';
 import type { RailTab } from '@/features/layout/mainSurface';
 import { getChannelDisplayName, icons } from '@/assets/icons';
-import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
+import {
+  dispatchAppToast,
+  dispatchAppToastDetail,
+} from '@/utils/controllerMissingAction';
 
 const CHANNEL_STRUCTURE_ACTION_TOAST_MS = 2600;
 
@@ -696,7 +699,13 @@ export function useGuildChannelModals(deps: {
 
   function openCategorySettings(categoryId: string) {
     const cat = categoriesForServer.value.find((c) => c.id === categoryId);
-    if (!cat) return;
+    if (!cat) {
+      dispatchAppToast(
+        'That category is no longer available. Refresh and try again.',
+        'warning',
+      );
+      return;
+    }
     const sid = selectedServer.value?.id;
     categorySettingsTarget.value = {
       categoryId: cat.id,

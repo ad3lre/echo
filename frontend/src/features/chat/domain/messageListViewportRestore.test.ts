@@ -65,7 +65,7 @@ describe('messageListViewportRestore', () => {
     container.scrollTop = 0;
 
     const scrollToIndex = vi.fn();
-    restoreViewportAnchorInContainer(
+    const ok = restoreViewportAnchorInContainer(
       container,
       ['m1', 'm2', 'm3'],
       { scrollToIndex },
@@ -76,5 +76,25 @@ describe('messageListViewportRestore', () => {
       align: 'start',
       behavior: 'auto',
     });
+    expect(ok).toBe(true);
+  });
+
+  it('returns false when anchor row is not mounted yet', () => {
+    const container = setupContainer();
+    container.scrollTop = 0;
+
+    const scrollToIndex = vi.fn();
+    const ok = restoreViewportAnchorInContainer(
+      container,
+      ['m1', 'm2', 'm3'],
+      { scrollToIndex },
+      { anchorMessageId: 'm3', anchorTop: 24 },
+    );
+
+    expect(scrollToIndex).toHaveBeenCalledWith(2, {
+      align: 'start',
+      behavior: 'auto',
+    });
+    expect(ok).toBe(false);
   });
 });

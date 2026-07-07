@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import DOMPurify from 'dompurify';
 import {
   ensureDisplayStyleForOperatorLimits,
+  normalizeKatexDisplaySpacing,
   normalizeKatexInput,
 } from '@/composables/normalizeKatexInput';
 
@@ -204,7 +205,10 @@ export function renderMarkdownKatexHtml(
   displayMode: boolean,
 ): string {
   const normalized = normalizeKatexInput(latex);
-  const src = ensureDisplayStyleForOperatorLimits(normalized, displayMode);
+  const spaced = displayMode
+    ? normalizeKatexDisplaySpacing(normalized)
+    : normalized;
+  const src = ensureDisplayStyleForOperatorLimits(spaced, displayMode);
   const key = `${displayMode ? 'd' : 'i'}:${src}`;
   const hit = getCachedString(katexRenderCache, key);
   if (hit !== undefined) return hit;
@@ -226,7 +230,7 @@ export function renderMarkdownKatexHtml(
         displayMode,
         throwOnError: false,
         trust: false,
-        strict: 'warn',
+        strict: false,
         output: 'htmlAndMathml',
         maxExpand: 2000,
         maxSize: 20,
@@ -242,7 +246,10 @@ export function renderMarkdownKatexSafeHtml(
   displayMode: boolean,
 ): string {
   const normalized = normalizeKatexInput(latex);
-  const src = ensureDisplayStyleForOperatorLimits(normalized, displayMode);
+  const spaced = displayMode
+    ? normalizeKatexDisplaySpacing(normalized)
+    : normalized;
+  const src = ensureDisplayStyleForOperatorLimits(spaced, displayMode);
   const key = `${displayMode ? 'd' : 'i'}:${src}:safe`;
   const hit = getCachedString(katexSafeRenderCache, key);
   if (hit !== undefined) return hit;

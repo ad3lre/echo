@@ -33,6 +33,10 @@ import {
   registerPaperCollabHandler,
   startPaperCollabLockPruner,
 } from './paperCollabHandler';
+import {
+  cleanupGameTunnelOnDisconnect,
+  registerGameTunnelHandler,
+} from './gameTunnelHandler';
 import { appendBackendDiagnostic } from '../observability/sessionDiagnostics';
 import { touchAuthUserLastSeenIp } from '../auth/authUserLastSeenIp';
 import { clientIpFromSocketHandshake } from '../net/clientIp';
@@ -254,6 +258,9 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
     registerPaperCollabHandler(socket, io, log, socket.data.userId, {
       authenticated,
     });
+    registerGameTunnelHandler(socket, io, log, socket.data.userId, {
+      authenticated,
+    });
 
     // Handle any socket-level errors.
     socket.on('error', (err) => {
@@ -277,6 +284,7 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
         },
       });
       if (!authenticated || socket.data.userId.startsWith('user_')) return;
+      cleanupGameTunnelOnDisconnect(socket.id, socket.data.userId);
       const uid = socket.data.userId;
       unregisterUserSocket(uid, socket.id);
       const remaining = unregisterEchoPresenceSocket(uid);

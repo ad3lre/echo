@@ -20,8 +20,42 @@
   .header-brand {
     display: flex;
     align-items: center;
+    gap: 0.7rem;
     justify-self: start;
     flex-shrink: 0;
+    color: var(--text);
+    text-decoration: none;
+    border-radius: var(--radius);
+    transition:
+      transform 0.18s ease,
+      opacity 0.18s ease;
+
+    &:hover,
+    &:focus-visible {
+      transform: translateY(-1px);
+
+      .header-logo {
+        box-shadow:
+          0 0 0 1px rgba(88, 66, 244, 0.14),
+          0 8px 20px rgba(88, 66, 244, 0.16);
+      }
+    }
+  }
+
+  .header-wordmark {
+    font-size: 1.3125rem;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 1;
+    background: linear-gradient(
+      120deg,
+      var(--text) 0%,
+      #2a2540 42%,
+      var(--accent) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   .header-logo {
@@ -31,6 +65,8 @@
     border-radius: 0.625rem;
     clip-path: inset(0 round 0.625rem);
     -webkit-clip-path: inset(0 round 0.625rem);
+    box-shadow: 0 2px 10px rgba(15, 15, 20, 0.08);
+    transition: box-shadow 0.18s ease;
   }
 
   .nav-main {
@@ -175,6 +211,11 @@
     .header-logo {
       width: 2.35rem;
       height: 2.35rem;
+    }
+
+    .header-wordmark {
+      font-size: 1.125rem;
+      letter-spacing: -0.04em;
     }
 
     .btn-open-echo {

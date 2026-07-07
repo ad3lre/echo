@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-07-05",
+  "enrolledAt": "2026-07-07",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -20,8 +20,8 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/connect.ts": {
-      "lines": 300,
-      "longestFunction": 261,
+      "lines": 315,
+      "longestFunction": 275,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
     },
@@ -32,14 +32,14 @@
       "maxNestingSpaces": 6
     },
     "frontend/src/composables/livekitVoiceRoom/mediaControls.ts": {
-      "lines": 438,
-      "longestFunction": 396,
+      "lines": 439,
+      "longestFunction": 397,
       "deepNestingLines": 3,
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/micSend.ts": {
-      "lines": 324,
-      "longestFunction": 255,
+      "lines": 330,
+      "longestFunction": 260,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -62,8 +62,8 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/session.ts": {
-      "lines": 377,
-      "longestFunction": 337,
+      "lines": 379,
+      "longestFunction": 339,
       "deepNestingLines": 5,
       "maxNestingSpaces": 14
     },
@@ -121,6 +121,12 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
+    "frontend/src/features/games/useGameRoom.ts": {
+      "lines": 127,
+      "longestFunction": 87,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
     "frontend/src/features/layout/components/MoreServersCardStack.vue": {
       "lines": 529,
       "longestFunction": 7,
@@ -140,8 +146,8 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/buildAppLayoutAssemblyDeps.ts": {
-      "lines": 773,
-      "longestFunction": 762,
+      "lines": 777,
+      "longestFunction": 766,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -218,20 +224,20 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/features/layout/composables/wireAppLayoutDmAndShell.ts": {
-      "lines": 1124,
-      "longestFunction": 1014,
+      "lines": 1127,
+      "longestFunction": 1017,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
     "frontend/src/features/layout/composables/wireAppLayoutMessagingAndProfiles.ts": {
-      "lines": 1447,
-      "longestFunction": 1379,
+      "lines": 1451,
+      "longestFunction": 1383,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/wireAppLayoutVoiceAndRealtime.ts": {
-      "lines": 1855,
-      "longestFunction": 1755,
+      "lines": 1862,
+      "longestFunction": 1762,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -295,6 +301,12 @@
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
     },
+    "frontend/src/features/voice/composables/useVcIframeGameEmbed.ts": {
+      "lines": 92,
+      "longestFunction": 82,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
     "frontend/src/features/voice/composables/useVcWatchTogetherPlayer.ts": {
       "lines": 228,
       "longestFunction": 208,
@@ -356,7 +368,7 @@
       "maxNestingSpaces": 8
     },
     "backend/src/api/routes/appleOAuth.ts": {
-      "lines": 245,
+      "lines": 244,
       "longestFunction": 4,
       "deepNestingLines": 13,
       "maxNestingSpaces": 16
@@ -386,8 +398,8 @@
       "maxNestingSpaces": 8
     },
     "backend/src/services/chatRemoteImageImport.ts": {
-      "lines": 291,
-      "longestFunction": 140,
+      "lines": 299,
+      "longestFunction": 147,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -396,6 +408,12 @@
       "longestFunction": 52,
       "deepNestingLines": 5,
       "maxNestingSpaces": 14
+    },
+    "backend/src/services/rasterImageWebpBackfill.ts": {
+      "lines": 445,
+      "longestFunction": 61,
+      "deepNestingLines": 4,
+      "maxNestingSpaces": 13
     },
     "shared/discordEmbedApi.ts": {
       "lines": 130,

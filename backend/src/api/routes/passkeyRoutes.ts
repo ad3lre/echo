@@ -24,6 +24,7 @@ import { getAuthStore } from '../../auth/store';
 import { requireAuth } from '../../auth/middleware';
 import { loginAuditDigests } from '../../auth/loginAudit';
 import { issueEchoBrowserSession } from '../../auth/issueBrowserSession';
+import { authSessionJsonBody } from '../../auth/authSessionResponse';
 import { signMfaPendingToken } from '../../auth/token';
 import { clearGuestBindingCookie } from '../../auth/sessionCookies';
 import {
@@ -648,7 +649,7 @@ export default async function passkeyRoutes(
             });
           }
           clearGuestBindingCookie(reply);
-          const { user: logged, csrfToken } = await issueEchoBrowserSession(
+          const session = await issueEchoBrowserSession(
             store,
             { id: user.id, username: user.username },
             reply,
@@ -660,7 +661,7 @@ export default async function passkeyRoutes(
             ipDigest: audit.ipDigest,
             uaDigest: audit.uaDigest,
           });
-          return reply.code(200).send({ user: logged, csrfToken });
+          return reply.code(200).send(authSessionJsonBody(session));
         } catch (err) {
           fastify.log.error(err, 'passkey_login_verify_failed');
           return sendError(

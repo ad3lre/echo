@@ -20,6 +20,8 @@ import {
   deferAfterProfilePointerAction,
   suppressProfileUiInteraction,
 } from '@/utils/profileUiPointerGuard';
+import { createGuildMemberProfileDetailHydrator } from './guildMemberProfileDetailHydration';
+import type { WorkspaceRosterUserRow } from '@/services/domain/workspaceRoster';
 
 type User = {
   id: string;
@@ -62,6 +64,8 @@ interface UseAppLayoutProfilesOptions {
   memberPopoutAnchor: Ref<PopoutAnchorRect | null>;
   selfProfileAnchor: Ref<PopoutAnchorRect | null>;
   selfProfile: Ref<MemberProfile | null>;
+  getToken: () => string;
+  canFetchProfileDetail: () => boolean;
 }
 
 export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
@@ -90,7 +94,45 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     memberPopoutAnchor,
     selfProfileAnchor,
     selfProfile,
+    getToken,
+    canFetchProfileDetail,
   } = options;
+
+  const ensureGuildMemberProfileDetailHydrated =
+    createGuildMemberProfileDetailHydrator({
+      getToken,
+      users: users as unknown as Ref<readonly WorkspaceRosterUserRow[]>,
+      canFetch: canFetchProfileDetail,
+    });
+
+  function applyMemberProfileForUserId(
+    userId: string,
+    anchorRect: PopoutAnchorRect | null,
+  ): boolean {
+    const user = users.value.find((entry) => entry.id === userId);
+    if (!user) return false;
+    const base = buildMemberProfile(
+      user as never,
+      selectedServer.value?.id ?? 'echo',
+      selectedServer.value?.name ?? 'Direct Messages',
+      {
+        memberJoinedAtIso: memberJoinedAtForSelectedServer(userId),
+        serverImageUrl: selectedServer.value?.imageUrl,
+      },
+    );
+    activeMemberProfile.value = applySessionPresenceToMemberProfile(
+      base,
+      echoSession.presenceByUserId[userId],
+    );
+    memberPopoutAnchor.value = anchorRect;
+    return true;
+  }
+
+  function refreshActiveMemberProfileIfOpen(userId: string): void {
+    if (!isMemberPopoutOpen.value) return;
+    if (activeMemberProfile.value?.id !== userId) return;
+    applyMemberProfileForUserId(userId, memberPopoutAnchor.value);
+  }
 
   function memberJoinedAtForSelectedServer(userId: string): string | undefined {
     return lookupServerMemberJoinedAtIso(
@@ -185,23 +227,11 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
       openExtendedProfileModalForUserId(userId);
       return;
     }
-    const user = users.value.find((entry) => entry.id === userId);
-    if (!user) return;
-    const base = buildMemberProfile(
-      user as never,
-      selectedServer.value?.id ?? 'echo',
-      selectedServer.value?.name ?? 'Direct Messages',
-      {
-        memberJoinedAtIso: memberJoinedAtForSelectedServer(userId),
-        serverImageUrl: selectedServer.value?.imageUrl,
-      },
-    );
-    activeMemberProfile.value = applySessionPresenceToMemberProfile(
-      base,
-      echoSession.presenceByUserId[userId],
-    );
-    memberPopoutAnchor.value = anchorRect;
+    if (!applyMemberProfileForUserId(userId, anchorRect)) return;
     isMemberPopoutOpen.value = true;
+    void ensureGuildMemberProfileDetailHydrated(userId).then(() => {
+      refreshActiveMemberProfileIfOpen(userId);
+    });
   }
 
   const activeMemberNote = computed(() => {
@@ -248,6 +278,12 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     isExpandedProfileSidePanel.value = false;
     deferAfterProfilePointerAction(() => {
       isMemberPopoutOpen.value = false;
+    });
+    if (isInDMChat.value) return;
+    void ensureGuildMemberProfileDetailHydrated(profile.id).then(() => {
+      if (!isExpandedProfileModalOpen.value) return;
+      if (expandedProfileTargetUserId.value?.trim() !== profile.id) return;
+      rehydrateExpandedProfileForUserId(profile.id);
     });
   }
 
@@ -386,14 +422,19 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     isExpandedProfileSidePanel.value = false;
     isGroupOverviewOpen.value = false;
     isExpandedProfileModalOpen.value = true;
-    rehydrateExpandedProfileForUserId(trimmed);
-    if (!expandedProfile.value) {
-      expandedProfile.value = buildExpandedProfile(
-        baseProfile,
-        cur.id,
-        expandedProfileInputs(),
-      );
-    }
+    expandedProfileTargetUserId.value = trimmed;
+    expandedProfile.value = null;
+    void ensureGuildMemberProfileDetailHydrated(trimmed).finally(() => {
+      if (!isExpandedProfileModalOpen.value) return;
+      if (expandedProfileTargetUserId.value?.trim() !== trimmed) return;
+      if (!rehydrateExpandedProfileForUserId(trimmed)) {
+        expandedProfile.value = buildExpandedProfile(
+          baseProfile,
+          cur.id,
+          expandedProfileInputs(),
+        );
+      }
+    });
   }
 
   function handleExpandedProfileOpenDM(

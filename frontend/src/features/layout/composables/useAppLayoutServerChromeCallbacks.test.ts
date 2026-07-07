@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
 import { useAppLayoutServerChromeCallbacks } from './useAppLayoutServerChromeCallbacks';
+import { dispatchAppToast } from '@/utils/controllerMissingAction';
+
+vi.mock('@/utils/controllerMissingAction', () => ({
+  dispatchAppToast: vi.fn(),
+}));
 
 describe('useAppLayoutServerChromeCallbacks', () => {
   it('opens server settings and clears initial section on close', () => {
@@ -15,6 +20,7 @@ describe('useAppLayoutServerChromeCallbacks', () => {
       serverSettingsModalActiveSection: active,
       isInviteModalOpen: inviteOpen,
       clearInviteVoiceContext: clearVoice,
+      canOpenServerSettingsForServer: () => true,
     });
     c.openServerSettings('s1');
     expect(isOpen.value).toBe(true);
@@ -39,5 +45,26 @@ describe('useAppLayoutServerChromeCallbacks', () => {
     });
     c.openInviteModal('s1');
     expect(inviteOpen.value).toBe(false);
+    expect(dispatchAppToast).toHaveBeenCalledWith(
+      "You don't have permission to invite people to this server.",
+      'warning',
+    );
+  });
+
+  it('does not open server settings when canOpenServerSettingsForServer denies', () => {
+    const isOpen = ref(false);
+    const c = useAppLayoutServerChromeCallbacks({
+      isServerSettingsModalOpen: isOpen,
+      serverSettingsModalInitialSection: ref(null),
+      serverSettingsModalActiveSection: ref('Overview'),
+      isInviteModalOpen: ref(false),
+      canOpenServerSettingsForServer: () => false,
+    });
+    c.openServerSettingsIfAllowed('s1');
+    expect(isOpen.value).toBe(false);
+    expect(dispatchAppToast).toHaveBeenCalledWith(
+      "You don't have permission to open server settings.",
+      'warning',
+    );
   });
 });

@@ -61,6 +61,8 @@ describe('useAppLayoutProfiles DM overview', () => {
       memberPopoutAnchor,
       selfProfileAnchor,
       selfProfile,
+      getToken: () => '',
+      canFetchProfileDetail: () => false,
     });
 
     api.openExpandedProfilePanelForUserId('peer');
@@ -113,6 +115,8 @@ describe('useAppLayoutProfiles DM overview', () => {
       memberPopoutAnchor: ref(null),
       selfProfileAnchor: ref(null),
       selfProfile: ref(null),
+      getToken: () => '',
+      canFetchProfileDetail: () => false,
     });
 
     api.openExtendedProfileModalForUserId('peer', {
@@ -168,6 +172,8 @@ describe('useAppLayoutProfiles DM overview', () => {
       memberPopoutAnchor,
       selfProfileAnchor,
       selfProfile,
+      getToken: () => '',
+      canFetchProfileDetail: () => false,
     });
 
     vi.advanceTimersByTime(500);
@@ -222,6 +228,8 @@ describe('useAppLayoutProfiles DM overview', () => {
       memberPopoutAnchor: ref(null),
       selfProfileAnchor: ref(null),
       selfProfile: ref(null),
+      getToken: () => '',
+      canFetchProfileDetail: () => false,
     });
 
     api.expandDmProfileToFullModal();

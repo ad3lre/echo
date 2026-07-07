@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  audioOutputDeviceLimitedReason,
+  defaultAudioOutputDeviceLabel,
+  isAudioOutputDeviceSelectionAvailable,
   isBraveBrowser,
   isBraveBrowserSyncHint,
   isWebKitDesktop,
@@ -10,6 +13,39 @@ vi.mock('@/platform/desktopBridge', () => ({
 }));
 
 import { isDesktop } from '@/platform/desktopBridge';
+
+describe('audioOutputDeviceLimitedReason', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.mocked(isDesktop).mockReturnValue(false);
+  });
+
+  it('returns ios on iPad Safari', () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+      vendor: 'Apple Computer, Inc.',
+      platform: 'iPad',
+      maxTouchPoints: 5,
+    });
+    expect(audioOutputDeviceLimitedReason()).toBe('ios');
+    expect(isAudioOutputDeviceSelectionAvailable()).toBe(false);
+    expect(defaultAudioOutputDeviceLabel()).toBe('System speaker');
+  });
+
+  it('returns mac-desktop for Tauri macOS WebKit', () => {
+    vi.mocked(isDesktop).mockReturnValue(true);
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+      vendor: 'Apple Computer, Inc.',
+      platform: 'MacIntel',
+      maxTouchPoints: 0,
+    });
+    expect(audioOutputDeviceLimitedReason()).toBe('mac-desktop');
+    expect(defaultAudioOutputDeviceLabel()).toBe('System output');
+  });
+});
 
 describe('isWebKitDesktop', () => {
   afterEach(() => {

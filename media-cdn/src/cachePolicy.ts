@@ -11,11 +11,21 @@ export function cacheControlForStorageKey(storageKey: string): string {
   ) {
     return 'public, max-age=31536000, immutable';
   }
-  if (key.includes('/hls/') && /\.(m4s|ts)$/i.test(key)) {
-    return 'public, max-age=86400';
+  // Match backend `cacheControlForHlsObjectKey` (echoUploadHlsObjectStore.ts):
+  // manifests are rewritten in place at a stable path → short public TTL + revalidation;
+  // segments/init are content-addressed per pack → immutable for a year.
+  if (key.toLowerCase().endsWith('.m3u8')) {
+    return 'public, max-age=60, must-revalidate';
   }
-  if (key.endsWith('/hls/master.m3u8') || key.includes('/hls/')) {
-    return 'private, max-age=300';
+  if (key.includes('/hls/')) {
+    return 'public, max-age=31536000, immutable';
   }
   return 'private, max-age=300';
+}
+
+/** Deterministic resize/transcode URLs can cache longer than raw private objects. */
+export function cacheControlForVariant(storageKey: string): string {
+  const base = cacheControlForStorageKey(storageKey);
+  if (base.includes('immutable')) return base;
+  return 'private, max-age=86400';
 }

@@ -8,6 +8,7 @@ import {
 } from '@/services/e2ee/e2eeMessageCrypto';
 import { VOICE_E2EE_V2_ENABLED } from '@/config';
 import { startVoiceMlsSession } from '@/services/voice/mls/voiceMlsSession';
+import { isVoiceMlsDisabledError } from '@/services/voice/mls/mlsGroupClient';
 import type { MlsScope } from '@/services/voice/mls/mlsDeliveryClient';
 
 export type EchoVoiceE2eeEnvelopeWire = {
@@ -35,24 +36,36 @@ export type VoiceE2eePrepareResult = {
   keyIndex?: number;
 };
 
-/** v2: join the channel's MLS group and return the initial epoch key + index. */
+/**
+ * v2: join the channel's MLS group and return the initial epoch key + index.
+ * When the server reports voice E2EE disabled for this channel, returns a null
+ * media key so the call proceeds with transport (DTLS-SRTP) encryption — the
+ * backend flag is the source of truth, not the client build.
+ */
 async function prepareVoiceMls(opts: {
   scope: MlsScope;
   viewerUserId: string;
   token: string;
   authorizedUserIds: string[];
 }): Promise<VoiceE2eePrepareResult> {
-  const { epochKey, senderDeviceId } = await startVoiceMlsSession({
-    scope: opts.scope,
-    viewerUserId: opts.viewerUserId,
-    token: opts.token,
-    authorizedUserIds: opts.authorizedUserIds,
-  });
-  return {
-    mediaKey: epochKey.raw,
-    senderDeviceId,
-    keyIndex: epochKey.keyIndex,
-  };
+  try {
+    const { epochKey, senderDeviceId } = await startVoiceMlsSession({
+      scope: opts.scope,
+      viewerUserId: opts.viewerUserId,
+      token: opts.token,
+      authorizedUserIds: opts.authorizedUserIds,
+    });
+    return {
+      mediaKey: epochKey.raw,
+      senderDeviceId,
+      keyIndex: epochKey.keyIndex,
+    };
+  } catch (e) {
+    if (isVoiceMlsDisabledError(e)) {
+      return { mediaKey: null, senderDeviceId: '' };
+    }
+    throw e;
+  }
 }
 
 /** Thrown when an active epoch exists but this client must not rotate it. */

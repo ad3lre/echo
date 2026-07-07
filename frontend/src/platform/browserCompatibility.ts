@@ -94,6 +94,34 @@ export function supportsAudioOutputSelection(): boolean {
   );
 }
 
+/** Why Echo cannot offer an in-app speaker picker (null = selection is available). */
+export type AudioOutputLimitedReason =
+  | 'ios'
+  | 'mac-desktop'
+  | 'unsupported-browser';
+
+/**
+ * Browsers where `setSinkId` may exist but output switching is unreliable or blocked
+ * (iPadOS impersonates desktop Safari; iOS routes audio at the system level).
+ */
+export function audioOutputDeviceLimitedReason(): AudioOutputLimitedReason | null {
+  if (isIosLikeBrowser()) return 'ios';
+  if (isWebKitDesktop()) return 'mac-desktop';
+  if (!supportsAudioOutputSelection()) return 'unsupported-browser';
+  return null;
+}
+
+export function isAudioOutputDeviceSelectionAvailable(): boolean {
+  return audioOutputDeviceLimitedReason() === null;
+}
+
+export function defaultAudioOutputDeviceLabel(): string {
+  const limited = audioOutputDeviceLimitedReason();
+  if (limited === 'ios') return 'System speaker';
+  if (limited === 'mac-desktop') return 'System output';
+  return 'Default Speaker';
+}
+
 export function supportsAudioContextOutputSelection(): boolean {
   const win = getWindow() as
     | (Window & { webkitAudioContext?: typeof AudioContext })
@@ -134,7 +162,7 @@ export function pageNotificationPreviewMode(): EchoPageNotificationPreviewMode {
 export function normalizeAudioOutputDeviceId(
   id: string | null | undefined,
 ): string {
-  if (!supportsAudioOutputSelection()) return 'default';
+  if (!isAudioOutputDeviceSelectionAvailable()) return 'default';
   const trimmed = id?.trim();
   return trimmed ? trimmed : 'default';
 }
@@ -189,6 +217,12 @@ export const echoBrowserCompatibility = {
   },
   get supportsAudioOutputSelection(): boolean {
     return supportsAudioOutputSelection();
+  },
+  get isAudioOutputDeviceSelectionAvailable(): boolean {
+    return isAudioOutputDeviceSelectionAvailable();
+  },
+  get audioOutputDeviceLimitedReason(): AudioOutputLimitedReason | null {
+    return audioOutputDeviceLimitedReason();
   },
   get supportsAudioContextOutputSelection(): boolean {
     return supportsAudioContextOutputSelection();

@@ -25,6 +25,9 @@ const props = defineProps<{
   skrigglesActivity: EchoSkrigglesActivityV1 | null;
   skrigglesRosterUserIds: string[];
   voiceParticipants: readonly { id: string; name: string; pfp?: string }[];
+  voiceChannelId?: string;
+  gameRoomConnected?: boolean;
+  gameRoomError?: string | null;
   canvasEvents: readonly SkrigglesCanvasEvent[];
   commitWordChoice: (word: string) => void;
   submitGuess: (guess: string) => void;
@@ -60,6 +63,30 @@ function displayNameFor(userId: string): string {
 
 const act = computed(() => props.skrigglesActivity);
 const phase = computed(() => act.value?.phase ?? null);
+
+const emptyTitle = computed(() => {
+  if (!props.voiceChannelId?.trim()) return 'Join voice to play';
+  if (props.gameRoomError === 'not_configured') return 'Games unavailable';
+  if (props.gameRoomError) return 'Could not connect to game';
+  if (!props.gameRoomConnected) return 'Connecting to game…';
+  return 'Starting round…';
+});
+
+const emptyBody = computed(() => {
+  if (!props.voiceChannelId?.trim()) {
+    return 'Join a voice channel and open Skriggles so Echo can sync everyone to the same round.';
+  }
+  if (props.gameRoomError === 'not_configured') {
+    return 'The game server is not configured on this Echo instance. Ask an admin to set GAME_SERVER_PUBLIC_URL and run echo-game-server.';
+  }
+  if (props.gameRoomError) {
+    return 'Echo could not reach the game server. Check that echo-game-server is running and reachable from your browser.';
+  }
+  if (!props.gameRoomConnected) {
+    return 'Skriggles is syncing with the voice room. This usually takes a moment after you join voice.';
+  }
+  return 'Skriggles is loading the lobby from the game server.';
+});
 
 const mergedRoster = computed(() =>
   mergeSkrigglesPresenceRoster(
@@ -133,8 +160,17 @@ watch(
   (st) => {
     lastTickSecond.value = -1;
     if (!st) {
-      statusLine.value =
-        'Waiting for the voice room. Join voice and open Skriggles so everyone syncs to the same game.';
+      if (!props.voiceChannelId?.trim()) {
+        statusLine.value =
+          'Waiting for the voice room. Join voice and open Skriggles so everyone syncs to the same game.';
+      } else if (props.gameRoomError) {
+        statusLine.value = 'Could not reach the game server.';
+      } else if (!props.gameRoomConnected) {
+        statusLine.value =
+          'Skriggles is syncing with the game server. This usually takes a moment after you join voice.';
+      } else {
+        statusLine.value = 'Starting lobby…';
+      }
       return;
     }
     if (st.phase === 'lobby') {
@@ -260,10 +296,9 @@ onUnmounted(() => {
     </div>
 
     <div v-if="!act" class="sk-empty">
-      <p class="sk-empty__title">Waiting for the game</p>
+      <p class="sk-empty__title">{{ emptyTitle }}</p>
       <p class="sk-empty__body">
-        Join a voice channel and open Skriggles so Echo can sync everyone to the
-        same round.
+        {{ emptyBody }}
       </p>
     </div>
 

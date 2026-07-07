@@ -14,6 +14,7 @@ const roundedSvgPath = join(repoRoot, 'frontend/public/echo-rounded-trans.svg');
 const echoMarkSvgPath = join(repoRoot, 'frontend/src/assets/icons/echo.svg');
 const outDir = join(repoRoot, 'frontend/public/icons');
 const marketingIconsDir = join(repoRoot, 'marketing/public/icons');
+const tauriIconsDir = join(repoRoot, 'src-tauri/icons');
 
 const THEME_BG = { r: 13, g: 8, b: 18, alpha: 1 }; // #0d0812 (boot splash)
 
@@ -44,6 +45,7 @@ async function rasterizeBrandAsset(absSvgPath, outPath) {
 async function main() {
   await mkdir(outDir, { recursive: true });
   await mkdir(marketingIconsDir, { recursive: true });
+  await mkdir(tauriIconsDir, { recursive: true });
 
   await rasterizeBrandAsset(
     echoMarkSvgPath,
@@ -121,8 +123,11 @@ async function main() {
     join(repoRoot, 'frontend/public/favicon.ico'),
   );
 
+  // Desktop menu bar / system tray: transparent triangle mark (no gradient square).
+  await rasterizeRounded(44).toFile(join(tauriIconsDir, 'tray.png'));
+
   console.log(
-    'PWA + brand PNGs written (public/icons/, favicon.ico, echo-logo.png, echo-rounded-logo.png).',
+    'PWA + brand PNGs written (public/icons/, favicon.ico, echo-logo.png, echo-rounded-logo.png, src-tauri/icons/tray.png).',
   );
 }
 

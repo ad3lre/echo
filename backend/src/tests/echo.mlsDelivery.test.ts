@@ -18,6 +18,7 @@ import {
   initMlsGroupIfAbsent,
   mlsGroupIdHex,
   publishMlsKeyPackages,
+  resetMlsGroupForChannel,
 } from '../domain/echoStore';
 import { upsertEchoE2eeDevice } from '../domain/echoStore/e2ee';
 
@@ -38,7 +39,9 @@ async function grantEveryoneForTests(
   serverId: string,
 ): Promise<void> {
   await pool.query(
-    `UPDATE echo_roles SET permissions = permissions | (1::BIGINT << 0) | (1::BIGINT << 20) | (1::BIGINT << 10) WHERE server_id = $1`,
+    `UPDATE echo_roles
+     SET permissions = permissions || '["VIEW_CHANNEL","CONNECT","SEND_MESSAGE"]'::jsonb
+     WHERE server_id = $1`,
     [serverId],
   );
 }
@@ -292,7 +295,9 @@ async function main(): Promise<void> {
     groupInfo: 'peer-gi',
   });
   assert.ok(
-    !notInVoice.ok && notInVoice.reason === 'not_in_voice',
+    !notInVoice.ok &&
+      (notInVoice.reason === 'not_in_voice' ||
+        notInVoice.reason === 'forbidden'),
     'peer not in voice',
   );
 
@@ -312,6 +317,22 @@ async function main(): Promise<void> {
   });
   assert.ok(peerCommit.ok, 'peer commit should succeed at correct epoch');
   assert.ok(peerCommit.ok && peerCommit.epoch === '2');
+
+  // --- Group reset when a call fully ends (webhook cleanup path) ---
+  const removed = await resetMlsGroupForChannel(pool, serverId, channelId);
+  assert.equal(removed, 1, 'group row deleted');
+  const afterReset = await getMlsGroupInfo(pool, serverId, channelId);
+  assert.equal(afterReset, null, 'group info gone after reset');
+  const logAfterReset = await fetchMlsMessagesSince(pool, {
+    serverId,
+    channelId,
+    userId: ownerId,
+    sinceSeq: '0',
+  });
+  assert.ok(
+    logAfterReset.ok && logAfterReset.messages.length === 0,
+    'handshake log purged after reset',
+  );
 
   console.log('✓ echo.mlsDelivery.test passed');
   await pool.end();

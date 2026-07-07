@@ -15,6 +15,7 @@ import {
 } from './s3UploadPresign';
 import { registerChatUploadRetention } from './chatUploadRetention';
 import { probeImageDimensionsFromBuffer } from './probeImageDimensionsFromBuffer';
+import { prepareRasterForEchoStorage } from './rasterImageTranscode';
 import {
   WEBHOOK_EXECUTE_MAX_FILE_BYTES,
   WEBHOOK_EXECUTE_MAX_FILES,
@@ -104,17 +105,27 @@ export async function persistWebhookInboundFiles(opts: {
     if (!ct) {
       return { ok: false, message: 'Unsupported file type.' };
     }
-    const objectKey = `wh-${idx}-${nextEchoSnowflakeId()}-${safe}`;
+    const kind = inferAttachmentKind(ct, baseName);
+    const prepared =
+      kind === 'image'
+        ? await prepareRasterForEchoStorage(f.buffer, ct)
+        : {
+            buf: f.buffer,
+            contentType: ct,
+            ext: path.extname(baseName) || '.bin',
+            transcoded: false,
+          };
+    const objectKey = `wh-${idx}-${nextEchoSnowflakeId()}-${safe.replace(/\.[^.]+$/, '')}${prepared.ext || path.extname(baseName)}`;
     const storageKey = `echo/webhook-inbound/${opts.serverId}/${opts.channelId}/${opts.messageId}/${objectKey}`;
 
     try {
       if (config.echoLocalUploadDir) {
-        await writeLocalEchoUploadFile(storageKey, f.buffer);
+        await writeLocalEchoUploadFile(storageKey, prepared.buf);
         await opts.pool.query(
           `INSERT INTO echo_upload_served_content_type (storage_key, content_type)
            VALUES ($1, $2)
            ON CONFLICT (storage_key) DO UPDATE SET content_type = EXCLUDED.content_type`,
-          [storageKey, ct],
+          [storageKey, prepared.contentType],
         );
       } else {
         const client = createEchoS3UploadClient();
@@ -129,8 +140,8 @@ export async function persistWebhookInboundFiles(opts: {
           new PutObjectCommand({
             Bucket: bucket,
             Key: storageKey,
-            Body: f.buffer,
-            ContentType: ct,
+            Body: prepared.buf,
+            ContentType: prepared.contentType,
           }),
         );
       }
@@ -148,15 +159,16 @@ export async function persistWebhookInboundFiles(opts: {
     }
     await registerChatUploadRetention(opts.pool, {
       storageKey,
-      byteLength: f.buffer.length,
+      byteLength: prepared.buf.length,
       sourceType: 'webhook',
       uploaderId: null,
     });
 
-    const kind = inferAttachmentKind(ct, baseName);
     const dims =
       kind === 'image' || kind === 'gif'
-        ? probeImageDimensionsFromBuffer(f.buffer, ct)
+        ? prepared.width && prepared.height
+          ? { width: prepared.width, height: prepared.height }
+          : probeImageDimensionsFromBuffer(prepared.buf, prepared.contentType)
         : null;
 
     attachments.push({
@@ -164,8 +176,8 @@ export async function persistWebhookInboundFiles(opts: {
       storageKey,
       kind,
       filename: baseName.slice(0, 256),
-      mimeType: ct.slice(0, 128),
-      fileSize: f.buffer.length,
+      mimeType: prepared.contentType.slice(0, 128),
+      fileSize: prepared.buf.length,
       ...(dims ? { width: dims.width, height: dims.height } : {}),
     });
   }

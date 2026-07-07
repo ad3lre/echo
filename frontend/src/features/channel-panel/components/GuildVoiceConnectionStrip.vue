@@ -47,6 +47,7 @@ const {
   vcOutputListOpen,
   vcInputListOpen,
   vcCameraListOpen,
+  audioOutputSelectionLimited,
   vcOutputDeviceOptions,
   vcInputDeviceOptions,
   vcCameraDeviceOptions,
@@ -236,7 +237,6 @@ function isVcHeadphonesOffForPanel() {
 }
 
 async function toggleVcMute() {
-  if (props.vcDeafened) return;
   const s = vcSelfServerModeration.value;
   if (s.serverMuted || s.serverDeafened) {
     dispatchAppToast(
@@ -377,6 +377,7 @@ function stageAudienceMediaToast() {
       :vc-output-list-open="vcOutputListOpen"
       :vc-input-list-open="vcInputListOpen"
       :vc-camera-list-open="vcCameraListOpen"
+      :audio-output-selection-limited="audioOutputSelectionLimited"
       :current-output-label="currentOutputLabel"
       :current-input-label="currentInputLabel"
       :current-camera-label="currentCameraLabel"

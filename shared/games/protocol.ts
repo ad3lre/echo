@@ -74,6 +74,7 @@ export interface GameEventMsg<D = unknown> {
 
 export type GameErrorReason =
   | 'unauthorized'
+  | 'not_configured'
   | 'room_mismatch'
   | 'unknown_game'
   | 'not_in_room'

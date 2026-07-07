@@ -23,8 +23,64 @@ export type GameSocketSession = {
 };
 
 /**
+ * Tunnel VC game traffic through the existing Echo Socket.IO session.
+ */
+export function connectGameSocketViaEcho<V>(opts: {
+  socket: Socket;
+  roomId: string;
+  gameKey: EchoVcActivityKey;
+  handlers: GameSocketHandlers<V>;
+}): GameSocketSession {
+  const onSnapshot = (msg: GameSnapshotMsg<V>) => {
+    if (!msg || msg.roomId !== opts.roomId) return;
+    opts.handlers.onSnapshot(msg);
+  };
+  const onEvent = (msg: GameEventMsg) => {
+    if (!msg || msg.roomId !== opts.roomId) return;
+    opts.handlers.onEvent?.(msg);
+  };
+  const onError = (msg: GameErrorMsg) => {
+    opts.handlers.onError?.(msg);
+  };
+
+  opts.socket.on(GAME_S2C.snapshot, onSnapshot);
+  opts.socket.on(GAME_S2C.event, onEvent);
+  opts.socket.on(GAME_S2C.error, onError);
+
+  const emitJoin = () => {
+    opts.socket.emit(GAME_C2S.join, {
+      roomId: opts.roomId,
+      gameKey: opts.gameKey,
+    });
+  };
+  if (opts.socket.connected) emitJoin();
+  else opts.socket.once('connect', emitJoin);
+
+  const teardownListeners = () => {
+    opts.socket.off(GAME_S2C.snapshot, onSnapshot);
+    opts.socket.off(GAME_S2C.event, onEvent);
+    opts.socket.off(GAME_S2C.error, onError);
+    opts.socket.off('connect', emitJoin);
+  };
+
+  return {
+    socket: opts.socket,
+    sendAction: (msg) => {
+      opts.socket.emit(GAME_C2S.action, { roomId: opts.roomId, ...msg });
+    },
+    leave: () => {
+      opts.socket.emit(GAME_C2S.leave, { roomId: opts.roomId });
+    },
+    disconnect: () => {
+      teardownListeners();
+    },
+  };
+}
+
+/**
  * Open a credentialed Socket.IO session to the authoritative game server.
  * Auth is the backend-minted HS256 token in the handshake (`auth.token`).
+ * Prefer {@link connectGameSocketViaEcho} for browser clients.
  */
 export function connectGameSocket<V>(opts: {
   url: string;
@@ -54,6 +110,13 @@ export function connectGameSocket<V>(opts: {
   });
   socket.on(GAME_S2C.error, (msg: GameErrorMsg) => {
     opts.handlers.onError?.(msg);
+  });
+  socket.on('connect_error', (err: Error) => {
+    opts.handlers.onError?.({
+      reason: err.message?.toLowerCase().includes('unauthorized')
+        ? 'unauthorized'
+        : 'rejected',
+    });
   });
 
   return {

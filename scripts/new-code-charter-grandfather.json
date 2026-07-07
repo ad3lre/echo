@@ -299,6 +299,7 @@
     "backend/src/platform/echoPlatformEvents.ts",
     "backend/src/platform/echoRealtimeMembership.ts",
     "backend/src/scripts/backfillBugReportSupportEmails.ts",
+    "backend/src/scripts/backfillRasterImagesToWebp.ts",
     "backend/src/scripts/backfillDefaultAvatarPfp.ts",
     "backend/src/scripts/backfillDiscordImportAvatarPfp.ts",
     "backend/src/scripts/backfillDiscordImportCdnUrls.ts",

@@ -16,6 +16,22 @@ function parseReactionsPayload(data: unknown): MessageReaction[] {
   return r as MessageReaction[];
 }
 
+/** Full reaction aggregates (includes reactor user ids) for voters UI. */
+export async function fetchEchoMessageReactions(opts: {
+  token: string | null | undefined;
+  channelId: string;
+  messageId: string;
+  signal?: AbortSignal;
+}): Promise<MessageReaction[]> {
+  const ch = trimEchoPathSegment(opts.channelId);
+  const mid = trimEchoPathSegment(opts.messageId);
+  const path = `/channels/${encodeURIComponent(ch)}/messages/${encodeURIComponent(mid)}/reactions`;
+  const raw = await echoFetch<unknown>(opts.token, path, {
+    signal: opts.signal,
+  });
+  return parseReactionsPayload(raw);
+}
+
 /**
  * Persist a reaction add/remove via Echo REST (parity with socket toggle).
  * Used when Socket.IO is disconnected so reactions still work over HTTP + cookies.
