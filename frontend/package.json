@@ -156,7 +156,7 @@
     "@tiptap/extension-code": "^3.25.0",
     "@tiptap/extension-color": "^3.25.0",
     "@tiptap/extension-font-family": "^3.25.0",
-    "@tiptap/extension-hard-break": "^3.25.0",
+    "@tiptap/extension-hard-break": "^3.27.3",
     "@tiptap/extension-highlight": "^3.25.0",
     "@tiptap/extension-image": "^3.25.0",
     "@tiptap/extension-italic": "^3.25.0",
