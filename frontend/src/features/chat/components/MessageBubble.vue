@@ -96,6 +96,25 @@ import { isDmCallRollupCollapseMessageId } from '@/features/chat/domain/dmCallLo
 import { isOutboundMessageSendPending } from '@/services/realtime/deferredMediaOutboundSend';
 import { useEchoWorkspace } from '@/composables/useEchoWorkspace';
 import { resolveGuildMemberDisplayName } from '@/utils/resolveGuildMemberDisplayName';
+import { MESSAGE_LIST_SCROLL_GESTURE_ACTIVE_KEY } from '@/features/chat/composables/messageListScrollGestureKeys';
+
+const contentJsonSignatureCache = new WeakMap<object, string>();
+
+function contentJsonSignature(raw: unknown): string {
+  if (typeof raw !== 'object' || raw === null) {
+    return String(raw ?? '');
+  }
+  const cached = contentJsonSignatureCache.get(raw);
+  if (cached !== undefined) return cached;
+  let signature: string;
+  try {
+    signature = JSON.stringify(raw);
+  } catch {
+    signature = String(raw);
+  }
+  contentJsonSignatureCache.set(raw, signature);
+  return signature;
+}
 
 const props = defineProps<{
   /** Prebuilt row: message, layout, reply preview, separators — from MessageList view model. */
@@ -157,6 +176,13 @@ const emit = defineEmits<{
 
 const row = computed(() => props.row);
 const message = computed(() => props.row.message);
+
+const scrollGestureActive = inject<Ref<boolean>>(
+  MESSAGE_LIST_SCROLL_GESTURE_ACTIVE_KEY,
+  ref(false),
+);
+/** Phase 4: keep row mounted; skip costly embed/GIF/reaction subtrees during scroll. */
+const throttleHeavyDescendants = computed(() => scrollGestureActive.value);
 
 const magicTimeContext = computed((): MagicTimeRenderContext | null => {
   void timeLanguagePrefsEpoch.value;
@@ -372,6 +398,10 @@ const displayMessageContent = computed(() => {
   return applyEmbedTitlesToMessageContent(raw, message.value.embeds);
 });
 
+const isEmojiOnlyBody = computed(() =>
+  isEmojiOnlyUpTo12(plainTextForRawMessage(message.value)),
+);
+
 /** Inline message-jump cards: stored unfurl + client-detected Echo message URLs in body text. */
 const contentEmbedsForSegments = computed(() =>
   mergeEchoJumpEmbedsForMessage(
@@ -432,10 +462,7 @@ useMessageKatexScrollbarReveal(messageContentRef, () =>
     displayMessageContent.value,
     customEmojiRenderKey.value,
     message.value.content ?? '',
-    typeof message.value.contentJson === 'object' &&
-    message.value.contentJson !== null
-      ? JSON.stringify(message.value.contentJson)
-      : String(message.value.contentJson ?? ''),
+    contentJsonSignature(message.value.contentJson),
   ].join('\u001e'),
 );
 
@@ -812,6 +839,7 @@ watch(
 const showActionBar = computed(
   () =>
     !isSystemMessage.value &&
+    !throttleHeavyDescendants.value &&
     (hovered.value ||
       focusWithin.value ||
       menuOpen.value ||
@@ -1233,9 +1261,7 @@ watch(
             class="message-text message-content max-w-full text-fg"
             :class="{
               'mb-1': !row.layout.groupedWithNext,
-              'message-text--emoji-only': isEmojiOnlyUpTo12(
-                message.content ?? '',
-              ),
+              'message-text--emoji-only': isEmojiOnlyBody,
             }"
             @click="handleContentInteraction"
             @keydown.enter="handleContentInteraction"

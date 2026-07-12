@@ -58,15 +58,11 @@ export function createAppLayoutVoiceMlsMessageHandler(deps: {
       try {
         const applied = await syncVoiceMlsSession(key);
         if (applied) {
-          await deps
-            .getLiveKitVoiceApi()
-            ?.rotateEpochKey(applied.raw, applied.keyIndex);
+          await deps.getLiveKitVoiceApi()?.rotateEpochKey(applied);
         }
         const reconciled = await reconcileVoiceMlsSession(key);
         if (reconciled) {
-          await deps
-            .getLiveKitVoiceApi()
-            ?.rotateEpochKey(reconciled.raw, reconciled.keyIndex);
+          await deps.getLiveKitVoiceApi()?.rotateEpochKey(reconciled);
         }
       } catch {
         /* transient; next event or reconnect recovers */

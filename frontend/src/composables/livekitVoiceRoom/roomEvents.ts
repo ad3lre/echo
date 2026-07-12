@@ -3,6 +3,7 @@ import {
   DisconnectReason,
   RoomEvent,
   type LocalTrackPublication,
+  type Participant,
   type RemoteParticipant,
   type Room as LKRoom,
 } from 'livekit-client';
@@ -41,6 +42,11 @@ import {
   type RecoverableLocalMicTrack,
 } from '@/services/livekit/echoLocalMicInterruptionRecovery';
 import type { LiveKitVoiceSessionContext } from '@/composables/livekitVoiceRoom/context';
+import { activeVoiceE2eeChannelKey } from '@/services/voice/voiceE2eeActiveState';
+import {
+  setVoiceParticipantE2eeStatus,
+  clearVoiceParticipantE2eeStatus,
+} from '@/services/voice/voiceE2eeEncryptionStatus';
 
 type LocalMicRecoveryActions = {
   refreshLocalMicLevelMonitor: (room: LKRoom) => void;
@@ -116,11 +122,34 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     room.on(RoomEvent.Connected, () => {
       voiceClientTrace('voice.client:lk_room_connected_event', {});
       voiceClientDiag('info', 'voice.client:room_connected_event', {});
+      if (activeVoiceE2eeChannelKey.value) {
+        const localId = room.localParticipant.identity?.trim();
+        if (localId) {
+          setVoiceParticipantE2eeStatus(localId, true);
+        }
+        for (const rp of room.remoteParticipants.values()) {
+          void actions.installMlsSenderKeyForParticipant(rp.identity);
+        }
+      }
     });
+
+    room.on(
+      RoomEvent.ParticipantEncryptionStatusChanged,
+      (enabled: boolean, participant?: Participant) => {
+        const identity = participant?.identity?.trim();
+        if (!identity) return;
+        setVoiceParticipantE2eeStatus(identity, enabled);
+        voiceClientDiag('info', 'voice.client:lk_e2ee_participant_status', {
+          identity,
+          enabled,
+        });
+      },
+    );
 
     room.on(RoomEvent.Disconnected, (reason) => {
       detachLocalMicRecovery?.();
       detachLocalMicRecovery = null;
+      clearVoiceParticipantE2eeStatus();
       voiceClientTrace('voice.client:lk_room_disconnected', {
         reason: String(reason),
       });
@@ -192,6 +221,9 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
         identity: p.identity,
       });
       actions.onParticipantConnectedWhileDeafened(p);
+      if (activeVoiceE2eeChannelKey.value) {
+        void actions.installMlsSenderKeyForParticipant(p.identity);
+      }
       if (isScreenShareEnabled.value) {
         playEchoSound('streamViewerArrive');
       } else {

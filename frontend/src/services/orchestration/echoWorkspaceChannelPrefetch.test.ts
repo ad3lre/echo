@@ -8,12 +8,17 @@ import { messageWindowAuthority } from '@/services/realtime/messageWindowAuthori
 import { replaceChannelMessagesFromHistory } from '@/services/realtime/channelMessageAuthority';
 import {
   applyPrefetchedWorkspaceChannelMessages,
+  cancelChannelMessagePrefetch,
+  canWarmChannelHeadsInBackground,
   inboundUrlChannelId,
   prefetchChannelMessagesFirstPage,
   prefetchInboundUrlChannelFirstPage,
   resolveLikelyLandingTextChannelIds,
   resolveWorkspaceBootstrapTextChannelIds,
+  resolveWarmServerTextChannelIds,
+  runWarmChannelTasksWithConcurrency,
   shouldSkipChannelMessagePrefetch,
+  warmCurrentServerChannelHeadsNonBlocking,
   _resetChannelMessagePrefetchForTesting,
 } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 import { ref } from 'vue';
@@ -210,6 +215,130 @@ describe('resolveWorkspaceBootstrapTextChannelIds', () => {
   });
 });
 
+describe('warm server channel selection', () => {
+  it('prioritizes active, attention, and recent channels and caps the pool at 30', () => {
+    const channels = Array.from({ length: 35 }, (_, i) => ({
+      id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      name: `channel-${i}`,
+      type: 'text' as const,
+    }));
+    const state = workspaceState({
+      categoriesByServer: {
+        s1: [{ id: 'cat', name: 'All', channels }],
+      },
+    });
+    const ids = resolveWarmServerTextChannelIds(state, 's1', {
+      activeChannelId: channels[20]!.id,
+      attentionChannelIds: [channels[19]!.id],
+      recentChannelIds: [channels[18]!.id],
+    });
+    expect(ids).toHaveLength(30);
+    expect(ids.slice(0, 3)).toEqual([
+      channels[20]!.id,
+      channels[19]!.id,
+      channels[18]!.id,
+    ]);
+  });
+
+  it('runs no more than three background tasks concurrently', async () => {
+    let active = 0;
+    let peak = 0;
+    await runWarmChannelTasksWithConcurrency(
+      ['a', 'b', 'c', 'd', 'e', 'f'],
+      3,
+      async () => {
+        active++;
+        peak = Math.max(peak, active);
+        await Promise.resolve();
+        active--;
+      },
+    );
+    expect(peak).toBe(3);
+  });
+});
+
+describe('background warm-up network gates', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('pauses for data saver, slow connections, offline, and hidden tabs', () => {
+    vi.stubGlobal('navigator', {
+      onLine: true,
+      connection: { effectiveType: '4g', saveData: true },
+    });
+    vi.stubGlobal('document', { visibilityState: 'visible' });
+    expect(canWarmChannelHeadsInBackground()).toBe(false);
+
+    vi.stubGlobal('navigator', {
+      onLine: true,
+      connection: { effectiveType: '2g', saveData: false },
+    });
+    expect(canWarmChannelHeadsInBackground()).toBe(false);
+
+    vi.stubGlobal('navigator', {
+      onLine: false,
+      connection: { effectiveType: '4g', saveData: false },
+    });
+    expect(canWarmChannelHeadsInBackground()).toBe(false);
+
+    vi.stubGlobal('navigator', {
+      onLine: true,
+      connection: { effectiveType: '4g', saveData: false },
+    });
+    vi.stubGlobal('document', { visibilityState: 'hidden' });
+    expect(canWarmChannelHeadsInBackground()).toBe(false);
+  });
+});
+
+describe('current-server warming ownership', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('hydrates but does not network-prefetch the active channel', async () => {
+    const serverId = '00000000-0000-4000-8000-000000000100';
+    const activeId = '00000000-0000-4000-8000-000000000101';
+    const backgroundId = '00000000-0000-4000-8000-000000000102';
+    vi.stubGlobal('indexedDB', undefined);
+    vi.stubGlobal('navigator', {
+      onLine: true,
+      connection: { effectiveType: '4g', saveData: false },
+    });
+    vi.stubGlobal('document', { visibilityState: 'visible' });
+    vi.stubGlobal('requestIdleCallback', (callback: () => void) => {
+      callback();
+      return 1;
+    });
+    vi.mocked(fetchEchoChannelMessages).mockResolvedValue({ messages: [] });
+
+    warmCurrentServerChannelHeadsNonBlocking(
+      'token',
+      {
+        categoriesByServer: {
+          [serverId]: [
+            {
+              id: 'cat',
+              name: 'General',
+              channels: [
+                { id: activeId, name: 'active', type: 'text' },
+                { id: backgroundId, name: 'background', type: 'text' },
+              ],
+            },
+          ],
+        },
+      },
+      serverId,
+      { userId: 'u1', activeChannelId: activeId },
+    );
+
+    await vi.waitFor(() => {
+      expect(fetchEchoChannelMessages).toHaveBeenCalledTimes(1);
+    });
+    expect(fetchEchoChannelMessages).toHaveBeenCalledWith(
+      'token',
+      backgroundId,
+      expect.objectContaining({ limit: 30 }),
+    );
+  });
+});
+
 describe('resolveLikelyLandingTextChannelIds', () => {
   beforeEach(() => {
     for (const k of Object.keys(lsStore)) delete lsStore[k];
@@ -258,11 +387,30 @@ describe('prefetchChannelMessagesFirstPage', () => {
     const ok = await prefetchChannelMessagesFirstPage('token', channelId);
     expect(ok).toBe(true);
     // First page uses the smaller INITIAL size so the skeleton clears sooner.
-    expect(fetchEchoChannelMessages).toHaveBeenCalledWith('token', channelId, {
-      limit: 40,
-    });
+    expect(fetchEchoChannelMessages).toHaveBeenCalledWith(
+      'token',
+      channelId,
+      expect.objectContaining({ limit: 40 }),
+    );
     const list = messageWindowAuthority.getIndex(channelId).sorted.value;
     expect(list.map((m) => m.id)).toEqual(['m1']);
+  });
+
+  it('cancels channel-specific background ownership before active history takes over', async () => {
+    vi.mocked(fetchEchoChannelMessages).mockImplementation(
+      async (_token, _channelId, opts) =>
+        new Promise((resolve, reject) => {
+          opts?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true },
+          );
+        }),
+    );
+    const pending = prefetchChannelMessagesFirstPage('token', channelId);
+    cancelChannelMessagePrefetch(channelId);
+    await expect(pending).resolves.toBe(false);
+    expect(shouldSkipChannelMessagePrefetch(channelId)).toBe(false);
   });
 });
 
@@ -302,9 +450,7 @@ describe('inbound URL channel prefetch (cold-boot waterfall collapse)', () => {
     expect(fetchEchoChannelMessages).toHaveBeenCalledWith(
       'token',
       urlChannelId,
-      {
-        limit: 40,
-      },
+      expect.objectContaining({ limit: 40 }),
     );
   });
 

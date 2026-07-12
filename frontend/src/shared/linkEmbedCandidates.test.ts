@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
+import { YOUTUBE_CHAT_EMBEDS_ENABLED } from '@shared/integrationKillSwitches';
 import {
   collectLinkEmbedCandidateUrls,
   extractHttpUrlsFromContentJson,
@@ -75,7 +75,7 @@ describe('stubEchoJumpEmbedsFromMessage', () => {
 });
 
 describe('stubVideoEmbedsFromMessage', () => {
-  it.skipIf(!YOUTUBE_INTEGRATION_ENABLED)(
+  it.skipIf(!YOUTUBE_CHAT_EMBEDS_ENABLED)(
     'builds a playable YouTube stub from plain URL',
     () => {
       const embeds = stubVideoEmbedsFromMessage(
@@ -88,8 +88,8 @@ describe('stubVideoEmbedsFromMessage', () => {
     },
   );
 
-  it.skipIf(YOUTUBE_INTEGRATION_ENABLED)(
-    'omits YouTube stubs while integration is disabled',
+  it.skipIf(YOUTUBE_CHAT_EMBEDS_ENABLED)(
+    'omits YouTube stubs while chat embeds are disabled',
     () => {
       const embeds = stubVideoEmbedsFromMessage(
         'https://www.youtube.com/watch?v=dQw4w9WgXcQ',

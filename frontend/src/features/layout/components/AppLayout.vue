@@ -2504,6 +2504,13 @@ useAppLayoutGlobalShortcuts({
 });
 
 onMounted(() => {
+  if (import.meta.env.VITE_ECHO_DESKTOP === '1') {
+    void import('@/platform/desktopBootDiagnostics').then(
+      ({ logDesktopBootDiag }) => {
+        logDesktopBootDiag('AppLayout.vue:onMounted');
+      },
+    );
+  }
   void nextTick(bindMemberPanelMainWidthObserver);
 
   void nextTick(() => {

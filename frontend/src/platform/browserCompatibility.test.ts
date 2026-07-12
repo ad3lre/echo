@@ -65,6 +65,18 @@ describe('isWebKitDesktop', () => {
     expect(isWebKitDesktop()).toBe(true);
   });
 
+  it('returns true for WKWebView UA without Safari token', () => {
+    vi.mocked(isDesktop).mockReturnValue(true);
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)',
+      vendor: 'Apple Computer, Inc.',
+      platform: 'MacIntel',
+      maxTouchPoints: 0,
+    });
+    expect(isWebKitDesktop()).toBe(true);
+  });
+
   it('returns false when not desktop even on Safari UA', () => {
     vi.mocked(isDesktop).mockReturnValue(false);
     vi.stubGlobal('navigator', {

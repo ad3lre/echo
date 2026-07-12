@@ -6,8 +6,11 @@
 /** Google SSO sign-in, account linking, and Settings → Google. */
 export const GOOGLE_INTEGRATION_ENABLED = false;
 
-/** YouTube linking, watch-together VC, stage live RTMP, link embeds, and Settings → YouTube. */
+/** YouTube linking, watch-together VC, stage live RTMP, and Settings → YouTube. */
 export const YOUTUBE_INTEGRATION_ENABLED = false;
+
+/** Inline chat YouTube iframe embeds (link unfurl + client stubs). Independent of account linking / VC. */
+export const YOUTUBE_CHAT_EMBEDS_ENABLED = true;
 
 /** Echo incoming channel webhooks (settings UI, management API, and execute hooks). */
 export const CHANNEL_WEBHOOKS_ENABLED = false;

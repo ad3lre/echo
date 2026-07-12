@@ -4,7 +4,7 @@
  */
 
 import type pg from 'pg';
-import { YOUTUBE_INTEGRATION_ENABLED } from '../../../../shared/integrationKillSwitches';
+import { YOUTUBE_CHAT_EMBEDS_ENABLED } from '../../../../shared/integrationKillSwitches';
 import type { Embed } from '../../../../shared/types';
 import {
   tryParseYoutubeVideoId,
@@ -270,7 +270,7 @@ async function fetchHtmlWithRedirects(
 export async function unfurlUrlToEmbed(url: string): Promise<Embed | null> {
   if (!isUrlSafeForOutboundFetch(url)) return null;
 
-  const ytId = YOUTUBE_INTEGRATION_ENABLED ? tryParseYoutubeVideoId(url) : null;
+  const ytId = YOUTUBE_CHAT_EMBEDS_ENABLED ? tryParseYoutubeVideoId(url) : null;
   if (ytId) {
     const canonical = `https://www.youtube.com/watch?v=${ytId}`;
     const fromYt = await unfurlYoutubeViaOembed(url, canonical);

@@ -3,8 +3,10 @@ import type { Ref, ShallowRef } from 'vue';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useEchoAttentionStore } from '@/stores/echoAttention';
 import { useEchoSessionStore } from '@/stores/echoSession';
+import { useServerStore } from '@/stores/server';
 import { createEchoHistoryController } from '@/services/orchestration/echoHistoryOrchestration';
 import { ECHO_CHANNEL_MESSAGE_PAGE_SIZE } from '@/constants/echoHistoryPageSize';
+import { readMessageListViewport } from './messageListViewportStorage';
 
 export { ECHO_CHANNEL_MESSAGE_PAGE_SIZE };
 
@@ -26,6 +28,7 @@ export function useEchoHistory(
   const auth = useAuthSessionStore();
   const echoAttention = useEchoAttentionStore();
   const echoSession = useEchoSessionStore();
+  const serverStore = useServerStore();
   const { readStateByChannelId: lastReadMessageIdByChannel } =
     storeToRefs(echoAttention);
 
@@ -35,6 +38,11 @@ export function useEchoHistory(
     lastReadMessageIdByChannel,
     echoAttention,
     isRealtimeConnected: () => echoSession.liveSyncConnected,
+    activeServerId: () => serverStore.selectedServerId,
+    shouldUseFastTail: (channelId) => {
+      const saved = readMessageListViewport(channelId);
+      return !saved || saved.followNewMessages;
+    },
     ...(dmRegistry
       ? {
           echoDmThreadIds: dmRegistry.echoDmThreadIds,

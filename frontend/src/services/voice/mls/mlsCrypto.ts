@@ -19,9 +19,13 @@ export const ECHO_MLS_CIPHERSUITE_NAME =
 /** LiveKit AES-128-GCM frame key length in bytes. */
 export const ECHO_MLS_MEDIA_KEY_BYTES = 16;
 
-/** Domain-separation label + context for the exported media key. */
+/** Domain-separation label + context for the legacy shared epoch media key. */
 const MEDIA_KEY_LABEL = 'echo-voice-sframe';
 const MEDIA_KEY_CONTEXT = new TextEncoder().encode('echo-voice/v2');
+
+/** Per-sender derivation (DAVE-style): label + sender identity context. */
+const SENDER_MEDIA_KEY_LABEL = 'echo-voice-sframe-sender';
+const senderContextEnc = new TextEncoder();
 
 let cachedImpl: Promise<CiphersuiteImpl> | null = null;
 
@@ -44,10 +48,15 @@ function toArrayBuffer(u: Uint8Array): ArrayBuffer {
   ) as ArrayBuffer;
 }
 
+/** UTF-8 MLS exporter context for a sender's LiveKit participant identity. */
+export function encodeSenderKeyContext(senderUserId: string): Uint8Array {
+  return senderContextEnc.encode(`sender:${senderUserId.trim()}`);
+}
+
 /**
  * Derive the LiveKit media key for the current MLS epoch from the group's
  * exporter secret. Every member derives byte-identical material for a given
- * epoch, so no key transport is needed.
+ * epoch (legacy shared-key mode).
  */
 export async function deriveMediaKeyForEpoch(
   state: ClientState,
@@ -57,6 +66,26 @@ export async function deriveMediaKeyForEpoch(
     state.keySchedule.exporterSecret,
     MEDIA_KEY_LABEL,
     MEDIA_KEY_CONTEXT,
+    ECHO_MLS_MEDIA_KEY_BYTES,
+    cs,
+  );
+  return toArrayBuffer(raw);
+}
+
+/**
+ * Derive a per-sender media key for the current MLS epoch (DAVE-style). Each
+ * sender encrypts with their own key; receivers install the same material under
+ * that sender's LiveKit participant identity.
+ */
+export async function deriveMediaKeyForSender(
+  state: ClientState,
+  cs: CiphersuiteImpl,
+  senderUserId: string,
+): Promise<ArrayBuffer> {
+  const raw = await mlsExporter(
+    state.keySchedule.exporterSecret,
+    SENDER_MEDIA_KEY_LABEL,
+    encodeSenderKeyContext(senderUserId),
     ECHO_MLS_MEDIA_KEY_BYTES,
     cs,
   );

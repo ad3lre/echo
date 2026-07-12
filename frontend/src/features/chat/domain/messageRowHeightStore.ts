@@ -90,10 +90,21 @@ export function clearMessageRowHeightsForChannel(
   channelHeights.delete(cid);
 }
 
+export function invalidateMessageRowHeight(
+  channelId: string | null | undefined,
+  messageId: string | null | undefined,
+): void {
+  const cid = channelId?.trim();
+  const mid = messageId?.trim();
+  if (!cid || !mid) return;
+  channelHeights.get(cid)?.delete(mid);
+}
+
 export function buildInitialMeasurementsCacheForChannel(
   channelId: string | null | undefined,
   orderedIds: readonly string[],
   estimateSize: (index: number) => number,
+  hasCachedMeasurement?: (index: number) => boolean,
 ): VirtualItem[] {
   const cid = channelId?.trim();
   if (!cid || orderedIds.length === 0) return [];
@@ -103,10 +114,12 @@ export function buildInitialMeasurementsCacheForChannel(
 
   const items: VirtualItem[] = [];
   let start = 0;
+  let measuredCount = 0;
   for (let index = 0; index < orderedIds.length; index++) {
     const messageId = orderedIds[index]?.trim();
-    const cached = messageId ? map.get(messageId) : undefined;
-    const size = cached?.heightPx ?? estimateSize(index);
+    const hasMeasured = hasCachedMeasurement?.(index) ?? false;
+    if (hasMeasured) measuredCount += 1;
+    const size = estimateSize(index);
     const end = start + size;
     items.push({
       key: messageId ?? index,
@@ -117,6 +130,9 @@ export function buildInitialMeasurementsCacheForChannel(
       lane: 0,
     });
     start = end;
+  }
+  if (hasCachedMeasurement) {
+    return measuredCount > 0 ? items : [];
   }
   return items;
 }

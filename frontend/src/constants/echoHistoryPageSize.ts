@@ -13,3 +13,10 @@ export const ECHO_CHANNEL_MESSAGE_PAGE_SIZE = 80;
  * actually requested (otherwise scroll-up history would be wrongly disabled).
  */
 export const ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE = 40;
+
+/** First response for a genuinely cold latest-position open. */
+export const ECHO_CHANNEL_FAST_TAIL_PAGE_SIZE = 15;
+
+/** One-shot anchored prepend that completes the logical 40-message initial window. */
+export const ECHO_CHANNEL_INITIAL_BACKFILL_PAGE_SIZE =
+  ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE - ECHO_CHANNEL_FAST_TAIL_PAGE_SIZE;

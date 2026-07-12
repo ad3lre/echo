@@ -86,6 +86,7 @@ export function useAppLayoutRailLoadingDerived(opts: {
 
   const isChannelPanelSwitchLoading = computed(() => {
     if (isInitialWorkspaceLoading.value) return true;
+    if (isGuildShellSettlingRef.value) return true;
     const sid = opts.serverStore.selectedServerId?.trim();
     if (
       sid &&
@@ -94,7 +95,6 @@ export function useAppLayoutRailLoadingDerived(opts: {
     ) {
       return false;
     }
-    if (isGuildShellSettlingRef.value) return true;
     if (!isServerRailFastSwitchPending.value) return false;
     if (!sid || sid === 'echo') return false;
     const cats = opts.workspace.categoriesByServer.value[sid] ?? [];

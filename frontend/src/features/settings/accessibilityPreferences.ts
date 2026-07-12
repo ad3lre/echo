@@ -1,6 +1,7 @@
 import {
   isBraveBrowserSyncHint,
   isBraveBrowser,
+  isMacTauriWebKitSyncHint,
   isWebKitDesktop,
 } from '@/platform/browserCompatibility';
 
@@ -45,14 +46,17 @@ function readStored(): Partial<AccessibilityPreferences> {
 function shouldDefaultSolidGlassSurfaces(): boolean {
   /* WKWebView (macOS Tauri) and Brave often fail to composite backdrop-filter
    * after theme token swaps — opaque glass keeps the shell visible. */
-  return isBraveBrowserSyncHint() || isWebKitDesktop();
+  return (
+    isBraveBrowserSyncHint() || isWebKitDesktop() || isMacTauriWebKitSyncHint()
+  );
 }
 
 function resolveSolidGlassSurfacesDefault(
   stored: Partial<AccessibilityPreferences>,
 ): boolean {
+  if (shouldDefaultSolidGlassSurfaces()) return true;
   if (isBool(stored.solidGlassSurfaces)) return stored.solidGlassSurfaces;
-  return shouldDefaultSolidGlassSurfaces() ? true : DEFAULTS.solidGlassSurfaces;
+  return DEFAULTS.solidGlassSurfaces;
 }
 
 export function loadAccessibilityPreferences(): AccessibilityPreferences {
@@ -88,9 +92,10 @@ export function loadAccessibilityPreferences(): AccessibilityPreferences {
  */
 export async function reconcileSolidGlassPreferenceForWeakCompositors(): Promise<void> {
   const stored = readStored();
-  if (isBool(stored.solidGlassSurfaces)) return;
+  if (isBool(stored.solidGlassSurfaces) && stored.solidGlassSurfaces) return;
 
-  const needsSolidGlass = isWebKitDesktop() || (await isBraveBrowser());
+  const needsSolidGlass =
+    isWebKitDesktop() || isMacTauriWebKitSyncHint() || (await isBraveBrowser());
   if (!needsSolidGlass) return;
 
   const prefs = loadAccessibilityPreferences();
@@ -155,6 +160,8 @@ export function applyAccessibilityPreferences(
   prefs: AccessibilityPreferences,
 ): void {
   const root = document.documentElement;
+  const solidGlassSurfaces =
+    prefs.solidGlassSurfaces || shouldDefaultSolidGlassSurfaces();
 
   // Reduced motion: honour either the user's in-app toggle OR the OS signal.
   const osReducedMotion =
@@ -166,6 +173,6 @@ export function applyAccessibilityPreferences(
   root.dataset['echoHighContrast'] = prefs.highContrast ? '1' : '0';
   root.dataset['echoDyslexiaFont'] = prefs.dyslexiaFriendlyFont ? '1' : '0';
   root.dataset['echoMessageSpacing'] = prefs.showMessageSpacing ? '1' : '0';
-  root.dataset['echoSolidGlass'] = prefs.solidGlassSurfaces ? '1' : '0';
+  root.dataset['echoSolidGlass'] = solidGlassSurfaces ? '1' : '0';
   root.style.setProperty('--echo-font-scale', `${prefs.fontScale / 100}`);
 }

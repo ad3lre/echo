@@ -63,6 +63,7 @@
     "test:echo:voiceE2ee": "ts-node src/tests/echo.voiceE2ee.test.ts",
     "test:echo:mlsDelivery": "ts-node src/tests/echo.mlsDelivery.test.ts",
     "test:echo:voiceE2eeMls": "node --import tsx src/tests/echo.voiceE2eeMls.integration.ts",
+    "test:echo:voiceE2eeJoinRace": "node --import tsx src/tests/echo.voiceE2eeJoinRace.integration.ts",
     "test:echo:join-security": "ts-node src/tests/echo.joinSecurity.enforcement.test.ts",
     "test:echo:member-join-welcome": "ts-node src/tests/echo.memberJoinWelcome.test.ts",
     "test:echo:instance-bans": "ts-node src/tests/echo.instanceBans.test.ts",

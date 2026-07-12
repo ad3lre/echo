@@ -174,21 +174,13 @@ function leaveVoice() {
           aria-label="Voice session indicator"
           @click="toggleExpanded"
         >
-          <div
-            class="guild-vc-island__avatar-wrap"
-            :class="{ 'guild-vc-island__avatar-wrap--live': isSpeaking }"
-          >
+          <div class="guild-vc-island__avatar-wrap">
             <template v-if="dominant">
               <PausedGifAvatar
                 :src="resolveCallTileAvatarUrl(dominant.pfp, dominant.id)"
                 :alt="dominant.name"
                 :session-key="dominant.id"
                 img-class="h-full w-full rounded-full object-cover"
-              />
-              <span
-                v-if="isSpeaking"
-                class="guild-vc-island__speak-ring"
-                aria-hidden="true"
               />
             </template>
             <div
@@ -368,27 +360,6 @@ function leaveVoice() {
 .guild-vc-island__avatar-wrap > div {
   border-radius: 999px;
   overflow: hidden;
-}
-
-.guild-vc-island__speak-ring {
-  position: absolute;
-  inset: -3px;
-  border-radius: 999px;
-  border: 2px solid rgba(52, 211, 153, 0.85);
-  animation: island-speak-pulse 1.4s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes island-speak-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.95;
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: 0.55;
-  }
 }
 
 .guild-vc-island__label {

@@ -289,22 +289,7 @@ const {
               />
             </div>
             <div class="call-tile-avatar-area">
-              <div
-                class="call-avatar-ring-host rounded-full"
-                :class="{
-                  'call-avatar-speaking-ring': p.speaking,
-                }"
-                :style="
-                  p.speaking
-                    ? {
-                        '--speak-strength': Math.min(
-                          1,
-                          (p.audioLevel ?? 0) * 3 + 0.4,
-                        ),
-                      }
-                    : undefined
-                "
-              >
+              <div class="call-avatar-ring-host rounded-full">
                 <button
                   v-if="onOpenProfile"
                   type="button"
@@ -893,7 +878,7 @@ const {
   z-index: 2;
 }
 
-/* ========== AVATAR WITH SPEAKING RING ========== */
+/* ========== AVATAR ========== */
 
 /*
  * ring-host is always sized to --call-avatar-size so the box-shadow ring and
@@ -925,59 +910,6 @@ const {
 /* Multi-participant grid: avatars scale with the wider tiles */
 .call-audio-only-gallery--grid:not(.call-audio-only-gallery--solo) .call-tile {
   --call-avatar-size: clamp(48px, 16cqw, 96px);
-}
-
-/* compact speaking ring — inset so call-tile overflow-hidden does not clip */
-.call-avatar-speaking-ring {
-  --speak-strength: 0.4;
-  --ring-color: #3ba55d;
-  --glow-color: rgba(59, 165, 93, 0.5);
-}
-
-/* Ring overlay above the avatar — inset shadow on the host paints under the full-bleed avatar. */
-.call-avatar-speaking-ring::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 2;
-  transition: box-shadow 0.12s ease-out;
-  box-shadow:
-    inset 0 0 0 3px
-      color-mix(
-        in srgb,
-        var(--ring-color) calc(var(--speak-strength) * 100%),
-        transparent
-      ),
-    inset 0 0 calc(6px + var(--speak-strength) * 10px)
-      color-mix(
-        in srgb,
-        var(--glow-color) calc(var(--speak-strength) * 55%),
-        transparent
-      );
-}
-
-[data-theme='light'] .call-avatar-speaking-ring {
-  --ring-color: #248045;
-  --glow-color: rgba(36, 128, 69, 0.4);
-}
-
-/* Stronger ring for solo view */
-.call-audio-only-gallery--solo .call-avatar-speaking-ring::after {
-  box-shadow:
-    inset 0 0 0 4px
-      color-mix(
-        in srgb,
-        var(--ring-color) calc(var(--speak-strength) * 100%),
-        transparent
-      ),
-    inset 0 0 calc(8px + var(--speak-strength) * 14px)
-      color-mix(
-        in srgb,
-        var(--glow-color) calc(var(--speak-strength) * 65%),
-        transparent
-      );
 }
 
 /* ========== NAME & STATUS ========== */

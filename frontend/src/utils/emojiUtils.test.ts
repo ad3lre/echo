@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isEmojiOnlyUpTo12 } from './emojiUtils';
+import { isEmojiOnlyUpTo12, countEmojiLikeGraphemes } from './emojiUtils';
 
 describe('isEmojiOnlyUpTo12', () => {
   it('returns false for empty or text', () => {
@@ -17,6 +17,11 @@ describe('isEmojiOnlyUpTo12', () => {
   it('returns false when more than 12 graphemes', () => {
     const many = Array.from({ length: 13 }, () => '😀').join('');
     expect(isEmojiOnlyUpTo12(many)).toBe(false);
+  });
+
+  it('counts emoji-like graphemes for height estimates', () => {
+    expect(countEmojiLikeGraphemes('<:a:1> 👋')).toBe(2);
+    expect(countEmojiLikeGraphemes('hello')).toBe(0);
   });
 
   it('returns true for custom emoji tokens only (1–12)', () => {

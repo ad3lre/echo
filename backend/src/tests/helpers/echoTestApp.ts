@@ -34,7 +34,7 @@ async function registerTestHttpPlugins(
 /**
  * Full Fastify + Socket.IO + routes for integration tests (no presence sweep job).
  */
-export async function buildEchoTestApp(): Promise<{
+export async function buildEchoTestApp(options?: { port?: number }): Promise<{
   fastify: ReturnType<typeof Fastify>;
   io: import('socket.io').Server;
   baseUrl: string;
@@ -46,7 +46,10 @@ export async function buildEchoTestApp(): Promise<{
   const io = attachSocketServer(fastify);
   await registerTestHttpPlugins(fastify);
   await registerRoutes(fastify);
-  await fastify.listen({ port: 0, host: '127.0.0.1' });
+  await fastify.listen({
+    port: options?.port ?? 0,
+    host: '127.0.0.1',
+  });
   const addr = fastify.server.address() as AddressInfo;
   const port = addr.port;
   return {

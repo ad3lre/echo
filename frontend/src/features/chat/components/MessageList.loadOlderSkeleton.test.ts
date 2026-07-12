@@ -265,7 +265,7 @@ describe('MessageList load-older skeleton placeholders', () => {
     }
 
     expect(scrollEl.querySelector('#message-m12')).not.toBeNull();
-    expect(scrollEl.querySelector('.message-row-shell-stub')).not.toBeNull();
+    expect(scrollEl.querySelector('.message-bubble-stub')).not.toBeNull();
 
     scrollEl.dispatchEvent(
       new WheelEvent('wheel', { deltaY: -1, bubbles: true }),

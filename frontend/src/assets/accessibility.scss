@@ -184,3 +184,8 @@ html[data-echo-solid-glass='1'] {
     background-color: var(--chat-glass-bg-strong) !important;
   }
 }
+
+/* Used by theme store `nudgeWebKitRepaintAfterThemeApply` on macOS WKWebView. */
+html[data-echo-theme-repaint='1'] #app {
+  transform: translateZ(0);
+}

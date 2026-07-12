@@ -178,6 +178,8 @@ export function createLiveKitVoiceSession(
     setCameraEnabled: media.setCameraEnabled,
     getUserWantsLocalCamera,
     disconnect: session.disconnect,
+    installMlsSenderKeyForParticipant:
+      connect.installMlsSenderKeyForParticipant,
   });
 
   installSpeakingWatches(ctx);

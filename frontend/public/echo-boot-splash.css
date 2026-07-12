@@ -1,7 +1,7 @@
 /* Boot splash until the main bundle runs (see index.html).
- * Light-first canvas: OS prefers light → match default Echo light --bg so no dark
- * “frame” peeks around rounded shells / subpixels before JS applies data-theme.
- * Dark OS keeps the historical ink splash. */
+ * Default canvas matches Echo light --bg. When the app theme is hydrated early
+ * (`data-theme` from echo-boot-tauri.js), prefer that over OS prefers-color-scheme
+ * so dark OS + Light app does not flash a dark spinner on a light shell. */
 html,
 body {
   margin: 0;
@@ -10,9 +10,17 @@ body {
   min-height: 100dvh;
   background: #e6ebf4;
 }
+html[data-theme='light'],
+html[data-theme='light'] body {
+  background: #e6ebf4;
+}
+html[data-theme='dark'],
+html[data-theme='dark'] body {
+  background: #0d0812;
+}
 @media (prefers-color-scheme: dark) {
-  html,
-  body {
+  html:not([data-theme]),
+  html:not([data-theme]) body {
     background: #0d0812;
   }
 }
@@ -29,8 +37,20 @@ body {
   justify-content: center;
   background: #e6ebf4;
 }
+html[data-theme='light'] .echo-boot-splash {
+  background: #e6ebf4;
+}
+html.echo-shell-tauri[data-theme='light'] #app > .echo-boot-splash {
+  background: #e6ebf4 !important;
+}
+html[data-theme='dark'] .echo-boot-splash {
+  background: #0d0812;
+}
+html.echo-shell-tauri[data-theme='dark'] #app > .echo-boot-splash {
+  background: #0d0812 !important;
+}
 @media (prefers-color-scheme: dark) {
-  .echo-boot-splash {
+  html:not([data-theme]) .echo-boot-splash {
     background: #0d0812;
   }
 }
@@ -39,11 +59,17 @@ body {
   height: 40px;
   animation: echoBootSpin 0.72s linear infinite;
 }
+html[data-theme='light'] .echo-boot-spinner circle:nth-child(1) {
+  stroke: rgba(15, 23, 42, 0.12) !important;
+}
+html[data-theme='light'] .echo-boot-spinner circle:nth-child(2) {
+  stroke: rgba(15, 23, 42, 0.88) !important;
+}
 @media (prefers-color-scheme: light) {
-  .echo-boot-spinner circle:nth-child(1) {
+  html:not([data-theme]) .echo-boot-spinner circle:nth-child(1) {
     stroke: rgba(15, 23, 42, 0.12) !important;
   }
-  .echo-boot-spinner circle:nth-child(2) {
+  html:not([data-theme]) .echo-boot-spinner circle:nth-child(2) {
     stroke: rgba(15, 23, 42, 0.88) !important;
   }
 }
@@ -61,8 +87,11 @@ body {
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.55);
 }
+html[data-theme='light'] .echo-boot-splash__hint {
+  color: rgba(30, 41, 59, 0.62);
+}
 @media (prefers-color-scheme: light) {
-  .echo-boot-splash__hint {
+  html:not([data-theme]) .echo-boot-splash__hint {
     color: rgba(30, 41, 59, 0.62);
   }
 }
@@ -86,10 +115,20 @@ body {
  * already covered the WebView-creation gap with the same background color. Showing a
  * spinner + "still loading" copy on top of that just adds a second "loading" phase
  * the user reads as the app being slow. Keep the background so it visually continues
- * the LaunchScreen, but hide the spinner / hint so the auth page appears to paint
- * straight onto the launch background. The `echo-shell-tauri` class is set by an
- * inline detector in index.html. */
-html.echo-shell-tauri .echo-boot-splash > .echo-boot-spinner,
-html.echo-shell-tauri .echo-boot-splash__hint {
+ * the LaunchScreen, but hide the spinner / hint once Vue has painted (`data-echo-mounted`
+ * on #app). Until then, keep the spinner so macOS WKWebView never shows a blank canvas.
+ * The `echo-shell-tauri` class is set by `echo-boot-tauri.js`. */
+html.echo-shell-tauri
+  #app:not([data-echo-mounted])
+  > .echo-boot-splash
+  > .echo-boot-spinner,
+html.echo-shell-tauri #app:not([data-echo-mounted]) .echo-boot-splash__hint {
+  display: revert !important;
+}
+html.echo-shell-tauri
+  #app[data-echo-mounted]
+  > .echo-boot-splash
+  > .echo-boot-spinner,
+html.echo-shell-tauri #app[data-echo-mounted] .echo-boot-splash__hint {
   display: none !important;
 }

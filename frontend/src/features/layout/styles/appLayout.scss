@@ -421,3 +421,16 @@
   transform: translateZ(0);
   -webkit-overflow-scrolling: touch;
 }
+
+/* Scroll-feel Phase 5: drop expensive compositor blur while the message list scrolls. */
+.message-list-scroll-active .chat-input-bar,
+.message-list-scroll-active .reply-bar {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--chat-glass-bg-strong, var(--chat-glass-bg));
+}
+
+.message-list-scroll-active .msg-actions-bar {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

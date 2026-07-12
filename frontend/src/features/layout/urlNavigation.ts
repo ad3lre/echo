@@ -274,7 +274,10 @@ export function parseAppPathname(
   if (segments[0] !== '@me') {
     if (segments.length >= 2) {
       const serverId = decodePathSegment(segments[0]!);
-      const channelId = decodePathSegment(segments.slice(1).join('/'));
+      /* Guild channel ids are a single path segment (snowflake or slug). Joining
+       * tail segments preserved corrupted `/channels/srv/channels/srv/chan`
+       * History URLs and let them grow on each format/parse round-trip. */
+      const channelId = decodePathSegment(segments[segments.length - 1]!);
       if (serverId === null || channelId === null) {
         return { kind: 'unknown', raw: p };
       }

@@ -72,6 +72,14 @@ const props = defineProps<{
     codec: string;
     serverRegion?: string;
   } | null;
+  /** True when this voice session uses MLS/LiveKit E2EE media frames. */
+  voiceE2eeActive?: boolean;
+  /** Per-participant frame encryption status from LiveKit. */
+  voiceE2eeParticipants?: Array<{
+    id: string;
+    name: string;
+    encrypted: boolean | null;
+  }>;
 }>();
 
 const emit = defineEmits<{
@@ -129,7 +137,7 @@ const statusLabel = computed(() => {
     case 'error':
       return 'Connection Failed';
     case 'connected':
-      return 'Voice Connected';
+      return props.voiceE2eeActive ? 'Encrypted Voice' : 'Voice Connected';
     case 'idle':
       return 'Voice';
     default:
@@ -162,6 +170,18 @@ const networkIconClass = computed(() => {
       return props.vcNetworkGood ? 'vc-network-good' : 'vc-network-warn';
   }
 });
+
+function e2eeStatusLabel(encrypted: boolean | null): string {
+  if (encrypted === true) return 'Encrypted';
+  if (encrypted === false) return 'Not encrypted';
+  return 'Pending';
+}
+
+function e2eeStatusClass(encrypted: boolean | null): string {
+  if (encrypted === true) return 'vc-e2ee-status--ok';
+  if (encrypted === false) return 'vc-e2ee-status--error';
+  return 'vc-e2ee-status--pending';
+}
 
 function formatLatency(ms: number): string {
   return `${Math.round(ms)} ms`;
@@ -210,6 +230,14 @@ function formatBitrate(kbps: number): string {
             <div
               class="mt-0.5 flex min-w-0 max-w-full items-center gap-1.5 pl-7"
             >
+              <span
+                v-if="voiceE2eeActive"
+                class="vc-e2ee-pill shrink-0"
+                title="Voice and camera use end-to-end encryption (LiveKit E2EE)."
+              >
+                <img :src="icons.chatLock" alt="" class="vc-e2ee-pill-icon" />
+                E2EE
+              </span>
               <button
                 v-if="focusGuildVoiceChannelInSidebar"
                 type="button"
@@ -327,6 +355,28 @@ function formatBitrate(kbps: number): string {
                     <span class="vc-stat-label">Server</span>
                     <span class="vc-stat-value vc-stat-ok">
                       {{ vcNetworkStats?.serverRegion || '—' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  v-if="voiceE2eeActive && voiceE2eeParticipants?.length"
+                  class="vc-network-popup-e2ee"
+                >
+                  <div class="vc-network-popup-e2ee-title">
+                    End-to-end encryption
+                  </div>
+                  <div
+                    v-for="row in voiceE2eeParticipants"
+                    :key="row.id"
+                    class="vc-e2ee-participant-row"
+                  >
+                    <span class="vc-e2ee-participant-name">{{ row.name }}</span>
+                    <span
+                      class="vc-e2ee-status-badge"
+                      :class="e2eeStatusClass(row.encrypted)"
+                    >
+                      {{ e2eeStatusLabel(row.encrypted) }}
                     </span>
                   </div>
                 </div>

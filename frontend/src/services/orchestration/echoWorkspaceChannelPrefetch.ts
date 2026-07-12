@@ -5,6 +5,11 @@ import {
   ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
   ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
 } from '@/constants/echoHistoryPageSize';
+import {
+  WARM_CHANNEL_CACHE_FETCH_CONCURRENCY,
+  WARM_CHANNEL_CACHE_MAX_CHANNELS,
+  WARM_CHANNEL_CACHE_MESSAGES_PER_CHANNEL,
+} from '@/constants/warmChannelCache';
 import { firstTextChannelIdFromCategories } from '@/composables/workspace/utils';
 import { parseAppPathname } from '@/features/layout/urlNavigation';
 import { isEchoGraphId } from '@/utils/echoIds';
@@ -14,9 +19,10 @@ import {
   readLastVisitedServerChannelMap,
 } from '@/utils/lastVisitedNavigationPersistence';
 import {
-  persistMessageSessionCacheFromChannel,
-  trySeedChannelFromMessageSessionCache,
-} from '@/utils/messageSessionCache';
+  readWarmChannelHeadsForServer,
+  touchWarmChannelHead,
+  writeWarmChannelHead,
+} from '@/services/persistence/warmChannelHeadCache';
 import {
   isBenignPrimaryFlowError,
   reportPrimaryFlowFailure,
@@ -148,7 +154,7 @@ export function applyPrefetchedWorkspaceChannelMessages(
   channelId: string,
   apiMessages: EchoApiMessage[],
   pageLimit: number = ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
-  opts?: { cacheUserId?: string | null },
+  opts?: { cacheUserId?: string | null; serverId?: string | null },
 ): void {
   const raw = mapEchoMessagesToRaw(apiMessages);
   sortRawMessagesInPlace(raw);
@@ -164,8 +170,17 @@ export function applyPrefetchedWorkspaceChannelMessages(
       pageLimit,
     );
     const userId = opts?.cacheUserId?.trim();
-    if (userId) {
-      persistMessageSessionCacheFromChannel(userId, channelId);
+    const serverId = opts?.serverId?.trim();
+    if (userId && serverId) {
+      void writeWarmChannelHead({
+        userId,
+        serverId,
+        channelId,
+        messages: index.sorted.value,
+        hasMoreOlder:
+          apiMessages.length >= pageLimit ||
+          messageWindowAuthority.getHasMoreOlderForChannel(channelId),
+      });
     }
     return;
   }
@@ -176,12 +191,30 @@ export function applyPrefetchedWorkspaceChannelMessages(
   if (missing.length > 0) {
     applyEchoHistoryLatestPageFromApi(channelId, missing, activeChannelId);
   }
+  const userId = opts?.cacheUserId?.trim();
+  const serverId = opts?.serverId?.trim();
+  if (userId && serverId && index.sorted.value.length > 0) {
+    void writeWarmChannelHead({
+      userId,
+      serverId,
+      channelId,
+      messages: index.sorted.value,
+      hasMoreOlder: messageWindowAuthority.getHasMoreOlderForChannel(channelId),
+    });
+  }
 }
 
 const prefetchInFlight = new Set<string>();
+const prefetchAbortControllerByChannel = new Map<string, AbortController>();
 
 export function isChannelMessagePrefetchInFlight(channelId: string): boolean {
   return prefetchInFlight.has(channelId.trim());
+}
+
+export function cancelChannelMessagePrefetch(channelId: string): void {
+  const cid = channelId.trim();
+  if (!cid) return;
+  prefetchAbortControllerByChannel.get(cid)?.abort();
 }
 
 export function shouldSkipChannelMessagePrefetch(channelId: string): boolean {
@@ -199,69 +232,325 @@ export function shouldSkipChannelMessagePrefetch(channelId: string): boolean {
 export async function prefetchChannelMessagesFirstPage(
   token: string,
   channelId: string,
-  opts?: { flow?: string },
+  opts?: {
+    flow?: string;
+    pageLimit?: number;
+    serverId?: string;
+    cacheUserId?: string;
+    signal?: AbortSignal;
+  },
 ): Promise<boolean> {
   const cid = channelId.trim();
   if (!token.trim() || shouldSkipChannelMessagePrefetch(cid)) return false;
-  const cacheUserId = readJwtSub(token);
-  if (
-    cacheUserId &&
-    trySeedChannelFromMessageSessionCache(
-      cacheUserId,
-      cid,
-      messageWindowAuthority.getActiveChannelId() ?? '',
-    )
-  ) {
-    return true;
-  }
+  const cacheUserId = opts?.cacheUserId?.trim() || readJwtSub(token);
+  const pageLimit = opts?.pageLimit ?? ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE;
+  const controller = new AbortController();
+  const onExternalAbort = () => controller.abort();
+  opts?.signal?.addEventListener('abort', onExternalAbort, { once: true });
+  if (opts?.signal?.aborted) controller.abort();
+  prefetchAbortControllerByChannel.set(cid, controller);
   prefetchInFlight.add(cid);
   try {
     const { messages: apiMsgs } = await fetchEchoChannelMessages(token, cid, {
-      limit: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+      limit: pageLimit,
+      signal: controller.signal,
     });
-    applyPrefetchedWorkspaceChannelMessages(
-      cid,
-      apiMsgs,
-      ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
-      { cacheUserId },
-    );
+    applyPrefetchedWorkspaceChannelMessages(cid, apiMsgs, pageLimit, {
+      cacheUserId,
+      serverId: opts?.serverId,
+    });
     return true;
   } catch (e) {
+    if (controller.signal.aborted) return false;
     const flow = opts?.flow ?? 'prefetchChannelMessagesFirstPage';
     if (isBenignPrimaryFlowError(e, flow, { channelId: cid })) return false;
     reportPrimaryFlowFailure(flow, e, { channelId: cid });
     return false;
   } finally {
+    opts?.signal?.removeEventListener('abort', onExternalAbort);
+    if (prefetchAbortControllerByChannel.get(cid) === controller) {
+      prefetchAbortControllerByChannel.delete(cid);
+    }
     prefetchInFlight.delete(cid);
   }
 }
 
-/** Non-blocking bootstrap prefetch: landing channel first, then the rest in parallel. */
+type NetworkInformationLike = {
+  saveData?: boolean;
+  effectiveType?: string;
+};
+
+export function canWarmChannelHeadsInBackground(): boolean {
+  if (typeof navigator !== 'undefined') {
+    if (navigator.onLine === false) return false;
+    const nav = navigator as Navigator & {
+      connection?: NetworkInformationLike;
+      mozConnection?: NetworkInformationLike;
+      webkitConnection?: NetworkInformationLike;
+    };
+    const connection =
+      nav.connection ?? nav.mozConnection ?? nav.webkitConnection;
+    if (connection?.saveData) return false;
+    const type = connection?.effectiveType?.toLowerCase();
+    if (type === 'slow-2g' || type === '2g') return false;
+  }
+  return (
+    typeof document === 'undefined' || document.visibilityState === 'visible'
+  );
+}
+
+function textChannelIdsForServer(
+  state: Pick<EchoWorkspaceState, 'categoriesByServer'>,
+  serverId: string,
+): string[] {
+  const out: string[] = [];
+  for (const category of state.categoriesByServer[serverId] ?? []) {
+    for (const channel of category.channels ?? []) {
+      if (
+        channel.type === 'text' &&
+        isEchoGraphId(channel.id) &&
+        !out.includes(channel.id)
+      ) {
+        out.push(channel.id);
+      }
+    }
+  }
+  return out;
+}
+
+export function resolveWarmServerTextChannelIds(
+  state: Pick<EchoWorkspaceState, 'categoriesByServer'>,
+  serverId: string,
+  opts?: {
+    activeChannelId?: string | null;
+    attentionChannelIds?: readonly string[];
+    recentChannelIds?: readonly string[];
+  },
+): string[] {
+  const available = new Set(textChannelIdsForServer(state, serverId));
+  const ordered = [
+    opts?.activeChannelId ?? '',
+    ...(opts?.attentionChannelIds ?? []),
+    ...(opts?.recentChannelIds ?? []),
+    ...available,
+  ];
+  const seen = new Set<string>();
+  return ordered
+    .map((id) => id.trim())
+    .filter((id) => {
+      if (!id || !available.has(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .slice(0, WARM_CHANNEL_CACHE_MAX_CHANNELS);
+}
+
+let warmServerGeneration = 0;
+let warmServerAbortController: AbortController | null = null;
+let warmServerIdInProgress: string | null = null;
+
+export function cancelWarmCurrentServerChannelHeads(): void {
+  warmServerGeneration++;
+  warmServerAbortController?.abort();
+  warmServerAbortController = null;
+  warmServerIdInProgress = null;
+}
+
+async function hydrateWarmServerHeads(
+  userId: string,
+  serverId: string,
+  priorityChannelIds: readonly string[],
+  generation: number,
+): Promise<void> {
+  const rows = await readWarmChannelHeadsForServer(userId, serverId, {
+    priorityChannelIds,
+  });
+  for (const row of rows) {
+    if (generation !== warmServerGeneration) return;
+    if (
+      messageWindowAuthority.getIndex(row.channelId).sorted.value.length > 0
+    ) {
+      continue;
+    }
+    applyEchoHistoryInitialPageFromApi(
+      row.channelId,
+      row.messages,
+      row.messages.length,
+      messageWindowAuthority.getActiveChannelId() ?? '',
+      WARM_CHANNEL_CACHE_MESSAGES_PER_CHANNEL,
+    );
+    messageWindowAuthority.setHasMoreOlder(row.channelId, row.hasMoreOlder);
+  }
+}
+
+function waitForWarmChannelIdle(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const idle = globalThis as typeof globalThis & {
+      requestIdleCallback?: (
+        callback: () => void,
+        options?: { timeout: number },
+      ) => number;
+    };
+    if (typeof idle.requestIdleCallback === 'function') {
+      idle.requestIdleCallback(resolve, { timeout: 1_500 });
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
+}
+
+function waitUntilWarmChannelHeadsAllowed(
+  signal: AbortSignal,
+): Promise<boolean> {
+  if (signal.aborted) return Promise.resolve(false);
+  if (canWarmChannelHeadsInBackground()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const nav = typeof navigator !== 'undefined' ? navigator : null;
+    const network = nav as
+      | (Navigator & {
+          connection?: EventTarget;
+          mozConnection?: EventTarget;
+          webkitConnection?: EventTarget;
+        })
+      | null;
+    const connectionTarget =
+      network?.connection ??
+      network?.mozConnection ??
+      network?.webkitConnection;
+    const cleanup = () => {
+      signal.removeEventListener('abort', onAbort);
+      globalThis.removeEventListener?.('online', onEnvironmentChange);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onEnvironmentChange);
+      }
+      connectionTarget?.removeEventListener?.('change', onEnvironmentChange);
+    };
+    const finish = (allowed: boolean) => {
+      cleanup();
+      resolve(allowed);
+    };
+    const onAbort = () => finish(false);
+    const onEnvironmentChange = () => {
+      if (canWarmChannelHeadsInBackground()) finish(true);
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    globalThis.addEventListener?.('online', onEnvironmentChange);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onEnvironmentChange);
+    }
+    connectionTarget?.addEventListener?.('change', onEnvironmentChange);
+  });
+}
+
+export async function runWarmChannelTasksWithConcurrency(
+  ids: readonly string[],
+  concurrency: number,
+  task: (id: string) => Promise<void>,
+): Promise<void> {
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < ids.length) {
+      const id = ids[cursor++];
+      if (id) await task(id);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, ids.length) }, () => worker()),
+  );
+}
+
+export function warmCurrentServerChannelHeadsNonBlocking(
+  token: string,
+  state: Pick<EchoWorkspaceState, 'categoriesByServer'>,
+  serverId: string,
+  opts?: {
+    userId?: string | null;
+    activeChannelId?: string | null;
+    attentionChannelIds?: readonly string[];
+    recentChannelIds?: readonly string[];
+  },
+): void {
+  const sid = serverId.trim();
+  const userId = opts?.userId?.trim() || readJwtSub(token);
+  if (!token.trim() || !userId || !sid || !isEchoGraphId(sid)) return;
+  const channelIds = resolveWarmServerTextChannelIds(state, sid, opts);
+  if (!channelIds.length) return;
+  const activeChannelId = opts?.activeChannelId?.trim();
+  if (activeChannelId) {
+    void touchWarmChannelHead(userId, sid, activeChannelId);
+  }
+  // Priority changes inside one server must not abort requests and then skip
+  // their replacements because the old calls are still in the in-flight set.
+  if (
+    warmServerIdInProgress === sid &&
+    warmServerAbortController &&
+    !warmServerAbortController.signal.aborted
+  ) {
+    return;
+  }
+  const generation = ++warmServerGeneration;
+  warmServerAbortController?.abort();
+  const controller = new AbortController();
+  warmServerAbortController = controller;
+  warmServerIdInProgress = sid;
+  void (async () => {
+    try {
+      await hydrateWarmServerHeads(userId, sid, channelIds, generation);
+      await waitForWarmChannelIdle(controller.signal);
+      const allowed = await waitUntilWarmChannelHeadsAllowed(controller.signal);
+      if (generation !== warmServerGeneration || !allowed) {
+        return;
+      }
+      await runWarmChannelTasksWithConcurrency(
+        channelIds.filter((channelId) => channelId !== activeChannelId),
+        WARM_CHANNEL_CACHE_FETCH_CONCURRENCY,
+        async (channelId) => {
+          if (generation !== warmServerGeneration) {
+            controller.abort();
+            return;
+          }
+          if (!canWarmChannelHeadsInBackground()) {
+            const resumed = await waitUntilWarmChannelHeadsAllowed(
+              controller.signal,
+            );
+            if (!resumed || generation !== warmServerGeneration) return;
+          }
+          await prefetchChannelMessagesFirstPage(token, channelId, {
+            flow: 'prefetchWorkspaceBootstrapTextChannels',
+            pageLimit: WARM_CHANNEL_CACHE_MESSAGES_PER_CHANNEL,
+            serverId: sid,
+            cacheUserId: userId,
+            signal: controller.signal,
+          });
+        },
+      );
+    } finally {
+      if (warmServerAbortController === controller) {
+        warmServerAbortController = null;
+        warmServerIdInProgress = null;
+      }
+    }
+  })();
+}
+
+/** Non-blocking bootstrap warm-up for the remembered/current server. */
 export function prefetchWorkspaceBootstrapTextChannelsNonBlocking(
   token: string,
   state: EchoWorkspaceState,
 ): void {
   const priorityChannelIds = resolveLikelyLandingTextChannelIds(state);
-  const channelIds = resolveWorkspaceBootstrapTextChannelIds(state, 6, {
-    priorityChannelIds,
+  const rememberedServerId = readLastVisitedGuildId();
+  const serverId =
+    rememberedServerId &&
+    state.servers.some((server) => server.id === rememberedServerId)
+      ? rememberedServerId
+      : state.servers[0]?.id;
+  if (!serverId) return;
+  warmCurrentServerChannelHeadsNonBlocking(token, state, serverId, {
+    activeChannelId: priorityChannelIds[0],
+    recentChannelIds: priorityChannelIds,
   });
-  if (!channelIds.length) return;
-  void (async () => {
-    const [landing, ...rest] = channelIds;
-    if (landing) {
-      await prefetchChannelMessagesFirstPage(token, landing, {
-        flow: 'prefetchWorkspaceBootstrapTextChannels',
-      });
-    }
-    if (rest.length === 0) return;
-    await Promise.allSettled(
-      rest.map((channelId) =>
-        prefetchChannelMessagesFirstPage(token, channelId, {
-          flow: 'prefetchWorkspaceBootstrapTextChannels',
-        }),
-      ),
-    );
-  })();
 }
 
 /**
@@ -304,5 +593,10 @@ export function prefetchInboundUrlChannelFirstPage(
 }
 
 export function _resetChannelMessagePrefetchForTesting(): void {
+  for (const controller of prefetchAbortControllerByChannel.values()) {
+    controller.abort();
+  }
+  prefetchAbortControllerByChannel.clear();
   prefetchInFlight.clear();
+  cancelWarmCurrentServerChannelHeads();
 }

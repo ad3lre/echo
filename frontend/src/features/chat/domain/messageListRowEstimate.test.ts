@@ -159,4 +159,62 @@ describe('estimateMessageListRowSizePx', () => {
     });
     expect(legacyImage - baseline).toBe(368);
   });
+
+  it('reserves rich video embed height (header + 16:9 player)', () => {
+    const baseline = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      message: { content: 'watch this' },
+    });
+    const withVideo = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      message: {
+        content: 'watch this',
+        embeds: [
+          {
+            url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            title: 'Example stream',
+            provider: 'YouTube',
+            video: {
+              kind: 'youtube',
+              embedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+            },
+          },
+        ],
+      },
+    });
+    expect(withVideo - baseline).toBeGreaterThanOrEqual(320);
+  });
+
+  it('reserves stub video embed height from plain URLs before server unfurl', () => {
+    const baseline = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      message: { content: 'check this out' },
+    });
+    const withStub = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      message: {
+        content: 'https://vimeo.com/123456789',
+        embeds: [],
+      },
+    });
+    expect(withStub - baseline).toBeGreaterThanOrEqual(320);
+  });
+
+  it('reserves emoji-only body height before live measure', () => {
+    const baseline = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      message: { content: 'hello' },
+    });
+    const emojiOnly = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      message: { content: '<:pepe:1486467212268142592>' },
+    });
+    expect(emojiOnly - baseline).toBeGreaterThanOrEqual(26);
+  });
 });

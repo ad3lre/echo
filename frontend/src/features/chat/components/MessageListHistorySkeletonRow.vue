@@ -8,6 +8,21 @@ defineProps<{
 </script>
 
 <template>
+  <div
+    v-if="row.daySeparatorLabel"
+    class="message-list__day-separator flex items-center gap-3 px-4"
+    :class="{ 'message-list__day-separator--first': isFirst }"
+    :data-day="row.daySeparatorLabel"
+    aria-hidden="true"
+  >
+    <span class="h-px flex-1 bg-glass-2" />
+    <span
+      class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted"
+    >
+      {{ row.daySeparatorLabel }}
+    </span>
+    <span class="h-px flex-1 bg-glass-2" />
+  </div>
   <!-- Mirrors MessageBubble outer structure: same density tokens and flex layout. -->
   <article
     class="message-bubble pointer-events-none px-1"
@@ -52,14 +67,24 @@ defineProps<{
         <div
           v-for="(block, blockIndex) in row.imageBlocks ?? []"
           :key="`img-${blockIndex}`"
-          class="skeleton-media my-2 block w-full max-w-[min(100%,40rem)] min-w-0"
-          :style="{ aspectRatio: `${block.aspectW} / ${block.aspectH}` }"
+          class="skeleton-media my-2 block w-full min-w-0"
+          :style="{
+            aspectRatio: `${block.aspectW} / ${block.aspectH}`,
+            maxWidth: block.maxWidthCss ?? 'min(100%, 40rem)',
+          }"
         >
           <div
             class="message-list-skeleton-pulse h-full w-full rounded-lg"
             aria-hidden="true"
           />
         </div>
+        <div
+          v-for="(blockHeight, blockIndex) in row.blockHeights ?? []"
+          :key="`block-${blockIndex}`"
+          class="skeleton-structured-block message-list-skeleton-pulse mt-2 w-full max-w-[400px] rounded-lg"
+          :style="{ height: `${blockHeight}px` }"
+          aria-hidden="true"
+        />
       </div>
     </div>
   </article>
@@ -68,10 +93,6 @@ defineProps<{
 <style scoped lang="scss">
 .skeleton-line {
   height: 1.375rem;
-}
-
-.skeleton-media {
-  max-height: 12rem;
 }
 
 .message-list-skeleton-pulse {

@@ -100,6 +100,7 @@ function onError() {
       :alt="alt"
       :class="imgClass"
       :loading="imgLoading"
+      decoding="async"
       @load="onLoad"
       @error="onError"
     />
@@ -129,6 +130,7 @@ function onError() {
     :alt="alt"
     :class="imgClass"
     :loading="imgLoading"
+    decoding="async"
     @load="onLoad"
     @error="onError"
   />

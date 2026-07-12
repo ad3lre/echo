@@ -103,7 +103,7 @@ export function createEchoWorkspaceLifecycleController(
       mergeEchoBlockedFromApi,
       syncEchoPresenceFromApi,
     });
-    if (!result.ok) {
+    if (!result.ok && !result.suppressBanner) {
       reportPrimaryFlowFailure('refreshEchoSocialFromApi', result.error, {
         uid: authSession.backendUser?.id,
       });

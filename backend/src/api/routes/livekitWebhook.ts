@@ -400,55 +400,85 @@ export default async function livekitWebhookRoutes(
       req.log.info(
         `[LiveKit:Webhook] ✓ room_finished — server=${serverId} channel=${channelId}`,
       );
-      const del = await pool.query(
-        `DELETE FROM echo_voice_participants
+      const remaining = await pool.query(
+        `SELECT 1 FROM echo_voice_participants
          WHERE server_id = $1 AND channel_id = $2
-         RETURNING user_id`,
+         LIMIT 1`,
         [serverId, channelId],
       );
-      const purgedUserIds = (del.rows as { user_id: unknown }[]).map((r) =>
-        String(r.user_id),
-      );
-      if (purgedUserIds.length > 0) {
-        vcTrace(req.log, 'livekit.webhook:room_finished_purged', {
+      if (remaining.rows.length > 0) {
+        // Guild E2EE prepare inserts a REST voice row before LiveKit session mint.
+        // A stale room_finished from the prior call must not delete that row or
+        // reset the MLS group the joiner just created — that races the mint and
+        // surfaces as VOICE_E2EE_EPOCH_REQUIRED / privacy-setup failed.
+        vcTrace(req.log, 'livekit.webhook:room_finished_skip_purge', {
           serverId,
           channelId,
-          purgedCount: purgedUserIds.length,
+          reason: 'participants_remain',
         });
-        let latestAuditId: string | null = null;
-        for (const uid of purgedUserIds) {
-          try {
-            latestAuditId = await insertEchoAudit(
+        req.log.info(
+          `[LiveKit:Webhook] room_finished skipped purge — participants remain server=${serverId} channel=${channelId}`,
+        );
+      } else {
+        const del = await pool.query(
+          `DELETE FROM echo_voice_participants
+           WHERE server_id = $1 AND channel_id = $2
+           RETURNING user_id`,
+          [serverId, channelId],
+        );
+        const purgedUserIds = (del.rows as { user_id: unknown }[]).map((r) =>
+          String(r.user_id),
+        );
+        if (purgedUserIds.length > 0) {
+          vcTrace(req.log, 'livekit.webhook:room_finished_purged', {
+            serverId,
+            channelId,
+            purgedCount: purgedUserIds.length,
+          });
+          let latestAuditId: string | null = null;
+          for (const uid of purgedUserIds) {
+            try {
+              latestAuditId = await insertEchoAudit(
+                pool,
+                serverId,
+                uid,
+                'voice.livekit_room_finished',
+                'channel',
+                channelId,
+                { reason: 'room_finished' },
+              );
+            } catch (e) {
+              vcTrace(req.log, 'livekit.webhook:room_finished_audit_failed', {
+                serverId,
+                channelId,
+                uid,
+                err: e instanceof Error ? e.message : String(e),
+              });
+            }
+          }
+          publishEchoWorkspaceEvent(
+            fastify,
+            {
+              kind: 'workspace_invalidated',
+              version: latestAuditId ?? `room_finished-${Date.now()}`,
+              serverId,
+            },
+            { serverId },
+          );
+        }
+        let superseded = 0;
+        if (serverId === ECHO_DM_REALM_SERVER_ID) {
+          if (await echoDmVoiceE2eeRequired(pool, channelId)) {
+            superseded = await supersedeVoiceE2eeEpochsForChannel(
               pool,
               serverId,
-              uid,
-              'voice.livekit_room_finished',
-              'channel',
               channelId,
-              { reason: 'room_finished' },
             );
-          } catch (e) {
-            vcTrace(req.log, 'livekit.webhook:room_finished_audit_failed', {
-              serverId,
-              channelId,
-              uid,
-              err: e instanceof Error ? e.message : String(e),
-            });
+            await resetMlsGroupForChannel(pool, serverId, channelId);
           }
-        }
-        publishEchoWorkspaceEvent(
-          fastify,
-          {
-            kind: 'workspace_invalidated',
-            version: latestAuditId ?? `room_finished-${Date.now()}`,
-            serverId,
-          },
-          { serverId },
-        );
-      }
-      let superseded = 0;
-      if (serverId === ECHO_DM_REALM_SERVER_ID) {
-        if (await echoDmVoiceE2eeRequired(pool, channelId)) {
+        } else if (
+          await getEchoChannelVoiceE2eeEnabled(pool, serverId, channelId)
+        ) {
           superseded = await supersedeVoiceE2eeEpochsForChannel(
             pool,
             serverId,
@@ -456,17 +486,8 @@ export default async function livekitWebhookRoutes(
           );
           await resetMlsGroupForChannel(pool, serverId, channelId);
         }
-      } else if (
-        await getEchoChannelVoiceE2eeEnabled(pool, serverId, channelId)
-      ) {
-        superseded = await supersedeVoiceE2eeEpochsForChannel(
-          pool,
-          serverId,
-          channelId,
-        );
-        await resetMlsGroupForChannel(pool, serverId, channelId);
+        if (superseded > 0) publishVoiceE2eeEpochSuperseded();
       }
-      if (superseded > 0) publishVoiceE2eeEpochSuperseded();
     } else if ((event.event as string) === 'active_speakers_changed') {
       echoLivekitWebhookEventTotal.labels('active_speakers_changed').inc();
       const ids = parseActiveSpeakerIdentities(event);

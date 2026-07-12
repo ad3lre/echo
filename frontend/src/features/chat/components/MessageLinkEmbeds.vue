@@ -123,11 +123,11 @@ function embedMediaHasDims(
 
 function embedMediaAspectStyle(
   media: { width?: number; height?: number } | undefined,
-): { aspectRatio: string } | undefined {
+): { aspectRatio: string } {
   const w = media?.width;
   const h = media?.height;
   if (typeof w !== 'number' || w <= 0 || typeof h !== 'number' || h <= 0) {
-    return undefined;
+    return { aspectRatio: '16 / 9' };
   }
   return { aspectRatio: `${w} / ${h}` };
 }
@@ -139,9 +139,7 @@ function embedMainImageImgClass(
   const scale = hoverScale
     ? ' transition-transform duration-300 group-hover:scale-[1.02]'
     : '';
-  return embedMediaHasDims(media)
-    ? `h-full w-full object-contain${scale}`
-    : `block h-auto max-h-[min(90vh,36rem)] w-full object-contain${scale}`;
+  return `h-full w-full object-contain${scale}`;
 }
 
 function embedThumbImgClass(
@@ -149,7 +147,7 @@ function embedThumbImgClass(
 ) {
   return embedMediaHasDims(media)
     ? 'block h-16 w-16 object-contain'
-    : 'block max-h-16 max-w-24 object-contain';
+    : 'block h-16 w-24 object-contain';
 }
 
 function isRichMedia(embed: Embed): boolean {
@@ -182,7 +180,7 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
     <article
       v-for="(embed, i) in list"
       :key="`${i}-${embed.url ?? embed.title ?? ''}`"
-      class="message-link-embed relative w-full overflow-hidden rounded-lg bg-elevated shadow-md transition-[max-width] duration-300 ease-out"
+      class="message-link-embed relative w-full overflow-hidden rounded-lg bg-elevated shadow-md"
       :class="[
         isRichMedia(embed) ? 'message-link-embed--rich' : '',
         videoArticleMaxClass(i, embed),

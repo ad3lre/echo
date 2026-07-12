@@ -160,6 +160,7 @@
   overflow-wrap: break-word;
   word-break: break-word;
   min-width: 0;
+  line-height: 1.375;
   /*
    * Do not use overflow-x: hidden here: with overflow-y: visible it forces overflow-y
    * to compute to `auto`, which clips KaTeX (fractions, tall radicals) and inline math
@@ -205,10 +206,12 @@
   max-height: 1.15em;
   max-width: 1.15em;
   object-fit: contain;
-  vertical-align: -0.12em;
+  vertical-align: -0.15em;
   display: inline-block;
   box-sizing: content-box;
   cursor: pointer;
+  position: relative;
+  z-index: 0;
 }
 
 .message-text :deep(.mention--custom-emoji) {
@@ -222,8 +225,9 @@
   height: 1.15em;
   max-width: 1.15em;
   max-height: 1.15em;
-  vertical-align: -0.12em;
+  vertical-align: -0.15em;
   box-sizing: content-box;
+  z-index: 0;
 }
 
 .message-text :deep(.custom-emoji-skeleton) {
@@ -236,7 +240,6 @@
 
 .message-text :deep(.custom-emoji-inline img.custom-emoji) {
   position: relative;
-  z-index: 1;
   width: 100%;
   height: 100%;
   max-width: 100%;
@@ -295,6 +298,10 @@
   max-height: 24rem;
   border-radius: 12px;
   background: var(--msg-video-inner-bg);
+}
+
+.message-text--emoji-only {
+  line-height: 1.2;
 }
 
 .message-text--emoji-only :deep(.emoji) {
@@ -392,8 +399,9 @@
   max-width: 100%;
   align-items: center;
   gap: 0.25rem;
-  align-self: baseline;
   vertical-align: baseline;
+  position: relative;
+  z-index: 0;
   font-weight: 500;
   text-underline-offset: 2px;
 }

@@ -34,3 +34,12 @@ declare module '*.md?raw' {
   const src: string;
   export default src;
 }
+
+interface Window {
+  __echoBootDiagPush?: (
+    stage: string,
+    detail?: Record<string, unknown>,
+  ) => void;
+  __echoBootDiagSnapshot?: (label?: string) => void;
+  __ECHO_BOOT_DIAG_QUEUE__?: unknown[];
+}

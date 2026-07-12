@@ -76,6 +76,11 @@
   // fatal fallback) within the grace window, we stay out of the way. A true
   // module-load failure never mounts, so the error shows.
   function scheduleBootError(message) {
+    if (typeof window.__echoBootDiagPush === 'function') {
+      window.__echoBootDiagPush('echo-boot-error-guard:scheduled', {
+        message: message || '',
+      });
+    }
     if (handled || appHandled() || pending !== null) return;
     pending = window.setTimeout(function () {
       pending = null;
@@ -84,6 +89,12 @@
   }
 
   window.addEventListener('error', function (event) {
+    if (typeof window.__echoBootDiagPush === 'function') {
+      window.__echoBootDiagPush('echo-boot-error-guard:window-error', {
+        message: (event && event.message) || '',
+        filename: event && event.filename,
+      });
+    }
     // Ignore resource-load failures (e.g. the splash icon); those target an
     // element rather than window and must not blank a working app.
     if (event && event.target && event.target !== window) return;
@@ -96,6 +107,14 @@
 
   window.addEventListener('unhandledrejection', function (event) {
     var reason = event && event.reason;
+    if (typeof window.__echoBootDiagPush === 'function') {
+      window.__echoBootDiagPush('echo-boot-error-guard:unhandled-rejection', {
+        message:
+          (reason && reason.message) ||
+          (typeof reason === 'string' ? reason : '') ||
+          '',
+      });
+    }
     var message =
       (reason && reason.message) ||
       (typeof reason === 'string' ? reason : '') ||

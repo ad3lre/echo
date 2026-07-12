@@ -189,6 +189,14 @@ describe('primaryFlowFailureSuggestsBackendUnreachable', () => {
     ).toBe(true);
   });
 
+  it('returns false when the failure was marked suppressBanner', () => {
+    expect(
+      primaryFlowFailureSuggestsBackendUnreachable(
+        d({ flow: 'refreshEchoSocialFromApi', suppressBanner: true }),
+      ),
+    ).toBe(false);
+  });
+
   it('returns false for unrelated flows without 5xx', () => {
     expect(
       primaryFlowFailureSuggestsBackendUnreachable(

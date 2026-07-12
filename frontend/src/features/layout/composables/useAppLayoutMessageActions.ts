@@ -13,6 +13,7 @@ import {
 } from '@shared/richBlockContentJson';
 import { deriveMessageComponentsFromContentJson } from '@shared/buttonRowContentJson';
 import { patchImageSlotFill } from '@shared/imageSlotContentJson';
+import { syncChannelMessages } from '@/services/realtime/channelMessageAuthority';
 import { writeSortedMessagesForChannel } from '@/services/realtime/channelMessageBucket';
 import {
   overwriteLocalProfileFromAuthUser,
@@ -764,8 +765,12 @@ export function useAppLayoutMessageActions(
       if (prev?.contentJson) {
         const patched = patchImageSlotFill(prev.contentJson, slotId, body);
         if (patched.ok) {
-          index.update(messageId, { contentJson: patched.doc });
-          writeSortedMessagesForChannel(messages.value, cid, index);
+          const plain = plainTextFromEchoContentJson(patched.doc).trim();
+          index.update(messageId, {
+            contentJson: patched.doc,
+            ...(plain ? { content: plain, contentText: plain } : {}),
+          });
+          syncChannelMessages(cid, index);
         } else {
           const userMessage =
             patched.error === 'slot_already_filled'

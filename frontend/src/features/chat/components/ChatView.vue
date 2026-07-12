@@ -178,6 +178,12 @@ const echoInitialHistoryLoading = computed(
 const echoLoadingOlder = computed(
   () => echoChannelHistory?.loadingOlder.value ?? false,
 );
+const echoInitialBackfillLoading = computed(
+  () => echoChannelHistory?.initialBackfillLoading.value ?? false,
+);
+const echoInitialBackfillPending = computed(
+  () => echoChannelHistory?.initialBackfillPending.value ?? false,
+);
 const echoAttention = useEchoAttentionStore();
 const { channelAttentionByChannelId, readStateByChannelId } =
   storeToRefs(echoAttention);
@@ -379,8 +385,14 @@ const showChatTypingIndicatorUi = computed(() => {
   return showVoiceSideChatComposer.value;
 });
 
+const activeChannelMessageRows = computed(() =>
+  props.activeChannelMessages?.size > 0
+    ? Array.from(props.activeChannelMessages.values())
+    : [],
+);
+
 const gifPopoutSeedKeywords = computed(() =>
-  extractChatImageSearchSeeds(props.activeChannelMessages.values()),
+  extractChatImageSearchSeeds(activeChannelMessageRows.value),
 );
 
 watch(othersTypingCount, (n, prev) => {
@@ -482,10 +494,7 @@ const imageList = computed<ImageItem[]>(() => {
       isGif: isLikelyGifUrl(url),
     }));
   }
-  const msgs =
-    props.activeChannelMessages?.size > 0
-      ? Array.from(props.activeChannelMessages.values())
-      : [];
+  const msgs = activeChannelMessageRows.value;
   const out: ImageItem[] = [];
   const seen = new Set<string>();
   function pushUrl(url: string | undefined, isGif: boolean) {
@@ -595,10 +604,7 @@ const editingMessage = ref<EditingMessage | null>(null);
  * in the active channel so the composer can display a remaining cooldown visually.
  */
 const lastOwnMessageAt = computed(() => {
-  const msgs =
-    props.activeChannelMessages?.size > 0
-      ? Array.from(props.activeChannelMessages.values())
-      : [];
+  const msgs = activeChannelMessageRows.value;
   const me = props.currentUserId;
   if (!me || !msgs.length) return null;
   for (let i = msgs.length - 1; i >= 0; i -= 1) {
@@ -615,10 +621,7 @@ const lastOwnMessageAt = computed(() => {
 });
 
 const lastOwnEditableMessageId = computed(() => {
-  const msgs =
-    props.activeChannelMessages?.size > 0
-      ? Array.from(props.activeChannelMessages.values())
-      : [];
+  const msgs = activeChannelMessageRows.value;
   const me = props.currentUserId;
   if (!me || !msgs.length) return null;
   for (let i = msgs.length - 1; i >= 0; i -= 1) {
@@ -824,8 +827,11 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         :can-moderate-author="canModerateAuthor"
         :on-moderate-user="onModerateUser"
         :load-older="echoChannelHistory?.loadOlder"
+        :load-initial-backfill="echoChannelHistory?.loadInitialBackfill"
         :ensure-message-in-window="ensureMessageInWindowForActiveChannel"
         :loading-older="echoLoadingOlder"
+        :initial-backfill-loading="echoInitialBackfillLoading"
+        :initial-backfill-pending="echoInitialBackfillPending"
         :initial-history-loading="echoInitialHistoryLoading"
         :transition-loading="transitionLoading"
         :guild-shell-settling="guildShellSettling"

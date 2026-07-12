@@ -64,6 +64,8 @@ export function isGuildShellSettling(p: GuildShellSettlingParams): boolean {
   if (!isGuildChannelTreeLoaded(p.categoriesByServer, sid)) return true;
 
   const rawCats = p.categoriesByServer[sid] ?? [];
+  if (p.initialLoadInFlight && rawCats.length === 0) return true;
+
   const cid = p.activeChannelId.trim();
   if (channelExistsInRawCategories(rawCats, cid)) return false;
 

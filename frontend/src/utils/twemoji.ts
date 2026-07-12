@@ -9,8 +9,7 @@ import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHt
 
 /**
  * Resolve a path under Vite's public/ folder for img src and fetch().
- * Tauri uses base `./`; root-absolute paths are required on nested History routes
- * (e.g. `/channels/…` would resolve `./twemoji/…` to `/channels/twemoji/…`).
+ * Uses `import.meta.env.BASE_URL` (root `/` on web and Tauri).
  */
 export function publicAssetUrl(path: string): string {
   const base = import.meta.env?.BASE_URL ?? '/';

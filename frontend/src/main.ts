@@ -51,6 +51,10 @@ import { enqueueStartupTask } from '@/utils/startupScheduler';
 import { applyGpuTierToDocument, detectGpuTier } from '@/utils/gpuTier';
 import { installDevConsoleLogRecorder } from '@/dev/consoleLogRecorder';
 import {
+  installDesktopBootDiagnostics,
+  logDesktopBootDiag,
+} from '@/platform/desktopBootDiagnostics';
+import {
   echoClientDebugError,
   echoClientDebugWarn,
 } from '@/utils/echoClientDebug';
@@ -97,6 +101,8 @@ registerEchoServiceWorker();
 void prefetchAppLayoutChunk();
 applyGpuTierToDocument(detectGpuTier());
 installDevConsoleLogRecorder();
+installDesktopBootDiagnostics();
+logDesktopBootDiag('main.ts:module-evaluated');
 installGlobalAudioPlaybackUnlock(() => {
   primeEchoAudioPlayback();
   preloadEchoSounds();
@@ -104,6 +110,7 @@ installGlobalAudioPlaybackUnlock(() => {
 
 // Phase A: hydrate theme + dark variant before first paint.
 hydrateBootThemeAndPreferences();
+logDesktopBootDiag('main.ts:boot-theme-hydrated');
 
 function loadDeferredInterWeights() {
   void import('@fontsource/inter/latin-400-italic.css');
@@ -114,6 +121,7 @@ function loadDeferredInterWeights() {
 }
 
 async function bootstrap() {
+  logDesktopBootDiag('main.ts:bootstrap:start');
   const iosBootDecision = await runIosBootCheck();
 
   if (isDesktop()) {
@@ -577,23 +585,31 @@ async function bootstrap() {
     }
   }
 
-  const appEl = document.getElementById('app');
-  if (appEl) appEl.setAttribute('data-echo-mounted', '');
-
-  /**
-   * Kick the workspace hydrate BEFORE mount so its synchronous prelude flips
-   * `loading` / `initialLoadInFlight` true on the very first rendered frame. That
-   * lets the channel-panel + chat skeletons paint immediately for session users
-   * instead of a one-frame empty "no servers yet" flash, and lets the boot gate in
-   * `App.vue` hold a splash for no-session cold starts until the load settles. The
-   * async fetch still runs concurrently with mount (fire-and-forget), so first paint
-   * is not delayed; warm-painted returning users keep `loading` false (preHydrated)
-   * so they still paint real content with no skeleton.
-   */
   const workspace = getEchoPlatform().workspace as WorkspaceStateApi;
+  logDesktopBootDiag('main.ts:before-startInitialLoad');
   void workspace.startInitialLoad();
 
+  const appEl = document.getElementById('app');
+  logDesktopBootDiag('main.ts:before-mount');
   app.mount('#app');
+  logDesktopBootDiag('main.ts:after-mount');
+
+  // Fade the HTML boot splash only after Vue has committed a frame. Setting
+  // `data-echo-mounted` before mount left a blank canvas on Tauri (spinner hidden
+  // by `echo-shell-tauri`) — light OS read as white, dark OS as black.
+  const markBootSplashMounted = () => {
+    if (appEl) appEl.setAttribute('data-echo-mounted', '');
+    logDesktopBootDiag('main.ts:data-echo-mounted');
+  };
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(markBootSplashMounted);
+    });
+  } else {
+    markBootSplashMounted();
+  }
+
+  logDesktopBootDiag('main.ts:bootstrap:mount-complete');
 
   if (typeof requestAnimationFrame !== 'undefined') {
     requestAnimationFrame(() => loadDeferredInterWeights());
@@ -741,6 +757,9 @@ function renderBootstrapFatalFallback(error: unknown) {
 }
 
 void bootstrap().catch((error: unknown) => {
+  logDesktopBootDiag('main.ts:bootstrap:fatal', {
+    message: error instanceof Error ? error.message : String(error),
+  });
   renderBootstrapFatalFallback(error);
 });
 

@@ -52,10 +52,13 @@ const isVisible = computed(() => {
   return !!layoutInjectedIsVisible.value;
 });
 const effectiveActiveChannel = pick('effectiveActiveChannel');
-const users = computed(() => pick('users').value ?? []);
-const memberListUsers = computed(() => pick('memberListUsers').value ?? []);
+const usersRef = pick('users');
+const users = computed(() => usersRef.value ?? []);
+const memberListUsersRef = pick('memberListUsers');
+const memberListUsers = computed(() => memberListUsersRef.value ?? []);
+const memberListShowGuestsRef = pick('memberListShowGuests');
 const memberListShowGuests = computed(
-  () => pick('memberListShowGuests').value ?? false,
+  () => memberListShowGuestsRef.value ?? false,
 );
 const onUpdateMemberListShowGuests = pick('onUpdateMemberListShowGuests');
 
@@ -71,12 +74,14 @@ const memberListUsersForPanel = computed(() =>
 const memberListGuestCount = computed(() =>
   countMemberListGuests(memberListUsers.value),
 );
-const selectedServerId = computed(() => pick('selectedServerId').value ?? '');
+const selectedServerIdRef = pick('selectedServerId');
+const selectedServerId = computed(() => selectedServerIdRef.value ?? '');
+const memberPanelCollapsedRef = pick('memberPanelCollapsed');
 const memberPanelCollapsed = computed(() => {
   if (props.visibilityOverride != null) {
     return false;
   }
-  return pick('memberPanelCollapsed').value ?? false;
+  return memberPanelCollapsedRef.value ?? false;
 });
 const currentUserId = pick('currentUserId');
 const serverOwnerId = pick('serverOwnerId');
@@ -88,13 +93,9 @@ const onChangeMemberNickname = pick('onChangeMemberNickname');
 const onMessageMemberUser = pick('onMessageMemberUser');
 const resolveHighestRole = pick('resolveHighestRole');
 const roleManagement = pick('roleManagement');
-const presenceMobileByUserId = computed(
-  () => pick('presenceMobileByUserId').value,
-);
-const discordOnlineByUserId = computed(
-  () => pick('discordOnlineByUserId').value,
-);
-const lastOnlineAtByUserId = computed(() => pick('lastOnlineAtByUserId').value);
+const presenceMobileByUserId = pick('presenceMobileByUserId');
+const discordOnlineByUserId = pick('discordOnlineByUserId');
+const lastOnlineAtByUserId = pick('lastOnlineAtByUserId');
 const memberListLoading = pick('memberListLoading');
 const echoMemberSectionOrdering = pick('echoMemberSectionOrdering');
 const onUpdateMemberPanelCollapsed = pick('onUpdateMemberPanelCollapsed');

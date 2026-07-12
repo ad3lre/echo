@@ -1,11 +1,13 @@
 export type MessageRowHydrationQueueOptions = {
   maxBatchSize: number;
   maxQueueSize: number;
+  maxHydratedSize: number;
 };
 
 const DEFAULT_OPTIONS: MessageRowHydrationQueueOptions = {
   maxBatchSize: 8,
   maxQueueSize: 240,
+  maxHydratedSize: 12000,
 };
 
 export function createMessageRowHydrationQueue(
@@ -20,6 +22,16 @@ export function createMessageRowHydrationQueue(
     return `${channelId.trim()}:${messageId.trim()}`;
   }
 
+  function rememberHydrated(k: string): void {
+    if (hydrated.has(k)) hydrated.delete(k);
+    hydrated.add(k);
+    while (hydrated.size > opts.maxHydratedSize) {
+      const oldest = hydrated.values().next().value as string | undefined;
+      if (!oldest) break;
+      hydrated.delete(oldest);
+    }
+  }
+
   function isHydrated(channelId: string, messageId: string): boolean {
     const k = keyFor(channelId, messageId);
     return hydrated.has(k);
@@ -27,7 +39,7 @@ export function createMessageRowHydrationQueue(
 
   function markHydrated(channelId: string, messageId: string): void {
     const k = keyFor(channelId, messageId);
-    hydrated.add(k);
+    rememberHydrated(k);
     if (queuedSet.has(k)) {
       queuedSet.delete(k);
       const idx = queued.indexOf(k);
@@ -44,7 +56,7 @@ export function createMessageRowHydrationQueue(
     for (const messageId of messageIds) {
       const mid = messageId?.trim();
       if (!mid) continue;
-      hydrated.add(keyFor(cid, mid));
+      rememberHydrated(keyFor(cid, mid));
     }
   }
 
@@ -80,10 +92,23 @@ export function createMessageRowHydrationQueue(
       queued.splice(i, 1);
       queuedSet.delete(k);
       const messageId = k.slice(prefix.length);
-      hydrated.add(k);
+      rememberHydrated(k);
       batch.push(messageId);
     }
     return batch;
+  }
+
+  function clearQueuedChannel(channelId: string): void {
+    const cid = channelId.trim();
+    if (!cid) return;
+    const prefix = `${cid}:`;
+    for (let i = queued.length - 1; i >= 0; i--) {
+      const k = queued[i]!;
+      if (k.startsWith(prefix)) {
+        queued.splice(i, 1);
+        queuedSet.delete(k);
+      }
+    }
   }
 
   function clearChannel(channelId: string): void {
@@ -93,13 +118,7 @@ export function createMessageRowHydrationQueue(
     for (const k of [...hydrated]) {
       if (k.startsWith(prefix)) hydrated.delete(k);
     }
-    for (let i = queued.length - 1; i >= 0; i--) {
-      const k = queued[i]!;
-      if (k.startsWith(prefix)) {
-        queued.splice(i, 1);
-        queuedSet.delete(k);
-      }
-    }
+    clearQueuedChannel(channelId);
   }
 
   function reset(): void {
@@ -114,6 +133,7 @@ export function createMessageRowHydrationQueue(
     seedHydrated,
     enqueue,
     dequeueBatch,
+    clearQueuedChannel,
     clearChannel,
     reset,
     get queueLength() {

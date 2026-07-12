@@ -187,6 +187,7 @@ export function reportPrimaryFlowFailure(
 export function primaryFlowFailureSuggestsBackendUnreachable(
   d: PrimaryFlowFailureDetail,
 ): boolean {
+  if (d.suppressBanner) return false;
   if (
     d.flow === 'restoreSessionFromApi' ||
     d.flow === 'socket.connect_error' ||

@@ -30,14 +30,23 @@ import type {
 } from '@/audio/voiceEchoLiveKitData';
 
 /**
- * Voice E2EE v2 connect input: the initial MLS epoch media key plus the keyring
- * index it must be installed at (`epoch % keyringSize`). Subsequent epochs are
+ * Voice E2EE v2 connect input: per-sender MLS epoch keys plus the keyring
+ * index they must be installed at (`epoch % keyringSize`). Subsequent epochs are
  * rotated in-band via {@link LiveKitVoiceRoomApi.rotateEpochKey} without a
  * reconnect. A bare `ArrayBuffer` is the legacy v1 static-key form (index 0).
  */
 export type EchoVoiceE2eeConnectInput = {
+  /** Local sender key (viewer user id). */
   initialKey: ArrayBuffer;
   keyIndex: number;
+  senderKeys?: ReadonlyMap<string, ArrayBuffer>;
+};
+
+/** Minimal epoch key payload for in-band MLS rotation. */
+export type EchoMlsEpochKeyInput = {
+  raw: ArrayBuffer;
+  keyIndex: number;
+  senderKeys?: ReadonlyMap<string, ArrayBuffer>;
 };
 
 export type LiveKitRoomState = 'idle' | 'connecting' | 'connected' | 'error';
@@ -231,10 +240,10 @@ export type LiveKitVoiceRoomApi = {
   ) => Promise<void>;
   disconnect: () => void;
   /**
-   * Voice E2EE v2: install a new MLS-derived epoch key at its keyring index
-   * without reconnecting. No-op if the room is not E2EE-enabled.
+   * Voice E2EE v2: install new MLS-derived per-sender epoch keys at their
+   * keyring index without reconnecting. No-op if the room is not E2EE-enabled.
    */
-  rotateEpochKey: (raw: ArrayBuffer, keyIndex: number) => Promise<void>;
+  rotateEpochKey: (epochKey: EchoMlsEpochKeyInput) => Promise<void>;
   applyVcAudioState: (opts: {
     muted: boolean;
     deafened: boolean;

@@ -26,45 +26,57 @@ function host(): Partial<LayoutInfoBannersHostHandlers> | null {
   return layoutInfo;
 }
 
+const showApiFetchErrorBannerRef = pick('showApiFetchErrorBanner');
 const showApiFetchErrorBanner = computed(
-  () => !!pick('showApiFetchErrorBanner').value,
+  () => !!showApiFetchErrorBannerRef.value,
 );
 const apiErrorText = pick('apiErrorText');
 const sessionEndedMessage = pick('sessionEndedMessage');
+const sessionReturningUserHintRef = pick('sessionReturningUserHint');
 const sessionReturningUserHint = computed(
-  () => !!pick('sessionReturningUserHint').value,
+  () => !!sessionReturningUserHintRef.value,
 );
-const isMockDataMode = computed(() => !!pick('isMockDataMode').value);
+const isMockDataModeRef = pick('isMockDataMode');
+const isMockDataMode = computed(() => !!isMockDataModeRef.value);
 const echoWorkspaceError = pick('echoWorkspaceError');
-const showWelcomeBackHint = computed(() => !!pick('showWelcomeBackHint').value);
+const showWelcomeBackHintRef = pick('showWelcomeBackHint');
+const showWelcomeBackHint = computed(() => !!showWelcomeBackHintRef.value);
+const welcomeBackHintTextRef = pick('welcomeBackHintText');
 const welcomeBackHintText = computed(
   () =>
-    pick('welcomeBackHintText').value ??
+    welcomeBackHintTextRef.value ??
     'Welcome back — log in to restore your workspace.',
 );
 const emailVerificationFlash = pick('emailVerificationFlash');
+const showUnverifiedEmailBannerRef = pick('showUnverifiedEmailBanner');
 const showUnverifiedEmailBanner = computed(
-  () => !!pick('showUnverifiedEmailBanner').value,
+  () => !!showUnverifiedEmailBannerRef.value,
 );
-const emailBannerResendBusy = computed(
-  () => !!pick('emailBannerResendBusy').value,
-);
+const emailBannerResendBusyRef = pick('emailBannerResendBusy');
+const emailBannerResendBusy = computed(() => !!emailBannerResendBusyRef.value);
 const emailBannerResendMessage = pick('emailBannerResendMessage');
 const emailBannerResendError = pick('emailBannerResendError');
 const discordBotExportReadyGuildName = pick('discordBotExportReadyGuildName');
 const primaryFlowFailureBanner = pick('primaryFlowFailureBanner');
 const uiErrorMessage = pick('uiErrorMessage');
 const uiErrorSeverity = pick('uiErrorSeverity');
-const uiErrorShowRetry = computed(() => !!pick('uiErrorShowRetry').value);
+const uiErrorShowRetryRef = pick('uiErrorShowRetry');
+const uiErrorShowRetry = computed(() => !!uiErrorShowRetryRef.value);
+const uiErrorShowCreateAccountRef = pick('uiErrorShowCreateAccount');
 const uiErrorShowCreateAccount = computed(
-  () => !!pick('uiErrorShowCreateAccount').value,
+  () => !!uiErrorShowCreateAccountRef.value,
 );
-const uiErrorRetryBusy = computed(() => !!pick('uiErrorRetryBusy').value);
+const uiErrorRetryBusyRef = pick('uiErrorRetryBusy');
+const uiErrorRetryBusy = computed(() => !!uiErrorRetryBusyRef.value);
+const showGuestUpgradeBannerRef = pick('showGuestUpgradeBanner');
 const showGuestUpgradeBanner = computed(
-  () => !!pick('showGuestUpgradeBanner').value,
+  () => !!showGuestUpgradeBannerRef.value,
+);
+const suppressPrimaryFlowFailureBannerRef = pick(
+  'suppressPrimaryFlowFailureBanner',
 );
 const suppressPrimaryFlowFailureBanner = computed(
-  () => !!pick('suppressPrimaryFlowFailureBanner').value,
+  () => !!suppressPrimaryFlowFailureBannerRef.value,
 );
 
 const emit = defineEmits<{

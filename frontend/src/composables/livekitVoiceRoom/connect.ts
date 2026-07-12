@@ -19,11 +19,14 @@ import {
   loadVoiceProcessingPreferences,
 } from '@/composables/voiceProcessingPreferences';
 import type {
+  EchoMlsEpochKeyInput,
   EchoVoiceE2eeConnectInput,
   LiveKitVoiceConnectOptions,
 } from '@/composables/livekitVoiceRoom.types';
 import { DESKTOP_NATIVE_AUDIO_ENABLED } from '@/config';
 import { activeVoiceE2eeChannelKey } from '@/services/voice/voiceE2eeActiveState';
+import { createLiveKitE2eeWorker } from '@/services/livekit/livekitE2eeWorker';
+import { clearVoiceParticipantE2eeStatus } from '@/services/voice/voiceE2eeEncryptionStatus';
 import { initDesktopNativeAudio, isDesktop } from '@/platform/desktopBridge';
 import type { LiveKitVoiceSessionContext } from '@/composables/livekitVoiceRoom/context';
 
@@ -69,10 +72,63 @@ export function createConnectController(
 
   function releaseLiveKitE2eeWorker(): void {
     liveKitMlsKeyProvider.value = null;
+    clearVoiceParticipantE2eeStatus();
     stopActiveVoiceMlsSession();
     if (!liveKitE2eeWorker.value) return;
     liveKitE2eeWorker.value.terminate();
     liveKitE2eeWorker.value = null;
+  }
+
+  async function installMlsSenderKeyForParticipant(
+    identity: string,
+  ): Promise<void> {
+    const provider = liveKitMlsKeyProvider.value;
+    if (!provider || !activeVoiceE2eeChannelKey.value) return;
+    const id = identity.trim();
+    if (!id) return;
+    try {
+      const { deriveActiveVoiceMlsSenderMediaKey } =
+        await import('@/services/voice/mls/voiceMlsSession');
+      const key = await deriveActiveVoiceMlsSenderMediaKey(id);
+      if (!key) return;
+      await provider.setSenderEpochKey(id, key.raw, key.keyIndex);
+      voiceClientDiag('info', 'voice.client:lk_e2ee_sender_key_installed', {
+        identity: id,
+        keyIndex: key.keyIndex,
+      });
+    } catch (e) {
+      voiceClientDiag('error', 'voice.client:lk_e2ee_sender_key_failed', {
+        identity: id,
+        err: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  async function rotateEpochKey(epochKey: EchoMlsEpochKeyInput): Promise<void> {
+    const provider = liveKitMlsKeyProvider.value;
+    if (!provider) return;
+    try {
+      if (epochKey.senderKeys && epochKey.senderKeys.size > 0) {
+        await provider.setEpochKeys(epochKey.senderKeys, epochKey.keyIndex);
+      } else {
+        const selfId = lkRoom.value?.localParticipant.identity?.trim();
+        if (selfId) {
+          await provider.setSenderEpochKey(
+            selfId,
+            epochKey.raw,
+            epochKey.keyIndex,
+          );
+        }
+      }
+      voiceClientDiag('info', 'voice.client:lk_e2ee_epoch_rotated', {
+        keyIndex: epochKey.keyIndex,
+        senderCount: epochKey.senderKeys?.size ?? 1,
+      });
+    } catch (e) {
+      voiceClientDiag('error', 'voice.client:lk_e2ee_rotate_failed', {
+        err: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   /**
@@ -86,24 +142,6 @@ export function createConnectController(
     void import('@/services/voice/mls/voiceMlsSession')
       .then((m) => m.stopVoiceMlsSession())
       .catch(() => {});
-  }
-
-  async function rotateEpochKey(
-    raw: ArrayBuffer,
-    keyIndex: number,
-  ): Promise<void> {
-    const provider = liveKitMlsKeyProvider.value;
-    if (!provider) return;
-    try {
-      await provider.setEpochKey(raw, keyIndex);
-      voiceClientDiag('info', 'voice.client:lk_e2ee_epoch_rotated', {
-        keyIndex,
-      });
-    } catch (e) {
-      voiceClientDiag('error', 'voice.client:lk_e2ee_rotate_failed', {
-        err: e instanceof Error ? e.message : String(e),
-      });
-    }
   }
 
   async function connect(
@@ -186,21 +224,38 @@ export function createConnectController(
         const { EchoMlsKeyProvider } =
           await import('@/services/voice/mls/echoMlsKeyProvider');
         const keyProvider = new EchoMlsKeyProvider();
-        await keyProvider.setEpochKey(mlsInput.initialKey, mlsInput.keyIndex);
-        const worker = new Worker(
-          new URL('livekit-client/e2ee-worker', import.meta.url),
-          { type: 'module' },
-        );
+        if (mlsInput.senderKeys && mlsInput.senderKeys.size > 0) {
+          await keyProvider.setEpochKeys(
+            mlsInput.senderKeys,
+            mlsInput.keyIndex,
+          );
+        } else {
+          const selfId = (() => {
+            try {
+              const payload = JSON.parse(atob(token.split('.')[1] ?? '')) as {
+                sub?: string;
+              };
+              return payload.sub?.trim() ?? '';
+            } catch {
+              return '';
+            }
+          })();
+          if (selfId) {
+            await keyProvider.setSenderEpochKey(
+              selfId,
+              mlsInput.initialKey,
+              mlsInput.keyIndex,
+            );
+          }
+        }
+        const worker = createLiveKitE2eeWorker();
         liveKitE2eeWorker.value = worker;
         liveKitMlsKeyProvider.value = keyProvider;
         encryption = { keyProvider, worker };
       } else if (legacyKey && legacyKey.byteLength > 0) {
         const keyProvider = new ExternalE2EEKeyProvider();
         await keyProvider.setKey(legacyKey);
-        const worker = new Worker(
-          new URL('livekit-client/e2ee-worker', import.meta.url),
-          { type: 'module' },
-        );
+        const worker = createLiveKitE2eeWorker();
         liveKitE2eeWorker.value = worker;
         encryption = { keyProvider, worker };
       }
@@ -306,6 +361,7 @@ export function createConnectController(
   return {
     connect,
     rotateEpochKey,
+    installMlsSenderKeyForParticipant,
     abortConnectInProgress,
     releaseLiveKitE2eeWorker,
   };

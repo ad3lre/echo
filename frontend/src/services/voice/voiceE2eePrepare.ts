@@ -34,6 +34,8 @@ export type VoiceE2eePrepareResult = {
    * (`epoch % keyringSize`). Absent for legacy v1 (static key at index 0).
    */
   keyIndex?: number;
+  /** v2 (MLS) only: per-sender keys for all MLS roster members at this epoch. */
+  senderKeys?: ReadonlyMap<string, ArrayBuffer>;
 };
 
 /**
@@ -59,6 +61,7 @@ async function prepareVoiceMls(opts: {
       mediaKey: epochKey.raw,
       senderDeviceId,
       keyIndex: epochKey.keyIndex,
+      senderKeys: epochKey.senderKeys,
     };
   } catch (e) {
     if (isVoiceMlsDisabledError(e)) {

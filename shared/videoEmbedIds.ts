@@ -2,7 +2,7 @@
  * YouTube / Vimeo URL parsing and canonical iframe player URLs for chat embeds.
  */
 
-import { YOUTUBE_INTEGRATION_ENABLED } from './integrationKillSwitches';
+import { YOUTUBE_CHAT_EMBEDS_ENABLED } from './integrationKillSwitches';
 
 const YT_VIDEO_ID_RE = /^[\w-]{10,12}$/;
 
@@ -113,12 +113,12 @@ export function videoEmbedPosterUrl(embed: {
   const thumb = embed.thumbnail?.url?.trim();
   if (thumb) return thumb;
   const page = embed.url?.trim();
-  if (page && YOUTUBE_INTEGRATION_ENABLED) {
+  if (page && YOUTUBE_CHAT_EMBEDS_ENABLED) {
     const yt = tryParseYoutubeVideoId(page);
     if (yt) return `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`;
   }
   const ref = resolvePlayableVideoEmbed(embed);
-  if (YOUTUBE_INTEGRATION_ENABLED && ref?.kind === 'youtube') {
+  if (YOUTUBE_CHAT_EMBEDS_ENABLED && ref?.kind === 'youtube') {
     const m = ref.embedUrl.match(/\/embed\/([\w-]{10,12})/);
     if (m?.[1]) return `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
   }
@@ -131,7 +131,7 @@ export function resolvePlayableVideoEmbed(embed: {
 }): PlayableVideoRef | null {
   const v = embed.video;
   if (v?.embedUrl?.trim() && (v.kind === 'youtube' || v.kind === 'vimeo')) {
-    if (v.kind === 'youtube' && !YOUTUBE_INTEGRATION_ENABLED) {
+    if (v.kind === 'youtube' && !YOUTUBE_CHAT_EMBEDS_ENABLED) {
       // fall through to page URL / vimeo
     } else {
       const u = v.embedUrl.trim();
@@ -140,7 +140,7 @@ export function resolvePlayableVideoEmbed(embed: {
   }
   const page = embed.url?.trim();
   if (!page) return null;
-  const yt = YOUTUBE_INTEGRATION_ENABLED ? tryParseYoutubeVideoId(page) : null;
+  const yt = YOUTUBE_CHAT_EMBEDS_ENABLED ? tryParseYoutubeVideoId(page) : null;
   if (yt) {
     const u = youtubeIframeEmbedUrl(yt);
     return u ? { kind: 'youtube', embedUrl: u } : null;

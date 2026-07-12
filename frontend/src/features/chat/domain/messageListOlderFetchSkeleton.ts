@@ -1,7 +1,6 @@
 import { computed, type ComputedRef, type Ref } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
-import { readMessageSessionCacheForChannel } from '@/utils/messageSessionCache';
 import { buildHistorySkeletonRowsFromMessages } from '../components/buildHistorySkeletonRowsFromMessages';
 import {
   OLDER_FETCH_LOADING_HEADER_PX,
@@ -63,11 +62,9 @@ export function buildOlderFetchSkeletonRows(
   userId: string | undefined,
   channelId: string | undefined,
 ): HistorySkeletonRow[] {
-  const cached =
-    userId?.trim() && channelId?.trim()
-      ? readMessageSessionCacheForChannel(userId.trim(), channelId.trim())
-          ?.messages
-      : undefined;
+  void userId;
+  void channelId;
+  const cached: readonly RawMessage[] | undefined = undefined;
 
   const source = resolveOlderFetchSkeletonSourceMessages(
     displayOrderedIds,

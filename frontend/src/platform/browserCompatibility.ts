@@ -50,9 +50,36 @@ export function isSafariLikeBrowser(): boolean {
   return !/(Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|SamsungBrowser)/i.test(ua);
 }
 
-/** Tauri macOS desktop (WKWebView / WebKit), not iOS. */
+/**
+ * macOS Tauri desktop (WKWebView / WebKit), not iOS.
+ * WKWebView UA often omits the `Safari/` token, so do not rely on
+ * {@link isSafariLikeBrowser} alone.
+ */
 export function isWebKitDesktop(): boolean {
-  return isDesktop() && isSafariLikeBrowser();
+  if (!isDesktop()) return false;
+  if (isSafariLikeBrowser()) return true;
+  const ua = userAgent();
+  return (
+    /Macintosh|Mac OS X/i.test(ua) &&
+    /AppleWebKit/i.test(ua) &&
+    !/(Chrome|Chromium|Edg)/i.test(ua)
+  );
+}
+
+/**
+ * Boot-time hint for macOS WKWebView before `isTauri()` is reliable, or when the
+ * `echo-shell-tauri` class was set by `echo-boot-tauri.js` ahead of module load.
+ */
+export function isMacTauriWebKitSyncHint(): boolean {
+  if (typeof document !== 'undefined') {
+    if (
+      document.documentElement.classList.contains('echo-shell-tauri') &&
+      /Macintosh|Mac OS X/i.test(userAgent())
+    ) {
+      return true;
+    }
+  }
+  return import.meta.env.VITE_ECHO_DESKTOP === '1' && isWebKitDesktop();
 }
 
 /** Sync hint: Brave exposes `navigator.brave.isBrave` (often async-only). */

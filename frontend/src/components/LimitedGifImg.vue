@@ -299,6 +299,7 @@ const imgReferrerPolicy = 'no-referrer';
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -313,6 +314,7 @@ const imgReferrerPolicy = 'no-referrer';
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -328,6 +330,7 @@ const imgReferrerPolicy = 'no-referrer';
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -341,6 +344,7 @@ const imgReferrerPolicy = 'no-referrer';
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -355,6 +359,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[props.imgClass, 'invisible']"
         :style="imgStyle"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -366,6 +371,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[resolvedImgClass, fillOverlayClass]"
         :style="imgStyle"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -379,6 +385,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[resolvedImgClass, fillAnimatedOverlayClass]"
         :style="imgStyle"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -393,6 +400,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[props.imgClass, 'invisible block']"
         :style="imgStyle"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -404,6 +412,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[resolvedImgClass, intrinsicPosterOverlayClass]"
         :style="imgStyle"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -417,6 +426,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[resolvedImgClass, intrinsicAnimatedOverlayClass]"
         :style="imgStyle"
         :loading="props.loading"
+        decoding="async"
         @error="onImgError"
         @load="onImgLoad"
       />

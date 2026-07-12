@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import type { MessageListRowPresentation } from '@/features/chat/presentation/messageListRowPresentation';
 import { buildMessageRowShellLayout } from '@/features/chat/domain/messageRowShellLayout';
 import { formatShortTime } from '@/utils/formatTimestamp';
-import { safeImageUrl } from '@/utils/safeImageUrl';
 
 const props = defineProps<{
   row: MessageListRowPresentation;
@@ -17,6 +16,14 @@ const message = computed(() => props.row.message);
 const shortTime = computed(() =>
   message.value.timestamp ? formatShortTime(message.value.timestamp) : '',
 );
+
+function lineWidthClass(line: string, index: number): string {
+  const len = line.trim().length;
+  if (len > 96) return index % 2 === 0 ? 'w-11/12' : 'w-10/12';
+  if (len > 56) return index % 2 === 0 ? 'w-9/12' : 'w-8/12';
+  if (len > 24) return index % 2 === 0 ? 'w-7/12' : 'w-6/12';
+  return index % 2 === 0 ? 'w-5/12' : 'w-4/12';
+}
 </script>
 
 <template>
@@ -80,17 +87,8 @@ const shortTime = computed(() =>
     <div class="flex items-start gap-4">
       <div
         v-if="!shell.grouped"
-        class="relative mt-1 h-10 w-10 shrink-0 overflow-hidden rounded-full bg-glass-2"
-      >
-        <img
-          v-if="message.author?.avatar"
-          :src="safeImageUrl(message.author.avatar)"
-          :alt="shell.authorName"
-          class="h-full w-full rounded-full object-cover"
-          loading="lazy"
-          decoding="async"
-        />
-      </div>
+        class="message-list-skeleton-pulse relative mt-1 h-10 w-10 shrink-0 overflow-hidden rounded-full"
+      />
       <div v-else class="w-10 shrink-0" />
 
       <div class="min-w-0 flex-1">
@@ -98,14 +96,14 @@ const shortTime = computed(() =>
           v-if="!shell.grouped"
           class="msg-header-row flex flex-wrap items-baseline gap-2"
         >
-          <span class="font-semibold text-foreground">{{
-            shell.authorName
-          }}</span>
           <span
-            class="text-[10px] tabular-nums leading-tight text-muted whitespace-nowrap shrink-0"
-          >
-            {{ shortTime }}
-          </span>
+            class="message-list-skeleton-pulse h-[0.95rem] w-28 rounded"
+            :aria-label="shell.authorName"
+          />
+          <span
+            class="message-list-skeleton-pulse h-[0.6rem] w-10 shrink-0 rounded"
+            :aria-label="shortTime"
+          />
         </div>
 
         <div
@@ -129,28 +127,37 @@ const shortTime = computed(() =>
         <p
           v-for="(line, lineIndex) in shell.bodyLines"
           :key="lineIndex"
-          class="message-text truncate text-[0.9375rem] leading-[1.375rem] text-foreground/90"
+          class="skeleton-line flex items-center"
         >
-          {{ line }}
+          <span
+            class="message-list-skeleton-pulse h-[0.85rem] rounded"
+            :class="lineWidthClass(line, lineIndex)"
+          />
         </p>
         <p
           v-if="shell.bodyLines.length === 0"
-          class="message-text text-[0.9375rem] leading-[1.375rem] text-muted/70"
+          class="skeleton-line flex items-center"
         >
-          &nbsp;
+          <span
+            class="message-list-skeleton-pulse h-[0.85rem] w-4/12 rounded"
+          />
         </p>
 
         <div
           v-for="(block, blockIndex) in shell.imageBlocks"
           :key="`img-${blockIndex}`"
-          class="my-2 block w-full max-w-[min(100%,40rem)] min-w-0 rounded-lg bg-glass-2"
-          :style="{ aspectRatio: `${block.aspectW} / ${block.aspectH}` }"
+          class="message-list-skeleton-pulse my-2 block w-full min-w-0 rounded-lg"
+          :style="{
+            aspectRatio: `${block.aspectW} / ${block.aspectH}`,
+            maxWidth: block.maxWidthCss ?? 'min(100%, 40rem)',
+          }"
           aria-hidden="true"
         />
 
         <div
           v-if="shell.showPollBlock"
-          class="mt-1 h-24 rounded-md bg-glass-2"
+          class="mt-2 rounded-lg bg-glass-2"
+          :style="{ height: `${shell.pollBlockHeightPx}px` }"
           aria-hidden="true"
         />
 
@@ -169,3 +176,31 @@ const shortTime = computed(() =>
     </div>
   </article>
 </template>
+
+<style scoped lang="scss">
+.skeleton-line {
+  height: 1.375rem;
+}
+
+.message-list-skeleton-pulse {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  animation: message-list-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes message-list-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.38;
+  }
+  50% {
+    opacity: 0.68;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-list-skeleton-pulse {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+</style>

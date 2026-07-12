@@ -5,6 +5,7 @@ import {
   inject,
   nextTick,
   provide,
+  ref,
   unref,
   watch,
 } from 'vue';
@@ -62,6 +63,17 @@ import { emitChatSwitchEvent } from '@/features/layout/chatSwitchPerfTrace';
 import { useChatCustomEmojiResolvers } from '@/composables/useChatCustomEmojiResolvers';
 import type { ChannelSummary, MessageWithAuthor } from '@shared/types';
 import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
+import {
+  MESSAGE_LIST_SCROLL_SURFACE_KEY,
+  type MessageListScrollSurfaceApi,
+} from '@/features/chat/composables/messageListScrollGestureKeys';
+
+const messageListScrollGestureActive = ref(false);
+provide<MessageListScrollSurfaceApi>(MESSAGE_LIST_SCROLL_SURFACE_KEY, {
+  setScrollGestureActive(active: boolean) {
+    messageListScrollGestureActive.value = active;
+  },
+});
 
 const props = defineProps<Partial<AppLayoutChatSurfaceProps>>();
 
@@ -366,6 +378,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
 <template>
   <div
     class="chat-column relative flex min-w-0 min-h-0 flex-row overflow-hidden"
+    :class="{ 'message-list-scroll-active': messageListScrollGestureActive }"
   >
     <div
       v-if="chatCtx.surfaceSwitchLoading"

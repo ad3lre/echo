@@ -118,7 +118,7 @@ onUnmounted(() => stopObserve?.());
           wrapper-class="absolute inset-0 h-full w-full"
           :img-class="gifImgClass"
           :respect-reduced-motion="true"
-          loading="lazy"
+          loading="eager"
           force-gif
           @load="onLoad"
         />
@@ -129,7 +129,8 @@ onUnmounted(() => stopObserve?.());
         :srcset="srcset || undefined"
         :sizes="srcset ? sizes : undefined"
         :alt="item.alt || 'Image'"
-        loading="lazy"
+        loading="eager"
+        decoding="async"
         class="collage-cell__img"
         :class="[
           `collage-cell__img--${fit}`,

@@ -60,7 +60,8 @@ is_github_push_remote() {
   local remote_name="${1:-}"
   local push_url="${2:-}"
   local github_remote="${GITHUB_REMOTE:-github}"
-  local url_lc="${push_url,,}"
+  local url_lc
+  url_lc="$(printf '%s' "$push_url" | tr '[:upper:]' '[:lower:]')"
 
   if [[ "$remote_name" == "$github_remote" ]]; then
     return 0

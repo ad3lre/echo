@@ -115,6 +115,17 @@ Phases are **ordered by causality**. Do **not** reorder for convenience.
 
 **Verification:** Record trace: image-heavy channel scroll shows **fewer** layout thrash bars per second; **less** scroll correction immediately after decode events.
 
+#### C.4 — Scroll compensation invariants (implemented)
+
+| Case                                | During active user scroll | At settle                                 |
+| ----------------------------------- | ------------------------- | ----------------------------------------- |
+| Row above viewport grows (ordinary) | Defer; capture anchor     | Single anchor-based `scrollTop` reconcile |
+| Prepend / unmeasured history        | **Keep compensating**     | —                                         |
+| Following tail, row grows           | Suppress                  | Allow if still following                  |
+| Row below viewport grows            | Never compensate          | —                                         |
+
+Implementation: `messageListScrollCompensation.ts` + `MessageList.vue`. Baseline harness: [message-list-scroll-baseline.md](./message-list-scroll-baseline.md).
+
 ---
 
 ### Phase D — Virtualizer surface area (multipliers)

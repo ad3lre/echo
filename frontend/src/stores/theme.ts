@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 import { isWebKitDesktop } from '@/platform/browserCompatibility';
+import {
+  applyAccessibilityPreferences,
+  loadAccessibilityPreferences,
+} from '@/features/settings/accessibilityPreferences';
+import { logDesktopBootDiag } from '@/platform/desktopBootDiagnostics';
 import { THEMES_SELECTION_COMING_SOON } from '@/features/settings/data';
 import {
   applyBrowserChromeThemeColor,
@@ -102,6 +107,23 @@ export const useThemeStore = defineStore('theme', () => {
     ) {
       return;
     }
+    if (isWebKitDesktop()) {
+      const prefs = loadAccessibilityPreferences();
+      applyAccessibilityPreferences(prefs);
+      logDesktopBootDiag('theme.store:apply:webkit-solid-glass', {
+        solidGlass: prefs.solidGlassSurfaces,
+        canonicalTheme: next.theme,
+        darkVariant: next.darkVariant,
+        lightVariant: next.lightVariant,
+      });
+    }
+    logDesktopBootDiag('theme.store:apply:before-dom', {
+      canonicalTheme: next.theme,
+      darkVariant: next.darkVariant,
+      lightVariant: next.lightVariant,
+      vibrantAccents: next.vibrantAccents,
+      interfaceDensity: next.interfaceDensity,
+    });
     applyThemeToDocument(next.theme);
     applyDarkVariantToDocument(next.theme, next.darkVariant);
     applyLightVariantToDocument(next.theme, next.lightVariant);
@@ -113,6 +135,12 @@ export const useThemeStore = defineStore('theme', () => {
     applyVibrantAccentsToDocument(next.vibrantAccents);
     applyInterfaceDensityToDocument(next.interfaceDensity);
     lastApplied = next;
+    const root =
+      typeof document === 'undefined' ? null : document.documentElement;
+    logDesktopBootDiag('theme.store:apply:after-dom', {
+      htmlTheme: root?.dataset.theme ?? null,
+      echoSolidGlass: root?.dataset.echoSolidGlass ?? null,
+    });
     nudgeWebKitRepaintAfterThemeApply();
   }
 

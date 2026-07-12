@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, ref, unref, watch, type Ref } from 'vue';
-import { dbgMemberList } from '@/utils/echoMemberListDebug';
+import {
+  dbgMemberList,
+  isEchoMemberListDebugEnabled,
+} from '@/utils/echoMemberListDebug';
 import { memberPanelDiag } from '@/utils/memberPanelDiag';
 import { storeToRefs } from 'pinia';
 import StatusIndicator from '@/components/StatusIndicator.vue';
@@ -22,6 +25,7 @@ import ServerOwnerCrownIcon from '@/features/layout/components/ServerOwnerCrownI
 import { linkTokenUser } from '@/utils/idTokens';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import { selectPresence } from '@/services/domain/presence';
+import { isEchoPanelDiagEnabled } from '@/utils/panelDiagEnabled';
 import {
   COMPOSER_INSERT_USER_MENTION_KEY,
   type InsertUserMentionFn,
@@ -317,27 +321,33 @@ const roleSections = computed(() => {
 });
 
 watch(
-  () => ({
-    serverId: props.serverId,
-    collapsed: props.collapsed,
-    visible: props.visible,
-    usersLen: usersList.value.length,
-    loadingRoleHierarchy: props.loadingRoleHierarchy,
-    echoMemberSectionOrdering: props.echoMemberSectionOrdering,
-    roleSectionsLen: roleSections.value.length,
-    sections: roleSections.value.map((s) => ({
-      role: s.role.name,
-      id: s.role.id,
-      listSortKey: s.role.listSortKey,
-      isUnhoistedBucket: s.role.isUnhoistedBucket,
-      count: s.members.length,
-    })),
-  }),
+  () => {
+    if (!isEchoMemberListDebugEnabled() && !isEchoPanelDiagEnabled()) {
+      return null;
+    }
+    return {
+      serverId: props.serverId,
+      collapsed: props.collapsed,
+      visible: props.visible,
+      usersLen: usersList.value.length,
+      loadingRoleHierarchy: props.loadingRoleHierarchy,
+      echoMemberSectionOrdering: props.echoMemberSectionOrdering,
+      roleSectionsLen: roleSections.value.length,
+      sections: roleSections.value.map((s) => ({
+        role: s.role.name,
+        id: s.role.id,
+        listSortKey: s.role.listSortKey,
+        isUnhoistedBucket: s.role.isUnhoistedBucket,
+        count: s.members.length,
+      })),
+    };
+  },
   (v) => {
+    if (!v) return;
     dbgMemberList('MemberList.vue', v as Record<string, unknown>);
     memberPanelDiag('MemberList:render', v as Record<string, unknown>);
   },
-  { deep: true, immediate: true },
+  { immediate: true },
 );
 
 function statusLabel(status: string | undefined): string {

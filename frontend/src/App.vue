@@ -33,6 +33,8 @@ import {
   stripBasePath,
 } from '@/features/layout/urlNavigation';
 import type { LegalDocTabId } from '@/features/settings/legalDocs';
+import { isDesktop } from '@/platform/desktopBridge';
+import { logDesktopBootDiag } from '@/platform/desktopBootDiagnostics';
 
 /**
  * Auth shell views are URL-gated (`/reset-password`, `/forgot-password`) and
@@ -103,6 +105,22 @@ const { showBootGate } = useAppBootGate({
 });
 
 const appLayoutResolved = ref(false);
+
+if (isDesktop()) {
+  watch(showBootGate, (on) => {
+    logDesktopBootDiag('App.vue:showBootGate', { on });
+  });
+  watch(appLayoutResolved, (resolved) => {
+    logDesktopBootDiag('App.vue:appLayoutResolved', { resolved });
+  });
+  watch(
+    () => workspace.initialLoadSettled.value,
+    (settled) => {
+      logDesktopBootDiag('App.vue:initialLoadSettled', { settled });
+    },
+    { immediate: true },
+  );
+}
 
 const AppLayout = defineAsyncComponent({
   loader: async () => {

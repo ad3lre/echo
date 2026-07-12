@@ -74,6 +74,20 @@ describe('guildShellSettling', () => {
     ).toBe(false);
   });
 
+  it('isGuildShellSettling keeps an empty guild tree loading during first hydrate', () => {
+    expect(
+      isGuildShellSettling({
+        rail: 'servers',
+        selectedServerId: 's1',
+        activeChannelId: '',
+        categoriesByServer: { s1: [] },
+        workspaceLoading: false,
+        workspaceFromApi: true,
+        initialLoadInFlight: true,
+      }),
+    ).toBe(true);
+  });
+
   it('isGuildShellSettling until active channel exists in tree', () => {
     const categories: Record<string, ChannelCategory[]> = {
       s1: [

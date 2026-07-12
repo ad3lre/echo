@@ -503,7 +503,63 @@ describe('runEchoWorkspaceSocialRefreshFromApi', () => {
       },
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.suppressBanner).toBe(true);
+    }
     expect(socialGraphStatus.value).toBe('ready');
+  });
+
+  it('suppresses banner hint for transient load failures during background refresh', async () => {
+    vi.mocked(fetchWorkspaceSocialForRefresh).mockRejectedValue(
+      new TypeError('Load failed'),
+    );
+    const socialGraphStatus = ref<'idle' | 'loading' | 'ready' | 'error'>(
+      'ready',
+    );
+    const result = await runEchoWorkspaceSocialRefreshFromApi({
+      token: 't',
+      isGuest: false,
+      workspace: {
+        friendIds: ref([]),
+        blockedUserIds: ref([]),
+        friendRequestsIncoming: ref([]),
+        friendRequestsOutgoing: ref([]),
+        messageRequests: ref<MessageRequestEntry[]>([]),
+        socialGraphStatus,
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.suppressBanner).toBe(true);
+    }
+  });
+
+  it('retries transient fetch failures before giving up', async () => {
+    vi.mocked(fetchWorkspaceSocialForRefresh)
+      .mockRejectedValueOnce(new TypeError('Load failed'))
+      .mockResolvedValueOnce({
+        friendIds: ['u1'],
+        friendRequestsIncoming: [],
+        friendRequestsOutgoing: [],
+        messageRequests: [],
+        blockedUserIds: [],
+      });
+    const friendIds = ref<string[]>([]);
+    const result = await runEchoWorkspaceSocialRefreshFromApi({
+      token: 't',
+      isGuest: false,
+      workspace: {
+        friendIds,
+        blockedUserIds: ref([]),
+        friendRequestsIncoming: ref([]),
+        friendRequestsOutgoing: ref([]),
+        messageRequests: ref<MessageRequestEntry[]>([]),
+        socialGraphStatus: ref<'idle' | 'loading' | 'ready' | 'error'>('idle'),
+      },
+    });
+    expect(result).toEqual({ ok: true });
+    expect(friendIds.value).toEqual(['u1']);
+    expect(fetchWorkspaceSocialForRefresh).toHaveBeenCalledTimes(2);
   });
 
   it('drops stale refresh results when a newer refresh started (overlapping fetches)', async () => {

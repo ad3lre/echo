@@ -2,13 +2,25 @@ import type { RawMessage } from '@/services/realtime/chatMessageTypes';
 import { isMessageGroupedWithPrevious } from '@/features/chat/viewModel/messageListGrouping';
 import { messagePreviewPlainText } from '@/services/domain/messagePreviewPlain';
 import type { MessageWithAuthor } from '@shared/types';
+import { walkImageSlots } from '@shared/imageSlotContentJson';
+import { countButtonRows } from '@shared/buttonRowContentJson';
 import {
+  formatMessageListDaySeparatorLabel,
+  shouldShowDaySeparatorBefore,
+} from '@/features/chat/presentation/messageListRowFacts';
+import {
+  HISTORY_SKELETON_MEDIA_BLOCK,
   HISTORY_SKELETON_ROWS,
+  historySkeletonImageSlotBlock,
   type HistorySkeletonImageBlock,
   type HistorySkeletonRow,
 } from './messageListHistorySkeleton';
 
 const MAX_SKELETON_ROWS = HISTORY_SKELETON_ROWS.length;
+const POLL_BASE_SKELETON_HEIGHT_PX = 128;
+const POLL_OPTION_SKELETON_HEIGHT_PX = 24;
+const POLL_MAX_OPTIONS_HEIGHT_PX = 120;
+const BUTTON_ROW_SKELETON_HEIGHT_PX = 48;
 
 function nameWidthClass(nameLen: number): string {
   if (nameLen <= 6) return 'w-16';
@@ -45,16 +57,47 @@ function splitPreviewLines(text: string): string[] {
 function imageBlocksForMessage(
   msg: RawMessage,
 ): HistorySkeletonImageBlock[] | undefined {
+  const blocks: HistorySkeletonImageBlock[] = [];
   const attachment = msg.attachments?.[0];
-  const width = attachment?.width;
-  const height = attachment?.height;
-  if (width && height && width > 0 && height > 0) {
-    return [{ aspectW: width, aspectH: height }];
+  if (
+    attachment?.kind === 'image' ||
+    attachment?.kind === 'gif' ||
+    msg.imageUrl ||
+    msg.gif
+  ) {
+    blocks.push(HISTORY_SKELETON_MEDIA_BLOCK);
+  } else if (attachment?.kind === 'video' || msg.videoUrl) {
+    const width = attachment?.width;
+    const height = attachment?.height;
+    if (width && height && width > 0 && height > 0) {
+      blocks.push({ aspectW: width, aspectH: height });
+    } else {
+      blocks.push(HISTORY_SKELETON_MEDIA_BLOCK);
+    }
   }
-  if (msg.imageUrl || msg.gif || msg.videoUrl) {
-    return [{ aspectW: 16, aspectH: 9 }];
+  for (const slot of walkImageSlots(msg.contentJson)) {
+    blocks.push(historySkeletonImageSlotBlock(slot.aspectW, slot.aspectH));
   }
-  return undefined;
+  return blocks.length > 0 ? blocks.slice(0, 2) : undefined;
+}
+
+function blockHeightsForMessage(msg: RawMessage): number[] | undefined {
+  const heights: number[] = [];
+  if (msg.poll) {
+    const optionCount = msg.poll.options?.length ?? 0;
+    heights.push(
+      POLL_BASE_SKELETON_HEIGHT_PX +
+        Math.min(
+          POLL_MAX_OPTIONS_HEIGHT_PX,
+          optionCount * POLL_OPTION_SKELETON_HEIGHT_PX,
+        ),
+    );
+  }
+  const buttonRowCount = countButtonRows(msg.contentJson);
+  if (buttonRowCount > 0) {
+    heights.push(buttonRowCount * BUTTON_ROW_SKELETON_HEIGHT_PX);
+  }
+  return heights.length > 0 ? heights : undefined;
 }
 
 function toGroupingMap(
@@ -110,14 +153,25 @@ export function buildHistorySkeletonRowsFromMessages(
       i,
       entitiesById,
     );
+    const showDaySeparator = shouldShowDaySeparatorBefore(
+      orderedIds,
+      groupingMap,
+      i,
+    );
+    const daySeparatorLabel = showDaySeparator
+      ? formatMessageListDaySeparatorLabel(msg.timestamp)
+      : undefined;
     const preview = messagePreviewPlainText(msg, 220);
     const lineWidths = splitPreviewLines(preview);
     const imageBlocks = imageBlocksForMessage(msg);
+    const blockHeights = blockHeightsForMessage(msg);
     if (grouped) {
       rows.push({
         grouped: true,
+        ...(daySeparatorLabel ? { daySeparatorLabel } : {}),
         lineWidths,
         ...(imageBlocks ? { imageBlocks } : {}),
+        ...(blockHeights ? { blockHeights } : {}),
       });
       continue;
     }
@@ -127,11 +181,15 @@ export function buildHistorySkeletonRowsFromMessages(
       'Member';
     rows.push({
       grouped: false,
+      ...(daySeparatorLabel ? { daySeparatorLabel } : {}),
       nameWidth: nameWidthClass(authorName.length),
       timeWidth: 'w-10',
       lineWidths,
       ...(imageBlocks ? { imageBlocks } : {}),
-      ...(rows.length > 0 && !rows[rows.length - 1]?.grouped
+      ...(blockHeights ? { blockHeights } : {}),
+      ...(rows.length > 0 &&
+      !rows[rows.length - 1]?.grouped &&
+      !daySeparatorLabel
         ? { clustered: true }
         : {}),
     });

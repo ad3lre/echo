@@ -281,7 +281,9 @@ export default defineConfig(({ mode }) => {
         },
       ];
   return {
-    base: isTauri ? './' : '/',
+    // Root-absolute so `tauri://localhost/assets/…` resolves on nested History paths
+    // (`./assets` breaks cold start / reload at `/channels/{server}/{channel}`).
+    base: '/',
     define: viteEnvDefine(mode),
     plugins: [
       spaSecurityHeadersPlugin(repoRoot),

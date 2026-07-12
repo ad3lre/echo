@@ -24,6 +24,8 @@ import { useAuthSessionStore } from '@/stores/authSession';
 import { requestEchoStageSpeak } from '@/services/voice/requestStageSpeak';
 import { isEchoGraphId } from '@/utils/echoIds';
 import { canPublishStageMedia } from '@/features/voice/stage/stagePublishMedia';
+import { activeVoiceE2eeChannelKey } from '@/services/voice/voiceE2eeActiveState';
+import { voiceParticipantE2eeStatus } from '@/services/voice/voiceE2eeEncryptionStatus';
 
 const workspace = useEchoWorkspace();
 const authSession = useAuthSessionStore();
@@ -226,6 +228,35 @@ const vcNetworkGood = computed(() => {
   return s.latencyMs < 200 && s.packetLossPct < 5;
 });
 
+const voiceE2eeActive = computed(() => !!activeVoiceE2eeChannelKey.value);
+
+const voiceE2eeParticipants = computed(() => {
+  void voiceParticipantE2eeStatus.value;
+  const nameById = new Map(props.users.map((u) => [u.id, u.name]));
+  const rows: Array<{ id: string; name: string; encrypted: boolean | null }> =
+    [];
+  const selfId = props.currentUserId?.trim();
+  if (selfId) {
+    const st = voiceParticipantE2eeStatus.value.get(selfId);
+    rows.push({
+      id: selfId,
+      name: nameById.get(selfId) ?? 'You',
+      encrypted: st?.encrypted ?? (voiceE2eeActive.value ? true : null),
+    });
+  }
+  for (const p of props.voiceSessionParticipants ?? []) {
+    const id = p.id.trim();
+    if (!id || id === selfId) continue;
+    const st = voiceParticipantE2eeStatus.value.get(id);
+    rows.push({
+      id,
+      name: nameById.get(id) ?? id,
+      encrypted: st?.encrypted ?? null,
+    });
+  }
+  return rows;
+});
+
 function isVcMicOffForPanel() {
   const s = vcSelfServerModeration.value;
   return isVcMicOff() || s.serverMuted || s.serverDeafened;
@@ -373,6 +404,8 @@ function stageAudienceMediaToast() {
       :vc-network-good="vcNetworkGood"
       :vc-connection-status="vcConnectionStatus"
       :vc-network-stats="vcNetworkStats"
+      :voice-e2ee-active="voiceE2eeActive"
+      :voice-e2ee-participants="voiceE2eeParticipants"
       :is-vc-settings-open="isVcSettingsOpen"
       :vc-output-list-open="vcOutputListOpen"
       :vc-input-list-open="vcInputListOpen"

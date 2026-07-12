@@ -1090,6 +1090,20 @@ const visibleForumPostCount = computed(() =>
   }, 0),
 );
 
+const effectiveCategoryStructureKey = computed(() =>
+  props.effectiveCategories
+    .map((category) => {
+      const channelKey = category.channels
+        .map(
+          (channel) =>
+            `${channel.id}:${channel.type}:${channel.parentChannelId ?? ''}`,
+        )
+        .join(',');
+      return `${category.id}:${category.systemSection ? '1' : '0'}:${channelKey}`;
+    })
+    .join('|'),
+);
+
 const categoryOptions = computed(() =>
   props.effectiveCategories
     .filter((category) => !category.hideCategoryHeader)
@@ -1328,13 +1342,9 @@ watch(
   },
 );
 
-watch(
-  () => props.effectiveCategories,
-  () => {
-    syncCollapsedCategoriesForServer(props.selectedServerId);
-  },
-  { deep: true },
-);
+watch(effectiveCategoryStructureKey, () => {
+  syncCollapsedCategoriesForServer(props.selectedServerId);
+});
 
 watch(
   categoryOptions,
@@ -1359,7 +1369,7 @@ watch(quickCreateExpanded, async (expanded) => {
 watch(
   [
     () => props.selectedServerId,
-    () => props.effectiveCategories,
+    effectiveCategoryStructureKey,
     topLevelChannelCount,
     visibleForumPostCount,
     () => props.activeChannelId,
@@ -1379,7 +1389,7 @@ watch(
       });
     });
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 );
 </script>
 

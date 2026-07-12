@@ -705,20 +705,7 @@ watch(
                 >Speaker</span
               >
               <div class="stage-tile-avatar-area">
-                <div
-                  class="stage-avatar-ring-host rounded-full"
-                  :class="{ 'stage-avatar-speaking-ring': p.speaking }"
-                  :style="
-                    p.speaking
-                      ? {
-                          '--speak-strength': Math.min(
-                            1,
-                            (p.audioLevel ?? 0) * 3 + 0.4,
-                          ),
-                        }
-                      : undefined
-                  "
-                >
+                <div class="stage-avatar-ring-host rounded-full">
                   <button
                     v-if="onOpenProfile"
                     type="button"
@@ -1080,24 +1067,6 @@ watch(
   display: block;
 }
 
-.stage-avatar-speaking-ring::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 2;
-  box-shadow:
-    inset 0 0 0 3px
-      color-mix(
-        in srgb,
-        #3ba55d calc(var(--speak-strength, 0.4) * 100%),
-        transparent
-      ),
-    inset 0 0 calc(6px + var(--speak-strength, 0.4) * 10px)
-      rgba(59, 165, 93, 0.4);
-}
-
 .stage-avatar-badge {
   position: absolute;
   inset: 0;
@@ -1171,19 +1140,6 @@ watch(
 [data-theme='light'] .stage-tile-badge--speaker {
   color: #047857;
   background: color-mix(in srgb, #10b981 18%, transparent);
-}
-
-[data-theme='light'] .stage-avatar-speaking-ring::after {
-  --ring-color: #248045;
-  box-shadow:
-    inset 0 0 0 3px
-      color-mix(
-        in srgb,
-        #248045 calc(var(--speak-strength, 0.4) * 100%),
-        transparent
-      ),
-    inset 0 0 calc(6px + var(--speak-strength, 0.4) * 10px)
-      rgba(36, 128, 69, 0.38);
 }
 
 [data-theme='light'] .stage-avatar-badge {

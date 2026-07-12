@@ -225,6 +225,38 @@ describe('useAppLayoutRailLoadingDerived', () => {
     expect(isChannelPanelSwitchLoading.value).toBe(false);
   });
 
+  it('keeps an empty guild tree skeletonized during first hydrate', () => {
+    const serverStore = reactive({
+      selectedServerId: 'srv1' as string | null,
+    });
+    const workspace = mockWorkspace({
+      loading: false,
+      fromApi: true,
+      initialLoadInFlight: true,
+      initialLoadSettled: false,
+      categoriesByServer: { srv1: [] },
+      messages: {},
+    });
+    const {
+      isChannelPanelSwitchLoading,
+      isMessageSurfaceSwitchLoading,
+      isGuildShellSettling,
+    } = useAppLayoutRailLoadingDerived({
+      immediateShellSwitchPending: ref(false),
+      activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+      serverStore: serverStore as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['serverStore'],
+      workspace: workspace as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['workspace'],
+      activeChannelId: ref(''),
+    });
+    expect(isGuildShellSettling.value).toBe(true);
+    expect(isChannelPanelSwitchLoading.value).toBe(true);
+    expect(isMessageSurfaceSwitchLoading.value).toBe(true);
+  });
+
   it('does not skeleton guild message surface when cached messages exist during boot reconcile', () => {
     const serverStore = reactive({
       selectedServerId: 'srv1' as string | null,

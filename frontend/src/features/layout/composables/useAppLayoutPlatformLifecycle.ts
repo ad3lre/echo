@@ -322,13 +322,12 @@ export function useAppLayoutPlatformLifecycle(
     }
 
     unsubscribePrimaryFlowFailures = subscribePrimaryFlowFailures((d) => {
+      if (d.suppressBanner) return;
       primaryFlowFailureDetail.value = d;
-      if (!d.suppressBanner) {
-        const friendly = d.userMessage?.trim();
-        primaryFlowFailureBanner.value = friendly
-          ? friendly
-          : `Primary flow error — ${d.flow}: ${d.message}`;
-      }
+      const friendly = d.userMessage?.trim();
+      primaryFlowFailureBanner.value = friendly
+        ? friendly
+        : `Primary flow error — ${d.flow}: ${d.message}`;
     });
 
     const echoSession = useEchoSessionStore();

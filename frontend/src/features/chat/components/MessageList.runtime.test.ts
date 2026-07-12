@@ -308,6 +308,60 @@ describe('MessageList runtime row synchronization', () => {
     expect(scrollToIndexMock).not.toHaveBeenCalled();
   });
 
+  it('dismisses the cold-load skeleton overlay once rows paint even if history is still loading', async () => {
+    const channelId = ref('ch-overlay');
+    const initialHistoryLoading = ref(true);
+    const ids = ['m1', 'm2', 'm3'];
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map());
+
+    const Wrapper = defineComponent({
+      name: 'MessageListOverlayHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: channelId.value,
+            messages: messages.value,
+            initialHistoryLoading: initialHistoryLoading.value,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+    await nextTick();
+
+    messages.value = new Map(mapEntries);
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
+    await nextTick();
+
+    expect(
+      container.querySelector('[aria-label="Loading messages"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-cy="chat-skeleton-gone"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-cy="message-list"] [id^="message-"]'),
+    ).not.toBeNull();
+  });
+
   it('does not paint a blocking busy mask during a DM-to-server switch', async () => {
     const queuedRafs: FrameRequestCallback[] = [];
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -728,7 +782,7 @@ describe('MessageList runtime row synchronization', () => {
     expect(scrollToIndexMock).not.toHaveBeenCalled();
   });
 
-  it('renders lightweight row shells before hydration completes', async () => {
+  it('renders message bubbles for visible virtual rows immediately', async () => {
     const ids = ['m1', 'm2'];
     const mapEntries = ids.map(
       (id) => [id, makeMessageWithAuthor(id)] as const,
@@ -759,7 +813,7 @@ describe('MessageList runtime row synchronization', () => {
     await nextTick();
     await nextTick();
 
-    expect(container.querySelector('.message-row-shell-stub')).not.toBeNull();
-    expect(container.querySelector('.message-bubble-stub')).toBeNull();
+    expect(container.querySelector('.message-bubble-stub')).not.toBeNull();
+    expect(container.querySelector('.message-row-shell-stub')).toBeNull();
   });
 });

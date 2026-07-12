@@ -95,6 +95,7 @@ export function applyEchoHistoryOlderPageFromApi(
   rawOlder: RawMessage[],
   apiMessageCount: number,
   activeChannelIdForCap: string,
+  pageLimit: number = ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
 ): { mergedOlderCount: number } {
   if (apiMessageCount === 0) {
     messageWindowAuthority.setHasMoreOlder(channelId, false);
@@ -104,7 +105,7 @@ export function applyEchoHistoryOlderPageFromApi(
     channelId,
     rawOlder,
   );
-  if (apiMessageCount < ECHO_CHANNEL_MESSAGE_PAGE_SIZE) {
+  if (apiMessageCount < pageLimit) {
     messageWindowAuthority.setHasMoreOlder(channelId, false);
   }
   applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap);

@@ -64,7 +64,14 @@ export async function startVoiceMlsSession(
   await stopVoiceMlsSession();
   const dev = await getOrCreateLocalE2eeDevice(opts.viewerUserId, opts.token);
   // MLS commits are rejected when the device row is missing on the server.
-  await syncEchoE2eeLocalProtocolDeviceId(opts.viewerUserId, opts.token);
+  try {
+    await syncEchoE2eeLocalProtocolDeviceId(opts.viewerUserId, opts.token);
+  } catch (e) {
+    throw new Error(
+      'Could not register your encrypted-voice device. Check your connection and try again.',
+      { cause: e },
+    );
+  }
   const channelKey = mlsChannelKey(opts.scope);
   const initialRoster = [
     ...new Set(
@@ -110,6 +117,20 @@ export async function reconcileVoiceMlsSession(
 ): Promise<EchoMlsEpochKey | null> {
   if (!active || active.channelKey !== channelKey) return null;
   return active.client.reconcileRoster();
+}
+
+/**
+ * Derive the active MLS epoch media key for one sender (used when a remote
+ * participant joins LiveKit before the next MLS delivery sync).
+ */
+export async function deriveActiveVoiceMlsSenderMediaKey(
+  senderUserId: string,
+): Promise<{ raw: ArrayBuffer; keyIndex: number } | null> {
+  if (!active) return null;
+  const raw = await active.client.senderMediaKeyForUser(senderUserId);
+  const keyIndex = active.client.activeEpochKeyIndex;
+  if (!raw || keyIndex == null) return null;
+  return { raw, keyIndex };
 }
 
 export async function stopVoiceMlsSession(): Promise<void> {

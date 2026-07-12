@@ -70,6 +70,7 @@ export type LiveKitVoiceSessionActions = {
   setCameraEnabled: (enabled: boolean) => Promise<void>;
   getUserWantsLocalCamera: () => boolean;
   disconnect: () => void;
+  installMlsSenderKeyForParticipant: (identity: string) => Promise<void>;
 };
 
 export type LiveKitVoiceSessionContext = {

@@ -1344,7 +1344,7 @@ export function useServerVoiceSession(deps: {
       try {
         const reconciled = await reconcileVoiceMlsSession(key);
         if (reconciled) {
-          await lkRoom.rotateEpochKey(reconciled.raw, reconciled.keyIndex);
+          await lkRoom.rotateEpochKey(reconciled);
         }
       } catch {
         /* another member may commit instead; next event recovers */

@@ -7,7 +7,7 @@ delete process.env.DATABASE_URL;
 delete process.env.USE_MOCK_DB;
 
 import assert from 'node:assert/strict';
-import { YOUTUBE_INTEGRATION_ENABLED } from '../../../shared/integrationKillSwitches';
+import { YOUTUBE_CHAT_EMBEDS_ENABLED } from '../../../shared/integrationKillSwitches';
 import {
   buildLinkEmbedsFromPlainText,
   extractHttpUrlsFromPlainText,
@@ -95,7 +95,7 @@ async function main() {
     },
   );
 
-  if (YOUTUBE_INTEGRATION_ENABLED) {
+  if (YOUTUBE_CHAT_EMBEDS_ENABLED) {
     await run(
       'v2 contentJson link href unfurls YouTube when plain text omits URL',
       async () => {
@@ -137,7 +137,7 @@ async function main() {
   } else {
     // eslint-disable-next-line no-console
     console.log(
-      'skip v2 contentJson link href unfurls YouTube (integration disabled)',
+      'skip v2 contentJson link href unfurls YouTube (chat embeds disabled)',
     );
   }
 

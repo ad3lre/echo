@@ -3,7 +3,7 @@
  * Used for link unfurl (server) and instant video embed previews (client).
  */
 
-import { YOUTUBE_INTEGRATION_ENABLED } from './integrationKillSwitches';
+import { YOUTUBE_CHAT_EMBEDS_ENABLED } from './integrationKillSwitches';
 import { parseEchoMessageJumpPath } from './echoMessageJumpPath';
 import type { Embed } from './types/message';
 import {
@@ -122,7 +122,7 @@ export function collectLinkEmbedCandidateUrls(
 
 /** Minimal playable embed when unfurl has not run yet (or failed) but the message contains a video URL. */
 export function stubVideoEmbedFromUrl(originalUrl: string): Embed | null {
-  const ytId = YOUTUBE_INTEGRATION_ENABLED
+  const ytId = YOUTUBE_CHAT_EMBEDS_ENABLED
     ? tryParseYoutubeVideoId(originalUrl)
     : null;
   if (ytId) {

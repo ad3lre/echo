@@ -47,10 +47,6 @@ import {
   mapEchoMessagesToRaw,
 } from '@/services/domain/echoMessageSnapshots';
 import { logMessageList } from '@/utils/messageListDebugLog';
-import {
-  persistMessageSessionCacheFromChannel,
-  trySeedChannelFromMessageSessionCache,
-} from '@/utils/messageSessionCache';
 import { emitChatSwitchEvent } from '@/features/layout/chatSwitchPerfTrace';
 import { scheduleDeferredTask } from '@/utils/scheduleDeferredTask';
 import { dbgReadState } from '@/utils/echoReadStateDebug';
@@ -68,12 +64,7 @@ import {
   ECHO_HISTORY_LOAD_OLDER_TIMEOUT_MS,
   ECHO_HISTORY_PREFETCH_FETCH_TIMEOUT_MS,
 } from '@/features/chat/constants/echoHistoryFetchTimeouts';
-
-/**
- * History fetch / timing — does not own ordered window truth (that is `messageWindowAuthority`).
- * See `@/features/chat/domain/viewportContract`.
- */
-
+import { createEchoInitialHistoryStages } from './echoInitialHistoryStages';
 export type CreateEchoHistoryControllerDeps = {
   activeChannelId: Ref<string>;
   auth: ReturnType<typeof useAuthSessionStore>;
@@ -93,6 +84,8 @@ export type CreateEchoHistoryControllerDeps = {
     | Ref<ReadonlyMap<string, string>>;
   /** When true, cache-hit reopen skips tail sync and deferred attention refresh. */
   isRealtimeConnected?: () => boolean;
+  activeServerId?: () => string | null | undefined;
+  shouldUseFastTail?: (channelId: string) => boolean;
 };
 
 /** Controller owns history IO/timing; message bucket writes delegate to `channelMessageAuthority`. */
@@ -107,24 +100,19 @@ export function createEchoHistoryController(
     echoDmThreadIds,
     echoDmPeerByChannelId,
     isRealtimeConnected,
+    activeServerId,
+    shouldUseFastTail,
   } = deps;
 
   const initialLoading = ref(false);
   const loadingOlder = ref(false);
   const error = ref<string | null>(null);
   const hasMoreOlder = messageWindowAuthority.hasMoreOlder;
-  /**
-   * Intent-scoped load tokens — do not conflate. Each async path compares only its own token.
-   * Nothing uses a single generic seq to cancel unrelated work.
-   */
   let initialLoadToken = 0;
-  /** Prepends (`loadOlder`) only; never bumped by initial/jump except explicit invalidation. */
   let prependLoadToken = 0;
-  /** Jump-to-message prefetch (`prefetchUntilMessageVisible`) only. */
   let jumpPrefetchToken = 0;
   const replyTargetBackfillLastAttemptMs = new Map<string, number>();
   const REPLY_TARGET_BACKFILL_DEDUP_MS = 30_000;
-  /** Background tail sync (reconnect / tab resume / cache hit). */
   let tailSyncToken = 0;
   const tailSyncLastAttemptMsByChannel = new Map<string, number>();
   const TAIL_SYNC_MIN_INTERVAL_MS = 2_000;
@@ -134,9 +122,18 @@ export function createEchoHistoryController(
     initialLoadToken += 1;
     prependLoadToken += 1;
     jumpPrefetchToken += 1;
+    initialStages.cancel();
   }
 
-  /** New initial page fetch will replace bucket state — cancel competing prepend / jump work. */
+  const initialStages = createEchoInitialHistoryStages({
+    activeChannelId,
+    auth,
+    activeServerId,
+    currentGeneration: () => initialLoadToken,
+    shouldUseFastTail: shouldUseFastTail ?? (() => true),
+  });
+  const { initialBackfillLoading, initialBackfillPending } = initialStages;
+
   function invalidatePrependAndJumpForNewInitialFetch(): void {
     prependLoadToken += 1;
     jumpPrefetchToken += 1;
@@ -150,7 +147,6 @@ export function createEchoHistoryController(
   let deferredAttentionRefresh: ReturnType<typeof scheduleDeferredTask> | null =
     null;
   const activeChannelSeenMessageId = ref<string | null>(null);
-  /** When set, read advances apply to this channel (e.g. voice side chat) instead of `activeChannelId`. */
   const seenReadExplicitChannelId = ref<string | null>(null);
 
   function applyEchoChannelClientCap(channelId: string): boolean {
@@ -495,19 +491,7 @@ export function createEchoHistoryController(
     }
     const loadStartedAt =
       typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const userId = auth.backendUser?.id?.trim() ?? '';
-    let existing = messageReadFacade.getChannelMessages(cid);
-    if ((!existing || existing.length === 0) && userId) {
-      if (
-        trySeedChannelFromMessageSessionCache(
-          userId,
-          cid,
-          activeChannelId.value,
-        )
-      ) {
-        existing = messageReadFacade.getChannelMessages(cid);
-      }
-    }
+    const existing = messageReadFacade.getChannelMessages(cid);
     const oldestExistingMessageId = existing?.[0]?.id;
     const canTrustCachedHead = isPersistedHistoryAnchor(
       cid,
@@ -572,6 +556,12 @@ export function createEchoHistoryController(
     }
     invalidatePrependAndJumpForNewInitialFetch();
     const seq = ++initialLoadToken;
+    const initialStage = initialStages.beginInitial(cid, seq);
+    const {
+      controller: initialAbortController,
+      pageSize: initialPageSize,
+      useFastTail,
+    } = initialStage;
     initialLoading.value = true;
     error.value = null;
     messageWindowAuthority.setHasMoreOlder(cid, true);
@@ -583,13 +573,14 @@ export function createEchoHistoryController(
       context: {
         channelId: cid,
         seq,
-        pageSize: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+        pageSize: initialPageSize,
+        useFastTail,
       },
     });
     logMessageList('history', 'loadHistory_initial_api_start', {
       channelId: cid,
       seq,
-      pageSize: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+      pageSize: initialPageSize,
       source: 'network',
       outcomeOk: true,
       expectation:
@@ -601,13 +592,14 @@ export function createEchoHistoryController(
       context: {
         source: 'network',
         seq,
-        pageSize: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+        pageSize: initialPageSize,
       },
     });
     try {
       const { messages: apiMsgs } = await promiseWithTimeout(
         fetchEchoChannelMessages(token, cid, {
-          limit: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+          limit: initialPageSize,
+          signal: initialAbortController.signal,
         }),
         ECHO_HISTORY_INITIAL_FETCH_TIMEOUT_MS,
         { label: 'Load messages' },
@@ -622,14 +614,15 @@ export function createEchoHistoryController(
           apiMessageCount: apiMsgs.length,
         },
       });
-      const raw = mapEchoMessagesToRaw(apiMsgs);
-      const synced = applyEchoHistoryInitialPageFromApi(
-        cid,
-        raw,
-        apiMsgs.length,
-        activeChannelId.value,
-        ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
-      );
+      const synced = initialStages.applyInitialResult({
+        channelId: cid,
+        generation: seq,
+        pageSize: initialPageSize,
+        useFastTail,
+        apiMessages: apiMsgs,
+        activeChannelIdForCap: activeChannelId.value,
+        startedAt: loadStartedAt,
+      });
       emitDiagnostic({
         level: 'info',
         domain: 'api',
@@ -688,13 +681,11 @@ export function createEchoHistoryController(
         expectation:
           'cold load should populate active window and let the history skeleton disappear',
       });
-      if (userId) {
-        persistMessageSessionCacheFromChannel(userId, cid);
-      }
       scheduleAttentionRefresh('history_loaded', cid);
       scheduleMissingReplyTargetBackfill(cid, 'history_loaded');
     } catch (e) {
       if (seq !== initialLoadToken) return;
+      if (initialAbortController.signal.aborted) return;
       const durationMs = Math.max(
         0,
         Math.round(
@@ -751,6 +742,7 @@ export function createEchoHistoryController(
           e instanceof Error ? e.message : 'Failed to load messages';
       }
     } finally {
+      initialStages.finishInitial(initialAbortController);
       if (seq === initialLoadToken) initialLoading.value = false;
     }
   }
@@ -758,7 +750,12 @@ export function createEchoHistoryController(
   async function loadOlder(): Promise<boolean> {
     const cid = activeChannelId.value;
     const token = auth.accessToken?.trim() ?? '';
-    if (!cid || !auth.isAuthenticated || !canLoadHistoryForChannelId(cid)) {
+    if (
+      !cid ||
+      !auth.isAuthenticated ||
+      !canLoadHistoryForChannelId(cid) ||
+      initialBackfillLoading.value
+    ) {
       logMessageList('history', 'loadOlder_not_started', {
         reason: !cid
           ? 'no_channel'
@@ -1054,14 +1051,12 @@ export function createEchoHistoryController(
 
   onScopeDispose(() => {
     deferredAttentionRefresh?.cancel();
+    initialStages.cancel();
     initialLoading.value = false;
+    initialBackfillLoading.value = false;
     loadingOlder.value = false;
   });
 
-  /**
-   * Merge any messages from the latest REST page that are missing locally.
-   * Covers socket disconnects, channel-room join lag, and cache-only channel switches.
-   */
   async function syncActiveChannelTailFromApi(reason: string): Promise<void> {
     const cid = activeChannelId.value;
     const token = auth.accessToken?.trim() ?? '';
@@ -1199,6 +1194,9 @@ export function createEchoHistoryController(
     messageId: string,
     maxPages = 12,
   ): Promise<ActionResult> {
+    if (initialStages.cancelForJump(channelId)) {
+      initialLoadToken += 1;
+    }
     const token = auth.accessToken?.trim() ?? '';
     if (!auth.isAuthenticated || !canLoadHistoryForChannelId(channelId)) {
       return okResult();
@@ -1361,11 +1359,7 @@ export function createEchoHistoryController(
 
   watch(
     activeChannelId,
-    (cid, prevCid) => {
-      const userId = auth.backendUser?.id?.trim();
-      if (prevCid && userId) {
-        persistMessageSessionCacheFromChannel(userId, prevCid);
-      }
+    (cid) => {
       messageWindowAuthority.setActiveChannel(cid);
       // Eagerly mark loading so MessageList shows skeletons immediately after
       // the channel window clears — without this, there is a render gap between
@@ -1381,10 +1375,16 @@ export function createEchoHistoryController(
 
   return {
     initialLoading,
+    initialBackfillLoading,
+    initialBackfillPending,
     loadingOlder,
     error,
     hasMoreOlder,
     loadOlder,
+    loadInitialBackfill: () =>
+      loadingOlder.value
+        ? Promise.resolve(false)
+        : initialStages.loadInitialBackfill(),
     reload: loadHistory,
     hydrateAttentionSnapshot,
     prefetchUntilMessageVisible,

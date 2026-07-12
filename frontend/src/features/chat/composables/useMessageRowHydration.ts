@@ -26,11 +26,17 @@ function flushHydrationQueue(ctx: HydrationCtx): void {
   const cid = ctx.options.channelId()?.trim();
   if (!cid || ctx.options.isUserScrollActive()) return;
 
-  const batch = ctx.queue.value.dequeueBatch(cid);
-  if (batch.length > 0) bumpHydrationEpoch(ctx);
-
   const visible = ctx.options.getVisibleMessageIds();
   ctx.queue.value.enqueue(cid, visible);
+
+  let batch = ctx.queue.value.dequeueBatch(cid);
+  let hydratedAny = false;
+  while (batch.length > 0) {
+    hydratedAny = true;
+    if (ctx.options.isUserScrollActive()) break;
+    batch = ctx.queue.value.dequeueBatch(cid);
+  }
+  if (hydratedAny) bumpHydrationEpoch(ctx);
 
   if (!ctx.options.isUserScrollActive() && ctx.queue.value.queueLength > 0) {
     scheduleHydrationPass(ctx);
@@ -100,7 +106,7 @@ export function useMessageRowHydration(options: UseMessageRowHydrationOptions) {
   watch(
     () => options.channelId()?.trim() ?? '',
     (next, prev) => {
-      if (prev && prev !== next) ctx.queue.value.clearChannel(prev);
+      if (prev && prev !== next) ctx.queue.value.clearQueuedChannel(prev);
       bumpHydrationEpoch(ctx);
     },
   );

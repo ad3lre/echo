@@ -23,34 +23,38 @@ type UserForAuthor = {
   timeZone?: string | null;
 };
 
-function mapRawMessagesWithAuthors(
-  rawList: readonly RawMessage[],
-  users: UserForAuthor[],
-): MessageWithAuthor[] {
-  const lookup = new Map(users.map((u) => [u.id, u] as const));
-  return rawList.map((msg): MessageWithAuthor => {
-    const user = lookup.get(msg.authorId);
-    const author: MessageAuthor = user
-      ? {
-          id: user.id,
-          name: user.name,
-          avatar: user.pfp,
-          status: user.status as MessageAuthor['status'],
-          ...(typeof user.timeZone === 'string' && user.timeZone.trim()
-            ? { timeZone: user.timeZone.trim() }
-            : {}),
-        }
-      : {
-          id: msg.authorId,
-          name: msg.authorDisplayName?.trim() || 'Unknown',
-          avatar: msg.authorAvatar?.trim() ?? '',
-        };
+function buildAuthorForRawMessage(
+  msg: RawMessage,
+  usersById: ReadonlyMap<string, UserForAuthor>,
+): MessageAuthor {
+  const user = usersById.get(msg.authorId);
+  if (user) {
     return {
-      ...msg,
-      author,
-      attachments: normalizeMessageAttachments(msg.attachments),
-    } as MessageWithAuthor;
-  });
+      id: user.id,
+      name: user.name,
+      avatar: user.pfp,
+      status: user.status as MessageAuthor['status'],
+      ...(typeof user.timeZone === 'string' && user.timeZone.trim()
+        ? { timeZone: user.timeZone.trim() }
+        : {}),
+    };
+  }
+  return {
+    id: msg.authorId,
+    name: msg.authorDisplayName?.trim() || 'Unknown',
+    avatar: msg.authorAvatar?.trim() ?? '',
+  };
+}
+
+function mapRawMessageWithAuthor(
+  msg: RawMessage,
+  usersById: ReadonlyMap<string, UserForAuthor>,
+): MessageWithAuthor {
+  return {
+    ...msg,
+    author: buildAuthorForRawMessage(msg, usersById),
+    attachments: normalizeMessageAttachments(msg.attachments),
+  } as MessageWithAuthor;
 }
 
 /**
@@ -79,9 +83,13 @@ export function usePinnedMessages(
     if (!cid || !ids?.length) return [];
     const rawList = getChannelIndex(cid, messages.value[cid] ?? []).sorted
       .value;
-    const withAuthors = mapRawMessagesWithAuthors(rawList, users.value);
+    const rawById = new Map(rawList.map((msg) => [msg.id, msg] as const));
+    const usersById = new Map(users.value.map((u) => [u.id, u] as const));
     return ids
-      .map((id) => withAuthors.find((m) => m.id === id))
+      .map((id) => {
+        const raw = rawById.get(id);
+        return raw ? mapRawMessageWithAuthor(raw, usersById) : null;
+      })
       .filter(Boolean) as PinnedMessage[];
   });
 

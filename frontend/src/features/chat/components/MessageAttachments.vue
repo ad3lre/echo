@@ -217,7 +217,6 @@ function mediaAspectStyle(
     border: none;
     box-shadow: none;
     backdrop-filter: none;
-    transition: max-width 300ms ease-out;
   }
   :deep(.message-video-shell:has(.echo-video-player--expanded)) {
     max-width: min(100%, min(92vw, 56rem));

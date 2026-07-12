@@ -22,6 +22,7 @@ import {
 } from 'ts-mls';
 import {
   deriveMediaKeyForEpoch,
+  deriveMediaKeyForSender,
   echoMlsCiphersuite,
   epochOf,
 } from '../mlsCrypto';
@@ -269,5 +270,49 @@ describe('MLS group key agreement (RFC 9420)', () => {
       (n) => n?.nodeType === 'leaf',
     ).length;
     expect(leaves).toBe(2);
+  });
+
+  it('per-sender media keys differ by sender but converge across members', async () => {
+    const a = await makeMember('user-a', 'dev-a');
+    const b = await makeMember('user-b', 'dev-b');
+    const cs = a.cs;
+
+    let stateA = await createGroup(
+      new TextEncoder().encode('echo-voice-mls:sender-keys'),
+      a.kp.publicPackage,
+      a.kp.privatePackage,
+      [],
+      cs,
+      permissiveConfig(),
+    );
+    const add = await createCommit(
+      { state: stateA, cipherSuite: cs, pskIndex: emptyPskIndex },
+      {
+        extraProposals: [
+          { proposalType: 'add', add: { keyPackage: b.kp.publicPackage } },
+        ],
+        ratchetTreeExtension: true,
+      },
+    );
+    stateA = add.newState;
+    const stateB = await joinGroup(
+      add.welcome!,
+      b.kp.publicPackage,
+      b.kp.privatePackage,
+      emptyPskIndex,
+      cs,
+    );
+
+    const aKeyFromA = await deriveMediaKeyForSender(stateA, cs, 'user-a');
+    const aKeyFromB = await deriveMediaKeyForSender(stateB, cs, 'user-a');
+    const bKeyFromA = await deriveMediaKeyForSender(stateA, cs, 'user-b');
+    const bKeyFromB = await deriveMediaKeyForSender(stateB, cs, 'user-b');
+
+    expect(bufEq(aKeyFromA, aKeyFromB)).toBe(true);
+    expect(bufEq(bKeyFromA, bKeyFromB)).toBe(true);
+    expect(bufEq(aKeyFromA, bKeyFromA)).toBe(false);
+    expect(bufEq(aKeyFromA, await deriveMediaKeyForEpoch(stateA, cs))).toBe(
+      false,
+    );
   });
 });

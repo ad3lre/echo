@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 import { useThemeStore } from '@/stores/theme';
+import { logDesktopBootDiag } from '@/platform/desktopBootDiagnostics';
+import { isDesktop } from '@/platform/desktopBridge';
 import { THEMES_SELECTION_COMING_SOON } from '@/features/settings/data';
 import {
   normalizeInterfaceDensityId,
@@ -140,6 +142,11 @@ watch(
   () => props.form.theme,
   (next: string) => {
     if (styleSettingsLocked.value) return;
+    if (isDesktop()) {
+      logDesktopBootDiag('SettingsAppearance:theme-selected', {
+        theme: next,
+      });
+    }
     /* Always apply: same id + OS sync on still left the DOM on dark while form showed Light. */
     themeStore.setTheme(next as EchoThemeId);
   },

@@ -18,7 +18,10 @@ import {
 } from '@/utils/workspacePersistence';
 import { dbgMemberList } from '@/utils/echoMemberListDebug';
 import { buildServerMemberNicknameMapFromMembersByServer } from '@/services/domain/workspaceEchoApiSnapshot';
-import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
+import {
+  withTransientFetchRetries,
+  isTransientFetchFailure,
+} from '@/utils/retryTransientFetch';
 import {
   currentEchoWorkspaceSocialRefreshSeq,
   nextEchoWorkspaceSocialRefreshSeq,
@@ -231,7 +234,7 @@ export async function runEchoWorkspaceHydrateFromApi(
 
 export type EchoWorkspaceSocialRefreshResult =
   | { ok: true }
-  | { ok: false; error: unknown };
+  | { ok: false; error: unknown; suppressBanner?: boolean };
 
 export type EchoWorkspaceSocialRefreshParams = {
   token: string;
@@ -260,7 +263,9 @@ export async function runEchoWorkspaceSocialRefreshFromApi(
     if (!hadReadyGraph) {
       p.workspace.socialGraphStatus.value = 'loading';
     }
-    const slice = await fetchWorkspaceSocialForRefresh(p.token, p.isGuest);
+    const slice = await withTransientFetchRetries(() =>
+      fetchWorkspaceSocialForRefresh(p.token, p.isGuest),
+    );
     if (seq !== currentEchoWorkspaceSocialRefreshSeq()) {
       return { ok: true };
     }
@@ -274,10 +279,11 @@ export async function runEchoWorkspaceSocialRefreshFromApi(
     p.syncEchoPresenceFromApi?.();
     return { ok: true };
   } catch (e) {
+    const suppressBanner = hadReadyGraph || isTransientFetchFailure(e);
     if (seq !== currentEchoWorkspaceSocialRefreshSeq()) {
-      return { ok: false, error: e };
+      return { ok: false, error: e, suppressBanner: true };
     }
     p.workspace.socialGraphStatus.value = hadReadyGraph ? 'ready' : 'error';
-    return { ok: false, error: e };
+    return { ok: false, error: e, suppressBanner };
   }
 }

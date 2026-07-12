@@ -59,6 +59,32 @@ function countUnicodeEmojiOnlyFallback(
  * Used to render emoji-only messages larger in the chat UI.
  * Uses Intl.Segmenter when available; falls back to regex on older Safari/Node.
  */
+/** Count custom/app-icon tokens plus unicode emoji graphemes in trimmed text. */
+export function countEmojiLikeGraphemes(content: string): number {
+  const trimmed = content.trim();
+  if (!trimmed) return 0;
+  const { tokenCount, remainder } = stripEmojiLikeIdTokens(trimmed);
+  const remainderTrimmed = remainder.replace(/\s/g, '');
+  if (!remainderTrimmed) return tokenCount;
+  try {
+    if (typeof Intl?.Segmenter === 'function' && GRAPHEME_SEGMENTER) {
+      let unicodeCount = 0;
+      for (const part of GRAPHEME_SEGMENTER.segment(remainder)) {
+        const seg = part.segment;
+        if (/^\s*$/.test(seg)) continue;
+        if (HAS_EMOJI_RE.test(seg)) unicodeCount += 1;
+      }
+      return tokenCount + unicodeCount;
+    }
+    const emojiSequence =
+      /\p{Extended_Pictographic}(?:\u200D\p{Extended_Pictographic}|\uFE0F|\p{Emoji_Modifier})*/gu;
+    const emojiMatches = remainder.match(emojiSequence) ?? [];
+    return tokenCount + emojiMatches.length;
+  } catch {
+    return tokenCount;
+  }
+}
+
 export function isEmojiOnlyUpTo12(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) return false;

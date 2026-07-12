@@ -19,10 +19,14 @@ import type { VoiceE2eePrepareResult } from '@/services/voice/voiceE2eePrepare';
 
 type VoiceE2eePrepareFnResult = VoiceE2eePrepareResult | ArrayBuffer | null;
 
-/** What `liveKit.connect` accepts: v1 raw key, v2 MLS {key, index}, or none. */
+/** What `liveKit.connect` accepts: v1 raw key, v2 MLS {key, index, senderKeys}, or none. */
 export type VoiceConnectE2eeInput =
   | ArrayBuffer
-  | { initialKey: ArrayBuffer; keyIndex: number }
+  | {
+      initialKey: ArrayBuffer;
+      keyIndex: number;
+      senderKeys?: ReadonlyMap<string, ArrayBuffer>;
+    }
   | null;
 
 function normalizeVoiceE2eePrepare(
@@ -51,7 +55,11 @@ export async function ensureGuildVoiceParticipantRow(
 function toConnectE2eeInput(p: VoiceE2eePrepareResult): VoiceConnectE2eeInput {
   if (!p.mediaKey) return null;
   if (typeof p.keyIndex === 'number') {
-    return { initialKey: p.mediaKey, keyIndex: p.keyIndex };
+    return {
+      initialKey: p.mediaKey,
+      keyIndex: p.keyIndex,
+      senderKeys: p.senderKeys,
+    };
   }
   return p.mediaKey;
 }

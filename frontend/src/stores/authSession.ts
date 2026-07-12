@@ -18,6 +18,7 @@ import {
 } from '@/utils/localProfilePersistence';
 import { clearWorkspaceSessionCache } from '@/utils/workspaceSessionCache';
 import { clearMessageSessionCache } from '@/utils/messageSessionCache';
+import { clearWarmChannelHeadsForUser } from '@/services/persistence/warmChannelHeadCache';
 import { clearEchoWorkspaceCache } from '@/utils/workspacePersistence';
 import { markPriorRegistered } from '@/utils/priorRegistration';
 import {
@@ -273,6 +274,8 @@ export const useAuthSessionStore = defineStore('authSession', () => {
   }
 
   function clearLocalTokens() {
+    const userIdToClear = backendUser.value?.id?.trim();
+    if (userIdToClear) void clearWarmChannelHeadsForUser(userIdToClear);
     authStateGeneration.value += 1;
     invalidateAuthFetchMeCache();
     clearEchoCsrfMemoryToken();

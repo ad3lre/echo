@@ -28,7 +28,7 @@ import {
   echoSignalPersistenceRemove,
 } from '@/services/e2ee/e2eeSignalPersistence';
 import {
-  deriveMediaKeyForEpoch,
+  deriveMediaKeyForSender,
   echoMlsCiphersuite,
   epochOf,
 } from './mlsCrypto';
@@ -47,11 +47,14 @@ import {
   type MlsScope,
 } from './mlsDeliveryClient';
 
-/** Derived media key for one MLS epoch, ready to install on the key provider. */
+/** Derived per-sender media keys for one MLS epoch, ready for the key provider. */
 export type EchoMlsEpochKey = {
+  /** Local sender key (viewer user id); kept for callers that only need self material. */
   raw: ArrayBuffer;
   keyIndex: number;
   epoch: string;
+  /** All sender keys keyed by LiveKit participant identity (Echo user id). */
+  senderKeys: ReadonlyMap<string, ArrayBuffer>;
 };
 
 export type EchoMlsGroupClientOptions = {
@@ -218,6 +221,9 @@ export class EchoMlsGroupClient {
       if (info.groupInfo && info.currentEpoch !== null) {
         return this.externalJoin(cs, info.groupInfo, info.currentEpoch);
       }
+      throw new Error(
+        'Voice E2EE: could not create or join the MLS group for this call. Try again.',
+      );
     }
     this.state = state;
     await this.persistState();
@@ -469,6 +475,20 @@ export class EchoMlsGroupClient {
     await this.clearPersistedState();
   }
 
+  /** Derive the current-epoch media key for one sender (LiveKit participant identity). */
+  async senderMediaKeyForUser(userId: string): Promise<ArrayBuffer | null> {
+    if (!this.state) return null;
+    const uid = userId.trim();
+    if (!uid) return null;
+    const cs = await echoMlsCiphersuite();
+    return deriveMediaKeyForSender(this.state, cs, uid);
+  }
+
+  /** Keyring index of the active MLS epoch, if any. */
+  get activeEpochKeyIndex(): number | null {
+    return this.current?.keyIndex ?? null;
+  }
+
   // --- helpers ---
 
   private treeMembers(): TreeMember[] {
@@ -501,10 +521,24 @@ export class EchoMlsGroupClient {
   private async installEpochKey(cs: CiphersuiteImpl): Promise<EchoMlsEpochKey> {
     const state = this.state!;
     const epoch = epochOf(state);
-    const raw = await deriveMediaKeyForEpoch(state, cs);
+    const senderKeys = new Map<string, ArrayBuffer>();
+    for (const member of this.treeMembers()) {
+      const uid = member.identity.userId.trim();
+      if (!uid || senderKeys.has(uid)) continue;
+      senderKeys.set(uid, await deriveMediaKeyForSender(state, cs, uid));
+    }
+    const viewerKey =
+      senderKeys.get(this.opts.viewerUserId.trim()) ??
+      (await deriveMediaKeyForSender(state, cs, this.opts.viewerUserId));
+    senderKeys.set(this.opts.viewerUserId.trim(), viewerKey);
     const size = BigInt(this.opts.keyringSize);
     const keyIndex = Number(((epoch % size) + size) % size);
-    this.current = { raw, keyIndex, epoch: epoch.toString() };
+    this.current = {
+      raw: viewerKey,
+      keyIndex,
+      epoch: epoch.toString(),
+      senderKeys,
+    };
     return this.current;
   }
 

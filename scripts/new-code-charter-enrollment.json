@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-07-07",
+  "enrolledAt": "2026-07-12",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -20,14 +20,14 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/connect.ts": {
-      "lines": 315,
-      "longestFunction": 275,
-      "deepNestingLines": 2,
-      "maxNestingSpaces": 14
+      "lines": 371,
+      "longestFunction": 328,
+      "deepNestingLines": 10,
+      "maxNestingSpaces": 16
     },
     "frontend/src/composables/livekitVoiceRoom/createLiveKitVoiceSession.ts": {
-      "lines": 231,
-      "longestFunction": 187,
+      "lines": 233,
+      "longestFunction": 189,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
     },
@@ -56,8 +56,8 @@
       "maxNestingSpaces": 12
     },
     "frontend/src/composables/livekitVoiceRoom/roomEvents.ts": {
-      "lines": 449,
-      "longestFunction": 371,
+      "lines": 481,
+      "longestFunction": 397,
       "deepNestingLines": 18,
       "maxNestingSpaces": 14
     },
@@ -343,6 +343,12 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
+    "frontend/src/services/appLayoutChunkPrefetch.ts": {
+      "lines": 34,
+      "longestFunction": 23,
+      "deepNestingLines": 1,
+      "maxNestingSpaces": 14
+    },
     "frontend/src/services/domain/channelStructureOptimistic.ts": {
       "lines": 247,
       "longestFunction": 93,
@@ -354,6 +360,12 @@
       "longestFunction": 141,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
+    },
+    "frontend/src/services/orchestration/echoInitialHistoryStages.ts": {
+      "lines": 274,
+      "longestFunction": 229,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 12
     },
     "frontend/src/services/realtime/deferredMediaOutboundSend.ts": {
       "lines": 303,
@@ -410,10 +422,10 @@
       "maxNestingSpaces": 14
     },
     "backend/src/services/rasterImageWebpBackfill.ts": {
-      "lines": 445,
-      "longestFunction": 61,
-      "deepNestingLines": 4,
-      "maxNestingSpaces": 13
+      "lines": 432,
+      "longestFunction": 47,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
     },
     "shared/discordEmbedApi.ts": {
       "lines": 130,

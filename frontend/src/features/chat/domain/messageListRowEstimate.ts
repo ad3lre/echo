@@ -1,7 +1,11 @@
-import type { MessageWithAuthor } from '@shared/types';
+import type { Embed, MessageWithAuthor } from '@shared/types';
+import { stubVideoEmbedsFromMessage } from '@shared/linkEmbedCandidates';
 import { walkImageSlots } from '@shared/imageSlotContentJson';
 import { countButtonRows } from '@shared/buttonRowContentJson';
+import { resolvePlayableVideoEmbed } from '@shared/videoEmbedIds';
 import { CHAT_MEDIA_BOX_HEIGHT_PX } from '@/features/chat/domain/messageMediaCollage';
+import { estimateMessageBodyHeightPx } from '@/features/chat/domain/messageBodyEmojiGeometry';
+import { plainTextForMessageFields } from '@/services/domain/messageDisplayPlain';
 import {
   CHAT_IMAGE_SLOT_MAX_WIDTH_PX,
   estimateChatBitmapBlockPx,
@@ -11,7 +15,17 @@ export const MESSAGE_LIST_DEFAULT_ROW_ESTIMATE_PX = 88;
 export const MESSAGE_LIST_ROW_ESTIMATE_MIN_PX = 64;
 /** Continuation rows are avatar-less and much shorter than headers. */
 export const MESSAGE_LIST_ROW_ESTIMATE_GROUPED_MIN_PX = 28;
-export const MESSAGE_LIST_ROW_ESTIMATE_MAX_PX = 520;
+/** Tall embed stacks (video + body + day separator) can exceed the old 520px cap. */
+export const MESSAGE_LIST_ROW_ESTIMATE_MAX_PX = 840;
+/** 16:9 player at the compact in-chat max width (~420px). */
+const MESSAGE_LIST_EMBED_VIDEO_PLAYER_PX = 236;
+/** Provider, title, description chrome above rich embed media. */
+const MESSAGE_LIST_EMBED_RICH_HEADER_PX = 120;
+/** OG image without stored dimensions (max-h 36rem capped for estimate). */
+const MESSAGE_LIST_EMBED_IMAGE_UNDIM_PX = 280;
+const MESSAGE_LIST_EMBED_COMPACT_PX = 96;
+const MESSAGE_LIST_EMBED_STACK_GAP_PX = 10;
+const MESSAGE_LIST_EMBED_RICH_MAX_WIDTH_PX = 576;
 
 export type MessageListRowEstimateInput = {
   groupedWithPrevious: boolean;
@@ -34,16 +48,10 @@ export type MessageListRowEstimateInput = {
   >;
 };
 
-/** Body line box — matches `.message-text` line-height (1.375rem) in messageBubble.scss. */
-const MESSAGE_LIST_BODY_LINE_PX = 22;
 /** Header chrome: group margin-top + vertical padding + author/timestamp row. */
 const MESSAGE_LIST_HEADER_CHROME_PX = 50;
 /** Continuation chrome: just the tight `.msg-continuation` vertical padding. */
 const MESSAGE_LIST_GROUPED_CHROME_PX = 6;
-/** Avg glyphs per rendered line inside the message column before soft-wrap (rough). */
-const MESSAGE_LIST_CHARS_PER_LINE = 100;
-/** Cap line contribution so a wall of text cannot blow past the row max. */
-const MESSAGE_LIST_MAX_BODY_LINES = 12;
 /** Matches `MessageImageSlot` max width at 16px root (`36rem`). */
 const MESSAGE_IMAGE_SLOT_MAX_WIDTH_PX = CHAT_IMAGE_SLOT_MAX_WIDTH_PX;
 /** Matches `MessageImageSlot` vertical margin (`my-2`). */
@@ -58,17 +66,57 @@ function estimateImageSlotBlockPx(aspectW: number, aspectH: number): number {
   });
 }
 
-/** Rendered line count: explicit newlines plus per-line soft-wrap by width. */
-function estimateRenderedBodyLines(body: string): number {
-  if (!body) return 1;
-  let lines = 0;
-  for (const segment of body.split('\n')) {
-    lines += Math.max(
-      1,
-      Math.ceil(segment.length / MESSAGE_LIST_CHARS_PER_LINE),
+function embedReservesRichVideoPlayer(embed: Embed): boolean {
+  const v = embed.video;
+  if (v?.embedUrl?.trim() && (v.kind === 'youtube' || v.kind === 'vimeo')) {
+    return true;
+  }
+  return resolvePlayableVideoEmbed(embed) != null;
+}
+
+function linkEmbedsForEstimate(
+  message: MessageListRowEstimateInput['message'],
+): Embed[] {
+  const stored = message.embeds ?? [];
+  if (stored.some((embed) => embed && !embed.echoJump)) return stored;
+  const body = plainTextForMessageFields(message);
+  const stubs = stubVideoEmbedsFromMessage(body, message.contentJson);
+  return stubs.length > 0 ? stubs : stored;
+}
+
+function estimateLinkEmbedBlockPx(embed: Embed): number {
+  if (embedReservesRichVideoPlayer(embed)) {
+    let block =
+      MESSAGE_LIST_EMBED_RICH_HEADER_PX + MESSAGE_LIST_EMBED_VIDEO_PLAYER_PX;
+    const desc = embed.description?.trim();
+    if (desc) {
+      block += Math.min(96, Math.ceil(desc.length / 90) * 16);
+    }
+    const fieldCount = embed.fields?.length ?? 0;
+    if (fieldCount > 0) {
+      block += Math.min(140, fieldCount * 32);
+    }
+    return block;
+  }
+
+  const imageUrl = embed.image?.url?.trim();
+  if (imageUrl) {
+    const w = embed.image?.width;
+    const h = embed.image?.height;
+    if (typeof w === 'number' && w > 0 && typeof h === 'number' && h > 0) {
+      const displayW = Math.min(w, MESSAGE_LIST_EMBED_RICH_MAX_WIDTH_PX);
+      const displayH = Math.min(
+        MESSAGE_LIST_EMBED_RICH_MAX_WIDTH_PX,
+        Math.round((displayW / w) * h),
+      );
+      return MESSAGE_LIST_EMBED_RICH_HEADER_PX + displayH;
+    }
+    return (
+      MESSAGE_LIST_EMBED_RICH_HEADER_PX + MESSAGE_LIST_EMBED_IMAGE_UNDIM_PX
     );
   }
-  return Math.max(1, lines);
+
+  return MESSAGE_LIST_EMBED_COMPACT_PX;
 }
 
 /**
@@ -88,12 +136,8 @@ export function estimateMessageListRowSizePx(
     : MESSAGE_LIST_HEADER_CHROME_PX;
   if (showDaySeparatorBefore) size += 32;
 
-  const body = message.contentText ?? message.content ?? '';
-  const renderedLines = Math.min(
-    MESSAGE_LIST_MAX_BODY_LINES,
-    estimateRenderedBodyLines(body),
-  );
-  size += renderedLines * MESSAGE_LIST_BODY_LINE_PX;
+  const body = plainTextForMessageFields(message);
+  size += estimateMessageBodyHeightPx(body);
 
   if (message.replyTo) size += 28;
   if (message.forwardedFrom) size += 56;
@@ -133,13 +177,11 @@ export function estimateMessageListRowSizePx(
     size += buttonRowCount * 48;
   }
 
-  const embeds = message.embeds ?? [];
-  if (embeds.some((embed) => embed.video != null)) {
-    size += 240;
-  } else if (embeds.some((embed) => !!embed.image?.url?.trim())) {
-    size += 180;
-  } else if (embeds.length > 0) {
-    size += 96;
+  const embeds = linkEmbedsForEstimate(message);
+  for (let i = 0; i < embeds.length; i++) {
+    if (embeds[i]?.echoJump) continue;
+    if (i > 0) size += MESSAGE_LIST_EMBED_STACK_GAP_PX;
+    size += estimateLinkEmbedBlockPx(embeds[i]!);
   }
 
   if ((message.reactions?.length ?? 0) > 0) {

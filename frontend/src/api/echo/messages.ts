@@ -109,7 +109,7 @@ export type EchoApiMessage = {
 export async function fetchEchoChannelMessages(
   token: string,
   channelId: string,
-  opts?: { before?: string; limit?: number },
+  opts?: { before?: string; limit?: number; signal?: AbortSignal },
 ): Promise<{ messages: EchoApiMessage[] }> {
   const ch = trimEchoPathSegment(channelId);
   const q = new URLSearchParams();
@@ -119,6 +119,7 @@ export async function fetchEchoChannelMessages(
   const raw = await echoFetch<unknown>(
     token,
     `/channels/${encodeURIComponent(ch)}/messages${qs ? `?${qs}` : ''}`,
+    { signal: opts?.signal },
   );
   return parseEchoMessagesListPayload(raw, 'GET /channels/.../messages');
 }

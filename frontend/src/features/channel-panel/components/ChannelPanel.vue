@@ -442,7 +442,6 @@ const showChannelListSkeleton = computed(() => {
   if (!props.loading) return false;
   const cats = unref(props.categories) as ChannelCategory[];
   if (cats.some((c) => (c.channels?.length ?? 0) > 0)) return false;
-  if (props.channelTreeLoaded) return false;
   return true;
 });
 

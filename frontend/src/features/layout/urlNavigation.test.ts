@@ -124,6 +124,20 @@ describe('parseAppPathname / formatAppPathname round-trip', () => {
     });
   });
 
+  it('canonicalizes nested guild paths corrupted by History round-trips', () => {
+    const corrupt =
+      '/channels/1499816749103710208/channels/1499816749103710208/channels/1499816749103710208/1508073473161953280';
+    const p = parseAppPathname(corrupt, base);
+    expect(p).toEqual({
+      kind: 'guild',
+      serverId: '1499816749103710208',
+      channelId: '1508073473161953280',
+    });
+    expect(formatAppPathname(p, base)).toBe(
+      '/channels/1499816749103710208/1508073473161953280',
+    );
+  });
+
   it('preserves plus signs in path segments', () => {
     expect(parseAppPathname('/channels/a+b/c+d', base)).toEqual({
       kind: 'guild',
