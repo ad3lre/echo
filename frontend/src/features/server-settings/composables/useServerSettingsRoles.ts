@@ -5,6 +5,7 @@ import { useServerSettingsRolesEchoPersistence } from '@/services/orchestration/
 import {
   deleteEchoRoleCategory,
   fetchEchoMemberRoleAssignments,
+  patchEchoRole,
   patchEchoRoleCategory,
   postEchoAssignMemberRole,
   postEchoRoleCategory,
@@ -36,6 +37,8 @@ import { uploadServerBrandingFile } from '@/api/echo/uploads';
 import type { EmojiEntry } from '@/composables/useEmojiData';
 import type { AppIconEntry } from '@/composables/useAppIconSearch';
 import { getTwemojiSrc } from '@/utils/twemoji';
+import { extractUploadErrorMessage } from '@/services/domain/brandingUploads';
+import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
 export function useServerSettingsRoles(options: {
   server: Ref<{ id: string } | null>;
@@ -582,12 +585,49 @@ export function useServerSettingsRoles(options: {
 
   async function uploadSelectedRoleIcon(file: File) {
     const sid = server.value?.id;
-    if (!sid || !isEchoGraphId(sid) || !selectedRole.value) return;
+    const role = selectedRole.value;
+    if (!sid || !isEchoGraphId(sid) || !role) return;
     const token = accessToken.value ?? '';
-    const url = await uploadServerBrandingFile(token, sid, 'server_icon', file);
-    selectedRole.value.roleIconUrl = url;
-    selectedRole.value.roleIconEmojiId = null;
-    roleManagerDirty.value = true;
+    const prevUrl = role.roleIconUrl;
+    const prevEmojiId = role.roleIconEmojiId;
+    const snap = roleManagerInitialSnapshot.value.find((r) => r.id === role.id);
+    const prevSnapUrl = snap?.roleIconUrl ?? null;
+    const prevSnapEmojiId = snap?.roleIconEmojiId ?? null;
+    try {
+      const url = await uploadServerBrandingFile(
+        token,
+        sid,
+        'server_icon',
+        file,
+      );
+      // Persist immediately — matching server Overview branding. Leaving icons in the
+      // unsaved dirty bar made uploads look broken when the modal closed or roles refreshed.
+      await patchEchoRole(token, sid, role.id, {
+        roleIconUrl: url,
+        roleIconEmojiId: null,
+      });
+      if (snap) {
+        snap.roleIconUrl = url;
+        snap.roleIconEmojiId = null;
+      }
+      role.roleIconUrl = url;
+      role.roleIconEmojiId = null;
+      onEchoRoleCatalogMutated();
+    } catch (e) {
+      if (snap) {
+        snap.roleIconUrl = prevSnapUrl;
+        snap.roleIconEmojiId = prevSnapEmojiId;
+      }
+      role.roleIconUrl = prevUrl;
+      role.roleIconEmojiId = prevEmojiId;
+      const detail = extractUploadErrorMessage(e);
+      dispatchAppToast(
+        detail
+          ? `Could not save role icon: ${detail}`
+          : 'Could not save role icon.',
+        'warning',
+      );
+    }
   }
 
   function setSelectedRoleIconFromAppIcon(entry: AppIconEntry) {

@@ -226,18 +226,20 @@ export function publishVoiceData<T>(
   opts?: PublishOpts,
 ): void {
   if (!room || room.state !== ConnectionState.Connected) return;
+  // livekit-client publishData requires a non-shared ArrayBuffer-backed view.
+  const data = Uint8Array.from(encode(payload));
   if (opts?.destinationIdentities) {
     const dest = opts.destinationIdentities
       .map((x) => x.trim())
       .filter(Boolean);
     if (!dest.length) return;
-    void room.localParticipant.publishData(encode(payload), {
+    void room.localParticipant.publishData(data, {
       reliable: opts.reliable ?? true,
       destinationIdentities: dest,
     });
     return;
   }
-  void room.localParticipant.publishData(encode(payload), {
+  void room.localParticipant.publishData(data, {
     reliable: opts?.reliable ?? true,
   });
 }

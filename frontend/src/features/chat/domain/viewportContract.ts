@@ -31,6 +31,19 @@
  *    through history IO, not ad-hoc full list replacement. See `channelMessageBucket` /
  *    `echoHistoryChannelApply`.
  *
+ * ## Measurement / scroll subtraction invariants
+ *
+ * Established before simplifying the measure path (see
+ * `messageListSubtractionDiagnostics.ts`):
+ *
+ * 1. One rendered row → one current revision.
+ * 2. One revision → one accepted measured height.
+ * 3. A resize schedules at most one pending measurement.
+ * 4. Only above-viewport growth may compensate while browsing history.
+ * 5. Only pinned + inactive users may receive follow-tail compensation.
+ * 6. Every programmatic scroll has an ownership intent.
+ * 7. Each height delta has exactly one owner (prepend TX **xor** generic compensation).
+ *
  * ---
  * After these laws hold, optional UI micro-optimizations are listed in
  * `messageListMicroPerf.ts` — do not use them to mask authority bugs.

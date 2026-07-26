@@ -521,6 +521,35 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS echo_bug_reports_reporter_idx ON echo_bug_reports(reporter_id);`,
   );
+  // Marketing-site compatibility polls (e.g. app-echo.net/poll). One entry per IP.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_marketing_poll_entries (
+      id TEXT PRIMARY KEY,
+      poll_id TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      score INT NOT NULL CHECK (score >= 0 AND score <= 100),
+      category_scores JSONB NOT NULL DEFAULT '{}'::jsonb,
+      answers JSONB NOT NULL DEFAULT '[]'::jsonb,
+      client_ip TEXT NOT NULL,
+      country_code TEXT NOT NULL DEFAULT '',
+      user_agent TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    ALTER TABLE echo_marketing_poll_entries
+    ADD COLUMN IF NOT EXISTS answers JSONB NOT NULL DEFAULT '[]'::jsonb;
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS echo_marketing_poll_entries_poll_ip_unique
+    ON echo_marketing_poll_entries (poll_id, client_ip)
+    WHERE client_ip <> '' AND client_ip <> 'unknown';
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_marketing_poll_entries_leaderboard_idx
+    ON echo_marketing_poll_entries (poll_id, score DESC, created_at ASC);
+  `);
   // Singleton row tracking when the weekly metrics digest email was last sent,
   // so the job sends at most once per period across replicas and restarts.
   await pool.query(`

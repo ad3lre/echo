@@ -2,9 +2,14 @@ import rateLimit from '@fastify/rate-limit';
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { config } from '../../../config';
 import {
+  ADEL_APPROVAL_POLL_ID,
+  getMarketingPollEntryByIp,
   listEchoDirectoryServerMemberHighlights,
   listEchoDirectoryServers,
   listEchoEmojiMarketPacks,
+  listMarketingPollLeaderboard,
+  normalizeMarketingPollAnswers,
+  submitMarketingPollEntry,
 } from '../../../domain/echoStore';
 import { sendTransactionalEmail } from '../../../services/email/sendMail';
 import {
@@ -20,6 +25,10 @@ import {
 import { sendError } from '../../errors';
 import { getPublicPaperDocumentByToken } from '../../../domain/echoStore/paperShare';
 import { sendEchoPublicCustomEmojiAsset } from '../../../services/echoEmojiAsset';
+import { clientIpFromFastifyRequest } from '../../../net/clientIp';
+import { clipUserAgent } from '../../../auth/clipUserAgent';
+import type { FastifyRequest } from 'fastify';
+import { getMarketingPollLiveOverlay } from '../../../services/marketingPollLiveOverlay';
 const SUPPORT_TOPIC_VALUES = ['Account', 'Bug', 'Safety', 'Other'] as const;
 type SupportTopic = (typeof SUPPORT_TOPIC_VALUES)[number];
 
@@ -354,4 +363,199 @@ export default async function echoPublicRoutes(
       },
     );
   });
+
+  /**
+   * Marketing Adel Approval poll (app-echo.net/poll).
+   * One durable entry per client IP; country from edge headers for leaderboard flags.
+   */
+  await fastify.register(async (scope) => {
+    await scope.register(rateLimit, {
+      max: 60,
+      timeWindow: '1 minute',
+      keyGenerator: (req) => `marketing-poll-read:ip:${req.ip}`,
+      addHeaders: { 'retry-after': true },
+    });
+
+    /** Temporary live picture/banner for everyone currently on /poll (Redis-backed). */
+    scope.get('/marketing-poll/live-overlay', async (_req, reply) => {
+      const overlay = await getMarketingPollLiveOverlay();
+      return reply.code(200).send({
+        active: Boolean(overlay),
+        overlay,
+      });
+    });
+
+    scope.get(
+      '/marketing-poll/adel-approval-v2',
+      { preHandler: [requireEchoStore] },
+      async (req, reply) => {
+        const pool = echoPool(req);
+        const clientIp = clientIpFromFastifyRequest(req);
+        const [leaderboard, me] = await Promise.all([
+          listMarketingPollLeaderboard(pool, ADEL_APPROVAL_POLL_ID, 100),
+          getMarketingPollEntryByIp(pool, ADEL_APPROVAL_POLL_ID, clientIp),
+        ]);
+        return reply.code(200).send({
+          pollId: ADEL_APPROVAL_POLL_ID,
+          alreadySubmitted: Boolean(me),
+          me,
+          leaderboard,
+        });
+      },
+    );
+  });
+
+  await fastify.register(async (scope) => {
+    await scope.register(rateLimit, {
+      max: 8,
+      timeWindow: '15 minutes',
+      keyGenerator: (req) => `marketing-poll-submit:ip:${req.ip}`,
+      addHeaders: { 'retry-after': true },
+    });
+
+    type MarketingPollSubmitBody = {
+      name?: unknown;
+      score?: unknown;
+      categories?: unknown;
+      /** Per-question option indices (0–3), length must match the poll. */
+      answers?: unknown;
+      /** Honeypot: real users can't see this; bots fill it in and we silently drop them. */
+      website?: unknown;
+    };
+
+    scope.post<{ Body: MarketingPollSubmitBody }>(
+      '/marketing-poll/adel-approval-v2',
+      { preHandler: [requireEchoStore] },
+      async (req, reply) => {
+        const body = (req.body ?? {}) as MarketingPollSubmitBody;
+
+        if (typeof body.website === 'string' && body.website.trim() !== '') {
+          return reply.code(200).send({ ok: true });
+        }
+
+        const name =
+          typeof body.name === 'string'
+            ? body.name.trim().replace(/\s+/g, ' ').slice(0, 30)
+            : '';
+        if (!name) {
+          return reply.code(400).send({ error: 'invalid_name' });
+        }
+
+        const scoreRaw =
+          typeof body.score === 'number'
+            ? body.score
+            : typeof body.score === 'string'
+              ? Number(body.score)
+              : NaN;
+        if (
+          !Number.isFinite(scoreRaw) ||
+          !Number.isInteger(scoreRaw) ||
+          scoreRaw < 0 ||
+          scoreRaw > 100
+        ) {
+          return reply.code(400).send({ error: 'invalid_score' });
+        }
+
+        const answers = normalizeMarketingPollAnswers(body.answers);
+        if (!answers) {
+          return reply.code(400).send({ error: 'invalid_answers' });
+        }
+
+        const categoryScores = normalizeCategoryScores(body.categories);
+        const clientIp = clientIpFromFastifyRequest(req);
+        if (!clientIp || clientIp === 'unknown') {
+          return reply.code(400).send({ error: 'invalid_client' });
+        }
+
+        const pool = echoPool(req);
+        const result = await submitMarketingPollEntry(pool, {
+          pollId: ADEL_APPROVAL_POLL_ID,
+          displayName: name,
+          score: scoreRaw,
+          categoryScores,
+          answers,
+          clientIp,
+          countryCode: countryCodeFromRequest(req),
+          userAgent: clipUserAgent(req.headers['user-agent']) ?? '',
+        });
+
+        const leaderboard = await listMarketingPollLeaderboard(
+          pool,
+          ADEL_APPROVAL_POLL_ID,
+          100,
+        );
+
+        if (!result.ok) {
+          return reply.code(409).send({
+            error: 'already_submitted',
+            entry: result.entry,
+            leaderboard,
+          });
+        }
+
+        return reply.code(200).send({
+          ok: true,
+          entry: result.entry,
+          leaderboard,
+        });
+      },
+    );
+  });
+}
+
+function headerOne(
+  headers: Record<string, string | string[] | undefined> | undefined,
+  name: string,
+): string {
+  const raw = headers?.[name];
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return typeof v === 'string' ? v.trim() : '';
+}
+
+/** ISO 3166-1 alpha-2 from common CDN headers (Cloudflare / Vercel / App Engine). */
+function countryCodeFromRequest(req: FastifyRequest): string {
+  const raw =
+    headerOne(req.headers, 'cf-ipcountry') ||
+    headerOne(req.headers, 'x-vercel-ip-country') ||
+    headerOne(req.headers, 'x-appengine-country');
+  const code = raw.toUpperCase();
+  // CF uses XX (unknown) and T1 (Tor); skip those for flags.
+  if (!/^[A-Z]{2}$/.test(code) || code === 'XX' || code === 'T1') return '';
+  return code;
+}
+
+function normalizeCategoryScores(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, number> = {};
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue;
+      const name =
+        typeof (item as { name?: unknown }).name === 'string'
+          ? (item as { name: string }).name.trim().slice(0, 40)
+          : '';
+      const scoreRaw = (item as { score?: unknown }).score;
+      const score =
+        typeof scoreRaw === 'number'
+          ? scoreRaw
+          : typeof scoreRaw === 'string'
+            ? Number(scoreRaw)
+            : NaN;
+      if (!name || !Number.isFinite(score)) continue;
+      out[name] = Math.max(0, Math.min(100, Math.round(score)));
+    }
+    return out;
+  }
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const name = key.trim().slice(0, 40);
+    const score =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number(value)
+          : NaN;
+    if (!name || !Number.isFinite(score)) continue;
+    out[name] = Math.max(0, Math.min(100, Math.round(score)));
+  }
+  return out;
 }

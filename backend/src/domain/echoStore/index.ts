@@ -600,3 +600,15 @@ export {
   type ToggleSelfAssignableRoleResult,
   type UpdateEchoSelfRolesConfigInput,
 } from './selfAssignableRoles';
+
+export {
+  ADEL_APPROVAL_POLL_ID,
+  ADEL_APPROVAL_QUESTION_COUNT,
+  getMarketingPollEntryByIp,
+  listMarketingPollLeaderboard,
+  normalizeMarketingPollAnswers,
+  submitMarketingPollEntry,
+  type MarketingPollDetailEntry,
+  type MarketingPollPublicEntry,
+  type SubmitMarketingPollResult,
+} from './marketingPoll';

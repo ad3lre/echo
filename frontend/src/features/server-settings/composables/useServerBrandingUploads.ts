@@ -2,6 +2,7 @@ import type { Ref } from 'vue';
 import { uploadServerBrandingFile } from '@/api/echoClient';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import {
+  ECHO_BRANDING_UPLOAD_MAX_BYTES,
   extractUploadErrorMessage,
   isValidBrandingImageFile,
 } from '@/services/domain/brandingUploads';
@@ -87,7 +88,18 @@ export function useServerBrandingUploads(
   async function onServerBannerFileChange(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!isValidBrandingImageFile(file)) return;
+    if (!file) return;
+    const bannerTooLarge = file.size > ECHO_BRANDING_UPLOAD_MAX_BYTES;
+    if (!isValidBrandingImageFile(file)) {
+      dispatchAppToast(
+        bannerTooLarge
+          ? 'Server banner must be 25 MiB or smaller.'
+          : 'Server banner must be an image file (PNG, JPEG, WebP, or GIF).',
+        'warning',
+      );
+      input.value = '';
+      return;
+    }
     if (!serverId.value) return;
     input.value = '';
 
@@ -157,7 +169,18 @@ export function useServerBrandingUploads(
   async function onServerIconFileChange(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!isValidBrandingImageFile(file)) return;
+    if (!file) return;
+    const iconTooLarge = file.size > ECHO_BRANDING_UPLOAD_MAX_BYTES;
+    if (!isValidBrandingImageFile(file)) {
+      dispatchAppToast(
+        iconTooLarge
+          ? 'Server icon must be 25 MiB or smaller.'
+          : 'Server icon must be an image file (PNG, JPEG, WebP, or GIF).',
+        'warning',
+      );
+      input.value = '';
+      return;
+    }
     if (!serverId.value) return;
     input.value = '';
 

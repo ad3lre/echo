@@ -3,7 +3,7 @@ import { stubVideoEmbedsFromMessage } from '@shared/linkEmbedCandidates';
 import { walkImageSlots } from '@shared/imageSlotContentJson';
 import { countButtonRows } from '@shared/buttonRowContentJson';
 import { resolvePlayableVideoEmbed } from '@shared/videoEmbedIds';
-import { CHAT_MEDIA_BOX_HEIGHT_PX } from '@/features/chat/domain/messageMediaCollage';
+import { reserveChatAttachmentMediaBoxHeightPx } from '@/features/chat/domain/messageMediaReservation';
 import { estimateMessageBodyHeightPx } from '@/features/chat/domain/messageBodyEmojiGeometry';
 import { plainTextForMessageFields } from '@/services/domain/messageDisplayPlain';
 import {
@@ -30,6 +30,8 @@ const MESSAGE_LIST_EMBED_RICH_MAX_WIDTH_PX = 576;
 export type MessageListRowEstimateInput = {
   groupedWithPrevious: boolean;
   showDaySeparatorBefore: boolean;
+  /** Unread "New" separator — same chrome budget as the day separator. */
+  showUnreadSeparatorBefore?: boolean;
   message: Pick<
     MessageWithAuthor,
     | 'contentText'
@@ -56,8 +58,6 @@ const MESSAGE_LIST_GROUPED_CHROME_PX = 6;
 const MESSAGE_IMAGE_SLOT_MAX_WIDTH_PX = CHAT_IMAGE_SLOT_MAX_WIDTH_PX;
 /** Matches `MessageImageSlot` vertical margin (`my-2`). */
 const MESSAGE_IMAGE_SLOT_VERTICAL_MARGIN_PX = 16;
-/** Vertical margin around the fixed media collage box (`space-y-2` / `mt-1`). */
-const MESSAGE_MEDIA_BOX_VERTICAL_MARGIN_PX = 8;
 
 function estimateImageSlotBlockPx(aspectW: number, aspectH: number): number {
   return estimateChatBitmapBlockPx(aspectW, aspectH, {
@@ -129,12 +129,18 @@ function estimateLinkEmbedBlockPx(embed: Embed): number {
 export function estimateMessageListRowSizePx(
   input: MessageListRowEstimateInput,
 ): number {
-  const { groupedWithPrevious, showDaySeparatorBefore, message } = input;
+  const {
+    groupedWithPrevious,
+    showDaySeparatorBefore,
+    showUnreadSeparatorBefore,
+    message,
+  } = input;
 
   let size = groupedWithPrevious
     ? MESSAGE_LIST_GROUPED_CHROME_PX
     : MESSAGE_LIST_HEADER_CHROME_PX;
   if (showDaySeparatorBefore) size += 32;
+  if (showUnreadSeparatorBefore) size += 32;
 
   const body = plainTextForMessageFields(message);
   size += estimateMessageBodyHeightPx(body);
@@ -161,10 +167,11 @@ export function estimateMessageListRowSizePx(
       (attachment) => attachment.kind === 'image' || attachment.kind === 'gif',
     );
     if (hasCollageMedia || (message.imageUrl && !attachments.length)) {
-      size += CHAT_MEDIA_BOX_HEIGHT_PX + MESSAGE_MEDIA_BOX_VERTICAL_MARGIN_PX;
+      size += reserveChatAttachmentMediaBoxHeightPx();
     }
     if ((message.stickers?.length ?? 0) > 0) {
-      size += 180;
+      // Same SSOT as collage / reserved GifImage shells (not a flat 180 under-guess).
+      size += reserveChatAttachmentMediaBoxHeightPx();
     }
   }
 

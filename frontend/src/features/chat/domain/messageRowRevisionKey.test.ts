@@ -1,7 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { buildMessageRowRevisionKey } from './messageRowRevisionKey';
 
+vi.mock('@/composables/markdownKatex', () => ({
+  isMarkdownKatexReady: vi.fn(() => false),
+}));
+
+import { isMarkdownKatexReady } from '@/composables/markdownKatex';
+
 describe('buildMessageRowRevisionKey', () => {
+  beforeEach(() => {
+    vi.mocked(isMarkdownKatexReady).mockReturnValue(false);
+  });
+
   it('changes when layout-affecting fields change', () => {
     const row = {
       layout: { groupedWithPrevious: false },
@@ -141,5 +151,20 @@ describe('buildMessageRowRevisionKey', () => {
       contentText: 'hi <:a:1>',
     });
     expect(mixed).not.toBe(emojiOnly);
+  });
+
+  it('changes when KaTeX becomes ready for a math message', () => {
+    const row = {
+      layout: { groupedWithPrevious: false },
+      showDaySeparatorBefore: false,
+      showUnreadSeparatorBefore: false,
+      isCompact: false,
+    };
+    const message = { contentText: '$$x^2$$' };
+    vi.mocked(isMarkdownKatexReady).mockReturnValue(false);
+    const pending = buildMessageRowRevisionKey(row as never, message);
+    vi.mocked(isMarkdownKatexReady).mockReturnValue(true);
+    const ready = buildMessageRowRevisionKey(row as never, message);
+    expect(ready).not.toBe(pending);
   });
 });

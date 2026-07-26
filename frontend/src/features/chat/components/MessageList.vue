@@ -28,7 +28,6 @@ import {
 } from '@/features/chat/viewModel/messageListJumpUi';
 import type { MemberRole, PopoutAnchorRect } from '@/utils/memberProfiles';
 import { isClientOnlyDmOpenShellChannelId } from '@/features/dm/dmOpenShellChannelId';
-import { isEchoGraphId } from '@/utils/echoIds';
 import DiscordChannelImportWidget from '@/features/chat/components/DiscordChannelImportWidget.vue';
 import { icons } from '@/assets/icons';
 import { emitDiagnostic } from '@/observability/sessionDiagnostics';
@@ -58,7 +57,20 @@ import {
   invalidateMessageRowHeight,
   setMessageRowHeightPx,
 } from '@/features/chat/domain/messageRowHeightStore';
-import { useMessageRowHydration } from '@/features/chat/composables/useMessageRowHydration';
+import {
+  markdownKatexReadyVersion,
+  isMarkdownKatexReady,
+} from '@/composables/markdownKatex';
+import { hasMarkdownMathRegions } from '@/composables/markdownMathRegions';
+import { plainTextForMessageFields } from '@/services/domain/messageDisplayPlain';
+import {
+  noteSubtractionBeginChannelSwitch,
+  noteSubtractionChannelVisibleIds,
+  noteSubtractionMeasureElement,
+  noteSubtractionRowMount,
+  noteSubtractionRowUnmount,
+  noteSubtractionScrollWrite,
+} from '@/features/chat/domain/messageListSubtractionDiagnostics';
 import {
   ANCHOR_DRIFT_THRESHOLD_PX,
   getAnchorMessageIdFromViewport,
@@ -79,6 +91,8 @@ import {
   readMessageListViewport,
   writeMessageListViewport,
 } from '@/features/chat/composables/messageListViewportStorage';
+import { useMessageListPresentationGate } from '@/features/chat/composables/useMessageListPresentationGate';
+import { useMessageListRowMeasure } from '@/features/chat/composables/useMessageListRowMeasure';
 import { messageWindowAuthority } from '@/features/chat/domain/messageWindowAuthority';
 import {
   downwardOnlySnapScrollTop,
@@ -106,17 +120,16 @@ import {
 import { useCoarsePointer } from '@/composables/useCoarsePointer';
 import { isSafariLikeBrowser } from '@/platform/browserCompatibility';
 import DmHistoryIntroCard from './DmHistoryIntroCard.vue';
-import { getMessageListScrollExperimentFlags } from '@/features/chat/domain/messageListScrollExperiments';
+import {
+  MESSAGE_LIST_COMPENSATION_ANCHOR_RECONCILE,
+  MESSAGE_LIST_STABLE_OVERSCAN,
+} from '@/features/chat/domain/messageListScrollPolicy';
 import {
   createScrollCompensationController,
   resolveShouldAdjustScrollPosition,
   type ScrollCompensationAnchor,
 } from '@/features/chat/domain/messageListScrollCompensation';
-import {
-  computeUnresolvedResizeDeltaPx,
-  createResizeDeferMetrics,
-  resolveResizeMeasureAction,
-} from '@/features/chat/domain/messageListResizeDefer';
+import { computeUnresolvedResizeDeltaPx } from '@/features/chat/domain/messageListResizeDefer';
 import {
   installMessageListScrollMetrics,
   isMessageListScrollMetricsEnabled,
@@ -320,10 +333,7 @@ const scrollOwnership = createMessageListScrollOwnership({
   userScrollSettleMs: USER_SCROLL_SETTLE_MS,
 });
 
-const scrollExperiments = getMessageListScrollExperimentFlags();
 const scrollCompensation = createScrollCompensationController({ now: nowMs });
-const resizeDeferMetrics = createResizeDeferMetrics();
-const unresolvedResizeDeltaByKey = new Map<string, number>();
 const scrollGestureActive = ref(false);
 provide(MESSAGE_LIST_SCROLL_GESTURE_ACTIVE_KEY, scrollGestureActive);
 
@@ -626,18 +636,33 @@ watch(
 /** True when there is nothing to scroll (canonical channel window — rollup does not invent messages). */
 const isEmpty = computed(() => canonicalOrderedIds.value.length === 0);
 
-/** One loading placeholder for empty channels — history fetch or shell transition. */
-const showChannelLoadingPlaceholder = computed(
-  () =>
-    isEmpty.value &&
-    ((!!props.initialHistoryLoading &&
-      !!props.channelId &&
-      isEchoGraphId(props.channelId)) ||
-      !!props.transitionLoading ||
-      (!props.hasChannel && !!props.guildShellSettling)),
-);
+/**
+ * True from channel-change until the first anchor settles. The list still renders and
+ * measures underneath (never gate the list's existence on this — it would unmount the
+ * virtualizer). Overlay visibility is separate: see {@link listPresentationReady}.
+ */
+const suppressListUntilInitialAnchor = ref(false);
 
-const showLoadingSkeleton = showChannelLoadingPlaceholder;
+const {
+  showLoadingSkeleton,
+  showInitialLoadOverlay,
+  markListPresentationReady,
+  disarmInitialAnchorOverlaySafety,
+  beginChannelTransition,
+} = useMessageListPresentationGate({
+  channelId: () => props.channelId,
+  initialHistoryLoading: () => !!props.initialHistoryLoading,
+  isEmpty,
+  displayOrderedIds,
+  isSuppressingUntilInitialAnchor: () => suppressListUntilInitialAnchor.value,
+  onSafetyRelease: () => {
+    suppressListUntilInitialAnchor.value = false;
+    scrollOwnership.markInitialAnchorSettled();
+  },
+  getActiveWindowChannelId: () => messageWindowAuthority.getActiveChannelId(),
+  getWindowOrderedIds: () => messageWindowAuthority.orderedIds.value,
+  readSavedViewport: (cid) => readMessageListViewport(cid),
+});
 
 const showNoServersYet = computed(
   () => !!props.noServersYet && isEmpty.value && !showLoadingSkeleton.value,
@@ -864,7 +889,11 @@ const MESSAGE_LIST_OVERSCAN_FAST = 10;
 const MESSAGE_LIST_OVERSCAN_FAST_COARSE = 8;
 const MESSAGE_LIST_ACTION_BAR_GUTTER_PX = 14;
 
-function withProgrammaticScroll<T>(write: () => T): T {
+function withProgrammaticScroll<T>(
+  write: () => T,
+  intent?: ScrollIntent | string,
+): T {
+  if (intent) noteSubtractionScrollWrite(String(intent));
   scrollOwnership.beginProgrammaticWrite();
   return write();
 }
@@ -893,17 +922,33 @@ let lastObservedScrollDirection: 'up' | 'down' | 'still' = 'still';
 let suppressLoadOlderUntilLeaveTopZone = false;
 /** Bumps on channel change and each `applyInitialScrollAnchor` call — stale rAF work bails (max one commit pass wins). */
 let initialAnchorScheduleGeneration = 0;
-/** De-dupe deferred row measurement: at most one pending measure per row key. */
-const measureRowPendingKeys = new Set<string>();
-/** Skip re-measure for stable rows whose rendered height did not change. */
-const measureRowLastHeightByKey = new Map<string, number>();
-/** Row resize remeasures deferred while the user scrolls (flushed on settle). */
-const rowResizeMeasureDeferredKeys = new Set<string>();
 /** Tracks mounted virtual row roots for ResizeObserver attach/detach. */
 const virtualRowElementByKey = new Map<string, Element>();
 /** Observes hydrated rows for async height growth (embed images, iframes, expand). */
 let rowResizeObserver: ResizeObserver | null = null;
 const rowResizeObservedElements = new Set<Element>();
+
+/** Filled by {@link useMessageListRowMeasure} once deps below are ready. */
+let clearDeferredResizeKeys: () => void = () => {};
+let scheduleVirtualRowMeasure: (
+  element: Element,
+  source: 'ref' | 'resize',
+  options?: { force?: boolean },
+) => void = () => {};
+let flushDeferredRowResizeMeasures: () => void = () => {};
+let clearMeasureStateForChannelSwitch: () => void = () => {};
+let invalidateMeasureKey: (measureKey: string) => void = () => {};
+let resizeDeferMetrics = {
+  resizeObserverCallbackCount: 0,
+  measureNowCount: 0,
+  measureDeferredCount: 0,
+  deferredKeysAtSettle: 0,
+  settleFlushDurationMs: 0,
+  settleFlushDurationMaxMs: 0,
+};
+let unresolvedResizeDeltaByKey = new Map<string, number>();
+let measureRowLastHeightByKey = new Map<string, number>();
+let rowResizeMeasureDeferredKeys = new Set<string>();
 
 function resolveMeasureRowElement(
   el: Element | ComponentPublicInstance | null,
@@ -921,7 +966,7 @@ function disconnectRowResizeObserver(): void {
   rowResizeObserver = null;
   rowResizeObservedElements.clear();
   virtualRowElementByKey.clear();
-  rowResizeMeasureDeferredKeys.clear();
+  clearDeferredResizeKeys();
 }
 
 function ensureRowResizeObserver(): ResizeObserver | null {
@@ -1078,6 +1123,7 @@ function estimateMessageRowSizeForMessage(messageIndex: number): number {
   const estimate = estimateMessageListRowSizePx({
     groupedWithPrevious,
     showDaySeparatorBefore,
+    showUnreadSeparatorBefore: rowVm?.showUnreadSeparatorBefore ?? false,
     message,
   });
   if (!msgId || !rowVm) return estimate;
@@ -1142,28 +1188,14 @@ function estimateInitialOffsetAtBottomPx(): number {
   return Math.max(0, estimated - viewport);
 }
 
-/** Stable moderate overscan when experiment C is on; otherwise legacy idle/fast split. */
+/** Single overscan policy (baked; no idle/fast experiment matrix). */
 function resolveMessageListOverscan(): number {
+  const stable = MESSAGE_LIST_STABLE_OVERSCAN;
+  if (olderFetchSkeletonActive.value) return stable * 2;
   const idleOverscan = coarsePointer.value
     ? MESSAGE_LIST_OVERSCAN_IDLE_COARSE
     : MESSAGE_LIST_OVERSCAN_IDLE;
-  const fastOverscan = coarsePointer.value
-    ? MESSAGE_LIST_OVERSCAN_FAST_COARSE
-    : MESSAGE_LIST_OVERSCAN_FAST;
-  if (scrollExperiments.stableModerateOverscan) {
-    const stable = scrollExperiments.stableOverscanPx;
-    if (olderFetchSkeletonActive.value) return stable * 2;
-    return safariLikeBrowser ? Math.max(stable, idleOverscan) : stable;
-  }
-  if (olderFetchSkeletonActive.value) {
-    return deferFullRowHydration.value
-      ? (safariLikeBrowser ? idleOverscan : fastOverscan) * 2
-      : idleOverscan * 2;
-  }
-  if (deferFullRowHydration.value) {
-    return safariLikeBrowser ? idleOverscan : fastOverscan;
-  }
-  return idleOverscan;
+  return safariLikeBrowser ? Math.max(stable, idleOverscan) : stable;
 }
 
 const messageListOverscan = computed(() => resolveMessageListOverscan());
@@ -1275,7 +1307,7 @@ const virtualizerOptions = computed(() => ({
         isUserActive: scrollOwnership.isUserActive(),
         prependTransactionActive: prependTransactionActive.value,
         followNewMessagesToBottom: followNewMessagesToBottom.value,
-        experimentEnabled: scrollExperiments.compensationAnchorReconcile,
+        experimentEnabled: MESSAGE_LIST_COMPENSATION_ANCHOR_RECONCILE,
       },
       scrollCompensation,
       captureScrollCompensationAnchor,
@@ -1539,9 +1571,6 @@ function flushScrollSideEffects(): void {
     },
   );
   schedulePersistViewportMemory();
-  if (!deferFullRowHydration.value) {
-    rowHydration.scheduleHydrationPass();
-  }
 }
 
 /**
@@ -1629,6 +1658,55 @@ function jumpToLatestMessages() {
 
 const containerRef = ref<HTMLElement | null>(null);
 
+/** Caller-owned measure commit; assigned after estimate/logging helpers exist. */
+let commitVirtualRowMeasure: (
+  element: Element,
+  source: 'ref' | 'resize',
+) => void = () => {};
+
+{
+  const rowMeasure = useMessageListRowMeasure({
+    getChannelId: () => props.channelId?.trim() ?? '',
+    isUserScrollActive: () => scrollOwnership.isUserActive(),
+    deferFullRowHydration: () => deferFullRowHydration.value,
+    prependTransactionActive: () => prependTransactionActive.value,
+    getRowMeasureGeometry: (element) => {
+      const scrollEl = containerRef.value;
+      if (!scrollEl) {
+        return {
+          rowTopInContainerPx: null,
+          rowBottomInContainerPx: null,
+          scrollContainerClientHeightPx: 0,
+        };
+      }
+      const rowRect = element.getBoundingClientRect();
+      const scrollRect = scrollEl.getBoundingClientRect();
+      const top = rowRect.top - scrollRect.top;
+      const bottom = rowRect.bottom - scrollRect.top;
+      return {
+        rowTopInContainerPx: top,
+        rowBottomInContainerPx: bottom,
+        scrollContainerClientHeightPx: scrollEl.clientHeight,
+      };
+    },
+    getVirtualRowElement: (key) => virtualRowElementByKey.get(key),
+    measureKeyForElement,
+    commitVirtualRowMeasure: (el, source) =>
+      commitVirtualRowMeasure(el, source),
+    now: nowMs,
+  });
+  resizeDeferMetrics = rowMeasure.resizeDeferMetrics;
+  unresolvedResizeDeltaByKey = rowMeasure.unresolvedResizeDeltaByKey;
+  measureRowLastHeightByKey = rowMeasure.measureRowLastHeightByKey;
+  rowResizeMeasureDeferredKeys = rowMeasure.rowResizeMeasureDeferredKeys;
+  scheduleVirtualRowMeasure = rowMeasure.scheduleVirtualRowMeasure;
+  flushDeferredRowResizeMeasures = rowMeasure.flushDeferredRowResizeMeasures;
+  clearMeasureStateForChannelSwitch =
+    rowMeasure.clearMeasureStateForChannelSwitch;
+  invalidateMeasureKey = rowMeasure.invalidateMeasureKey;
+  clearDeferredResizeKeys = rowMeasure.clearDeferredResizeKeys;
+}
+
 /** Max scrollTop for the list container (actual DOM; aligns with virtualizer total height). */
 function snapContainerScrollToBottom(intent: ScrollIntent) {
   if (!scrollOwnership.canSnapScrollBottom(intent)) return;
@@ -1640,7 +1718,7 @@ function snapContainerScrollToBottom(intent: ScrollIntent) {
       el.scrollHeight,
       el.clientHeight,
     );
-  });
+  }, intent);
 }
 
 // Removed the viewport-shrink ResizeObserver re-pin (`layout-compensation` authority):
@@ -2062,7 +2140,7 @@ captureScrollCompensationAnchorImpl = () => {
 
 applyAnchorReconcileAtSettleImpl = () => {
   const anchor = scrollCompensation.getPendingAnchor();
-  if (!anchor || !scrollExperiments.compensationAnchorReconcile) {
+  if (!anchor || !MESSAGE_LIST_COMPENSATION_ANCHOR_RECONCILE) {
     scrollCompensation.clearAnchor();
     return;
   }
@@ -2137,7 +2215,7 @@ flushPendingRowFactsAfterScrollSettleImpl = () => {
       );
     }
   }
-  scheduleHydratedRowRemeasure(
+  scheduleContentPatchRemeasure(
     [...patchIndices].map((i) => ids[i]!).filter(Boolean),
   );
 };
@@ -2150,38 +2228,14 @@ watch(virtualizerItems, (items) => {
     messageListScrollMetricsApi()?.noteVirtualizerRangeChange();
   }
   messageListScrollMetricsApi()?.noteMountedRowCount(items.length);
-});
-
-const rowHydration = useMessageRowHydration({
-  channelId: () => props.channelId,
-  isUserScrollActive: () =>
-    (!safariLikeBrowser && scrollOwnership.isUserActive()) ||
-    suppressListUntilInitialAnchor.value ||
-    !scrollOwnership.isInitialAnchorSettled(),
-  getVisibleMessageIds: () => {
-    const items = virtualizer.value?.getVirtualItems() ?? [];
-    const ids: string[] = [];
-    for (const item of items) {
-      if (isPrependSkeletonVirtualIndex(item.index)) continue;
-      const messageId = messageIdForVirtualIndex(item.index);
-      if (messageId) ids.push(messageId);
-    }
-    return ids;
-  },
-});
-
-function ensureVirtualRowHydrated(virtualIndex: number): void {
-  const messageId = messageIdForVirtualIndex(virtualIndex);
-  if (!messageId || rowHydration.isRowHydrated(messageId)) return;
-  rowHydration.forceHydrateMessage(messageId);
-}
-
-function hydrateVisibleVirtualRows(): void {
-  for (const item of virtualizer.value?.getVirtualItems() ?? []) {
+  const visibleIds: string[] = [];
+  for (const item of items) {
     if (isPrependSkeletonVirtualIndex(item.index)) continue;
-    ensureVirtualRowHydrated(item.index);
+    const messageId = messageIdForVirtualIndex(item.index);
+    if (messageId) visibleIds.push(messageId);
   }
-}
+  noteSubtractionChannelVisibleIds(visibleIds);
+});
 
 function invalidateRowMeasureStateForMessage(
   channelId: string,
@@ -2189,8 +2243,7 @@ function invalidateRowMeasureStateForMessage(
 ): void {
   invalidateMessageRowHeight(channelId, messageId);
   const measureKey = `${channelId}:${messageId}`;
-  measureRowLastHeightByKey.delete(measureKey);
-  measureRowPendingKeys.delete(measureKey);
+  invalidateMeasureKey(measureKey);
 }
 
 function remeasureVisibleVirtualRows(options: { force?: boolean } = {}): void {
@@ -2210,7 +2263,8 @@ function remeasureVisibleVirtualRows(options: { force?: boolean } = {}): void {
   }
 }
 
-function scheduleHydratedRowRemeasure(messageIds: readonly string[]): void {
+/** Content geometry changed — invalidate cache and remeasure via the base path. */
+function scheduleContentPatchRemeasure(messageIds: readonly string[]): void {
   const cid = props.channelId?.trim();
   if (!cid || messageIds.length === 0) return;
   const idSet = new Set(messageIds.map((id) => id.trim()).filter(Boolean));
@@ -2222,47 +2276,44 @@ function scheduleHydratedRowRemeasure(messageIds: readonly string[]): void {
   }
   void nextTick(() => {
     requestAnimationFrame(() => {
-      const el = containerRef.value;
-      if (!el) return;
+      if (!containerRef.value) return;
       for (const item of virtualizer.value?.getVirtualItems() ?? []) {
         if (isPrependSkeletonVirtualIndex(item.index)) continue;
         const messageId = messageIdForVirtualIndex(item.index);
         if (!messageId || !idSet.has(messageId)) continue;
-        if (!rowHydration.isRowHydrated(messageId)) continue;
         const rowEl = virtualRowElementByKey.get(`${cid}:${messageId}`);
         if (rowEl) {
           syncVirtualRowResizeObservation(rowEl, item.index);
-          scheduleVirtualRowMeasure(rowEl, 'resize');
+          scheduleVirtualRowMeasure(rowEl, 'resize', { force: true });
         }
       }
     });
   });
 }
 
-function flushDeferredRowResizeMeasures(): void {
-  const t0 = nowMs();
-  resizeDeferMetrics.deferredKeysAtSettle = rowResizeMeasureDeferredKeys.size;
-  if (rowResizeMeasureDeferredKeys.size === 0) return;
-  const keys = [...rowResizeMeasureDeferredKeys];
-  rowResizeMeasureDeferredKeys.clear();
-  for (const key of keys) {
-    unresolvedResizeDeltaByKey.delete(key);
-    const rowEl = virtualRowElementByKey.get(key);
-    if (rowEl) scheduleVirtualRowMeasure(rowEl, 'resize', { force: true });
+/** After lazy KaTeX loads, pending → typeset grows display math; remasure those rows. */
+function remasureVisibleMathRowsAfterKatexReady(): void {
+  if (!isMarkdownKatexReady()) return;
+  const ids: string[] = [];
+  for (const item of virtualizer.value?.getVirtualItems() ?? []) {
+    if (isPrependSkeletonVirtualIndex(item.index)) continue;
+    const messageId = messageIdForVirtualIndex(item.index);
+    if (!messageId) continue;
+    const message = mergedMessagesForList.value.get(messageId);
+    if (!message) continue;
+    const body = plainTextForMessageFields(message);
+    if (hasMarkdownMathRegions(body)) ids.push(messageId);
   }
-  const dur = nowMs() - t0;
-  resizeDeferMetrics.settleFlushDurationMs = dur;
-  resizeDeferMetrics.settleFlushDurationMaxMs = Math.max(
-    resizeDeferMetrics.settleFlushDurationMaxMs,
-    dur,
-  );
-  messageListScrollMetricsApi()?.mergeResizeDeferMetrics(resizeDeferMetrics);
+  if (ids.length > 0) scheduleContentPatchRemeasure(ids);
 }
+
+watch(markdownKatexReadyVersion, () => {
+  remasureVisibleMathRowsAfterKatexReady();
+});
 
 function finishScrollHydrationSettle(): void {
   deferFullRowHydration.value = false;
   syncScrollGestureSurface(false);
-  rowHydration.onScrollActivityChanged(false);
   flushDeferredRowResizeMeasures();
   remeasureVisibleVirtualRows({ force: true });
   applyAnchorReconcileAtSettle();
@@ -2270,14 +2321,11 @@ function finishScrollHydrationSettle(): void {
   messageListScrollMetricsApi()?.mergeCompensationMetrics(
     scrollCompensation.getMetrics(),
   );
-  rowHydration.scheduleHydrationPass();
 }
 
 function markScrollHydrationDeferral(): void {
   syncScrollGestureSurface(true);
-  if (safariLikeBrowser) {
-    rowHydration.scheduleHydrationPass();
-  } else {
+  if (!safariLikeBrowser) {
     deferFullRowHydration.value = true;
   }
   if (hydrationSettleTimer != null) clearTimeout(hydrationSettleTimer);
@@ -2323,6 +2371,7 @@ function commitScrollToLatest(
 ): void {
   const intent = options.intent ?? 'follow-tail';
   if (!scrollOwnership.canCommit(intent)) return;
+  noteSubtractionScrollWrite(intent);
   const el = containerRef.value;
   const v = virtualizer.value;
   if (!v || displayOrderedIds.value.length === 0) return;
@@ -2382,72 +2431,6 @@ function scrollToBottom(smooth = false, intent: ScrollIntent = 'follow-tail') {
 }
 
 /**
- * True from channel-change until the first anchor settles. The list still renders and
- * measures underneath (never gate the list's existence on this — it would unmount the
- * virtualizer); the loading overlay just stays drawn over it so the one-shot bottom-anchor
- * and any remembered-position restore happen out of sight. See {@link showInitialLoadOverlay}.
- */
-const suppressListUntilInitialAnchor = ref(false);
-
-/**
- * True only for a COLD channel open — one with no cached content at switch time. Set from
- * `isEmpty` in the channel-change watcher (the window updates synchronously on switch, so
- * `isEmpty` is already correct there). A warm switch to a cached channel leaves this false, so
- * the overlay never covers cached content during the anchor settle.
- */
-const coldLoadInProgress = ref(false);
-
-/** Failsafe: never leave the cold-load overlay up if anchor work stalls. */
-const INITIAL_ANCHOR_OVERLAY_SAFETY_MS = 2500;
-let initialAnchorOverlaySafetyTimer: ReturnType<typeof setTimeout> | null =
-  null;
-
-function disarmInitialAnchorOverlaySafety(): void {
-  if (initialAnchorOverlaySafetyTimer != null) {
-    clearTimeout(initialAnchorOverlaySafetyTimer);
-    initialAnchorOverlaySafetyTimer = null;
-  }
-}
-
-function armInitialAnchorOverlaySafety(channelId: string | null): void {
-  disarmInitialAnchorOverlaySafety();
-  if (!channelId) return;
-  initialAnchorOverlaySafetyTimer = setTimeout(() => {
-    initialAnchorOverlaySafetyTimer = null;
-    if (!suppressListUntilInitialAnchor.value) return;
-    logMessageList('initial_anchor', 'initial_anchor_overlay_safety_release', {
-      channelId,
-      messageCount: displayOrderedIds.value.length,
-      initialHistoryLoading: !!props.initialHistoryLoading,
-      outcomeOk: false,
-      expectation:
-        'overlay released after safety timeout — anchor should have settled sooner',
-    });
-    coldLoadInProgress.value = false;
-    suppressListUntilInitialAnchor.value = false;
-    scrollOwnership.markInitialAnchorSettled();
-  }, INITIAL_ANCHOR_OVERLAY_SAFETY_MS);
-}
-
-/**
- * The loading skeleton is held over the list until the initial position settles — but ONLY for a
- * cold open. For a cold channel this makes the initial position (latest, or a remembered spot
- * restored across frames) **load state, not a visible scroll**: positioning finishes behind the
- * overlay, then it cross-fades to reveal messages in place.
- *
- * Warm switches keep this false and paint cached content immediately; their remembered position
- * comes from the virtualizer's first-paint `initialOffset`.
- */
-const showInitialLoadOverlay = computed(
-  () =>
-    showLoadingSkeleton.value ||
-    (coldLoadInProgress.value &&
-      suppressListUntilInitialAnchor.value &&
-      !isEmpty.value &&
-      !!props.channelId),
-);
-
-/**
  * First paint after channel switch / history load — not for pagination or new messages.
  * One commit after Vue flush: `nextTick` → single `requestAnimationFrame` → anchor + optional snap → done.
  */
@@ -2484,7 +2467,7 @@ function applyInitialScrollAnchor() {
           | 'user_owned',
       ) => {
         disarmInitialAnchorOverlaySafety();
-        coldLoadInProgress.value = false;
+        markListPresentationReady('initial_anchor_settled');
         scrollOwnership.markInitialAnchorSettled();
         suppressListUntilInitialAnchor.value = false;
         emitSeenMessageId(resolveSeenMessageId());
@@ -2641,16 +2624,13 @@ watch(
       expectation:
         'state reset for new channel; pending initial scroll will schedule anchor when history ready',
     });
-    measureRowPendingKeys.clear();
-    measureRowLastHeightByKey.clear();
+    clearMeasureStateForChannelSwitch();
+    noteSubtractionBeginChannelSwitch();
     disconnectRowResizeObserver();
     lastObservedScrollTop = 0;
     lastObservedScrollDirection = 'still';
     scrollOwnership.reset();
-    // Cold = no cached content for the new channel at switch time. The window updates
-    // synchronously on channel change, so `isEmpty` is already correct here. Warm switches
-    // (revisiting a cached channel) stay false → no loading overlay over cached content.
-    coldLoadInProgress.value = !!cid && isEmpty.value;
+    beginChannelTransition(cid);
     suppressLoadOlderUntilLeaveTopZone = false;
     prependTransactionActive.value = false;
     olderFetchSkeletonActive.value = false;
@@ -2659,11 +2639,9 @@ watch(
     if (cid) {
       pendingInitialScroll.value = true;
       suppressListUntilInitialAnchor.value = true;
-      armInitialAnchorOverlaySafety(cid);
     } else {
       pendingInitialScroll.value = false;
       suppressListUntilInitialAnchor.value = false;
-      disarmInitialAnchorOverlaySafety();
     }
     jumpUi.reset();
     followNewMessagesToBottom.value = true;
@@ -2722,49 +2700,8 @@ watch(suppressListUntilInitialAnchor, (hidden) => {
   if (hidden) return;
   void nextTick(() => {
     updateJumpUiFromScroll();
-    if (!deferFullRowHydration.value) {
-      rowHydration.scheduleHydrationPass();
-    }
   });
 });
-
-watch(
-  () => virtualizerItems.value.length,
-  () => {
-    if (deferFullRowHydration.value) return;
-    rowHydration.scheduleHydrationPass();
-  },
-);
-
-watch(
-  () => virtualizerItems.value.map((item) => item.index),
-  () => {
-    hydrateVisibleVirtualRows();
-  },
-  { flush: 'post' },
-);
-
-watch(rowHydration.hydrationEpoch, (epoch, prev) => {
-  if (prev === undefined || epoch === prev) return;
-  const cid = props.channelId?.trim();
-  if (!cid) return;
-  const hydratedIds: string[] = [];
-  for (const item of virtualizer.value?.getVirtualItems() ?? []) {
-    if (isPrependSkeletonVirtualIndex(item.index)) continue;
-    const messageId = messageIdForVirtualIndex(item.index);
-    if (messageId && rowHydration.isRowHydrated(messageId)) {
-      hydratedIds.push(messageId);
-    }
-  }
-  scheduleHydratedRowRemeasure(hydratedIds);
-});
-
-watch(
-  () => isEmpty.value,
-  (empty) => {
-    if (!empty) coldLoadInProgress.value = false;
-  },
-);
 
 watch(
   () =>
@@ -2827,9 +2764,6 @@ onMounted(() => {
         outcomeOk: true,
         expectation: 'passive scroll — no preventDefault; idle work in rAF',
       });
-      if (displayOrderedIds.value.length > 0 && !deferFullRowHydration.value) {
-        rowHydration.scheduleHydrationPass();
-      }
     }
   });
 });
@@ -3044,7 +2978,6 @@ async function scrollMessageIntoView(messageId: string): Promise<boolean> {
   }
   if (idx < 0) return false;
   deferFullRowHydration.value = false;
-  rowHydration.forceHydrateMessage(messageId);
   await nextTick();
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => {
@@ -3092,15 +3025,10 @@ function flashMessageHighlight(messageId: string): void {
   });
 }
 
-function commitVirtualRowMeasure(
-  element: Element,
-  source: 'ref' | 'resize',
-): void {
-  if (scrollGestureActive.value && source === 'resize') {
-    const deferKey = measureKeyForElement(element);
-    if (deferKey) rowResizeMeasureDeferredKeys.add(deferKey);
-    return;
-  }
+commitVirtualRowMeasure = (element, source) => {
+  // Resize deferral lives in useMessageListRowMeasure / resolveResizeMeasureAction
+  // (near-viewport + content-exceeds-slot always measure). Do not hard-skip here —
+  // sticky scrollGestureActive previously left tall KaTeX/GIF paint under next rows.
   const cid = props.channelId?.trim() ?? '';
   const idxAttr = element.getAttribute('data-index');
   const idx = idxAttr != null ? Number(idxAttr) : NaN;
@@ -3153,114 +3081,29 @@ function commitVirtualRowMeasure(
   if (messageId && revisionKey) {
     setMessageRowHeightPx(cid, messageId, h, revisionKey);
   }
+  noteSubtractionMeasureElement(
+    deferKey || `${cid}:${messageId ?? ''}`,
+    revisionKey,
+  );
   virtualizer.value.measureElement(element);
   messageListScrollMetricsApi()?.noteMeasureEvent();
-}
-
-function rowMeasureGeometryForElement(element: Element): {
-  rowTopInContainerPx: number | null;
-  rowBottomInContainerPx: number | null;
-  scrollContainerClientHeightPx: number;
-} {
-  const scrollEl = containerRef.value;
-  if (!scrollEl) {
-    return {
-      rowTopInContainerPx: null,
-      rowBottomInContainerPx: null,
-      scrollContainerClientHeightPx: 0,
-    };
-  }
-  const rowRect = element.getBoundingClientRect();
-  const scrollRect = scrollEl.getBoundingClientRect();
-  const top = rowRect.top - scrollRect.top;
-  const bottom = rowRect.bottom - scrollRect.top;
-  return {
-    rowTopInContainerPx: top,
-    rowBottomInContainerPx: bottom,
-    scrollContainerClientHeightPx: scrollEl.clientHeight,
-  };
-}
-
-function scheduleVirtualRowMeasure(
-  element: Element,
-  source: 'ref' | 'resize',
-  options: { force?: boolean } = {},
-): void {
-  const cid = props.channelId?.trim() ?? '';
-  const deferKey = cid ? measureKeyForElement(element) : '';
-  if (
-    source === 'resize' &&
-    scrollExperiments.resizeMeasureDefer &&
-    !options.force
-  ) {
-    const geom = rowMeasureGeometryForElement(element);
-    const unresolved = deferKey
-      ? (unresolvedResizeDeltaByKey.get(deferKey) ?? 0)
-      : 0;
-    const slotH = deferKey
-      ? (measureRowLastHeightByKey.get(deferKey) ?? null)
-      : null;
-    const decision = resolveResizeMeasureAction({
-      source,
-      isUserScrollActive: scrollOwnership.isUserActive(),
-      deferFullRowHydration: deferFullRowHydration.value,
-      experimentEnabled: scrollExperiments.resizeMeasureDefer,
-      prependTransactionActive: prependTransactionActive.value,
-      programmaticScrollPending: false,
-      rowTopInContainerPx: geom.rowTopInContainerPx,
-      rowBottomInContainerPx: geom.rowBottomInContainerPx,
-      scrollContainerClientHeightPx: geom.scrollContainerClientHeightPx,
-      lastKnownSlotHeightPx: slotH,
-      contentHeightPx: element.getBoundingClientRect().height,
-      unresolvedDeltaPx: unresolved,
-    });
-    if (decision.action === 'defer') {
-      if (deferKey) rowResizeMeasureDeferredKeys.add(deferKey);
-      resizeDeferMetrics.measureDeferredCount++;
-      return;
-    }
-    resizeDeferMetrics.measureNowCount++;
-  }
-
-  if (deferKey && measureRowPendingKeys.has(deferKey)) {
-    if (messageListDebugEnabled()) {
-      logMessageList('measure', 'row_measure_defer_deduped', {
-        deferKey,
-        source,
-      });
-    }
-    return;
-  }
-  if (deferKey) {
-    measureRowPendingKeys.add(deferKey);
-  }
-  void nextTick(() => {
-    requestAnimationFrame(() => {
-      if (deferKey) measureRowPendingKeys.delete(deferKey);
-      if (!element.isConnected) return;
-      commitVirtualRowMeasure(element, source);
-    });
-  });
-}
+};
 
 function measureRowRefForIndex(
   el: Element | ComponentPublicInstance | null,
   virtualIndex: number,
 ): void {
+  const messageId = messageIdForVirtualIndex(virtualIndex);
   if (!el) {
+    noteSubtractionRowUnmount(messageId);
     detachVirtualRowResizeObservation(virtualIndex);
     return;
   }
   const element = resolveMeasureRowElement(el);
   if (!element) return;
+  noteSubtractionRowMount(messageId);
   syncVirtualRowResizeObservation(element, virtualIndex);
-  ensureVirtualRowHydrated(virtualIndex);
-  if (scrollExperiments.singleMountMeasure) {
-    scheduleVirtualRowMeasure(element, 'ref');
-  } else {
-    commitVirtualRowMeasure(element, 'ref');
-    scheduleVirtualRowMeasure(element, 'ref');
-  }
+  scheduleVirtualRowMeasure(element, 'ref');
 }
 
 defineExpose({
@@ -3541,12 +3384,15 @@ defineExpose({
 .message-list-virtual-row {
   contain: layout;
   isolation: isolate;
+  /* Safety net: absolute neighbors do not reflow — never paint into the next slot. */
+  overflow: hidden;
 }
 
 .message-list-virtual-row--webkit {
   contain: none;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+  overflow: hidden;
 }
 
 /* Keep the measuring list mounted beneath transparent loading bars. */

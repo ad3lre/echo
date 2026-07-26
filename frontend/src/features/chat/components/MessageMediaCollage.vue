@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import {
   planMediaCollage,
-  CHAT_MEDIA_BOX_MAX_WIDTH_CSS,
+  chatAttachmentMediaBoxStyle,
   type CollageSourceItem,
 } from '@/features/chat/domain/messageMediaCollage';
 import MessageMediaCollageCell from './MessageMediaCollageCell.vue';
@@ -12,13 +12,12 @@ const emit = defineEmits<{ open: [url: string] }>();
 
 const plan = computed(() => planMediaCollage(props.items));
 
-const boxStyle = computed(() => ({
-  aspectRatio: '16 / 9',
-  width: '100%',
-  maxWidth: CHAT_MEDIA_BOX_MAX_WIDTH_CSS,
-  gridTemplateColumns: plan.value?.columns,
-  gridTemplateRows: plan.value?.rows,
-}));
+const boxStyle = computed(() =>
+  chatAttachmentMediaBoxStyle({
+    columns: plan.value?.columns,
+    rows: plan.value?.rows,
+  }),
+);
 </script>
 
 <template>

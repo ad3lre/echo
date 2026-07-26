@@ -217,4 +217,44 @@ describe('estimateMessageListRowSizePx', () => {
     });
     expect(emojiOnly - baseline).toBeGreaterThanOrEqual(26);
   });
+
+  it('adds unread separator chrome like the day separator', () => {
+    const without = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      showUnreadSeparatorBefore: false,
+      message: { content: 'hi' },
+    });
+    const withUnread = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      showUnreadSeparatorBefore: true,
+      message: { content: 'hi' },
+    });
+    expect(withUnread - without).toBe(32);
+  });
+
+  it('reserves the attachment media box height for stickers (not a flat under-guess)', () => {
+    const baseline = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: { content: 'sticker' },
+    });
+    const withSticker = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: {
+        content: 'sticker',
+        stickers: [
+          {
+            id: '1',
+            name: 'wave',
+            format: 'png',
+            url: 'https://x.test/s.png',
+          },
+        ],
+      },
+    });
+    expect(withSticker - baseline).toBe(368);
+  });
 });

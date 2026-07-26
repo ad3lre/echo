@@ -169,7 +169,12 @@ Note (optional polish, not done): reserve a skeleton box for _unknown-dimension_
 natural dimensions on first load so re-mounts reserve space. The bottom-pin already absorbs the
 scroll impact; this would only remove the cosmetic 0→full "pop" during the first decode.
 
-## Stage 4 — Native bottom-pin + scroll anchoring (rewrite) ☐ TODO
+## Stage 4 — Native bottom-pin + scroll anchoring (rewrite) ☐ PARKED
+
+**Parked** by the 2026-07 layout subtraction project. Reliability was restored by
+stripping failed layers (hydration, experiment matrix, multi-gate loading) while
+keeping the TanStack absolute virtualizer. Revisit native `overflow-anchor` only
+after the simplified model is proven in production:
 
 - Move virtual rows off `absolute/translateY` to in-flow rows with top/bottom spacers (so
   `overflow-anchor:auto` works), OR a bottom-pinned flex column (`margin-block-start:auto`).
@@ -182,6 +187,22 @@ scroll impact; this would only remove the cosmetic 0→full "pop" during the fir
 
 **Exit check:** prepend, image load, and new-message arrival are visually stable with the scroll
 math deleted; tests green; contract reflects reality.
+
+---
+
+## Subtraction project (2026-07) — simplified in place
+
+Stages 1–3 remain the foundation. Additional subtraction commits:
+
+- Removed orphaned row-hydration shell/queue (epoch remounts).
+- Warm/cold stamped once per transition; overlay is presentation-only (`listPresentationReady`).
+- Single baked scroll/measure policy (no A/B/C experiment matrix).
+- Shared `messageMediaReservation` SSOT for fixed 16:9 estimate + render.
+- Split by authority: `useMessageListPresentationGate`, `useMessageListRowMeasure`.
+
+Mental model: one estimate → one measurement → one ownership layer for viewport deltas.
+
+DEV removal metrics: `messageListSubtractionDiagnostics.ts`.
 
 ---
 
@@ -228,3 +249,4 @@ math deleted; tests green; contract reflects reality.
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-06-07 | Created. Stages 1–2 implemented (compensation + estimate calibration; skeleton crossfade). Stages 3–4 pending.                                                                                                              |
 | 2026-06-07 | Stage 3 done: invisible initial positioning via `showInitialLoadOverlay`; removed `layout-compensation` authority + intent; labeled user-intent scrolls; kept restore (made invisible) per deviation note. Stage 4 pending. |
+| 2026-07-24 | Layout subtraction: hydration removed; warm/cold + presentation gate; one measure policy; shared media reservation; authority split composables. Stage 4 parked.                                                            |

@@ -5,7 +5,6 @@ import {
   validateDisplayName,
 } from '../auth/accountPolicy';
 import type { DiscordMeApi, DiscordNormalizedV1 } from './discordNormalized';
-import { isValidEmailFormat, normalizeEmail } from '../auth/email';
 import type pg from 'pg';
 import { mirrorDiscordImportAvatarToEcho } from '../services/discordImportAvatarMirror';
 
@@ -36,14 +35,12 @@ function safeDiscordDisplayNameForEcho(me: DiscordMeApi): string | null {
   return tryName(rawGlobal) ?? tryName(rawUser);
 }
 
-const EMAIL_MERGE_SKIPPABLE = new Set([
-  'EMAIL_IN_USE',
-  'INVALID_EMAIL',
-  'INVALID_EMAIL_PROVIDER',
-]);
-
 /**
  * Guests: safe profile import into auth_users. Registered users: no automatic overwrite of core identity.
+ *
+ * Discord email is intentionally not written via `updateUserProfile` — that path always throws
+ * `EMAIL_CHANGE_REQUIRES_VERIFICATION`. The OAuth callback stores a pending upgrade email via
+ * `setGuestPendingEmail` instead.
  */
 export async function applyDiscordProfileMerge(params: {
   store: AuthStore;
@@ -83,25 +80,5 @@ export async function applyDiscordProfileMerge(params: {
     await store.updateUserProfile(user.id, patch);
   }
 
-  const canSetEmail =
-    (!user.email || String(user.email).trim() === '') &&
-    typeof me.email === 'string' &&
-    me.email.trim() !== '' &&
-    me.verified === true &&
-    isValidEmailFormat(me.email);
-  if (canSetEmail && me.email) {
-    const rawEmail = me.email;
-    const norm = normalizeEmail(rawEmail) ?? rawEmail.trim().toLowerCase();
-    try {
-      await store.updateUserProfile(user.id, { email: norm });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
-      if (EMAIL_MERGE_SKIPPABLE.has(msg)) {
-        /* best-effort: keep display/avatar import */
-      } else {
-        throw err;
-      }
-    }
-  }
   return 'full';
 }

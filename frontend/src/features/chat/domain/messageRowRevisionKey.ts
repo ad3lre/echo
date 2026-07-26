@@ -2,6 +2,8 @@ import type { MessageListRowPresentation } from '@/features/chat/presentation/me
 import { emojiBodyGeometryFingerprint } from '@/features/chat/domain/messageBodyEmojiGeometry';
 import type { MessagePlainFields } from '@/services/domain/messageDisplayPlain';
 import { plainTextForMessageFields } from '@/services/domain/messageDisplayPlain';
+import { isMarkdownKatexReady } from '@/composables/markdownKatex';
+import { hasMarkdownMathRegions } from '@/composables/markdownMathRegions';
 
 /**
  * Stable layout fingerprint for a message list row. Used to invalidate cached
@@ -33,6 +35,9 @@ export function buildMessageRowRevisionKey(
   const bodyGeometry = textGeometryFingerprint(body);
   const attachments = message.attachments ?? [];
   const poll = pollGeometryFingerprint(message.poll);
+  const hasMath = hasMarkdownMathRegions(body);
+  // Pending → typeset changes painted height without changing message text.
+  const katexPhase = hasMath ? (isMarkdownKatexReady() ? 'k1' : 'k0') : 'kn';
   const parts = [
     row.layout.groupedWithPrevious ? 'g1' : 'g0',
     row.showDaySeparatorBefore ? 'd1' : 'd0',
@@ -40,6 +45,7 @@ export function buildMessageRowRevisionKey(
     row.isCompact ? 'c1' : 'c0',
     `b:${bodyGeometry}`,
     `eg:${emojiBodyGeometryFingerprint(body)}`,
+    katexPhase,
     `at:${attachments.length}`,
     `em:${embedGeometryFingerprint(message.embeds)}`,
     `rx:${message.reactions?.length ?? 0}`,

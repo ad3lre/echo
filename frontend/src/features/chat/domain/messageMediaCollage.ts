@@ -1,9 +1,8 @@
 /**
  * Discord-style media collage layout for images/GIFs in a single message.
  *
- * The container is a FIXED 16:9 box (see CHAT_MEDIA_BOX_*), so the skeleton and
- * the virtualizer row estimate can reserve the exact space before any byte
- * decodes — no fluid resizing, no scroll jank.
+ * Outer box reservation is owned by `messageMediaReservation` (estimate + render SSOT).
+ * This module only plans cell grid placement inside that fixed box.
  *
  *  - 1 item   -> single cell, image shown whole (contain / letterbox).
  *  - 2-4 items -> collage grid, each cell cropped to fill (cover).
@@ -18,16 +17,17 @@
  * planner (they keep their explicit aspect).
  */
 
-/** Fixed media box: 16:9, capped at the chat column's max attachment width. */
-export const CHAT_MEDIA_BOX_ASPECT_W = 16;
-export const CHAT_MEDIA_BOX_ASPECT_H = 9;
-export const CHAT_MEDIA_BOX_MAX_WIDTH_PX = 640;
-export const CHAT_MEDIA_BOX_MAX_WIDTH_CSS = 'min(100%, 40rem)';
-/** Reserved height (px) of the fixed box at full width — used by skeleton + row estimate. */
-export const CHAT_MEDIA_BOX_HEIGHT_PX = Math.round(
-  (CHAT_MEDIA_BOX_MAX_WIDTH_PX * CHAT_MEDIA_BOX_ASPECT_H) /
-    CHAT_MEDIA_BOX_ASPECT_W,
-);
+export {
+  CHAT_MEDIA_BOX_ASPECT_W,
+  CHAT_MEDIA_BOX_ASPECT_H,
+  CHAT_MEDIA_BOX_ASPECT_CSS,
+  CHAT_MEDIA_BOX_MAX_WIDTH_PX,
+  CHAT_MEDIA_BOX_MAX_WIDTH_CSS,
+  CHAT_MEDIA_BOX_HEIGHT_PX,
+  CHAT_MEDIA_BOX_VERTICAL_MARGIN_PX,
+  reserveChatAttachmentMediaBoxHeightPx,
+  chatAttachmentMediaBoxStyle,
+} from '@/features/chat/domain/messageMediaReservation';
 
 /** How many cells are ever rendered (3 images + 1 overflow, or up to 4 images). */
 export const MEDIA_COLLAGE_MAX_CELLS = 4;

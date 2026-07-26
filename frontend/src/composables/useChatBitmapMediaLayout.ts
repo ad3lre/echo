@@ -1,14 +1,13 @@
 import { computed, ref, watch, type Ref } from 'vue';
 import type { StyleValue } from 'vue';
 import {
-  CHAT_BITMAP_DEFAULT_ASPECT_RATIO,
   mediaAspectStyleFromDims,
   readAspectRatioFromStyle,
 } from '@/utils/chatMediaAspect';
 import {
-  getCachedImageDimensions,
-  probeImageDimensionsFromUrl,
-} from '@/utils/probeImageDimensions';
+  CHAT_MEDIA_BOX_ASPECT_CSS,
+  CHAT_MEDIA_BOX_MAX_WIDTH_CSS,
+} from '@/features/chat/domain/messageMediaReservation';
 
 type LayoutOptions = {
   url: Ref<string>;
@@ -19,12 +18,13 @@ type LayoutOptions = {
 };
 
 /**
- * Reserved aspect box + skeleton for chat still images / GIFs so rows do not grow from 0
- * height when bytes decode (scroll anchor stability).
+ * Reserved aspect box + skeleton for chat still images / GIFs.
+ *
+ * Outer height uses trusted server dims or the shared fixed 16:9 reservation.
+ * Client probes are intentionally unused here — they must not change the
+ * virtual row's outer height (see message-list subtraction plan Phase 4).
  */
 export function useChatBitmapMediaLayout(options: LayoutOptions) {
-  const probedWidth = ref<number | undefined>();
-  const probedHeight = ref<number | undefined>();
   const mediaDecoded = ref(false);
 
   const resolvedAspectRatio = computed((): string => {
@@ -37,13 +37,7 @@ export function useChatBitmapMediaLayout(options: LayoutOptions) {
     const fromStyle = readAspectRatioFromStyle(options.imageStyle?.value);
     if (fromStyle) return fromStyle;
 
-    const fromProbe = mediaAspectStyleFromDims({
-      width: probedWidth.value,
-      height: probedHeight.value,
-    });
-    if (fromProbe) return fromProbe.aspectRatio;
-
-    return CHAT_BITMAP_DEFAULT_ASPECT_RATIO;
+    return CHAT_MEDIA_BOX_ASPECT_CSS;
   });
 
   const hasExactLayout = computed(() => {
@@ -56,14 +50,6 @@ export function useChatBitmapMediaLayout(options: LayoutOptions) {
       return true;
     }
     if (readAspectRatioFromStyle(options.imageStyle?.value)) return true;
-    if (
-      mediaAspectStyleFromDims({
-        width: probedWidth.value,
-        height: probedHeight.value,
-      })
-    ) {
-      return true;
-    }
     return false;
   });
 
@@ -71,56 +57,19 @@ export function useChatBitmapMediaLayout(options: LayoutOptions) {
     (): StyleValue => ({
       aspectRatio: resolvedAspectRatio.value,
       width: '100%',
-      maxWidth: options.maxWidth ?? 'min(100%, 40rem)',
+      maxWidth: options.maxWidth ?? CHAT_MEDIA_BOX_MAX_WIDTH_CSS,
       ...(hasExactLayout.value ? {} : { minHeight: '6rem' }),
     }),
   );
 
   const showLayoutSkeleton = computed(() => !mediaDecoded.value);
 
-  function resetForUrl() {
-    mediaDecoded.value = false;
-    probedWidth.value = undefined;
-    probedHeight.value = undefined;
-  }
-
-  async function probeIfNeeded() {
-    if (hasExactLayout.value) return;
-    const trimmed = options.url.value?.trim();
-    if (!trimmed) return;
-
-    const cached = getCachedImageDimensions(trimmed);
-    if (cached) {
-      probedWidth.value = cached.width;
-      probedHeight.value = cached.height;
-      return;
-    }
-
-    const dims = await probeImageDimensionsFromUrl(trimmed);
-    if (dims) {
-      probedWidth.value = dims.width;
-      probedHeight.value = dims.height;
-    }
-  }
-
   watch(
     () => options.url.value,
     () => {
-      resetForUrl();
-      void probeIfNeeded();
+      mediaDecoded.value = false;
     },
     { immediate: true },
-  );
-
-  watch(
-    () =>
-      [options.metadataWidth?.value, options.metadataHeight?.value] as const,
-    () => {
-      if (hasExactLayout.value) {
-        probedWidth.value = undefined;
-        probedHeight.value = undefined;
-      }
-    },
   );
 
   function onMediaDecoded() {

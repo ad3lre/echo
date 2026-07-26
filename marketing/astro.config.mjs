@@ -10,6 +10,7 @@ const SITEMAP_PRIORITY = {
   '/download': 0.9,
   '/communities': 0.85,
   '/support': 0.75,
+  '/poll': 0.55,
   '/status': 0.6,
   '/privacy': 0.5,
   '/terms': 0.5,

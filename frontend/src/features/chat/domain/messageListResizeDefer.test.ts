@@ -18,8 +18,8 @@ describe('resolveResizeMeasureAction', () => {
     rowBottomInContainerPx: 900,
     scrollContainerClientHeightPx: 600,
     lastKnownSlotHeightPx: 80,
-    contentHeightPx: 90,
-    unresolvedDeltaPx: 10,
+    contentHeightPx: 80,
+    unresolvedDeltaPx: 0,
   };
 
   it('always measures on ref mount', () => {
@@ -46,6 +46,19 @@ describe('resolveResizeMeasureAction', () => {
         rowBottomInContainerPx: 180,
       }).reason,
     ).toBe('near_viewport');
+  });
+
+  it('forces measure when content already exceeds the virtual slot', () => {
+    expect(
+      resolveResizeMeasureAction({
+        ...base,
+        rowTopInContainerPx: 2400,
+        rowBottomInContainerPx: 2500,
+        lastKnownSlotHeightPx: 80,
+        contentHeightPx: 240,
+        unresolvedDeltaPx: 10,
+      }).reason,
+    ).toBe('content_exceeds_slot');
   });
 
   it('forces measure when unresolved delta exceeds threshold', () => {

@@ -49,6 +49,17 @@ export function resolveResizeMeasureAction(
     return { action: 'measure_now', reason: 'scroll_idle' };
   }
 
+  // Absolute virtual rows cannot paint taller than their slot — never defer when
+  // content already exceeds the last known height (visible overlap otherwise).
+  if (
+    input.contentHeightPx != null &&
+    input.lastKnownSlotHeightPx != null &&
+    input.lastKnownSlotHeightPx > 0 &&
+    input.contentHeightPx > input.lastKnownSlotHeightPx + 0.5
+  ) {
+    return { action: 'measure_now', reason: 'content_exceeds_slot' };
+  }
+
   if (
     input.unresolvedDeltaPx >= MESSAGE_LIST_RESIZE_DEFER_MAX_UNRESOLVED_DELTA_PX
   ) {

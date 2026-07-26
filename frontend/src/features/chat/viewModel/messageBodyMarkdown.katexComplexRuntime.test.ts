@@ -121,7 +121,7 @@ describe('KaTeX complex runtime — stacked scripts, clipping, tall math', () =>
     injectStylesheet(
       `
 .message-content .katex { padding: 0.14em 0.08em 0.22em; box-sizing: content-box; }
-.message-content .katex-display { display: block; max-width: 100%; overflow: visible; margin: 0.35em 0; }
+  .message-content .katex-display { display: block; max-width: 100%; overflow: hidden; margin: 0.35em 0; }
 .message-content .katex-display > .katex {
   display: block; max-width: 100%; padding: 0.5em 0.25em 0.65em;
   overflow-x: auto; overflow-y: hidden;
@@ -215,7 +215,7 @@ describe('KaTeX complex runtime — stacked scripts, clipping, tall math', () =>
     });
   });
 
-  describe('long display math — horizontal scroller, wrapper not clipped', () => {
+  describe('long display math — horizontal scroller, wrapper clips vertical bleed', () => {
     it.each(COMPLEX_CASES.longHorizontal)('%s', (latex, mode) => {
       const out = parseMessageContent(wrapInput(latex, mode));
       expect(out).toContain('katex-display');
@@ -228,7 +228,7 @@ describe('KaTeX complex runtime — stacked scripts, clipping, tall math', () =>
       ) as HTMLElement;
       expect(wrap).toBeTruthy();
       expect(inner).toBeTruthy();
-      expect(getComputedStyle(wrap).overflow).toBe('visible');
+      expect(getComputedStyle(wrap).overflow).toBe('hidden');
       expect(getComputedStyle(inner).overflowX).toBe('auto');
       expect(getComputedStyle(inner).overflowY).toBe('hidden');
       root.remove();

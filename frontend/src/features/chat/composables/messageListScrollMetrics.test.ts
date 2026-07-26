@@ -2,7 +2,6 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, beforeEach } from 'vitest';
-import { resetMessageListScrollExperimentFlagsForTests } from '@/features/chat/domain/messageListScrollExperiments';
 import {
   installMessageListScrollMetrics,
   messageListScrollMetricsApi,
@@ -11,7 +10,6 @@ import {
 
 describe('messageListScrollMetrics', () => {
   beforeEach(() => {
-    resetMessageListScrollExperimentFlagsForTests();
     resetMessageListScrollMetrics();
     delete (window as unknown as { __echoMessageListScrollMetrics?: unknown })
       .__echoMessageListScrollMetrics;

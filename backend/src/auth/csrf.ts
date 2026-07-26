@@ -34,6 +34,11 @@ const CSRF_EXEMPT_EXACT = new Set([
    * Honeypot + IP rate-limit + Reply-To, no session yet — no CSRF cookie to compare against.
    */
   '/api/v1/echo/support/contact',
+  /**
+   * Public marketing poll submit (`marketing/src/pages/poll.astro`).
+   * Honeypot + IP rate-limit + one-entry-per-IP, no session / CSRF cookie.
+   */
+  '/api/v1/echo/marketing-poll/adel-approval-v2',
   /** Client boot-stall watcher — no session / CSRF cookie at cold start. */
   '/api/v1/echo/public/client-alerts/boot-stall',
   /** Anonymous client environment rollup — fires once per tab at cold start. */

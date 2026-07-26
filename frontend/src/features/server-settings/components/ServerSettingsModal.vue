@@ -496,6 +496,10 @@ watch(
     const opening = !prevOpen && open;
     const serverChanged =
       !!serverId && !!prevServerId && serverId !== prevServerId;
+    // Treat undefined→id as a recover/open so we don't leave an empty role manager,
+    // but skip re-init when nothing meaningful changed (avoids wiping in-flight icon uploads).
+    const serverRecovered = !!serverId && !prevServerId && !!prevOpen;
+    if (!opening && !serverChanged && !serverRecovered) return;
 
     if (opening || serverChanged) {
       activeSection.value = resolveInitialServerSection();

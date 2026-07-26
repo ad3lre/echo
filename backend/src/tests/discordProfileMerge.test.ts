@@ -54,7 +54,10 @@ async function run(): Promise<void> {
       'Discord OAuth merge must not persist CDN avatar URLs',
     );
   }
-  assert.ok(patches.some((p) => p.patch.email === 'x@y.z'));
+  assert.ok(
+    patches.every((p) => p.patch.email === undefined),
+    'Discord OAuth merge must not call updateUserProfile({ email }) — that throws EMAIL_CHANGE_REQUIRES_VERIFICATION and aborts linking',
+  );
 
   patches.length = 0;
   const registered: AuthUser = {
@@ -90,22 +93,23 @@ async function run(): Promise<void> {
   assert.ok(dn);
   assert.equal(String(dn!.patch.displayName).length, 64);
 
-  // Email that Echo registration policy rejects should not fail the whole OAuth merge.
+  // Email on the Discord profile must not reach updateUserProfile (verification gate).
   patches.length = 0;
-  const storeSkipEmail: Pick<AuthStore, 'updateUserProfile' | 'getUserById'> = {
-    async getUserById() {
-      return null;
-    },
-    async updateUserProfile(userId, patch) {
-      if (patch.email !== undefined) {
-        throw new Error('INVALID_EMAIL_PROVIDER');
-      }
-      patches.push({ userId, patch: patch as Record<string, unknown> });
-      return null;
-    },
-  };
+  const storeRejectEmail: Pick<AuthStore, 'updateUserProfile' | 'getUserById'> =
+    {
+      async getUserById() {
+        return null;
+      },
+      async updateUserProfile(userId, patch) {
+        if (patch.email !== undefined) {
+          throw new Error('EMAIL_CHANGE_REQUIRES_VERIFICATION');
+        }
+        patches.push({ userId, patch: patch as Record<string, unknown> });
+        return null;
+      },
+    };
   const kindSkip = await applyDiscordProfileMerge({
-    store: storeSkipEmail as AuthStore,
+    store: storeRejectEmail as AuthStore,
     user: guest,
     me,
     normalized,
@@ -113,7 +117,7 @@ async function run(): Promise<void> {
   assert.equal(kindSkip, 'full');
   assert.ok(
     patches.some((p) => p.patch.displayName === 'Discord Name'),
-    'display import should succeed when email is skipped',
+    'display import should succeed without writing email via updateUserProfile',
   );
 }
 

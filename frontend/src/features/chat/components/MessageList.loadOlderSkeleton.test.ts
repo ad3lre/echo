@@ -51,27 +51,6 @@ vi.mock('./MessageBubble.vue', async () => {
   };
 });
 
-vi.mock('./MessageRowShell.vue', async () => {
-  const vue = await import('vue');
-  return {
-    default: vue.defineComponent({
-      name: 'MessageRowShell',
-      props: {
-        row: { type: Object, required: true },
-        authorName: { type: String, required: true },
-      },
-      render() {
-        const row = this.row as { message?: { id?: string } };
-        const id = row.message?.id ?? 'unknown';
-        return vue.h('div', {
-          id: `message-${id}`,
-          class: 'message-row-shell-stub',
-        });
-      },
-    }),
-  };
-});
-
 vi.mock('./MessageListJumpFab.vue', () => ({
   default: { name: 'MessageListJumpFab', render: () => null },
 }));

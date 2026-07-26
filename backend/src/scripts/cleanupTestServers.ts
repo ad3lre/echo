@@ -27,6 +27,9 @@ function isTestServerName(name: string): boolean {
     /^live race/i.test(n) ||
     /^dbg\d*$/i.test(n) ||
     /^LayoutDbg$/i.test(n) ||
+    /^Layout\b/i.test(n) ||
+    /^Slot\b/i.test(n) ||
+    /^mls-srv$/i.test(n) ||
     /^ve2mls-stale$/i.test(n) ||
     /^rff$/i.test(n) ||
     /race server/i.test(n) ||
@@ -39,7 +42,9 @@ function isTestServerName(name: string): boolean {
 function isTestUsername(username: string): boolean {
   const u = username.trim();
   return (
-    /^(e2e|e2evc|e2eui|e2ecl|dbg|liverace|ve2mls|ve2race|rff_)/i.test(u) ||
+    /^(e2e|e2evc|e2eui|e2ecl|dbg|liverace|ve2mls|ve2race|rff_|layout_|slot_|mls_|csrf_)/i.test(
+      u,
+    ) ||
     /^ve2mls_(owner|peer|ve2mls_)/i.test(u) ||
     /^rff_rff_owner_/i.test(u)
   );
@@ -71,7 +76,7 @@ async function listTestUsers(
 ): Promise<Array<{ id: string; username: string }>> {
   const users = await pool.query<{ id: string; username: string }>(`
     SELECT id, username FROM auth_users
-    WHERE username ~* '^(e2e|e2evc|e2eui|e2ecl|dbg|liverace|ve2mls|ve2race|rff_)'
+    WHERE username ~* '^(e2e|e2evc|e2eui|e2ecl|dbg|liverace|ve2mls|ve2race|rff_|layout_|slot_|mls_|csrf_)'
        OR username ~* '^ve2mls_(owner|peer|ve2mls_)'
        OR username ~* '^rff_rff_owner_'
     ORDER BY created_at DESC

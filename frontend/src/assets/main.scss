@@ -936,11 +936,12 @@ img.brightness-0.invert {
  * layout (collapsed vlists painting glyphs on top of each other).
  *
  * The app layer below only controls how math sits inside a message column.
- * Display math: `.katex-display` stays overflow-visible; the inner `.katex`
- * is the horizontal scroller. Pairing overflow-x:auto with overflow-y:visible
- * on one element computes to overflow-y:auto and vertically clips tall math,
- * so the scroller uses overflow-y:hidden plus vertical padding to give
- * fractions, matrices, and radicals room inside its clip boundary.
+ * Display math: `.katex-display` uses overflow:hidden to clip vertical bleed into
+ * absolute neighbor rows; the inner `.katex` is the horizontal scroller. Pairing
+ * overflow-x:auto with overflow-y:visible on one element computes to overflow-y:auto
+ * and vertically clips tall math, so the scroller uses overflow-y:hidden plus
+ * vertical padding to give fractions, matrices, and radicals room inside its
+ * clip boundary.
  */
 .message-content,
 .message-content-segment,
@@ -963,7 +964,8 @@ img.brightness-0.invert {
   .katex-display {
     display: block;
     max-width: 100%;
-    overflow: visible;
+    /* Clip vertical bleed into absolute neighbor rows; wide math scrolls on .katex. */
+    overflow: hidden;
     margin: 0.35em 0;
   }
 

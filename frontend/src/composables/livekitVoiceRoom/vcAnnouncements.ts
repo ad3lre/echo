@@ -8,9 +8,12 @@ import {
 import { announceVoiceChannelPublic } from '@/composables/useEchoSounds';
 
 function publishVcPublicMedia(room: LKRoom, msg: EchoVcDataV1) {
-  void room.localParticipant.publishData(encodeEchoVcData(msg), {
-    reliable: true,
-  });
+  void room.localParticipant.publishData(
+    Uint8Array.from(encodeEchoVcData(msg)),
+    {
+      reliable: true,
+    },
+  );
 }
 
 function localIdentityPayload(
@@ -39,10 +42,13 @@ export function createVcAnnouncements() {
       kind: 'viewer_left_stream',
       viewerId: room.localParticipant.identity,
     };
-    void room.localParticipant.publishData(encodeEchoVcPrivateViewer(payload), {
-      reliable: true,
-      destinationIdentities: [streamerIdentity],
-    });
+    void room.localParticipant.publishData(
+      Uint8Array.from(encodeEchoVcPrivateViewer(payload)),
+      {
+        reliable: true,
+        destinationIdentities: [streamerIdentity],
+      },
+    );
   }
 
   function announceLocalVcPublic(room: LKRoom, kind: EchoVcDataV1['kind']) {

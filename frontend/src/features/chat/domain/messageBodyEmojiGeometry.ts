@@ -1,4 +1,5 @@
 import { countEmojiLikeGraphemes, isEmojiOnlyUpTo12 } from '@/utils/emojiUtils';
+import { extractMarkdownMathRegions } from '@/composables/markdownMathRegions';
 
 /** Matches `.message-text--emoji-only` glyph size in messageBubble.scss. */
 export const MESSAGE_LIST_EMOJI_ONLY_GLYPH_PX = 48;
@@ -10,6 +11,13 @@ export const MESSAGE_LIST_BODY_LINE_PX = 22;
 export const MESSAGE_LIST_CHARS_PER_LINE = 100;
 /** Cap line contribution so a wall of text cannot blow past the row max. */
 export const MESSAGE_LIST_MAX_BODY_LINES = 12;
+/**
+ * Conservative floor per display-math block before KaTeX typeset.
+ * Under-estimate + absolute rows = bleed into the next message; remasure corrects up.
+ */
+export const MESSAGE_LIST_DISPLAY_MATH_BLOCK_FLOOR_PX = 88;
+/** Small pad for inline math (taller than plain glyphs once typeset). */
+export const MESSAGE_LIST_INLINE_MATH_EXTRA_PX = 6;
 
 const CUSTOM_EMOJI_TOKEN_RE = /<a?:[^:>]+:\d+>/g;
 
@@ -64,12 +72,27 @@ function estimateMixedInlineEmojiBodyHeightPx(body: string): number {
   return Math.max(MESSAGE_LIST_BODY_LINE_PX, total);
 }
 
+/** Extra height for KaTeX regions the plain-text line estimator cannot see. */
+export function estimateMessageMathExtraHeightPx(body: string): number {
+  if (!body.trim()) return 0;
+  const { regions } = extractMarkdownMathRegions(body);
+  if (regions.length === 0) return 0;
+  let extra = 0;
+  for (const region of regions) {
+    extra += region.displayMode
+      ? MESSAGE_LIST_DISPLAY_MATH_BLOCK_FLOOR_PX
+      : MESSAGE_LIST_INLINE_MATH_EXTRA_PX;
+  }
+  return extra;
+}
+
 /** Pre-measure body height before DOM exists — emoji-aware variant of line counting. */
 export function estimateMessageBodyHeightPx(body: string): number {
   const trimmed = body.trim();
   if (!trimmed) return MESSAGE_LIST_BODY_LINE_PX;
+  const mathExtra = estimateMessageMathExtraHeightPx(trimmed);
   if (isEmojiOnlyUpTo12(trimmed)) {
-    return estimateEmojiOnlyBodyHeightPx(trimmed);
+    return estimateEmojiOnlyBodyHeightPx(trimmed) + mathExtra;
   }
   const renderedLines = Math.min(
     MESSAGE_LIST_MAX_BODY_LINES,
@@ -77,15 +100,20 @@ export function estimateMessageBodyHeightPx(body: string): number {
   );
   const charLinesHeight = renderedLines * MESSAGE_LIST_BODY_LINE_PX;
   const inlineEmojiHeight = estimateMixedInlineEmojiBodyHeightPx(trimmed);
-  return Math.max(charLinesHeight, inlineEmojiHeight);
+  return Math.max(charLinesHeight, inlineEmojiHeight) + mathExtra;
 }
 
 export function emojiBodyGeometryFingerprint(body: string): string {
   const trimmed = body.trim();
   if (!trimmed) return '0';
+  const { regions } = extractMarkdownMathRegions(trimmed);
+  const displayMath = regions.filter((r) => r.displayMode).length;
+  const inlineMath = regions.length - displayMath;
   return [
     isEmojiOnlyUpTo12(trimmed) ? 1 : 0,
     countEmojiLikeGraphemes(trimmed),
     countCustomEmojiTokens(trimmed),
+    displayMath,
+    inlineMath,
   ].join(':');
 }

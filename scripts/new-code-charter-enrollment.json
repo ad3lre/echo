@@ -356,7 +356,7 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/services/livekit/livekitVoiceDataChannel.ts": {
-      "lines": 509,
+      "lines": 511,
       "longestFunction": 141,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
