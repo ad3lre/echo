@@ -23,7 +23,7 @@
     "remark-rehype": "^11.1.2",
     "remark-smartypants": "^3.0.2",
     "sass": "^1.99.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "unist-util-remove-position": "^5.0.0"
   },
   "dependencies": {
