@@ -10,7 +10,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/rate-limit": "^11.2.0",
     "fastify": "^5.8.5",
     "livekit-server-sdk": "^2.15.3",
     "prom-client": "^15.1.3"
