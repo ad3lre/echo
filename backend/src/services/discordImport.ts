@@ -666,7 +666,10 @@ async function assertBundleReadable(sourceDir: string): Promise<void> {
   await access(path.join(sourceDir, 'guild.json'));
 }
 
-async function loadBundle(sourceDir: string): Promise<LoadedBundle> {
+async function loadBundle(
+  sourceDir: string,
+  options?: { requireEchoCoreOk?: boolean },
+): Promise<LoadedBundle> {
   await assertBundleReadable(sourceDir);
   const manifest = await readJsonObjectFile(
     path.join(sourceDir, 'manifest.json'),
@@ -674,7 +677,7 @@ async function loadBundle(sourceDir: string): Promise<LoadedBundle> {
   );
   const completeness = asObject(manifest.completeness);
   const echoCoreOk = completeness?.echoCoreOk === true;
-  if (!echoCoreOk) {
+  if (options?.requireEchoCoreOk !== false && !echoCoreOk) {
     throw new Error(
       'Discord export is not import-ready: manifest.completeness.echoCoreOk is false.',
     );
@@ -2383,7 +2386,10 @@ export async function getDiscordImportState(
   if (!row) return null;
   const state = mapStateRow(row);
   try {
-    const bundle = await loadBundle(state.sourceDir);
+    // Preview should work even when the export is not import-ready yet.
+    const bundle = await loadBundle(state.sourceDir, {
+      requireEchoCoreOk: false,
+    });
     state.preview = buildDiscordImportPreview(bundle);
     state.previewError = '';
     state.warnings = uniqueWarnings(state.warnings, state.preview.warnings);
