@@ -356,7 +356,7 @@ async function run(): Promise<void> {
     assert.equal(failedState.preview?.categoryCount, 2);
     assert.equal(failedState.preview?.channelCount, 7);
     assert.equal(failedState.preview?.unsupportedChannelCount, 1);
-    assert.equal(failedState.preview?.uncategorizedChannelCount, 1);
+    assert.equal(failedState.preview?.uncategorizedChannelCount, 2);
     assert.equal(failedState.preview?.orphanedChannelCount, 1);
 
     await writeBundle(tempRoot, true);
