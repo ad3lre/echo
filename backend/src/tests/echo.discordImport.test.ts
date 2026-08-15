@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import pg from 'pg';
-import { DISCORD_ECHO_PERMISSION_STRINGS } from '../../../contracts/discordEchoPermissions';
+import { DISCORD_ECHO_PERMISSION_STRINGS } from '../../../shared/discordEchoPermissions';
 
 const DISCORD_PERMISSION_BIT_POSITIONS = DISCORD_ECHO_PERMISSION_STRINGS.map(
   (_: string, index: number) => (index < 47 ? index : index + 2),
