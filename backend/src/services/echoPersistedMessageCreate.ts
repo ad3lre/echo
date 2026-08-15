@@ -17,6 +17,7 @@ import {
   contentForLegacyEncryptedChatRow,
 } from '../../../shared/chatE2eePolicy';
 import { redactPollOnMessage } from '../../../shared/types';
+import { toMessageCreateFanoutPayload } from '../../../shared/messageCreateWire';
 import { stripChatE2eeFromEchoMessageRow } from '../domain/echoMessagesDal';
 import { getAuthStore } from '../auth/store';
 import { getEchoEventCachedUser } from '../domain/echoEventUserCache';
@@ -529,6 +530,9 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
     getEchoChannelServerId(pool, channelId),
   ]);
   const messageForClients: Message = { ...message, ...authorSnap };
+  const messageForFanout = config.echoSocketMessageSlim
+    ? toMessageCreateFanoutPayload(messageForClients)
+    : messageForClients;
   log.info(
     {
       msg: 'echo.message_broadcast_emit',
@@ -536,10 +540,11 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
       channelId,
       messageId: message.id,
       recipientsRoom: channelId,
+      slim: config.echoSocketMessageSlim,
     },
     'Broadcasting persisted message to channel room',
   );
-  broadcastToEchoChannel(io, channelId, 'message', messageForClients);
+  broadcastToEchoChannel(io, channelId, 'message', messageForFanout);
   if (dmRecipients.length > 0) {
     // Bump the authoritative inbox sort key BEFORE selecting the thread payload so the
     // resulting `lastActivityAt` reflects this message (and not a stale older value).
@@ -567,7 +572,7 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
       if (!thread) continue;
       io.to(`echo:user:${recipientUserId}`).emit('dm:activity', {
         thread,
-        message: messageForClients,
+        message: messageForFanout,
       });
     }
     void emitEchoAttentionSnapshotsForUsers(pool, io, dmRecipients, log, {
@@ -730,6 +735,9 @@ export async function echoAutomodPostOwnerChannelNotice(
   const messageBase = echoRowToMessage(row);
   const authorSnap = await authorSnapshotForBroadcast(input.ownerActorId);
   const messageForClients: Message = { ...messageBase, ...authorSnap };
+  const messageForFanout = config.echoSocketMessageSlim
+    ? toMessageCreateFanoutPayload(messageForClients)
+    : messageForClients;
 
   log.info(
     {
@@ -746,7 +754,7 @@ export async function echoAutomodPostOwnerChannelNotice(
       io,
       input.targetChannelId,
       'message',
-      messageForClients,
+      messageForFanout,
     );
   }
 
@@ -771,7 +779,7 @@ export async function echoAutomodPostOwnerChannelNotice(
       if (!thread || !io) continue;
       io.to(`echo:user:${recipientUserId}`).emit('dm:activity', {
         thread,
-        message: messageForClients,
+        message: messageForFanout,
       });
     }
     if (io) {

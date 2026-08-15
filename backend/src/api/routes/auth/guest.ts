@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../../services/httpRateLimitStore';
 import { guestMintRouteRate } from '../../meLinkRouteRateLimits';
 import { sendError } from '../../errors';
 import { getAuthStore } from '../../../auth/store';
@@ -44,6 +45,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
     timeWindow: mintRate.timeWindow,
     keyGenerator: mintRate.keyGenerator,
     addHeaders: mintRate.addHeaders,
+    ...httpRateLimitStoreOpts('echo-rl-auth-guest-'),
   });
 
   fastify.post<{

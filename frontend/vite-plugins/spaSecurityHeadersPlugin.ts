@@ -2,13 +2,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Plugin } from 'vite';
 
-/** Single source for SPA CSP/HSTS (also written to `deploy/_headers` for Pages). */
+/** Single source for SPA CSP/HSTS (also written to `deploy/_headers` for Pages).
+ *
+ * Notes (intentional residual breadth for a self-hosted chat SPA):
+ * - `style-src 'unsafe-inline'` — required for Vue scoped styles + KaTeX layout CSS.
+ * - `connect-src … https: wss:` — self-hosters point API/LiveKit/media at arbitrary hosts;
+ *   tighten at the edge (Caddy) for fixed production domains when known.
+ * - `frame-src` is an explicit activity/embed allowlist (prefer shrink over `https:`).
+ */
 export const SPA_STRICT_TRANSPORT_SECURITY =
   'max-age=31536000; includeSubDomains; preload';
 
 /** `frame-src`: third-party iframes used by chat link embeds + VC activities (align with Echo CSP policy). */
 export const SPA_CONTENT_SECURITY_POLICY =
-  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://openguessr.com https://skribbl.io https://garticphone.com https://www.garticphone.com https://krunker.io https://codenames.game https://richup.io https://gooberdash.winterpixel.io https://smashkarts.io https://www.y8.com https://clusterrush.io; upgrade-insecure-requests";
+  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://openguessr.com https://skribbl.io https://garticphone.com https://www.garticphone.com https://krunker.io https://codenames.game https://richup.io https://gooberdash.winterpixel.io https://smashkarts.io https://www.y8.com https://clusterrush.io; upgrade-insecure-requests";
 
 const BLOCKED_DEPLOY_PATHS = new Set([
   '/_headers',

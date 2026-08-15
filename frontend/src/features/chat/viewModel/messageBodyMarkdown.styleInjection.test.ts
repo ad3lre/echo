@@ -64,6 +64,29 @@ describe('message style-attribute hardening', () => {
     expect(out.toLowerCase()).not.toMatch(/url\(/);
   });
 
+  it('blocks forged katex clip-path / mask overlays', () => {
+    const out = parseMessageContent(
+      '<span class="katex" style="clip-path:circle(50%);mask-image:url(http://attacker.example/m)">x</span>',
+    );
+    expect(out.toLowerCase()).not.toMatch(/clip-path/);
+    expect(out.toLowerCase()).not.toMatch(/mask-image/);
+    expect(out).not.toMatch(/attacker\.example/);
+  });
+
+  it('strips SVG outside KaTeX / alert icon subtrees', () => {
+    const out = parseMessageContent(
+      '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg> hi',
+    );
+    expect(out.toLowerCase()).not.toMatch(/<svg/);
+    expect(out.toLowerCase()).not.toMatch(/<path/);
+  });
+
+  it('keeps markdown alert icons (trusted SVG)', () => {
+    const out = parseMessageContent('> [!NOTE]\n> note body');
+    expect(out).toContain('md-alert__icon');
+    expect(out.toLowerCase()).toMatch(/<svg/);
+  });
+
   it('never permits script-execution vectors (unchanged guarantee)', () => {
     const out = parseMessageContent(
       '<img src=x onerror="alert(1)"><a href="javascript:alert(1)">x</a>',

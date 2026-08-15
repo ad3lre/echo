@@ -52,6 +52,8 @@ export type ConfigValidationInput = {
   liveKitEnabled: boolean;
   liveKitPublicUrl: string;
   voiceSidecarEnabled: boolean;
+  echoVideoHlsWorker: 'embedded' | 'standalone';
+  echoAllowEmbeddedVideoHls: boolean;
 };
 
 export type ValidateConfigDeps = {
@@ -188,6 +190,8 @@ export function validateConfig(
       liveKitEnabled: config.liveKitEnabled,
       liveKitPublicUrl: config.liveKitPublicUrl,
       voiceSidecarEnabled: config.voiceSidecarEnabled,
+      echoVideoHlsWorker: config.echoVideoHlsWorker,
+      echoAllowEmbeddedVideoHls: config.echoAllowEmbeddedVideoHls,
     };
     assertEchoProductionConfigGates(productionGateInput, {
       configStderr: deps.configStderr,

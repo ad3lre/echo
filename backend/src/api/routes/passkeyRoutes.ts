@@ -4,6 +4,7 @@ import type {
   FastifyReply,
 } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../services/httpRateLimitStore';
 import {
   PASSKEY_CEREMONY_ROUTE_RATE,
   passkeyCeremonyRateLimitKey,
@@ -73,6 +74,7 @@ export default async function passkeyRoutes(
       timeWindow: '15 minutes',
       keyGenerator: passkeyCeremonyRateLimitKey,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-passkey-reg-'),
     });
     regScope.post<{ Body: { currentPassword?: string; totpCode?: string } }>(
       '/passkey/register/options',
@@ -272,6 +274,7 @@ export default async function passkeyRoutes(
       timeWindow: '15 minutes',
       keyGenerator: passkeyCeremonyRateLimitKey,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-passkey-cred-'),
     });
     credScope.get(
       '/passkey/credentials',
@@ -467,6 +470,7 @@ export default async function passkeyRoutes(
       timeWindow: '15 minutes',
       keyGenerator: passkeyCeremonyRateLimitKey,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-passkey-auth-'),
     });
     authScope.post<{ Body: { email?: string; username?: string } }>(
       '/passkey/login/options',

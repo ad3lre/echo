@@ -19,13 +19,16 @@ Multiple standalone workers are safe: jobs use `FOR UPDATE SKIP LOCKED`.
 
 **Local dev:** leave `embedded` (default) so `npm run dev` does not need a second process.
 
-**Production (PM2):** From repo root, `pm2 start ecosystem.config.cjs` loads [`.env`](../../.env) into both `echo-backend` and `echo-video-hls-worker` via `env_file`. API uses `standalone`; the worker process is **required** (install **ffmpeg** on that host). On shutdown, the worker waits for the current transcode to finish (up to `ECHO_VIDEO_HLS_TIMEOUT_MS` + 30s) before exit.
+**Production:** `ECHO_VIDEO_HLS_WORKER=standalone` is required (startup gate) unless `ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true` for deliberate single-process smoke. From repo root, `pm2 start ecosystem.config.cjs` loads [`.env`](../../.env) into both `echo-backend` and `echo-video-hls-worker` via `env_file`. The worker process is **required** (install **ffmpeg** on that host). On shutdown, the worker waits for the current transcode to finish (up to `ECHO_VIDEO_HLS_TIMEOUT_MS` + 30s) before exit.
 
 ## Environment
 
 | Variable                         | Default                | Purpose                                                                                                     |
 | -------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `ECHO_VIDEO_HLS_WORKER`          | `embedded`             | `embedded` or `standalone` (see above).                                                                     |
+| `ECHO_VIDEO_HLS_WORKER`          | `embedded`             | `embedded` or `standalone`. Production refuses `embedded` unless `ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true`.      |
+| `ECHO_ALLOW_EMBEDDED_VIDEO_HLS`  | `false`                | Opt-in for production single-process smoke only.                                                            |
+| `ECHO_SOCKET_MESSAGE_SLIM`       | `true`                 | Omit TipTap `contentJson` on socket create fan-out (ack/REST unchanged).                                    |
+| `ECHO_PG_POOL_MAX`               | `10`                   | Max clients in the shared `pg.Pool` (1–100).                                                                |
 | `ECHO_VIDEO_OPTIMIZE_MS`         | `15000`                | Poll interval (ms). Upload register also wakes worker (in-process kick or `pg_notify`). Set `0` to disable. |
 | `ECHO_VIDEO_HLS_MAX_DURATION_S`  | `600`                  | Max source duration (seconds).                                                                              |
 | `ECHO_VIDEO_HLS_MAX_INPUT_BYTES` | `125829120` (~120 MiB) | Max source file size.                                                                                       |

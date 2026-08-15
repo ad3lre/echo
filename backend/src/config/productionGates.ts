@@ -27,6 +27,8 @@ export type EchoProductionConfigGateInput = {
   liveKitEnabled: boolean;
   liveKitPublicUrl: string;
   voiceSidecarEnabled: boolean;
+  echoVideoHlsWorker: 'embedded' | 'standalone';
+  echoAllowEmbeddedVideoHls: boolean;
 };
 
 export type EchoProductionConfigGateDeps = {
@@ -173,10 +175,46 @@ export function assertEchoProductionConfigGates(
     );
     deps.exitProcess(1);
   }
+  if (
+    config.echoVideoHlsWorker === 'embedded' &&
+    !config.echoAllowEmbeddedVideoHls
+  ) {
+    deps.configStderr(
+      'ECHO_VIDEO_HLS_WORKER=embedded is not allowed in production (ffmpeg HLS drain shares the API event loop). Set ECHO_VIDEO_HLS_WORKER=standalone and run `npm run worker:video-hls` (or PM2 echo-video-hls-worker), or set ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true only for deliberate single-process smoke stacks. See docs/operations/chat-video-hls.md.',
+    );
+    deps.exitProcess(1);
+  }
   if (!config.echoSmtpHost?.trim()) {
     deps.configStderr(
       'ECHO_SMTP_HOST is required in production for transactional email (signup verification, support contact).',
     );
     deps.exitProcess(1);
+  }
+
+  // Loud warnings when deliberate production bypasses are active (do not exit).
+  if (!config.echoRequireRedisInProduction) {
+    deps.configStderr(
+      '[echo-config] WARNING: ECHO_REQUIRE_REDIS_IN_PRODUCTION=false — sessions/rate limits may be per-process only. Set REDIS_URL and leave the require flag on for multi-instance production.',
+    );
+  }
+  if (!config.echoRequireGuestBindingSecretInProduction) {
+    deps.configStderr(
+      '[echo-config] WARNING: ECHO_REQUIRE_GUEST_BINDING_SECRET_IN_PRODUCTION=false — guest binding secret may be derived from JWT_SECRET.',
+    );
+  }
+  if (!config.echoRequireMetricsScrapeTokenInProduction) {
+    deps.configStderr(
+      '[echo-config] WARNING: ECHO_REQUIRE_METRICS_SCRAPE_TOKEN_IN_PRODUCTION=false — /api/v1/metrics may be world-readable.',
+    );
+  }
+  if (!config.echoRequireMediaUrlHardeningInProduction) {
+    deps.configStderr(
+      '[echo-config] WARNING: ECHO_REQUIRE_MEDIA_URL_HARDENING_IN_PRODUCTION=false — message/branding media URL host policy is not enforced.',
+    );
+  }
+  if (config.echoAllowEmbeddedVideoHls) {
+    deps.configStderr(
+      '[echo-config] WARNING: ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true — ffmpeg HLS drain may share the API process. Prefer ECHO_VIDEO_HLS_WORKER=standalone.',
+    );
   }
 }

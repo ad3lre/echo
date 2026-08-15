@@ -171,9 +171,11 @@ You may also lodge a complaint with your local data protection supervisory autho
 We use technical and organizational measures to protect personal data, including:
 
 - Encryption in transit (HTTPS)
-- Encryption at rest for supported storage systems
+- Encryption at rest for supported storage systems (disk / database volume encryption where configured by the operator — this is **not** end-to-end encryption of chat message contents; operators of a self-hosted instance and anyone with database access can read message bodies)
 - Access controls that limit internal access to authorized personnel
 - Monitoring and abuse-detection systems
+
+Voice and video calls may use separate client-side encryption where enabled. Text chat and group messages are **not** end-to-end encrypted in the current product.
 
 No system is 100% secure, but we apply security controls that are appropriate for the Service and update them over time.
 

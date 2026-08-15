@@ -1,6 +1,7 @@
 import { randomInt } from 'crypto';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../services/httpRateLimitStore';
 import { APPLE_LOGIN_ROUTE_RATE } from '../meLinkRouteRateLimits';
 import { ipRateLimitKey } from '../rateLimitKeys';
 import { sendError } from '../errors';
@@ -52,6 +53,7 @@ export default async function appleOAuthRoutes(
     timeWindow: '15 minutes',
     keyGenerator: (req) => `apple_oauth:${ipRateLimitKey(req)}`,
     addHeaders: { 'retry-after': true },
+    ...httpRateLimitStoreOpts('echo-rl-apple-oauth-'),
   });
 
   fastify.post<{ Body?: AppleLoginBody }>(

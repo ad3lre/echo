@@ -11,6 +11,7 @@ import { registerEchoHttpObservability } from './echoHttpObservability';
 import { registerGlobalErrorHandler } from './errorHandler';
 import { recordNetworkDiagnostic } from '../observability/networkDiagnostics';
 import { resolveGlobalHttpRateLimitMaxPerMinute } from '../config/instancePolicy/resolveHttpRateLimit';
+import { httpRateLimitStoreOpts } from '../services/httpRateLimitStore';
 
 /** Browser preflight must allow every non-simple header Echo clients send (see `frontend/src/api/echo/transport.ts`). */
 export const ECHO_CORS_ALLOWED_HEADERS: string[] = [
@@ -133,6 +134,7 @@ export async function registerHttpPlugins(
     allowList: (req: FastifyRequest) =>
       isEchoApiGlobalRateLimitExempt(req.method, req.url),
     addHeaders: { 'retry-after': true },
+    ...httpRateLimitStoreOpts('echo-rl-global-'),
   });
 
   await fastify.register(cookie);

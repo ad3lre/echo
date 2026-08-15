@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { toMessageReactionFanoutPayload } from './messageReactionsWire';
-import type { MessageReaction } from './types/message';
+import { toMessageCreateFanoutPayload } from './messageCreateWire';
+import type { Message, MessageReaction } from './types/message';
 
 function jsonBytes(value: unknown): number {
   return Buffer.byteLength(JSON.stringify(value), 'utf8');
@@ -101,6 +102,37 @@ describe('networkPayloadEstimate', () => {
     // eslint-disable-next-line no-console -- intentional benchmark output
     console.info(
       `[payload-bench] reactions ${reactorCount} reactors: full=${full}B fanout=${fanout}B (−${savingsPct}%)`,
+    );
+  });
+
+  it('reports message create fan-out savings when TipTap JSON is omitted', () => {
+    const tipTap = {
+      type: 'doc',
+      content: Array.from({ length: 40 }, (_, i) => ({
+        type: 'paragraph',
+        content: [{ type: 'text', text: `Sentence ${i} `.repeat(12) }],
+      })),
+    };
+    const full: Message = {
+      id: 'm1',
+      channelId: 'c1',
+      authorId: 'u1',
+      content: 'plain',
+      contentText: 'plain',
+      contentJson: tipTap,
+      contentSchemaVersion: 3,
+      messageFormatVersion: 2,
+      timestamp: '2026-01-01T00:00:00.000Z',
+    };
+    const slim = toMessageCreateFanoutPayload(full);
+    const fullBytes = jsonBytes(full);
+    const slimBytes = jsonBytes(slim);
+    const savingsPct = Math.round((1 - slimBytes / fullBytes) * 100);
+    expect(slimBytes).toBeLessThan(fullBytes);
+    expect(savingsPct).toBeGreaterThan(50);
+    // eslint-disable-next-line no-console -- intentional benchmark output
+    console.info(
+      `[payload-bench] message create TipTap: full=${fullBytes}B slim=${slimBytes}B (−${savingsPct}%)`,
     );
   });
 });

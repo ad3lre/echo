@@ -14,13 +14,27 @@ function isInKatexLayoutSubtree(el: Element): boolean {
   return false;
 }
 
-/** Strip dangerous href/src, event handlers, and non-KaTeX inline styles after DOMPurify. */
+/** Trusted first-party SVG (KaTeX fences + GitHub-style alert icons). */
+function isTrustedSvgSubtree(el: Element): boolean {
+  if (isInKatexLayoutSubtree(el)) return true;
+  let cur: Element | null = el;
+  while (cur) {
+    // Require the explicit icon class (not bare `.md-alert`) so forged wrappers
+    // cannot smuggle arbitrary SVG past the strip.
+    if (cur.classList?.contains('md-alert__icon')) return true;
+    cur = cur.parentElement;
+  }
+  return false;
+}
+
+/** Strip dangerous href/src, event handlers, non-KaTeX inline styles, and untrusted SVG after DOMPurify. */
 export function postSanitizeMessageHtml(html: string): string {
   if (
     !html ||
     (!html.includes('href=') &&
       !html.includes('src=') &&
       !html.includes('style=') &&
+      !html.includes('<svg') &&
       !/\son\w+\s*=/.test(html))
   ) {
     return html;
@@ -33,6 +47,9 @@ export function postSanitizeMessageHtml(html: string): string {
     );
     const root = doc.getElementById('echo-md-post-sanitize');
     if (!root) return html;
+    for (const el of [...root.querySelectorAll('svg, path, line')]) {
+      if (!isTrustedSvgSubtree(el)) el.remove();
+    }
     for (const el of root.querySelectorAll('*')) {
       for (const { name, value } of [...el.attributes]) {
         if (/^on/i.test(name)) {

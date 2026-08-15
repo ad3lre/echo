@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../../services/httpRateLimitStore';
 import { sendError } from '../../errors';
 import { getAuthStore } from '../../../auth/store';
 import { requireAuth } from '../../../auth/middleware';
@@ -27,6 +28,7 @@ export default async function passwordRoutes(fastify: FastifyInstance) {
       timeWindow: forgotRate.timeWindow,
       keyGenerator: (req) => `auth_forgot:${req.ip}`,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-forgot-'),
     });
     forgotScope.post<{ Body: { email: string } }>(
       '/forgot-password',
@@ -93,6 +95,7 @@ export default async function passwordRoutes(fastify: FastifyInstance) {
       timeWindow: resetRate.timeWindow,
       keyGenerator: (req) => `auth_reset:${req.ip}`,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-reset-'),
     });
     resetScope.post<{
       Body: { token: string; newPassword: string; totpCode?: string };

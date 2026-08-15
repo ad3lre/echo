@@ -5,6 +5,7 @@ import type {
   FastifyRequest,
 } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../services/httpRateLimitStore';
 import { sendError } from '../errors';
 import { requireAuth } from '../../auth/middleware';
 import { getAuthStore } from '../../auth/store';
@@ -150,6 +151,7 @@ export default async function discordOAuthRoutes(
     timeWindow: '15 minutes',
     keyGenerator: (req) => `discord_oauth:${req.ip}`,
     addHeaders: { 'retry-after': true },
+    ...httpRateLimitStoreOpts('echo-rl-discord-oauth-'),
   });
 
   fastify.post(

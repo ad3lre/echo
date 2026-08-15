@@ -143,7 +143,7 @@ export function getPgPool(): pg.Pool | null {
     pool = instrumentPool(
       new Pool({
         connectionString: config.databaseUrl,
-        max: 10,
+        max: config.echoPgPoolMax,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
       }),

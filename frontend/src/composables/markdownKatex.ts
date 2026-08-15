@@ -86,7 +86,7 @@ const KATEX_ONLY_SANITIZE_OPTS = {
 let katexOnlyStyleSanitizerHookInstalled = false;
 
 const DANGEROUS_INLINE_STYLE_DECLARATION_RE =
-  /url\s*\(|expression\s*\(|image-set\s*\(|@import|behavior\s*:|-moz-binding|position\s*:\s*(?:fixed|sticky)|z-index/i;
+  /url\s*\(|expression\s*\(|image-set\s*\(|@import|behavior\s*:|-moz-binding|position\s*:\s*(?:fixed|sticky)|z-index|clip-path|mask(?:-image)?\s*:|-webkit-mask/i;
 
 function filterDangerousInlineStyleDeclarations(raw: string): string {
   if (!raw) return '';

@@ -354,7 +354,7 @@ async function run(): Promise<void> {
     assert.equal(failedState.completedSteps, 0);
     assert.equal(failedState.preview?.guildName, 'MTI Imported');
     assert.equal(failedState.preview?.categoryCount, 2);
-    assert.equal(failedState.preview?.channelCount, 6);
+    assert.equal(failedState.preview?.channelCount, 8);
     assert.equal(failedState.preview?.unsupportedChannelCount, 1);
     assert.equal(failedState.preview?.uncategorizedChannelCount, 1);
     assert.equal(failedState.preview?.orphanedChannelCount, 1);

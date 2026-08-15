@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../../services/httpRateLimitStore';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { sendError } from '../../errors';
 import { createRefreshToken, hashRefreshToken } from '../../../auth/token';
@@ -63,6 +64,7 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
       timeWindow: '15 minutes',
       keyGenerator: refreshLimiterKey,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-refresh-'),
     });
     refreshScope.post<{ Body: AuthRefreshBody }>(
       '/refresh',

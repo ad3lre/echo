@@ -89,6 +89,7 @@ function baseProductionEnv(): Record<string, string> {
     ECHO_TRUST_PROXY: 'true',
     ECHO_METRICS_SCRAPE_TOKEN: 'metrics-0123456789abcdef0123456789abcdef',
     ECHO_MEDIA_URL_REQUIRE_HTTPS: 'true',
+    ECHO_VIDEO_HLS_WORKER: 'standalone',
     USE_MOCK_DB: '',
     ECHO_AUTH_STORE: '',
     // Repo `.env` may enable LiveKit; empty values prevent dotenv from filling these keys.
@@ -281,6 +282,31 @@ async function run(): Promise<void> {
       out.ok,
       true,
       'single-process opt-out should allow missing guest binding secret (derived from JWT_SECRET)',
+    );
+  }
+
+  assertProdGateFails(
+    { ECHO_VIDEO_HLS_WORKER: 'embedded' },
+    'embedded video HLS without allow flag',
+  );
+
+  {
+    const restore = setEnv({
+      ...okBase,
+      ECHO_VIDEO_HLS_WORKER: 'embedded',
+      ECHO_ALLOW_EMBEDDED_VIDEO_HLS: 'true',
+    });
+    clearConfigAndDependents();
+    const out = withExitIntercept(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('../config');
+    });
+    restore();
+    clearConfigAndDependents();
+    assert.equal(
+      out.ok,
+      true,
+      'ECHO_ALLOW_EMBEDDED_VIDEO_HLS should permit embedded HLS in production',
     );
   }
 

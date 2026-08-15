@@ -31,11 +31,17 @@
 
 14. **At least one of** **`ECHO_MEDIA_URL_REQUIRE_HTTPS=true`** **or** non-empty **`ECHO_MEDIA_URL_ALLOWED_HOSTS`** — Required in production (the server enforces this). `ECHO_MEDIA_URL_ALLOWED_HOSTS` is a comma-separated hostname list (lowercase); when set, only those hosts (and their subdomains) are allowed for HTTP(S) media URLs when policy checks run.
 
+## Video HLS worker
+
+15. **`ECHO_VIDEO_HLS_WORKER=standalone`** — Required in production by default so ffmpeg does not share the API event loop. Run `npm run worker:video-hls` (or PM2 `echo-video-hls-worker`). Set **`ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true`** only for deliberate single-process smoke stacks.
+16. **`BCRYPT_SALT_ROUNDS`** — Default is **12**. Keep ≥12 in production; existing password hashes are not rehashed until the next password change.
+17. **CSAM image scan** — When **`ECHO_CSAM_IMAGE_SCAN_MODE=on`**, scanner errors **fail closed** by default (`ECHO_CSAM_FAIL_CLOSED` defaults true in that mode). Set **`ECHO_CSAM_FAIL_CLOSED=false`** only if you accept fail-open on scanner outages.
+
 ## Reverse proxy
 
-15. Terminate TLS at the edge. Set **`ECHO_TRUST_PROXY=true`** only when Echo is behind a trusted reverse proxy that strips spoofed **`X-Forwarded-*`** headers; otherwise leave it unset/false.
-16. If TLS is terminated at the proxy, set **`ENFORCE_HTTPS=true`** and forward the canonical proto header through that trusted proxy path.
-17. **`CORS_ORIGIN`** — **Required in production**: explicit origin(s), comma-separated if needed; never `*` or empty (the server enforces this for credentialed auth and Socket.IO).
+18. Terminate TLS at the edge. Set **`ECHO_TRUST_PROXY=true`** only when Echo is behind a trusted reverse proxy that strips spoofed **`X-Forwarded-*`** headers; otherwise leave it unset/false.
+19. If TLS is terminated at the proxy, set **`ENFORCE_HTTPS=true`** and forward the canonical proto header through that trusted proxy path.
+20. **`CORS_ORIGIN`** — **Required in production**: explicit origin(s), comma-separated if needed; never `*` or empty (the server enforces this for credentialed auth and Socket.IO).
 
 ## Related docs
 

@@ -5,6 +5,7 @@ import type {
   FastifyRequest,
 } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../services/httpRateLimitStore';
 import { FEDERATED_OAUTH_FLOW_RATE } from '../meLinkRouteRateLimits';
 import { sendError } from '../errors';
 import { requireAuth } from '../../auth/middleware';
@@ -63,6 +64,7 @@ export default async function youtubeOAuthRoutes(
     timeWindow: '15 minutes',
     keyGenerator: (req) => `youtube_oauth:${req.ip}`,
     addHeaders: { 'retry-after': true },
+    ...httpRateLimitStoreOpts('echo-rl-youtube-oauth-'),
   });
 
   fastify.post(

@@ -1,5 +1,6 @@
 ﻿import type { FastifyInstance, FastifyRequest } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../../services/httpRateLimitStore';
 import { sendError } from '../../errors';
 import {
   signMfaPendingToken,
@@ -67,6 +68,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
       timeWindow: loginRate.timeWindow,
       keyGenerator: (req) => `auth_login:${clientIpFromFastifyRequest(req)}`,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-login-ip-'),
     });
     const loginStrictRate = loginStrictRouteRate();
     await loginScope.register(rateLimit, {
@@ -74,6 +76,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
       timeWindow: loginStrictRate.timeWindow,
       keyGenerator: loginIdentityRateLimitKey,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-login-id-'),
     });
     loginScope.post<{
       Body: AuthLoginBody;
@@ -219,6 +222,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
       timeWindow: mfaIpRate.timeWindow,
       keyGenerator: (req) => `mfa_login_ip:${clientIpFromFastifyRequest(req)}`,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-mfa-ip-'),
     });
     const mfaStrictRate = mfaLoginStrictRouteRate();
     await mfaLoginScope.register(rateLimit, {
@@ -226,6 +230,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
       timeWindow: mfaStrictRate.timeWindow,
       keyGenerator: mfaIdentityRateLimitKey,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-mfa-id-'),
     });
 
     mfaLoginScope.post<{ Body: AuthLoginMfaBody }>(

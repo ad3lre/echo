@@ -57,6 +57,11 @@ interface AppConfig {
   /** Canonical backend persistence mode (single source of truth). */
   readonly backendStorageMode: BackendStorageMode;
   readonly databaseUrl: string | null;
+  /**
+   * Max clients in the shared `pg.Pool` (`ECHO_PG_POOL_MAX`, default 10, clamp 1–100).
+   * Raise under concurrent history/search; keep process_count × max under Postgres max_connections.
+   */
+  readonly echoPgPoolMax: number;
   readonly natsUrl: string | null;
   /** @deprecated Prefer `backendStorageMode === 'memory'`. */
   readonly useMockDb: boolean;
@@ -307,8 +312,19 @@ interface AppConfig {
   /**
    * `embedded`: HLS drain runs inside the API process (default, local dev).
    * `standalone`: API only enqueues + pg_notify; run `npm run worker:video-hls` separately.
+   * Production requires standalone unless `ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true`.
    */
   readonly echoVideoHlsWorker: 'embedded' | 'standalone';
+  /**
+   * When true, production may run HLS drain inside the API process (not recommended).
+   * Default false — production gates refuse embedded otherwise.
+   */
+  readonly echoAllowEmbeddedVideoHls: boolean;
+  /**
+   * When true, socket `message` / `dm:activity` fan-out omits TipTap `contentJson`
+   * (`ECHO_SOCKET_MESSAGE_SLIM`, default on). Ack/REST/push keep the full row.
+   */
+  readonly echoSocketMessageSlim: boolean;
   /**
    * Poll interval for background chat video re-encode after upload (ms). 0 disables.
    * Requires `ffmpeg` on the API or worker host (or `FFMPEG_PATH`).
@@ -697,6 +713,7 @@ export const config: AppConfig = {
   corsOrigin: parseCorsOrigin(),
   backendStorageMode: storage.backendStorageMode,
   databaseUrl: storage.databaseUrl,
+  echoPgPoolMax: envBoundedInt('ECHO_PG_POOL_MAX', 10, 1, 100),
   natsUrl: process.env.NATS_URL ?? null,
   useMockDb: storage.backendStorageMode === 'memory',
   giphyApiKey: process.env.GIPHY_API_KEY ?? '',
@@ -796,8 +813,8 @@ export const config: AppConfig = {
   bcryptSaltRounds: (() => {
     const n = process.env.BCRYPT_SALT_ROUNDS
       ? parseInt(process.env.BCRYPT_SALT_ROUNDS, 10)
-      : 10;
-    return Number.isFinite(n) && n >= 1 && n <= 20 ? n : 10;
+      : 12;
+    return Number.isFinite(n) && n >= 1 && n <= 20 ? n : 12;
   })(),
   refreshTokenTtlDays: (() => {
     const n = process.env.REFRESH_TOKEN_TTL_DAYS
@@ -916,7 +933,12 @@ export const config: AppConfig = {
     const n = raw ? parseInt(raw, 10) : NaN;
     return Number.isFinite(n) && n >= 1000 && n <= 900_000 ? n : 120_000;
   })(),
-  echoCsamFailClosed: parseBoolean(process.env.ECHO_CSAM_FAIL_CLOSED, false),
+  echoCsamFailClosed: (() => {
+    // When scanning is enforced (`on`), fail closed by default so scanner errors
+    // cannot silently allow uploads. Explicit `ECHO_CSAM_FAIL_CLOSED=false` opts out.
+    const defaultFailClosed = csam.echoCsamImageScanEffective === 'on';
+    return parseBoolean(process.env.ECHO_CSAM_FAIL_CLOSED, defaultFailClosed);
+  })(),
   echoCsamBlocklistReloadMinutes: (() => {
     const raw = process.env.ECHO_CSAM_BLOCKLIST_RELOAD_MINUTES?.trim();
     if (raw === undefined || raw === '') return 60;
@@ -959,6 +981,14 @@ export const config: AppConfig = {
   })(),
   echoVideoHlsWorker: parseEchoVideoHlsWorker(
     process.env.ECHO_VIDEO_HLS_WORKER,
+  ),
+  echoAllowEmbeddedVideoHls: parseBoolean(
+    process.env.ECHO_ALLOW_EMBEDDED_VIDEO_HLS,
+    false,
+  ),
+  echoSocketMessageSlim: parseBoolean(
+    process.env.ECHO_SOCKET_MESSAGE_SLIM,
+    true,
   ),
   echoVideoOptimizeIntervalMs: (() => {
     const raw = process.env.ECHO_VIDEO_OPTIMIZE_MS;

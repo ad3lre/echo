@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../../services/httpRateLimitStore';
 import { sendError } from '../../errors';
 import { getAuthStore } from '../../../auth/store';
 import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
@@ -143,6 +144,7 @@ export default async function registerRoutes(fastify: FastifyInstance) {
       timeWindow: verifyEmailRate.timeWindow,
       keyGenerator: (req) => `auth_verify_email:${req.ip}`,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-verify-email-'),
     });
     verifyEmailScope.post<{ Body: { token?: string } }>(
       '/verify-email',
@@ -190,6 +192,7 @@ export default async function registerRoutes(fastify: FastifyInstance) {
       timeWindow: registerRate.timeWindow,
       keyGenerator: (req) => `auth_register:${req.ip}`,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-register-'),
     });
     registerScope.post<{
       Body: AuthRegisterBody;

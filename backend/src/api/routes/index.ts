@@ -38,6 +38,7 @@ import {
   GOOGLE_INTEGRATION_ENABLED,
   YOUTUBE_INTEGRATION_ENABLED,
 } from '../../../../shared/integrationKillSwitches';
+import { httpRateLimitStoreOpts } from '../../services/httpRateLimitStore';
 import { globalHttpRateLimitKey } from '../../api/globalRateLimitKey';
 import {
   isAuthSessionReadRequest,
@@ -77,6 +78,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
         allowList: (req: FastifyRequest) =>
           !isAuthSessionReadRequest(req.method, req.url),
         addHeaders: { 'retry-after': true },
+        ...httpRateLimitStoreOpts('echo-rl-auth-session-'),
       });
       await instance.register(authRoutes);
       await instance.register(passkeyRoutes);
@@ -124,6 +126,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
         allowList: (req: FastifyRequest) =>
           !isEchoApiReadRequest(req.method, req.url),
         addHeaders: { 'retry-after': true },
+        ...httpRateLimitStoreOpts('echo-rl-echo-api-'),
       });
       await instance.register(echoRoutes);
     },

@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-07-12",
+  "enrolledAt": "2026-08-15",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -73,12 +73,6 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },
-    "frontend/src/composables/useChatBitmapMediaLayout.ts": {
-      "lines": 137,
-      "longestFunction": 112,
-      "deepNestingLines": 0,
-      "maxNestingSpaces": 8
-    },
     "frontend/src/composables/useEmojiInspect.ts": {
       "lines": 144,
       "longestFunction": 130,
@@ -104,8 +98,8 @@
       "maxNestingSpaces": 6
     },
     "frontend/src/features/auth/useInlineAuthFlow.ts": {
-      "lines": 455,
-      "longestFunction": 380,
+      "lines": 423,
+      "longestFunction": 360,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -343,12 +337,6 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
-    "frontend/src/services/appLayoutChunkPrefetch.ts": {
-      "lines": 34,
-      "longestFunction": 23,
-      "deepNestingLines": 1,
-      "maxNestingSpaces": 14
-    },
     "frontend/src/services/domain/channelStructureOptimistic.ts": {
       "lines": 247,
       "longestFunction": 93,
@@ -380,7 +368,7 @@
       "maxNestingSpaces": 8
     },
     "backend/src/api/routes/appleOAuth.ts": {
-      "lines": 244,
+      "lines": 246,
       "longestFunction": 4,
       "deepNestingLines": 13,
       "maxNestingSpaces": 16
@@ -404,8 +392,8 @@
       "maxNestingSpaces": 8
     },
     "backend/src/config/validateConfig.ts": {
-      "lines": 238,
-      "longestFunction": 112,
+      "lines": 242,
+      "longestFunction": 114,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },

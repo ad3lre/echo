@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { httpRateLimitStoreOpts } from '../../../services/httpRateLimitStore';
 import { sendError } from '../../errors';
 import { getAuthStore } from '../../../auth/store';
 import { requireAuth } from '../../../auth/middleware';
@@ -48,6 +49,7 @@ export default async function twoFactorRoutes(fastify: FastifyInstance) {
       timeWindow: '1 minute',
       keyGenerator: authUserOrIpRateLimitKey,
       addHeaders: { 'retry-after': true },
+      ...httpRateLimitStoreOpts('echo-rl-auth-2fa-'),
     });
 
     scope.post<{ Body: { currentPassword?: string; totpCode?: string } }>(
