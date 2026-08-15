@@ -24,7 +24,7 @@
   "backend/src/domain/echoStore/roles.ts": 1399,
   "backend/src/domain/echoStore/servers.ts": 1316,
   "backend/src/services/discordImport.ts": 2490,
-  "backend/src/services/echoPersistedMessageCreate.ts": 804,
+  "backend/src/services/echoPersistedMessageCreate.ts": 812,
   "backend/src/services/stage/stageYoutubeStream.ts": 721,
   "backend/src/sockets/chatMessageHandler.ts": 717,
   "backend/src/sockets/messageValidation.ts": 1134,
