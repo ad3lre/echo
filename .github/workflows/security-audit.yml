@@ -20,4 +20,5 @@ jobs:
           node-version: '22.13.1'
           cache: npm
       - run: npm ci
-      - run: npm audit --audit-level=high --omit=dev
+      # Same gate as `npm run check:dep-audit` (allowlist-aware); omit dev to match runtime risk.
+      - run: ECHO_AUDIT_OMIT_DEV=1 npm run check:dep-audit
