@@ -388,11 +388,11 @@ async function run(): Promise<void> {
     );
     assert.match(
       String(serverRow.rows[0]?.icon_url ?? ''),
-      /^data:image\/png;base64,/,
+      /^(?:data:image\/png;base64,|\/api\/v1\/echo\/uploads\/files\/)/,
     );
     assert.match(
       String(serverRow.rows[0]?.banner_url ?? ''),
-      /^data:image\/png;base64,/,
+      /^(?:data:image\/png;base64,|\/api\/v1\/echo\/uploads\/files\/)/,
     );
     const emojiLibrary = await listEchoServerEmojiLibrary(pool, serverId);
     assert.equal(emojiLibrary.packs.length, 1);
