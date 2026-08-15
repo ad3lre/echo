@@ -136,10 +136,9 @@ describe('useChatVideoPlayback', () => {
     const url = ref('https://example.com/clip.mp4');
 
     const scope1 = effectScope();
-    scope1.run(() => useChatVideoPlayback(url));
-    await vi.waitFor(() =>
-      expect(fetchEchoVideoPlayback).toHaveBeenCalledTimes(1),
-    );
+    const { state: state1 } = scope1.run(() => useChatVideoPlayback(url))!;
+    await vi.waitFor(() => expect(state1.value.status).toBe('ready'));
+    expect(fetchEchoVideoPlayback).toHaveBeenCalledTimes(1);
     scope1.stop();
 
     const scope2 = effectScope();
