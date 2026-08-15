@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import pg from 'pg';
-import { DISCORD_ECHO_PERMISSION_STRINGS } from '../../../shared/discordEchoPermissions';
+import { DISCORD_ECHO_PERMISSION_STRINGS } from '../../../contracts/discordEchoPermissions';
 
 const DISCORD_PERMISSION_BIT_POSITIONS = DISCORD_ECHO_PERMISSION_STRINGS.map(
   (_: string, index: number) => (index < 47 ? index : index + 2),
@@ -224,7 +224,7 @@ async function writeBundle(
         position: 0,
         nsfw: false,
       },
-      { id: 'forum-skip', type: 15, name: 'Forum Stuff' },
+      { id: 'dir-skip', type: 14, name: 'Server Directory' },
     ]),
   );
   await writeFile(
@@ -354,7 +354,7 @@ async function run(): Promise<void> {
     assert.equal(failedState.completedSteps, 0);
     assert.equal(failedState.preview?.guildName, 'MTI Imported');
     assert.equal(failedState.preview?.categoryCount, 2);
-    assert.equal(failedState.preview?.channelCount, 8);
+    assert.equal(failedState.preview?.channelCount, 7);
     assert.equal(failedState.preview?.unsupportedChannelCount, 1);
     assert.equal(failedState.preview?.uncategorizedChannelCount, 1);
     assert.equal(failedState.preview?.orphanedChannelCount, 1);
