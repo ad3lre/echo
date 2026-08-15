@@ -44,7 +44,6 @@ async function rasterizeBrandAsset(absSvgPath, outPath) {
 async function main() {
   await mkdir(outDir, { recursive: true });
   await mkdir(marketingIconsDir, { recursive: true });
-  await mkdir(tauriIconsDir, { recursive: true });
 
   await rasterizeBrandAsset(
     echoMarkSvgPath,
