@@ -304,7 +304,7 @@ async function run(): Promise<void> {
   );
   process.env.ECHO_DISCORD_IMPORT_SOURCE_DIR = tempRoot;
 
-  const { ensureEchoTables } = await import('../db/echoTables');
+  const { ensureAppSchema } = await import('../db/ensureAppSchema');
   const {
     createEchoServer,
     listEchoCategories,
@@ -331,7 +331,7 @@ async function run(): Promise<void> {
       }
       throw error;
     }
-    await ensureEchoTables(pool);
+    await ensureAppSchema(pool);
     await insertAuthUser(pool, ownerId);
     await writeBundle(tempRoot, false);
 
