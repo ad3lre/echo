@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply } from 'fastify';
 import { config } from '../config';
 import {
   CSRF_COOKIE,
@@ -70,63 +70,21 @@ export function decodeGuestBindingCookieValue(
   return { userId, exp };
 }
 
-/** Origins we use to decide desktop `SameSite=None` session cookies. */
-export function requestOriginsForDesktopCookiePolicy(
-  request: FastifyRequest | undefined,
-): string[] {
-  const out: string[] = [];
-  const origin = request?.headers?.origin;
-  if (typeof origin === 'string' && origin.trim()) {
-    out.push(origin.trim());
-  }
-  const referer = request?.headers?.referer;
-  if (typeof referer === 'string' && referer.trim()) {
-    try {
-      out.push(new URL(referer.trim()).origin);
-    } catch {
-      /* ignore malformed referer */
-    }
-  }
-  return out;
-}
-
-function resolveCookieSameSite(
-  request: FastifyRequest | undefined,
-): 'lax' | 'none' {
-  for (const candidate of requestOriginsForDesktopCookiePolicy(request)) {
-    if (config.echoDesktopAllowedOrigins.includes(candidate)) {
-      return 'none';
-    }
-  }
-  return 'lax';
-}
-
-/** `SameSite=None` requires `Secure` in modern browsers. */
-function resolveCookieSecure(sameSite: 'lax' | 'none'): boolean {
-  if (sameSite === 'none') return true;
-  return config.isProduction;
-}
-
-function baseCookieOpts(request: FastifyRequest | undefined) {
-  const sameSite = resolveCookieSameSite(request);
+function baseCookieOpts() {
   return {
-    sameSite,
-    secure: resolveCookieSecure(sameSite),
+    sameSite: 'lax' as const,
+    secure: config.isProduction,
     path: '/' as const,
   };
 }
 
-/** OAuth state cookies (Discord/Google) — same desktop cross-site rules as session cookies. */
-export function sessionCookieBaseAttrs(request: FastifyRequest | undefined) {
-  return baseCookieOpts(request);
+/** OAuth state cookies (Discord/Google) — same attributes as session cookies. */
+export function sessionCookieBaseAttrs() {
+  return baseCookieOpts();
 }
 
-export function setRefreshCookie(
-  reply: FastifyReply,
-  refreshToken: string,
-  request?: FastifyRequest,
-) {
-  const o = baseCookieOpts(request);
+export function setRefreshCookie(reply: FastifyReply, refreshToken: string) {
+  const o = baseCookieOpts();
   reply.setCookie(REFRESH_COOKIE, refreshToken, {
     httpOnly: true,
     ...o,
@@ -143,12 +101,8 @@ export function clearRefreshCookie(reply: FastifyReply) {
   reply.clearCookie(LEGACY_REFRESH_COOKIE, { path: '/api/v1/auth' });
 }
 
-export function setGuestBindingCookie(
-  reply: FastifyReply,
-  userId: string,
-  request?: FastifyRequest,
-) {
-  const o = baseCookieOpts(request);
+export function setGuestBindingCookie(reply: FastifyReply, userId: string) {
+  const o = baseCookieOpts();
   reply.setCookie(GUEST_BINDING_COOKIE, encodeGuestBindingCookieValue(userId), {
     httpOnly: true,
     ...o,
@@ -164,10 +118,9 @@ export function clearGuestBindingCookie(reply: FastifyReply) {
 export function setBrowserSessionCookies(
   reply: FastifyReply,
   opts: { sessionId: string; csrfSecret: string; refreshToken: string },
-  request?: FastifyRequest,
 ) {
   const maxAge = config.refreshTokenTtlDays * 24 * 60 * 60;
-  const o = baseCookieOpts(request);
+  const o = baseCookieOpts();
   reply.setCookie(SESSION_COOKIE, opts.sessionId, {
     httpOnly: true,
     ...o,
@@ -178,7 +131,7 @@ export function setBrowserSessionCookies(
     ...o,
     maxAge,
   });
-  setRefreshCookie(reply, opts.refreshToken, request);
+  setRefreshCookie(reply, opts.refreshToken);
 }
 
 export function clearBrowserSessionCookies(reply: FastifyReply) {

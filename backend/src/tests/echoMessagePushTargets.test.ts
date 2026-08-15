@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { Message } from '../../../shared/types';
-import { collectServerPushTargets } from '../services/echoMessagePushNotify';
+import {
+  collectServerPushTargets,
+  userAllowsMessagePush,
+} from '../services/echoMessagePushNotify';
 
 function baseMessage(overrides: Partial<Message> = {}): Message {
   return {
@@ -127,5 +130,14 @@ describe('collectServerPushTargets', () => {
       collectServerPushTargets(msg, 'author', { u2: ['r1'] }),
       [],
     );
+  });
+});
+
+describe('userAllowsMessagePush', () => {
+  it('defaults to enabled and honors the account master switch', () => {
+    assert.equal(userAllowsMessagePush(undefined), true);
+    assert.equal(userAllowsMessagePush({}), true);
+    assert.equal(userAllowsMessagePush({ desktopAlerts: true }), true);
+    assert.equal(userAllowsMessagePush({ desktopAlerts: false }), false);
   });
 });

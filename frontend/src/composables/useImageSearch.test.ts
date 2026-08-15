@@ -12,7 +12,6 @@ import {
   vi,
 } from 'vitest';
 import * as authClient from '@/api/authClient';
-import * as nativeAuth from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useImageSearch } from '@/composables/useImageSearch';
 
@@ -87,11 +86,7 @@ describe('useImageSearch', () => {
     vi.restoreAllMocks();
   });
 
-  it('sends cookie credentials and native bearer headers to the authenticated image search route', async () => {
-    vi.spyOn(nativeAuth, 'nativeAuthRequestHeaders').mockReturnValue({
-      'X-Echo-Client': 'ios',
-      Authorization: 'Bearer native-token',
-    });
+  it('sends cookie credentials to the authenticated image search route', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValue(imageSearchResponse(pagePayload()));
@@ -103,22 +98,14 @@ describe('useImageSearch', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const [url, init] = fetchMock.mock.calls[0]!;
       expect(String(url)).toContain('/api/v1/image-search?q=cats&page=1');
-      expect(init).toEqual(
-        expect.objectContaining({
-          credentials: 'include',
-          headers: expect.objectContaining({
-            'X-Echo-Client': 'ios',
-            Authorization: 'Bearer native-token',
-          }),
-        }),
-      );
+      expect(init).toEqual(expect.objectContaining({ credentials: 'include' }));
       expect(mounted.api.images.value).toHaveLength(1);
     } finally {
       mounted.unmount();
     }
   });
 
-  it('refreshes auth once on 401 and retries with fresh native headers', async () => {
+  it('refreshes auth once on 401 and retries the request', async () => {
     const restoredUser = {
       id: 'u1',
       username: 'echo-user',
@@ -127,15 +114,6 @@ describe('useImageSearch', () => {
     vi.mocked(authClient.authTryCookieRefresh).mockResolvedValue(
       restoredUser as never,
     );
-    vi.spyOn(nativeAuth, 'nativeAuthRequestHeaders')
-      .mockReturnValueOnce({
-        'X-Echo-Client': 'ios',
-        Authorization: 'Bearer old-token',
-      })
-      .mockReturnValueOnce({
-        'X-Echo-Client': 'ios',
-        Authorization: 'Bearer new-token',
-      });
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
@@ -159,20 +137,10 @@ describe('useImageSearch', () => {
       expect(authClient.authTryCookieRefresh).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock.mock.calls[0]?.[1]).toEqual(
-        expect.objectContaining({
-          credentials: 'include',
-          headers: expect.objectContaining({
-            Authorization: 'Bearer old-token',
-          }),
-        }),
+        expect.objectContaining({ credentials: 'include' }),
       );
       expect(fetchMock.mock.calls[1]?.[1]).toEqual(
-        expect.objectContaining({
-          credentials: 'include',
-          headers: expect.objectContaining({
-            Authorization: 'Bearer new-token',
-          }),
-        }),
+        expect.objectContaining({ credentials: 'include' }),
       );
       expect(applyRestoredProfile).toHaveBeenCalledWith(restoredUser);
       expect(mounted.api.images.value[0]?.url).toBe(

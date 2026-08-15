@@ -4,7 +4,6 @@ import {
   captureAuthStateGeneration,
   finalizeAuthSession401,
 } from '@/api/authSessionBridge';
-import { nativeAuthRequestHeaders } from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { assertEchoApiAllowed } from '@/echoMode';
 import { echoCsrfHeaders } from '@/utils/echoCsrf';
@@ -131,7 +130,6 @@ export async function echoFetch<T>(
   const method = (init?.method ?? 'GET').toUpperCase();
   const csrf = echoMutatingMethod(method) ? echoCsrfHeaders() : {};
   const headers: Record<string, string> = {
-    ...nativeAuthRequestHeaders(),
     ...csrf,
     ...(init?.headers as Record<string, string> | undefined),
   };

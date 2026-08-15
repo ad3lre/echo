@@ -8,7 +8,7 @@ Echo is open source under the **GNU Affero General Public License v3** — see t
 
 - **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)** — fastest path from clone to `npm run dev` and PR checks.
 - **[Documentation index](./docs/README.md)** — specs, architecture notes, infra, and reviews.
-- **[Releases / native builds](./releases/README.md)** — Tauri installers and Android outputs; links into `docs/operations/` for depth.
+- **[Apple native apps](./apple/README.md)** — SwiftUI iOS/macOS clients; passkeys docs under `docs/operations/ios-passkeys.md`.
 - **[Contributor / agent charter](./docs/overview/agents.md)** — boundaries for client vs model/controller work, debugging discipline, and scope expectations.
 - Root **[AGENTS.md](./AGENTS.md)** points at the same charter.
 

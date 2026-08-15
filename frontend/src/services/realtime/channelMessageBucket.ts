@@ -38,22 +38,37 @@ export function applyEchoChannelClientCapToBucket(
   messagesRecord: Record<string, RawMessage[]>,
   channelId: string,
   options: ApplyEchoChannelClientCapOptions,
-): { applied: boolean; refreshHasMoreOlderForActiveChannel: boolean } {
+): {
+  applied: boolean;
+  refreshHasMoreOlderForActiveChannel: boolean;
+  evictedHead: RawMessage[];
+} {
   const list = messagesRecord[channelId];
   if (!list?.length || !isEchoGraphId(channelId)) {
-    return { applied: false, refreshHasMoreOlderForActiveChannel: false };
+    return {
+      applied: false,
+      refreshHasMoreOlderForActiveChannel: false,
+      evictedHead: [],
+    };
   }
   const cap =
     options.cap ??
     resolveEchoChannelMessagesClientCap(channelId, options.activeChannelId);
   const index = getChannelIndex(channelId, list);
   const removeCount = index.sorted.value.length - cap;
+  const evictedHead =
+    removeCount > 0 ? [...index.sorted.value].slice(0, removeCount) : [];
   if (!index.trimHead(removeCount)) {
-    return { applied: false, refreshHasMoreOlderForActiveChannel: false };
+    return {
+      applied: false,
+      refreshHasMoreOlderForActiveChannel: false,
+      evictedHead: [],
+    };
   }
   writeSortedMessagesForChannel(messagesRecord, channelId, index);
   return {
     applied: true,
     refreshHasMoreOlderForActiveChannel: channelId === options.activeChannelId,
+    evictedHead,
   };
 }

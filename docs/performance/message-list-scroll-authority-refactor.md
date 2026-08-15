@@ -169,6 +169,19 @@ Note (optional polish, not done): reserve a skeleton box for _unknown-dimension_
 natural dimensions on first load so re-mounts reserve space. The bottom-pin already absorbs the
 scroll impact; this would only remove the cosmetic 0→full "pop" during the first decode.
 
+## Stage 3.5 — Directional history boundaries and target-centered windows ✅ DONE
+
+The history controller now keeps an explicit state per edge (`unknown`, `more`, `failed`,
+`reached`) instead of treating every short/failed request as the same condition. The Echo REST
+history surface mirrors Discord's cursor model with mutually-exclusive `before`, `after`, and
+`around` parameters. Jump-to-message prefetch uses `around`; scrolling back toward the present
+uses `after`; a bounded per-channel cache rehydrates older rows evicted by the client retention cap
+before another network request is attempted. Failed edges remain retryable, while only `reached`
+disables further fetches.
+
+**Exit check:** boundary state survives channel switches; target-centered pages can be traversed in
+both directions; cache eviction and recovery are covered by focused authority/API tests.
+
 ## Stage 4 — Native bottom-pin + scroll anchoring (rewrite) ☐ PARKED
 
 **Parked** by the 2026-07 layout subtraction project. Reliability was restored by

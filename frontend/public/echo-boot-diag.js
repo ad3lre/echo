@@ -1,6 +1,5 @@
-/* Pre-module boot diagnostics for Tauri/WKWebView blank-screen investigations.
- * Queues events until `desktopBootDiagnostics.ts` flushes after the log recorder
- * installs. Safe no-op when `push` is never consumed. */
+/* Pre-module boot diagnostics for blank-screen investigations. Queues events
+ * from the boot scripts. Safe no-op when `push` is never consumed. */
 (function () {
   var QUEUE_KEY = '__ECHO_BOOT_DIAG_QUEUE__';
   var MAX_QUEUE = 200;
@@ -82,11 +81,5 @@
     push(String(label || 'snapshot'), { kind: 'paint-snapshot' });
   };
 
-  push('echo-boot-diag.js:loaded', {
-    isTauri: !!(
-      window.__TAURI_INTERNALS__ ||
-      window.__TAURI__ ||
-      window.isTauri
-    ),
-  });
+  push('echo-boot-diag.js:loaded');
 })();

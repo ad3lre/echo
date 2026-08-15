@@ -15,7 +15,6 @@ type KatexModule = (typeof import('katex'))['default'];
 
 let katexModule: KatexModule | null = null;
 let katexLoadPromise: Promise<void> | null = null;
-let katexCssLoadPromise: Promise<unknown> | null = null;
 const katexRenderCache = new Map<string, string>();
 const katexSafeRenderCache = new Map<string, string>();
 
@@ -162,16 +161,9 @@ function escapeKatexFallback(latex: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** KaTeX is loaded only when math is present; consumers can react to the version ref. */
+/** KaTeX's renderer is loaded only when math is present; its layout CSS loads at app startup. */
 export function ensureMarkdownKatexLoaded(): void {
   if (katexModule || katexLoadPromise) return;
-  if (!katexCssLoadPromise) {
-    katexCssLoadPromise = import('katex/dist/katex.min.css')
-      .then(() => {
-        markdownKatexReadyVersion.value += 1;
-      })
-      .catch(() => undefined);
-  }
   katexLoadPromise = import('katex')
     .then((mod) => {
       katexModule = (mod.default ?? mod) as KatexModule;
@@ -185,7 +177,7 @@ export function ensureMarkdownKatexLoaded(): void {
 export async function ensureMarkdownKatexReady(): Promise<void> {
   if (katexModule) return;
   ensureMarkdownKatexLoaded();
-  await Promise.all([katexLoadPromise, katexCssLoadPromise]);
+  await katexLoadPromise;
 }
 
 export function isMarkdownKatexReady(): boolean {

@@ -145,10 +145,22 @@ export default async function discordMessagesRoutes(
         100,
         Math.max(1, parseInt(qs.limit ?? '50', 10) || 50),
       );
+      const cursorCount = [qs.before, qs.after, qs.around].filter(
+        (cursor) => typeof cursor === 'string' && cursor.trim().length > 0,
+      ).length;
+      if (cursorCount > 1) {
+        return discordError(
+          reply,
+          400,
+          'before, after, and around are mutually exclusive',
+        );
+      }
 
       const messages = await listEchoMessages(pool, channelId, {
         limit,
         before: qs.before?.trim(),
+        after: qs.after?.trim(),
+        around: qs.around?.trim(),
       });
 
       const authorIds = [...new Set(messages.map((m) => m.authorId))];

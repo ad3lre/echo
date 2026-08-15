@@ -8,7 +8,6 @@ export const CLIENT_ENVIRONMENT_SHELLS = [
   'desktop',
   'android',
   'ios',
-  'tauri_shell',
 ] as const;
 export type ClientEnvironmentShell = (typeof CLIENT_ENVIRONMENT_SHELLS)[number];
 
@@ -48,7 +47,6 @@ export type ClientEnvironmentBrowserFamily =
 export const CLIENT_ENVIRONMENT_DISPLAY_MODES = [
   'browser',
   'standalone',
-  'desktop_app',
 ] as const;
 export type ClientEnvironmentDisplayMode =
   (typeof CLIENT_ENVIRONMENT_DISPLAY_MODES)[number];

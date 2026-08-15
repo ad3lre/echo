@@ -1,16 +1,5 @@
-import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { API_BASE } from '@/config';
-import { useDesktopNativeAttention } from '@/composables/useDesktopNativeAttention';
-import { useDesktopGlobalShortcutBringFront } from '@/platform/desktopGlobalShortcutBringFront';
-import { useDesktopUpdateMonitor } from '@/composables/useDesktopUpdateMonitor';
-import { useDesktopIncomingCallAttention } from '@/composables/useDesktopIncomingCallAttention';
-import { useDesktopUpdateStore } from '@/stores/desktopUpdate';
-import { useNotificationPreferencesStore } from '@/stores/notificationPreferences';
-import {
-  bringMainWindowToForeground,
-  downloadAndRelaunchDesktopUpdate,
-  isDesktop,
-} from '@/platform/desktopBridge';
 import {
   installExternalLinkClickGate,
   uninstallExternalLinkClickGate,
@@ -26,10 +15,8 @@ import {
   recordEchoOutageRecoveryDuration,
 } from '@/utils/echoOutageRecoveryStats';
 import { subscribeUIErrors, type UIErrorSeverity } from '@/utils/uiErrorBus';
-import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { reloadEchoApp } from '@/platform/reloadEchoApp';
-import type { SettingsSection } from '@/features/settings/types';
 import { storeToRefs } from 'pinia';
 import { useEchoSessionStore } from '@/stores/echoSession';
 
@@ -42,48 +29,11 @@ type UiErrorBannerState = {
   code?: string;
 };
 
-export type AppLayoutPlatformLifecycleOpts = {
-  dmCallRingUi: Ref<boolean>;
-  openDmInboxFromRailOverflow: () => void;
-  openUserSettingsModal: (section?: SettingsSection) => void;
-};
-
-/** Desktop bridges, outage recovery polling, external-link gate, and platform bus subscriptions. */
-export function useAppLayoutPlatformLifecycle(
-  opts: AppLayoutPlatformLifecycleOpts,
-) {
-  if (isDesktop()) {
-    useDesktopNativeAttention();
-    useDesktopGlobalShortcutBringFront();
-    useDesktopUpdateMonitor();
-    useDesktopIncomingCallAttention(opts.dmCallRingUi);
-  }
-
-  const desktopUpdateStore = useDesktopUpdateStore();
-  const desktopUpdateBannerVisible = computed(
-    () => isDesktop() && Boolean(desktopUpdateStore.pendingVersion),
-  );
-
-  async function onDesktopUpdateBannerInstall() {
-    if (!isDesktop()) return;
-    try {
-      await downloadAndRelaunchDesktopUpdate();
-    } catch (e) {
-      dispatchAppToast(
-        e instanceof Error ? e.message : 'Update install failed.',
-        'warning',
-      );
-    }
-  }
-
-  function onDesktopUpdateBannerDismiss() {
-    desktopUpdateStore.clearPending();
-  }
-
+/** Outage recovery polling, external-link gate, and platform bus subscriptions. */
+export function useAppLayoutPlatformLifecycle() {
   const primaryFlowFailureBanner = ref<string | null>(null);
   const primaryFlowFailureDetail = ref<PrimaryFlowFailureDetail | null>(null);
   let unsubscribePrimaryFlowFailures: (() => void) | null = null;
-  let unsubscribeDesktopTray: (() => void) | undefined;
 
   const serverHealthChecking = ref(false);
   const serverHealthDown = ref(false);
@@ -284,8 +234,6 @@ export function useAppLayoutPlatformLifecycle(
   }
 
   function disposePlatformLifecycleSideEffects() {
-    unsubscribeDesktopTray?.();
-    unsubscribeDesktopTray = undefined;
     registerEchoToastQuickReplySender(null);
     unsubscribePrimaryFlowFailures?.();
     unsubscribePrimaryFlowFailures = null;
@@ -302,25 +250,6 @@ export function useAppLayoutPlatformLifecycle(
   }
 
   onMounted(() => {
-    if (isDesktop()) {
-      void import('@tauri-apps/api/event').then(({ listen }) => {
-        void listen<{ action?: string }>('echo-desktop-tray', async (event) => {
-          const action = event.payload?.action;
-          await bringMainWindowToForeground();
-          if (action === 'open-messages') {
-            opts.openDmInboxFromRailOverflow();
-          } else if (action === 'open-notification-settings') {
-            opts.openUserSettingsModal('Notifications');
-          } else if (action === 'toggle-desktop-alerts') {
-            const np = useNotificationPreferencesStore();
-            np.patch({ desktopAlerts: !np.settings.desktopAlerts });
-          }
-        }).then((unlisten) => {
-          unsubscribeDesktopTray = unlisten;
-        });
-      });
-    }
-
     unsubscribePrimaryFlowFailures = subscribePrimaryFlowFailures((d) => {
       if (d.suppressBanner) return;
       primaryFlowFailureDetail.value = d;
@@ -367,12 +296,6 @@ export function useAppLayoutPlatformLifecycle(
   });
 
   return {
-    desktopUpdateBannerVisible,
-    desktopUpdatePendingVersion: computed(
-      () => desktopUpdateStore.pendingVersion ?? '',
-    ),
-    onDesktopUpdateBannerInstall,
-    onDesktopUpdateBannerDismiss,
     primaryFlowFailureBanner,
     showServerDownGate,
     serverDownGateBind,

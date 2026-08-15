@@ -79,9 +79,9 @@ export async function registerHttpPlugins(
     },
     noSniff: true,
     /**
-     * `same-origin` blocks credentialed cross-origin fetches from the Tauri WebView
-     * (`https://tauri.localhost` → API) even when CORS allows the origin. Use
-     * `cross-origin` so SPA + desktop shells can read JSON responses.
+     * `same-origin` blocks credentialed cross-origin fetches even when CORS allows
+     * the origin. Use `cross-origin` so an SPA served from a different origin than
+     * the API can read JSON responses.
      */
     crossOriginResourcePolicy: {
       policy: 'cross-origin',

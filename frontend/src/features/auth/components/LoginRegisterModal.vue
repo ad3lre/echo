@@ -5,9 +5,7 @@ import { icons } from '@/assets/icons';
 import { usePlatform } from '@/platform/usePlatform';
 import {
   AuthApiError,
-  authDiscordDesktopHandoffStartUrl,
   authDiscordLoginStart,
-  authGoogleDesktopHandoffStartUrl,
   authGoogleLoginStart,
   authForgotPassword,
   authLogin,
@@ -24,11 +22,6 @@ import { messageForGoogleOAuthError } from '@/features/google/googleIntegrationC
 import { GOOGLE_SSO_SIGNIN_UI_ENABLED } from '@/features/google/googleSsoUiEnabled';
 import { useAuthSessionStore } from '@/stores/authSession';
 import {
-  clearPendingDesktopOAuthHandoffNonce,
-  createPendingDesktopOAuthHandoffNonce,
-  setPendingDesktopOAuthReturnPath,
-} from '@/platform/desktopOAuthHandoff';
-import {
   computePasswordStrength,
   isValidEmailFormat,
   MIN_ACCOUNT_PASSWORD_LENGTH,
@@ -37,11 +30,7 @@ import {
 } from '@/utils/accountValidation';
 import { sessionUserDisplayName } from '@/utils/memberProfiles';
 import { withBasePath } from '@/features/layout/urlNavigation';
-import {
-  isDesktop,
-  openExternal,
-  startOAuthFlow,
-} from '@/platform/desktopBridge';
+import { startOAuthFlow } from '@/platform/desktopBridge';
 import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import {
   getPasskeyWebCeremonyBlockReason,
@@ -491,26 +480,18 @@ function openForgotPasswordPage() {
   window.location.assign(href);
 }
 
-async function startDiscordLogin() {
+async function startOauthRedirect(
+  provider: 'discord' | 'google',
+  start: () => Promise<{ authorizeUrl: string }>,
+) {
   if (isMockDataMode) return;
   submitting.value = true;
   errorMessage.value = '';
   try {
-    if (isDesktop()) {
-      // Store SPA route so the deep-link return doesn't keep us on oauth-desktop-bridge.html.
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      setPendingDesktopOAuthReturnPath(returnPath);
-      const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
-      const startUrl = authDiscordDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl, { skipSafetyPrompt: true });
-      return;
-    }
-    const { authorizeUrl } = await authDiscordLoginStart();
+    const { authorizeUrl } = await start();
     startOAuthFlow(authorizeUrl);
   } catch (e) {
-    if (isDesktop()) clearPendingDesktopOAuthHandoffNonce();
-    console.error('[echo][discord][login-modal] start failed', {
-      isDesktop: isDesktop(),
+    console.error(`[echo][${provider}][login-modal] start failed`, {
       error:
         e instanceof Error ? { name: e.name, message: e.message } : String(e),
     });
@@ -520,32 +501,12 @@ async function startDiscordLogin() {
   }
 }
 
-async function startGoogleLogin() {
-  if (isMockDataMode) return;
-  submitting.value = true;
-  errorMessage.value = '';
-  try {
-    if (isDesktop()) {
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      setPendingDesktopOAuthReturnPath(returnPath);
-      const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
-      const startUrl = authGoogleDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl, { skipSafetyPrompt: true });
-      return;
-    }
-    const { authorizeUrl } = await authGoogleLoginStart();
-    startOAuthFlow(authorizeUrl);
-  } catch (e) {
-    if (isDesktop()) clearPendingDesktopOAuthHandoffNonce();
-    console.error('[echo][google][login-modal] start failed', {
-      isDesktop: isDesktop(),
-      error:
-        e instanceof Error ? { name: e.name, message: e.message } : String(e),
-    });
-    errorMessage.value = mapError(e);
-  } finally {
-    submitting.value = false;
-  }
+function startDiscordLogin() {
+  return startOauthRedirect('discord', authDiscordLoginStart);
+}
+
+function startGoogleLogin() {
+  return startOauthRedirect('google', authGoogleLoginStart);
 }
 
 function prefetchPasskeyLoginFromForm() {

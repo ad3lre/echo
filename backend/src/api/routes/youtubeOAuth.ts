@@ -41,12 +41,8 @@ import { sessionCookieBaseAttrs } from '../../auth/sessionCookies';
 
 const OAUTH_FETCH: FetchLike = globalThis.fetch.bind(globalThis);
 
-function setOAuthCookie(
-  reply: FastifyReply,
-  value: string,
-  request: FastifyRequest,
-) {
-  const base = sessionCookieBaseAttrs(request);
+function setOAuthCookie(reply: FastifyReply, value: string) {
+  const base = sessionCookieBaseAttrs();
   reply.setCookie(youtubeOAuthCookieName(), value, {
     httpOnly: true,
     ...base,
@@ -128,7 +124,7 @@ export default async function youtubeOAuthRoutes(
         pkceVerifier,
         exp,
       );
-      setOAuthCookie(reply, cookieVal, req);
+      setOAuthCookie(reply, cookieVal);
 
       const authorizeUrl = buildYoutubeAuthorizeUrl(state, pkceChallenge);
       return reply.code(200).send({

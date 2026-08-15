@@ -1,8 +1,7 @@
 import type { ApiErrorBody } from '@shared/types/api';
 import { translateApiErrorBody } from '@/i18n/apiErrors';
-import { API_BASE, IS_ECHO_TAURI_SHELL } from '@/config';
+import { API_BASE } from '@/config';
 import { applyEchoCsrfFromAuthJson } from '@/utils/echoCsrf';
-import { applyNativeAuthFromAuthJson } from '@/services/auth/nativeAuthToken';
 import {
   echoClientDebugEnabled,
   echoClientDebugError,
@@ -175,7 +174,6 @@ export function logAuthNetworkFailure(params: {
     apiBase: API_BASE,
     href: typeof window !== 'undefined' ? window.location.href : undefined,
     origin: typeof window !== 'undefined' ? window.location.origin : undefined,
-    isDesktopBuild: IS_ECHO_TAURI_SHELL,
     navigatorOnline:
       typeof navigator !== 'undefined' ? navigator.onLine : undefined,
     crossOrigin: cors.crossOrigin,
@@ -264,14 +262,6 @@ export function authEndpointsDoc(): { label: string; href: string }[] {
       label: 'POST /discord/login/start',
       href: `${base}/discord/login/start`,
     },
-    {
-      label: 'GET /discord/login/start (desktop -> system browser)',
-      href: `${base}/discord/login/start`,
-    },
-    {
-      label: 'POST /desktop/redeem-handoff',
-      href: `${base}/desktop/redeem-handoff`,
-    },
     { label: 'GET /discord/callback', href: `${base}/discord/callback` },
   ];
 }
@@ -280,5 +270,4 @@ export async function finalizeAuthSessionResponse(
   data: Record<string, unknown>,
 ): Promise<void> {
   applyEchoCsrfFromAuthJson(data);
-  await applyNativeAuthFromAuthJson(data);
 }

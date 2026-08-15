@@ -1,5 +1,4 @@
 const DEV_CONSOLE_LOG_ENDPOINT = '/__dev/console-log';
-import { isDesktop } from '@/platform/desktopBridge';
 
 type ConsoleIssueLevel = 'warn' | 'error';
 type ConsoleIssueKind = 'console' | 'window_error' | 'unhandled_rejection';
@@ -22,7 +21,6 @@ const SENSITIVE_LOG_KEY =
 
 let recorderInstalled = false;
 let isPostingFailure = false;
-let isDesktopInvokeFailure = false;
 
 function safeSerialize(value: unknown, depth = 0): unknown {
   if (value == null) return value;
@@ -77,23 +75,6 @@ function toMessage(args: unknown[]): string {
 }
 
 function postConsoleIssue(payload: ConsoleIssuePayload): void {
-  if (isDesktop()) {
-    if (isDesktopInvokeFailure) return;
-    void import('@tauri-apps/api/core')
-      .then(({ invoke }) =>
-        invoke('log_frontend_event', {
-          payload,
-        }),
-      )
-      .catch(() => {
-        isDesktopInvokeFailure = true;
-        originalWarn(
-          '[desktop-log] Failed to invoke log_frontend_event; disabling recorder posts for this session.',
-        );
-      });
-    return;
-  }
-
   if (isPostingFailure || typeof fetch !== 'function') return;
   void fetch(DEV_CONSOLE_LOG_ENDPOINT, {
     method: 'POST',
@@ -129,7 +110,7 @@ function reportConsoleIssue(
 
 export function installDevConsoleLogRecorder(): void {
   if (recorderInstalled || typeof window === 'undefined') return;
-  if (!import.meta.env.DEV && !isDesktop()) return;
+  if (!import.meta.env.DEV) return;
   recorderInstalled = true;
 
   console.warn = (...args: unknown[]) => {

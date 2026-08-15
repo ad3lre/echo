@@ -1,7 +1,30 @@
-import { createPublicKey } from 'crypto';
+import { createHash, createPublicKey } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { OAUTH_UPSTREAM_FETCH_MS } from '../../constants/outboundHttp';
 import type { FetchLike } from './googleApiClient';
+
+/**
+ * Native clients generate a raw nonce, set `ASAuthorizationAppleIDRequest.nonce`
+ * to a SHA-256 digest of that value, and POST the *raw* nonce to Echo. Apple
+ * echoes the digest (unmodified) in the ID-token `nonce` claim. Accept hex or
+ * base64url digests, plus an already-hashed client value for older callers.
+ */
+export function appleIdTokenNonceMatches(
+  claimsNonce: string | undefined,
+  expectedNonce: string,
+): boolean {
+  const claim = (claimsNonce ?? '').trim();
+  const expected = expectedNonce.trim();
+  if (!expected) return true;
+  if (!claim) return false;
+  if (claim === expected) return true;
+  const hex = createHash('sha256').update(expected, 'utf8').digest('hex');
+  if (claim === hex) return true;
+  const base64url = createHash('sha256')
+    .update(expected, 'utf8')
+    .digest('base64url');
+  return claim === base64url;
+}
 
 /**
  * Sign in with Apple identity-token verification.
@@ -184,7 +207,10 @@ export async function verifyAppleIdentityToken(
       ? lastErr
       : new Error('apple_id_token_invalid');
   }
-  if (options.expectedNonce && (claims.nonce ?? '') !== options.expectedNonce) {
+  if (
+    options.expectedNonce &&
+    !appleIdTokenNonceMatches(claims.nonce, options.expectedNonce)
+  ) {
     throw new Error('apple_id_token_nonce_mismatch');
   }
   return claims;

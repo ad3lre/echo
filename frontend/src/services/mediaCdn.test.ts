@@ -39,4 +39,26 @@ describe('mediaCdn service', () => {
     );
     expect(resolved).not.toBe(unsigned);
   });
+
+  it('coalesces concurrent signing requests for the same object', async () => {
+    const unsigned = `https://media.echo.example${ECHO_MEDIA_CDN_OBJECT_PREFIX}echo/avatars/u1/a.webp`;
+    vi.mocked(echoFetch).mockResolvedValue({
+      urls: [
+        {
+          storageKey: 'echo/avatars/u1/a.webp',
+          url: `${unsigned}?t=signed`,
+          expiresAt: Date.now() + 3_600_000,
+          scope: 'object',
+        },
+      ],
+    });
+
+    const resolved = await Promise.all([
+      resolveSignedEchoMediaUrl({ url: unsigned }),
+      resolveSignedEchoMediaUrl({ url: unsigned }),
+    ]);
+
+    expect(echoFetch).toHaveBeenCalledTimes(1);
+    expect(resolved).toEqual([`${unsigned}?t=signed`, `${unsigned}?t=signed`]);
+  });
 });

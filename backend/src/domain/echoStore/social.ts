@@ -154,6 +154,69 @@ export async function filterEchoViewersWhoCanSeeSubject(
   return r.rows.map((row) => String(row.viewer_id));
 }
 
+export type EchoDiscoverableUser = {
+  id: string;
+  name: string;
+  username: string;
+  pfp: string;
+};
+
+/**
+ * People-search / suggested-users surface for add-friend.
+ * Empty `query` returns recent full accounts the viewer is not already related to.
+ */
+export async function listEchoDiscoverableUsers(
+  pool: pg.Pool,
+  viewerId: string,
+  query: string,
+  limit: number,
+): Promise<EchoDiscoverableUser[]> {
+  const q = query.trim();
+  const capped = Math.min(20, Math.max(1, limit));
+  const pattern = `%${q.replace(/[%_\\]/g, '\\$&')}%`;
+  const result = await pool.query<{
+    id: string;
+    name: string;
+    username: string;
+    pfp: string;
+  }>(
+    `
+    SELECT u.id,
+           COALESCE(NULLIF(TRIM(u.display_name), ''), u.username) AS name,
+           u.username,
+           COALESCE(u.pfp, '') AS pfp
+      FROM auth_users u
+     WHERE u.id <> $1
+       AND COALESCE(u.is_guest, false) = false
+       AND COALESCE(u.is_discord_shadow, false) = false
+       AND ($2 = '' OR u.username ILIKE $3 ESCAPE '\\' OR u.display_name ILIKE $3 ESCAPE '\\')
+       AND NOT EXISTS (
+         SELECT 1
+           FROM echo_user_blocks b
+          WHERE (b.blocker_id = $1 AND b.blocked_id = u.id)
+             OR (b.blocked_id = $1 AND b.blocker_id = u.id)
+       )
+       AND NOT EXISTS (
+         SELECT 1
+           FROM echo_friendships f
+          WHERE (f.user_id = $1 AND f.peer_id = u.id)
+             OR (f.user_id = u.id AND f.peer_id = $1)
+       )
+     ORDER BY CASE WHEN $2 <> '' AND LOWER(u.username) = LOWER($2) THEN 0 ELSE 1 END,
+              u.signup_ordinal DESC NULLS LAST,
+              LOWER(u.username) ASC
+     LIMIT $4
+    `,
+    [viewerId, q, pattern, capped],
+  );
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name ?? row.username ?? 'Echo user'),
+    username: String(row.username ?? ''),
+    pfp: String(row.pfp ?? ''),
+  }));
+}
+
 export async function listEchoFriends(
   pool: pg.Pool,
   userId: string,
@@ -220,7 +283,11 @@ export async function acceptEchoFriendship(
   return r.rowCount != null && r.rowCount > 0;
 }
 
-export type EchoPendingFriendIncoming = { id: string; fromUserId: string };
+export type EchoPendingFriendIncoming = {
+  id: string;
+  fromUserId: string;
+  fromUser: { id: string; name: string; username: string; pfp: string };
+};
 export type EchoPendingFriendOutgoing = { id: string; toUserId: string };
 
 export async function listEchoPendingFriendRequestsIncoming(
@@ -229,8 +296,13 @@ export async function listEchoPendingFriendRequestsIncoming(
 ): Promise<EchoPendingFriendIncoming[]> {
   const r = await pool.query(
     `
-    SELECT f.id, f.user_id AS from_user_id
+    SELECT f.id,
+           f.user_id AS from_user_id,
+           COALESCE(NULLIF(TRIM(u.display_name), ''), u.username) AS from_name,
+           u.username AS from_username,
+           COALESCE(u.pfp, '') AS from_pfp
     FROM echo_friendships f
+    INNER JOIN auth_users u ON u.id = f.user_id
     WHERE f.peer_id = $1 AND f.status = 'pending'
       AND NOT EXISTS (
         SELECT 1 FROM echo_user_blocks b
@@ -241,10 +313,24 @@ export async function listEchoPendingFriendRequestsIncoming(
     `,
     [userId],
   );
-  return r.rows.map((row: { id: string; from_user_id: string }) => ({
-    id: String(row.id),
-    fromUserId: String(row.from_user_id),
-  }));
+  return r.rows.map(
+    (row: {
+      id: string;
+      from_user_id: string;
+      from_name: string;
+      from_username: string;
+      from_pfp: string;
+    }) => ({
+      id: String(row.id),
+      fromUserId: String(row.from_user_id),
+      fromUser: {
+        id: String(row.from_user_id),
+        name: String(row.from_name ?? row.from_username ?? 'Echo user'),
+        username: String(row.from_username ?? ''),
+        pfp: String(row.from_pfp ?? ''),
+      },
+    }),
+  );
 }
 
 export async function listEchoPendingFriendRequestsOutgoing(

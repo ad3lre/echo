@@ -1,0 +1,20 @@
+{
+  "colors": [
+    {
+      "idiom": "universal",
+      "color": {
+        "color-space": "srgb",
+        "components": {
+          "alpha": "1.000",
+          "blue": "0.010",
+          "green": "0.007",
+          "red": "0.005"
+        }
+      }
+    }
+  ],
+  "info": {
+    "author": "echo",
+    "version": 1
+  }
+}

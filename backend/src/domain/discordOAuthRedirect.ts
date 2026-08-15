@@ -1,5 +1,4 @@
 import { config } from '../config';
-import { oauthDesktopBridgeHandoffRedirect } from './oauthDesktopBridgeRedirect';
 
 export type DiscordOAuthRedirectKind = 'link' | 'login';
 
@@ -39,11 +38,6 @@ export function discordOAuthAppRedirect(
     if (errorCode) u.searchParams.set('discord_error', errorCode);
   }
   return u.toString();
-}
-
-/** @deprecated Prefer {@link oauthDesktopBridgeHandoffRedirect} */
-export function discordOAuthDesktopBridgeRedirect(handoffCode: string): string {
-  return oauthDesktopBridgeHandoffRedirect(handoffCode);
 }
 
 export function isDiscordOauthConfigured(): boolean {

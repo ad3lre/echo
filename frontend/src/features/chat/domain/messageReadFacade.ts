@@ -39,6 +39,15 @@ export const messageReadFacade = {
     return messageWindowAuthority.hasMoreNewer;
   },
 
+  /** Directional edge state for retry/boundary-aware history controllers. */
+  get activeOlderBoundary() {
+    return messageWindowAuthority.olderBoundary;
+  },
+
+  get activeNewerBoundary() {
+    return messageWindowAuthority.newerBoundary;
+  },
+
   /** The current scroll anchor ID (if any). */
   get activeAnchorId(): Ref<string | null> {
     return messageWindowAuthority.anchorId;

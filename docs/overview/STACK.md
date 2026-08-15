@@ -8,8 +8,8 @@ This document outlines the core technologies and infrastructure choices for buil
 
 Dated changes to the architecture plan (newest first):
 
-- **2026-06-01 — Documentation refresh:** Native clients section updated — **Tauri** ships on desktop (Windows, macOS, Linux), **Android**, and **iOS**; Flutter is not in the tree. GitHub Actions is the authoritative CI; GitLab CI is a Prettier mirror only. Example hosting notes moved under [Example deployment](#example-deployment-maintainers-reference).
-- **2026-04-06 — Native clients (Tauri):** Packaged clients use **Tauri** shells around the Vue 3 SPA — desktop and mobile. See [Native client shells (Tauri)](#native-client-shells-tauri).
+- **2026-08-15 — Native clients:** Tauri shells removed. Native Apple apps live under [`apple/`](../../apple/); the Vue SPA is web/PWA only. See [Native clients](#native-clients).
+- **2026-06-01 — Documentation refresh:** GitHub Actions is the authoritative CI; GitLab CI is a Prettier mirror only. Example hosting notes moved under [Example deployment](#example-deployment-maintainers-reference).
 - **2026-04-01 — Single-node first, distributed at scale:** Echo **optimizes for a single Node API process** (one primary realtime tier, in-memory Socket.IO adapter, co-located assumptions). **Multi-instance** Socket.IO (`NATS_URL` adapter), shared rate limits, Redis-grade presence across replicas, and broader **distributed-system** work are **explicitly deferred** until the product reaches on the order of **~50,000 average concurrent users** (CCU-style simultaneous usage — exact definition TBD with ops). Until then, vertical scale, query/index tuning, and observability beat horizontal complexity. See [realtime-scaling.md](../infra/realtime-scaling.md) and [STATUS_AND_PRODUCTION_READINESS.md](../reviews/STATUS_AND_PRODUCTION_READINESS.md).
 - **2026-04-01 — Social graph + presence polish:** Pending friend requests are exposed at **GET /api/v1/echo/friends/requests** with **POST …/friends/decline** and **POST …/friends/cancel**; the client hydrates them in real mode. **Per-process** socket ref-counting avoids marking a user offline when one tab disconnects while another remains on the same API process; **stale presence sweep** emits **presence:update** for users moved to `offline` (see [realtime-scaling.md](../infra/realtime-scaling.md)).
 - **2026-04-01 — Optional NATS for Socket.IO:** The backend can attach **@mickl/socket.io-nats-adapter** when **NATS_URL** is set (`attachSocketAdapterIfConfigured` in `backend/src/bootstrap/socket.ts`). This is **multi-instance WebSocket fan-out**, not the full deferred **JetStream / platform NATS** story. See [realtime-scaling.md](../infra/realtime-scaling.md).
@@ -34,19 +34,17 @@ Dated changes to the architecture plan (newest first):
 - **System fonts with fallback** for fast first paint.
 - **Virtual lists** for long chat histories.
 
-## Native client shells (Tauri)
+## Native clients
 
-The **Vue 3 SPA** in `frontend/` is the shared UI for web and native builds. **Tauri** wraps it for installed apps:
+Installed apps are **first-party native**, not a WebView wrapper around the SPA.
 
-| Platform | Entry                                                                              |
-| -------- | ---------------------------------------------------------------------------------- |
-| Windows  | [desktop-windows.md](../operations/desktop-windows.md) — `tauri.windows.conf.json` |
-| macOS    | [desktop-macos.md](../operations/desktop-macos.md) — `tauri.macos.conf.json`       |
-| Linux    | [desktop-linux.md](../operations/desktop-linux.md) — `tauri.linux.conf.json`       |
-| Android  | [android-tauri.md](../operations/android-tauri.md) — `tauri.android.conf.json`     |
-| iOS      | [ios-tauri.md](../operations/ios-tauri.md) — `tauri.ios.conf.json`                 |
+| Platform    | Entry                                                                         |
+| ----------- | ----------------------------------------------------------------------------- |
+| iOS / macOS | [`apple/README.md`](../../apple/README.md) — SwiftUI, Observation, URLSession |
 
-Build from repo root: `npm run tauri:dev` / platform-specific scripts in `package.json`. Release artifact paths: [`releases/README.md`](../../releases/README.md).
+The **Vue 3 SPA** in `frontend/` remains the web and PWA client. Additional native platforms (Android, Windows, Linux) will land as separate first-party trees when ready.
+
+Passkeys / Universal Links: [ios-passkeys.md](../operations/ios-passkeys.md).
 
 Related: the SPA can optionally show an Echo **screen-share settings** modal when `VITE_SCREEN_SHARE_CONFIG_MODAL=true` (e.g. desktop builds); default **browser** builds skip it and defer to the OS capture picker (`frontend/src/config/screenShareUi.ts`).
 

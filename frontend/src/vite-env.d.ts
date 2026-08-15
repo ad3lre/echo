@@ -1,19 +1,6 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /**
-   * When `"1"`, the bundle runs inside any Tauri shell (desktop, Android, or iOS).
-   * Use for API origin / auth paths that are not same-origin with the API.
-   */
-  readonly VITE_ECHO_TAURI?: string;
-  /** When `"1"`, build targets the Tauri desktop shell (`http://tauri.localhost`). */
-  readonly VITE_ECHO_DESKTOP?: string;
-  /** When `"1"`, build targets the Tauri Android shell. */
-  readonly VITE_ECHO_ANDROID?: string;
-  /** When `"1"`, build targets the Tauri iOS shell. */
-  readonly VITE_ECHO_IOS?: string;
-  /** Desktop: silent updater poll interval (ms). `0` disables. Default production: 6h when unset. */
-  readonly VITE_DESKTOP_UPDATE_CHECK_INTERVAL_MS?: string;
   readonly VITE_API_URL?: string;
   readonly VITE_SOCKET_IO_URL?: string;
   /** Authoritative game-server Socket.IO origin (default dev: `http://<host>:3060`). */

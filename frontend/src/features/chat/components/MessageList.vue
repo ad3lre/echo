@@ -194,6 +194,7 @@ const props = defineProps<{
     timeoutMinutes?: number;
   }) => void;
   loadOlder?: () => Promise<boolean>;
+  loadNewer?: () => Promise<boolean>;
   loadInitialBackfill?: () => Promise<boolean>;
   initialBackfillLoading?: boolean;
   initialBackfillPending?: boolean;
@@ -202,6 +203,7 @@ const props = defineProps<{
    */
   ensureMessageInWindow?: (messageId: string) => Promise<boolean>;
   loadingOlder?: boolean;
+  loadingNewer?: boolean;
   /** Echo: while first page of history loads for an empty UUID channel, show message-shaped skeletons. */
   initialHistoryLoading?: boolean;
   /** Navigation-level loading (e.g. DM thread opening) before channel id/history resolve. */
@@ -1553,6 +1555,7 @@ function flushScrollSideEffects(): void {
   const el = containerRef.value;
   const scrollTop = el?.scrollTop;
   runLoadOlderIfEligible();
+  runLoadNewerIfEligible();
   updateJumpUiFromScroll();
   logMessageListThrottled(
     'scroll_idle_flush',
@@ -1571,6 +1574,22 @@ function flushScrollSideEffects(): void {
     },
   );
   schedulePersistViewportMemory();
+}
+
+/** Load the next page when a target-centered window is scrolled back toward present. */
+function runLoadNewerIfEligible(): void {
+  const el = containerRef.value;
+  if (
+    !el ||
+    !props.loadNewer ||
+    props.loadingNewer ||
+    messageWindowAuthority.hasMoreNewer.value === false
+  ) {
+    return;
+  }
+  if (distanceFromBottomPx() > NEAR_BOTTOM_PX) return;
+  if (lastObservedScrollDirection !== 'down') return;
+  void props.loadNewer();
 }
 
 /**

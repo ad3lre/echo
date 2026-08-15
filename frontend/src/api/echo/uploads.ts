@@ -69,7 +69,7 @@ function resolveEchoUploadPutUrl(uploadUrl: string): string {
 }
 
 /**
- * Desktop / split-host UIs load from `window.location` (e.g. `https://tauri.localhost`) while
+ * Split-host UIs may load from a different origin while
  * `API_BASE` points at the Echo host. `echoFetch` always uses `credentials: 'include'` there;
  * upload PUTs to the same Echo origin must match or `requireAuth` on `/uploads/local/put` never
  * sees `echo_sid`. Presigned S3/R2 URLs are a different origin — keep `withCredentials` off.

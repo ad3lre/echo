@@ -13,12 +13,9 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import {
   AuthApiError,
-  authDiscordDesktopHandoffStartUrl,
   authDiscordLoginStart,
   authForgotPassword,
-  authGoogleDesktopHandoffStartUrl,
   authGoogleLoginStart,
-  authSignInWithApple,
   authLogin,
   authLoginMfa,
   authPasskeyLoginVerify,
@@ -32,21 +29,7 @@ import { messageForDiscordOAuthError } from '@/features/discord/discordIntegrati
 import { messageForGoogleOAuthError } from '@/features/google/googleIntegrationCopy';
 import { GOOGLE_SSO_SIGNIN_UI_ENABLED } from '@/features/google/googleSsoUiEnabled';
 import { useAuthSessionStore } from '@/stores/authSession';
-import {
-  clearPendingDesktopOAuthHandoffNonce,
-  createPendingDesktopOAuthHandoffNonce,
-  setPendingDesktopOAuthReturnPath,
-} from '@/platform/desktopOAuthHandoff';
-import {
-  isDesktop,
-  openExternal,
-  startOAuthFlow,
-} from '@/platform/desktopBridge';
-import { iosNativeHaptic } from '@/platform/iosNativeFeedback';
-import {
-  appleSignInAvailable,
-  signInWithAppleNative,
-} from '@/platform/iosAppleSignIn';
+import { startOAuthFlow } from '@/platform/desktopBridge';
 import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import {
   getPasskeyWebCeremonyBlockReason,
@@ -88,13 +71,11 @@ const view = ref<View>('welcome');
 const direction = ref<'forward' | 'back'>('forward');
 
 function push(target: Exclude<View, 'welcome'>) {
-  iosNativeHaptic('selection');
   direction.value = 'forward';
   view.value = target;
 }
 
 function pop(target: View = 'welcome') {
-  iosNativeHaptic('selection');
   direction.value = 'back';
   view.value = target;
 }
@@ -223,11 +204,6 @@ function mapError(err: unknown): string {
 
 function setAuthError(message: string): void {
   errorMessage.value = message;
-  iosNativeHaptic('error');
-}
-
-function signalAuthSuccess(): void {
-  iosNativeHaptic('success');
 }
 
 // ── Auth flows ──────────────────────────────────────────────────────────────
@@ -240,7 +216,6 @@ function signalAuthSuccess(): void {
 async function passkeyModalSignIn(raw: string): Promise<string | null> {
   const blocked = getPasskeyWebCeremonyBlockReason('login');
   if (blocked) return blocked;
-  iosNativeHaptic('medium');
   try {
     const ident = passkeyLoginIdentFromRaw(raw);
     const { credential, challengeId } =
@@ -258,7 +233,6 @@ async function passkeyModalSignIn(raw: string): Promise<string | null> {
       return null;
     }
     authSession.setSession(result);
-    signalAuthSuccess();
     emit('authenticated');
     return null;
   } catch (e) {
@@ -267,78 +241,28 @@ async function passkeyModalSignIn(raw: string): Promise<string | null> {
   }
 }
 
-async function startDiscord(): Promise<void> {
+async function startOauthRedirect(
+  start: () => Promise<{ authorizeUrl: string }>,
+): Promise<void> {
   if (props.isMockDataMode) return;
-  iosNativeHaptic('light');
   submitting.value = true;
   errorMessage.value = '';
   try {
-    if (isDesktop()) {
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      setPendingDesktopOAuthReturnPath(returnPath);
-      const nonce = createPendingDesktopOAuthHandoffNonce();
-      const startUrl = authDiscordDesktopHandoffStartUrl(nonce);
-      await openExternal(startUrl, { skipSafetyPrompt: true });
-      return;
-    }
-    const { authorizeUrl } = await authDiscordLoginStart();
+    const { authorizeUrl } = await start();
     startOAuthFlow(authorizeUrl);
   } catch (e) {
-    if (isDesktop()) clearPendingDesktopOAuthHandoffNonce();
     setAuthError(mapError(e));
   } finally {
     submitting.value = false;
   }
 }
 
-async function startGoogle(): Promise<void> {
-  if (props.isMockDataMode) return;
-  iosNativeHaptic('light');
-  submitting.value = true;
-  errorMessage.value = '';
-  try {
-    if (isDesktop()) {
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      setPendingDesktopOAuthReturnPath(returnPath);
-      const nonce = createPendingDesktopOAuthHandoffNonce();
-      const startUrl = authGoogleDesktopHandoffStartUrl(nonce);
-      await openExternal(startUrl, { skipSafetyPrompt: true });
-      return;
-    }
-    const { authorizeUrl } = await authGoogleLoginStart();
-    startOAuthFlow(authorizeUrl);
-  } catch (e) {
-    if (isDesktop()) clearPendingDesktopOAuthHandoffNonce();
-    setAuthError(mapError(e));
-  } finally {
-    submitting.value = false;
-  }
+function startDiscord(): Promise<void> {
+  return startOauthRedirect(authDiscordLoginStart);
 }
 
-async function startApple(): Promise<void> {
-  if (props.isMockDataMode) return;
-  iosNativeHaptic('light');
-  submitting.value = true;
-  errorMessage.value = '';
-  try {
-    const cred = await signInWithAppleNative();
-    const { user } = await authSignInWithApple({
-      identityToken: cred.identityToken,
-      nonce: cred.nonce,
-      displayName: cred.displayName,
-    });
-    // Session is established server-side (cookies + native bearer). Apply the
-    // returned profile and proceed. On-device verification should confirm the
-    // app picks up the session (see docs/ios-appstore-compliance.md #9).
-    authSession.applyRestoredProfile(user);
-    signalAuthSuccess();
-    emit('authenticated');
-  } catch (e) {
-    // `apple_signin_unavailable` / user-cancel land here; surface generic copy.
-    setAuthError(mapError(e));
-  } finally {
-    submitting.value = false;
-  }
+function startGoogle(): Promise<void> {
+  return startOauthRedirect(authGoogleLoginStart);
 }
 
 async function submitLogin(): Promise<void> {
@@ -365,7 +289,6 @@ async function submitLogin(): Promise<void> {
       return;
     }
     authSession.setSession(result);
-    signalAuthSuccess();
     emit('authenticated');
   } catch (e) {
     setAuthError(mapError(e));
@@ -398,7 +321,6 @@ async function submitMfa(): Promise<void> {
       useTotp ? { mfaToken: token, code } : { mfaToken: token, recoveryCode },
     );
     authSession.setSession(session);
-    signalAuthSuccess();
     mfaToken.value = null;
     emit('authenticated');
   } catch (e) {
@@ -448,7 +370,6 @@ async function submitRegister(): Promise<void> {
           ...(d ? { displayName: d } : {}),
         });
     authSession.setSession(session);
-    signalAuthSuccess();
     emit('authenticated');
   } catch (e) {
     setAuthError(mapError(e));
@@ -471,7 +392,6 @@ async function submitForgot(): Promise<void> {
     forgotMessage.value =
       out.message ||
       'If an account exists for that email, you will receive reset instructions.';
-    iosNativeHaptic('success');
   } catch (e) {
     setAuthError(mapError(e));
   } finally {
@@ -480,7 +400,6 @@ async function submitForgot(): Promise<void> {
 }
 
 function openLegalModal(tabId: 'terms' | 'privacy') {
-  iosNativeHaptic('selection');
   legalModalTab.value = tabId;
   legalModalOpen.value = true;
 }
@@ -583,26 +502,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
                 />
               </svg>
               <span class="mobile-auth__chip-text">Continue with Discord</span>
-            </button>
-            <button
-              v-if="appleSignInAvailable()"
-              type="button"
-              class="mobile-auth__chip mobile-auth__chip--apple"
-              :disabled="submitting"
-              aria-label="Sign in with Apple"
-              @click="startApple"
-            >
-              <svg
-                class="mobile-auth__chip-icon mobile-auth__chip-icon--apple"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  fill="currentColor"
-                  d="M16.365 1.43c0 1.14-.42 2.2-1.12 2.99-.74.85-1.97 1.5-3.04 1.42-.13-1.12.42-2.27 1.07-2.99.74-.81 2.04-1.42 3.09-1.42zM20.5 17.2c-.55 1.27-.81 1.84-1.52 2.97-1 1.57-2.41 3.53-4.16 3.54-1.55.02-1.95-1.01-4.06-1-2.11.01-2.55 1.02-4.11 1.01-1.75-.02-3.09-1.78-4.09-3.35C-.31 17.93-.6 12.7 1.93 9.92c.94-1.05 2.31-1.71 3.56-1.71 1.27 0 2.07.83 3.12.83 1.02 0 1.64-.83 3.11-.83 1.11 0 2.29.61 3.13 1.66-2.75 1.51-2.3 5.43.65 6.56-.39.92-.6 1.34-1 2.77z"
-                />
-              </svg>
-              <span class="mobile-auth__chip-text">Sign in with Apple</span>
             </button>
           </div>
 

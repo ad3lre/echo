@@ -1,6 +1,6 @@
 # Native (iOS) Bearer-Token Auth — Implementation Plan
 
-**Status:** Proposed · **Owner:** TBD · **Scope:** iOS native shell first (extensible to Android/desktop)
+**Status:** Implemented for native Apple auth · **Scope:** iOS native shell first (extensible to Android/desktop)
 
 ## Problem
 
@@ -68,7 +68,7 @@ regress on any iOS update. A 30-minute spike to confirm is worthwhile, but the d
 
 ## Backend changes
 
-1. **Config flag** `AUTH_NATIVE_BEARER` (`config.ts`, default `false`), distinct from `authLegacyBearer`.
+1. **Config flag** `AUTH_NATIVE_BEARER` (`config.ts`, native clients enabled by default), distinct from `authLegacyBearer`.
 2. **Client detection**: native clients send `X-Echo-Client: ios` (set in `transport.ts`/`authClient.ts`).
    Use it in `issueEchoBrowserSession` to decide whether to also return tokens in the JSON body.
 3. **`issueEchoBrowserSession`**: when native + `AUTH_NATIVE_BEARER`, also mint an access token (with

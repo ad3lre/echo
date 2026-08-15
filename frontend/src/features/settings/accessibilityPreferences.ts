@@ -1,7 +1,6 @@
 import {
   isBraveBrowserSyncHint,
   isBraveBrowser,
-  isMacTauriWebKitSyncHint,
   isWebKitDesktop,
 } from '@/platform/browserCompatibility';
 
@@ -44,11 +43,9 @@ function readStored(): Partial<AccessibilityPreferences> {
 }
 
 function shouldDefaultSolidGlassSurfaces(): boolean {
-  /* WKWebView (macOS Tauri) and Brave often fail to composite backdrop-filter
-   * after theme token swaps — opaque glass keeps the shell visible. */
-  return (
-    isBraveBrowserSyncHint() || isWebKitDesktop() || isMacTauriWebKitSyncHint()
-  );
+  /* WKWebView and Brave often fail to composite backdrop-filter after theme
+   * token swaps — opaque glass keeps the shell visible. */
+  return isBraveBrowserSyncHint() || isWebKitDesktop();
 }
 
 function resolveSolidGlassSurfacesDefault(
@@ -94,8 +91,7 @@ export async function reconcileSolidGlassPreferenceForWeakCompositors(): Promise
   const stored = readStored();
   if (isBool(stored.solidGlassSurfaces) && stored.solidGlassSurfaces) return;
 
-  const needsSolidGlass =
-    isWebKitDesktop() || isMacTauriWebKitSyncHint() || (await isBraveBrowser());
+  const needsSolidGlass = isWebKitDesktop() || (await isBraveBrowser());
   if (!needsSolidGlass) return;
 
   const prefs = loadAccessibilityPreferences();

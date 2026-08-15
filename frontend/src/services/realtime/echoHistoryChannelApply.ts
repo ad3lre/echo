@@ -66,7 +66,15 @@ export function applyEchoHistoryInitialPageFromApi(
     channelId,
     apiMessageCount >= pageLimit,
   );
+  // A latest-position page is already at the newest known edge.
+  messageWindowAuthority.setHasMoreNewer(channelId, false);
   applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap);
+  if (
+    apiMessageCount < pageLimit &&
+    messageWindowAuthority.hasCachedOlder(channelId)
+  ) {
+    messageWindowAuthority.setBoundary(channelId, 'older', 'more');
+  }
   return synced;
 }
 
@@ -77,6 +85,7 @@ export function applyEchoHistoryLatestPageFromApi(
   activeChannelIdForCap: string,
 ): { mergedNewerCount: number } {
   if (rawNewer.length === 0) {
+    messageWindowAuthority.setHasMoreNewer(channelId, false);
     return { mergedNewerCount: 0 };
   }
   const { mergedNewerCount } = appendChannelMessagesFromHistory(
@@ -86,7 +95,43 @@ export function applyEchoHistoryLatestPageFromApi(
   if (mergedNewerCount > 0) {
     applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap);
   }
+  messageWindowAuthority.setHasMoreNewer(channelId, false);
   return { mergedNewerCount };
+}
+
+/** Newer rows fetched while the user is viewing an older retained window. */
+export function applyEchoHistoryNewerPageFromApi(
+  channelId: string,
+  rawNewer: RawMessage[],
+  apiMessageCount: number,
+  activeChannelIdForCap: string,
+  pageLimit: number = ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+): { mergedNewerCount: number } {
+  const { mergedNewerCount } = appendChannelMessagesFromHistory(
+    channelId,
+    rawNewer,
+  );
+  messageWindowAuthority.setHasMoreNewer(
+    channelId,
+    apiMessageCount >= pageLimit,
+  );
+  if (mergedNewerCount > 0) {
+    applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap);
+  }
+  return { mergedNewerCount };
+}
+
+/** Target-centered page; both directional edges remain fetchable until proven otherwise. */
+export function applyEchoHistoryAroundPageFromApi(
+  channelId: string,
+  rawAround: RawMessage[],
+  activeChannelIdForCap: string,
+): { mergedCount: number } {
+  const synced = replaceChannelMessagesFromHistory(channelId, rawAround);
+  messageWindowAuthority.setBoundary(channelId, 'older', 'more');
+  messageWindowAuthority.setBoundary(channelId, 'newer', 'more');
+  applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap);
+  return { mergedCount: synced.length };
 }
 
 /** Older page from API (scroll prepend, jump prefetch). */
@@ -98,7 +143,11 @@ export function applyEchoHistoryOlderPageFromApi(
   pageLimit: number = ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
 ): { mergedOlderCount: number } {
   if (apiMessageCount === 0) {
-    messageWindowAuthority.setHasMoreOlder(channelId, false);
+    messageWindowAuthority.setBoundary(
+      channelId,
+      'older',
+      messageWindowAuthority.hasCachedOlder(channelId) ? 'more' : 'reached',
+    );
     return { mergedOlderCount: 0 };
   }
   const { mergedOlderCount } = prependChannelMessagesFromHistory(
@@ -106,7 +155,11 @@ export function applyEchoHistoryOlderPageFromApi(
     rawOlder,
   );
   if (apiMessageCount < pageLimit) {
-    messageWindowAuthority.setHasMoreOlder(channelId, false);
+    messageWindowAuthority.setBoundary(
+      channelId,
+      'older',
+      messageWindowAuthority.hasCachedOlder(channelId) ? 'more' : 'reached',
+    );
   }
   applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap);
   return { mergedOlderCount };

@@ -2,10 +2,8 @@ import './config/loadEnv';
 import * as path from 'path';
 import { resolveCsamScanConfig } from './config/csamPrecompute';
 import {
-  mergeCorsWithDesktop,
   normalizeDiscordOauthRedirectUri,
   parseCorsOrigin,
-  parseEchoDesktopAllowedOrigins,
   resolvedEchoAppPublicUrl,
 } from './config/corsAndUrls';
 import {
@@ -56,12 +54,6 @@ interface AppConfig {
   readonly host: string;
   readonly logLevel: string;
   readonly corsOrigin: string | string[] | true;
-  /**
-   * Origins (e.g. `https://tauri.localhost`) that may receive `SameSite=None` session cookies
-   * for the Tauri desktop shell. Comma-separated in `ECHO_DESKTOP_ALLOWED_ORIGINS`; defaults
-   * include Tauri’s dev origins when unset.
-   */
-  readonly echoDesktopAllowedOrigins: string[];
   /** Canonical backend persistence mode (single source of truth). */
   readonly backendStorageMode: BackendStorageMode;
   readonly databaseUrl: string | null;
@@ -678,7 +670,6 @@ try {
   if (err instanceof ConfigFatalError) process.exit(1);
   throw err;
 }
-const echoDesktopAllowedOrigins = parseEchoDesktopAllowedOrigins();
 const csam = resolveCsamScanConfig();
 
 const resolvedJwtSecret = process.env.JWT_SECRET ?? 'dev-insecure-secret';
@@ -703,11 +694,7 @@ export const config: AppConfig = {
   port: process.env.PORT ? Number(process.env.PORT) : 3000,
   host: process.env.HOST ?? '0.0.0.0',
   logLevel: process.env.LOG_LEVEL ?? 'info',
-  corsOrigin: mergeCorsWithDesktop(
-    parseCorsOrigin(),
-    echoDesktopAllowedOrigins,
-  ),
-  echoDesktopAllowedOrigins,
+  corsOrigin: parseCorsOrigin(),
   backendStorageMode: storage.backendStorageMode,
   databaseUrl: storage.databaseUrl,
   natsUrl: process.env.NATS_URL ?? null,
@@ -1303,8 +1290,8 @@ export const config: AppConfig = {
     process.env.ECHO_DISCORD_TOKEN_ENCRYPTION_KEY?.trim() || null,
   redisUrl: process.env.REDIS_URL?.trim() || null,
   authLegacyBearer: parseBoolean(process.env.AUTH_LEGACY_BEARER, false),
-  /** Session-bound bearer for native Tauri shells (iOS + desktop); revocable via server session. */
-  authNativeBearer: parseBoolean(process.env.AUTH_NATIVE_BEARER, false),
+  /** Session-bound bearer for native Apple clients (iOS + macOS); revocable via server session. */
+  authNativeBearer: parseBoolean(process.env.AUTH_NATIVE_BEARER, true),
   echoLoginEventsRetentionDays: (() => {
     const raw = process.env.ECHO_LOGIN_EVENTS_RETENTION_DAYS;
     if (raw === undefined || raw === '') return 90;

@@ -1,4 +1,7 @@
-export type { MessageWindow } from '@/services/realtime/messageWindowAuthority';
+export type {
+  MessageBoundaryState,
+  MessageWindow,
+} from '@/services/realtime/messageWindowAuthority';
 export {
   hasActiveMessageWindow,
   messageWindowAuthority,

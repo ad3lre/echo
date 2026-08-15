@@ -24,7 +24,7 @@ If private reporting is unavailable, open a **draft** security advisory with min
 
 ### What to include
 
-- Affected component (e.g. `backend/`, `frontend/`, `src-tauri/`) and version or commit SHA.
+- Affected component (e.g. `backend/`, `frontend/`, `apple/`) and version or commit SHA.
 - Steps to reproduce, expected vs actual behavior, and impact assessment.
 - Optional: suggested fix (pull requests welcome after coordination).
 

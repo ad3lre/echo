@@ -8,6 +8,7 @@ import {
   blockEchoUser,
   cancelEchoPendingFriendRequest,
   declineEchoPendingFriendRequest,
+  listEchoDiscoverableUsers,
   listEchoFriends,
   listEchoMutualFriendPeerIds,
   listEchoPendingFriendRequestsIncoming,
@@ -55,6 +56,23 @@ async function run(): Promise<void> {
     await insertAuthUser(pool, userC, 'C');
     await insertAuthUser(pool, userD, 'D');
 
+    const suggested = await listEchoDiscoverableUsers(pool, userA, '', 8);
+    assert.ok(suggested.some((u) => u.id === userB));
+    assert.ok(suggested.some((u) => u.id === userC));
+    assert.ok(suggested.some((u) => u.id === userD));
+    assert.ok(!suggested.some((u) => u.id === userA));
+
+    const bUsername = suggested.find((u) => u.id === userB)!.username;
+    const byUsername = await listEchoDiscoverableUsers(
+      pool,
+      userA,
+      bUsername,
+      8,
+    );
+    assert.equal(byUsername.length, 1);
+    assert.equal(byUsername[0]!.id, userB);
+    assert.equal(byUsername[0]!.name, 'B');
+
     assert.equal(
       await addEchoFriendRequest(pool, userA, userA),
       'already_related',
@@ -69,6 +87,9 @@ async function run(): Promise<void> {
     const outA = await listEchoPendingFriendRequestsOutgoing(pool, userA);
     assert.equal(incB.length, 1);
     assert.equal(incB[0]!.fromUserId, userA);
+    assert.equal(incB[0]!.fromUser.id, userA);
+    assert.equal(incB[0]!.fromUser.name, 'A');
+    assert.ok(incB[0]!.fromUser.username.startsWith('soc_'));
     assert.equal(outA.length, 1);
     assert.equal(outA[0]!.toUserId, userB);
 
@@ -98,6 +119,8 @@ async function run(): Promise<void> {
     const friendsB = await listEchoFriends(pool, userB);
     assert.ok(friendsA.some((f) => f.peerId === userB));
     assert.ok(friendsB.some((f) => f.peerId === userA));
+    const afterFriend = await listEchoDiscoverableUsers(pool, userA, '', 20);
+    assert.ok(!afterFriend.some((u) => u.id === userB));
 
     assert.equal(await addEchoFriendRequest(pool, userC, userA), 'created');
     assert.equal(await acceptEchoFriendship(pool, userA, userC), true);
@@ -131,6 +154,8 @@ async function run(): Promise<void> {
     assert.equal(await addEchoFriendRequest(pool, userB, userD), 'created');
     assert.equal(await blockEchoUser(pool, userB, userD), 'blocked_new');
     assert.equal(await addEchoFriendRequest(pool, userB, userD), 'blocked');
+    const afterBlock = await listEchoDiscoverableUsers(pool, userB, '', 20);
+    assert.ok(!afterBlock.some((u) => u.id === userD));
     assert.equal(await blockEchoUser(pool, userA, userC), 'blocked_new');
     assert.equal(await blockEchoUser(pool, userA, userC), 'already_blocked');
     assert.equal(await unblockEchoUser(pool, userA, userC), 'unblocked');

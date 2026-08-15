@@ -16,6 +16,7 @@ import {
   putEchoChannelReadState,
 } from '@/api/echoClient';
 import { ECHO_HISTORY_INITIAL_FETCH_TIMEOUT_MS } from '@/features/chat/constants/echoHistoryFetchTimeouts';
+import { EchoApiError } from '@/api/echo/transport';
 import {
   resetMessageListViewportStorageForTests,
   writeMessageListViewport,
@@ -290,6 +291,41 @@ describe('useEchoHistory', () => {
     expect(history.initialLoading.value).toBe(false);
     expect(history.error.value).toMatch(/timed out/i);
 
+    scope.stop();
+  });
+
+  it('leaves a blocked stale DM route instead of trapping the user there', async () => {
+    const channelId = '1492135186257805312';
+    vi.mocked(fetchEchoChannelMessages).mockRejectedValue(
+      new EchoApiError(403, {
+        code: 'FORBIDDEN',
+        message: 'You cannot open this DM.',
+        detail: 'DM_USER_BLOCKED',
+      }),
+    );
+    vi.mocked(fetchEchoAttentionSummary).mockResolvedValue({
+      channelAttentionByChannelId: {},
+      serverAttentionByServerId: {},
+      serverNotificationLevelByServerId: {},
+    });
+
+    const messages = ref<Record<string, RawMessage[]>>({});
+    bindChannelMessageBuckets(messages);
+    const activeChannelId = ref(channelId);
+    const scope = effectScope();
+    const history = scope.run(() =>
+      useEchoHistory(activeChannelId, {
+        echoDmThreadIds: shallowRef(new Set([channelId])),
+        echoDmPeerByChannelId: shallowRef(new Map()),
+      }),
+    );
+    if (!history) throw new Error('useEchoHistory did not create a controller');
+
+    await flushMicrotasks();
+    await flushMicrotasks();
+
+    expect(activeChannelId.value).toBe('');
+    expect(history.error.value).toBeNull();
     scope.stop();
   });
 

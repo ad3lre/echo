@@ -3,21 +3,10 @@ import { computed, ref } from 'vue';
 import { icons } from '@/assets/icons';
 import {
   AuthApiError,
-  authDiscordDesktopHandoffStartUrl,
   authDiscordLoginStart,
-  authGoogleDesktopHandoffStartUrl,
   authGoogleLoginStart,
 } from '@/api/authClient';
-import {
-  isDesktop,
-  openExternal,
-  startOAuthFlow,
-} from '@/platform/desktopBridge';
-import {
-  clearPendingDesktopOAuthHandoffNonce,
-  createPendingDesktopOAuthHandoffNonce,
-  setPendingDesktopOAuthReturnPath,
-} from '@/platform/desktopOAuthHandoff';
+import { startOAuthFlow } from '@/platform/desktopBridge';
 import { translateApiErrorBody } from '@/i18n/apiErrors';
 import { echoT } from '@/i18n';
 import { GOOGLE_SSO_SIGNIN_UI_ENABLED } from '@/features/google/googleSsoUiEnabled';
@@ -77,50 +66,28 @@ function mapOauthError(err: unknown): string {
   return echoT('common.somethingWentWrong');
 }
 
-async function onDiscordClick() {
+async function startInviteOauth(
+  start: () => Promise<{ authorizeUrl: string }>,
+) {
   emit('persist-before-oauth');
   oauthBusy.value = true;
   oauthError.value = '';
   try {
-    if (isDesktop()) {
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      setPendingDesktopOAuthReturnPath(returnPath);
-      const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
-      const startUrl = authDiscordDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl, { skipSafetyPrompt: true });
-      return;
-    }
-    const { authorizeUrl } = await authDiscordLoginStart();
+    const { authorizeUrl } = await start();
     startOAuthFlow(authorizeUrl);
   } catch (e) {
-    if (isDesktop()) clearPendingDesktopOAuthHandoffNonce();
     oauthError.value = mapOauthError(e);
   } finally {
     oauthBusy.value = false;
   }
 }
 
-async function onGoogleClick() {
-  emit('persist-before-oauth');
-  oauthBusy.value = true;
-  oauthError.value = '';
-  try {
-    if (isDesktop()) {
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      setPendingDesktopOAuthReturnPath(returnPath);
-      const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
-      const startUrl = authGoogleDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl, { skipSafetyPrompt: true });
-      return;
-    }
-    const { authorizeUrl } = await authGoogleLoginStart();
-    startOAuthFlow(authorizeUrl);
-  } catch (e) {
-    if (isDesktop()) clearPendingDesktopOAuthHandoffNonce();
-    oauthError.value = mapOauthError(e);
-  } finally {
-    oauthBusy.value = false;
-  }
+function onDiscordClick() {
+  return startInviteOauth(authDiscordLoginStart);
+}
+
+function onGoogleClick() {
+  return startInviteOauth(authGoogleLoginStart);
 }
 </script>
 

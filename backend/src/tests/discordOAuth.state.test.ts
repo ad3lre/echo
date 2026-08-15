@@ -20,19 +20,13 @@ async function run(): Promise<void> {
   assert.equal(decoded.userId, userId);
   assert.equal(decoded.state, state);
 
-  const { stateForDiscord, exp: loginExp } =
-    encodeDiscordLoginSignedState(false);
+  const { stateForDiscord, exp: loginExp } = encodeDiscordLoginSignedState();
   const signed = decodeDiscordLoginSignedState(stateForDiscord);
   assert.ok(signed);
-  assert.equal(signed.desktopHandoff, false);
+  assert.equal(signed.exp, loginExp);
 
-  const desktopNonceHash = 'a'.repeat(64);
-  const { stateForDiscord: desktopStateForDiscord } =
-    encodeDiscordLoginSignedState(true, desktopNonceHash);
-  const desktopSigned = decodeDiscordLoginSignedState(desktopStateForDiscord);
-  assert.ok(desktopSigned);
-  assert.equal(desktopSigned.desktopHandoff, true);
-  assert.equal(desktopSigned.desktopHandoffNonceHash, desktopNonceHash);
+  const tamperedSignedState = stateForDiscord.replace(/.$/, 'x');
+  assert.equal(decodeDiscordLoginSignedState(tamperedSignedState), null);
 
   const loginCookie = encodeDiscordOAuthLoginCookieValue(
     stateForDiscord,

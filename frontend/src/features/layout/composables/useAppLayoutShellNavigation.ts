@@ -24,10 +24,7 @@ import {
 import { useRailNavigation } from './useRailNavigation';
 import { createDmRailIntents } from './useAppLayoutDmIntents';
 import { useUrlNavigationSync } from '@/features/layout/composables/useUrlNavigationSync';
-import {
-  registerEchoProductDeepLinkNavigator,
-  flushPendingEchoProductDeepLink,
-} from '@/platform/desktopProductDeepLink';
+import { registerEchoShellPathNavigator } from '@/features/layout/echoShellPathNavigation';
 import {
   logShellNav,
   logShellNavWithStack,
@@ -461,13 +458,8 @@ export function useAppLayoutShellNavigation(
     inviteLandingActive: opts.inviteLandingActive,
   });
 
-  registerEchoProductDeepLinkNavigator({
+  registerEchoShellPathNavigator({
     applyFromBrowserLocation: urlNavSync.applyFromBrowserLocation,
-    isWorkspaceReady: () => workspaceReady.value,
-  });
-
-  watch(workspaceReady, (ready) => {
-    if (ready) flushPendingEchoProductDeepLink();
   });
 
   return {

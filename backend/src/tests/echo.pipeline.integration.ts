@@ -14,6 +14,7 @@ import {
   type Socket as IoClientSocket,
 } from 'socket.io-client';
 import { getEchoStore } from '../domain/echoStore';
+import { resetOfficialEchoServerIdCacheForTests } from '../domain/echoStore/officialServerOnboarding';
 import { buildEchoTestApp } from './helpers/echoTestApp';
 
 async function pollChannelMessage(
@@ -49,6 +50,29 @@ async function pollChannelMessage(
   throw new Error(
     `pollChannelMessage timeout (last ${lastStatus}): ${lastBody.slice(0, 240)}`,
   );
+}
+
+async function pollMutualFriendsVisible(
+  baseUrl: string,
+  peerId: string,
+  sid: string,
+  timeoutMs = 10_000,
+): Promise<{ status: number; body: string }> {
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus = 0;
+  let lastBody = '';
+  while (Date.now() < deadline) {
+    const res = await fetch(
+      `${baseUrl}/api/v1/echo/friends/mutual?peerId=${encodeURIComponent(peerId)}`,
+      { headers: { cookie: `echo_sid=${sid}` } },
+    );
+    lastStatus = res.status;
+    lastBody = await res.text();
+    if (res.status === 200) return { status: res.status, body: lastBody };
+    if (res.status !== 403) break;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  return { status: lastStatus, body: lastBody };
 }
 
 async function run(): Promise<void> {
@@ -373,12 +397,14 @@ async function run(): Promise<void> {
         },
         body: JSON.stringify({
           name: 'Pipeline Server Renamed',
+          vanityCode: 'echo',
           description: 'Integration test blurb.',
         }),
       },
     );
     const renameBody = await rename.text();
     assert.equal(rename.status, 204, renameBody);
+    resetOfficialEchoServerIdCacheForTests();
 
     const listAfter = await fetch(`${baseUrl}/api/v1/echo/servers`, {
       headers: { cookie: `echo_sid=${t1Sid}` },
@@ -822,15 +848,16 @@ async function run(): Promise<void> {
       false,
     );
 
-    const mutualFriendsStranger = await fetch(
-      `${baseUrl}/api/v1/echo/friends/mutual?peerId=${encodeURIComponent(t3.user.id)}`,
-      { headers: { cookie: `echo_sid=${t1Sid}` } },
+    const mutualFriendsStranger = await pollMutualFriendsVisible(
+      baseUrl,
+      t3.user.id,
+      t1Sid!,
     );
-    const mutualFriendsStrangerBody = await mutualFriendsStranger.text();
-    // Both users auto-join Echo home; mutual lookup is allowed but returns none.
-    assert.equal(mutualFriendsStranger.status, 200, mutualFriendsStrangerBody);
+    // Signup auto-join is best-effort and asynchronous. Once both users have
+    // joined Echo home, mutual lookup is allowed but returns none.
+    assert.equal(mutualFriendsStranger.status, 200, mutualFriendsStranger.body);
     assert.deepEqual(
-      (JSON.parse(mutualFriendsStrangerBody) as { userIds: string[] }).userIds,
+      (JSON.parse(mutualFriendsStranger.body) as { userIds: string[] }).userIds,
       [],
     );
 

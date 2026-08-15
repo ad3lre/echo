@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Verify AASA is present in frontend/dist and matches Team ID + bundle ids.
+ * Verify AASA is present in frontend/dist and matches Team ID + bundle ids
+ * from `apple/project.yml` (or env overrides).
  * Optional live check: ECHO_AASA_VERIFY_URL=https://chat-echo.com
  */
 import fs from 'node:fs';
@@ -19,32 +20,60 @@ function fail(msg) {
   process.exit(1);
 }
 
-const iosConf = readJson(path.join(root, 'src-tauri', 'tauri.ios.conf.json'));
-const desktopConf = readJson(path.join(root, 'src-tauri', 'tauri.conf.json'));
+function readProjectYmlIds() {
+  const ymlPath = path.join(root, 'apple', 'project.yml');
+  if (!fs.existsSync(ymlPath)) {
+    return { teamId: '', iosBundleId: '', macosBundleId: '' };
+  }
+  const text = fs.readFileSync(ymlPath, 'utf8');
+  const team =
+    text.match(/DEVELOPMENT_TEAM:\s*['"]?([A-Z0-9]+)['"]?/)?.[1] ?? '';
+  const bundles = [
+    ...text.matchAll(/PRODUCT_BUNDLE_IDENTIFIER:\s*([A-Za-z0-9.]+)/g),
+  ].map((m) => m[1]);
+  const iosBundleId =
+    bundles.find((b) => b.includes('.ios') || b.endsWith('.ios')) ??
+    bundles[0] ??
+    '';
+  const macosBundleId =
+    bundles.find((b) => b.includes('.macos') || b.endsWith('.macos')) ??
+    bundles.find((b) => b !== iosBundleId) ??
+    '';
+  return { teamId: team, iosBundleId, macosBundleId };
+}
+
+const fromYml = readProjectYmlIds();
 
 const teamId = (
   process.env.APPLE_DEVELOPMENT_TEAM ||
-  iosConf.bundle?.iOS?.developmentTeam ||
+  fromYml.teamId ||
   ''
 ).trim();
 const iosBundleId = (
   process.env.ECHO_IOS_BUNDLE_ID ||
-  iosConf.identifier ||
+  fromYml.iosBundleId ||
   ''
 ).trim();
-const desktopBundleId = (
+const macosBundleId = (
+  process.env.ECHO_MACOS_BUNDLE_ID ||
   process.env.ECHO_DESKTOP_BUNDLE_ID ||
-  desktopConf.identifier ||
+  fromYml.macosBundleId ||
   ''
 ).trim();
 
+if (!teamId || !iosBundleId) {
+  fail(
+    'Missing APPLE_DEVELOPMENT_TEAM or iOS bundle id (apple/project.yml / env)',
+  );
+}
+
 const expectedIosAppId = `${teamId}.${iosBundleId}`;
-const expectedDesktopAppId =
-  desktopBundleId && desktopBundleId !== iosBundleId
-    ? `${teamId}.${desktopBundleId}`
+const expectedMacosAppId =
+  macosBundleId && macosBundleId !== iosBundleId
+    ? `${teamId}.${macosBundleId}`
     : null;
-const expectedWebcredentialApps = expectedDesktopAppId
-  ? [expectedIosAppId, expectedDesktopAppId]
+const expectedWebcredentialApps = expectedMacosAppId
+  ? [expectedIosAppId, expectedMacosAppId]
   : [expectedIosAppId];
 
 const distPath = path.join(

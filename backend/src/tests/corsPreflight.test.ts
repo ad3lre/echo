@@ -1,7 +1,7 @@
 /**
  * Ensures Echo API CORS preflight allows diagnostic headers sent by the SPA
- * (`frontend/src/api/echo/transport.ts`) and keeps credentialed desktop
- * requests valid for `http://tauri.localhost`. No database required.
+ * (`frontend/src/api/echo/transport.ts`) and keeps credentialed cross-origin
+ * requests valid for the SPA origin. No database required.
  *
  * Run: npx ts-node src/tests/corsPreflight.test.ts (from backend/)
  */
@@ -19,7 +19,7 @@ async function run(): Promise<void> {
     method: 'OPTIONS',
     url: '/api/v1/echo/workspace',
     headers: {
-      origin: 'http://tauri.localhost',
+      origin: 'http://localhost:8080',
       'access-control-request-method': 'GET',
       'access-control-request-headers': 'x-diag-trace-id,x-diag-span-id',
     },
@@ -28,7 +28,7 @@ async function run(): Promise<void> {
   assert.equal(res.statusCode, 204, res.payload);
   assert.equal(
     res.headers['access-control-allow-origin'],
-    'http://tauri.localhost',
+    'http://localhost:8080',
   );
   assert.equal(res.headers['access-control-allow-credentials'], 'true');
   assert.equal(
@@ -52,7 +52,7 @@ async function run(): Promise<void> {
     method: 'OPTIONS',
     url: '/api/v1/echo/uploads/local/put',
     headers: {
-      origin: 'http://tauri.localhost',
+      origin: 'http://localhost:8080',
       'access-control-request-method': 'PUT',
       'access-control-request-headers': 'authorization,content-type',
     },
@@ -60,7 +60,7 @@ async function run(): Promise<void> {
   assert.equal(uploadPutPreflight.statusCode, 204, uploadPutPreflight.payload);
   assert.equal(
     uploadPutPreflight.headers['access-control-allow-origin'],
-    'http://tauri.localhost',
+    'http://localhost:8080',
   );
   assert.equal(
     uploadPutPreflight.headers['access-control-allow-credentials'],
@@ -79,7 +79,7 @@ async function run(): Promise<void> {
     method: 'GET',
     url: '/api/v1/echo/workspace',
     headers: {
-      origin: 'http://tauri.localhost',
+      origin: 'http://localhost:8080',
       'x-diag-trace-id': 'trace_test_cors',
       'x-diag-span-id': 'span_test_cors',
     },
@@ -87,7 +87,7 @@ async function run(): Promise<void> {
   assert.equal(actual.statusCode, 200, actual.payload);
   assert.equal(
     actual.headers['access-control-allow-origin'],
-    'http://tauri.localhost',
+    'http://localhost:8080',
   );
   assert.equal(actual.headers['access-control-allow-credentials'], 'true');
   assert.equal(

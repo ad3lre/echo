@@ -976,11 +976,18 @@ export async function getEchoMessageById(
 export async function listEchoMessages(
   pool: pg.Pool,
   channelId: string,
-  opts: { before?: string; limit: number },
+  opts: {
+    before?: string;
+    after?: string;
+    around?: string;
+    limit: number;
+  },
   diag?: {
     onTiming?: (t: {
       channelId: string;
       before: string | null;
+      after: string | null;
+      around: string | null;
       limit: number;
       messageCount: number;
       queryMs: number;
@@ -992,10 +999,93 @@ export async function listEchoMessages(
   },
 ): Promise<EchoMessageRow[]> {
   const limit = Math.min(Math.max(opts.limit, 1), 100);
+  const cursors = [opts.before, opts.after, opts.around].filter(Boolean);
+  if (cursors.length > 1) {
+    throw new Error('Only one message history cursor may be provided');
+  }
   const hasE2ee = await echoMessagesTableHasE2eeColumns(pool);
   const selectFields = selectEchoMessageRowSqlFields(hasE2ee);
   const t0 = process.hrtime.bigint();
-  if (opts.before) {
+  const enrich = async (
+    rows: Record<string, unknown>[],
+    queryMs: number,
+  ): Promise<EchoMessageRow[]> => {
+    const drafts = mapMsgRowsDraft(rows).reverse();
+    const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
+    const labeled = enriched.rows;
+    const t1 = process.hrtime.bigint();
+    diag?.onTiming?.({
+      channelId,
+      before: opts.before ?? null,
+      after: opts.after ?? null,
+      around: opts.around ?? null,
+      limit,
+      messageCount: labeled.length,
+      queryMs,
+      pollMs: enriched.pollMs,
+      reactionsMs: enriched.reactionsMs,
+      authorsMs: enriched.authorsMs,
+      totalMs: Number(t1 - t0) / 1e6,
+    });
+    return labeled;
+  };
+
+  if (opts.around) {
+    const half = Math.floor((limit - 1) / 2);
+    const newerLimit = limit - half - 1;
+    const tq0 = process.hrtime.bigint();
+    const [older, target, newer] = await Promise.all([
+      pool.query(
+        `
+        SELECT ${selectFields}
+        FROM echo_messages
+        WHERE channel_id = $1 AND deleted_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM echo_messages anchor
+            WHERE anchor.id = $2 AND anchor.channel_id = $1 AND anchor.deleted_at IS NULL
+          )
+          AND ${echoMessageIdPgGreaterThan('$2', 'id')}
+        ORDER BY ${ECHO_MESSAGE_TIMELINE_ORDER_DESC}
+        LIMIT $3
+        `,
+        [channelId, opts.around, half],
+      ),
+      pool.query(
+        `
+        SELECT ${selectFields}
+        FROM echo_messages
+        WHERE channel_id = $1 AND id = $2 AND deleted_at IS NULL
+        LIMIT 1
+        `,
+        [channelId, opts.around],
+      ),
+      pool.query(
+        `
+        SELECT ${selectFields}
+        FROM echo_messages
+        WHERE channel_id = $1 AND deleted_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM echo_messages anchor
+            WHERE anchor.id = $2 AND anchor.channel_id = $1 AND anchor.deleted_at IS NULL
+          )
+          AND ${echoMessageIdPgGreaterThan('id', '$2')}
+        ORDER BY ${ECHO_MESSAGE_TIMELINE_ORDER_DESC}
+        LIMIT $3
+        `,
+        [channelId, opts.around, newerLimit],
+      ),
+    ]);
+    const tq1 = process.hrtime.bigint();
+    // `enrich` reverses newest-first SQL pages into the client’s chronological order.
+    const rows = [...newer.rows, ...target.rows, ...older.rows];
+    return enrich(rows, Number(tq1 - tq0) / 1e6);
+  }
+
+  if (opts.before || opts.after) {
+    const cursor = opts.before ?? opts.after!;
+    const predicate = opts.before
+      ? echoMessageIdPgGreaterThan('$2', 'id')
+      : echoMessageIdPgGreaterThan('id', '$2');
     const tq0 = process.hrtime.bigint();
     const r = await pool.query(
       `
@@ -1006,29 +1096,14 @@ export async function listEchoMessages(
           SELECT 1 FROM echo_messages anchor
           WHERE anchor.id = $2 AND anchor.channel_id = $1 AND anchor.deleted_at IS NULL
         )
-        AND (${echoMessageIdPgGreaterThan('$2', 'id')})
+        AND ${predicate}
       ORDER BY ${ECHO_MESSAGE_TIMELINE_ORDER_DESC}
       LIMIT $3
       `,
-      [channelId, opts.before, limit],
+      [channelId, cursor, limit],
     );
     const tq1 = process.hrtime.bigint();
-    const drafts = mapMsgRowsDraft(r.rows).reverse();
-    const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
-    const labeled = enriched.rows;
-    const t1 = process.hrtime.bigint();
-    diag?.onTiming?.({
-      channelId,
-      before: opts.before,
-      limit,
-      messageCount: labeled.length,
-      queryMs: Number(tq1 - tq0) / 1e6,
-      pollMs: enriched.pollMs,
-      reactionsMs: enriched.reactionsMs,
-      authorsMs: enriched.authorsMs,
-      totalMs: Number(t1 - t0) / 1e6,
-    });
-    return labeled;
+    return enrich(r.rows, Number(tq1 - tq0) / 1e6);
   }
   const tq0 = process.hrtime.bigint();
   const r = await pool.query(
@@ -1042,22 +1117,7 @@ export async function listEchoMessages(
     [channelId, limit],
   );
   const tq1 = process.hrtime.bigint();
-  const drafts = mapMsgRowsDraft(r.rows).reverse();
-  const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
-  const labeled = enriched.rows;
-  const t1 = process.hrtime.bigint();
-  diag?.onTiming?.({
-    channelId,
-    before: null,
-    limit,
-    messageCount: labeled.length,
-    queryMs: Number(tq1 - tq0) / 1e6,
-    pollMs: enriched.pollMs,
-    reactionsMs: enriched.reactionsMs,
-    authorsMs: enriched.authorsMs,
-    totalMs: Number(t1 - t0) / 1e6,
-  });
-  return labeled;
+  return enrich(r.rows, Number(tq1 - tq0) / 1e6);
 }
 
 export type EchoMessageSearchHasType =
@@ -1805,6 +1865,14 @@ export async function queryEchoDmThreadsForUser(
           OR mr.status = 'accepted'
           OR (mr.status = 'pending' AND mr.requester_user_id = $1)
         )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM echo_user_blocks b
+          WHERE (b.blocker_id = $1 AND b.blocked_id = CASE
+            WHEN d.user_low = $1 THEN d.user_high ELSE d.user_low END)
+             OR (b.blocked_id = $1 AND b.blocker_id = CASE
+            WHEN d.user_low = $1 THEN d.user_high ELSE d.user_low END)
+        )
       UNION
       SELECT g.channel_id
       FROM echo_group_dm_members g
@@ -1837,6 +1905,14 @@ export async function queryEchoDmThreadsForUser(
           mr.channel_id IS NULL
           OR mr.status = 'accepted'
           OR (mr.status = 'pending' AND mr.requester_user_id = $1)
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM echo_user_blocks b
+          WHERE (b.blocker_id = $1 AND b.blocked_id = CASE
+            WHEN d.user_low = $1 THEN d.user_high ELSE d.user_low END)
+             OR (b.blocked_id = $1 AND b.blocker_id = CASE
+            WHEN d.user_low = $1 THEN d.user_high ELSE d.user_low END)
         )
     ),
     grp AS (

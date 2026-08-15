@@ -12,9 +12,6 @@ export function isSettingsSectionVisibleForUser(
   section: SettingsSection,
   user: AuthUserPublic | null | undefined,
 ): boolean {
-  if (section === 'Desktop') {
-    return import.meta.env.VITE_ECHO_DESKTOP === '1';
-  }
   if (section === 'Subscriptions') {
     return user?.hasActiveSubscription === true;
   }

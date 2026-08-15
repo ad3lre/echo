@@ -57,7 +57,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   // future WS routes share the same plugin instance.
   await fastify.register(websocket);
   // Lets `/auth/*` and `/auth/discord/*` accept `application/x-www-form-urlencoded`
-  // (CORS-simple POSTs from the Tauri WebView; see `frontend/src/api/authClient.ts`).
+  // (CORS-simple POSTs; see `frontend/src/api/authClient.ts`).
   await fastify.register(formbody);
 
   await fastify.register(healthRoutes, { prefix: '/api/v1' });

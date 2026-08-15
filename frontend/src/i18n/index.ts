@@ -4,7 +4,6 @@ import common from './locales/en-US/common.json';
 import bootstrap from './locales/en-US/bootstrap.json';
 import time from './locales/en-US/time.json';
 import legal from './locales/en-US/legal.json';
-import tauri from './locales/en-US/tauri.json';
 import errors from './locales/en-US/errors.json';
 import dialogs from './locales/en-US/dialogs.json';
 import auth from './locales/en-US/auth.json';
@@ -26,7 +25,6 @@ function buildEnUsMessages() {
     bootstrap,
     time,
     legal,
-    tauri,
     errors: { api: errors },
     dialogs,
     auth,
@@ -103,11 +101,6 @@ export async function setEchoLocale(locale: EchoUiLocale): Promise<void> {
   if (typeof document !== 'undefined') {
     document.documentElement.lang = normalized;
   }
-  void import('@/platform/desktopTrayLocale')
-    .then((m) => m.syncDesktopTrayLocale())
-    .catch(() => {
-      /* web vitest / non-Tauri bundles may fail to load the tray module */
-    });
 }
 
 /** Translate outside Vue setup / components (after i18n is installed). */

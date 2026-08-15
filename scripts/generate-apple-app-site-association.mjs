@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Writes `frontend/public/.well-known/apple-app-site-association` for iOS Universal Links
- * and Shared Web Credentials (Password AutoFill / passkeys on iOS + macOS desktop).
+ * Writes `frontend/public/.well-known/apple-app-site-association` for iOS
+ * Universal Links and Shared Web Credentials (Password AutoFill / passkeys).
  *
- * Team ID and iOS bundle id default from `src-tauri/tauri.ios.conf.json`.
- * macOS desktop bundle id from `src-tauri/tauri.conf.json` (`com.echo.desktop`).
+ * Defaults come from `apple/project.yml` (DEVELOPMENT_TEAM + PRODUCT_BUNDLE_IDENTIFIER).
  * Override for other deployments:
- *   APPLE_DEVELOPMENT_TEAM, ECHO_IOS_BUNDLE_ID, ECHO_DESKTOP_BUNDLE_ID, ECHO_APP_LINK_HOST
+ *   APPLE_DEVELOPMENT_TEAM, ECHO_IOS_BUNDLE_ID, ECHO_MACOS_BUNDLE_ID, ECHO_APP_LINK_HOST
  *
  * Skip entirely: ECHO_SKIP_APP_SITE_ASSOCIATION=1
  */
@@ -17,34 +16,50 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
-function readJson(p) {
-  return JSON.parse(fs.readFileSync(p, 'utf8'));
-}
-
 if (process.env.ECHO_SKIP_APP_SITE_ASSOCIATION === '1') {
   process.exit(0);
 }
 
-const iosConfPath = path.join(root, 'src-tauri', 'tauri.ios.conf.json');
-const desktopConfPath = path.join(root, 'src-tauri', 'tauri.conf.json');
-const iosConf = readJson(iosConfPath);
-const desktopConf = readJson(desktopConfPath);
+function readProjectYmlIds() {
+  const ymlPath = path.join(root, 'apple', 'project.yml');
+  if (!fs.existsSync(ymlPath)) {
+    return { teamId: '', iosBundleId: '', macosBundleId: '' };
+  }
+  const text = fs.readFileSync(ymlPath, 'utf8');
+  const team =
+    text.match(/DEVELOPMENT_TEAM:\s*['"]?([A-Z0-9]+)['"]?/)?.[1] ?? '';
+  const bundles = [
+    ...text.matchAll(/PRODUCT_BUNDLE_IDENTIFIER:\s*([A-Za-z0-9.]+)/g),
+  ].map((m) => m[1]);
+  const iosBundleId =
+    bundles.find((b) => b.includes('.ios') || b.endsWith('.ios')) ??
+    bundles[0] ??
+    '';
+  const macosBundleId =
+    bundles.find((b) => b.includes('.macos') || b.endsWith('.macos')) ??
+    bundles.find((b) => b !== iosBundleId) ??
+    '';
+  return { teamId: team, iosBundleId, macosBundleId };
+}
+
+const fromYml = readProjectYmlIds();
 
 const teamId = (
   process.env.APPLE_DEVELOPMENT_TEAM ||
-  iosConf.bundle?.iOS?.developmentTeam ||
+  fromYml.teamId ||
   ''
 ).trim();
 
 const iosBundleId = (
   process.env.ECHO_IOS_BUNDLE_ID ||
-  iosConf.identifier ||
+  fromYml.iosBundleId ||
   ''
 ).trim();
 
-const desktopBundleId = (
+const macosBundleId = (
+  process.env.ECHO_MACOS_BUNDLE_ID ||
   process.env.ECHO_DESKTOP_BUNDLE_ID ||
-  desktopConf.identifier ||
+  fromYml.macosBundleId ||
   ''
 ).trim();
 
@@ -52,18 +67,18 @@ const host = (process.env.ECHO_APP_LINK_HOST || 'chat-echo.com').trim();
 
 if (!teamId || !iosBundleId) {
   console.warn(
-    '[aasa] Skip: missing APPLE_DEVELOPMENT_TEAM or iOS bundle id in tauri.ios.conf.json',
+    '[aasa] Skip: missing APPLE_DEVELOPMENT_TEAM or iOS bundle id in apple/project.yml',
   );
   process.exit(0);
 }
 
 const iosAppId = `${teamId}.${iosBundleId}`;
-const desktopAppId =
-  desktopBundleId && desktopBundleId !== iosBundleId
-    ? `${teamId}.${desktopBundleId}`
+const macosAppId =
+  macosBundleId && macosBundleId !== iosBundleId
+    ? `${teamId}.${macosBundleId}`
     : null;
 
-const webcredentialApps = desktopAppId ? [iosAppId, desktopAppId] : [iosAppId];
+const webcredentialApps = macosAppId ? [iosAppId, macosAppId] : [iosAppId];
 
 /** Paths Echo handles in the SPA (see urlNavigation.ts RESERVED_TOP_LEVEL_PATH_SLUGS). */
 const aasa = {
@@ -95,10 +110,6 @@ const aasa = {
           },
           {
             '/': '/paper/*',
-            exclude: true,
-          },
-          {
-            '/': '/oauth-desktop-bridge.html',
             exclude: true,
           },
           {

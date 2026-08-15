@@ -253,7 +253,11 @@ async function run(): Promise<void> {
       const anonymous = await fetch(
         `${baseUrl}/api/v1/echo/uploads/files/${encodedKey}`,
       );
-      assert.equal(anonymous.status, 200, await anonymous.text());
+      assert.equal(
+        anonymous.status,
+        200,
+        `${brandingKey}: ${await anonymous.text()}`,
+      );
     }
 
     const eventCoverBadCombo = await postPresign(baseUrl, t1Sid, t1.csrfToken, {

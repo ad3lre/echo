@@ -179,7 +179,7 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
               sess.refreshTokenId === rotation.previousTokenId
             ) {
               await updateSessionRefreshBinding(sid, user.id, newRec.id, user);
-              setRefreshCookie(reply, newRefresh, req);
+              setRefreshCookie(reply, newRefresh);
               const accessToken = includeNativeAuth
                 ? signSessionBoundAccessToken({
                     userId: user.id,
@@ -215,15 +215,11 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
             csrfSecret,
             cachedUser: user,
           });
-          setBrowserSessionCookies(
-            reply,
-            {
-              sessionId,
-              csrfSecret,
-              refreshToken: newRefresh,
-            },
-            req,
-          );
+          setBrowserSessionCookies(reply, {
+            sessionId,
+            csrfSecret,
+            refreshToken: newRefresh,
+          });
           const accessToken = includeNativeAuth
             ? signSessionBoundAccessToken({
                 userId: user.id,

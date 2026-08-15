@@ -19,7 +19,6 @@ import {
   applyAccessibilityPreferences,
   reconcileSolidGlassPreferenceForWeakCompositors,
 } from '@/features/settings/accessibilityPreferences';
-import { logDesktopBootDiag } from '@/platform/desktopBootDiagnostics';
 
 /**
  * Phase A boot: hydrate the persisted theme, dark/light variants, vibrant
@@ -52,15 +51,6 @@ export function hydrateBootThemeAndPreferences(): void {
   applyInterfaceDensityToDocument(loadPersistedInterfaceDensity());
   const bootA11yPrefs = loadAccessibilityPreferences();
   applyAccessibilityPreferences(bootA11yPrefs);
-  logDesktopBootDiag('bootThemeHydration:applied', {
-    persistedThemeId,
-    bootResolvedTheme,
-    bootCanonicalTheme,
-    bootDarkVariant,
-    bootLightVariant,
-    solidGlass: bootA11yPrefs.solidGlassSurfaces,
-    htmlTheme: document.documentElement.dataset.theme ?? null,
-  });
   void reconcileSolidGlassPreferenceForWeakCompositors();
   if (bootA11yPrefs.dyslexiaFriendlyFont) {
     void import('@fontsource/atkinson-hyperlegible/latin-400.css');

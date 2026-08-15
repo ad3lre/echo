@@ -58,10 +58,6 @@ export const SECTION_COPY: Record<SettingsSection, { blurb: string }> = {
     blurb:
       'Tune the app look, spacing, and visual treatment to match your setup.',
   },
-  Desktop: {
-    blurb:
-      'Tauri shell: tray, close-to-tray, launch at login, and in-app update checks.',
-  },
   Accessibility: {
     blurb:
       'Adjust readability, motion, and interaction behavior for comfort and clarity.',

@@ -1,12 +1,9 @@
 import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
-import { isDesktop } from '@/platform/desktopBridge';
 import { AuthApiError } from '@/api/authClient';
 import { PasskeyCeremonyNotReadyError } from '@/utils/passkeyWebCeremony';
 
 export type PasskeyCeremonyMode = 'login' | 'register';
-
-const isEchoIosShell = import.meta.env.VITE_ECHO_IOS === '1';
 
 /**
  * When non-null, the in-app WebAuthn ceremony must not run; show this message instead.
@@ -19,16 +16,6 @@ export function getPasskeyWebCeremonyBlockReason(
   }
   if (echoSyncCapabilities.isMockDataMode) {
     return 'Passkeys are not available in preview mode.';
-  }
-  if (isDesktop()) {
-    return mode === 'login'
-      ? 'Passkey sign-in in the desktop app is not supported yet. Use Discord, Google, or your Echo username and password.'
-      : 'Adding a passkey in the desktop app is not supported yet. Open Echo in Chrome, Safari, or Edge on the web to add one from Account settings.';
-  }
-  if (isEchoIosShell) {
-    return mode === 'login'
-      ? 'Use Face ID or Touch ID on the native sign-in screen to sign in with a passkey.'
-      : 'Adding a passkey from the iOS app is not supported yet. Open Echo in Safari on the web to add one from Account settings.';
   }
   if (typeof window !== 'undefined') {
     if (!window.isSecureContext) {

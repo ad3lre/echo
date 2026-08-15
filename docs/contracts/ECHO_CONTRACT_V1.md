@@ -70,7 +70,7 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
 
 ### Routes (summary)
 
-- `GET` `/channels/:channelId/messages`, `GET` `.../messages/:messageId`, `POST` `.../messages` (create; same validation + broadcast as socket `message`; **201** new row, **200** `{ message, idempotentReplay: true }` for idempotent replay inside window), `PATCH/DELETE` `.../messages/:messageId`
+- `GET` `/channels/:channelId/messages`, `GET` `.../messages/:messageId`, `POST` `.../messages` (create; same validation + broadcast as socket `message`; **201** new row, **200** `{ message, idempotentReplay: true }` for idempotent replay inside window), `PATCH/DELETE` `.../messages/:messageId`. History accepts one mutually-exclusive cursor — `before` (older page), `after` (newer page), or `around` (target-centered page) — plus `limit` (default 50, max 100); invalid combinations return **400** `INVALID_MESSAGE_CURSOR`.
 - `PUT/DELETE` `/channels/:channelId/messages/:messageId/reactions` — body `{ emoji }`; add / remove caller’s reaction; **200** `{ reactions }`; guild mutations are suppressed by communication timeout even when `ADD_REACTIONS` / `VIEW_CHANNEL` would otherwise allow them.
 - `GET` `/channels/:channelId/pins` — **200** `{ messageIds: string[] }` (newest first). `POST` same path, body `{ messageId }` — **200** `{ messageIds }`. `DELETE` `.../pins/:messageId` — **200** `{ messageIds }`. Requires `PIN_MESSAGES` for mutations and is also suppressed by communication timeout.
 - `GET/PUT` `/channels/:channelId/read-state` — **GET** `{ lastReadMessageId: string | null }`; **PUT** body `{ lastReadMessageId }` (must be a visible message in that channel); **204**; monotonic advance server-side (string compare on snowflake ids).

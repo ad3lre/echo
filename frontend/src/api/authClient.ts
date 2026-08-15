@@ -1,6 +1,5 @@
 import type { ApiErrorBody } from '@shared/types/api';
 import type { EchoPlanLimitsPublic } from '@shared/echoPlanLimits';
-import { IS_ECHO_TAURI_SHELL } from '@/config';
 import {
   applyEchoCsrfFromAuthJson,
   echoCsrfHeaders,
@@ -14,13 +13,6 @@ import {
   notifyAuthClearLocalTokensProbe,
 } from '@/api/authSessionBridge';
 import { newTraceId } from '@/observability/sessionDiagnostics';
-import {
-  authTryNativeBearerRefresh,
-  bootstrapNativeBearerSessionFromKeychain,
-  getNativeRefreshTokenForLogout,
-  isNativeBearerClient,
-  nativeAuthRequestHeaders,
-} from '@/services/auth/nativeAuthToken';
 import {
   echoClientDebugError,
   echoClientDebugWarn,
@@ -63,27 +55,16 @@ export type {
 
 let cookieRefreshInFlight: Promise<AuthUserPublic | null> | null = null;
 
-export { bootstrapNativeBearerSessionFromKeychain };
-
 async function postCookieRefreshOnce(): Promise<{
   res: Response;
   data: Record<string, unknown>;
 }> {
-  /**
-   * Desktop: CORS-simple empty form POST (no OPTIONS preflight that can break
-   * Set-Cookie on cross-origin Tauri WebViews). The refresh token rides on the
-   * `echo_rt` cookie either way, so the body is empty on both branches.
-   */
+  /** The refresh token rides on the `echo_rt` cookie, so the body is empty. */
   const res = await fetch(`${AUTH_BASE}/refresh`, {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': IS_ECHO_TAURI_SHELL
-        ? 'application/x-www-form-urlencoded'
-        : 'application/json',
-      ...nativeAuthRequestHeaders(),
-    },
-    body: IS_ECHO_TAURI_SHELL ? '' : JSON.stringify({}),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
   });
   const data = (await parseJson(res)) as Record<string, unknown>;
   return { res, data };
@@ -155,12 +136,6 @@ async function executeCookieRefresh(options?: {
 export async function authTryCookieRefresh(options?: {
   quietExpectedNoRefreshCookie?: boolean;
 }): Promise<AuthUserPublic | null> {
-  if (isNativeBearerClient()) {
-    const native = await authTryNativeBearerRefresh({
-      quietExpectedNoRefreshToken: options?.quietExpectedNoRefreshCookie,
-    });
-    if (native) return native;
-  }
   assertAuthDomainNetworkAllowed();
   if (!cookieRefreshInFlight) {
     cookieRefreshInFlight = executeCookieRefresh(options).finally(() => {
@@ -168,18 +143,6 @@ export async function authTryCookieRefresh(options?: {
     });
   }
   return cookieRefreshInFlight;
-}
-
-/**
- * When a Tauri shell authenticated via HttpOnly cookies alone (OAuth webview
- * redirect, legacy login, etc.), persist bearer tokens to the OS keychain so
- * the next cold start can restore without relying on cross-site cookies.
- */
-export async function backfillNativeBearerFromCookiesIfNeeded(): Promise<void> {
-  if (!isNativeBearerClient()) return;
-  const existing = await getNativeRefreshTokenForLogout();
-  if (existing) return;
-  await authTryCookieRefresh({ quietExpectedNoRefreshCookie: true });
 }
 
 export async function authDiscordOAuthStart(): Promise<{
@@ -253,107 +216,29 @@ export async function authYoutubeOAuthStart(): Promise<{
   return { authorizeUrl, ...(redirectUri ? { redirectUri } : {}) };
 }
 
-/**
- * Absolute GET URL for `/auth/discord/login/start` with desktop handoff query params.
- * Open this in the **system browser** (`openExternal`) so OAuth starts without a credentialed
- * `fetch(POST …)` from the WebView (WebView2 can reject those while simple GETs succeed).
- */
-export function authDiscordDesktopHandoffStartUrl(
-  desktopHandoffNonce: string,
-): string {
-  const n = desktopHandoffNonce.trim();
-  if (!n) throw new Error('DESKTOP_HANDOFF_NONCE_REQUIRED');
-  const u = new URL(`${AUTH_BASE}/discord/login/start`);
-  u.searchParams.set('desktopBrowserHandoff', '1');
-  u.searchParams.set('desktopHandoffNonce', n);
-  return u.toString();
-}
-
-/**
- * Absolute GET URL for `/auth/google/login/start` with desktop handoff query params.
- * Open in the system browser on Tauri (same pattern as Discord desktop OAuth).
- */
-export function authGoogleDesktopHandoffStartUrl(
-  desktopHandoffNonce: string,
-): string {
-  const n = desktopHandoffNonce.trim();
-  if (!n) throw new Error('DESKTOP_HANDOFF_NONCE_REQUIRED');
-  const u = new URL(`${AUTH_BASE}/google/login/start`);
-  u.searchParams.set('desktopBrowserHandoff', '1');
-  u.searchParams.set('desktopHandoffNonce', n);
-  return u.toString();
-}
-
 /** Sign in with Discord (login modal). CSRF-exempt; signed OAuth state (cookie optional). */
-export async function authDiscordLoginStart(body?: {
-  desktopBrowserHandoff?: boolean;
-  desktopHandoffNonce?: string;
-}): Promise<{
+export async function authDiscordLoginStart(): Promise<{
   authorizeUrl: string;
   redirectUri?: string;
 }> {
   assertAuthDomainNetworkAllowed();
   const traceId = newTraceId();
-  const isDesktop = IS_ECHO_TAURI_SHELL;
-  const hasHandoff =
-    body?.desktopBrowserHandoff === true || !!body?.desktopHandoffNonce?.trim();
-
   const url = appendDiagTraceId(`${AUTH_BASE}/discord/login/start`, traceId);
   let res: Response;
   try {
-    res = isDesktop
-      ? hasHandoff
-        ? await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            credentials: 'include',
-            body: (() => {
-              const params = new URLSearchParams();
-              params.set('diagTraceId', traceId);
-              if (body?.desktopBrowserHandoff === true) {
-                params.set('desktopBrowserHandoff', '1');
-              }
-              if (body?.desktopHandoffNonce?.trim()) {
-                params.set(
-                  'desktopHandoffNonce',
-                  body.desktopHandoffNonce.trim(),
-                );
-              }
-              return params.toString();
-            })(),
-          })
-        : await fetch(url, {
-            method: 'POST',
-            credentials: 'include',
-          })
-      : await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            diagTraceId: traceId,
-            ...(body?.desktopBrowserHandoff === true
-              ? { desktopBrowserHandoff: true }
-              : {}),
-            ...(body?.desktopHandoffNonce?.trim()
-              ? { desktopHandoffNonce: body.desktopHandoffNonce.trim() }
-              : {}),
-          }),
-        });
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ diagTraceId: traceId }),
+    });
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'discord_login_start',
       traceId,
       url,
       method: 'POST',
-      headers:
-        isDesktop && hasHandoff
-          ? { 'Content-Type': 'application/x-www-form-urlencoded' }
-          : !isDesktop
-            ? { 'Content-Type': 'application/json' }
-            : undefined,
+      headers: { 'Content-Type': 'application/json' },
       error,
     });
     throw error;
@@ -366,90 +251,6 @@ export async function authDiscordLoginStart(body?: {
     typeof data.redirectUri === 'string' ? data.redirectUri : undefined;
   if (!authorizeUrl) throw new Error('INVALID_DISCORD_START_RESPONSE');
   return { authorizeUrl, ...(redirectUri ? { redirectUri } : {}) };
-}
-
-/** Redeem one-time code after Discord OAuth in the system browser (desktop). */
-export async function authDesktopRedeemHandoff(
-  code: string,
-  nonce: string,
-): Promise<AuthSessionPayload> {
-  assertAuthDomainNetworkAllowed();
-  const traceId = newTraceId();
-  const url = appendDiagTraceId(`${AUTH_BASE}/desktop/redeem-handoff`, traceId);
-  const trimmedCode = code.trim();
-  const trimmedNonce = nonce.trim();
-  if (IS_ECHO_TAURI_SHELL && authDebugEnabled()) {
-    echoClientDebugWarn('[echo-desktop] redeem-handoff request', {
-      traceId,
-      url,
-      codeLen: trimmedCode.length,
-      nonceLen: trimmedNonce.length,
-    });
-  }
-  let res: Response;
-  try {
-    res = IS_ECHO_TAURI_SHELL
-      ? await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            ...nativeAuthRequestHeaders(),
-          },
-          credentials: 'include',
-          body: (() => {
-            const params = new URLSearchParams();
-            params.set('diagTraceId', traceId);
-            params.set('code', trimmedCode);
-            params.set('nonce', trimmedNonce);
-            return params.toString();
-          })(),
-        })
-      : await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            diagTraceId: traceId,
-            code: trimmedCode,
-            nonce: trimmedNonce,
-          }),
-        });
-  } catch (error) {
-    logAuthNetworkFailure({
-      operation: 'desktop_redeem_handoff',
-      traceId,
-      url,
-      method: 'POST',
-      headers: IS_ECHO_TAURI_SHELL
-        ? { 'Content-Type': 'application/x-www-form-urlencoded' }
-        : { 'Content-Type': 'application/json' },
-      error,
-    });
-    throw error;
-  }
-  if (IS_ECHO_TAURI_SHELL && authDebugEnabled()) {
-    echoClientDebugWarn('[echo-desktop] redeem-handoff response', {
-      traceId,
-      status: res.status,
-      ok: res.ok,
-    });
-  }
-  const data = (await parseJson(res)) as Record<string, unknown>;
-  if (IS_ECHO_TAURI_SHELL && !res.ok && authDebugEnabled()) {
-    echoClientDebugWarn('[echo-desktop] redeem-handoff error body', {
-      traceId,
-      status: res.status,
-      code: typeof data.code === 'string' ? data.code : null,
-      message: typeof data.message === 'string' ? data.message : null,
-    });
-  }
-  throwIfError(res, data, 'POST /auth/desktop/redeem-handoff');
-  await finalizeAuthSessionResponse(data);
-  const user = data.user;
-  if (!user || typeof user !== 'object') {
-    throw new Error('INVALID_HANDOFF_RESPONSE');
-  }
-  return { user: user as AuthUserPublic };
 }
 
 /** Link Google to the signed-in Echo account (Settings → Google). */
@@ -489,63 +290,21 @@ export async function authGoogleOAuthStart(): Promise<{
 }
 
 /** Sign in with Google (login modal). CSRF-exempt; uses HttpOnly OAuth state cookie. */
-export async function authGoogleLoginStart(body?: {
-  desktopBrowserHandoff?: boolean;
-  desktopHandoffNonce?: string;
-}): Promise<{
+export async function authGoogleLoginStart(): Promise<{
   authorizeUrl: string;
   redirectUri?: string;
 }> {
   assertAuthDomainNetworkAllowed();
   const traceId = newTraceId();
-  const isDesktopBuild = IS_ECHO_TAURI_SHELL;
-  const hasHandoff =
-    body?.desktopBrowserHandoff === true || !!body?.desktopHandoffNonce?.trim();
-
   const url = appendDiagTraceId(`${AUTH_BASE}/google/login/start`, traceId);
   let res: Response;
   try {
-    res = isDesktopBuild
-      ? hasHandoff
-        ? await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            credentials: 'include',
-            body: (() => {
-              const params = new URLSearchParams();
-              params.set('diagTraceId', traceId);
-              if (body?.desktopBrowserHandoff === true) {
-                params.set('desktopBrowserHandoff', '1');
-              }
-              if (body?.desktopHandoffNonce?.trim()) {
-                params.set(
-                  'desktopHandoffNonce',
-                  body.desktopHandoffNonce.trim(),
-                );
-              }
-              return params.toString();
-            })(),
-          })
-        : await fetch(url, {
-            method: 'POST',
-            credentials: 'include',
-          })
-      : await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            diagTraceId: traceId,
-            ...(body?.desktopBrowserHandoff === true
-              ? { desktopBrowserHandoff: true }
-              : {}),
-            ...(body?.desktopHandoffNonce?.trim()
-              ? { desktopHandoffNonce: body.desktopHandoffNonce.trim() }
-              : {}),
-          }),
-        });
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ diagTraceId: traceId }),
+    });
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'google_login_start',
@@ -579,47 +338,23 @@ export async function authContinueAsGuest(body?: {
   const clientHwid = body?.clientHwid?.trim() || getOrCreateEchoClientHwid();
   let res: Response;
   try {
-    if (IS_ECHO_TAURI_SHELL) {
-      /**
-       * Desktop (`http://tauri.localhost` -> `https://api`) can be blocked by
-       * Cloudflare/proxy preflight handling on JSON POSTs. Keep this as a
-       * CORS-simple request (no JSON body/header) to avoid OPTIONS.
-       */
-      const u = new URL(`${AUTH_BASE}/guest`);
-      u.searchParams.set('diagTraceId', traceId);
-      u.searchParams.set('clientHwid', clientHwid);
-      if (body?.captchaToken?.trim()) {
-        u.searchParams.set('captchaToken', body.captchaToken.trim());
-      }
-      res = await fetch(u.toString(), {
-        method: 'POST',
-        credentials: 'include',
-        headers: nativeAuthRequestHeaders(),
-      });
-    } else {
-      const payload: { captchaToken?: string; clientHwid: string } = {
-        clientHwid,
-      };
-      if (body?.captchaToken) payload.captchaToken = body.captchaToken;
-      res = await fetch(appendDiagTraceId(`${AUTH_BASE}/guest`, traceId), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...nativeAuthRequestHeaders(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({ ...payload, diagTraceId: traceId }),
-      });
-    }
+    const payload: { captchaToken?: string; clientHwid: string } = {
+      clientHwid,
+    };
+    if (body?.captchaToken) payload.captchaToken = body.captchaToken;
+    res = await fetch(appendDiagTraceId(`${AUTH_BASE}/guest`, traceId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ ...payload, diagTraceId: traceId }),
+    });
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'guest',
       traceId,
       url: appendDiagTraceId(`${AUTH_BASE}/guest`, traceId),
       method: 'POST',
-      headers: IS_ECHO_TAURI_SHELL
-        ? undefined
-        : { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       error,
     });
     throw error;
@@ -660,53 +395,19 @@ export async function authUpgradeGuest(body: {
   const url = appendDiagTraceId(`${AUTH_BASE}/guest/upgrade`, traceId);
   let res: Response;
   try {
-    if (IS_ECHO_TAURI_SHELL) {
-      /**
-       * CORS-simple POST (see `authLogin` / `authRegister` desktop branches).
-       * The double-submit CSRF token travels in the form body instead of
-       * `X-CSRF-Token` so no OPTIONS preflight is triggered (`enforceApiCsrf`
-       * accepts a `csrfToken` body field).
-       */
-      const params = new URLSearchParams();
-      params.set('diagTraceId', traceId);
-      params.set('email', body.email);
-      params.set('password', body.password);
-      if (body.username?.trim()) params.set('username', body.username.trim());
-      if (body.displayName?.trim()) {
-        params.set('displayName', body.displayName.trim());
-      }
-      if (body.pfp?.trim()) params.set('pfp', body.pfp.trim());
-      const csrf = echoCsrfHeaders()['X-CSRF-Token'];
-      if (csrf) params.set('csrfToken', csrf);
-      res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          ...nativeAuthRequestHeaders(),
-        },
-        credentials: 'include',
-        body: params.toString(),
-      });
-    } else {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          ...echoCsrfJsonHeaders(),
-          ...nativeAuthRequestHeaders(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({ ...body, diagTraceId: traceId }),
-      });
-    }
+    res = await fetch(url, {
+      method: 'POST',
+      headers: echoCsrfJsonHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ ...body, diagTraceId: traceId }),
+    });
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'guest_upgrade',
       traceId,
       url,
       method: 'POST',
-      headers: IS_ECHO_TAURI_SHELL
-        ? { 'Content-Type': 'application/x-www-form-urlencoded' }
-        : echoCsrfJsonHeaders(),
+      headers: echoCsrfJsonHeaders(),
       error,
     });
     throw error;
@@ -729,53 +430,23 @@ export async function authRegister(body: {
   const clientHwid = body.clientHwid?.trim() || getOrCreateEchoClientHwid();
   let res: Response;
   try {
-    if (IS_ECHO_TAURI_SHELL) {
-      /**
-       * CORS-simple POST (see `authLogin` / `authContinueAsGuest` desktop branches).
-       * Avoids OPTIONS preflight that can break Set-Cookie on cross-origin Tauri WebViews.
-       */
-      const params = new URLSearchParams();
-      params.set('diagTraceId', traceId);
-      params.set('username', body.username);
-      params.set('password', body.password);
-      params.set('email', body.email);
-      if (body.displayName?.trim()) {
-        params.set('displayName', body.displayName.trim());
-      }
-      params.set('clientHwid', clientHwid);
-      res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          ...nativeAuthRequestHeaders(),
-        },
-        credentials: 'include',
-        body: params.toString(),
-      });
-    } else {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...nativeAuthRequestHeaders(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          ...body,
-          diagTraceId: traceId,
-          clientHwid,
-        }),
-      });
-    }
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        ...body,
+        diagTraceId: traceId,
+        clientHwid,
+      }),
+    });
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'register',
       traceId,
       url,
       method: 'POST',
-      headers: IS_ECHO_TAURI_SHELL
-        ? { 'Content-Type': 'application/x-www-form-urlencoded' }
-        : { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       error,
     });
     throw error;
@@ -839,48 +510,19 @@ export async function authLogin(body: {
   const traceId = newTraceId();
   let res: Response;
   try {
-    if (IS_ECHO_TAURI_SHELL) {
-      /**
-       * CORS-simple POST (see `authContinueAsGuest` desktop branch). Avoids OPTIONS
-       * preflight that Cloudflare / some proxies break for cross-origin JSON from the
-       * Tauri WebView (`https://tauri.localhost` → API).
-       *
-       * Use the exact media type token `application/x-www-form-urlencoded` with no
-       * charset suffix so the request stays non-preflighted.
-       */
-      const params = new URLSearchParams();
-      params.set('diagTraceId', traceId);
-      params.set('username', body.username);
-      params.set('password', body.password);
-      res = await fetch(appendDiagTraceId(`${AUTH_BASE}/login`, traceId), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          ...nativeAuthRequestHeaders(),
-        },
-        credentials: 'include',
-        body: params.toString(),
-      });
-    } else {
-      res = await fetch(appendDiagTraceId(`${AUTH_BASE}/login`, traceId), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...nativeAuthRequestHeaders(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({ ...body, diagTraceId: traceId }),
-      });
-    }
+    res = await fetch(appendDiagTraceId(`${AUTH_BASE}/login`, traceId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ ...body, diagTraceId: traceId }),
+    });
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'login',
       traceId,
       url: appendDiagTraceId(`${AUTH_BASE}/login`, traceId),
       method: 'POST',
-      headers: IS_ECHO_TAURI_SHELL
-        ? { 'Content-Type': 'application/x-www-form-urlencoded' }
-        : { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       error,
     });
     throw error;
@@ -910,40 +552,19 @@ export async function authLoginMfa(body: {
   const url = appendDiagTraceId(`${AUTH_BASE}/login/mfa`, traceId);
   let res: Response;
   try {
-    res = IS_ECHO_TAURI_SHELL
-      ? await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            ...nativeAuthRequestHeaders(),
-          },
-          credentials: 'include',
-          body: (() => {
-            const params = new URLSearchParams();
-            params.set('diagTraceId', traceId);
-            params.set('mfaToken', body.mfaToken.trim());
-            const c = body.code?.trim();
-            const r = body.recoveryCode?.trim();
-            if (c) params.set('code', c);
-            else if (r) params.set('recoveryCode', r);
-            return params.toString();
-          })(),
-        })
-      : await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ ...body, diagTraceId: traceId }),
-        });
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ ...body, diagTraceId: traceId }),
+    });
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'login_mfa',
       traceId,
       url,
       method: 'POST',
-      headers: IS_ECHO_TAURI_SHELL
-        ? { 'Content-Type': 'application/x-www-form-urlencoded' }
-        : { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       error,
     });
     throw error;
@@ -1144,7 +765,6 @@ async function authFetchMeInner(): Promise<{
   const res = await fetchAuthMeWith429Retry(`${AUTH_BASE}/me`, {
     method: 'GET',
     credentials: 'include',
-    headers: nativeAuthRequestHeaders(),
   });
   const data = (await parseJson(res)) as Record<string, unknown>;
   if (!res.ok && res.status === 401) {
@@ -1223,11 +843,8 @@ export async function authPatchMe(
   const doPatch = () =>
     fetch(url, {
       method: 'PATCH',
-      headers: {
-        /* Re-derived per attempt: a cookie refresh rotates the CSRF token. */
-        ...echoCsrfJsonHeaders(),
-        ...nativeAuthRequestHeaders(),
-      },
+      /* Re-derived per attempt: a cookie refresh rotates the CSRF token. */
+      headers: echoCsrfJsonHeaders(),
       credentials: 'include',
       body: JSON.stringify({ ...body, diagTraceId: traceId }),
     });
@@ -1388,72 +1005,6 @@ export async function authDeleteAccount(password?: string): Promise<void> {
   throwIfError(res, data, 'DELETE /auth/me');
 }
 
-/**
- * Sign in with Apple (native iOS). The app obtains an identity token from
- * `ASAuthorizationController` and posts it here; the server verifies it against
- * Apple's JWKS and establishes the session (cookies + native bearer). Mirrors
- * `authLogin`'s CORS-simple form POST in the Tauri shell. Returns the user.
- */
-export async function authSignInWithApple(input: {
-  identityToken: string;
-  nonce?: string;
-  displayName?: string;
-}): Promise<{ user: AuthUserPublic }> {
-  assertAuthDomainNetworkAllowed();
-  let res: Response;
-  if (IS_ECHO_TAURI_SHELL) {
-    const params = new URLSearchParams();
-    params.set('identityToken', input.identityToken);
-    if (input.nonce) params.set('nonce', input.nonce);
-    if (input.displayName) params.set('displayName', input.displayName);
-    res = await fetch(`${AUTH_BASE}/apple/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        ...nativeAuthRequestHeaders(),
-      },
-      credentials: 'include',
-      body: params.toString(),
-    });
-  } else {
-    res = await fetch(`${AUTH_BASE}/apple/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...nativeAuthRequestHeaders(),
-      },
-      credentials: 'include',
-      body: JSON.stringify(input),
-    });
-  }
-  const data = (await parseJson(res)) as Record<string, unknown>;
-  throwIfError(res, data, 'POST /auth/apple/login');
-  await finalizeAuthSessionResponse(data);
-  return data as { user: AuthUserPublic };
-}
-
-/** Register an iOS APNs device token for the current session (native shell). */
-export async function authRegisterIosPushToken(input: {
-  deviceToken: string;
-  bundleId?: string;
-  environment?: 'development' | 'production';
-}): Promise<void> {
-  assertAuthDomainNetworkAllowed();
-  const res = await fetch(`${AUTH_BASE}/push/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...nativeAuthRequestHeaders(),
-      ...echoCsrfJsonHeaders(),
-    },
-    credentials: 'include',
-    body: JSON.stringify(input),
-  });
-  if (res.status === 204) return;
-  const data = (await parseJson(res)) as Record<string, unknown>;
-  throwIfError(res, data, 'POST /auth/push/register');
-}
-
 /** Revokes all refresh tokens server-side; caller should clear local client state. */
 export async function authLogoutAllSessions(): Promise<void> {
   assertAuthDomainNetworkAllowed();
@@ -1468,17 +1019,11 @@ export async function authLogoutAllSessions(): Promise<void> {
 }
 
 export async function authLogout(refreshToken?: string | null): Promise<void> {
-  const rt =
-    refreshToken?.trim() ||
-    (await getNativeRefreshTokenForLogout()) ||
-    undefined;
+  const rt = refreshToken?.trim() || undefined;
   const body = rt ? { refreshToken: rt } : {};
   const res = await fetch(`${AUTH_BASE}/logout`, {
     method: 'POST',
-    headers: {
-      ...echoCsrfJsonHeaders(),
-      ...nativeAuthRequestHeaders(),
-    },
+    headers: echoCsrfJsonHeaders(),
     credentials: 'include',
     body: JSON.stringify(body),
   });
@@ -1639,10 +1184,7 @@ export async function authPasskeyLoginVerify(body: {
   assertAuthDomainNetworkAllowed();
   const res = await fetch(`${AUTH_BASE}/passkey/login/verify`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...nativeAuthRequestHeaders(),
-    },
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(body),
   });

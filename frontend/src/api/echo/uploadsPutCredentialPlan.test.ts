@@ -17,7 +17,7 @@ describe('echoUploadPutCredentialPlan', () => {
     expect(
       echoUploadPutCredentialPlan({
         resolvedPutUrl: 'https://api.example.com/api/v1/echo/uploads/local/put',
-        windowOrigin: 'https://tauri.localhost',
+        windowOrigin: 'http://localhost:8080',
         apiBase: 'https://api.example.com',
       }),
     ).toEqual({ includeCredentials: true, includeCsrf: false });
@@ -28,7 +28,7 @@ describe('echoUploadPutCredentialPlan', () => {
       echoUploadPutCredentialPlan({
         resolvedPutUrl:
           'https://acct.r2.cloudflarestorage.com/bucket/key?X-Amz-Algorithm=AWS4-HMAC-SHA256',
-        windowOrigin: 'https://tauri.localhost',
+        windowOrigin: 'http://localhost:8080',
         apiBase: 'https://api.example.com',
       }),
     ).toEqual({ includeCredentials: false, includeCsrf: false });

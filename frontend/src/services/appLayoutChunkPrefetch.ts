@@ -10,24 +10,8 @@ let appLayoutImportPromise: Promise<AppLayoutModule> | null = null;
  */
 export function prefetchAppLayoutChunk(): Promise<AppLayoutModule> {
   if (!appLayoutImportPromise) {
-    if (import.meta.env.VITE_ECHO_DESKTOP === '1') {
-      void import('@/platform/desktopBootDiagnostics').then(
-        ({ logDesktopBootDiag }) => {
-          logDesktopBootDiag('prefetchAppLayoutChunk:start');
-        },
-      );
-    }
     appLayoutImportPromise =
-      import('@/features/layout/components/AppLayout.vue').then((mod) => {
-        if (import.meta.env.VITE_ECHO_DESKTOP === '1') {
-          void import('@/platform/desktopBootDiagnostics').then(
-            ({ logDesktopBootDiag }) => {
-              logDesktopBootDiag('prefetchAppLayoutChunk:resolved');
-            },
-          );
-        }
-        return mod;
-      });
+      import('@/features/layout/components/AppLayout.vue');
   }
   return appLayoutImportPromise;
 }

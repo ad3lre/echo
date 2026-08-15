@@ -31,20 +31,12 @@
 /game-server/node_modules
 /media-cdn/node_modules
 /media-cdn/dist
-/src-tauri/target
-/src-tauri/ios-sim-derived
-# Tauri updater private key (never commit; pubkey `echo-update.key.pub` is tracked)
-/src-tauri/echo-update.key
-# Android release signing (Play upload key / local keystore; never commit)
-# (keystore.properties.example is a different filename and can be tracked)
-**/keystore.properties
-src-tauri/gen/android/**/*.jks
 /bot/exports/
 
 # Test coverage (Vitest v8)
 /frontend/coverage
 
-# Inter woff2 for oauth-desktop-bridge (copied from @fontsource/inter at prebuild)
+# Local font caches (if any)
 /frontend/public/fonts/*.woff2
 
 # Cypress (frontend E2E)
@@ -165,7 +157,6 @@ Thumbs.db
 *.class
 *.jar
 # Gradle wrapper must be committed (standard practice); *.jar above would ignore it.
-!src-tauri/gen/android/gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 *.zip

@@ -51,10 +51,6 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS verification_require_email BOOLEAN NOT NULL DEFAULT false;
   `);
   await pool.query(`
-    ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS welcome_channel_id TEXT NULL
-      REFERENCES echo_channels(id) ON DELETE SET NULL;
-  `);
-  await pool.query(`
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS invite_join_enabled BOOLEAN NOT NULL DEFAULT true;
   `);
   await pool.query(`
@@ -193,6 +189,10 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_channels_server_idx ON echo_channels(server_id);
+  `);
+  await pool.query(`
+    ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS welcome_channel_id TEXT NULL
+      REFERENCES echo_channels(id) ON DELETE SET NULL;
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_categories (

@@ -49,11 +49,18 @@ export async function runDiscordImportMediaMirrorDrain(
   try {
     await ensureEchoTables(pool);
     const batch = Math.max(1, config.echoDiscordImportMediaMirrorBatchSize);
+    const jobs: DiscordImportMediaMirrorJobRow[] = [];
     for (let i = 0; i < batch; i++) {
       const job = await claimNextDiscordImportMediaMirrorJob(pool);
       if (!job) break;
-      await processOneDiscordImportMediaMirrorJob(pool, log, job);
+      jobs.push(job);
     }
+    // A message's URLs remain serialized inside its own job, but independent
+    // messages should not make the whole queue wait on one slow Discord CDN
+    // fetch. The configured batch size is the concurrency bound.
+    await Promise.all(
+      jobs.map((job) => processOneDiscordImportMediaMirrorJob(pool, log, job)),
+    );
   } catch (e) {
     log.error(e, 'echo.discord_import_media_mirror.drain_failed');
   } finally {

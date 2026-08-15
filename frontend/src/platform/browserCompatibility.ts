@@ -66,22 +66,6 @@ export function isWebKitDesktop(): boolean {
   );
 }
 
-/**
- * Boot-time hint for macOS WKWebView before `isTauri()` is reliable, or when the
- * `echo-shell-tauri` class was set by `echo-boot-tauri.js` ahead of module load.
- */
-export function isMacTauriWebKitSyncHint(): boolean {
-  if (typeof document !== 'undefined') {
-    if (
-      document.documentElement.classList.contains('echo-shell-tauri') &&
-      /Macintosh|Mac OS X/i.test(userAgent())
-    ) {
-      return true;
-    }
-  }
-  return import.meta.env.VITE_ECHO_DESKTOP === '1' && isWebKitDesktop();
-}
-
 /** Sync hint: Brave exposes `navigator.brave.isBrave` (often async-only). */
 export function isBraveBrowserSyncHint(): boolean {
   if (/Brave/i.test(userAgent())) return true;

@@ -109,11 +109,23 @@ export type EchoApiMessage = {
 export async function fetchEchoChannelMessages(
   token: string,
   channelId: string,
-  opts?: { before?: string; limit?: number; signal?: AbortSignal },
+  opts?: {
+    before?: string;
+    after?: string;
+    around?: string;
+    limit?: number;
+    signal?: AbortSignal;
+  },
 ): Promise<{ messages: EchoApiMessage[] }> {
   const ch = trimEchoPathSegment(channelId);
   const q = new URLSearchParams();
+  const cursors = [opts?.before, opts?.after, opts?.around].filter(Boolean);
+  if (cursors.length > 1) {
+    throw new Error('Only one message history cursor may be provided');
+  }
   if (opts?.before) q.set('before', trimEchoPathSegment(opts.before));
+  if (opts?.after) q.set('after', trimEchoPathSegment(opts.after));
+  if (opts?.around) q.set('around', trimEchoPathSegment(opts.around));
   if (opts?.limit) q.set('limit', String(opts.limit));
   const qs = q.toString();
   const raw = await echoFetch<unknown>(

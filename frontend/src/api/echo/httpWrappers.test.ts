@@ -567,6 +567,27 @@ describe('Echo REST helper wrappers', () => {
     ).resolves.toEqual({ messages: [{ id: 'm1' }] });
     expectLast('/channels/chan%2F1/messages?before=m0&limit=20');
 
+    transport.echoFetch.mockResolvedValueOnce({ messages: [{ id: 'm2' }] });
+    await fetchEchoChannelMessages('tok', 'chan', {
+      after: 'm1',
+      limit: 10,
+    });
+    expectLast('/channels/chan/messages?after=m1&limit=10');
+
+    transport.echoFetch.mockResolvedValueOnce({ messages: [{ id: 'm3' }] });
+    await fetchEchoChannelMessages('tok', 'chan', {
+      around: 'm2',
+      limit: 12,
+    });
+    expectLast('/channels/chan/messages?around=m2&limit=12');
+
+    await expect(
+      fetchEchoChannelMessages('tok', 'chan', {
+        before: 'm0',
+        after: 'm1',
+      }),
+    ).rejects.toThrow('Only one message history cursor');
+
     transport.echoFetch.mockResolvedValueOnce({ message: { id: 'm1' } });
     await expect(
       fetchEchoChannelMessage('tok', 'chan', ' m1 '),

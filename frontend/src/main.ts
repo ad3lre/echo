@@ -2,7 +2,6 @@ import { ensurePdfEnvironmentPolyfills } from '@/features/pdf/ensurePdfEnvironme
 
 ensurePdfEnvironmentPolyfills();
 
-import { API_BASE } from '@/config';
 import { createApp, type Plugin } from 'vue';
 import App from './App.vue';
 import { createPinia } from 'pinia';
@@ -37,27 +36,14 @@ import './assets/themes.scss';
 import './assets/density.scss';
 import './assets/accessibility.scss';
 import './assets/main.scss';
+/* Load KaTeX's structural vlist rules before any message can be typeset. */
+import 'katex/dist/katex.min.css';
 import './assets/document-canvas.scss';
 import { registerEchoServiceWorker } from '@/registerServiceWorker';
-import { initDesktopDeepLinks } from '@/platform/desktopDeepLink';
-import { isDesktop } from '@/platform/desktopBridge';
 import { reloadEchoApp } from '@/platform/reloadEchoApp';
-import {
-  clearAllPendingDesktopOAuthHandoffState,
-  readPendingDesktopOAuthHandoffCode,
-  readPendingDesktopOAuthHandoffNonce,
-} from '@/platform/desktopOAuthHandoff';
 import { enqueueStartupTask } from '@/utils/startupScheduler';
 import { applyGpuTierToDocument, detectGpuTier } from '@/utils/gpuTier';
 import { installDevConsoleLogRecorder } from '@/dev/consoleLogRecorder';
-import {
-  installDesktopBootDiagnostics,
-  logDesktopBootDiag,
-} from '@/platform/desktopBootDiagnostics';
-import {
-  echoClientDebugError,
-  echoClientDebugWarn,
-} from '@/utils/echoClientDebug';
 import { installGlobalAudioPlaybackUnlock } from '@/audio/audioPlaybackUnlock';
 import {
   preloadEchoSounds,
@@ -67,22 +53,8 @@ import {
   clearSkipAutoGuestOnce,
   setSkipAutoGuestOnce,
 } from '@/utils/autoGuestOAuthReturn';
-import { authDesktopRedeemHandoff, authFetchMe } from '@/api/authClient';
 import { registerAuthSessionApiBridge } from '@/api/authSessionBridge';
-import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
 import { ensureEchoBrandFavicon } from '@/utils/ensureEchoBrandFavicon';
-import {
-  runIosBootCheck,
-  hasStoredSessionToRestore,
-  notifyAppAuthenticated,
-  startSessionHeartbeat,
-} from '@/services/auth/iosBootOrchestrator';
-import { bootstrapNativeBearerSessionFromKeychain } from '@/api/authClient';
-import { isNativeBearerClient } from '@/services/auth/nativeAuthToken';
-import {
-  markIosNativeShell,
-  detectIosSimulator,
-} from '@/platform/iosNativeFeedback';
 import { prefetchAppLayoutChunk } from '@/services/appLayoutChunkPrefetch';
 import { reportClientEnvironmentOnce } from '@/observability/reportClientEnvironment';
 import { initPerfHarness } from '@/observability/perfHarness';
@@ -90,19 +62,11 @@ import { initPerfHarness } from '@/observability/perfHarness';
 initPerfHarness();
 
 ensureEchoBrandFavicon();
-markIosNativeShell();
-/* Resolve the iOS Simulator flag ASAP so audio priming can be skipped there
- * (the Simulator's CoreAudio times out starting an audio unit and aborts WebKit's
- * GPU process). Fire-and-forget: resolves in ~ms, long before the first tap that
- * would prime audio. No-op / false on real devices and non-iOS builds. */
-void detectIosSimulator();
 registerEchoServiceWorker();
 /** Overlap AppLayout chunk fetch/parse with bootstrap work before `App.vue` mounts. */
 void prefetchAppLayoutChunk();
 applyGpuTierToDocument(detectGpuTier());
 installDevConsoleLogRecorder();
-installDesktopBootDiagnostics();
-logDesktopBootDiag('main.ts:module-evaluated');
 installGlobalAudioPlaybackUnlock(() => {
   primeEchoAudioPlayback();
   preloadEchoSounds();
@@ -110,7 +74,6 @@ installGlobalAudioPlaybackUnlock(() => {
 
 // Phase A: hydrate theme + dark variant before first paint.
 hydrateBootThemeAndPreferences();
-logDesktopBootDiag('main.ts:boot-theme-hydrated');
 
 function loadDeferredInterWeights() {
   void import('@fontsource/inter/latin-400-italic.css');
@@ -121,114 +84,6 @@ function loadDeferredInterWeights() {
 }
 
 async function bootstrap() {
-  logDesktopBootDiag('main.ts:bootstrap:start');
-  const iosBootDecision = await runIosBootCheck();
-
-  if (isDesktop()) {
-    /** Attach before mount so cold-start launches from `echo://…` merge handoff params. */
-    await initDesktopDeepLinks();
-    void import('@tauri-apps/api/core')
-      .then(({ invoke }) => invoke<string>('desktop_log_path'))
-      .then((path) => {
-        echoClientDebugWarn(`[echo-desktop] log file: ${path}`);
-      })
-      .catch(() => {
-        /* ignore */
-      });
-    if (
-      import.meta.env.DEV &&
-      import.meta.env.VITE_ECHO_DESKTOP_DIAGNOSTICS === '1'
-    ) {
-      void fetch(`${API_BASE}/api/v1/health`, {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-store',
-      })
-        .then(async (res) => {
-          let bodyPreview = '';
-          try {
-            bodyPreview = (await res.text()).slice(0, 240);
-          } catch {
-            /* ignore */
-          }
-          echoClientDebugWarn('[echo-desktop] api health probe', {
-            url: `${API_BASE}/api/v1/health`,
-            status: res.status,
-            ok: res.ok,
-            bodyPreview,
-          });
-        })
-        .catch((error: unknown) => {
-          echoClientDebugError('[echo-desktop] api health probe failed', {
-            url: `${API_BASE}/api/v1/health`,
-            error:
-              error instanceof Error
-                ? { name: error.name, message: error.message }
-                : String(error),
-          });
-        });
-      void fetch(`${API_BASE}/api/v1/auth/me`, {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'include',
-        cache: 'no-store',
-      })
-        .then(async (res) => {
-          let bodyPreview = '';
-          try {
-            bodyPreview = (await res.text()).slice(0, 240);
-          } catch {
-            /* ignore */
-          }
-          echoClientDebugWarn('[echo-desktop] auth/me include probe', {
-            url: `${API_BASE}/api/v1/auth/me`,
-            status: res.status,
-            ok: res.ok,
-            bodyPreview,
-          });
-        })
-        .catch((error: unknown) => {
-          echoClientDebugError('[echo-desktop] auth/me include probe failed', {
-            url: `${API_BASE}/api/v1/auth/me`,
-            error:
-              error instanceof Error
-                ? { name: error.name, message: error.message }
-                : String(error),
-          });
-        });
-      void fetch(`${API_BASE}/api/v1/auth/me`, {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-store',
-      })
-        .then(async (res) => {
-          let bodyPreview = '';
-          try {
-            bodyPreview = (await res.text()).slice(0, 240);
-          } catch {
-            /* ignore */
-          }
-          echoClientDebugWarn('[echo-desktop] auth/me omit probe', {
-            url: `${API_BASE}/api/v1/auth/me`,
-            status: res.status,
-            ok: res.ok,
-            bodyPreview,
-          });
-        })
-        .catch((error: unknown) => {
-          echoClientDebugError('[echo-desktop] auth/me omit probe failed', {
-            url: `${API_BASE}/api/v1/auth/me`,
-            error:
-              error instanceof Error
-                ? { name: error.name, message: error.message }
-                : String(error),
-          });
-        });
-    }
-  }
-
   /**
    * i18n initialization: Start with default locale synchronously, then
    * switch to preferred locale asynchronously. This allows the app to mount
@@ -260,9 +115,6 @@ async function bootstrap() {
     getAuthStateGeneration() {
       return useAuthSessionStore().authStateGeneration;
     },
-    shouldDeferSession401Invalidate() {
-      return useAuthSessionStore().shouldDefer401Teardown();
-    },
   });
 
   const authSessionStore = useAuthSessionStore();
@@ -271,15 +123,6 @@ async function bootstrap() {
    * gate while `/auth/me` is in flight. The session is validated below, after
    * `app.mount()`, so first paint is never blocked on a network round-trip. */
   authSessionStore.hydrateFromStorage();
-
-  if (isNativeBearerClient()) {
-    const bearerUser = await bootstrapNativeBearerSessionFromKeychain();
-    if (bearerUser) {
-      authSessionStore.applyRestoredProfile(bearerUser, {
-        allowUnauthenticated: true,
-      });
-    }
-  }
 
   /**
    * Warm paint before mount: if a returning user already holds a session token
@@ -336,109 +179,6 @@ async function bootstrap() {
       authSessionStore.setEmailVerificationFlash(
         echoT('bootstrap.emailVerifiedFlash'),
       );
-    }
-    if (isDesktop()) {
-      echoClientDebugWarn('[echo-desktop] bootstrap desktop handoff check', {
-        href: window.location.href,
-        hasQueryHandoff: Boolean(params.get('echo_handoff')?.trim()),
-        hasStoredHandoff: Boolean(readPendingDesktopOAuthHandoffCode()),
-        hasPendingNonce: Boolean(readPendingDesktopOAuthHandoffNonce()),
-      });
-      const echoHandoff =
-        params.get('echo_handoff')?.trim() ||
-        readPendingDesktopOAuthHandoffCode();
-      if (echoHandoff) {
-        const handoffLen = echoHandoff.length;
-        const handoffHex64 = /^[0-9a-f]{64}$/i.test(echoHandoff);
-        echoClientDebugWarn('[echo-desktop] bootstrap handoff token shape', {
-          handoffLen,
-          handoffHex64,
-        });
-      }
-      if (params.get('echo_handoff')?.trim()) {
-        params.delete('echo_handoff');
-        shouldStrip = true;
-      }
-      if (echoHandoff) {
-        const pendingNonce = readPendingDesktopOAuthHandoffNonce();
-        if (!pendingNonce) {
-          echoClientDebugError(
-            '[echo-desktop] bootstrap missing pending nonce',
-            {
-              hasHandoff: true,
-            },
-          );
-          clearAllPendingDesktopOAuthHandoffState();
-          try {
-            sessionStorage.setItem(
-              'echo_discord_oauth_error',
-              'desktop_handoff_failed',
-            );
-          } catch {
-            /* ignore */
-          }
-        } else {
-          setSkipAutoGuestOnce();
-          try {
-            echoClientDebugWarn('[echo-desktop] bootstrap redeem start', {
-              hasHandoff: true,
-            });
-            const payload = await authDesktopRedeemHandoff(
-              echoHandoff,
-              pendingNonce,
-            );
-            authSessionStore.setSession(payload);
-            clearAllPendingDesktopOAuthHandoffState();
-            clearSkipAutoGuestOnce();
-            /**
-             * Warm credentialed cross-origin requests before `app.mount()` so
-             * `startInitialLoad` / Echo layout hydrates do not race the first
-             * cookie application (WebView2 often surfaces that as `Failed to fetch`).
-             */
-            try {
-              await withTransientFetchRetries(() => authFetchMe());
-            } catch (primeError: unknown) {
-              echoClientDebugWarn(
-                '[echo-desktop] bootstrap post-redeem session prime failed',
-                {
-                  err:
-                    primeError instanceof Error
-                      ? { name: primeError.name, message: primeError.message }
-                      : String(primeError),
-                },
-              );
-            }
-            echoClientDebugWarn('[echo-desktop] bootstrap redeem success', {
-              userId: payload.user.id,
-            });
-          } catch (error) {
-            echoClientDebugError('[echo-desktop] bootstrap redeem failed', {
-              hasHandoff: true,
-              error:
-                error instanceof Error
-                  ? { name: error.name, message: error.message }
-                  : 'unknown',
-            });
-            clearAllPendingDesktopOAuthHandoffState();
-            const recovered = await authSessionStore.restoreSessionFromApi();
-            if (!recovered) {
-              try {
-                sessionStorage.setItem(
-                  'echo_discord_oauth_error',
-                  'desktop_handoff_failed',
-                );
-              } catch {
-                /* ignore */
-              }
-            } else {
-              echoClientDebugWarn(
-                '[echo-desktop] bootstrap recover via /auth/me succeeded after redeem failure',
-              );
-              clearSkipAutoGuestOnce();
-            }
-          }
-        }
-      }
     }
     const discordErr = params.get('discord_error')?.trim();
     if (discordErr) {
@@ -586,20 +326,15 @@ async function bootstrap() {
   }
 
   const workspace = getEchoPlatform().workspace as WorkspaceStateApi;
-  logDesktopBootDiag('main.ts:before-startInitialLoad');
   void workspace.startInitialLoad();
 
   const appEl = document.getElementById('app');
-  logDesktopBootDiag('main.ts:before-mount');
   app.mount('#app');
-  logDesktopBootDiag('main.ts:after-mount');
 
-  // Fade the HTML boot splash only after Vue has committed a frame. Setting
-  // `data-echo-mounted` before mount left a blank canvas on Tauri (spinner hidden
-  // by `echo-shell-tauri`) — light OS read as white, dark OS as black.
+  /* Fade the HTML boot splash only after Vue has committed a frame; setting
+   * `data-echo-mounted` before mount can reveal a blank canvas. */
   const markBootSplashMounted = () => {
     if (appEl) appEl.setAttribute('data-echo-mounted', '');
-    logDesktopBootDiag('main.ts:data-echo-mounted');
   };
   if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => {
@@ -608,8 +343,6 @@ async function bootstrap() {
   } else {
     markBootSplashMounted();
   }
-
-  logDesktopBootDiag('main.ts:bootstrap:mount-complete');
 
   if (typeof requestAnimationFrame !== 'undefined') {
     requestAnimationFrame(() => loadDeferredInterWeights());
@@ -629,36 +362,15 @@ async function bootstrap() {
    *   - 401 / 403 → `restoreSessionFromApi`'s benign-401 branch calls
    *     `clearLocalTokens`, which wipes the identity cache and `backendUser`, so
    *     the auth gate appears via the same reactive path users see after logout.
-   *
-   * Two cases trigger this:
-   *   1. Native iOS boot orchestrator detected a Keychain-stored session
-   *      (`hasStoredSessionToRestore()`).
-   *   2. We hydrated from cache and now hold an unverified identity that needs
-   *      a server check.
    */
-  const needsServerValidation =
-    hasStoredSessionToRestore() || authSessionStore.isSessionUnverified;
-  if (needsServerValidation) {
+  if (authSessionStore.isSessionUnverified) {
     void (async () => {
       try {
-        const restored = await authSessionStore.restoreSessionFromApi();
-        if (restored) {
-          await notifyAppAuthenticated();
-          startSessionHeartbeat();
-        }
+        await authSessionStore.restoreSessionFromApi();
       } catch {
         /* restoreSessionFromApi should not throw; guard against stray rejections */
       }
     })();
-  } else if (iosBootDecision && authSessionStore.isAuthenticated) {
-    void notifyAppAuthenticated();
-    startSessionHeartbeat();
-  } else if (iosBootDecision?.action === 'login') {
-    /* Native iOS login overlay is up. The user authenticates in the native UI,
-     * which writes a bearer refresh token to the Keychain. Poll for it, then
-     * adopt the session and dismiss the overlay (`notifyAppAuthenticated` →
-     * `ios_auth_session_restored` → native dismiss). */
-    startNativeLoginRestorePoll(authSessionStore);
   }
 
   /** Warm icon catalog shortly after first paint. */
@@ -680,48 +392,6 @@ async function bootstrap() {
   enqueueStartupTask('echo-sounds-preload', 'idle', () => {
     preloadEchoSounds();
   });
-}
-
-/**
- * While the native iOS login overlay is shown, poll the Keychain for the bearer
- * refresh token that native sign-in writes on success. Once present,
- * `bootstrapNativeBearerSessionFromKeychain()` mints an access token and returns
- * the user; we apply it to the store (app paints behind the overlay), dismiss the
- * native overlay, and reconcile authoritatively with `/auth/me`.
- *
- * Pre-login ticks are cheap: with no stored refresh token the bootstrap is a
- * single Keychain read that returns `null` with no network call.
- */
-function startNativeLoginRestorePoll(
-  authSessionStore: ReturnType<typeof useAuthSessionStore>,
-): void {
-  const POLL_INTERVAL_MS = 700;
-  let stopped = false;
-  const tick = async (): Promise<void> => {
-    if (stopped || authSessionStore.isAuthenticated) {
-      stopped = true;
-      return;
-    }
-    try {
-      const user = await bootstrapNativeBearerSessionFromKeychain();
-      if (user) {
-        stopped = true;
-        authSessionStore.applyRestoredProfile(user, {
-          allowUnauthenticated: true,
-        });
-        await notifyAppAuthenticated();
-        startSessionHeartbeat();
-        void authSessionStore.restoreSessionFromApi();
-        return;
-      }
-    } catch {
-      /* keep polling — native login may not have completed yet */
-    }
-    if (!stopped) {
-      setTimeout(() => void tick(), POLL_INTERVAL_MS);
-    }
-  };
-  void tick();
 }
 
 function renderBootstrapFatalFallback(error: unknown) {
@@ -757,9 +427,6 @@ function renderBootstrapFatalFallback(error: unknown) {
 }
 
 void bootstrap().catch((error: unknown) => {
-  logDesktopBootDiag('main.ts:bootstrap:fatal', {
-    message: error instanceof Error ? error.message : String(error),
-  });
   renderBootstrapFatalFallback(error);
 });
 

@@ -10,6 +10,8 @@ import {
   listEchoChannelNotificationOverridesForUser,
   listEchoMemberRoleAssignmentsByUser,
   listEchoServerNotificationLevelsForUser,
+  getEchoUserNotificationPreferences,
+  buildEchoAttentionSnapshot,
 } from '../domain/echoStore';
 import {
   isEchoWebPushConfigured,
@@ -43,6 +45,12 @@ function channelDeepLink(channelId: string, serverId: string | null): string {
 }
 
 type PingTarget = { userId: string; pingKind: 'personal' | 'role' };
+
+export function userAllowsMessagePush(
+  settings: Record<string, unknown> | null | undefined,
+): boolean {
+  return settings?.desktopAlerts !== false;
+}
 
 /**
  * Resolve which users a server-channel message should *push* to. We push for
@@ -100,6 +108,9 @@ async function pushToUserIfAllowed(
     pingKind?: 'personal' | 'role';
   },
 ): Promise<void> {
+  const preferences = await getEchoUserNotificationPreferences(pool, userId);
+  if (!userAllowsMessagePush(preferences?.settings)) return;
+
   const overrides = await listEchoChannelNotificationOverridesForUser(
     pool,
     userId,
@@ -127,12 +138,23 @@ async function pushToUserIfAllowed(
     if (effective === 'none') return;
   }
 
+  const apnsConfigured = isEchoApnsConfigured();
+  const badge =
+    !apnsConfigured || preferences?.settings.unreadBadge === false
+      ? undefined
+      : await buildEchoAttentionSnapshot(pool, userId).then((snapshot) =>
+          Object.values(snapshot.channelAttentionByChannelId).reduce(
+            (total, channel) => total + Math.max(0, channel.unreadCount),
+            0,
+          ),
+        );
+
   await Promise.all([
     isEchoWebPushConfigured()
       ? sendEchoWebPushToUser(pool, userId, payload)
       : Promise.resolve(0),
-    isEchoApnsConfigured()
-      ? sendEchoApnsToUser(pool, userId, payload)
+    apnsConfigured
+      ? sendEchoApnsToUser(pool, userId, { ...payload, badge })
       : Promise.resolve(0),
   ]);
 }

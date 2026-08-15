@@ -178,6 +178,9 @@ const echoInitialHistoryLoading = computed(
 const echoLoadingOlder = computed(
   () => echoChannelHistory?.loadingOlder.value ?? false,
 );
+const echoLoadingNewer = computed(
+  () => echoChannelHistory?.loadingNewer.value ?? false,
+);
 const echoInitialBackfillLoading = computed(
   () => echoChannelHistory?.initialBackfillLoading.value ?? false,
 );
@@ -827,9 +830,11 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         :can-moderate-author="canModerateAuthor"
         :on-moderate-user="onModerateUser"
         :load-older="echoChannelHistory?.loadOlder"
+        :load-newer="echoChannelHistory?.loadNewer"
         :load-initial-backfill="echoChannelHistory?.loadInitialBackfill"
         :ensure-message-in-window="ensureMessageInWindowForActiveChannel"
         :loading-older="echoLoadingOlder"
+        :loading-newer="echoLoadingNewer"
         :initial-backfill-loading="echoInitialBackfillLoading"
         :initial-backfill-pending="echoInitialBackfillPending"
         :initial-history-loading="echoInitialHistoryLoading"

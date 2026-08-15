@@ -1,0 +1,11 @@
+{
+  "images": [
+    {
+      "filename": "google.svg",
+      "idiom": "universal",
+      "scale": "1x"
+    }
+  ],
+  "info": { "author": "echo", "version": 1 },
+  "properties": { "preserves-vector-representation": true }
+}

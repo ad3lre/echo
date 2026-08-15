@@ -16,7 +16,7 @@ import {
 } from '@/features/layout/urlNavigation';
 import { putGuildEventRsvp } from '@/services/http/echoServerEventsHttp';
 import { resolveGuildEventLocation } from '@/features/server-events/resolveGuildEventLocation';
-import { applyEchoShellPath } from '@/platform/desktopProductDeepLink';
+import { applyEchoShellPath } from '@/features/layout/echoShellPathNavigation';
 import { openExternal } from '@/platform/desktopBridge';
 import {
   dispatchAppToastDetail,

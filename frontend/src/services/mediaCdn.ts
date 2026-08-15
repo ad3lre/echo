@@ -16,6 +16,14 @@ type SignedCacheEntry = {
 
 const signedUrlCache = new Map<string, SignedCacheEntry>();
 
+/**
+ * Coalesce concurrent reads for the same object. The cache above only helps after
+ * the first sign request has completed; without this second layer, a chat mount
+ * can issue one /media/sign request per avatar (and more when responsive media
+ * and GIF playback both resolve the same URL).
+ */
+const signingInFlight = new Map<string, Promise<string>>();
+
 function signedCacheKey(storageKey: string, scope: MediaCdnReadScope): string {
   return `${scope}:${storageKey}`;
 }
@@ -99,6 +107,24 @@ type MediaSignResponse = {
   urls?: MediaSignResponseItem[];
 };
 
+function mediaSignErrorStatus(error: unknown): number | null {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === 'number' && Number.isFinite(status) ? status : null;
+}
+
+function shouldRetryMediaSign(error: unknown): boolean {
+  const status = mediaSignErrorStatus(error);
+  // Auth and permission errors are deterministic; retry only transient HTTP
+  // failures and network errors without an HTTP status.
+  return status == null || status === 408 || status >= 500;
+}
+
+function waitForMediaSignRetry(attempt: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 100 * 2 ** attempt);
+  });
+}
+
 async function postMediaSign(
   items: Array<{
     storageKey: string;
@@ -106,27 +132,32 @@ async function postMediaSign(
     publicUrl?: string;
   }>,
 ): Promise<MediaSignResponseItem[]> {
-  try {
-    const data = await echoFetch<MediaSignResponse>(null, '/media/sign', {
-      method: 'POST',
-      body: JSON.stringify({ items }),
-    });
-    if (Array.isArray(data.urls) && data.urls.length > 0) {
-      return data.urls;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const data = await echoFetch<MediaSignResponse>(null, '/media/sign', {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+      });
+      if (Array.isArray(data.urls) && data.urls.length > 0) {
+        return data.urls;
+      }
+      if (data.url && items[0]?.storageKey) {
+        return [
+          {
+            storageKey: items[0].storageKey,
+            url: data.url,
+            expiresAt: data.expiresAt ?? Date.now() + 3_600_000,
+            scope: items[0].scope ?? 'object',
+          },
+        ];
+      }
+      return [];
+    } catch (error) {
+      if (attempt >= 2 || !shouldRetryMediaSign(error)) break;
+      await waitForMediaSignRetry(attempt);
     }
-    if (data.url && items[0]?.storageKey) {
-      return [
-        {
-          storageKey: items[0].storageKey,
-          url: data.url,
-          expiresAt: data.expiresAt ?? Date.now() + 3_600_000,
-          scope: items[0].scope ?? 'object',
-        },
-      ];
-    }
-  } catch {
-    /* signing unavailable — caller falls back to read-through / direct URL */
   }
+  /* signing unavailable — caller falls back to read-through / direct URL */
   return [];
 }
 
@@ -148,14 +179,44 @@ export async function resolveSignedEchoMediaUrl(opts: {
   const cached = readCachedSignedUrl(storageKey, scope);
   if (cached) return cached;
 
-  const signed = await postMediaSign([{ storageKey, scope, publicUrl: raw }]);
+  const key = signedCacheKey(storageKey, scope);
+  const inFlight = signingInFlight.get(key);
+  if (inFlight) return inFlight;
+
+  const pending = resolveAndRememberSignedEchoMediaUrl({
+    raw,
+    storageKey,
+    scope,
+  });
+  signingInFlight.set(key, pending);
+  try {
+    return await pending;
+  } finally {
+    // Do not retain rejected/finished promises; completed URLs are retained in
+    // signedUrlCache and a later request can retry after a transient failure.
+    if (signingInFlight.get(key) === pending) signingInFlight.delete(key);
+  }
+}
+
+async function resolveAndRememberSignedEchoMediaUrl(opts: {
+  raw: string;
+  storageKey: string;
+  scope: MediaCdnReadScope;
+}): Promise<string> {
+  const signed = await postMediaSign([
+    {
+      storageKey: opts.storageKey,
+      scope: opts.scope,
+      publicUrl: opts.raw,
+    },
+  ]);
   const first = signed[0];
   if (first?.url) {
-    rememberSignedUrl(storageKey, scope, first.url, first.expiresAt);
+    rememberSignedUrl(opts.storageKey, opts.scope, first.url, first.expiresAt);
     return first.url;
   }
   // Unsigned media-cdn URLs 403; prefer cookie-authenticated API read-through.
-  return readThroughFallbackUrlForStorageKey(storageKey);
+  return readThroughFallbackUrlForStorageKey(opts.storageKey);
 }
 
 export async function batchResolveSignedEchoMediaUrls(
@@ -220,4 +281,5 @@ export async function batchResolveSignedEchoMediaUrls(
 /** @internal test helper */
 export function clearEchoMediaCdnSignedUrlCacheForTests(): void {
   signedUrlCache.clear();
+  signingInFlight.clear();
 }

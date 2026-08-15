@@ -32,10 +32,6 @@
             "exclude": true
           },
           {
-            "/": "/oauth-desktop-bridge.html",
-            "exclude": true
-          },
-          {
             "/": "/*",
             "comment": "Public invite vanity URLs (single path segment)"
           }
@@ -46,7 +42,7 @@
   "webcredentials": {
     "apps": [
       "7HBQV8236H.com.echo.ios",
-      "7HBQV8236H.com.echo.desktop"
+      "7HBQV8236H.com.echo.macos"
     ]
   }
 }

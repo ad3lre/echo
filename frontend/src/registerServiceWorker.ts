@@ -5,7 +5,6 @@
  */
 export function registerEchoServiceWorker(): void {
   if (typeof window === 'undefined') return;
-  if (import.meta.env.VITE_ECHO_TAURI === '1') return;
   if (!('serviceWorker' in navigator)) return;
 
   window.addEventListener('load', () => {

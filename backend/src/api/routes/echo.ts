@@ -68,6 +68,9 @@ export default async function echoRoutes(
   });
   await fastify.register(echoPublic);
   await fastify.register(echoMedia);
+  // Upload reads include intentionally public server-branding and emoji objects.
+  // The plugin applies authentication explicitly to every private upload route.
+  await fastify.register(echoUploads);
 
   await fastify.register(async (secured) => {
     secured.addHook('preHandler', requireAuth);
@@ -94,7 +97,6 @@ export default async function echoRoutes(
     await secured.register(echoSocial);
     await secured.register(echoDm);
     await secured.register(echoSafety);
-    await secured.register(echoUploads);
     await secured.register(echoModeration);
     await secured.register(echoBannedWords);
     await secured.register(echoEmojiLibrary);

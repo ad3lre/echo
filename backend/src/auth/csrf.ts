@@ -27,8 +27,6 @@ const CSRF_EXEMPT_EXACT = new Set([
   '/api/v1/auth/discord/login/start',
   /** Sign-in with Google from the login modal (no session / CSRF cookie yet). */
   '/api/v1/auth/google/login/start',
-  /** Desktop Discord OAuth handoff redeem (one-time code from system browser). */
-  '/api/v1/auth/desktop/redeem-handoff',
   /**
    * Public marketing-site support form (`marketing/src/pages/support.astro`).
    * Honeypot + IP rate-limit + Reply-To, no session yet — no CSRF cookie to compare against.
@@ -91,10 +89,10 @@ export async function enforceApiCsrf(
   const headerRaw = req.headers['x-csrf-token'];
   let header = typeof headerRaw === 'string' ? headerRaw.trim() : '';
   if (!header) {
-    /* Desktop Tauri WebViews send CORS-simple POSTs (no custom headers, so no
-     * OPTIONS preflight) and carry the double-submit token as a `csrfToken`
-     * body field instead. Same security property: a cross-site attacker cannot
-     * read the `echo_csrf` cookie to forge the value. */
+    /* Clients that send CORS-simple POSTs (no custom headers, so no OPTIONS
+     * preflight) carry the double-submit token as a `csrfToken` body field
+     * instead. Same security property: a cross-site attacker cannot read the
+     * `echo_csrf` cookie to forge the value. */
     const body = req.body as Record<string, unknown> | undefined | null;
     const fromBody =
       body && typeof body === 'object' && typeof body.csrfToken === 'string'

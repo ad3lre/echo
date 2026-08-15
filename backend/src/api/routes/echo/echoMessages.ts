@@ -458,7 +458,12 @@ export default async function echoMessagesRoutes(
 
   fastify.get<{
     Params: { channelId: string };
-    Querystring: { before?: string; limit?: string };
+    Querystring: {
+      before?: string;
+      after?: string;
+      around?: string;
+      limit?: string;
+    };
   }>(
     '/channels/:channelId/messages',
     { preHandler: [requireAuth, requireEchoStore] },
@@ -479,6 +484,21 @@ export default async function echoMessagesRoutes(
       );
       const beforeRaw =
         typeof req.query.before === 'string' ? req.query.before.trim() : '';
+      const afterRaw =
+        typeof req.query.after === 'string' ? req.query.after.trim() : '';
+      const aroundRaw =
+        typeof req.query.around === 'string' ? req.query.around.trim() : '';
+      const cursorCount = [beforeRaw, afterRaw, aroundRaw].filter(
+        Boolean,
+      ).length;
+      if (cursorCount > 1) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_MESSAGE_CURSOR',
+          'before, after, and around are mutually exclusive',
+        );
+      }
       if (config.echoMessagesListDebugStats) {
         const debugPre = await selectEchoMessagesChannelListDebugStats(
           pool,
@@ -494,6 +514,8 @@ export default async function echoMessagesRoutes(
           userId: getAuthUser(req).id,
           channelId,
           before: beforeRaw || null,
+          after: afterRaw || null,
+          around: aroundRaw || null,
           limit,
           totalCountAllRows: debugPre.totalCount,
           liveCountNotDeleted: debugPre.liveCount,
@@ -513,6 +535,8 @@ export default async function echoMessagesRoutes(
         channelId,
         {
           before: beforeRaw || undefined,
+          after: afterRaw || undefined,
+          around: aroundRaw || undefined,
           limit,
         },
         {
@@ -535,6 +559,8 @@ export default async function echoMessagesRoutes(
               context: {
                 channelId: t.channelId,
                 before: t.before,
+                after: t.after,
+                around: t.around,
                 limit: t.limit,
                 messageCount: t.messageCount,
                 queryMs: Math.round(t.queryMs),
@@ -567,6 +593,8 @@ export default async function echoMessagesRoutes(
         context: {
           channelId,
           before: beforeRaw || null,
+          after: afterRaw || null,
+          around: aroundRaw || null,
           limit,
           accessMs: Math.round(accessMs),
           listMs: Math.round(listMs),
@@ -582,6 +610,8 @@ export default async function echoMessagesRoutes(
         userId: getAuthUser(req).id,
         channelId,
         before: beforeRaw || null,
+        after: afterRaw || null,
+        around: aroundRaw || null,
         limit,
         resultCount: msgs.length,
         firstResultMessageId: msgs[0]?.id ?? null,

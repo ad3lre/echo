@@ -16,7 +16,6 @@ export const SETTINGS_SECTION_NAV_ICON: Record<SettingsSection, string> = {
   'Log out': icons.logOut,
   'Data & Privacy': icons.list,
   Style: icons.sun,
-  Desktop: icons.desktop,
   Accessibility: icons.settings,
   'Voice & Video': icons.mic,
   Notifications: icons.bellSchool,

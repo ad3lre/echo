@@ -50,3 +50,9 @@ docs/overview/tree.md
 
 # Prisma migrations (binary SQL history; match .gitignore)
 backend/prisma/migrations
+
+# Apple SwiftPM / Xcode local build checkouts
+apple/.build/
+apple/.swiftpm/
+apple/**/DerivedData/
+

@@ -3,29 +3,6 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ref, nextTick, createApp, defineComponent } from 'vue';
 import { useAppLayoutPlatformLifecycle } from './useAppLayoutPlatformLifecycle';
 
-vi.mock('@/stores/desktopUpdate', () => ({
-  useDesktopUpdateStore: () => ({
-    pendingVersion: null,
-    clearPending: vi.fn(),
-  }),
-}));
-
-vi.mock('@/composables/useDesktopUpdateMonitor', () => ({
-  useDesktopUpdateMonitor: vi.fn(),
-}));
-
-vi.mock('@/composables/useDesktopNativeAttention', () => ({
-  useDesktopNativeAttention: vi.fn(),
-}));
-
-vi.mock('@/platform/desktopGlobalShortcutBringFront', () => ({
-  useDesktopGlobalShortcutBringFront: vi.fn(),
-}));
-
-vi.mock('@/composables/useDesktopIncomingCallAttention', () => ({
-  useDesktopIncomingCallAttention: vi.fn(),
-}));
-
 vi.mock('@/platform/syncCapabilities', () => ({
   echoSyncCapabilities: { isMockDataMode: false },
 }));
@@ -40,8 +17,6 @@ vi.mock('@/utils/echoOutageRecoveryStats', () => ({
 
 vi.mock('@/platform/desktopBridge', () => ({
   isDesktop: () => false,
-  bringMainWindowToForeground: vi.fn(),
-  downloadAndRelaunchDesktopUpdate: vi.fn(),
   openExternal: vi.fn(),
 }));
 
@@ -84,11 +59,7 @@ describe('useAppLayoutPlatformLifecycle', () => {
     const app = createApp(
       defineComponent({
         setup() {
-          useAppLayoutPlatformLifecycle({
-            dmCallRingUi: ref(false),
-            openDmInboxFromRailOverflow: vi.fn(),
-            openUserSettingsModal: vi.fn(),
-          });
+          useAppLayoutPlatformLifecycle();
           return () => null;
         },
       }),

@@ -19,7 +19,7 @@ vi.mock('@/utils/controllerMissingAction', () => ({
   dispatchAppToastDetail: h.dispatchAppToastDetail,
 }));
 vi.mock('@/platform/desktopBridge', () => ({ openExternal: h.openExternal }));
-vi.mock('@/platform/desktopProductDeepLink', () => ({
+vi.mock('@/features/layout/echoShellPathNavigation', () => ({
   applyEchoShellPath: h.applyEchoShellPath,
 }));
 vi.mock('@/features/server-events/resolveGuildEventLocation', () => ({

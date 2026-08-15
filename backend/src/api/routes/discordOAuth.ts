@@ -39,7 +39,6 @@ import {
   encodeDiscordOAuthLinkCookieValue,
   encodeDiscordOAuthLoginCookieValue,
 } from '../../domain/discordOAuthState';
-import { validateAndHashDesktopOauthHandoffNonce } from '../../domain/desktopOAuthHandoffNonce';
 import { mapDiscordUserToNormalized } from '../../domain/discordNormalized';
 import { applyDiscordProfileMerge } from '../../domain/discordProfileMerge';
 import { mergeDiscordShadows } from '../../domain/discordShadowMerge';
@@ -51,10 +50,8 @@ import {
 } from '../../domain/discordUserLinkRepo';
 import {
   discordOAuthAppRedirect,
-  discordOAuthDesktopBridgeRedirect,
   isDiscordOauthConfigured,
 } from '../../domain/discordOAuthRedirect';
-import { createDesktopOauthHandoff } from '../../domain/desktopOAuthHandoffRepo';
 import { isValidEmailFormat } from '../../auth/email';
 import { isOAuthLoginStartOriginAllowed } from '../../auth/oauthLoginOrigin';
 import { clientIpFromFastifyRequest } from '../../net/clientIp';
@@ -65,12 +62,8 @@ import {
 
 const OAUTH_FETCH: FetchLike = globalThis.fetch.bind(globalThis);
 
-function setOAuthCookie(
-  reply: FastifyReply,
-  value: string,
-  request: FastifyRequest,
-) {
-  const base = sessionCookieBaseAttrs(request);
+function setOAuthCookie(reply: FastifyReply, value: string) {
+  const base = sessionCookieBaseAttrs();
   reply.setCookie(discordOAuthCookieName(), value, {
     httpOnly: true,
     ...base,
@@ -82,27 +75,9 @@ function clearOAuthCookie(reply: FastifyReply) {
   reply.clearCookie(discordOAuthCookieName(), { path: '/' });
 }
 
-type DiscordLoginStartBody = {
-  desktopBrowserHandoff?: boolean | string | number;
-  desktopHandoffNonce?: string;
-};
-
-function isTruthyDesktopHandoffFlag(
-  raw: DiscordLoginStartBody['desktopBrowserHandoff'],
-): boolean {
-  if (raw === true || raw === 1) return true;
-  if (typeof raw === 'string') {
-    const t = raw.trim().toLowerCase();
-    return t === '1' || t === 'true' || t === 'yes' || t === 'on';
-  }
-  return false;
-}
-
 async function beginDiscordLogin(
-  req: FastifyRequest,
   reply: FastifyReply,
   fastify: FastifyInstance,
-  body?: DiscordLoginStartBody,
 ): Promise<{ authorizeUrl: string; redirectUri: string } | null> {
   const { mode } = await getAuthStore();
   if (mode !== 'postgres') {
@@ -148,32 +123,9 @@ async function beginDiscordLogin(
     return null;
   }
 
-  const desktopBrowserHandoff = isTruthyDesktopHandoffFlag(
-    body?.desktopBrowserHandoff,
-  );
-  const desktopHandoffNonceHash = desktopBrowserHandoff
-    ? validateAndHashDesktopOauthHandoffNonce(
-        typeof body?.desktopHandoffNonce === 'string'
-          ? body.desktopHandoffNonce
-          : '',
-      )
-    : null;
-  if (desktopBrowserHandoff && !desktopHandoffNonceHash) {
-    await sendError(
-      reply,
-      400,
-      'BAD_REQUEST',
-      'Desktop handoff nonce is required.',
-    );
-    return null;
-  }
-
-  const { stateForDiscord, exp } = encodeDiscordLoginSignedState(
-    desktopBrowserHandoff,
-    desktopHandoffNonceHash ?? undefined,
-  );
+  const { stateForDiscord, exp } = encodeDiscordLoginSignedState();
   const cookieVal = encodeDiscordOAuthLoginCookieValue(stateForDiscord, exp);
-  setOAuthCookie(reply, cookieVal, req);
+  setOAuthCookie(reply, cookieVal);
 
   const redirectUri = config.discordOauthRedirectUri;
   if (!config.isProduction) {
@@ -254,7 +206,7 @@ export default async function discordOAuthRoutes(
         state,
         exp,
       );
-      setOAuthCookie(reply, cookieVal, req);
+      setOAuthCookie(reply, cookieVal);
 
       const redirectUri = config.discordOauthRedirectUri;
       if (!config.isProduction) {
@@ -269,29 +221,17 @@ export default async function discordOAuthRoutes(
     },
   );
 
-  fastify.post<{
-    Body: DiscordLoginStartBody;
-  }>(
+  fastify.post(
     '/discord/login/start',
-    async (req: FastifyRequest, reply: FastifyReply) => {
-      const out = await beginDiscordLogin(
-        req,
-        reply,
-        fastify,
-        req.body as DiscordLoginStartBody | undefined,
-      );
+    async (_req: FastifyRequest, reply: FastifyReply) => {
+      const out = await beginDiscordLogin(reply, fastify);
       if (!out) return;
       const { authorizeUrl, redirectUri } = out;
       return reply.code(200).send({ authorizeUrl, redirectUri });
     },
   );
 
-  fastify.get<{
-    Querystring: {
-      desktopBrowserHandoff?: string;
-      desktopHandoffNonce?: string;
-    };
-  }>(
+  fastify.get(
     '/discord/login/start',
     async (req: FastifyRequest, reply: FastifyReply) => {
       const fetchSite = req.headers['sec-fetch-site'];
@@ -318,15 +258,7 @@ export default async function discordOAuthRoutes(
           );
         }
       }
-      const q = req.query as
-        | { desktopBrowserHandoff?: string; desktopHandoffNonce?: string }
-        | undefined;
-      const out = await beginDiscordLogin(req, reply, fastify, {
-        desktopBrowserHandoff:
-          q?.desktopBrowserHandoff === '1' ||
-          q?.desktopBrowserHandoff === 'true',
-        desktopHandoffNonce: q?.desktopHandoffNonce,
-      });
+      const out = await beginDiscordLogin(reply, fastify);
       if (!out) return;
       return reply.code(302).redirect(out.authorizeUrl);
     },
@@ -397,34 +329,14 @@ export default async function discordOAuthRoutes(
     clearOAuthCookie(reply);
 
     let payload: DecodedDiscordOAuthCookie | null = null;
-    let desktopHandoff = false;
-    let desktopHandoffNonceHash: string | undefined;
 
     if (signedLogin) {
-      desktopHandoff = signedLogin.desktopHandoff;
-      desktopHandoffNonceHash = signedLogin.desktopHandoffNonceHash;
-      /**
-       * Web login must prove browser continuity with the HttpOnly OAuth cookie.
-       * Only the desktop handoff flow may fall back to signed `state` alone
-       * because the callback can land in a different system browser that does
-       * not share the API cookie jar.
-       */
-      if (desktopHandoff) {
-        if (!desktopHandoffNonceHash) {
-          return reply
-            .code(302)
-            .redirect(discordOAuthAppRedirect(false, 'bad_state'));
-        }
-        payload = { flow: 'login', state, exp: signedLogin.exp };
-      } else if (
-        cookiePayload?.flow === 'login' &&
-        cookiePayload.state === state
-      ) {
+      /** Login must prove browser continuity with the HttpOnly OAuth cookie. */
+      if (cookiePayload?.flow === 'login' && cookiePayload.state === state) {
         payload = cookiePayload;
       }
     } else if (cookiePayload && cookiePayload.state === state) {
       payload = cookiePayload;
-      if (cookiePayload.flow === 'login') desktopHandoff = false;
     }
 
     if (!payload) {
@@ -731,32 +643,6 @@ export default async function discordOAuthRoutes(
       clearGuestBindingCookie(reply);
       const audit = loginAuditDigests(req);
       try {
-        if (desktopHandoff) {
-          if (!desktopHandoffNonceHash) {
-            return reply
-              .code(302)
-              .redirect(
-                discordOAuthAppRedirect(false, 'bad_state', redirectOpts),
-              );
-          }
-          const { code } = await createDesktopOauthHandoff(
-            pool,
-            user.id,
-            desktopHandoffNonceHash,
-          );
-          fastify.log.info(
-            {
-              userId: user.id,
-              discordUserId: normalized.discordUserId,
-              handoffCodeLen: code.length,
-              hasNonceHash: Boolean(desktopHandoffNonceHash),
-            },
-            'discord_oauth_desktop_handoff_created',
-          );
-          return reply
-            .code(302)
-            .redirect(discordOAuthDesktopBridgeRedirect(code));
-        }
         const { user: sessionUser } = await issueEchoBrowserSession(
           store,
           { id: user.id, username: user.username },

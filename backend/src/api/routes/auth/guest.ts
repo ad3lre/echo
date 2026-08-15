@@ -118,7 +118,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
                 reply,
                 req,
               );
-              setGuestBindingCookie(reply, session.user.id, req);
+              setGuestBindingCookie(reply, session.user.id);
               fastify.log.info({
                 msg: 'echo_product_analytics',
                 event: 'guest_resumed',
@@ -243,7 +243,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           reply,
           req,
         );
-        setGuestBindingCookie(reply, session.user.id, req);
+        setGuestBindingCookie(reply, session.user.id);
         await recordGuestMintSuccess(ip);
         fastify.log.info({
           msg: 'echo_product_analytics',

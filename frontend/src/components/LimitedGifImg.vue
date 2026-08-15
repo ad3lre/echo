@@ -85,8 +85,24 @@ const props = withDefaults(
 const reducedMotion = ref(false);
 const loadFailed = ref(false);
 const imageLoaded = ref(false);
+const responsiveVariantFailed = ref(false);
 
-function onImgError() {
+function onImgError(event: Event) {
+  // Responsive variants are an optimization. If a variant is missing or its
+  // transform fails, retry the original signed object before showing the
+  // unavailable state. This avoids turning one CDN variant failure into a
+  // permanently missing avatar.
+  if (
+    props.unavailableVariant === 'avatar' &&
+    !responsiveVariantFailed.value &&
+    avatarResponsive.src.value &&
+    (event.currentTarget as HTMLImageElement | null)?.currentSrc !==
+      safeUrl.value
+  ) {
+    responsiveVariantFailed.value = true;
+    imageLoaded.value = false;
+    return;
+  }
   loadFailed.value = true;
 }
 
@@ -175,15 +191,21 @@ const avatarResponsive = useSignedEchoMediaResponsive(
 );
 
 const staticRasterSrc = computed(() =>
-  props.unavailableVariant === 'avatar' && avatarResponsive.src.value
+  props.unavailableVariant === 'avatar' &&
+  avatarResponsive.src.value &&
+  !responsiveVariantFailed.value
     ? avatarResponsive.src.value
     : safeUrl.value,
 );
 const staticRasterSrcset = computed(() =>
-  props.unavailableVariant === 'avatar' ? avatarResponsive.srcset.value : '',
+  props.unavailableVariant === 'avatar' && !responsiveVariantFailed.value
+    ? avatarResponsive.srcset.value
+    : '',
 );
 const staticRasterSizes = computed(() =>
-  props.unavailableVariant === 'avatar' && avatarResponsive.srcset.value
+  props.unavailableVariant === 'avatar' &&
+  avatarResponsive.srcset.value &&
+  !responsiveVariantFailed.value
     ? avatarResponsive.sizes
     : undefined,
 );
@@ -200,6 +222,7 @@ watch(
   () => {
     loadFailed.value = false;
     imageLoaded.value = false;
+    responsiveVariantFailed.value = false;
   },
 );
 

@@ -24,6 +24,7 @@ import { emitDiagnostic } from '@/observability/sessionDiagnostics';
 import {
   hasChannelMessageInBucket,
   insertChannelMessageFromHistory,
+  prependChannelMessagesFromHistory,
   updateChannelMessageInBucket,
 } from '@/services/realtime/channelMessageAuthority';
 import {
@@ -33,8 +34,10 @@ import {
 import { messageWindowAuthority } from '@/features/chat/domain/messageWindowAuthority';
 import {
   applyEchoHistoryChannelClientCap,
+  applyEchoHistoryAroundPageFromApi,
   applyEchoHistoryInitialPageFromApi,
   applyEchoHistoryLatestPageFromApi,
+  applyEchoHistoryNewerPageFromApi,
   applyEchoHistoryOlderPageFromApi,
   applyEchoHistorySeedFromCachedMessages,
 } from '@/features/chat/domain/echoHistoryChannelApply';
@@ -106,10 +109,13 @@ export function createEchoHistoryController(
 
   const initialLoading = ref(false);
   const loadingOlder = ref(false);
+  const loadingNewer = ref(false);
+  const loadingAround = ref(false);
   const error = ref<string | null>(null);
   const hasMoreOlder = messageWindowAuthority.hasMoreOlder;
   let initialLoadToken = 0;
   let prependLoadToken = 0;
+  let appendLoadToken = 0;
   let jumpPrefetchToken = 0;
   const replyTargetBackfillLastAttemptMs = new Map<string, number>();
   const REPLY_TARGET_BACKFILL_DEDUP_MS = 30_000;
@@ -121,6 +127,7 @@ export function createEchoHistoryController(
   function bumpAllHistoryLoadTokensOnActiveChannelChange(): void {
     initialLoadToken += 1;
     prependLoadToken += 1;
+    appendLoadToken += 1;
     jumpPrefetchToken += 1;
     initialStages.cancel();
   }
@@ -721,6 +728,7 @@ export function createEchoHistoryController(
         outcomeOk: false,
         expectation: 'cold load failed so the history skeleton cannot complete',
       });
+      messageWindowAuthority.setBoundary(cid, 'older', 'failed');
       if (isPromiseTimeoutError(e)) {
         error.value = 'Timed out loading messages';
         dispatchAppToast(
@@ -735,6 +743,16 @@ export function createEchoHistoryController(
       } else if (
         isBenignPrimaryFlowError(e, 'fetchEchoChannelMessages', { cid })
       ) {
+        const isBlockedDm =
+          e instanceof EchoApiError &&
+          e.body.detail?.trim() === 'DM_USER_BLOCKED' &&
+          (cid.startsWith('dm-') || echoDmThreadIds?.value.has(cid));
+        if (isBlockedDm && activeChannelId.value === cid) {
+          // A stale inbox entry can survive a block until the next thread refresh.
+          // Leave the inaccessible route immediately instead of trapping the user
+          // on an empty/error DM surface.
+          activeChannelId.value = '';
+        }
         error.value = null;
       } else {
         reportPrimaryFlowFailure('fetchEchoChannelMessages', e, { cid });
@@ -775,6 +793,18 @@ export function createEchoHistoryController(
         listLength: list?.length ?? 0,
       });
       return false;
+    }
+    const cachedOlder = messageWindowAuthority.takeCachedOlder(
+      cid,
+      ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+    );
+    if (cachedOlder.length > 0) {
+      const { mergedOlderCount } = prependChannelMessagesFromHistory(
+        cid,
+        cachedOlder,
+      );
+      messageWindowAuthority.setBoundary(cid, 'older', 'more');
+      return mergedOlderCount > 0;
     }
     const seq = ++prependLoadToken;
     loadingOlder.value = true;
@@ -901,6 +931,7 @@ export function createEchoHistoryController(
         outcomeOk: false,
         expectation: 'no merge — prepend transaction should not restore',
       });
+      messageWindowAuthority.setBoundary(cid, 'older', 'failed');
       emitDiagnostic({
         level: 'warn',
         domain: 'api',
@@ -932,6 +963,108 @@ export function createEchoHistoryController(
     } finally {
       if (seq === prependLoadToken && cid === activeChannelId.value) {
         loadingOlder.value = false;
+      }
+    }
+  }
+
+  /** Fetch a target-centered window, preserving both directional edges for later paging. */
+  async function loadAround(messageId: string): Promise<boolean> {
+    const cid = activeChannelId.value;
+    const target = messageId.trim();
+    const token = auth.accessToken?.trim() ?? '';
+    if (
+      !cid ||
+      !target ||
+      !auth.isAuthenticated ||
+      !canLoadHistoryForChannelId(cid) ||
+      loadingAround.value
+    ) {
+      return false;
+    }
+    const seq = ++jumpPrefetchToken;
+    loadingAround.value = true;
+    try {
+      const { messages: apiMsgs } = await promiseWithTimeout(
+        fetchEchoChannelMessages(token, cid, {
+          around: target,
+          limit: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+        }),
+        ECHO_HISTORY_PREFETCH_FETCH_TIMEOUT_MS,
+        { label: 'Load target message window' },
+      );
+      if (seq !== jumpPrefetchToken || cid !== activeChannelId.value) {
+        return false;
+      }
+      const { mergedCount } = applyEchoHistoryAroundPageFromApi(
+        cid,
+        mapEchoMessagesToRaw(apiMsgs),
+        activeChannelId.value,
+      );
+      return mergedCount > 0 && hasChannelMessageInBucket(cid, target);
+    } catch {
+      if (seq !== jumpPrefetchToken) return false;
+      messageWindowAuthority.setBoundary(cid, 'older', 'failed');
+      messageWindowAuthority.setBoundary(cid, 'newer', 'failed');
+      return false;
+    } finally {
+      if (seq === jumpPrefetchToken) loadingAround.value = false;
+    }
+  }
+
+  /** Fetch rows newer than the retained window (used after an around/jump load). */
+  async function loadNewer(): Promise<boolean> {
+    const cid = activeChannelId.value;
+    const token = auth.accessToken?.trim() ?? '';
+    const list = cid ? messageReadFacade.getChannelMessages(cid) : [];
+    // Optimistic outbound rows are not valid REST cursors. Walk backward to the
+    // newest persisted row so a pending send cannot falsely close the newer edge.
+    const last = cid
+      ? [...list]
+          .reverse()
+          .find(
+            (row) => !!row.id && !isEchoPendingOutboundMessageId(cid, row.id),
+          )
+      : undefined;
+    if (
+      !cid ||
+      !last?.id ||
+      !auth.isAuthenticated ||
+      !canLoadHistoryForChannelId(cid) ||
+      loadingNewer.value ||
+      messageWindowAuthority.getBoundary(cid, 'newer') === 'reached'
+    ) {
+      return false;
+    }
+    const seq = ++appendLoadToken;
+    loadingNewer.value = true;
+    try {
+      const { messages: apiMsgs } = await promiseWithTimeout(
+        fetchEchoChannelMessages(token, cid, {
+          after: last.id,
+          limit: ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+        }),
+        ECHO_HISTORY_LOAD_OLDER_TIMEOUT_MS,
+        { label: 'Load newer messages' },
+      );
+      if (seq !== appendLoadToken || cid !== activeChannelId.value) {
+        return false;
+      }
+      const { mergedNewerCount } = applyEchoHistoryNewerPageFromApi(
+        cid,
+        mapEchoMessagesToRaw(apiMsgs),
+        apiMsgs.length,
+        activeChannelId.value,
+      );
+      return mergedNewerCount > 0;
+    } catch (e) {
+      if (seq !== appendLoadToken) return false;
+      messageWindowAuthority.setBoundary(cid, 'newer', 'failed');
+      error.value =
+        e instanceof Error ? e.message : 'Failed to load newer messages';
+      return false;
+    } finally {
+      if (seq === appendLoadToken && cid === activeChannelId.value) {
+        loadingNewer.value = false;
       }
     }
   }
@@ -1055,6 +1188,8 @@ export function createEchoHistoryController(
     initialLoading.value = false;
     initialBackfillLoading.value = false;
     loadingOlder.value = false;
+    loadingNewer.value = false;
+    loadingAround.value = false;
   });
 
   async function syncActiveChannelTailFromApi(reason: string): Promise<void> {
@@ -1202,6 +1337,8 @@ export function createEchoHistoryController(
       return okResult();
     }
     if (channelId !== activeChannelId.value) return okResult();
+    const centered = await loadAround(messageId);
+    if (centered) return okResult();
     const seq = ++jumpPrefetchToken;
     let pagesLoaded = 0;
     function emitStep2PrefetchStats(targetFound: boolean) {
@@ -1378,9 +1515,13 @@ export function createEchoHistoryController(
     initialBackfillLoading,
     initialBackfillPending,
     loadingOlder,
+    loadingNewer,
+    loadingAround,
     error,
     hasMoreOlder,
     loadOlder,
+    loadNewer,
+    loadAround,
     loadInitialBackfill: () =>
       loadingOlder.value
         ? Promise.resolve(false)

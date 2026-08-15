@@ -39,8 +39,8 @@ describe('buildHistorySkeletonRowsFromMessages', () => {
 
   it('reserves day separators and does not tighten headers across day boundaries', () => {
     const rows = buildHistorySkeletonRowsFromMessages([
-      msg('m1', 'u1', 'Late message', '2026-01-01T23:59:00.000Z'),
-      msg('m2', 'u2', 'Next day', '2026-01-02T00:01:00.000Z'),
+      msg('m1', 'u1', 'First day', '2026-01-01T12:00:00.000Z'),
+      msg('m2', 'u2', 'Next day', '2026-01-02T12:00:00.000Z'),
     ]);
 
     expect(rows[1]?.daySeparatorLabel).toBeTruthy();

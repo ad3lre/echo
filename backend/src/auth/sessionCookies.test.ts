@@ -1,42 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import type { FastifyRequest } from 'fastify';
-import { requestOriginsForDesktopCookiePolicy } from './sessionCookies';
+import {
+  decodeGuestBindingCookieValue,
+  encodeGuestBindingCookieValue,
+  sessionCookieBaseAttrs,
+} from './sessionCookies';
 
-function mockRequest(
-  headers: Record<string, string | undefined>,
-): FastifyRequest {
-  return { headers } as FastifyRequest;
-}
+describe('sessionCookieBaseAttrs', () => {
+  it('keeps browser session cookies same-site', () => {
+    const attrs = sessionCookieBaseAttrs();
+    expect(attrs.sameSite).toBe('lax');
+    expect(attrs.path).toBe('/');
+  });
+});
 
-describe('requestOriginsForDesktopCookiePolicy', () => {
-  it('returns Origin when present', () => {
-    expect(
-      requestOriginsForDesktopCookiePolicy(
-        mockRequest({ origin: 'https://tauri.localhost' }),
-      ),
-    ).toEqual(['https://tauri.localhost']);
+describe('guest binding cookie', () => {
+  it('round-trips the user id', () => {
+    const encoded = encodeGuestBindingCookieValue('user_guest_1');
+    expect(decodeGuestBindingCookieValue(encoded)?.userId).toBe('user_guest_1');
   });
 
-  it('falls back to Referer origin when Origin is missing (WKWebView simple POST)', () => {
-    expect(
-      requestOriginsForDesktopCookiePolicy(
-        mockRequest({
-          referer: 'https://tauri.localhost/index.html',
-        }),
-      ),
-    ).toEqual(['https://tauri.localhost']);
-  });
-
-  it('prefers both Origin and Referer when both are sent', () => {
-    const origins = requestOriginsForDesktopCookiePolicy(
-      mockRequest({
-        origin: 'https://tauri.localhost',
-        referer: 'https://tauri.localhost/app',
-      }),
+  it('rejects a tampered signature', () => {
+    const encoded = encodeGuestBindingCookieValue('user_guest_1');
+    expect(decodeGuestBindingCookieValue(`${encoded.slice(0, -4)}ffff`)).toBe(
+      null,
     );
-    expect(origins).toEqual([
-      'https://tauri.localhost',
-      'https://tauri.localhost',
-    ]);
+  });
+
+  it('rejects a malformed value', () => {
+    expect(decodeGuestBindingCookieValue('not-a-cookie')).toBe(null);
   });
 });

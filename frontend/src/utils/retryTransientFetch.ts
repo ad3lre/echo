@@ -43,9 +43,7 @@ export function isTransientFetchFailure(e: unknown): boolean {
 }
 
 function defaultRetryDelaysMs(): readonly number[] {
-  return import.meta.env.VITE_ECHO_TAURI === '1'
-    ? [0, 300, 900, 2200]
-    : [0, 120, 400];
+  return [0, 120, 400];
 }
 
 export async function withTransientFetchRetries<T>(

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AppLayoutLeftChrome from '@/features/layout/components/AppLayoutLeftChrome.vue';
-import DesktopTitlebar from '@/features/layout/components/DesktopTitlebar.vue';
 import AppLayoutGuildModals from '@/features/layout/components/AppLayoutGuildModals.vue';
 import AppLayoutMembersColumn from '@/features/layout/components/AppLayoutMembersColumn.vue';
 import AppLayoutModals from '@/features/layout/components/AppLayoutModals.vue';
@@ -59,9 +58,6 @@ const ReportModal = defineAsyncComponent(
 
 const ScreenSharePickerModal = defineAsyncComponent(
   () => import('@/features/voice/components/ScreenSharePickerModal.vue'),
-);
-const DesktopStreamingControlModal = defineAsyncComponent(
-  () => import('@/features/voice/components/DesktopStreamingControlModal.vue'),
 );
 const FullscreenStreamOverlay = defineAsyncComponent(
   () => import('@/features/voice/components/FullscreenStreamOverlay.vue'),
@@ -2447,10 +2443,6 @@ watch(
 );
 
 const {
-  desktopUpdateBannerVisible,
-  desktopUpdatePendingVersion,
-  onDesktopUpdateBannerInstall,
-  onDesktopUpdateBannerDismiss,
   primaryFlowFailureBanner,
   showServerDownGate,
   serverDownGateBind,
@@ -2460,11 +2452,7 @@ const {
   dismissUiErrorBanner,
   onUiErrorRetry,
   checkServerHealthNow,
-} = useAppLayoutPlatformLifecycle({
-  dmCallRingUi,
-  openDmInboxFromRailOverflow,
-  openUserSettingsModal,
-});
+} = useAppLayoutPlatformLifecycle();
 
 /* Main-surface gate stack (invite landing / welcome-back / explore vs chat).
  * Server-down outage UI is a teleported overlay on AppLayout, not in this stack. */
@@ -2504,13 +2492,6 @@ useAppLayoutGlobalShortcuts({
 });
 
 onMounted(() => {
-  if (import.meta.env.VITE_ECHO_DESKTOP === '1') {
-    void import('@/platform/desktopBootDiagnostics').then(
-      ({ logDesktopBootDiag }) => {
-        logDesktopBootDiag('AppLayout.vue:onMounted');
-      },
-    );
-  }
   void nextTick(bindMemberPanelMainWidthObserver);
 
   void nextTick(() => {
@@ -3159,33 +3140,6 @@ watch(
       v-if="unref(mainSurface).type !== 'serverPaper'"
     />
 
-    <DesktopTitlebar v-if="isDesktop()" />
-    <div
-      v-if="desktopUpdateBannerVisible"
-      class="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-indigo-950/95 px-4 py-2.5 text-sm text-white"
-      role="status"
-    >
-      <span class="min-w-0 font-medium">
-        Echo update available:
-        <span class="text-fg">{{ desktopUpdatePendingVersion }}</span>
-      </span>
-      <span class="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          class="rounded-lg bg-glass-3 px-3 py-1.5 text-xs font-semibold hover:bg-glass-active"
-          @click="onDesktopUpdateBannerDismiss"
-        >
-          Dismiss
-        </button>
-        <button
-          type="button"
-          class="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-indigo-950 hover:bg-glass-active"
-          @click="onDesktopUpdateBannerInstall"
-        >
-          Install and restart
-        </button>
-      </span>
-    </div>
     <AppToastShell :layout-context="appToastLayoutContext" />
 
     <template v-if="useCompactGuildSplitShell">
@@ -3625,14 +3579,6 @@ watch(
       v-model="isScreenSharePickerOpen"
       @confirm="handleScreenSharePickerConfirm"
     />
-    <DesktopStreamingControlModal
-      v-if="isDesktop()"
-      v-model="isDesktopStreamingControlOpen"
-      :mode="desktopStreamingControlMode"
-      :settings="desktopStreamingPreferences"
-      @confirm="handleDesktopStreamingControlConfirm"
-    />
-
     <FullscreenStreamOverlay
       v-if="fullscreenStreamParticipantId"
       :model-value="!!fullscreenStreamParticipantId"

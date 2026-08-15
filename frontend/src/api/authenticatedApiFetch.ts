@@ -3,7 +3,6 @@ import {
   captureAuthStateGeneration,
   finalizeAuthSession401,
 } from '@/api/authSessionBridge';
-import { nativeAuthRequestHeaders } from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { echoCsrfHeaders } from '@/utils/echoCsrf';
 
@@ -11,12 +10,6 @@ function mutatingMethod(method: string | undefined): boolean {
   return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(
     (method ?? 'GET').toUpperCase(),
   );
-}
-
-function headersWithNativeAuth(initHeaders?: HeadersInit): Headers {
-  const headers = new Headers(nativeAuthRequestHeaders());
-  new Headers(initHeaders).forEach((value, key) => headers.set(key, value));
-  return headers;
 }
 
 function refreshCsrfHeaderIfNeeded(init: RequestInit): RequestInit {
@@ -34,8 +27,7 @@ function refreshCsrfHeaderIfNeeded(init: RequestInit): RequestInit {
  * Authenticated `/api/v1/*` fetch for non-Echo REST clients.
  *
  * `echoFetch` is scoped to `/api/v1/echo`; linked-account settings routes live
- * beside it under `/api/v1/me/*` and still need the same cookie/native auth
- * behavior.
+ * beside it under `/api/v1/me/*` and still need the same cookie auth behavior.
  */
 export async function authenticatedApiFetch(
   url: string,
@@ -47,7 +39,7 @@ export async function authenticatedApiFetch(
     const res = await fetch(url, {
       ...currentInit,
       credentials: 'include',
-      headers: headersWithNativeAuth(currentInit.headers),
+      headers: new Headers(currentInit.headers),
     });
     if (res.status === 401 && attempt === 0) {
       const user = await authTryCookieRefresh();

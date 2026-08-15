@@ -31,7 +31,6 @@ Exact paths (from [`csrf.ts`](../../backend/src/auth/csrf.ts)):
 | `/api/v1/auth/verify-email`                    | SPA POST verify (legacy GET redirects only)                  |
 | `/api/v1/auth/discord/login/start`             | OAuth start from login modal                                 |
 | `/api/v1/auth/google/login/start`              | OAuth start from login modal                                 |
-| `/api/v1/auth/desktop/redeem-handoff`          | Desktop one-time code                                        |
 | `/api/v1/echo/support/contact`                 | Public support form (honeypot + scoped RL)                   |
 | `/api/v1/echo/marketing-poll/adel-approval-v2` | Public marketing poll submit (honeypot + scoped RL + one IP) |
 | `/api/v1/hooks/livekit`                        | Webhook secret (not browser CSRF)                            |

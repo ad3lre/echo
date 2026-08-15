@@ -28,14 +28,14 @@ Full setup, PR checks, and maintainer notes: **[docs/DEVELOPMENT.md](./docs/DEVE
 - [Project structure](#project-structure)
 - [Stack (summary)](#stack-summary)
 - [Getting started](#getting-started)
-- [Native apps (Tauri)](#native-apps-tauri)
+- [Native apps](#native-apps)
 - [Contributing](#contributing)
 - [Third-party assets](#third-party-assets)
 - [License](#license)
 
 ## What Echo is
 
-Echo is a **full-stack communication app**: a Vue 3 SPA, a Node.js (**Fastify**) API, **Socket.IO** for realtime, **PostgreSQL** for durable data, optional **NATS** for multi-process scaling, and **native clients** (Tauri) where you want an installed app. A separate **marketing** site (Astro) and optional **Discord bridge / import** tooling exist for migration and interoperability—not as the core identity of the product.
+Echo is a **full-stack communication app**: a Vue 3 SPA, a Node.js (**Fastify**) API, **Socket.IO** for realtime, **PostgreSQL** for durable data, optional **NATS** for multi-process scaling, and **native Apple clients** under [`apple/`](./apple/) (more platforms to follow). A separate **marketing** site (Astro) and optional **Discord bridge / import** tooling exist for migration and interoperability—not as the core identity of the product.
 
 The codebase is organized for **operators and contributors**: typed shared contracts between client and server, documented API behavior under [`docs/contracts/`](./docs/contracts/), and runbooks under [`docs/operations/`](./docs/operations/).
 
@@ -45,7 +45,7 @@ The codebase is organized for **operators and contributors**: typed shared contr
 - **You own your deployment** — no mandatory third-party control plane; configure auth, storage, voice, and edge the way your threat model requires.
 - **Realtime-first** — chat and presence are first-class; voice/video follow a documented LiveKit path with production checklists in-repo.
 - **Serious engineering guardrails** — contract tests, RBAC and snowflake guards in CI, observability hooks, and a single [production readiness rollup](./docs/reviews/STATUS_AND_PRODUCTION_READINESS.md) so progress is inspectable, not hand-wavy.
-- **Installable where your users are** — **PWA** for the web and **Tauri** for desktop, Android, and iOS (see [`releases/`](./releases/README.md)).
+- **Installable where your users are** — **PWA** for the web and **native Apple apps** in [`apple/`](./apple/) (iOS first; macOS shared where product-neutral).
 
 ## Open source
 
@@ -68,7 +68,7 @@ Release and signing workflows may need **repository secrets** on the canonical f
 - **`shared/`** — Shared TypeScript types and constants across client and server.
 - **`scripts/`** — Migrations, seeds, deploy helpers, asset pipelines.
 - **`marketing/`** — Astro site for public pages.
-- **`bot/`**, **`voice-sidecar/`**, **`src-tauri/`** — Optional Discord tooling, voice sidecar, and native shells.
+- **`bot/`**, **`voice-sidecar/`**, **`apple/`** — Optional Discord tooling, voice sidecar, and native Apple clients.
 
 ## Stack (summary)
 
@@ -100,9 +100,9 @@ The SPA ships a [manifest](https://developer.mozilla.org/en-US/docs/Web/Manifest
 - **Verify:** Vite dev or `npm run build -w frontend && npm run preview -w frontend` → Chrome → **Install Echo**. Hard-reload once if the prompt is missing.
 - **Icons only:** `npm run pwa:icons` from repo root.
 
-## Native apps (Tauri)
+## Native apps
 
-Windows, macOS, Linux, Android, and iOS — **paths, commands, CI pointers** in [`releases/README.md`](./releases/README.md). Signing, stores, and CORS depth live under [`docs/operations/`](./docs/operations/).
+Native clients are first-party apps (not a WebView shell). Start with **Apple** — see [`apple/README.md`](./apple/README.md). Passkeys / Universal Links: [`docs/operations/ios-passkeys.md`](./docs/operations/ios-passkeys.md).
 
 ## Contributing
 

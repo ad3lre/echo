@@ -6,13 +6,13 @@ Systematic audit of `frontend/src` (TypeScript and Vue SFC scripts) per the agre
 
 ## Executive summary
 
-| Axis  | Headline                                                                                                                                                                                                                                                                                                                                                                                           |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A** | Largest shipped artifacts are **Krisp WASM** (~5.9 MB minified), **`AppLayout` app chunk** (~3.4 MB minified, ~964 kB gzip), then LiveKit vendor, entry `index`, server/settings modals, and `unicode-emoji-json`.                                                                                                                                                                                 |
-| **B** | Vite already constrains **modulepreload** to the `AppLayout` shell; remaining “first load” risk is dominated by the **size of the AppLayout async chunk**, not missing lazy splits for small auth views.                                                                                                                                                                                           |
-| **C** | **59 files** exceed the **700-line** hard threshold (`modularity:check` fails). The layout controller (`useAppLayoutController.ts`, **3926** lines) and **`AppLayout.vue`** (**4488** lines) are the primary maintainability hotspots. **Hub imports:** `@/stores/authSession` appears in **78** files; `@/api/authClient` in **41** files; `@/composables/useEchoWorkspace` in **28** files.      |
-| **D** | **jscpd:** ~**2.18%** duplicated lines (3858 / ~177k logical lines in scan scope); **140** exact clones. Notable **production** overlaps: `useAppLayoutCallVoiceBridge` vs `useAppLayoutShellVoice`; **SettingsFormattingGuide** vs **SettingsLegal** (~125 lines); **CompactDualPaneShell** vs **CompactTriPaneShell**.                                                                           |
-| **E** | **`vue-router`** and **`@tiptap/extension-character-count`** appear **unused** in `src` (safe removal candidates after CI grep). **`@tauri-apps/plugin-dialog`** is only referenced from **Vite aliases / type stubs** for non-Tauri builds; keep for Tauri or document as optional. **Knip** “unused files” list is **noisy** (dynamic imports, SCSS, `public/`, Vite shims)—treat as hints only. |
+| Axis  | Headline                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** | Largest shipped artifacts are **Krisp WASM** (~5.9 MB minified), **`AppLayout` app chunk** (~3.4 MB minified, ~964 kB gzip), then LiveKit vendor, entry `index`, server/settings modals, and `unicode-emoji-json`.                                                                                                                                                                            |
+| **B** | Vite already constrains **modulepreload** to the `AppLayout` shell; remaining “first load” risk is dominated by the **size of the AppLayout async chunk**, not missing lazy splits for small auth views.                                                                                                                                                                                      |
+| **C** | **59 files** exceed the **700-line** hard threshold (`modularity:check` fails). The layout controller (`useAppLayoutController.ts`, **3926** lines) and **`AppLayout.vue`** (**4488** lines) are the primary maintainability hotspots. **Hub imports:** `@/stores/authSession` appears in **78** files; `@/api/authClient` in **41** files; `@/composables/useEchoWorkspace` in **28** files. |
+| **D** | **jscpd:** ~**2.18%** duplicated lines (3858 / ~177k logical lines in scan scope); **140** exact clones. Notable **production** overlaps: `useAppLayoutCallVoiceBridge` vs `useAppLayoutShellVoice`; **SettingsFormattingGuide** vs **SettingsLegal** (~125 lines); **CompactDualPaneShell** vs **CompactTriPaneShell**.                                                                      |
+| **E** | **`vue-router`** and **`@tiptap/extension-character-count`** appear **unused** in `src` (safe removal candidates after CI grep). `-apps/*` removed with Tauri shell.                                                                                                                                                                                                                          |
 
 ---
 
@@ -114,11 +114,12 @@ Build produced `frontend/dist/bundle-stats.html` and typical chunk sizes (Rollup
 
 ### 5.2 Context-specific / false “unused”
 
-| Package                                                                          | Notes                                                                                                                                                                           |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`@tauri-apps/plugin-dialog`**                                                  | Resolved via **Vite alias to stubs** when not building Tauri (`vite.config.ts`). Not imported directly in `src` today; keep if desktop build uses it indirectly, else document. |
-| **Knip “unused devDependencies”** (`eslint`, `sass`, `vue-tsc`, …)               | **False positives** — used from npm scripts / root tooling, not from static `import` graph.                                                                                     |
-| **Knip “unused files”** (`public/*`, `*.scss`, `vite-shims/*`, dynamic-only Vue) | **Dynamic imports**, **side-effect styles**, and **Vite config** references are invisible to default Knip. Do **not** bulk-delete from Knip alone.                              |
+| Package | Notes |
+| ------- | ----- |
+
+| `-apps/*` removed with Tauri shell.
+| **Knip “unused devDependencies”** (`eslint`, `sass`, `vue-tsc`, …) | **False positives** — used from npm scripts / root tooling, not from static `import` graph. |
+| **Knip “unused files”** (`public/*`, `*.scss`, `vite-shims/*`, dynamic-only Vue) | **Dynamic imports**, **side-effect styles**, and **Vite config** references are invisible to default Knip. Do **not** bulk-delete from Knip alone. |
 
 ---
 

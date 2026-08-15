@@ -16,6 +16,7 @@ import {
   getEchoPresenceRows,
   getEchoPresenceWithLastOnline,
   getEchoUserPublicProfileRow,
+  listEchoDiscoverableUsers,
   listEchoFriends,
   listEchoMutualFriendPeerIds,
   listEchoPendingFriendRequestsIncoming,
@@ -55,6 +56,30 @@ export default async function echoSocialRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
+  // Static path must register before `/users/:userId/...` parametric routes.
+  fastify.get<{
+    Querystring: { q?: string; limit?: string };
+  }>(
+    '/users/discover',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      if (req.authUser?.isGuest) return guestFriendsForbidden(reply);
+      const pool = echoPool(req);
+      const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+      const limit = Math.min(
+        20,
+        Math.max(1, parseInt(req.query.limit ?? '8', 10) || 8),
+      );
+      const users = await listEchoDiscoverableUsers(
+        pool,
+        getAuthUser(req).id,
+        query,
+        limit,
+      );
+      return reply.code(200).send({ users });
+    },
+  );
+
   fastify.get<{ Params: { userId: string } }>(
     '/users/:userId/profile',
     { preHandler: [requireAuth, requireEchoStore] },
@@ -193,7 +218,11 @@ export default async function echoSocialRoutes(
         listEchoPendingFriendRequestsOutgoing(pool, uid),
       ]);
       return reply.code(200).send({
-        incoming: incoming.map((r) => ({ id: r.id, fromUserId: r.fromUserId })),
+        incoming: incoming.map((r) => ({
+          id: r.id,
+          fromUserId: r.fromUserId,
+          fromUser: r.fromUser,
+        })),
         outgoing: outgoing.map((r) => ({ id: r.id, toUserId: r.toUserId })),
       });
     },

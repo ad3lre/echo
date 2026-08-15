@@ -19,7 +19,6 @@ const SETTINGS_SECTION_I18N: Record<SettingsSection, string> = {
   'Log out': 'settings.sections.logOut.blurb',
   'Data & Privacy': 'settings.sections.dataAndPrivacy.blurb',
   Style: 'settings.sections.style.blurb',
-  Desktop: 'settings.sections.desktop.blurb',
   Accessibility: 'settings.sections.accessibility.blurb',
   'Voice & Video': 'settings.sections.voiceAndVideo.blurb',
   Notifications: 'settings.sections.notifications.blurb',

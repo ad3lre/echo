@@ -15,36 +15,6 @@ export function parseCorsOrigin(): string | string[] | true {
   return origins.length === 1 && first !== undefined ? first : origins;
 }
 
-/** Tauri desktop WebView origins; used for CORS merge + `SameSite=None` session cookies. */
-export function parseEchoDesktopAllowedOrigins(): string[] {
-  const raw = process.env.ECHO_DESKTOP_ALLOWED_ORIGINS?.trim();
-  if (raw) {
-    return raw
-      .split(',')
-      .map((o) => o.trim())
-      .filter(Boolean);
-  }
-  /** Tauri 2 packaged WebViews often use `https://tauri.localhost`; dev may use `http://…`. */
-  return [
-    'http://tauri.localhost',
-    'https://tauri.localhost',
-    'tauri://localhost',
-  ];
-}
-
-export function mergeCorsWithDesktop(
-  base: string | string[] | true,
-  desktop: string[],
-): string | string[] | true {
-  if (base === true) return true;
-  const set = new Set<string>();
-  if (typeof base === 'string') set.add(base);
-  else for (const o of base) set.add(o);
-  for (const o of desktop) set.add(o);
-  const merged = [...set];
-  return merged.length === 1 && merged[0] !== undefined ? merged[0] : merged;
-}
-
 /** Default SPA URL for post-verify redirects when ECHO_APP_PUBLIC_URL is unset. */
 export function defaultEchoAppPublicUrl(): string {
   const cors = parseCorsOrigin();

@@ -294,7 +294,6 @@ describe('parseUserSettingsSectionFromQuery / parseGuildSettingsSectionFromQuery
     expect(parseUserSettingsSectionFromQuery('Accessibility')).toBe(
       'Accessibility',
     );
-    expect(parseUserSettingsSectionFromQuery('Desktop')).toBe('Desktop');
     expect(parseUserSettingsSectionFromQuery('Nope')).toBeNull();
     expect(parseUserSettingsSectionFromQuery('%')).toBeNull();
   });

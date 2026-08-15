@@ -378,21 +378,6 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
   await pool.query(
     `ALTER TABLE auth_webauthn_credentials ADD COLUMN IF NOT EXISTS label TEXT NOT NULL DEFAULT '';`,
   );
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS auth_desktop_oauth_handoffs (
-      id TEXT PRIMARY KEY,
-      code_hash TEXT NOT NULL UNIQUE,
-      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
-      expires_at TIMESTAMPTZ NOT NULL,
-      consumed_at TIMESTAMPTZ NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS auth_desktop_oauth_handoffs_expires_idx
-    ON auth_desktop_oauth_handoffs (expires_at)
-    WHERE consumed_at IS NULL;
-  `);
   await pool.query(
     `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS show_last_online BOOLEAN NOT NULL DEFAULT true;`,
   );

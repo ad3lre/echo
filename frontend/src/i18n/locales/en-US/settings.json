@@ -37,9 +37,6 @@
     "style": {
       "blurb": "Tune the app look, spacing, and visual treatment to match your setup."
     },
-    "desktop": {
-      "blurb": "Desktop app options: menu bar icon, close to tray, open at login, and update checks."
-    },
     "accessibility": {
       "blurb": "Adjust readability, motion, and interaction behavior for comfort and clarity."
     },

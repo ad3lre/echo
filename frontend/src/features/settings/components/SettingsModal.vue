@@ -68,7 +68,6 @@ import { normalizeBannerColorForForm } from '@/utils/profileBannerGradientFromIm
 import SettingsProfile from '@/features/settings/components/SettingsProfile.vue';
 import SettingsAccount from '@/features/settings/components/SettingsAccount.vue';
 import SettingsAppearance from '@/features/settings/components/SettingsAppearance.vue';
-import SettingsDesktop from '@/features/settings/components/SettingsDesktop.vue';
 import SettingsNotifications from '@/features/settings/components/SettingsNotifications.vue';
 import SettingsFriends from '@/features/settings/components/SettingsFriends.vue';
 import SettingsSounds from '@/features/settings/components/SettingsSounds.vue';
@@ -780,8 +779,6 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                 v-else-if="activeSection === 'Accessibility'"
                 :form="form"
               />
-
-              <SettingsDesktop v-else-if="activeSection === 'Desktop'" />
 
               <SettingsFriends
                 v-else-if="activeSection === 'Friends'"

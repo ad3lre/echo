@@ -7,7 +7,6 @@ import { ref, onUnmounted, type Ref } from 'vue';
 import { API_BASE } from '@/config';
 import { authTryCookieRefresh } from '@/api/authClient';
 import { ApiError } from '@/api/client';
-import { nativeAuthRequestHeaders } from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import {
   ensureImageBrowseCategories,
@@ -124,18 +123,12 @@ async function fetchImageSearchResponse(
   url: string,
   signal?: AbortSignal,
 ): Promise<Response> {
-  let headers = nativeAuthRequestHeaders();
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(url, {
-      signal,
-      credentials: 'include',
-      headers: { ...headers },
-    });
+    const res = await fetch(url, { signal, credentials: 'include' });
     if (res.status === 401 && attempt === 0) {
       const user = await authTryCookieRefresh();
       if (user) {
         useAuthSessionStore().applyRestoredProfile(user);
-        headers = nativeAuthRequestHeaders();
         continue;
       }
     }

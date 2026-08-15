@@ -87,8 +87,10 @@ describe('accessibilityPreferences solid glass defaults', () => {
     expect(loadAccessibilityPreferences().solidGlassSurfaces).toBe(true);
   });
 
-  it('keeps the DOM solid-glass guard on for macOS Tauri even with stored false', async () => {
-    document.documentElement.classList.add('echo-shell-tauri');
+  it('keeps the DOM solid-glass guard on for macOS WebKit even with stored false', async () => {
+    vi.doMock('@/platform/desktopBridge', () => ({
+      isDesktop: () => true,
+    }));
     vi.stubGlobal('navigator', {
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)',

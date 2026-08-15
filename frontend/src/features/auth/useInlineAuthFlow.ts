@@ -11,10 +11,8 @@
 import { computed, ref } from 'vue';
 import {
   AuthApiError,
-  authDiscordDesktopHandoffStartUrl,
   authDiscordLoginStart,
   authForgotPassword,
-  authGoogleDesktopHandoffStartUrl,
   authGoogleLoginStart,
   authLogin,
   authLoginMfa,
@@ -30,17 +28,7 @@ import { messageForGoogleOAuthError } from '@/features/google/googleIntegrationC
 import { useAuthSessionStore } from '@/stores/authSession';
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
 import type { WorkspaceStateApi } from '@/composables/workspace/types';
-import { primeCookieSessionAfterMint } from '@/services/auth/desktopSessionPrime';
-import {
-  clearPendingDesktopOAuthHandoffNonce,
-  createPendingDesktopOAuthHandoffNonce,
-  setPendingDesktopOAuthReturnPath,
-} from '@/platform/desktopOAuthHandoff';
-import {
-  isDesktop,
-  openExternal,
-  startOAuthFlow,
-} from '@/platform/desktopBridge';
+import { startOAuthFlow } from '@/platform/desktopBridge';
 import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import {
   getPasskeyWebCeremonyBlockReason,
@@ -179,15 +167,10 @@ export function useInlineAuthFlow(opts: {
     errorMessage.value = message;
   }
 
-  /** After minting a session, prime cookies then reconcile workspace (desktop OAuth parity). */
   async function adoptSessionAndLoadWorkspace(
     session: Parameters<typeof authSession.setSession>[0],
   ): Promise<void> {
     authSession.setSession(session);
-    const primed = await primeCookieSessionAfterMint();
-    if (primed) {
-      authSession.applyRestoredProfile(primed, { allowUnauthenticated: true });
-    }
     const workspace = getEchoPlatform().workspace as WorkspaceStateApi;
     await workspace.startInitialLoad();
   }
@@ -249,25 +232,16 @@ export function useInlineAuthFlow(opts: {
     }
   }
 
-  async function startSystemBrowserOauth(
-    startUrlFor: (nonce: string) => string,
-    startWeb: () => Promise<{ authorizeUrl: string }>,
+  async function startOauthRedirect(
+    start: () => Promise<{ authorizeUrl: string }>,
   ): Promise<void> {
     if (isMock()) return;
     submitting.value = true;
     errorMessage.value = '';
     try {
-      if (isDesktop()) {
-        const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-        setPendingDesktopOAuthReturnPath(returnPath);
-        const nonce = createPendingDesktopOAuthHandoffNonce();
-        await openExternal(startUrlFor(nonce), { skipSafetyPrompt: true });
-        return;
-      }
-      const { authorizeUrl } = await startWeb();
+      const { authorizeUrl } = await start();
       startOAuthFlow(authorizeUrl);
     } catch (e) {
-      if (isDesktop()) clearPendingDesktopOAuthHandoffNonce();
       setAuthError(mapError(e));
     } finally {
       submitting.value = false;
@@ -275,17 +249,11 @@ export function useInlineAuthFlow(opts: {
   }
 
   function startDiscord(): Promise<void> {
-    return startSystemBrowserOauth(
-      authDiscordDesktopHandoffStartUrl,
-      authDiscordLoginStart,
-    );
+    return startOauthRedirect(authDiscordLoginStart);
   }
 
   function startGoogle(): Promise<void> {
-    return startSystemBrowserOauth(
-      authGoogleDesktopHandoffStartUrl,
-      authGoogleLoginStart,
-    );
+    return startOauthRedirect(authGoogleLoginStart);
   }
 
   function beginMfaChallenge(token: string): void {

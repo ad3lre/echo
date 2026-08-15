@@ -7,7 +7,7 @@ type AuthSessionApiBridge = {
   clearLocalTokens: () => void;
   /** Rotation counter from the auth store (see client auth invariants doc). */
   getAuthStateGeneration?: () => number;
-  /** Desktop: suppress 401 teardown briefly after login while cookies settle. */
+  /** Suppress 401 teardown briefly after login while cookies settle. */
   shouldDeferSession401Invalidate?: () => boolean;
 };
 

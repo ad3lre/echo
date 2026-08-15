@@ -3,19 +3,10 @@ import {
   isIosLikeBrowser,
   isStandaloneDisplayMode,
 } from '@/platform/browserCompatibility';
-import { isDesktop, isTauriShell } from '@/platform/desktopBridge';
 import { detectGpuTier } from '@/utils/gpuTier';
 
 function userAgent(): string {
   return typeof navigator !== 'undefined' ? navigator.userAgent : '';
-}
-
-function detectShell(): ClientEnvironmentSnapshot['shell'] {
-  if (import.meta.env.VITE_ECHO_IOS === '1') return 'ios';
-  if (import.meta.env.VITE_ECHO_ANDROID === '1') return 'android';
-  if (isDesktop()) return 'desktop';
-  if (isTauriShell()) return 'tauri_shell';
-  return 'web';
 }
 
 function detectOsFamily(ua: string): ClientEnvironmentSnapshot['osFamily'] {
@@ -59,9 +50,7 @@ function detectBrowserFamily(
 }
 
 function detectDisplayMode(): ClientEnvironmentSnapshot['displayMode'] {
-  if (isDesktop()) return 'desktop_app';
-  if (isStandaloneDisplayMode()) return 'standalone';
-  return 'browser';
+  return isStandaloneDisplayMode() ? 'standalone' : 'browser';
 }
 
 function detectViewportBucket(): ClientEnvironmentSnapshot['viewportBucket'] {
@@ -121,7 +110,7 @@ function detectConnectionType(): ClientEnvironmentSnapshot['connectionType'] {
 export function collectClientEnvironment(): ClientEnvironmentSnapshot {
   const ua = userAgent();
   return {
-    shell: detectShell(),
+    shell: 'web',
     osFamily: detectOsFamily(ua),
     deviceForm: detectDeviceForm(ua),
     browserFamily: detectBrowserFamily(ua),

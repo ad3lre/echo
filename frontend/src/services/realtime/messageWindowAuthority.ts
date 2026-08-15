@@ -29,9 +29,14 @@ export interface MessageWindow {
   bottomCursor: string | null;
   hasMoreOlder: boolean;
   hasMoreNewer: boolean;
+  olderBoundary: MessageBoundaryState;
+  newerBoundary: MessageBoundaryState;
   anchorId: string | null;
   retainedLoadedRange: { start: number; end: number } | null;
 }
+
+/** Directional history truth; failed remains retryable, reached disables fetches. */
+export type MessageBoundaryState = 'unknown' | 'more' | 'reached' | 'failed';
 
 class MessageWindowAuthority {
   private activeChannelId: string | null = null;
@@ -46,6 +51,8 @@ class MessageWindowAuthority {
   public readonly bottomCursor = ref<string | null>(null);
   public readonly hasMoreOlder = ref(true);
   public readonly hasMoreNewer = ref(false);
+  public readonly olderBoundary = ref<MessageBoundaryState>('unknown');
+  public readonly newerBoundary = ref<MessageBoundaryState>('reached');
   public readonly anchorId = ref<string | null>(null);
   public readonly retainedLoadedRange = shallowRef<{
     start: number;
@@ -55,6 +62,10 @@ class MessageWindowAuthority {
   // Temporary wrapper state
   private channelIndexes = new Map<string, ChannelMessageIndex>();
   private channelHasMoreOlder = new Map<string, boolean>();
+  private channelOlderBoundary = new Map<string, MessageBoundaryState>();
+  private channelNewerBoundary = new Map<string, MessageBoundaryState>();
+  private channelOlderCache = new Map<string, RawMessage[]>();
+  private static readonly maxOlderCacheRowsPerChannel = 160;
 
   public bindMessages(messages: Ref<Record<string, RawMessage[]>>) {
     this.boundMessages = messages;
@@ -151,6 +162,8 @@ class MessageWindowAuthority {
       this.bottomCursor.value = null;
       this.hasMoreOlder.value = true;
       this.hasMoreNewer.value = false;
+      this.olderBoundary.value = 'unknown';
+      this.newerBoundary.value = 'reached';
       if (messageListDebugEnabled()) {
         logMessageList('window', 'active_window_updated', {
           activeChannelId: null,
@@ -173,6 +186,12 @@ class MessageWindowAuthority {
     this.entitiesById.value = new Map(index.byId);
     this.hasMoreOlder.value =
       this.channelHasMoreOlder.get(this.activeChannelId) ?? true;
+    this.olderBoundary.value =
+      this.channelOlderBoundary.get(this.activeChannelId) ??
+      (this.hasMoreOlder.value ? 'unknown' : 'reached');
+    this.newerBoundary.value =
+      this.channelNewerBoundary.get(this.activeChannelId) ?? 'reached';
+    this.hasMoreNewer.value = this.newerBoundary.value !== 'reached';
 
     if (sorted.length > 0) {
       this.topCursor.value = sorted[0].id ?? null;
@@ -190,6 +209,8 @@ class MessageWindowAuthority {
         firstMessageId: ids[0] ?? null,
         lastMessageId: ids.length > 0 ? ids[ids.length - 1]! : null,
         hasMoreOlder: this.hasMoreOlder.value,
+        olderBoundary: this.olderBoundary.value,
+        newerBoundary: this.newerBoundary.value,
         topCursor: this.topCursor.value,
         bottomCursor: this.bottomCursor.value,
         note: 'authority snapshot — orderedIds are the only list order source',
@@ -199,23 +220,97 @@ class MessageWindowAuthority {
 
   public setHasMoreOlder(channelId: string, hasMore: boolean) {
     this.channelHasMoreOlder.set(channelId, hasMore);
+    this.channelOlderBoundary.set(channelId, hasMore ? 'more' : 'reached');
     if (channelId === this.activeChannelId) {
       this.hasMoreOlder.value = hasMore;
+      this.olderBoundary.value = hasMore ? 'more' : 'reached';
     }
+  }
+
+  public setBoundary(
+    channelId: string,
+    direction: 'older' | 'newer',
+    state: MessageBoundaryState,
+  ): void {
+    const hasMore = state !== 'reached';
+    if (direction === 'older') {
+      this.channelOlderBoundary.set(channelId, state);
+      this.channelHasMoreOlder.set(channelId, hasMore);
+      if (channelId === this.activeChannelId) {
+        this.olderBoundary.value = state;
+        this.hasMoreOlder.value = hasMore;
+      }
+      return;
+    }
+    this.channelNewerBoundary.set(channelId, state);
+    if (channelId === this.activeChannelId) {
+      this.newerBoundary.value = state;
+      this.hasMoreNewer.value = hasMore;
+    }
+  }
+
+  public setHasMoreNewer(channelId: string, hasMore: boolean): void {
+    this.setBoundary(channelId, 'newer', hasMore ? 'more' : 'reached');
+  }
+
+  public getBoundary(
+    channelId: string,
+    direction: 'older' | 'newer',
+  ): MessageBoundaryState {
+    if (direction === 'older') {
+      return (
+        this.channelOlderBoundary.get(channelId) ??
+        (this.channelHasMoreOlder.get(channelId) === false
+          ? 'reached'
+          : 'unknown')
+      );
+    }
+    return this.channelNewerBoundary.get(channelId) ?? 'reached';
   }
 
   public getHasMoreOlderForChannel(channelId: string): boolean {
     return this.channelHasMoreOlder.get(channelId) ?? true;
   }
 
+  /** Take recently evicted older rows before going to the network. */
+  public takeCachedOlder(channelId: string, limit: number): RawMessage[] {
+    const cache = this.channelOlderCache.get(channelId) ?? [];
+    if (cache.length === 0 || limit <= 0) return [];
+    const count = Math.min(limit, cache.length);
+    const rows = cache.splice(Math.max(0, cache.length - count), count);
+    if (cache.length === 0) this.channelOlderCache.delete(channelId);
+    else this.channelOlderCache.set(channelId, cache);
+    return rows;
+  }
+
+  public hasCachedOlder(channelId: string): boolean {
+    return (this.channelOlderCache.get(channelId)?.length ?? 0) > 0;
+  }
+
   applyEchoChannelClientCap(
     channelId: string,
     activeChannelId: string,
-  ): { applied: boolean; refreshHasMoreOlderForActiveChannel: boolean } {
+  ): {
+    applied: boolean;
+    refreshHasMoreOlderForActiveChannel: boolean;
+    evictedHead: RawMessage[];
+  } {
     const rec = this.requireBoundMessages().value;
     const r = applyEchoChannelClientCapToBucket(rec, channelId, {
       activeChannelId,
     });
+    if (r.evictedHead.length > 0) {
+      const existing = this.channelOlderCache.get(channelId) ?? [];
+      const seen = new Set(existing.map((m) => m.id));
+      const merged = [
+        ...existing,
+        ...r.evictedHead.filter((m) => m.id && !seen.has(m.id)),
+      ];
+      this.channelOlderCache.set(
+        channelId,
+        merged.slice(-MessageWindowAuthority.maxOlderCacheRowsPerChannel),
+      );
+    }
     if (r.applied) this.updateActiveWindow();
     return r;
   }
@@ -224,6 +319,9 @@ class MessageWindowAuthority {
     disposeChannelIndex(channelId);
     this.channelIndexes.delete(channelId);
     this.channelHasMoreOlder.delete(channelId);
+    this.channelOlderBoundary.delete(channelId);
+    this.channelNewerBoundary.delete(channelId);
+    this.channelOlderCache.delete(channelId);
     if (this.boundMessages) {
       delete this.boundMessages.value[channelId];
     }
@@ -240,6 +338,9 @@ class MessageWindowAuthority {
       disposeChannelIndex(id);
       this.channelIndexes.delete(id);
       this.channelHasMoreOlder.delete(id);
+      this.channelOlderBoundary.delete(id);
+      this.channelNewerBoundary.delete(id);
+      this.channelOlderCache.delete(id);
       delete next[id];
     }
     r.value = next;
@@ -257,6 +358,9 @@ class MessageWindowAuthority {
         disposeChannelIndex(channelId);
         this.channelIndexes.delete(channelId);
         this.channelHasMoreOlder.delete(channelId);
+        this.channelOlderBoundary.delete(channelId);
+        this.channelNewerBoundary.delete(channelId);
+        this.channelOlderCache.delete(channelId);
       }
     }
     r.value = next;
@@ -271,6 +375,9 @@ class MessageWindowAuthority {
     }
     this.channelIndexes.clear();
     this.channelHasMoreOlder.clear();
+    this.channelOlderBoundary.clear();
+    this.channelNewerBoundary.clear();
+    this.channelOlderCache.clear();
     r.value = {};
     this.updateActiveWindow();
   }
@@ -286,10 +393,15 @@ class MessageWindowAuthority {
     this.bottomCursor.value = null;
     this.hasMoreOlder.value = true;
     this.hasMoreNewer.value = false;
+    this.olderBoundary.value = 'unknown';
+    this.newerBoundary.value = 'reached';
     this.anchorId.value = null;
     this.retainedLoadedRange.value = null;
     this.channelIndexes.clear();
     this.channelHasMoreOlder.clear();
+    this.channelOlderBoundary.clear();
+    this.channelNewerBoundary.clear();
+    this.channelOlderCache.clear();
   }
 }
 

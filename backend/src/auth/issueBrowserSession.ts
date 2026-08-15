@@ -49,11 +49,7 @@ export async function issueEchoBrowserSession(
     csrfSecret,
     cachedUser: full,
   });
-  setBrowserSessionCookies(
-    reply,
-    { sessionId, csrfSecret, refreshToken },
-    request,
-  );
+  setBrowserSessionCookies(reply, { sessionId, csrfSecret, refreshToken });
   const base = { user: full, csrfToken: csrfSecret };
   if (!nativeBearerEnabledForRequest(request)) return base;
   const accessToken = signSessionBoundAccessToken({

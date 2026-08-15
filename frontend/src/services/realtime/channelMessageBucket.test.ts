@@ -76,6 +76,7 @@ describe('applyEchoChannelClientCapToBucket', () => {
     });
     expect(r.applied).toBe(true);
     expect(r.refreshHasMoreOlderForActiveChannel).toBe(true);
+    expect(r.evictedHead.map((m) => m.id)).toEqual(['m0', 'm1']);
     expect(bucket[CH]!.length).toBe(4);
     expect(bucket[CH]!.map((m) => m.id)).toEqual(['m2', 'm3', 'm4', 'm5']);
   });

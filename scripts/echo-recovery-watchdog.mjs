@@ -99,7 +99,6 @@ const DEV_SCAN_ROOTS = [
   'docs',
   'infra',
   'voice-sidecar/src',
-  'src-tauri/src',
 ].map((p) => path.join(repoRoot, p));
 
 const DEV_SCAN_FILES = [

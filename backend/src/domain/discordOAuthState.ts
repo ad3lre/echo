@@ -69,30 +69,15 @@ export function encodeDiscordOAuthCookieValue(
   return encodeDiscordOAuthLinkCookieValue(userId, state, exp);
 }
 
-/**
- * Signed `state` sent to Discord for the login modal flow. Survives opening the
- * authorize URL in the system browser (no shared HttpOnly cookie with the API).
- */
-export function encodeDiscordLoginSignedState(
-  desktopHandoff: boolean,
-  desktopHandoffNonceHash?: string,
-): {
+/** Signed `state` sent to Discord for the login modal flow. */
+export function encodeDiscordLoginSignedState(): {
   stateForDiscord: string;
   exp: number;
 } {
   const nonce = randomBytes(24).toString('hex');
   const exp = Date.now() + discordOAuthCookieMaxAgeSec() * 1000;
-  const nonceHash =
-    desktopHandoff && desktopHandoffNonceHash
-      ? desktopHandoffNonceHash.trim().toLowerCase()
-      : '';
   const body = Buffer.from(
-    JSON.stringify({
-      n: nonce,
-      e: exp,
-      dh: desktopHandoff,
-      ...(nonceHash ? { nh: nonceHash } : {}),
-    }),
+    JSON.stringify({ n: nonce, e: exp }),
     'utf8',
   ).toString('base64url');
   const sig = signDiscordLoginStateV1(body);
@@ -101,8 +86,6 @@ export function encodeDiscordLoginSignedState(
 
 export type DiscordLoginSignedState = {
   exp: number;
-  desktopHandoff: boolean;
-  desktopHandoffNonceHash?: string;
 };
 
 function signDiscordLoginStateV1(bodyB64url: string): string {
@@ -123,13 +106,11 @@ export function decodeDiscordLoginSignedState(
   if (!bodyB64 || !sig) return null;
   const expect = signDiscordLoginStateV1(bodyB64);
   if (!oauthCookieIntegrityTagsEqual(expect, sig)) return null;
-  let parsed: { n?: string; e?: number; dh?: boolean; nh?: string };
+  let parsed: { n?: string; e?: number };
   try {
     parsed = JSON.parse(Buffer.from(bodyB64, 'base64url').toString('utf8')) as {
       n?: string;
       e?: number;
-      dh?: boolean;
-      nh?: string;
     };
   } catch {
     return null;
@@ -137,16 +118,7 @@ export function decodeDiscordLoginSignedState(
   if (typeof parsed.n !== 'string' || !parsed.n) return null;
   if (typeof parsed.e !== 'number' || !Number.isFinite(parsed.e)) return null;
   if (Date.now() > parsed.e) return null;
-  const nonceHash =
-    typeof parsed.nh === 'string' ? parsed.nh.trim().toLowerCase() : '';
-  if (parsed.dh === true && !/^[0-9a-f]{64}$/.test(nonceHash)) {
-    return null;
-  }
-  return {
-    exp: parsed.e,
-    desktopHandoff: parsed.dh === true,
-    ...(nonceHash ? { desktopHandoffNonceHash: nonceHash } : {}),
-  };
+  return { exp: parsed.e };
 }
 
 /** Sign in with Discord (login modal): `state` is the opaque string passed as Discord OAuth `state`. */

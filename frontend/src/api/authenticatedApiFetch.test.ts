@@ -11,7 +11,6 @@ import {
 import * as authClient from '@/api/authClient';
 import { authenticatedApiFetch } from '@/api/authenticatedApiFetch';
 import { registerAuthSessionApiBridge } from '@/api/authSessionBridge';
-import * as nativeAuth from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import * as echoCsrf from '@/utils/echoCsrf';
 
@@ -39,11 +38,7 @@ describe('authenticatedApiFetch', () => {
     vi.restoreAllMocks();
   });
 
-  it('sends cookie credentials and native bearer headers', async () => {
-    vi.spyOn(nativeAuth, 'nativeAuthRequestHeaders').mockReturnValue({
-      'X-Echo-Client': 'ios',
-      Authorization: 'Bearer native-token',
-    });
+  it('sends cookie credentials and caller headers', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -57,12 +52,10 @@ describe('authenticatedApiFetch', () => {
       expect.objectContaining({ credentials: 'include' }),
     );
     const headers = callHeaders(fetchMock, 0);
-    expect(headers.get('X-Echo-Client')).toBe('ios');
-    expect(headers.get('Authorization')).toBe('Bearer native-token');
     expect(headers.get('Accept')).toBe('application/json');
   });
 
-  it('refreshes once on 401 and retries with fresh native auth and CSRF headers', async () => {
+  it('refreshes once on 401 and retries with fresh CSRF headers', async () => {
     const restoredUser = {
       id: 'u1',
       username: 'echo-user',
@@ -71,15 +64,6 @@ describe('authenticatedApiFetch', () => {
     vi.mocked(authClient.authTryCookieRefresh).mockResolvedValue(
       restoredUser as never,
     );
-    vi.spyOn(nativeAuth, 'nativeAuthRequestHeaders')
-      .mockReturnValueOnce({
-        'X-Echo-Client': 'ios',
-        Authorization: 'Bearer old-token',
-      })
-      .mockReturnValueOnce({
-        'X-Echo-Client': 'ios',
-        Authorization: 'Bearer new-token',
-      });
     vi.spyOn(echoCsrf, 'echoCsrfHeaders')
       .mockReturnValueOnce({ 'X-CSRF-Token': 'old-csrf' })
       .mockReturnValueOnce({ 'X-CSRF-Token': 'new-csrf' });
@@ -113,13 +97,7 @@ describe('authenticatedApiFetch', () => {
 
     expect(authClient.authTryCookieRefresh).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(callHeaders(fetchMock, 0).get('Authorization')).toBe(
-      'Bearer old-token',
-    );
     expect(callHeaders(fetchMock, 0).get('X-CSRF-Token')).toBe('old-csrf');
-    expect(callHeaders(fetchMock, 1).get('Authorization')).toBe(
-      'Bearer new-token',
-    );
     expect(callHeaders(fetchMock, 1).get('X-CSRF-Token')).toBe('new-csrf');
     expect(applyRestoredProfile).toHaveBeenCalledWith(restoredUser);
   });

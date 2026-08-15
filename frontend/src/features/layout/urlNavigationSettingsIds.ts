@@ -11,7 +11,6 @@ export type UserSettingsSection =
   | 'Log out'
   | 'Data & Privacy'
   | 'Style'
-  | 'Desktop'
   | 'Accessibility'
   | 'Voice & Video'
   | 'Notifications'
@@ -53,7 +52,6 @@ export const USER_SETTINGS_SECTION_GROUPS: UserSettingsSectionGroup[] = [
     items: [
       'Style',
       'Accessibility',
-      'Desktop',
       'Voice & Video',
       'Keybinds',
       'Time & Language',

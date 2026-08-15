@@ -228,61 +228,8 @@ export default defineConfig(({ mode }) => {
   /** Fewer parallel transforms + skip dev-only middleware; use for iOS sim / tight RAM (`npm run dev:low-mem`). */
   const lowMemDev =
     mode === 'development' && process.env.ECHO_VITE_LOW_MEM === '1';
-  /**
-   * Set by the Tauri CLI for hook commands (`beforeDevCommand`, `beforeBuildCommand`, …).
-   * See https://v2.tauri.app/reference/environment-variables/ (`TAURI_ENV_PLATFORM`).
-   * `TAURI_PLATFORM` kept for older/alternate setups.
-   */
-  const isTauri = Boolean(
-    process.env.TAURI_ENV_PLATFORM || process.env.TAURI_PLATFORM,
-  );
-  /**
-   * Plain `npm run build -w frontend` must not require `@tauri-apps/plugin-*` in node_modules
-   * (workspace installs can omit hoisted deps). Under `tauri build` / `tauri dev`, resolve real plugins.
-   */
-  const tauriPluginStubDir = path.resolve(
-    __dirname,
-    './vite-shims/tauri-plugins',
-  );
-  const tauriPluginStubs = isTauri
-    ? []
-    : [
-        {
-          find: '@tauri-apps/plugin-notification',
-          replacement: path.join(tauriPluginStubDir, 'notification.ts'),
-        },
-        {
-          find: '@tauri-apps/plugin-autostart',
-          replacement: path.join(tauriPluginStubDir, 'autostart.ts'),
-        },
-        {
-          find: '@tauri-apps/plugin-updater',
-          replacement: path.join(tauriPluginStubDir, 'updater.ts'),
-        },
-        {
-          find: '@tauri-apps/plugin-process',
-          replacement: path.join(tauriPluginStubDir, 'process.ts'),
-        },
-        {
-          find: '@tauri-apps/plugin-dialog',
-          replacement: path.join(tauriPluginStubDir, 'dialog.ts'),
-        },
-        {
-          find: '@tauri-apps/plugin-opener',
-          replacement: path.join(tauriPluginStubDir, 'opener.ts'),
-        },
-        {
-          find: '@tauri-apps/plugin-global-shortcut',
-          replacement: path.join(tauriPluginStubDir, 'global-shortcut.ts'),
-        },
-        {
-          find: '@tauri-apps/plugin-deep-link',
-          replacement: path.join(tauriPluginStubDir, 'deep-link.ts'),
-        },
-      ];
   return {
-    // Root-absolute so `tauri://localhost/assets/…` resolves on nested History paths
-    // (`./assets` breaks cold start / reload at `/channels/{server}/{channel}`).
+    /** Root-absolute so nested History paths (`/channels/{server}/{channel}`) resolve assets on reload. */
     base: '/',
     define: viteEnvDefine(mode),
     plugins: [
@@ -380,7 +327,6 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: [
-        ...tauriPluginStubs,
         {
           find: '@',
           replacement: path.resolve(__dirname, './src'),

@@ -29,8 +29,6 @@ import { createPkceChallengeS256, createPkceVerifier } from '../../auth/pkce';
 import {
   createGoogleOAuthState,
   decodeGoogleOAuthCookieValue,
-  decodeGoogleLoginSignedState,
-  encodeGoogleLoginSignedState,
   type DecodedGoogleOAuthCookie,
   googleOAuthCookieMaxAgeSec,
   googleOAuthCookieName,
@@ -47,34 +45,13 @@ import {
   googleOAuthAppRedirect,
   isGoogleOauthConfigured,
 } from '../../domain/googleOAuthRedirect';
-import { oauthDesktopBridgeHandoffRedirect } from '../../domain/oauthDesktopBridgeRedirect';
-import { validateAndHashDesktopOauthHandoffNonce } from '../../domain/desktopOAuthHandoffNonce';
-import { createDesktopOauthHandoff } from '../../domain/desktopOAuthHandoffRepo';
 import { isOAuthLoginStartOriginAllowed } from '../../auth/oauthLoginOrigin';
 
 const OAUTH_FETCH: FetchLike = globalThis.fetch.bind(globalThis);
 
-type GoogleLoginStartBody = {
-  desktopBrowserHandoff?: boolean | string | number;
-  desktopHandoffNonce?: string;
-};
-
-function isTruthyDesktopHandoffFlag(
-  raw: GoogleLoginStartBody['desktopBrowserHandoff'],
-): boolean {
-  if (raw === true || raw === 1) return true;
-  if (typeof raw === 'string') {
-    const t = raw.trim().toLowerCase();
-    return t === '1' || t === 'true' || t === 'yes' || t === 'on';
-  }
-  return false;
-}
-
 async function beginGoogleLogin(
-  req: FastifyRequest,
   reply: FastifyReply,
   fastify: FastifyInstance,
-  body?: GoogleLoginStartBody,
 ): Promise<{ authorizeUrl: string; redirectUri: string } | null> {
   const { mode } = await getAuthStore();
   if (mode !== 'postgres') {
@@ -119,61 +96,20 @@ async function beginGoogleLogin(
     return null;
   }
 
-  const desktopBrowserHandoff = isTruthyDesktopHandoffFlag(
-    body?.desktopBrowserHandoff,
-  );
-  const desktopHandoffNonceHash = desktopBrowserHandoff
-    ? validateAndHashDesktopOauthHandoffNonce(
-        typeof body?.desktopHandoffNonce === 'string'
-          ? body.desktopHandoffNonce
-          : '',
-      )
-    : null;
-  if (desktopBrowserHandoff && !desktopHandoffNonceHash) {
-    await sendError(
-      reply,
-      400,
-      'BAD_REQUEST',
-      'Desktop handoff nonce is required.',
-    );
-    return null;
-  }
-
   const pkceVerifier = createPkceVerifier();
   const pkceChallenge = createPkceChallengeS256(pkceVerifier);
-  let state: string;
-  let exp: number;
-  if (desktopBrowserHandoff && desktopHandoffNonceHash) {
-    const signed = encodeGoogleLoginSignedState(
-      true,
-      desktopHandoffNonceHash,
-      pkceVerifier,
-    );
-    state = signed.stateForGoogle;
-    exp = signed.exp;
-  } else {
-    state = createGoogleOAuthState();
-    exp = Date.now() + googleOAuthCookieMaxAgeSec() * 1000;
-  }
-  const cookieVal = encodeGoogleOAuthLoginCookieValue(
-    state,
-    pkceVerifier,
-    exp,
-    desktopHandoffNonceHash ? { desktopHandoffNonceHash } : undefined,
-  );
-  setOAuthCookie(reply, cookieVal, req);
+  const state = createGoogleOAuthState();
+  const exp = Date.now() + googleOAuthCookieMaxAgeSec() * 1000;
+  const cookieVal = encodeGoogleOAuthLoginCookieValue(state, pkceVerifier, exp);
+  setOAuthCookie(reply, cookieVal);
 
   const redirectUri = config.googleOauthRedirectUri;
   const authorizeUrl = buildGoogleAuthorizeUrl(state, false, pkceChallenge);
   return { authorizeUrl, redirectUri };
 }
 
-function setOAuthCookie(
-  reply: FastifyReply,
-  value: string,
-  request: FastifyRequest,
-) {
-  const base = sessionCookieBaseAttrs(request);
+function setOAuthCookie(reply: FastifyReply, value: string) {
+  const base = sessionCookieBaseAttrs();
   reply.setCookie(googleOAuthCookieName(), value, {
     httpOnly: true,
     ...base,
@@ -251,7 +187,7 @@ export default async function googleOAuthRoutes(
         pkceVerifier,
         exp,
       );
-      setOAuthCookie(reply, cookieVal, req);
+      setOAuthCookie(reply, cookieVal);
 
       const redirectUri = config.googleOauthRedirectUri;
       if (!config.isProduction) {
@@ -266,27 +202,17 @@ export default async function googleOAuthRoutes(
     },
   );
 
-  fastify.post<{ Body?: GoogleLoginStartBody }>(
+  fastify.post(
     '/google/login/start',
-    async (req: FastifyRequest, reply: FastifyReply) => {
-      const out = await beginGoogleLogin(
-        req,
-        reply,
-        fastify,
-        (req.body as GoogleLoginStartBody | undefined) ?? undefined,
-      );
+    async (_req: FastifyRequest, reply: FastifyReply) => {
+      const out = await beginGoogleLogin(reply, fastify);
       if (!out) return;
       const { authorizeUrl, redirectUri } = out;
       return reply.code(200).send({ authorizeUrl, redirectUri });
     },
   );
 
-  fastify.get<{
-    Querystring: {
-      desktopBrowserHandoff?: string;
-      desktopHandoffNonce?: string;
-    };
-  }>(
+  fastify.get(
     '/google/login/start',
     async (req: FastifyRequest, reply: FastifyReply) => {
       const fetchSite = req.headers['sec-fetch-site'];
@@ -313,15 +239,7 @@ export default async function googleOAuthRoutes(
           );
         }
       }
-      const q = req.query as
-        | { desktopBrowserHandoff?: string; desktopHandoffNonce?: string }
-        | undefined;
-      const out = await beginGoogleLogin(req, reply, fastify, {
-        desktopBrowserHandoff:
-          q?.desktopBrowserHandoff === '1' ||
-          q?.desktopBrowserHandoff === 'true',
-        desktopHandoffNonce: q?.desktopHandoffNonce,
-      });
+      const out = await beginGoogleLogin(reply, fastify);
       if (!out) return;
       return reply.code(302).redirect(out.authorizeUrl);
     },
@@ -374,34 +292,13 @@ export default async function googleOAuthRoutes(
       (req.cookies as Record<string, string | undefined>)?.[
         googleOAuthCookieName()
       ] ?? '';
-    const signedLogin = decodeGoogleLoginSignedState(state);
     const cookiePayload = rawCookie
       ? decodeGoogleOAuthCookieValue(rawCookie)
       : null;
     clearOAuthCookie(reply);
 
-    let payload: DecodedGoogleOAuthCookie | null = null;
-
-    if (
-      signedLogin?.desktopHandoff &&
-      signedLogin.desktopHandoffNonceHash &&
-      signedLogin.pkceVerifier
-    ) {
-      /**
-       * Desktop handoff may complete in a system browser that never received the
-       * API OAuth cookie (Safari ITP / cross-context navigation).
-       */
-      payload = {
-        flow: 'login',
-        state,
-        pkceVerifier: signedLogin.pkceVerifier,
-        exp: signedLogin.exp,
-        desktopHandoff: true,
-        desktopHandoffNonceHash: signedLogin.desktopHandoffNonceHash,
-      };
-    } else if (cookiePayload && cookiePayload.state === state) {
-      payload = cookiePayload;
-    }
+    const payload: DecodedGoogleOAuthCookie | null =
+      cookiePayload && cookiePayload.state === state ? cookiePayload : null;
 
     if (!payload) {
       return reply
@@ -664,34 +561,7 @@ export default async function googleOAuthRoutes(
     if (payload.flow === 'login') {
       clearGuestBindingCookie(reply);
       const audit = loginAuditDigests(req);
-      const desktopHandoff = payload.desktopHandoff === true;
-      const desktopHandoffNonceHash = payload.desktopHandoffNonceHash;
       try {
-        if (desktopHandoff) {
-          if (!desktopHandoffNonceHash) {
-            return reply
-              .code(302)
-              .redirect(
-                googleOAuthAppRedirect(false, 'bad_state', redirectOpts),
-              );
-          }
-          const { code } = await createDesktopOauthHandoff(
-            pool,
-            user.id,
-            desktopHandoffNonceHash,
-          );
-          fastify.log.info(
-            {
-              userId: user.id,
-              handoffCodeLen: code.length,
-              hasNonceHash: Boolean(desktopHandoffNonceHash),
-            },
-            'google_oauth_desktop_handoff_created',
-          );
-          return reply
-            .code(302)
-            .redirect(oauthDesktopBridgeHandoffRedirect(code));
-        }
         await issueEchoBrowserSession(
           store,
           { id: user.id, username: user.username },

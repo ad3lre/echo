@@ -14,6 +14,7 @@ export type EchoApnsPayload = {
   url?: string;
   channelId?: string;
   tag?: string;
+  badge?: number;
 };
 
 let cachedAuthToken: { value: string; expiresAtMs: number } | null = null;
@@ -60,6 +61,9 @@ function buildApnsBody(payload: EchoApnsPayload): string {
       alert: { title: payload.title, body: payload.body },
       sound: 'default',
       'thread-id': payload.tag ?? payload.channelId ?? 'echo',
+      ...(typeof payload.badge === 'number'
+        ? { badge: Math.max(0, Math.min(9999, Math.floor(payload.badge))) }
+        : {}),
     },
     url: payload.url,
     channelId: payload.channelId,
@@ -81,9 +85,17 @@ async function sendApnsToToken(
     };
 
     const client = http2.connect(`https://${host}`);
+    const timeout = setTimeout(() => {
+      client.destroy();
+      finish('failed');
+    }, 10_000);
+    const finishAndClear = (result: 'ok' | 'gone' | 'failed') => {
+      clearTimeout(timeout);
+      finish(result);
+    };
     client.on('error', () => {
       client.close();
-      finish('failed');
+      finishAndClear('failed');
     });
 
     const req = client.request({
@@ -95,16 +107,37 @@ async function sendApnsToToken(
       'apns-priority': '10',
     });
 
+    let status = 0;
+    let responseBody = '';
+    req.setEncoding('utf8');
     req.on('response', (headers) => {
-      const status = Number(headers[':status'] ?? 0);
+      status = Number(headers[':status'] ?? 0);
+    });
+    req.on('data', (chunk: string) => {
+      responseBody += chunk;
+    });
+    req.on('end', () => {
       client.close();
-      if (status === 200) finish('ok');
-      else if (status === 410) finish('gone');
-      else finish('failed');
+      if (status === 200) return finishAndClear('ok');
+      let reason = '';
+      try {
+        reason = String(JSON.parse(responseBody)?.reason ?? '');
+      } catch {
+        /* APNs may return an empty/non-JSON error body. */
+      }
+      if (
+        status === 410 ||
+        reason === 'BadDeviceToken' ||
+        reason === 'DeviceTokenNotForTopic' ||
+        reason === 'Unregistered'
+      ) {
+        return finishAndClear('gone');
+      }
+      return finishAndClear('failed');
     });
     req.on('error', () => {
       client.close();
-      finish('failed');
+      finishAndClear('failed');
     });
     req.end(body);
   });
