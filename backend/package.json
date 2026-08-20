@@ -112,7 +112,7 @@
     "@fastify/cors": "^11.2.0",
     "@fastify/deepmerge": "^3.2.1",
     "@fastify/error": "^4.2.0",
-    "@fastify/formbody": "^8.0.2",
+    "@fastify/formbody": "^9.0.0",
     "@fastify/helmet": "^13.0.2",
     "@fastify/multipart": "^10.1.0",
     "@fastify/rate-limit": "^10.3.0",
