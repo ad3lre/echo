@@ -54,7 +54,7 @@ This is a baseline threat model intended to make trust boundaries and security i
   - websocket auth desync vs REST state
 - Existing controls:
   - cookie-based handshake authentication
-  - centralized server permission helpers for RBAC: [echoPolicy.ts](../../../backend/src/domain/echoPolicy.ts)
+  - centralized server permission helpers for RBAC: [echoPolicy.ts](../../../server/backend/src/domain/echoPolicy.ts)
 - Regression references:
   - room join bypass patch: [patched-security-issues.md](./patched-security-issues.md#L7-L22)
 
@@ -82,7 +82,7 @@ This is a baseline threat model intended to make trust boundaries and security i
   - debug ingestion exposure
 - Existing controls:
   - production metrics scrape token recommended/required: [PRODUCTION_SECURITY_CHECKLIST.md](../../operations/PRODUCTION_SECURITY_CHECKLIST.md#observability-endpoints)
-  - dev diagnostics disabled in production: [devDiagnostics.ts](../../../backend/src/api/routes/devDiagnostics.ts)
+  - dev diagnostics disabled in production: [devDiagnostics.ts](../../../server/backend/src/api/routes/devDiagnostics.ts)
 
 ## Assumptions and Non-Goals
 

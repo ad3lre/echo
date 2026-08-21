@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "noEmit": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/services/e2ee": ["../../server/backend/crypto/src/e2ee"],
+      "@/services/e2ee/*": ["../../server/backend/crypto/src/e2ee/*"],
+      "@/services/voice/mls": ["../../server/backend/crypto/src/mls"],
+      "@/services/voice/mls/*": ["../../server/backend/crypto/src/mls/*"],
+      "@shared/games": ["../../server/activities/cores/games"],
+      "@shared/games/*": ["../../server/activities/cores/games/*"],
+      "@shared/vcActivityCatalog": [
+        "../../server/activities/cores/vcActivityCatalog.ts"
+      ],
+      "@/*": ["src/*"],
+      "@shared/*": ["../../contracts/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "../../contracts/**/*.ts",
+    "../../server/activities/cores/**/*.ts",
+    "../../server/backend/crypto/src/**/*.ts"
+  ],
+  "exclude": ["node_modules", "../../contracts/**/*.test.ts"]
+}

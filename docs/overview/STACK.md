@@ -8,13 +8,14 @@ This document outlines the core technologies and infrastructure choices for buil
 
 Dated changes to the architecture plan (newest first):
 
-- **2026-08-15 — Native clients:** Tauri shells removed. Native Apple apps live under [`apple/`](../../apple/); the Vue SPA is web/PWA only. See [Native clients](#native-clients).
+- **2026-08-15 — Top-level monorepo layout:** Renamed suites (`web`, `contracts`, `media`, `voice`, `activities`) and extracted `paper/` + `server/backend/crypto/`. See [repo-layout.md](repo-layout.md).
+- **2026-08-15 — Native clients:** Tauri shells removed. Native Apple apps live under [`clients/apple/`](../../clients/apple/); the Vue SPA is clients/web/PWA only. See [Native clients](#native-clients).
 - **2026-06-01 — Documentation refresh:** GitHub Actions is the authoritative CI; GitLab CI is a Prettier mirror only. Example hosting notes moved under [Example deployment](#example-deployment-maintainers-reference).
 - **2026-04-01 — Single-node first, distributed at scale:** Echo **optimizes for a single Node API process** (one primary realtime tier, in-memory Socket.IO adapter, co-located assumptions). **Multi-instance** Socket.IO (`NATS_URL` adapter), shared rate limits, Redis-grade presence across replicas, and broader **distributed-system** work are **explicitly deferred** until the product reaches on the order of **~50,000 average concurrent users** (CCU-style simultaneous usage — exact definition TBD with ops). Until then, vertical scale, query/index tuning, and observability beat horizontal complexity. See [realtime-scaling.md](../infra/realtime-scaling.md) and [STATUS_AND_PRODUCTION_READINESS.md](../reviews/STATUS_AND_PRODUCTION_READINESS.md).
 - **2026-04-01 — Social graph + presence polish:** Pending friend requests are exposed at **GET /api/v1/echo/friends/requests** with **POST …/friends/decline** and **POST …/friends/cancel**; the client hydrates them in real mode. **Per-process** socket ref-counting avoids marking a user offline when one tab disconnects while another remains on the same API process; **stale presence sweep** emits **presence:update** for users moved to `offline` (see [realtime-scaling.md](../infra/realtime-scaling.md)).
-- **2026-04-01 — Optional NATS for Socket.IO:** The backend can attach **@mickl/socket.io-nats-adapter** when **NATS_URL** is set (`attachSocketAdapterIfConfigured` in `backend/src/bootstrap/socket.ts`). This is **multi-instance WebSocket fan-out**, not the full deferred **JetStream / platform NATS** story. See [realtime-scaling.md](../infra/realtime-scaling.md).
+- **2026-04-01 — Optional NATS for Socket.IO:** The backend can attach **@mickl/socket.io-nats-adapter** when **NATS_URL** is set (`attachSocketAdapterIfConfigured` in `server/backend/src/bootstrap/socket.ts`). This is **multi-instance WebSocket fan-out**, not the full deferred **JetStream / platform NATS** story. See [realtime-scaling.md](../infra/realtime-scaling.md).
 - **2026-03-27 — Safety + 1:1 DMs (Echo):** User **block/unblock** and **reports** live under `/api/v1/echo` (see contract doc). **Direct messages** use persisted DM channels (`POST /dm/open`, `GET /dm/threads`); opening or using a DM with a blocked peer is rejected server-side. Frontend: profile ⋯ menu (copy user ID, report, block/unblock) on expanded profile, DM side panel profile, and member popout.
-- **2026-04-04 — SFU with LiveKit:** Group voice/video **Selective Forwarding Unit (SFU)** media forwarding is powered by **LiveKit**. The voice infrastructure is split into a stable transport substrate ([Layer 1](../infra/architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md)) and an intelligent control layer ([Layer 2](../infra/architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md)).
+- **2026-04-04 — SFU with LiveKit:** Group server/voice/video **Selective Forwarding Unit (SFU)** media forwarding is powered by **LiveKit**. The voice infrastructure is split into a stable transport substrate ([Layer 1](../architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md)) and an intelligent control layer ([Layer 2](../architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md)).
 - **2026-03-24 — Realtime without NATS (start):** The **initial** realtime stack is **Socket.IO only** on the Node backend. **NATS** and the **Socket.IO NATS adapter** were out of scope for the start and are reconsidered when horizontal scaling or cross-service messaging needs them.
 
 ## Frontend – Vue 3
@@ -38,33 +39,33 @@ Dated changes to the architecture plan (newest first):
 
 Installed apps are **first-party native**, not a WebView wrapper around the SPA.
 
-| Platform    | Entry                                                                         |
-| ----------- | ----------------------------------------------------------------------------- |
-| iOS / macOS | [`apple/README.md`](../../apple/README.md) — SwiftUI, Observation, URLSession |
+| Platform    | Entry                                                                                         |
+| ----------- | --------------------------------------------------------------------------------------------- |
+| iOS / macOS | [`clients/apple/README.md`](../../clients/apple/README.md) — SwiftUI, Observation, URLSession |
 
-The **Vue 3 SPA** in `frontend/` remains the web and PWA client. Additional native platforms (Android, Windows, Linux) will land as separate first-party trees when ready.
+The **Vue 3 SPA** in `clients/web/` remains the web and PWA client. Additional native platforms (Android, Windows, Linux) will land as separate first-party trees when ready.
 
 Passkeys / Universal Links: [ios-passkeys.md](../operations/ios-passkeys.md).
 
-Related: the SPA can optionally show an Echo **screen-share settings** modal when `VITE_SCREEN_SHARE_CONFIG_MODAL=true` (e.g. desktop builds); default **browser** builds skip it and defer to the OS capture picker (`frontend/src/config/screenShareUi.ts`).
+Related: the SPA can optionally show an Echo **screen-share settings** modal when `VITE_SCREEN_SHARE_CONFIG_MODAL=true` (e.g. desktop builds); default **browser** builds skip it and defer to the OS capture picker (`clients/web/src/config/screenShareUi.ts`).
 
 ## Backend – Real-time & API
 
 - **Node.js + Fastify:** High-performance HTTP server for REST APIs.
 - **Socket.IO:** Primary realtime transport (chat, presence, notifications). **Default:** in-memory adapter (**one** API process) — see **Scale strategy** below. **Optional multi-instance:** set **NATS_URL** to attach the **Socket.IO NATS adapter** (see [Plan updates](#plan-updates) and [realtime-scaling.md](../infra/realtime-scaling.md)); treat as **exception / pre-50k-CCU experiments** unless metrics justify it. **JetStream** and broader NATS-based platform messaging remain a later phase.
 - **REST API:** User authentication, server management, channel creation, settings, and Echo domain routes.
-- **media-cdn sidecar:** Optional signed GET delivery for uploads (`GET /v1/o/{storageKey}?t=…`); signing authority stays on the API (`POST /media/sign`). See [media-cdn.md](../operations/media-cdn.md).
+- **media sidecar:** Optional signed GET delivery for uploads (`GET /v1/o/{storageKey}?t=…`); signing authority stays on the API (`POST /media/sign`). Package: [`server/media/`](../../server/media/). See [media-cdn.md](../operations/media-cdn.md).
 
 ## Database
 
 - **PostgreSQL:** Users, servers, channels, messages, auth, and Echo graph data.
 - **NATS JetStream** (deferred): Durable event fan-out, async job queues, and richer platform messaging. **Basic NATS** for the **Socket.IO adapter** is optional via **NATS_URL** (see [Plan updates](#plan-updates)); JetStream is not required for that adapter path.
-- **MockDB (dev-only):** In-memory data (`backend/src/db/mockdb.ts`) when **ECHO_BACKEND_STORAGE=memory**. **`/api/v1/mock/*`** is registered only when `NODE_ENV` is not production and `ALLOW_MOCK_API=true`. Production requires **ECHO_BACKEND_STORAGE=postgres** + `DATABASE_URL` and does not register mock routes. For a real workspace without the mock UI, use `npm run seed:dev` against a running API (see root `package.json`).
+- **MockDB (dev-only):** In-memory data (`server/backend/src/db/mockdb.ts`) when **ECHO_BACKEND_STORAGE=memory**. **`/api/v1/mock/*`** is registered only when `NODE_ENV` is not production and `ALLOW_MOCK_API=true`. Production requires **ECHO_BACKEND_STORAGE=postgres** + `DATABASE_URL` and does not register mock routes. For a real workspace without the mock UI, use `npm run seed:dev` against a running API (see root `package.json`).
 
 ## Voice / Video
 
-- **LiveKit Server (Layer 1):** Core **SFU** for WebRTC media routing, simulcast/SVC, and congestion control. See [LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md](../infra/architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md).
-- **Echo Voice Intelligence Sidecar (Layer 2):** Control and policy plane for UX quality and minimal diff-based actions to LiveKit. See [ECHO_VOICE_INTELLIGENCE_LAYER.md](../infra/architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md).
+- **LiveKit Server (Layer 1):** Core **SFU** for WebRTC media routing, simulcast/SVC, and congestion control. See [LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md](../architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md).
+- **Echo Voice Intelligence Sidecar (Layer 2):** Control and policy plane for UX quality and minimal diff-based actions to LiveKit. See [ECHO_VOICE_INTELLIGENCE_LAYER.md](../architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md).
   - **NAT traversal:** TURN/STUN in the voice stack (Layer 1).
   - **Signaling:** Token minting and room access control in the Echo API; LiveKit manages WebRTC signaling.
 - **Client-side mic processing:** **Enhanced (Krisp)** via `@livekit/krisp-noise-filter`, **Standard (browser)** WebRTC NS/AGC toggles, or **Minimal** (requested DSP off — not guaranteed raw). Krisp mode keeps browser noise suppression off to avoid double processing. See [LiveKit noise cancellation](https://docs.livekit.io/home/client/tracks/noise-cancellation/). Krisp licensing applies for production distribution.
@@ -89,14 +90,14 @@ Your fork should point `VITE_*`, `CORS_ORIGIN`, and related settings at **your**
 ## Cross-cutting concerns
 
 - **DevOps / CI/CD:** **GitHub Actions** (`.github/workflows/`) is the **authoritative** CI for the public repository. Root `.gitlab-ci.yml` is a **Prettier-only mirror** for private GitLab remotes. Build/test scripts are **npm workspaces** (`frontend`, `backend`, `bot`, …).
-  - **Frontend unit tests:** **Vitest** (`npm run test -w frontend`).
-  - **Backend integration / contract tests:** scripts under `backend/src/tests/` (e.g. `npm run test:echo:pipeline -w backend`).
+  - **Frontend unit tests:** **Vitest** (`npm run test -w web`).
+  - **Backend integration / contract tests:** scripts under `server/backend/src/tests/` (e.g. `npm run test:echo:pipeline -w backend`).
   - **End-to-end:** **Cypress** smoke (`npm run test:e2e`) runs in [echo-e2e-ci.yml](../../.github/workflows/echo-e2e-ci.yml) on relevant PRs; not a full product E2E grid.
 - **Authentication & security:** Cookie sessions (Option A BFF), bcrypt password hashing, HTTPS enforcement in production, input validation, CSRF on mutating routes.
 - **Rate limiting:** In-memory counters and/or **PostgreSQL** per user or IP; NATS-based options possible later.
 - **File storage:** S3-compatible presigned PUT when **`ECHO_S3_*`** is configured (`ECHO_S3_BUCKET`, region, keys).
 - **Logging:** **Pino** structured JSON logs with request correlation.
-- **Monitoring:** **Prometheus** metrics at `GET /api/v1/metrics`; starter **Grafana** dashboard in `monitoring/grafana/`.
+- **Monitoring:** **Prometheus** metrics at `GET /api/v1/metrics`; starter **Grafana** dashboard in `server/ops/monitoring/grafana/`.
 
 ## Current progress snapshot (Auth)
 

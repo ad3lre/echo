@@ -9,13 +9,13 @@
 | **Frontend** | Vitest 3, `src/**/*.test.ts`, Node environment                                                                                                             |
 | **Backend**  | Mixed `ts-node` / `tsx` scripts under `src/tests/` (RBAC, unfurl, integrations); GitHub CI runs pipeline/multinode/uploads/RBAC when Postgres is available |
 | **E2E**      | Cypress smoke in [`.github/workflows/echo-e2e-ci.yml`](../../.github/workflows/echo-e2e-ci.yml) (`npm run test:e2e`)                                       |
-| **Scale**    | **~430** `*.test.ts` files under `frontend/src`; backend **112** files under `backend/src/tests/`                                                          |
+| **Scale**    | **~430** `*.test.ts` files under `clients/web/src`; backend **112** files under `server/backend/src/tests/`                                                |
 
-Running `npm run test:coverage` in `frontend/` uses `@vitest/coverage-v8`. Reports go to `frontend/coverage/` (gitignored).
+Running `npm run test:coverage` in `clients/web/` uses `@vitest/coverage-v8`. Reports go to `clients/web/coverage/` (gitignored).
 
-Coverage is **scoped to `src/**/\*.ts`** (see `vitest.config.ts`) so `dist/`and`.vue` files do not skew the gate. Local thresholds on that set: **lines/statements 30%**, **functions 60%**, **branches 65%** (`frontend/vitest.config.ts`). CI runs `vitest run`without enforcing coverage thresholds unless`--coverage` is passed.
+Coverage is **scoped to `src/**/\*.ts`** (see `vitest.config.ts`) so `dist/`and`.vue` files do not skew the gate. Local thresholds on that set: **lines/statements 30%**, **functions 60%**, **branches 65%** (`clients/web/vitest.config.ts`). CI runs `vitest run`without enforcing coverage thresholds unless`--coverage` is passed.
 
-Backend socket join hardening runs via Vitest in CI: `backend/src/tests/channelHandlers*.test.ts` (included from `frontend/vitest.config.ts`). Security regression suite: `npm run test:security -w backend` (CSRF, upload MIME, profile sanitize, webhooks, bot tokens) — part of `test:ci:backend`.
+Backend socket join hardening runs via Vitest in CI: `server/backend/src/tests/channelHandlers*.test.ts` (included from `clients/web/vitest.config.ts`). Security regression suite: `npm run test:security -w backend` (CSRF, upload MIME, profile sanitize, webhooks, bot tokens) — part of `test:ci:backend`.
 
 ### Covered areas (high level)
 
@@ -71,5 +71,5 @@ npm run test:watch    # vitest
 
 ## Tracking progress
 
-- Bump **thresholds** in `frontend/vitest.config.ts` when global lines increase sustainably.
+- Bump **thresholds** in `clients/web/vitest.config.ts` when global lines increase sustainably.
 - Extend this doc with dated milestones (e.g. “2026-03: ~10% lines on `src/**/*.ts`”).

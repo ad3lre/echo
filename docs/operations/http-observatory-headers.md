@@ -2,13 +2,13 @@
 
 [Mozilla HTTP Observatory](https://observatory.mozilla.org/) scores the **response it fetches for the URL you scan** (for Echo, that is usually `https://<your-app-host>/` — the HTML document).
 
-Echo’s **API** responses already include `Content-Security-Policy` and `Strict-Transport-Security` via Helmet (`backend/src/bootstrap/httpPlugins.ts`). If the HTML shell is served by a **CDN or reverse proxy** without those headers, the scan still fails CSP/HSTS even though `/api/...` looks fine in DevTools.
+Echo’s **API** responses already include `Content-Security-Policy` and `Strict-Transport-Security` via Helmet (`server/backend/src/bootstrap/httpPlugins.ts`). If the HTML shell is served by a **CDN or reverse proxy** without those headers, the scan still fails CSP/HSTS even though `/api/...` looks fine in DevTools.
 
 Use one of the following so **HTML (and ideally all same-origin static assets)** get CSP and HSTS.
 
 ## Caddy (Echo VPS)
 
-Put **`handle /api/*`** and **`handle` / matchers for `/socket.io*`** (reverse proxy to the API) **above** a catch-all `handle` that serves `frontend/dist` with `try_files` + `file_server`. On that **SPA-only** `handle`, add the `header` block from [`scripts/deploy/templates/caddy-spa-security-headers.Caddyfile.snippet`](../../scripts/deploy/templates/caddy-spa-security-headers.Caddyfile.snippet) (same CSP/HSTS values as `_headers` below).
+Put **`handle /api/*`** and **`handle` / matchers for `/socket.io*`** (reverse proxy to the API) **above** a catch-all `handle` that serves `clients/web/dist` with `try_files` + `file_server`. On that **SPA-only** `handle`, add the `header` block from [`server/ops/scripts/deploy/templates/caddy-spa-security-headers.Caddyfile.snippet`](../../server/ops/scripts/deploy/templates/caddy-spa-security-headers.Caddyfile.snippet) (same CSP/HSTS values as `_headers` below).
 
 That way document responses get CSP + HSTS while `/api/` keeps the app’s Helmet policy — no duplicate CSP on one response.
 
@@ -26,7 +26,7 @@ If you configure Caddy to emit CSP and HSTS on **every** response including `/ap
 
 ## Cloudflare Pages (or Netlify)
 
-The frontend build copies [`frontend/deploy/_headers`](../../frontend/deploy/_headers) into `frontend/dist/` (not from `public/`) for **Cloudflare Pages** and **Netlify**. `vite preview` and production Caddy must still set the same headers — see [`frontend/vite-plugins/spaSecurityHeadersPlugin.ts`](../../frontend/vite-plugins/spaSecurityHeadersPlugin.ts).
+The frontend build copies [`clients/web/deploy/_headers`](../../clients/web/deploy/_headers) into `clients/web/dist/` (not from `public/`) for **Cloudflare Pages** and **Netlify**. `vite preview` and production Caddy must still set the same headers — see [`clients/web/vite-plugins/spaSecurityHeadersPlugin.ts`](../../clients/web/vite-plugins/spaSecurityHeadersPlugin.ts).
 
 ## Cloudflare proxy → your origin
 
@@ -38,13 +38,13 @@ Example **Custom filter expression** (adjust host and path prefixes):
 (http.host eq "chat-echo.com") and not starts_with(http.request.uri.path, "/api/") and not starts_with(http.request.uri.path, "/socket.io")
 ```
 
-Add two static response headers (same values as in `frontend/deploy/_headers`):
+Add two static response headers (same values as in `clients/web/deploy/_headers`):
 
 - `Strict-Transport-Security`: `max-age=31536000; includeSubDomains; preload`
-- `Content-Security-Policy`: copy the single-line policy from [`frontend/deploy/_headers`](../../frontend/deploy/_headers) (the long `Content-Security-Policy:` value after the header name).
+- `Content-Security-Policy`: copy the single-line policy from [`clients/web/deploy/_headers`](../../clients/web/deploy/_headers) (the long `Content-Security-Policy:` value after the header name).
 
 Then re-run the Observatory scan on `https://chat-echo.com/`.
 
 ## SPA policy notes
 
-Boot splash styles live in [`frontend/public/echo-boot-splash.css`](../../frontend/public/echo-boot-splash.css) so the deployed CSP can keep **`style-src 'self'`** without `'unsafe-inline'`. The policy uses broad **`connect-src` / `img-src`** HTTPS allowances so Discord avatars, media CDNs, LiveKit, and similar integrations keep working; tighten per environment if you have a fixed hostname list.
+Boot splash styles live in [`clients/web/public/echo-boot-splash.css`](../../clients/web/public/echo-boot-splash.css) so the deployed CSP can keep **`style-src 'self'`** without `'unsafe-inline'`. The policy uses broad **`connect-src` / `img-src`** HTTPS allowances so Discord avatars, media CDNs, LiveKit, and similar integrations keep working; tighten per environment if you have a fixed hostname list.

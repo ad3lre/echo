@@ -4,7 +4,7 @@ Echo runs on a typical **glibc** Linux VPS with **Node 22.13+** (see root `packa
 
 ## LiveKit webhooks and the host API
 
-Dev config [`infra/livekit/livekit.yaml`](../../infra/livekit/livekit.yaml) posts webhooks to `http://host.docker.internal:3000/...`.
+Dev config [`server/ops/infra/livekit/livekit.yaml`](../../server/ops/infra/livekit/livekit.yaml) posts webhooks to `http://host.docker.internal:3000/...`.
 
 - **Docker Desktop** injects `host.docker.internal` automatically.
 - **Linux** does not, by default. The repo’s [`docker-compose.yml`](../../docker-compose.yml) adds:
@@ -33,11 +33,11 @@ Minimum for a real deployment: **Postgres**, **`DATABASE_URL`**, **`NODE_ENV=pro
 
 ## Production deploy (`npm run vps:prod`)
 
-For production on a single checkout, use **`npm run vps:prod`** (see **VPS runner helper** below). It preverifies TypeScript, builds, stops the previous stack, and starts `npm run prod` (API on **:3000**, SPA preview on **:4173**). Optional **systemd** units: `infra/systemd/echo-vps-prod.service` + timer (`scripts/deploy/install-vps-prod-systemd.sh`).
+For production on a single checkout, use **`npm run vps:prod`** (see **VPS runner helper** below). It preverifies TypeScript, builds, stops the previous stack, and starts `npm run prod` (API on **:3000**, SPA preview on **:4173**). Optional **systemd** units: `server/ops/infra/systemd/echo-vps-prod.service` + timer (`server/ops/scripts/deploy/install-vps-prod-systemd.sh`).
 
 ## VPS runner helper (`npm run vps:*`)
 
-This repo includes a small VPS-oriented runner: [`scripts/vps-serve.mjs`](../../scripts/vps-serve.mjs).
+This repo includes a small VPS-oriented runner: [`server/ops/scripts/vps-serve.mjs`](../../server/ops/scripts/vps-serve.mjs).
 
 - **Detached one-shot (survives SSH disconnect):** `npm run vps:dev` or `npm run vps:prod`
   - Writes logs under `logs/vps/` and a pid file `logs/vps/echo-vps-<mode>.pid` (the stack process).
@@ -49,7 +49,7 @@ This repo includes a small VPS-oriented runner: [`scripts/vps-serve.mjs`](../../
 
 ### TypeScript preverify (prod)
 
-Before **`npm run prod`** stops API/frontend ports or rebuilds, the repo runs **`npm run preverify:prod`** (`scripts/preverify-prod-typecheck.mjs`): `vue-tsc` on the frontend workspace and `tsc` on backend + bot. If it fails, deploy aborts and the **currently running** stack stays up.
+Before **`npm run prod`** stops API/frontend ports or rebuilds, the repo runs **`npm run preverify:prod`** (`server/ops/scripts/preverify-prod-typecheck.mjs`): `vue-tsc` on the frontend workspace and `tsc` on backend + bot. If it fails, deploy aborts and the **currently running** stack stays up.
 
 - **`npm run vps:prod`** runs the same check **before** spawning `npm run prod` (logged in `logs/vps/prod.launcher.log`).
 - **`npm run vps:prod:watch`** pulls first, then preverifies, then restarts immediately (failed typecheck skips restart).
@@ -76,12 +76,12 @@ Terminate **TLS** at **Caddy** (or **Traefik** / a cloud load balancer), and:
 
 - **HTTP(S)** to the Fastify API on **`127.0.0.1:3000`** (REST + webhook routes).
 - **WebSocket upgrade** for **Socket.IO** on the same origin (proxy `/socket.io*` to **:3000**).
-- **SPA** via **`vite preview` on :4173** or static files from **`frontend/dist`** (see `scripts/deploy/templates/caddy-spa-security-headers.Caddyfile.snippet`).
+- **SPA** via **`vite preview` on :4173** or static files from **`clients/web/dist`** (see `server/ops/scripts/deploy/templates/caddy-spa-security-headers.Caddyfile.snippet`).
 - **WebSocket** for **LiveKit** signaling (`wss://`) when using self-hosted SFU or a public `LIVEKIT_PUBLIC_URL`.
 - **Large request / body limits** if users upload attachments (align with your presign / proxy timeouts).
 - **Static compression** for frontend assets (`.js`, `.css`, `.svg`, `.json`, `.webmanifest`): prefer Brotli with gzip fallback.
 
-When serving `frontend/dist` through Caddy, configure precompressed sidecars so the proxy serves
+When serving `clients/web/dist` through Caddy, configure precompressed sidecars so the proxy serves
 `*.br` / `*.gz` emitted by the frontend build:
 
 - **Caddy**: `encode zstd gzip` plus `file_server { precompressed br gzip }`
@@ -110,7 +110,7 @@ Forward **`X-Forwarded-For`** and **`X-Forwarded-Proto`** when the backend enfor
 
 After `npm ci` and `npm run build` (or at least `npm run build -w backend`):
 
-- `npm start` (from repo root per `package.json`) runs the compiled backend if `backend/dist/` exists.
+- `npm start` (from repo root per `package.json`) runs the compiled backend if `server/backend/dist/` exists.
 - With Compose up and API on the host, confirm LiveKit can POST webhooks (check API logs / `hooks_livekit` metrics once configured).
 
 For full CI parity locally or on CI: `npm run verify:ship`.

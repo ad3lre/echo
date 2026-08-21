@@ -23,7 +23,7 @@ This project records dev-localhost diagnostics into per-session artifacts under:
 4. For AI-driven debugging, inspect in this order:
    - `errors.jsonl`
    - `chains.jsonl`
-   - raw `spans_###.jsonl`, then frontend/backend split files
+   - raw `spans_###.jsonl`, then clients/web/backend split files
 
 ## Correlation
 

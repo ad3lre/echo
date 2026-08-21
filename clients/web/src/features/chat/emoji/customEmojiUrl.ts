@@ -1,0 +1,193 @@
+import { isEchoPublicId } from '@shared/snowflakeIds';
+import { extractStorageKeyFromEchoMediaUrl } from '@shared/echoUploadStorageKey';
+import { ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX } from '@shared/echoEmojiCdn';
+import { ECHO_MEDIA_CDN_OBJECT_PREFIX } from '@shared/mediaCdn';
+import { renderCustomEmojiLoadingInlineHtml } from '@/features/chat/emoji/customEmojiDisplay';
+import { sanitizeCustomEmojiInlineHtmlForVHtml } from '@/features/chat/emoji/sanitizeEmojiImgHtmlForVHtml';
+import { rewriteR2EchoUploadUrlForReadThrough } from '@/features/voice/rewriteR2EchoUploadUrlForReadThrough';
+import {
+  isTrustedMediaUrl,
+  safeImageUrl,
+} from '@/features/layout/display/safeImageUrl';
+import { API_BASE } from '@/config';
+
+/** Inline raster data URLs from Discord export import (see backend `assetPathToDataUrl`). */
+const MAX_CUSTOM_EMOJI_DATA_URL_CHARS = 26_000_000;
+
+/**
+ * Allow only raster `data:image/...;base64,...` URLs. SVG and other schemes are rejected
+ * (`safeCustomEmojiUrl` previously dropped all `data:` URLs, which broke imported packs).
+ */
+export function isSafeRasterEmojiDataUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.length > MAX_CUSTOM_EMOJI_DATA_URL_CHARS)
+    return false;
+  if (/[\r\n]/.test(trimmed) || trimmed.includes('\0')) return false;
+  const b64 = ';base64,';
+  const semi = trimmed.indexOf(b64);
+  if (semi < 12) return false;
+  const meta = trimmed.slice(0, semi);
+  if (!/^data:image\/(?:png|gif|webp|jpeg|jpg)\b/i.test(meta)) return false;
+  if (/\bsvg\b/i.test(meta)) return false;
+  return true;
+}
+
+function publicEmojiApiUrlFromStorageKey(storageKey: string): string | null {
+  if (!storageKey.startsWith('echo/public-emojis/')) return null;
+  const file = storageKey.split('/').pop()?.trim();
+  if (!file) return null;
+  const id = file.split('.')[0]?.trim();
+  if (!id || !isEchoPublicId(id)) return null;
+  try {
+    return new URL(
+      `${ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX}${encodeURIComponent(id)}`,
+      `${API_BASE.replace(/\/$/, '')}/`,
+    ).href;
+  } catch {
+    return null;
+  }
+}
+
+function maybePublicEmojiApiFallback(url: string): string {
+  const key = extractStorageKeyFromEchoMediaUrl(url);
+  if (!key) return url;
+  return publicEmojiApiUrlFromStorageKey(key) ?? url;
+}
+
+export function safeCustomEmojiUrl(
+  url: string | undefined | null,
+): string | null {
+  if (typeof url !== 'string') return null;
+  let trimmed = url.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('data:')) {
+    return isSafeRasterEmojiDataUrl(trimmed) ? trimmed : null;
+  }
+  // Backend/CDN can return host paths without scheme; normalize for robust rendering.
+  if (
+    !trimmed.startsWith('/') &&
+    !trimmed.startsWith('//') &&
+    !trimmed.startsWith('http://') &&
+    !trimmed.startsWith('https://') &&
+    /^[a-z0-9.-]+\.[a-z]{2,}(?:\/|\?|#).*/i.test(trimmed)
+  ) {
+    trimmed = `https://${trimmed}`;
+  }
+  if (!isTrustedMediaUrl(trimmed)) return null;
+  const safe = safeImageUrl(trimmed);
+  if (!safe) return null;
+  if (safe.toLowerCase().startsWith('data:')) return null;
+  if (safe.includes(ECHO_MEDIA_CDN_OBJECT_PREFIX)) {
+    return maybePublicEmojiApiFallback(safe);
+  }
+  return rewriteR2EchoUploadUrlForReadThrough(safe);
+}
+
+export function renderCustomEmojiHtml(
+  imageUrl: string | undefined | null,
+  name: string,
+  opts?: { id?: string; animated?: boolean },
+): string | null {
+  const safeUrl = safeCustomEmojiUrl(imageUrl);
+  if (!safeUrl) return null;
+  const id = opts?.id?.trim() || '0';
+  const animated = opts?.animated === true;
+  return sanitizeCustomEmojiInlineHtmlForVHtml(
+    renderCustomEmojiLoadingInlineHtml({ id, name, animated }, safeUrl),
+  );
+}
+
+/**
+ * Discord serves custom emoji assets at predictable URLs (same id format as Echo public ids).
+ * Only use after Echo’s `/emoji/resolve` has confirmed the emoji is not in the DB; prefer
+ * `/api/v1/echo/public/emojis/{id}` from resolve for Echo-hosted emojis. Otherwise
+ * we could briefly point at a non-existent Discord asset for an unloaded Echo emoji.
+ */
+const DISCORD_EMOJI_CDN_HOSTS = [
+  'https://cdn.discordapp.com',
+  'https://media.discordapp.net',
+] as const;
+
+export function discordCdnCustomEmojiMediaUrl(
+  id: string,
+  animated: boolean,
+): string {
+  const t = id.trim();
+  return animated
+    ? `${DISCORD_EMOJI_CDN_HOSTS[0]}/emojis/${t}.gif`
+    : `${DISCORD_EMOJI_CDN_HOSTS[0]}/emojis/${t}.png`;
+}
+
+/** Ordered CDN candidates when the primary Discord URL 404s or the wrong extension was used. */
+export function discordCustomEmojiCandidateUrls(
+  id: string,
+  animated: boolean,
+): string[] {
+  const t = id.trim();
+  if (!isEchoPublicId(t)) return [];
+  const exts = animated
+    ? (['gif', 'webp', 'png'] as const)
+    : (['webp', 'png', 'gif'] as const);
+  const out: string[] = [];
+  for (const host of DISCORD_EMOJI_CDN_HOSTS) {
+    for (const ext of exts) {
+      const s = safeCustomEmojiUrl(`${host}/emojis/${t}.${ext}`);
+      if (s && !out.includes(s)) out.push(s);
+    }
+  }
+  return out;
+}
+
+export function fallbackDiscordCdnCustomEmojiImageUrl(
+  id: string,
+  animated: boolean,
+): string | null {
+  return discordCustomEmojiCandidateUrls(id, animated)[0] ?? null;
+}
+
+/**
+ * Prefer Echo-hosted URLs from `cachedById` (library + resolver cache). When
+ * `echoResolveMissed` is true, Echo has no row for this id — use Discord’s CDN
+ * so other guilds’ emojis render like Discord.
+ */
+export type ResolveCustomEmojiDisplayOpts = {
+  /**
+   * When true, use Discord CDN for snowflake ids not in `cachedById` even before
+   * `/emoji/resolve` marks a miss (cross-guild Discord emojis).
+   */
+  allowDiscordCdnGuess?: boolean;
+};
+
+/** Whether to optimistically use Discord CDN for a snowflake not yet in Echo cache. */
+export function shouldAllowDiscordCdnGuessForEmojiId(
+  id: string,
+  cachedById: ReadonlyMap<string, string> | null | undefined,
+  echoResolveMissed: boolean,
+): boolean {
+  const mid = id.trim();
+  if (!mid) return false;
+  if (cachedById?.has(mid)) return false;
+  if (echoResolveMissed) return true;
+  return isEchoPublicId(mid);
+}
+
+export function resolveCustomEmojiImageUrlForDisplay(
+  id: string,
+  animated: boolean,
+  cachedById: ReadonlyMap<string, string> | null | undefined,
+  echoResolveMissed: boolean,
+  opts?: ResolveCustomEmojiDisplayOpts,
+): string | null {
+  const mid = id.trim();
+  if (!mid) return null;
+  const mapped = cachedById?.get(mid)?.trim();
+  if (mapped) {
+    const s = safeCustomEmojiUrl(mapped);
+    if (s) return s;
+  }
+  if (echoResolveMissed || opts?.allowDiscordCdnGuess) {
+    return fallbackDiscordCdnCustomEmojiImageUrl(mid, animated);
+  }
+  return null;
+}

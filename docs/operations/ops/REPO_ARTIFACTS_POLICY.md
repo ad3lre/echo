@@ -5,7 +5,7 @@ This document defines what **must not** be committed as part of normal feature w
 ## Bot export output
 
 - **`bot/exports/**`** — Local Discord export trees produced by the export bot. Treat as **machine-local data\*\*.
-- **Do not commit** new export folders unless the team explicitly needs a golden fixture (prefer a minimal redacted sample under `backend/src/tests` fixtures if required).
+- **Do not commit** new export folders unless the team explicitly needs a golden fixture (prefer a minimal redacted sample under `server/backend/src/tests` fixtures if required).
 
 ## Bot build output
 
@@ -18,6 +18,6 @@ This document defines what **must not** be committed as part of normal feature w
 
 ## Prettier / `format:check`
 
-- **CI:** GitLab job **`prettier`** (stage `quality`) runs `npm run format:check` on merge requests and on pushes to the default branch when matched source paths change (see [`.gitlab-ci.yml`](../../.gitlab-ci.yml)). Merge requests must pass this check.
+- **CI:** GitLab job **`prettier`** (stage `quality`) runs `npm run format:check` on merge requests and on pushes to the default branch when matched source paths change (see [`.gitlab-ci.yml`](../../../.gitlab-ci.yml)). Merge requests must pass this check.
 - **Local:** Before pushing, run `npm run format` at the repo root or `npx prettier --write <paths>` on files you edited. Excluded paths (for example `node_modules`, build output, `.cursor/`, lockfiles) are listed in `.prettierignore`.
 - **Milestone:** A one-time Prettier baseline was applied so the tree matches the root `.prettierrc`; avoid mixing unrelated functional changes with mass-format commits.

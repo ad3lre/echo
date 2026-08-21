@@ -25,13 +25,14 @@ npm run dev
 
 ## Day 2 — where things live
 
-| Topic                               | Start here                                                                                                                         |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Stack and scale stance              | [`docs/overview/STACK.md`](overview/STACK.md)                                                                                      |
-| Contributor / client–server charter | [`docs/overview/agents.md`](overview/agents.md)                                                                                    |
-| REST / data contracts               | [`docs/contracts/`](contracts/)                                                                                                    |
-| Voice / LiveKit (high level)        | [`docs/infra/livekit-turn.md`](infra/livekit-turn.md), [`docs/operations/livekit-production.md`](operations/livekit-production.md) |
-| Native builds                       | [`releases/README.md`](../releases/README.md)                                                                                      |
+| Topic                               | Start here                                                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Top-level layout (client vs kit)    | [`docs/overview/repo-layout.md`](overview/repo-layout.md)                                                                                     |
+| Stack and scale stance              | [`docs/overview/STACK.md`](overview/STACK.md)                                                                                                 |
+| Contributor / client–server charter | [`docs/overview/agents.md`](overview/agents.md)                                                                                               |
+| REST / data contracts               | [`docs/contracts/`](contracts/)                                                                                                               |
+| Voice / LiveKit (high level)        | [`docs/infra/livekit-turn.md`](server/ops/infra/livekit-turn.md), [`docs/operations/livekit-production.md`](operations/livekit-production.md) |
+| Native builds                       | [`clients/apple/README.md`](../clients/apple/README.md)                                                                                       |
 
 ## Checks before you open a PR
 
@@ -41,20 +42,20 @@ From the repo root (see also [`CONTRIBUTING.md`](../CONTRIBUTING.md)):
 npm run ci:precheck
 ```
 
-That runs `test:ci` plus the frontend lint/stylelint jobs from GitHub Actions. After `./scripts/setup-githooks.sh`, the same suite runs automatically on **`git push`** to non-GitHub remotes (skip with `ECHO_SKIP_CI_PRECHECK=1`). The hook activates Node from **`.nvmrc`** via nvm when your shell default is older than 22.13.
+That runs `test:ci` plus the web lint/stylelint jobs from GitHub Actions. After `./server/ops/scripts/setup-githooks.sh`, the same suite runs automatically on **`git push`** to non-GitHub remotes (skip with `ECHO_SKIP_CI_PRECHECK=1`). The hook activates Node from **`.nvmrc`** via nvm when your shell default is older than 22.13.
 
 Equivalent manual steps:
 
 ```bash
 npm run format:check
 npm run test:ci
-npm run lint -w frontend && npm run lint:theme -w frontend && npm run lint:style -w frontend
+npm run lint -w web && npm run lint:theme -w web && npm run lint:style -w web
 ```
 
 Targeted tests (examples):
 
 ```bash
-npm run test -w frontend -- --run path/to/file.test.ts
+npm run test -w web -- --run path/to/file.test.ts
 npm run test:storage-mode -w backend
 ```
 
@@ -74,7 +75,7 @@ When cutting the **public** tree from private development:
 
 1. Use a **clean** branch that already includes license, security policy, and OSS hygiene.
 2. Produce an export directory (e.g. `git archive --format=tar HEAD | tar -x -C ../echo-public-export`, excluding `node_modules` and build outputs, or `rsync` with appropriate `--exclude`).
-3. Run **gitleaks** (and `node scripts/check-oss-artifacts.mjs` after `git init` + first add) on that tree before publishing.
+3. Run **gitleaks** (and `node server/ops/scripts/check-oss-artifacts.mjs` after `git init` + first add) on that tree before publishing.
 4. In the export: `git init`, initial commit, add remote `https://github.com/ORG/REPO.git`, push **default branch**.
 5. On GitHub: enable **branch protection**, **required checks** (e.g. format + backend CI), **Dependabot**, and **private vulnerability reporting** (align with `.github/SECURITY.md`).
 6. **Rotate** any credential that was ever exposed outside the new public repo (old remotes, tickets, chat).

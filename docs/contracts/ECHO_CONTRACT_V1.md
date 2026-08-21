@@ -32,9 +32,9 @@ Frozen **v1** contract for Echo realtime + REST. Breaking changes require **v2**
 | `message:reactions`    | `{ channelId, messageId, reactions: MessageReaction[] }`                                                                                                                                                 |
 | `message:pins`         | `{ channelId, messageIds: string[] }` — newest pin first                                                                                                                                                 |
 | `presence:update`      | `{ userId, status }`                                                                                                                                                                                     |
-| `echo:workspace_event` | `{ kind, version, serverId?, userId?, … }` — membership, channel tree, roles, server updates, `discord_export_ready`, etc. (see `EchoWorkspaceEvent` in `shared/types/socket.ts`)                        |
+| `echo:workspace_event` | `{ kind, version, serverId?, userId?, … }` — membership, channel tree, roles, server updates, `discord_export_ready`, etc. (see `EchoWorkspaceEvent` in `contracts/types/socket.ts`)                     |
 | `poll:updated`         | `{ channelId, messageId, poll: PollData }` — tallies after a vote                                                                                                                                        |
-| `poll:vote_failed`     | `{ code, channelId?, messageId?, detail? }` — see `PollVoteFailedCode` in `shared/types/socket.ts`                                                                                                       |
+| `poll:vote_failed`     | `{ code, channelId?, messageId?, detail? }` — see `PollVoteFailedCode` in `contracts/types/socket.ts`                                                                                                    |
 
 ### `message_failed.code` (v1)
 
@@ -145,14 +145,14 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
 ## Metrics
 
 - **`GET /api/v1/metrics`** — Prometheus text exposition. **Scrape:** HTTP GET on the API’s public base URL with path `/api/v1/metrics` (same host/port as REST; no auth on metrics in default config — protect at the network or reverse proxy in production). **Job naming:** use a stable Prometheus `job` label per environment (e.g. `echo_api`); Echo metrics do not depend on a specific job value.
-- **Series (Echo domain):** `echo_socket_message_branch_total`, `echo_message_failed_total`, `echo_messages_persisted_total`, `echo_socket_message_handler_duration_seconds`, `echo_message_search_duration_seconds`, `echo_message_search_result_count`, `echo_rest_http_requests_total` (labels `route_group`, `method`, `status_class`), `echo_rest_http_request_duration_seconds` (histogram, label `route_group`), `echo_dm_open_total` (label `outcome`), plus workspace/snapshot/permission/snowflake counters and histograms defined in `backend/src/observability/echoMetrics.ts`. Default Node/process metrics are prefixed `echo_` via `prom-client`.
+- **Series (Echo domain):** `echo_socket_message_branch_total`, `echo_message_failed_total`, `echo_messages_persisted_total`, `echo_socket_message_handler_duration_seconds`, `echo_message_search_duration_seconds`, `echo_message_search_result_count`, `echo_rest_http_requests_total` (labels `route_group`, `method`, `status_class`), `echo_rest_http_request_duration_seconds` (histogram, label `route_group`), `echo_dm_open_total` (label `outcome`), plus workspace/snapshot/permission/snowflake counters and histograms defined in `server/backend/src/observability/echoMetrics.ts`. Default Node/process metrics are prefixed `echo_` via `prom-client`.
 - **Cardinality:** app metrics use **low-cardinality** labels only (`branch`, `code`, `scope`, `route_group`, `status_class`, `method`, `outcome`, etc.). Do not add per-channel or per-user labels in new instrumentation.
-- **Alert/recording rules (repo):** versioned under [`monitoring/prometheus/rules/`](../../monitoring/prometheus/rules/) with scrape notes in [`monitoring/README.md`](../../monitoring/README.md).
+- **Alert/recording rules (repo):** versioned under [`server/ops/monitoring/prometheus/rules/`](../../server/ops/monitoring/prometheus/rules/) with scrape notes in [`server/ops/monitoring/README.md`](../../server/ops/monitoring/README.md).
 
 ## Machine-readable surface
 
-- TypeScript: [`shared/echoContractV1.ts`](../../shared/echoContractV1.ts) — event name allowlists for tests/CI.
-- Types: [`shared/types/socket.ts`](../../shared/types/socket.ts).
+- TypeScript: [`contracts/echoContractV1.ts`](../../contracts/echoContractV1.ts) — event name allowlists for tests/CI.
+- Types: [`contracts/types/socket.ts`](../../contracts/types/socket.ts).
 
 ## Client — linkable ID tokens
 

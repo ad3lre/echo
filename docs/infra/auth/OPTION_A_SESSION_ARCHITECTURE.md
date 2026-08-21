@@ -40,9 +40,9 @@ just created:
    to a 401 by calling `invalidateSessionForReauth` / `clearLocalTokens` must
    capture `authStateGeneration` _before_ the request and skip teardown when the
    generation changed mid-flight (the 401 belongs to the previous session).
-   Reference implementations: `echoFetch` in `frontend/src/api/echo/transport.ts`
+   Reference implementations: `echoFetch` in `clients/web/src/api/echo/transport.ts`
    and the benign-401 branch of `restoreSessionFromApi` in
-   `frontend/src/stores/authSession.ts`.
+   `clients/web/src/features/auth/authSession.ts`.
 2. **`restoreSessionFromApi() === null` does not mean "unauthenticated".** It
    also returns `null` for transient network errors and for stale responses
    superseded by a concurrent `setSession`. Callers (notably `startInitialLoad`)

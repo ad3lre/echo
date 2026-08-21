@@ -4,10 +4,10 @@ Charter: [agents.md](../overview/agents.md). Leak goals **13** and **14** in [cl
 
 ## Row 13 — List grouping + markdown (not in `.vue`)
 
-- [`messageListGrouping.ts`](../../frontend/src/features/chat/viewModel/messageListGrouping.ts)
-- [`messageContentSegments.ts`](../../frontend/src/features/chat/viewModel/messageContentSegments.ts)
-- [`messageBodyMarkdown.ts`](../../frontend/src/features/chat/viewModel/messageBodyMarkdown.ts)
-- [`useMarkdown.ts`](../../frontend/src/composables/useMarkdown.ts) re-exports only.
+- [`messageListGrouping.ts`](../../clients/web/src/features/chat/domain/messageListGrouping.ts)
+- [`messageContentSegments.ts`](../../clients/web/src/features/chat/markdown/messageContentSegments.ts)
+- [`messageBodyMarkdown.ts`](../../clients/web/src/features/chat/markdown/messageBodyMarkdown.ts)
+- [`useMarkdown.ts`](../../clients/web/src/features/chat/markdown/useMarkdown.ts) re-exports only.
 
 ## Row 14 — “Strict MVC” presentation vs meaning
 

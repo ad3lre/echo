@@ -12,7 +12,7 @@ Measure real load and interaction timings on deployed Echo (`https://chat-echo.c
 | **vc_connect**  | Voice channel click → LiveKit **Voice Connected**                                          |
 | **misc_nav**    | Explore open, DM tab, server rail switch, return to guild channel                          |
 
-Timings come from the client [`perfHarness`](../../frontend/src/observability/perfHarness.ts) (`?perfHarness=1`) plus Playwright wall-clock for misc navigation.
+Timings come from the client [`perfHarness`](../../clients/web/src/observability/perfHarness.ts) (`?perfHarness=1`) plus Playwright wall-clock for misc navigation.
 
 ## One-time fixture setup (production)
 
@@ -50,18 +50,18 @@ npm run test:perf:prod
 
 Outputs:
 
-- `perf/results/<run-id>/baseline.json` — full report
-- `perf/results/<run-id>/baseline.md` — human summary
-- `perf/baselines/prod-<date>.json` — dated copy for commit/compare
+- `server/ops/perf/results/<run-id>/baseline.json` — full report
+- `server/ops/perf/results/<run-id>/baseline.md` — human summary
+- `server/ops/perf/baselines/prod-<date>.json` — dated copy for commit/compare
 
-Auth uses the REST login API in Playwright global setup (cookie session + CSRF), then caches `perf/.auth/storage.json` (refreshed every 6 hours).
+Auth uses the REST login API in Playwright global setup (cookie session + CSRF), then caches `server/ops/perf/.auth/storage.json` (refreshed every 6 hours).
 
-Until the frontend perf harness is deployed, boot/chat/VC harness milestones may be empty; the suite still records **Navigation Timing** and wall-clock fallbacks (see `perf/lib/harness.mjs`).
+Until the frontend perf harness is deployed, boot/chat/VC harness milestones may be empty; the suite still records **Navigation Timing** and wall-clock fallbacks (see `server/ops/perf/lib/harness.mjs`).
 
 ## Compare baselines
 
 ```bash
-npm run test:perf:prod:compare -- perf/baselines/prod-2026-01-01.json perf/baselines/prod-2026-06-14.json
+npm run test:perf:prod:compare -- server/ops/perf/baselines/prod-2026-01-01.json server/ops/perf/baselines/prod-2026-06-14.json
 ```
 
 Fails when any metric median regresses more than **10%** (`PERF_COMPARE_THRESHOLD` overrides).

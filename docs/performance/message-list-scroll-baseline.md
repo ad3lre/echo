@@ -15,13 +15,13 @@ Read report: `window.__echoMessageListScrollMetrics.getReport()`
 
 ```bash
 SCROLL_FIXTURE=geometry SCROLL_MODALITY=wheel \
-  frontend/scripts/run-message-list-scroll-verify.sh
+  clients/web/scripts/run-message-list-scroll-verify.sh
 
 SCROLL_FIXTURE=scale SCROLL_MODALITY=wheel \
-  frontend/scripts/run-message-list-scroll-verify.sh
+  clients/web/scripts/run-message-list-scroll-verify.sh
 
 SCROLL_FIXTURE=history SCROLL_MODALITY=keyboard \
-  frontend/scripts/run-message-list-scroll-verify.sh
+  clients/web/scripts/run-message-list-scroll-verify.sh
 ```
 
 Fixtures: `geometry` (~80 msgs), `scale` (~200), `history` (~40).

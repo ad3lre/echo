@@ -10,10 +10,10 @@ This document explains how **server role preview** and **channel-level send rule
    Use **`getSendState({ channelId, contentTypes, context? })`** (returns `{ allowed, blockReason }`) or **`assertCanSend`** for UI and submit paths. The low-level gate **`getOutgoingBlockReason`** remains for custom integration. **Do not** reintroduce exported `canSendMessages`-style refs — they invite “half enforcement”.
 
 2. **Layout does not thread permission props**  
-   `AppLayoutChatSurface`, voice/DM sections, and `ChatView` do **not** pass permission booleans down the tree. Components call **`useChatPermissions()`**, provided from `AppLayout` (or a permissive subtree).
+   `AppLayoutChatSurface`, server/voice/DM sections, and `ChatView` do **not** pass permission booleans down the tree. Components call **`useChatPermissions()`**, provided from `AppLayout` (or a permissive subtree).
 
 3. **Shell chat sends go through `executeShellSend`**  
-   [`frontend/src/features/chat/sendIntent.ts`](../../frontend/src/features/chat/sendIntent.ts) is the only path from the main shell to the socket **`sendMessage`** after gating. New features (quick reply, retries, commands) should build a **`SendIntent`** and call **`executeShellSend`**, not call the socket helper directly.
+   [`clients/web/src/features/chat/sendIntent.ts`](../../../clients/web/src/features/chat/sendIntent.ts) is the only path from the main shell to the socket **`sendMessage`** after gating. New features (quick reply, retries, commands) should build a **`SendIntent`** and call **`executeShellSend`**, not call the socket helper directly.
 
 4. **Never infer `channelId` from incidental UI state in permission logic**  
    Pass the **target channel for the operation** (the id you will send on). Do not use “which panel is focused” or “which tab is visible” as a stand-in — that is where split-view and notification-reply bugs appear.
@@ -23,15 +23,15 @@ This document explains how **server role preview** and **channel-level send rule
 
 ## Key files
 
-| Piece                                                                               | Location                                                                                                                           |
-| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Pure math: channel overrides, preview UI bits, **single outgoing block string**     | [`frontend/src/domain/chatRolePreviewPermissions.ts`](../../frontend/src/domain/chatRolePreviewPermissions.ts)                     |
-| Provided API: **`getSendState`**, **`assertCanSend`**, **`getOutgoingBlockReason`** | [`frontend/src/composables/useChatPermissions.ts`](../../frontend/src/composables/useChatPermissions.ts)                           |
-| Shell send choke point: **`executeShellSend`**, **`SendIntent`**                    | [`frontend/src/features/chat/sendIntent.ts`](../../frontend/src/features/chat/sendIntent.ts)                                       |
-| Main surface for branching: **`provideMainSurface` / `useMainSurface`**             | [`frontend/src/features/layout/useMainSurface.ts`](../../frontend/src/features/layout/useMainSurface.ts)                           |
-| `provideChatPermissions(createChatPermissions(…))`                                  | [`frontend/src/features/layout/components/AppLayout.vue`](../../frontend/src/features/layout/components/AppLayout.vue)             |
-| Composer: strict consumer, no permission props from `ChatView`                      | [`frontend/src/features/chat/components/ChatInput.vue`](../../frontend/src/features/chat/components/ChatInput.vue)                 |
-| Explicit permissive subtree (required in **dev** if you mount `ChatInput` here)     | [`frontend/src/features/dm/components/MessageRequestsView.vue`](../../frontend/src/features/dm/components/MessageRequestsView.vue) |
+| Piece                                                                               | Location                                                                                                                                            |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pure math: channel overrides, preview UI bits, **single outgoing block string**     | [`clients/web/src/features/chat/domain/chatRolePreviewPermissions.ts`](../../../clients/web/src/features/chat/domain/chatRolePreviewPermissions.ts) |
+| Provided API: **`getSendState`**, **`assertCanSend`**, **`getOutgoingBlockReason`** | [`clients/web/src/features/chat/useChatPermissions.ts`](../../../clients/web/src/features/chat/useChatPermissions.ts)                               |
+| Shell send choke point: **`executeShellSend`**, **`SendIntent`**                    | [`clients/web/src/features/chat/sendIntent.ts`](../../../clients/web/src/features/chat/sendIntent.ts)                                               |
+| Main surface for branching: **`provideMainSurface` / `useMainSurface`**             | [`clients/web/src/features/layout/useMainSurface.ts`](../../../clients/web/src/features/layout/useMainSurface.ts)                                   |
+| `provideChatPermissions(createChatPermissions(…))`                                  | [`clients/web/src/features/layout/components/AppLayout.vue`](../../../clients/web/src/features/layout/components/AppLayout.vue)                     |
+| Composer: strict consumer, no permission props from `ChatView`                      | [`clients/web/src/features/chat/components/ChatInput.vue`](../../../clients/web/src/features/chat/components/ChatInput.vue)                         |
+| Explicit permissive subtree (required in **dev** if you mount `ChatInput` here)     | [`clients/web/src/features/dm/components/MessageRequestsView.vue`](../../../clients/web/src/features/dm/components/MessageRequestsView.vue)         |
 
 ## Domain layer (`chatRolePreviewPermissions.ts`)
 
@@ -140,21 +140,21 @@ so **`useChatPermissions()`** succeeds in **dev** and nested **`ChatInput`** doe
 
 ## Main column routing (`MainSurface`)
 
-Shell navigation intent is folded into a single discriminated union, **`MainSurface`**, in [`frontend/src/features/layout/mainSurface.ts`](../../frontend/src/features/layout/mainSurface.ts). **`deriveMainSurface`** must read **navigation refs and workspace context only** (rail, DM sub-view, `activeChannelId`, channel type lookup, empty-server onboarding). It must **not** read layout chrome (`isDMPanelOpen`, panel widths, member column collapsed, modal open flags). Voice and DM calls are additionally classified in **`CallOverlayState`** via [`frontend/src/features/layout/callOverlay.ts`](../../frontend/src/features/layout/callOverlay.ts) so call chrome can stay a layer over the base surface. **`provideMainSurface`** / **`useMainSurface()`** expose that computed to descendants so new UI branches on **`mainSurface.type`** instead of raw rail refs where possible.
+Shell navigation intent is folded into a single discriminated union, **`MainSurface`**, in [`clients/web/src/features/layout/mainSurface.ts`](../../../clients/web/src/features/layout/mainSurface.ts). **`deriveMainSurface`** must read **navigation refs and workspace context only** (rail, DM sub-view, `activeChannelId`, channel type lookup, empty-server onboarding). It must **not** read layout chrome (`isDMPanelOpen`, panel widths, member column collapsed, modal open flags). Voice and DM calls are additionally classified in **`CallOverlayState`** via [`clients/web/src/features/layout/callOverlay.ts`](../../../clients/web/src/features/layout/callOverlay.ts) so call chrome can stay a layer over the base surface. **`provideMainSurface`** / **`useMainSurface()`** expose that computed to descendants so new UI branches on **`mainSurface.type`** instead of raw rail refs where possible.
 
 ## Layers: surface, send target, permissions, action
 
 Avoid cross-layer shortcuts (they reintroduce “UI says X, send uses Y” drift).
 
-| Layer                  | Responsibility                                                  | Key API                                                                                                                                                                                                |
-| ---------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Navigation / UI intent | What the main column is for                                     | **`deriveMainSurface`**, **`MainSurface`**                                                                                                                                                             |
-| Resolution             | Map surface (+ `NavState` where needed) → channel id to send on | **`resolveSendTarget`** in [`frontend/src/features/layout/resolveSendTarget.ts`](../../frontend/src/features/layout/resolveSendTarget.ts)                                                              |
-| Contract (dev)         | Surface and explicit `channelId` must agree                     | **`validateSendChannelForSurface`**, **`getOutgoingBlockReasonForShellAttempt`** in [`frontend/src/features/layout/sendSurfaceContract.ts`](../../frontend/src/features/layout/sendSurfaceContract.ts) |
-| Permissions            | May this payload go to **this** `channelId`?                    | **`getSendState`** / **`getOutgoingBlockReason`**                                                                                                                                                      |
-| Action                 | Gated socket send                                               | **`executeShellSend`** → `useSocket` **`sendMessage`** (only from shell `sendMessage` in `AppLayout`)                                                                                                  |
+| Layer                  | Responsibility                                                  | Key API                                                                                                                                                                                                         |
+| ---------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Navigation / UI intent | What the main column is for                                     | **`deriveMainSurface`**, **`MainSurface`**                                                                                                                                                                      |
+| Resolution             | Map surface (+ `NavState` where needed) → channel id to send on | **`resolveSendTarget`** in [`clients/web/src/features/layout/resolveSendTarget.ts`](../../../clients/web/src/features/layout/resolveSendTarget.ts)                                                              |
+| Contract (dev)         | Surface and explicit `channelId` must agree                     | **`validateSendChannelForSurface`**, **`getOutgoingBlockReasonForShellAttempt`** in [`clients/web/src/features/layout/sendSurfaceContract.ts`](../../../clients/web/src/features/layout/sendSurfaceContract.ts) |
+| Permissions            | May this payload go to **this** `channelId`?                    | **`getSendState`** / **`getOutgoingBlockReason`**                                                                                                                                                               |
+| Action                 | Gated socket send                                               | **`executeShellSend`** → `useSocket` **`sendMessage`** (only from shell `sendMessage` in `AppLayout`)                                                                                                           |
 
-**Dev:** **`collectShellInvariantIssues`** (see [`appShellInvariants.ts`](../../frontend/src/features/layout/appShellInvariants.ts)) runs from `AppLayout` to warn when `MainSurface`, `nav.activeChannelId`, and **`resolveSendTarget`** disagree.
+**Dev:** **`collectShellInvariantIssues`** (see [`appShellInvariants.ts`](../../../clients/web/src/features/layout/appShellInvariants.ts)) runs from `AppLayout` to warn when `MainSurface`, `nav.activeChannelId`, and **`resolveSendTarget`** disagree.
 
 **Lint (optional):** this repo may not yet scope ESLint to `features/layout`. When ESLint is available, consider `no-restricted-syntax` to discourage new `isInDMMode` / raw rail-tab checks in layout UI where **`mainSurface.type`** should be used instead.
 

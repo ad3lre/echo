@@ -47,11 +47,11 @@ If any Discord feature is unsupported in Echo's product model and is merely igno
 
 The current codebase already gives useful building blocks:
 
-- Stored permission strings already use Discord API names in `shared/rolePermissionBridge.ts`.
+- Stored permission strings already use Discord API names in `contracts/rolePermissionBridge.ts`.
 - Echo can store overwrite rows per target in:
   - `echo_channel_permission_overwrite_rows`
   - `echo_category_permission_overwrite_rows`
-- Echo already has a plan/evaluate split in `backend/src/domain/echoPermissionEvaluate.ts`.
+- Echo already has a plan/evaluate split in `server/backend/src/domain/permissions/echoPermissionEvaluate.ts`.
 - Overwrite rows already support target types:
   - `everyone`
   - `role`

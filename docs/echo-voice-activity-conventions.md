@@ -8,25 +8,25 @@ family drift apart (4 naming schemes, 3 copies of the optimistic-merge "tick",
 two audio engines, three result shapes).
 
 This doc is the **canonical convention** for that family. The crisp, mechanical
-parts are enforced by `scripts/check-voice-activity-conventions.mjs` (run via
+parts are enforced by `server/ops/scripts/check-voice-activity-conventions.mjs` (run via
 `npm run check:voice-activity`, part of `npm run test:ci:guards`). Existing
 violations are grandfathered in
-`scripts/voice-activity-conventions-allowlist.json` — the guard only blocks
+`server/ops/scripts/voice-activity-conventions-allowlist.json` — the guard only blocks
 **new** drift, so the family converges as files are touched.
 
-Scope: `frontend/src/features/voice/`.
+Scope: `clients/web/src/features/voice/`.
 
 ---
 
 ## 1. Naming
 
-| Artifact                      | Convention              | Example                        |
-| ----------------------------- | ----------------------- | ------------------------------ |
-| Activity component (`.vue`)   | `Vc<Game><Part>.vue`    | `VcSkrigglesLobby.vue`         |
-| Game logic module (`.ts`)     | `vc<Game><Role>.ts`     | `vcCodenamesReducer.ts`        |
-| Realtime session orchestrator | `<game>VoiceSession.ts` | `skrigglesVoiceSession.ts`     |
-| Pure rules/state core         | `vc<Game>Reducer.ts`    | `vcHangmanReducer.ts`          |
-| Shared cross-game primitives  | under `voice/shared/`   | `voice/shared/activityTick.ts` |
+| Artifact                      | Convention                                        | Example                                 |
+| ----------------------------- | ------------------------------------------------- | --------------------------------------- |
+| Activity component (`.vue`)   | `Vc<Game><Part>.vue`                              | `VcSkrigglesLobby.vue`                  |
+| Game logic module (`.ts`)     | `vc<Game><Role>.ts`                               | `vcCodenamesReducer.ts`                 |
+| Realtime session orchestrator | `<game>VoiceSession.ts`                           | `skrigglesVoiceSession.ts`              |
+| Pure rules/state core         | `vc<Game>Reducer.ts`                              | `vcHangmanReducer.ts`                   |
+| Shared cross-game primitives  | under `features/voice/shared/` or `@shared/games` | `ActivityTick`, hangman/codenames cores |
 
 - **One word per game.** Don't ship a feature under two names (the existing
   `Wordline` vs `Wordle` split is grandfathered, not a precedent — pick one for
@@ -40,26 +40,32 @@ with `Vc`.
 
 ## 2. Module structure
 
-Every game lives in its **own folder** under `voice/` (not split between the
-folder and the `voice/` root or the shared `voice/components/` dir):
+Every game lives in its **own folder** under
+`clients/web/src/features/voice/` (not split between the folder and the
+voice feature root or `features/voice/components/`):
 
 ```
-voice/<game>/
+clients/web/src/features/voice/<game>/
   vc<Game>Reducer.ts          # pure, no Vue / no socket imports
   <game>VoiceSession.ts       # realtime glue (optimistic merge, host election)
-  components/Vc<Game>*.vue     # UI, prefixed Vc
-  composables/use<Game>*.ts    # Vue-facing hooks
+  components/Vc<Game>*.vue     # UI, prefixed Vc — only after ≥3 related .vue files
+  composables/use<Game>*.ts    # Vue-facing hooks — same ≥3 rule
 ```
+
+Authoritative rules stay in `server/activities/cores/games/` (`@shared/games`).
+The Node `GameModule` sidecar stays in `server/activities/src/games/`.
+Client Socket.IO room transport stays in `clients/web/src/features/games/`.
 
 - The reducer is **pure**: no `.vue`, no socket, no `AudioContext` imports.
 - Realtime orchestration goes in `<game>VoiceSession.ts`, **not** inlined into
   the top-level `Vc<Game>Game.vue`. (Hangman's inlined orchestration is
   grandfathered; new games must extract it.)
 
-## 3. Shared primitives — declare once, in `voice/shared/`
+## 3. Shared primitives — declare once
 
 These are identical across games and must **not** be re-declared per game.
-Import them from `voice/shared/`:
+Import them from `server/activities/cores/` (`@shared/games`) or a shared
+voice helper — not a per-game copy:
 
 - **Optimistic-merge tick** — the `{ updatedAt: number; revision: number }`
   type and its `isNewer*Tick()` comparator. One shared `ActivityTick` +
@@ -70,21 +76,22 @@ Import them from `voice/shared/`:
   copy the body.
 - **Roster coercion** — `coerce*ActivityToLocalRoster` and
   `shouldLocalClientApply*Guess` share the same logic; factor the common core
-  into `voice/shared/`.
+  into `@shared/games`.
 
 **Enforced:** new `*Tick = { updatedAt; revision }` types, new `isNewer*Tick`
 declarations, and new `*OrchestratorUserId`/`*ArbiterUserId` declarations are
-only allowed under `voice/shared/`.
+only allowed under `clients/web/src/features/voice/shared/` (the check's
+`sharedDir`). Existing per-game copies are grandfathered.
 
 ## 4. Audio & haptics — one engine
 
 All sound goes through the shared SFX engine
-`voice/composables/useVoiceGameSfx.ts`. Do **not** create a private
+`clients/web/src/features/voice/composables/useVoiceGameSfx.ts`. Do **not** create a private
 `AudioContext` per game.
 
 **Enforced:** `new AudioContext` / `webkitAudioContext` is forbidden under
-`voice/` outside `useVoiceGameSfx.ts`. (Tic-Tac-Toe's private context is
-grandfathered — migrate it onto the shared engine.)
+`clients/web/src/features/voice/` outside `useVoiceGameSfx.ts`. (Tic-Tac-Toe's private context,
+ringtone, LiveKit remote playback, and level monitoring are grandfathered.)
 
 ## 5. Result / error shape (convention, not yet machine-enforced)
 
@@ -113,6 +120,6 @@ outcome type.
 ## Updating the allowlist
 
 When you fix a grandfathered violation, **remove its entry** from
-`scripts/voice-activity-conventions-allowlist.json` so it can't regress. The
+`server/ops/scripts/voice-activity-conventions-allowlist.json` so it can't regress. The
 guard fails if an allowlist entry no longer corresponds to a real violation, so
 the list can only shrink.

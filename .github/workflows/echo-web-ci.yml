@@ -1,0 +1,84 @@
+name: Echo web checks
+
+on:
+  push:
+    paths:
+      - 'clients/web/**'
+      - 'clients/web/src/features/paper/**'
+      - 'server/backend/crypto/**'
+      - 'server/activities/cores/**'
+      - 'contracts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'server/ops/scripts/god-file-baselines.json'
+      - 'server/ops/scripts/check-god-file-ratchet.mjs'
+      - 'server/ops/scripts/check-new-code-charter.mjs'
+      - 'server/ops/scripts/check-new-code-charter.test.mjs'
+      - 'server/ops/scripts/new-code-charter-*.json'
+      - '.github/workflows/echo-web-ci.yml'
+  pull_request:
+    paths:
+      - 'clients/web/**'
+      - 'clients/web/src/features/paper/**'
+      - 'server/backend/crypto/**'
+      - 'server/activities/cores/**'
+      - 'contracts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'server/ops/scripts/god-file-baselines.json'
+      - 'server/ops/scripts/check-god-file-ratchet.mjs'
+      - 'server/ops/scripts/check-new-code-charter.mjs'
+      - 'server/ops/scripts/check-new-code-charter.test.mjs'
+      - 'server/ops/scripts/new-code-charter-*.json'
+  workflow_dispatch:
+
+jobs:
+  web-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13.1'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint (theme + TS + Vue essential)
+        run: npm run lint -w web
+
+      - name: i18n key parity
+        run: npm run i18n:check -w web
+
+      - name: God-file ratchet
+        run: node server/ops/scripts/check-god-file-ratchet.mjs
+
+      - name: New-code charter (June 2026+)
+        run: node server/ops/scripts/check-new-code-charter.mjs
+
+      - name: New-code charter unit tests
+        run: npm run charter:new-code:test
+
+      - name: Strict theme ESLint
+        run: npm run lint:theme -w web
+
+      - name: Stylelint (SCSS + Vue SFC styles)
+        run: npm run lint:style -w web
+
+      - name: Typecheck + build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=6144'
+        run: npm run build -w web
+
+      - name: Assert no source maps in dist
+        run: |
+          if compgen -G "clients/web/dist/**/*.map" > /dev/null; then
+            echo "ERROR: source map files found under clients/web/dist/"
+            find clients/web/dist -name '*.map' -print
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: npm run test -w web

@@ -10,7 +10,7 @@ import {
   type Sticker,
 } from 'discord.js';
 
-/** Keep aligned with `backend/src/sockets/messageValidation.ts` poll caps. */
+/** Keep aligned with `server/backend/src/sockets/messageValidation.ts` poll caps. */
 const MAX_POLL_QUESTION_LENGTH = 500;
 const MAX_POLL_OPTION_TEXT_LENGTH = 200;
 const MIN_POLL_OPTIONS = 2;

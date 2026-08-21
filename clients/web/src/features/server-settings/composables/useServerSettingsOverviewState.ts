@@ -1,0 +1,675 @@
+import { computed, reactive, ref, type Ref } from 'vue';
+import { useServerStore } from '@/features/layout/server';
+import { isEchoGraphId } from '@/features/layout/ids/echoIds';
+import {
+  mergeServerListsForVanity,
+  suggestServerVanityCode,
+} from '@/features/server-settings/serverVanitySlug';
+import { DEFAULT_DESCRIPTIONS } from '@/features/server-settings/overview';
+import { useServerBrandingUploads } from '@/features/server-settings/composables/useServerBrandingUploads';
+import { createServerSettingsService } from '@/features/server-settings/serverSettingsOrchestration';
+import {
+  normalizeVanity,
+  normalizeServerTags,
+  validateServerName,
+  validateServerDescription,
+} from '@/features/server-settings/domain/serverSettings';
+import { extractUploadErrorMessage } from '@/features/server-settings/domain/brandingUploads';
+import { dispatchAppToast } from '@/features/layout/failures/controllerMissingAction';
+
+const MAX_SERVER_NAME_LEN = 100;
+const MAX_SERVER_DESCRIPTION_LEN = 400;
+
+export type OverviewServer = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  bannerImageUrl?: string;
+  listedInDirectory?: boolean;
+  inviteJoinEnabled?: boolean;
+  bannerBlurEnabled?: boolean;
+  bannerBlackoutEnabled?: boolean;
+  automodSpamEnabled?: boolean;
+  raidProtectionEnabled?: boolean;
+  raidJoinThresholdCount?: number;
+  raidJoinWindowSeconds?: number;
+  vanityCode?: string;
+  description?: string;
+  tags?: string[];
+  allowGlobalGuests?: boolean;
+  verificationRequireEmail?: boolean;
+  welcomeChannelId?: string;
+} | null;
+
+export type UseServerSettingsOverviewStateOptions = {
+  server: Ref<OverviewServer>;
+  canManageServer: Ref<boolean | undefined>;
+  accessToken: Ref<string | null | undefined>;
+  workspace: {
+    servers: Ref<unknown[]>;
+    refreshExploreDirectory: () => Promise<void>;
+  };
+};
+
+export function useServerSettingsOverviewState(
+  opts: UseServerSettingsOverviewStateOptions,
+) {
+  const serverStore = useServerStore();
+
+  const form = reactive({
+    name: '',
+    description: '',
+    vanityCode: '',
+    tags: [] as string[],
+    verificationRequireEmail: true,
+    verificationRequirePhone: false,
+    verificationRequire2FA: false,
+    verificationRequireMatureAccount: false,
+    allowGlobalGuests: true,
+    defaultNotifications: 'Mentions only',
+    uploadLimit: '100 MB',
+    afkTimeout: '1 hour',
+    welcomeScreenEnabled: true,
+    communityEnabled: true,
+    discoveryEnabled: false,
+    automodSpamEnabled: true,
+    explicitMediaFilterEnabled: true,
+    raidProtectionEnabled: true,
+    raidJoinThresholdCount: 10,
+    raidJoinWindowSeconds: 60,
+    mentionsRequireRole: false,
+  });
+
+  const bannerPreviewUrl = ref<string>('');
+  const bannerUploadUrl = computed(() => bannerPreviewUrl.value);
+  const serverBannerUrl = computed(
+    () =>
+      bannerUploadUrl.value ||
+      opts.server.value?.bannerImageUrl ||
+      opts.server.value?.imageUrl ||
+      '',
+  );
+
+  const bannerBlurEnabled = ref(false);
+  const bannerBlackoutEnabled = ref(false);
+  const welcomeChannelId = ref<string | null>(null);
+  const listedInDirectoryEnabled = ref(true);
+  const inviteJoinEnabled = ref(true);
+  const bannerPositionY = ref(50);
+  /** True while blur/blackout preference PATCH requests are queued or in flight. */
+  const bannerChannelPrefsPersisting = ref(false);
+
+  const serverSettingsService = createServerSettingsService();
+
+  /** Serializes banner blur/blackout PATCHes so out-of-order responses cannot revert toggles. */
+  let bannerChannelPrefsPersistTail: Promise<void> = Promise.resolve();
+  let bannerChannelPrefsPersistInFlight = 0;
+
+  function enqueueBannerChannelPrefsPersist(
+    task: () => Promise<void>,
+  ): Promise<void> {
+    bannerChannelPrefsPersistInFlight++;
+    bannerChannelPrefsPersisting.value = true;
+    const run = bannerChannelPrefsPersistTail.then(task, task);
+    bannerChannelPrefsPersistTail = run.then(
+      () => {},
+      () => {},
+    );
+    return run.finally(() => {
+      bannerChannelPrefsPersistInFlight--;
+      bannerChannelPrefsPersisting.value =
+        bannerChannelPrefsPersistInFlight > 0;
+    });
+  }
+
+  function rollbackBannerBlurIfStill(sid: string, attempted: boolean) {
+    if (bannerBlurEnabled.value !== attempted) return;
+    const reverted = !attempted;
+    bannerBlurEnabled.value = reverted;
+    serverStore.updateServerBannerBlurEnabled(sid, reverted);
+  }
+
+  function rollbackBannerBlackoutIfStill(sid: string, attempted: boolean) {
+    if (bannerBlackoutEnabled.value !== attempted) return;
+    const reverted = !attempted;
+    bannerBlackoutEnabled.value = reverted;
+    serverStore.updateServerBannerBlackoutEnabled(sid, reverted);
+  }
+
+  function onBannerBlurEnabledChange(v: boolean) {
+    bannerBlurEnabled.value = v;
+    const sid = opts.server.value?.id;
+    if (sid) {
+      serverStore.updateServerBannerBlurEnabled(sid, v);
+      const token = opts.accessToken.value;
+      void enqueueBannerChannelPrefsPersist(async () => {
+        try {
+          await serverSettingsService.persistPreferences({
+            token,
+            serverId: sid,
+            patch: { bannerBlurEnabled: v },
+            serverStore,
+            workspaceServers: opts.workspace.servers,
+            refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+          });
+        } catch {
+          rollbackBannerBlurIfStill(sid, v);
+        }
+      });
+    }
+  }
+
+  function rollbackWelcomeChannelIfStill(
+    sid: string,
+    attempted: string | null,
+  ) {
+    if (welcomeChannelId.value !== attempted) return;
+    const reverted = opts.server.value?.welcomeChannelId?.trim() || null;
+    welcomeChannelId.value = reverted;
+    serverStore.updateServerWelcomeChannelId(sid, reverted);
+  }
+
+  function onWelcomeChannelChange(channelId: string | null) {
+    welcomeChannelId.value = channelId;
+    const sid = opts.server.value?.id;
+    if (!sid) return;
+    serverStore.updateServerWelcomeChannelId(sid, channelId);
+    const token = opts.accessToken.value;
+    void enqueueBannerChannelPrefsPersist(async () => {
+      try {
+        await serverSettingsService.persistPreferences({
+          token,
+          serverId: sid,
+          patch: { welcomeChannelId: channelId },
+          serverStore,
+          workspaceServers: opts.workspace.servers,
+          refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+        });
+      } catch {
+        rollbackWelcomeChannelIfStill(sid, channelId);
+      }
+    });
+  }
+
+  function onBannerBlackoutEnabledChange(v: boolean) {
+    bannerBlackoutEnabled.value = v;
+    const sid = opts.server.value?.id;
+    if (sid) {
+      serverStore.updateServerBannerBlackoutEnabled(sid, v);
+      const token = opts.accessToken.value;
+      void enqueueBannerChannelPrefsPersist(async () => {
+        try {
+          await serverSettingsService.persistPreferences({
+            token,
+            serverId: sid,
+            patch: { bannerBlackoutEnabled: v },
+            serverStore,
+            workspaceServers: opts.workspace.servers,
+            refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+          });
+        } catch {
+          rollbackBannerBlackoutIfStill(sid, v);
+        }
+      });
+    }
+  }
+
+  function onServerAccessModeChange(
+    mode: 'public' | 'invite_only' | 'private',
+  ) {
+    const listed = mode === 'public';
+    const invites = mode !== 'private';
+    listedInDirectoryEnabled.value = listed;
+    inviteJoinEnabled.value = invites;
+    form.discoveryEnabled = listed;
+    const sid = opts.server.value?.id;
+    if (!sid) return;
+    if (!isEchoGraphId(sid)) {
+      serverSettingsService.syncServerLists({
+        serverId: sid,
+        patch: { listedInDirectory: listed, inviteJoinEnabled: invites },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+      });
+      return;
+    }
+    const token = opts.accessToken.value;
+    void (async () => {
+      try {
+        await serverSettingsService.persistPreferences({
+          token,
+          serverId: sid,
+          patch: { listedInDirectory: listed, inviteJoinEnabled: invites },
+          serverStore,
+          workspaceServers: opts.workspace.servers,
+          refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+        });
+      } catch {
+        syncFormFieldsFromServer();
+      }
+    })();
+  }
+
+  const iconPreviewUrl = ref<string>('');
+  const serverIconUrl = computed(
+    () => iconPreviewUrl.value || opts.server.value?.imageUrl || '',
+  );
+
+  const {
+    onServerBannerFileChange,
+    onServerIconFileChange,
+    cancelBrandingUploadPreviews,
+  } = useServerBrandingUploads({
+    serverId: computed(() => opts.server.value?.id),
+    bannerPreviewUrl,
+    iconPreviewUrl,
+    getServerBannerImageUrl: (id) =>
+      serverStore.servers.find((s) => s.id === id)?.bannerImageUrl ?? '',
+    getServerIconImageUrl: (id) =>
+      serverStore.servers.find((s) => s.id === id)?.imageUrl ?? '',
+    applyServerBannerImageUrl: (id, url) => {
+      serverStore.updateServerBannerImageUrl(id, url);
+    },
+    applyServerIconImageUrl: (id, url) => {
+      serverStore.updateServerImageUrl(id, url);
+    },
+    commitServerBannerImageUrl: async (id, url, prevBanner) => {
+      if (!isEchoGraphId(id)) return;
+      try {
+        await serverSettingsService.persistBranding({
+          token: opts.accessToken.value,
+          serverId: id,
+          patch: { bannerUrl: url },
+          refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+        });
+      } catch (e) {
+        serverStore.updateServerBannerImageUrl(id, prevBanner);
+        const detail = extractUploadErrorMessage(e);
+        dispatchAppToast(
+          detail
+            ? `Could not save server banner: ${detail}`
+            : 'Could not save server banner.',
+          'warning',
+        );
+        throw e;
+      }
+    },
+    commitServerIconImageUrl: async (id, url, prevIcon) => {
+      if (!isEchoGraphId(id)) return;
+      try {
+        await serverSettingsService.persistBranding({
+          token: opts.accessToken.value,
+          serverId: id,
+          patch: { iconUrl: url },
+          refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+        });
+      } catch (e) {
+        serverStore.updateServerImageUrl(id, prevIcon);
+        const detail = extractUploadErrorMessage(e);
+        dispatchAppToast(
+          detail
+            ? `Could not save server icon: ${detail}`
+            : 'Could not save server icon.',
+          'warning',
+        );
+        throw e;
+      }
+    },
+  });
+
+  function resetBannerPreviewsAndToggles() {
+    cancelBrandingUploadPreviews();
+    bannerPreviewUrl.value = '';
+    iconPreviewUrl.value = '';
+    if (opts.server.value) {
+      bannerBlurEnabled.value = opts.server.value.bannerBlurEnabled ?? false;
+      bannerBlackoutEnabled.value =
+        opts.server.value.bannerBlackoutEnabled ?? false;
+      welcomeChannelId.value =
+        opts.server.value.welcomeChannelId?.trim() || null;
+      const y = (opts.server.value as { bannerPositionY?: unknown })
+        .bannerPositionY;
+      bannerPositionY.value =
+        typeof y === 'number' && Number.isFinite(y)
+          ? Math.max(0, Math.min(100, y))
+          : 50;
+    }
+  }
+
+  function syncFormFieldsFromServer() {
+    const s = opts.server.value;
+    form.name = s?.name ?? 'Echo Server';
+    if (s && isEchoGraphId(s.id)) {
+      form.description = s.description ?? '';
+    } else {
+      form.description =
+        DEFAULT_DESCRIPTIONS[s?.id ?? ''] ??
+        'A polished Echo community with active chats, voice rooms, and room to grow.';
+    }
+    if (s) {
+      const saved = s.vanityCode?.trim();
+      form.vanityCode = saved ?? '';
+      form.tags = normalizeServerTags(s.tags);
+      listedInDirectoryEnabled.value = s.listedInDirectory !== false;
+      inviteJoinEnabled.value = s.inviteJoinEnabled !== false;
+      form.discoveryEnabled = listedInDirectoryEnabled.value;
+      form.automodSpamEnabled = s.automodSpamEnabled ?? true;
+      form.raidProtectionEnabled = s.raidProtectionEnabled ?? true;
+      form.raidJoinThresholdCount = Math.max(2, s.raidJoinThresholdCount ?? 10);
+      form.raidJoinWindowSeconds = Math.max(10, s.raidJoinWindowSeconds ?? 60);
+      form.allowGlobalGuests = s.allowGlobalGuests !== false;
+      form.verificationRequireEmail = s.verificationRequireEmail === true;
+      const y = (s as { bannerPositionY?: unknown }).bannerPositionY;
+      bannerPositionY.value =
+        typeof y === 'number' && Number.isFinite(y)
+          ? Math.max(0, Math.min(100, y))
+          : 50;
+    } else {
+      form.vanityCode = 'echo';
+      form.tags = [];
+      listedInDirectoryEnabled.value = true;
+      inviteJoinEnabled.value = true;
+      form.discoveryEnabled = true;
+      form.automodSpamEnabled = true;
+      form.raidProtectionEnabled = true;
+      form.raidJoinThresholdCount = 10;
+      form.raidJoinWindowSeconds = 60;
+      form.allowGlobalGuests = true;
+      form.verificationRequireEmail = false;
+      bannerPositionY.value = 50;
+    }
+  }
+
+  async function removeServerBanner(): Promise<void> {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid) return;
+    cancelBrandingUploadPreviews();
+    bannerPreviewUrl.value = '';
+    if (!isEchoGraphId(sid)) {
+      serverStore.updateServerBannerImageUrl(sid, '');
+      return;
+    }
+    try {
+      await serverSettingsService.persistPreferences({
+        token,
+        serverId: sid,
+        patch: { bannerUrl: '' },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+        refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+      });
+    } catch {
+      syncFormFieldsFromServer();
+    }
+  }
+
+  async function persistBannerPositionY(nextY: number): Promise<void> {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid) return;
+    const y = Number(nextY);
+    const clamped = Number.isFinite(y) ? Math.max(0, Math.min(100, y)) : 50;
+    bannerPositionY.value = clamped;
+    serverStore.updateServerBannerPositionY(sid, clamped);
+    if (!isEchoGraphId(sid)) return;
+    try {
+      await serverSettingsService.persistPreferences({
+        token,
+        serverId: sid,
+        patch: { bannerPositionY: clamped },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+        refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+      });
+    } catch {
+      // fallback: restore from the latest server row
+      const y2 = (opts.server.value as { bannerPositionY?: unknown })
+        .bannerPositionY;
+      const restore =
+        typeof y2 === 'number' && Number.isFinite(y2)
+          ? Math.max(0, Math.min(100, y2))
+          : 50;
+      bannerPositionY.value = restore;
+      serverStore.updateServerBannerPositionY(sid, restore);
+    }
+  }
+
+  async function persistAllowGlobalGuestsSetting(next: boolean): Promise<void> {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid || !isEchoGraphId(sid)) return;
+    await serverSettingsService.persistPreferences({
+      token,
+      serverId: sid,
+      patch: { allowGlobalGuests: next },
+      serverStore,
+      workspaceServers: opts.workspace.servers,
+      refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+    });
+  }
+
+  async function persistVerificationRequireEmailSetting(
+    next: boolean,
+  ): Promise<void> {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid || !isEchoGraphId(sid)) return;
+    await serverSettingsService.persistPreferences({
+      token,
+      serverId: sid,
+      patch: { verificationRequireEmail: next },
+      serverStore,
+      workspaceServers: opts.workspace.servers,
+      refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+    });
+  }
+
+  async function persistModerationSettings(patch: {
+    automodSpamEnabled?: boolean;
+    raidProtectionEnabled?: boolean;
+    raidJoinThresholdCount?: number;
+    raidJoinWindowSeconds?: number;
+  }) {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid || !isEchoGraphId(sid)) return;
+    await serverSettingsService.persistPreferences({
+      token,
+      serverId: sid,
+      patch,
+      serverStore,
+      workspaceServers: opts.workspace.servers,
+      refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+    });
+  }
+
+  async function onOverviewVanityBlur() {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid) return;
+    const raw = form.vanityCode.trim();
+    const normalized = normalizeVanity(raw);
+    const current = (opts.server.value?.vanityCode ?? '').trim();
+    if (normalized === current) {
+      form.vanityCode = normalized || form.vanityCode;
+      return;
+    }
+    if (!isEchoGraphId(sid)) {
+      serverSettingsService.syncServerLists({
+        serverId: sid,
+        patch: { vanityCode: normalized ? normalized : undefined },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+      });
+      form.vanityCode = normalized;
+      return;
+    }
+    try {
+      await serverSettingsService.persistPreferences({
+        token,
+        serverId: sid,
+        patch: { vanityCode: normalized },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+        refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+      });
+      form.vanityCode = normalized;
+    } catch {
+      const all = mergeServerListsForVanity(
+        serverStore.servers,
+        serverStore.pinnedMoreServers,
+      );
+      form.vanityCode =
+        current ||
+        (opts.server.value
+          ? suggestServerVanityCode(
+              opts.server.value.name,
+              opts.server.value.id,
+              all,
+            )
+          : '');
+    }
+  }
+
+  async function onOverviewNameBlur() {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid) return;
+    const next = form.name.trim();
+    const current = (opts.server.value?.name ?? '').trim();
+    if (next === current) {
+      form.name = next || form.name;
+      return;
+    }
+    if (!validateServerName(next, MAX_SERVER_NAME_LEN)) {
+      form.name = current || opts.server.value?.name || 'Echo Server';
+      return;
+    }
+    if (!isEchoGraphId(sid)) {
+      serverSettingsService.syncServerLists({
+        serverId: sid,
+        patch: { name: next },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+      });
+      form.name = next;
+      return;
+    }
+    try {
+      await serverSettingsService.persistPreferences({
+        token,
+        serverId: sid,
+        patch: { name: next },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+        refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+      });
+      form.name = next;
+    } catch {
+      form.name = current || opts.server.value?.name || 'Echo Server';
+    }
+  }
+
+  async function onOverviewDescriptionBlur() {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid) return;
+    const next = form.description.trim();
+    const current = (opts.server.value?.description ?? '').trim();
+    if (next === current) return;
+    if (!validateServerDescription(next, MAX_SERVER_DESCRIPTION_LEN)) {
+      form.description = current;
+      return;
+    }
+    if (!isEchoGraphId(sid)) {
+      serverSettingsService.syncServerLists({
+        serverId: sid,
+        patch: { description: next },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+      });
+      return;
+    }
+    try {
+      await serverSettingsService.persistPreferences({
+        token,
+        serverId: sid,
+        patch: { description: next },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+        refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+      });
+    } catch {
+      form.description = current;
+    }
+  }
+
+  async function onOverviewTagsBlur() {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid) return;
+    const next = normalizeServerTags(form.tags);
+    const current = normalizeServerTags(opts.server.value?.tags);
+    form.tags = next;
+    if (
+      next.length === current.length &&
+      next.every((tag, index) => tag === current[index])
+    ) {
+      return;
+    }
+    if (!isEchoGraphId(sid)) {
+      serverSettingsService.syncServerLists({
+        serverId: sid,
+        patch: { tags: next },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+      });
+      return;
+    }
+    try {
+      await serverSettingsService.persistPreferences({
+        token,
+        serverId: sid,
+        patch: { tags: next },
+        serverStore,
+        workspaceServers: opts.workspace.servers,
+        refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+      });
+    } catch {
+      form.tags = current;
+    }
+  }
+
+  return {
+    form,
+    bannerPreviewUrl,
+    serverBannerUrl,
+    bannerBlurEnabled,
+    bannerBlackoutEnabled,
+    welcomeChannelId,
+    bannerChannelPrefsPersisting,
+    listedInDirectoryEnabled,
+    inviteJoinEnabled,
+    bannerPositionY,
+    onBannerBlurEnabledChange,
+    onBannerBlackoutEnabledChange,
+    onWelcomeChannelChange,
+    onServerAccessModeChange,
+    iconPreviewUrl,
+    serverIconUrl,
+    onServerBannerFileChange,
+    removeServerBanner,
+    onServerIconFileChange,
+    resetBannerPreviewsAndToggles,
+    syncFormFieldsFromServer,
+    onOverviewVanityBlur,
+    onOverviewNameBlur,
+    onOverviewDescriptionBlur,
+    onOverviewTagsBlur,
+    persistModerationSettings,
+    persistAllowGlobalGuestsSetting,
+    persistVerificationRequireEmailSetting,
+    persistBannerPositionY,
+  };
+}

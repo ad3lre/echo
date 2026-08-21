@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["es2021"],
+    "rootDir": "../..",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "ignoreDeprecations": "6.0",
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "../../contracts/mediaCdn.ts",
+    "../../contracts/echoUploadStorageKey.ts",
+    "../../contracts/echoS3ReadThrough.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/tests",
+    "src/hls",
+    "../../contracts/**/*.test.ts"
+  ]
+}

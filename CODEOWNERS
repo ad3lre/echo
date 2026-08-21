@@ -1,0 +1,14 @@
+# CODEOWNERS — top-level ownership hints
+# Adjust @handles to match your GitLab/GitHub org. Paths are repo-relative.
+
+/clients/web/
+/clients/apple/
+/server/backend/
+/server/media/
+/server/voice/
+/server/activities/
+/server/ops/
+/contracts/
+/docs/
+/marketing/
+/bot/

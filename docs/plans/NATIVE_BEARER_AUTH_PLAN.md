@@ -16,7 +16,7 @@ It breaks for a **bundled native app** (UI served from a local `tauri://…` ori
   401s right after register/login (the "session expired / couldn't hydrate attention state / sign in
   again" cascade).
 - Desktop avoids this because `resolveCookieSameSite()` returns `none` for origins in
-  `config.echoDesktopAllowedOrigins` (`backend/src/auth/sessionCookies.ts:73`). iOS does not get
+  `config.echoDesktopAllowedOrigins` (`server/backend/src/auth/sessionCookies.ts:73`). iOS does not get
   `SameSite=None`, and **even if it did**, WKWebView's ITP blocks third-party cookies far more
   aggressively than desktop WebView2 — so a cookie tweak is fragile.
 
@@ -33,7 +33,7 @@ Add a **session-bound bearer-token** path for native shells. Native sends
 apply**. The web stays exactly as-is (cookie, HttpOnly).
 
 > **Do NOT just reuse the existing `config.authLegacyBearer` path.** That branch
-> (`backend/src/auth/middleware.ts:126`) verifies a _stateless_ JWT and loads the user — it skips the
+> (`server/backend/src/auth/middleware.ts:126`) verifies a _stateless_ JWT and loads the user — it skips the
 > server-session/refresh-revocation checks the cookie path enforces (`middleware.ts:72-108`). A
 > stateless token can't be revoked before expiry. The native path must be session-bound.
 
@@ -45,17 +45,17 @@ regress on any iOS update. A 30-minute spike to confirm is worthwhile, but the d
 
 ## Existing building blocks (already in the repo)
 
-- `backend/src/auth/token.ts`: `signAccessToken()` / `verifyAccessToken()` (TTL `config.jwtExpiresIn`),
+- `server/backend/src/auth/token.ts`: `signAccessToken()` / `verifyAccessToken()` (TTL `config.jwtExpiresIn`),
   `createRefreshToken()`, `hashRefreshToken()`.
-- `backend/src/auth/issueBrowserSession.ts`: `issueEchoBrowserSession()` — single chokepoint that
+- `server/backend/src/auth/issueBrowserSession.ts`: `issueEchoBrowserSession()` — single chokepoint that
   creates the server session, sets cookies, returns `{ user, csrfToken }`. Login/register/OAuth all
   funnel through here.
-- `backend/src/auth/middleware.ts`: `requireAuth()` — cookie branch (session-bound) + gated legacy
+- `server/backend/src/auth/middleware.ts`: `requireAuth()` — cookie branch (session-bound) + gated legacy
   bearer branch (stateless).
 - Refresh-token store (`getAuthStore().findRefreshTokenById`, rotation) already exists.
-- `frontend/src/services/auth/iosNativeAuth.ts` + `src-tauri/src/ios_auth.rs`: Keychain "session
+- `clients/web/src/services/auth/iosNativeAuth.ts` + `src-tauri/src/ios_auth.rs`: Keychain "session
   memory" commands (currently store display-name/pfp only) — extend for token storage.
-- `frontend/src/api/echo/transport.ts:118` `echoFetch` builds headers in one place — single injection
+- `clients/web/src/api/echo/transport.ts:118` `echoFetch` builds headers in one place — single injection
   point for `Authorization`.
 
 ## Token model
@@ -92,7 +92,7 @@ regress on any iOS update. A 30-minute spike to confirm is worthwhile, but the d
 
 ## Frontend changes
 
-1. **Native token store** (`frontend/src/stores/authSession.ts` or a new `nativeAuthToken.ts`):
+1. **Native token store** (`clients/web/src/features/auth/authSession.ts` or a new `nativeAuthToken.ts`):
    access token in memory + `expiresAt`; refresh token persisted via Keychain (Tauri command).
 2. **`transport.ts` (`echoFetch`) + `authClient.ts`**: when native (`VITE_ECHO_IOS` + `isTauri()`):
    - Add `Authorization: Bearer <accessToken>` and `X-Echo-Client: ios` to headers.
@@ -101,7 +101,7 @@ regress on any iOS update. A 30-minute spike to confirm is worthwhile, but the d
    - Keep `credentials: 'include'` (harmless; cookie just won't be sent cross-site).
 3. **register / login / `/auth/me` / OAuth handoff**: on native, read `auth.{accessToken,refreshToken}`
    from the response and store them (memory + Keychain).
-4. **Boot** (`frontend/src/main.ts` / `iosBootOrchestrator`): on native, if a Keychain refresh token
+4. **Boot** (`clients/web/src/main.ts` / `iosBootOrchestrator`): on native, if a Keychain refresh token
    exists, exchange it for an access token at startup (the native equivalent of cookie
    `restoreSessionFromApi()`), then proceed. Wire into the existing `runIosBootCheck()` /
    `hasStoredSessionToRestore()` flow.

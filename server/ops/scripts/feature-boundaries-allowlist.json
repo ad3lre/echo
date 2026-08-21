@@ -1,0 +1,4 @@
+{
+  "_comment": "Grandfathered cross-feature INTERNAL imports for check-feature-boundaries.mjs. SHRINK-ONLY: when you remove a crossing (route it through the feature public surface, a shared util, or the composer), delete its entry — a stale entry fails the build. See docs/overview/code-placement.md.",
+  "crossings": {}
+}

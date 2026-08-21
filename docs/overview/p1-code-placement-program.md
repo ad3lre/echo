@@ -13,10 +13,10 @@ This document turns the abstract “consolidation + enforcement” program into 
 
 A senior contributor’s first question is _“where does this `.vue` go?”_ Today the tree answers twice:
 
-| Location                   | `.vue` count (Jun 2026) | Problem                                                                 |
-| -------------------------- | ----------------------- | ----------------------------------------------------------------------- |
-| `frontend/src/components/` | **162**                 | Feature UI, shell modals, chat (58 files), auth, DM, voice call chrome  |
-| `frontend/src/features/`   | **172**                 | Same domains already started (`chat/`, `auth/`, `layout/`, `voice/`, …) |
+| Location                      | `.vue` count (Jun 2026) | Problem                                                                        |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------------------ |
+| `clients/web/src/components/` | **162**                 | Feature UI, shell modals, chat (58 files), auth, DM, voice call chrome         |
+| `clients/web/src/features/`   | **172**                 | Same domains already started (`chat/`, `auth/`, `layout/`, `server/voice/`, …) |
 
 `features/README.md` still says _“Existing `components/_` remain valid during migration”\* — leg 3 (clean tree) is explicitly open.
 
@@ -31,28 +31,28 @@ A senior contributor’s first question is _“where does this `.vue` go?”_ To
 ## Measured baseline (snapshot 2026-06-14)
 
 ```
-frontend/src/components/     195 source files (.vue/.ts/.scss)
+clients/web/src/components/     195 source files (.vue/.ts/.scss)
   ├─ chat/                    69
   ├─ member-profile/          10
-  ├─ media/                    8
+  ├─ server/media/                    8
   ├─ auth/                     2
   ├─ e2ee/                     1
   └─ root-level .vue            81 (non-Echo*)
 
-frontend/src/components/Echo*.vue   4  (design-system primitives today)
-frontend/src/features/              26 domain folders (see features/README.md)
-frontend/src/views/                  5  (route shells — out of P1 scope)
-frontend/src/composables/          137  (P2; not moved in P1)
+clients/web/src/components/Echo*.vue   4  (design-system primitives today)
+clients/web/src/features/              26 domain folders (see features/README.md)
+clients/web/src/views/                  5  (route shells — out of P1 scope)
+clients/web/src/composables/          137  (P2; not moved in P1)
 ```
 
 **Existing guards (relevant):**
 
-| Script                                         | What it does today                                    | P1 change                                              |
-| ---------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------ |
-| `scripts/check-frontend-modularization.mjs`    | Line-count report; **hard-fails ≥700 lines**          | Keep as size guard; **do not** overload with placement |
-| `scripts/check-god-file-ratchet.mjs`           | Baseline ceiling per oversized file                   | Unchanged                                              |
-| `scripts/check-new-code-charter.mjs`           | Post-cutoff quality ratchet                           | Unchanged                                              |
-| `scripts/check-voice-activity-conventions.mjs` | **Template for P1 guard** — allowlist may only shrink | Mirror pattern for placement                           |
+| Script                                                    | What it does today                                    | P1 change                                              |
+| --------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------ |
+| `server/ops/scripts/check-frontend-modularization.mjs`    | Line-count report; **hard-fails ≥700 lines**          | Keep as size guard; **do not** overload with placement |
+| `server/ops/scripts/check-god-file-ratchet.mjs`           | Baseline ceiling per oversized file                   | Unchanged                                              |
+| `server/ops/scripts/check-new-code-charter.mjs`           | Post-cutoff quality ratchet                           | Unchanged                                              |
+| `server/ops/scripts/check-voice-activity-conventions.mjs` | **Template for P1 guard** — allowlist may only shrink | Mirror pattern for placement                           |
 
 `modularity:check` is **not** in `test:ci:guards` today. P1 adds a **new** guard there.
 
@@ -61,13 +61,13 @@ frontend/src/composables/          137  (P2; not moved in P1)
 ## Leg 1 — Decide (SSOT)
 
 **Deliverable:** [code-placement.md](./code-placement.md)  
-**Also update:** `frontend/src/features/README.md`, link from [AGENTS.md](../../AGENTS.md) and [docs/echo-code-charter.md](../echo-code-charter.md) (new rule **C13 — Code placement**, enforcement: CI).
+**Also update:** `clients/web/src/features/README.md`, link from [AGENTS.md](../../AGENTS.md) and [docs/echo-code-charter.md](../echo-code-charter.md) (new rule **C13 — Code placement**, enforcement: CI).
 
 ### Rules (canonical)
 
-#### `frontend/src/features/<domain>/` — feature home
+#### `clients/web/src/features/<domain>/` — feature home
 
-Every feature-owned UI/logic file lives under **exactly one** domain folder. Required subfolders (create empty `index.ts` barrels where useful):
+Every feature-owned UI/logic file lives under **exactly one** domain folder. **Start flat.** Do not create `components/`, `composables/`, or `index.ts` until that domain has enough related files to need the split (enforced as CP-7). Historical note: an earlier draft of this program required the full layer kit (CP-3); that rule was never shipped and is superseded.
 
 ```
 features/<domain>/
@@ -79,32 +79,34 @@ features/<domain>/
   index.ts        # public surface (re-exports only)
 ```
 
+Those subfolders are **optional** and size-gated (CP-7). Canonical rule: [code-placement.md](./code-placement.md).
+
 **Domain list (existing + targets for migration):**
 
-| Domain                  | Already in `features/` | Absorbs from `components/`                                                                                                                                                                                                                                                |
-| ----------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `chat`                  | partial (7 `.vue`)     | **`components/chat/`** (69 files)                                                                                                                                                                                                                                         |
-| `auth`                  | yes                    | `components/auth/`, `LoginRegisterModal`, `Guest*`, `UnverifiedEmailModal`                                                                                                                                                                                                |
-| `dm`                    | yes                    | `DMPanel`, `DMCallView`, `DMProfilePanel`, `GroupDM*`, `MessageRequestsView`, `DmNotificationsView`                                                                                                                                                                       |
-| `layout`                | yes                    | `AppLayout*`, `MoreServer*`, `MyServersPanel`, `ExploreServersPanel`, `ServerList`, `MemberList`, `DesktopTitlebar`, `Deploy*`, `ActionRail*`                                                                                                                             |
-| `channel-panel`         | yes                    | `ChannelPanel.vue` (modal/shell only if not already duplicated)                                                                                                                                                                                                           |
-| `channel-settings`      | yes                    | `ChannelSettingsModal`, `CategorySettingsModal`, `CreateCategoryModal`, `CreateChannelModal`, `ChannelIconPickerPopover`                                                                                                                                                  |
-| `server-settings`       | yes                    | `ServerSettingsModal`, `ServerApplicationModal`, `ServerNotificationSettingsModal`, `InviteUsersModal`, `LeaveServerConfirmModal`, `JoinServerConfirmModal`, `AddServerModal`, `BannerRepositionModal`                                                                    |
-| `voice`                 | yes                    | `CallView`, `CallRingtone*`, `CameraPreview`, `ScreenSharePickerModal`, `StreamVideoTile`, `VideoTrackRenderer`, `FullscreenStreamOverlay`, `DesktopStreamingControlModal`, `GuildVoiceActivityStrip`, `useCallView*`                                                     |
-| `server-events`         | yes                    | `GuildEventActivityStrip`                                                                                                                                                                                                                                                 |
-| `settings`              | yes                    | `SettingsModal`                                                                                                                                                                                                                                                           |
-| `navigation`            | new or `layout`        | `FriendsView`, `ExploreView` (decide: **`layout`** — they are shell routes)                                                                                                                                                                                               |
-| `safety`                | yes                    | `ReportModal`, `ModerationActionModal`, `BugReportModal`                                                                                                                                                                                                                  |
-| `discord`               | yes                    | `DiscordProfileImportPromptModal`                                                                                                                                                                                                                                         |
-| `attachments` / `media` | partial                | `components/media/` → **`features/chat/components/media/`** or `features/attachments/` (pick one in PR-1.1; default: **`chat`** for message embed players)                                                                                                                |
-| `member-profile`        | —                      | `components/member-profile/`, `MemberProfilePopout`, `ExpandedProfileModal`, `SelfProfilePopout`, `ProfileBannerMedia`, `ProfileCustomStatusThoughtBubble` → **`features/layout`** or new **`features/member-profile`** (default: **`layout`** — popouts are shell-owned) |
+| Domain                  | Already in `features/` | Absorbs from `components/`                                                                                                                                                                                            |
+| ----------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat`                  | partial (7 `.vue`)     | **`components/chat/`** (69 files)                                                                                                                                                                                     |
+| `auth`                  | yes                    | `components/auth/`, `LoginRegisterModal`, `Guest*`, `UnverifiedEmailModal`                                                                                                                                            |
+| `dm`                    | yes                    | `DMPanel`, `DMCallView`, `DMProfilePanel`, `GroupDM*`, `MessageRequestsView`, `DmNotificationsView`                                                                                                                   |
+| `layout`                | yes                    | `AppLayout*`, `MoreServer*`, `MyServersPanel`, `ExploreServersPanel`, `ServerList`, `MemberList`, `DesktopTitlebar`, `Deploy*`, `ActionRail*`                                                                         |
+| `channel-panel`         | yes                    | `ChannelPanel.vue` (modal/shell only if not already duplicated)                                                                                                                                                       |
+| `channel-settings`      | yes                    | `ChannelSettingsModal`, `CategorySettingsModal`, `CreateCategoryModal`, `CreateChannelModal`, `ChannelIconPickerPopover`                                                                                              |
+| `server-settings`       | yes                    | `ServerSettingsModal`, `ServerApplicationModal`, `ServerNotificationSettingsModal`, `InviteUsersModal`, `LeaveServerConfirmModal`, `JoinServerConfirmModal`, `AddServerModal`, `BannerRepositionModal`                |
+| `voice`                 | yes                    | `CallView`, `CallRingtone*`, `CameraPreview`, `ScreenSharePickerModal`, `StreamVideoTile`, `VideoTrackRenderer`, `FullscreenStreamOverlay`, `DesktopStreamingControlModal`, `GuildVoiceActivityStrip`, `useCallView*` |
+| `server-events`         | yes                    | `GuildEventActivityStrip`                                                                                                                                                                                             |
+| `settings`              | yes                    | `SettingsModal`                                                                                                                                                                                                       |
+| `navigation`            | new or `layout`        | `FriendsView`, `ExploreView` (decide: **`layout`** — they are shell routes)                                                                                                                                           |
+| `safety`                | yes                    | `ReportModal`, `ModerationActionModal`, `BugReportModal`                                                                                                                                                              |
+| `discord`               | yes                    | `DiscordProfileImportPromptModal`                                                                                                                                                                                     |
+| `attachments` / `media` | partial                | `components/media/` → **`features/chat/components/media/`** or `features/attachments/` (pick one in PR-1.1; default: **`chat`** for message embed players)                                                            |
+| `member-profile`        | yes                    | Popouts, expanded modal, shared profile widgets (`index.ts` public surface). Extracted from layout so dm/settings do not import composer internals.                                                                   |
 
-#### `frontend/src/components/` — design-system primitives only
+#### `clients/web/src/components/` — design-system primitives only
 
 Allowed without allowlist entry:
 
 - `Echo*.vue` — shared Echo UI primitives (today: `EchoDateTimePicker`, `EchoDropdown`, `EchoHoverHintsHost`, `EchoSegmentedControl`)
-- Explicit allowlist in `scripts/code-placement-allowlist.json` for **non-Echo** shared widgets that are genuinely cross-feature (initial entries below)
+- Explicit allowlist in `server/ops/scripts/code-placement-allowlist.json` for **non-Echo** shared widgets that are genuinely cross-feature (initial entries below)
 
 **Initial primitive allowlist (non-Echo, stays in `components/`):**
 
@@ -121,9 +123,9 @@ Everything else in `components/` is **legacy placement** and must migrate or be 
 
 #### Out of P1 scope (document, do not move yet)
 
-- `frontend/src/views/` — route entry shells
-- `frontend/src/composables/` (137 files) — P2 layer manifest
-- `frontend/src/App.vue` — app bootstrap
+- `clients/web/src/views/` — route entry shells
+- `clients/web/src/composables/` (137 files) — P2 layer manifest
+- `clients/web/src/App.vue` — app bootstrap
 
 ---
 
@@ -131,19 +133,21 @@ Everything else in `components/` is **legacy placement** and must migrate or be 
 
 **Deliverables:** new guard + baselines + `test:ci:guards` wire-up + pre-commit staged mode.
 
-### New script: `scripts/check-code-placement.mjs`
+### New script: `server/ops/scripts/check-code-placement.mjs`
 
 Modeled on `check-voice-activity-conventions.mjs` + `check-god-file-ratchet.mjs`.
 
 **Mechanical rules (fail on violation unless grandfathered):**
 
-| Rule ID | Check                                                                                                             | Post-cutoff behavior                         |
-| ------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `CP-1`  | New `.vue`/`.ts`/`.scss` under `frontend/src/components/` not matching `Echo*.vue` and not in primitive allowlist | **FAIL**                                     |
-| `CP-2`  | New file under `frontend/src/components/<subdir>/` (any subdir)                                                   | **FAIL** — subdirs must empty out            |
-| `CP-3`  | New `features/<domain>/` folder missing any of `components/`, `composables/`, `index.ts`                          | **WARN → FAIL** after bootstrap PR           |
-| `CP-4`  | `components/` total file count (`.vue`+`.ts`+`.scss`, recursive) > baseline                                       | **FAIL**                                     |
-| `CP-5`  | Grandfather allowlist entry for a path that no longer exists                                                      | **FAIL** (stale entry — same as voice guard) |
+| Rule ID | Check                                                                                                                | Post-cutoff behavior                                                           |
+| ------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `CP-1`  | New `.vue`/`.ts`/`.scss` under `clients/web/src/components/` not matching `Echo*.vue` and not in primitive allowlist | **FAIL**                                                                       |
+| `CP-2`  | New file under `clients/web/src/components/<subdir>/` (any subdir)                                                   | **FAIL** — subdirs must empty out                                              |
+| `CP-3`  | New `features/<domain>/` folder missing any of `components/`, `composables/`, `index.ts`                             | **Not implemented — superseded.** Start flat; CP-7 forbids thin layer folders. |
+| `CP-4`  | `components/` total file count (`.vue`+`.ts`+`.scss`, recursive) > baseline                                          | **FAIL**                                                                       |
+| `CP-5`  | Grandfather allowlist entry for a path that no longer exists                                                         | **FAIL** (stale entry — same as voice guard)                                   |
+| `CP-6`  | Leftover dump (`src/utils`, `src/composables`, `src/stores`, `layout/composables`) file count > baseline             | **FAIL** (shrink-only)                                                         |
+| `CP-7`  | Layer-named folder under `features/` with fewer than 3 source files                                                  | **FAIL**                                                                       |
 
 **Config files:**
 
@@ -159,19 +163,19 @@ scripts/code-placement-baselines.json     # { "componentsFileCount": 195 }
 
 ```json
 // package.json test:ci:guards — append:
-"node scripts/check-code-placement.mjs"
+"node server/ops/scripts/check-code-placement.mjs"
 ```
 
 Add npm script:
 
 ```json
-"placement:check": "node scripts/check-code-placement.mjs"
+"placement:check": "node server/ops/scripts/check-code-placement.mjs"
 ```
 
-**Pre-commit:** extend `scripts/githooks/pre-commit` with staged-only check (same pattern as `check-god-file-ratchet.mjs --staged`):
+**Pre-commit:** extend `server/ops/scripts/githooks/pre-commit` with staged-only check (same pattern as `check-god-file-ratchet.mjs --staged`):
 
 ```bash
-node scripts/check-code-placement.mjs --staged
+node server/ops/scripts/check-code-placement.mjs --staged
 ```
 
 **Post-cutoff:** files not in grandfather manifest and not primitives → strict CP-1/CP-2 immediately (reuse `new-code-charter-grandfather.json` cutoff date **2026-06-01** or dedicated placement cutoff **2026-06-15** — pick one date in PR-0 and document in charter C13).
@@ -204,9 +208,9 @@ That script is a **line-count** tool (`modularity:check`). Placement is orthogon
 | **P1-4** | Voice/call chrome → `features/voice/`                                              | 19                        | **Done**                                                                 |
 | **P1-5** | Server/channel modals → `features/server-settings/` + `features/channel-settings/` | ~12                       | **Done**                                                                 |
 | **P1-6** | Layout shell → `features/layout/`                                                  | ~27                       | **Done** — `AppLayout*`, `MoreServer*`, rails, explore/my-servers panels |
-| **P1-7** | Member profile → `features/layout/components/member-profile/`                      | ~19                       | **Done** — popouts + `member-profile/` subtree                           |
+| **P1-7** | Member profile → `features/layout/components/member-profile/`                      | ~19                       | **Done** — later extracted to `features/member-profile` (public barrel)  |
 | **P1-8** | Remaining root modals → domain features                                            | 10                        | **Done** — `SettingsModal`, safety, discord, E2EE, server chrome widgets |
-| **P1-9** | `media/` → `features/chat/components/media/`; primitive-only `components/`         | 8                         | **Done** — allowlist empty, no subdirs, baseline **10**                  |
+| **P1-9** | `server/media/` → `features/chat/components/media/`; primitive-only `components/`  | 8                         | **Done** — allowlist empty, no subdirs, baseline **10**                  |
 
 **P1 program complete.** Feature placement SSOT: [code-placement.md](./code-placement.md).
 
@@ -214,10 +218,10 @@ That script is a **line-count** tool (`modularity:check`). Placement is orthogon
 
 ### Import churn estimate
 
-~150+ files import from `@/components/` (grep count across `frontend/src`). Expect each migration PR to touch 2–3× moved files in import updates. Use ripgrep after each move:
+~150+ files import from `@/components/` (grep count across `clients/web/src`). Expect each migration PR to touch 2–3× moved files in import updates. Use ripgrep after each move:
 
 ```bash
-rg -l '@/components/chat/' frontend/src | xargs -r sed -i 's|@/components/chat/|@/features/chat/|g'
+rg -l '@/components/chat/' clients/web/src | xargs -r sed -i 's|@/components/chat/|@/features/chat/|g'
 ```
 
 (Prefer codemod or manual review for ambiguous paths.)
@@ -229,10 +233,10 @@ rg -l '@/components/chat/' frontend/src | xargs -r sed -i 's|@/components/chat/|
 - [x] [code-placement.md](./code-placement.md) exists; linked from `AGENTS.md` + charter C13
 - [x] `npm run placement:check` passes on `main`
 - [x] `check-code-placement.mjs` is in `test:ci:guards` and pre-commit `--staged`
-- [x] `scripts/code-placement-allowlist.json` **`legacyPaths` empty** (primitives via `code-placement-config.json`)
-- [x] `scripts/code-placement-baselines.json` → `componentsFileCount` **10**
-- [x] `frontend/src/components/` has **no subdirectories**
-- [x] `rg 'frontend/src/components/(chat|auth|media)/' frontend/src` returns **0** hits
+- [x] `server/ops/scripts/code-placement-allowlist.json` **`legacyPaths` empty** (primitives via `code-placement-config.json`)
+- [x] `server/ops/scripts/code-placement-baselines.json` → `componentsFileCount` **10**
+- [x] `clients/web/src/components/` has **no subdirectories**
+- [x] `rg 'clients/web/src/components/(chat|auth|media)/' clients/web/src` returns **0** hits
 - [x] Placing a new `FooPanel.vue` in `components/` fails CI with a clear message pointing at `code-placement.md`
 
 ---
@@ -252,8 +256,8 @@ rg -l '@/components/chat/' frontend/src | xargs -r sed -i 's|@/components/chat/|
 ## PR-0 implementation checklist (next action)
 
 1. ~~Write [code-placement.md](./code-placement.md)~~ ✓
-2. ~~Add `scripts/check-code-placement.mjs` + config/allowlist/baselines JSON~~ ✓
-3. ~~Seed allowlist from `find frontend/src/components -type f`~~ ✓ (179 legacy, 195 total)
+2. ~~Add `server/ops/scripts/check-code-placement.mjs` + config/allowlist/baselines JSON~~ ✓
+3. ~~Seed allowlist from `find clients/web/src/components -type f`~~ ✓ (179 legacy, 195 total)
 4. ~~Set `componentsFileCount: 195`~~ ✓
 5. ~~Wire `placement:check` + `test:ci:guards`~~ ✓
 6. ~~Add charter **C13** row~~ ✓
@@ -261,4 +265,4 @@ rg -l '@/components/chat/' frontend/src | xargs -r sed -i 's|@/components/chat/|
 8. ~~Link from `AGENTS.md`~~ ✓
 9. ~~Pre-commit `--staged`~~ ✓
 
-**Next:** None — P1 complete. Ongoing: new UI under `features/<domain>/` only.
+**Next:** P1 complete. Post-P1 (2026-08): start flat inside features (CP-7); leftover dumps including `types/`/`domain/`/`ui/`/`data/`/`constants/`/`shared/`, `features/chat/services/`, and backend `src/tests/` top are emptied and frozen at 0 (CP-6). See [code-placement.md](./code-placement.md).

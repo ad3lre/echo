@@ -10,7 +10,7 @@ import { parseIntegerInRange } from './util/numberParsing.js';
  * real-time data from Discord (like channel history) without the bot
  * needing to maintain a persistent connection or complex job queue.
  */
-/** Keep in sync with `DEV_DISCORD_BOT_WEBHOOK_SECRET` in backend/src/config.ts */
+/** Keep in sync with `DEV_DISCORD_BOT_WEBHOOK_SECRET` in server/backend/src/config.ts */
 const DEV_DISCORD_BOT_WEBHOOK_SECRET = 'echo-dev-local-discord-bot-webhook';
 
 function safeCompare(left: string, right: string): boolean {

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "ignoreDeprecations": "6.0",
+    "lib": ["ESNext", "DOM"],
+    "baseUrl": ".",
+    "paths": {
+      "@/services/e2ee": ["./src/e2ee"],
+      "@/services/e2ee/*": ["./src/e2ee/*"],
+      "@/services/voice/mls": ["./src/mls"],
+      "@/services/voice/mls/*": ["./src/mls/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "shims/**/*.d.ts"],
+  "exclude": ["src/**/__tests__/**", "src/**/*.test.ts", "node_modules"]
+}

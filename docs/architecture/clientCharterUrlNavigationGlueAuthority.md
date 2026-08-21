@@ -4,11 +4,11 @@ Charter: [agents.md](../overview/agents.md). Leak goal **12** in [client-charter
 
 ## Pure priority / parsing
 
-- [`urlNavigationResolve.ts`](../../frontend/src/features/layout/urlNavigationResolve.ts), [`urlNavigationLocationNormalize.ts`](../../frontend/src/features/layout/urlNavigationLocationNormalize.ts), [`urlNavigationModalPolicy.ts`](../../frontend/src/features/layout/urlNavigationModalPolicy.ts), [`urlNavigation.ts`](../../frontend/src/features/layout/urlNavigation.ts), [`navigationReducer.ts`](../../frontend/src/features/layout/navigationReducer.ts).
+- [`urlNavigationResolve.ts`](../../clients/web/src/features/layout/urlNavigationResolve.ts), [`urlNavigationLocationNormalize.ts`](../../clients/web/src/features/layout/urlNavigationLocationNormalize.ts), [`urlNavigationModalPolicy.ts`](../../clients/web/src/features/layout/urlNavigationModalPolicy.ts), [`urlNavigation.ts`](../../clients/web/src/features/layout/urlNavigation.ts), [`navigationReducer.ts`](../../clients/web/src/features/layout/navigationReducer.ts).
 
 ## Glue composable — race guard
 
-[`useUrlNavigationSync.ts`](../../frontend/src/features/layout/composables/useUrlNavigationSync.ts) uses `applyingFromUrl` so **URL → shell** application does not fight **shell → `history.pushState`** (`syncHistoryPushIfNeeded` returns early when `applyingFromUrl` is true). `workspaceReady` gates first sync until workspace data can resolve guild paths safely.
+[`useUrlNavigationSync.ts`](../../clients/web/src/features/layout/composables/shell/useUrlNavigationSync.ts) uses `applyingFromUrl` so **URL → shell** application does not fight **shell → `history.pushState`** (`syncHistoryPushIfNeeded` returns early when `applyingFromUrl` is true). `workspaceReady` gates first sync until workspace data can resolve guild paths safely.
 
 Cross-feature coordination with rail/DM is documented in [clientCharterStoresNavVirtualizerAuthority.md](./clientCharterStoresNavVirtualizerAuthority.md) (row **25**).
 

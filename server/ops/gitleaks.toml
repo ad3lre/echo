@@ -1,0 +1,33 @@
+# Gitleaks overrides for Echo.
+#
+# Default rules flag many non-secrets (TypeScript identifiers, localStorage keys,
+# dev placeholders) and historical paths that must never be tracked again.
+# Keep .env / bot/.env / raw HARs out of git; this allowlist only suppresses
+# scanner noise for those path patterns across history.
+
+title = 'Echo'
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = 'Historical leaked paths + dev fixtures (never commit real secrets to these patterns intentionally)'
+paths = [
+  '''^\.env$''',
+  '''^bot/\.env$''',
+  '''^chat-echo\.com\.har$''',
+  '''^artifacts/har-clean/.*\.har$''',
+  '''^server/ops/infra/livekit/livekit\.chat-echo\.production\.yaml$''',
+  '''^server/backend/src/tests/''',
+  '''^server/activities/src/tests/''',
+  '''^clients/web/.+\.test\.ts$''',
+  '''^clients/web/src/utils/persistentImageDimsCache\.ts$''',
+  '''^clients/web/src/observability/bugHunterTrace\.test\.ts$''',
+  '''^bot/\.env\.example$''',
+  '''^server/ops/infra/livekit/livekit\.yaml$''',
+  '''^docs/EMOJI_LOADING\.md$''',
+  '''^\.github/workflows/echo-backend-ci\.yml$''',
+  '''^server/backend/src/domain/discordProfileMerge\.ts$''',
+  '''^clients/web/src/features/settings/composables/useDiscordLinkSettings\.ts$''',
+  '''^clients/web/src/features/settings/components/SettingsDiscordLinkSection\.vue$''',
+]

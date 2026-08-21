@@ -1,4 +1,0 @@
-{
-  "_comment": "Grandfathered legacy paths under frontend/src/components/. Empty after P1-9 — only Echo* and config primitives remain. See docs/overview/code-placement.md.",
-  "legacyPaths": []
-}

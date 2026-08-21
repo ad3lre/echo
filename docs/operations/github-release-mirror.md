@@ -15,12 +15,12 @@
 2. **Use the repo’s `pre-push` hook** (CI precheck + mirror policy):
 
    ```bash
-   ./scripts/setup-githooks.sh
+   ./server/ops/scripts/setup-githooks.sh
    ```
 
-   This sets `core.hooksPath` to `scripts/githooks` for this repository only.
+   This sets `core.hooksPath` to `server/ops/scripts/githooks` for this repository only.
 
-   On every push to a **non-GitHub** remote (e.g. GitLab `origin`), the hook runs **`npm run ci:precheck`** before the push proceeds (`format:check`, repo guards, frontend/backend builds, frontend unit tests, backend contract tests, frontend ESLint + stylelint). Pushes to `github.com` skip the precheck (mirror-only). Emergency bypass: `ECHO_SKIP_CI_PRECHECK=1 git push …`. Manual run: `npm run ci:precheck`.
+   On every push to a **non-GitHub** remote (e.g. GitLab `origin`), the hook runs **`npm run ci:precheck`** before the push proceeds (`format:check`, repo guards, clients/web/backend builds, web unit tests, backend contract tests, web ESLint + stylelint). Pushes to `github.com` skip the precheck (mirror-only). Emergency bypass: `ECHO_SKIP_CI_PRECHECK=1 git push …`. Manual run: `npm run ci:precheck`.
 
 ## Behavior
 
@@ -112,11 +112,11 @@ GitLab **protected branches** often block `--force` pushes. To land a rewritten 
 
 ## Commit messages (Cursor)
 
-`scripts/githooks/prepare-commit-msg` strips the **Cursor-packaged** trailer lines the IDE appends to commit messages (the extra “co-authored” line and the “Made-with” line), so they are never stored and GitHub does not attribute a second bot identity. Run `./scripts/setup-githooks.sh` so this hook runs. In Cursor, set **Git author** under Settings → Git to **`ad3lre`** / **`reachbypass@gmail.com`** (or export the same `GIT_AUTHOR_*` / `GIT_COMMITTER_*` variables in the shell) so public and internal commits attribute correctly.
+`server/ops/scripts/githooks/prepare-commit-msg` strips the **Cursor-packaged** trailer lines the IDE appends to commit messages (the extra “co-authored” line and the “Made-with” line), so they are never stored and GitHub does not attribute a second bot identity. Run `./server/ops/scripts/setup-githooks.sh` so this hook runs. In Cursor, set **Git author** under Settings → Git to **`ad3lre`** / **`reachbypass@gmail.com`** (or export the same `GIT_AUTHOR_*` / `GIT_COMMITTER_*` variables in the shell) so public and internal commits attribute correctly.
 
 ## CI / automation
 
-Server-side GitLab jobs do not run the local hook. To mirror from CI at a fixed time, run `scripts/mirror-release-to-github.sh` in a **scheduled** GitLab pipeline (with `github` deploy credentials), or rely on the same cron script on a runner.
+Server-side GitLab jobs do not run the local hook. To mirror from CI at a fixed time, run `server/ops/scripts/mirror-release-to-github.sh` in a **scheduled** GitLab pipeline (with `github` deploy credentials), or rely on the same cron script on a runner.
 
 Pipeline pushes must **not** set `release/1.0.0` to the same commit as `origin/main` (same rule as the mirror script: use `publish-public-release`, unless you accept exposing internal history via `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1`).
 
@@ -127,7 +127,7 @@ GitHub is a **public mirror** for `release/1.0.0` only. The branch **`main` must
 ### How leaks happen (avoid these)
 
 1. **`git push github main`** or **`git push github HEAD:main`** — blocked by `github-push-guard.sh` when hooks are installed.
-2. **`release/1.0.0` tracking `github`** — a plain `git push` on that branch skips GitLab and `publish-public-release`. Run `./scripts/setup-githooks.sh` to reset upstream to **`origin/release/1.0.0`**.
+2. **`release/1.0.0` tracking `github`** — a plain `git push` on that branch skips GitLab and `publish-public-release`. Run `./server/ops/scripts/setup-githooks.sh` to reset upstream to **`origin/release/1.0.0`**.
 3. **Fast-forwarding `release/1.0.0` to `origin/main`** — mirror and pre-push refuse when tips match (unless `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1`).
 4. **`git push --no-verify`** — bypasses all local hooks; do not use for GitHub pushes.
 5. **GitHub default branch still `main`** — invites accidental pushes and confused clones.
@@ -137,11 +137,11 @@ GitHub is a **public mirror** for `release/1.0.0` only. The branch **`main` must
 1. **Delete `main` on GitHub if it appears:** `git push github --delete main`
 2. **Default branch:** GitHub → **Settings → General → Default branch** → **`release/1.0.0`** (not `main`).
 3. **Block recreation (server-side):** **Settings → Rules → Rulesets** — rule on branch **`main`**: block creation and pushes for everyone.
-4. **Local hooks (required):** `./scripts/setup-githooks.sh` — `pre-push` runs `github-push-guard.sh` before any push:
+4. **Local hooks (required):** `./server/ops/scripts/setup-githooks.sh` — `pre-push` runs `github-push-guard.sh` before any push:
    - Refuses **create/update `main` or `master`** on the `github` remote (by remote name or `github.com` URL).
    - Refuses pushing **local `main`/`master`** to GitHub at all.
    - Refuses **`release/1.0.0` → GitHub** when the tip equals **`origin/main`**.
    - Refuses if **`main` or `release/1.0.0` track `github`** as upstream.
-5. **CI guard:** `node scripts/check-github-remote-policy.mjs` (in `npm run test:ci:guards`) ensures hook wiring is not removed.
+5. **CI guard:** `node server/ops/scripts/check-github-remote-policy.mjs` (in `npm run test:ci:guards`) ensures hook wiring is not removed.
 
 GitLab `release/1.0.0` pushes are not mirrored until the daily job (unless `ECHO_RELEASE_MIRROR_NOW=1`).

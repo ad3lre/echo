@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — implementation in codebase (`shared/snowflakeIds.ts`, `backend/src/domain/echoSnowflake.ts`). **Verified paths:** 2026-03-27.
+Accepted — implementation in codebase (`contracts/snowflakeIds.ts`, `server/backend/src/domain/echoSnowflake.ts`). **Verified paths:** 2026-03-27.
 
 ## Context
 
@@ -33,7 +33,7 @@ Serialized to API/DB as **decimal string** (e.g. `"4823456789012348928"`), never
 
 - Match `^[0-9]+$` only (no prefixes like `msg_`, no padding semantics).
 - Reject values with leading zeros when length > 1.
-- **Length bounds** (decimal digits): **15–22** inclusive (aligned with `shared/snowflakeIds.ts` constants; adjust only with ADR revision).
+- **Length bounds** (decimal digits): **15–22** inclusive (aligned with `contracts/snowflakeIds.ts` constants; adjust only with ADR revision).
 
 ### Generator behavior
 
@@ -50,13 +50,13 @@ Serialized to API/DB as **decimal string** (e.g. `"4823456789012348928"`), never
 
 ### Message ordering
 
-After cutover, channel history uses **`ORDER BY id DESC`** and cursors on **`id`** only — not `created_at`. See [SNOWFLAKE_ID_MIGRATION_PLAN.md](../architecture/SNOWFLAKE_ID_MIGRATION_PLAN.md).
+After cutover, channel history uses **`ORDER BY id DESC`** and cursors on **`id`** only — not `created_at`. See [SNOWFLAKE_ID_MIGRATION_PLAN.md](../plans/SNOWFLAKE_ID_MIGRATION_PLAN.md).
 
 ### `created_at` vs `id` (no drift)
 
 Snowflake **`id`** embeds mint time but is the **only** ordering and pagination key for chat feeds. **`created_at`** is a separate column: it may match wall-clock insert time but is **not** guaranteed to track display order (imports, backfills, clock skew, future tooling). **Split-brain** appears if any code path sorts or pages messages by **`created_at`** while the rest of the stack uses **`id`**.
 
-**Code review / CI invariant:** reject new **`ORDER BY created_at`** (or `created_at`-based cursors) on **`echo_messages`** for list, history, jump, in-channel search, or socket replay paths. Use **`created_at`** only when the question is “when was this row written?” (moderation, exports, analytics, rate windows) — not “in what order do messages appear?”. Repo guard: **`npm run check:echo-snowflake`**. Ops: [snowflake-cutover.md § Timeline semantics](../runbooks/snowflake-cutover.md#timeline-semantics).
+**Code review / CI invariant:** reject new **`ORDER BY created_at`** (or `created_at`-based cursors) on **`echo_messages`** for list, history, jump, in-channel search, or socket replay paths. Use **`created_at`** only when the question is “when was this row written?” (moderation, exports, analytics, rate windows) — not “in what order do messages appear?”. Repo guard: **`npm run check:echo-snowflake`**. Ops: [snowflake-cutover.md § Timeline semantics](../operations/runbooks/snowflake-cutover.md#timeline-semantics).
 
 ## Consequences
 

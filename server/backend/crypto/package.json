@@ -1,0 +1,11 @@
+{
+  "name": "crypto",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Echo E2EE + MLS crypto kit (no Vue UI). Lives under server/backend; settings UX stays in clients.",
+  "type": "module",
+  "scripts": {
+    "test": "npm run test -w web -- --run ../../server/backend/crypto/src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

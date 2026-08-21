@@ -8,9 +8,9 @@ Reference: [agents.md](../overview/agents.md).
 
 **Current code path:**
 
-- [`useSocket.ts`](../../frontend/src/composables/useSocket.ts) — thin Vue lifecycle glue.
-- [`echoSocketRealtimeWiring.ts`](../../frontend/src/services/realtime/echoSocketRealtimeWiring.ts), [`echoSocketSessionLifecycle.ts`](../../frontend/src/services/realtime/echoSocketSessionLifecycle.ts), [`socketConnectOrchestrator.ts`](../../frontend/src/services/realtime/socketConnectOrchestrator.ts), [`socketIoSessionWire.ts`](../../frontend/src/services/realtime/socketIoSessionWire.ts), [`echoSocketInboundListeners.ts`](../../frontend/src/services/realtime/echoSocketInboundListeners.ts) — transport wiring.
-- **Merge / dual-write / UI rollback:** [`echoRealtimeChatIngest.ts`](../../frontend/src/services/realtime/echoRealtimeChatIngest.ts), [`channelMessageAuthority.ts`](../../frontend/src/services/realtime/channelMessageAuthority.ts), [`echoRealtimeMessageStoreBridge.ts`](../../frontend/src/services/realtime/echoRealtimeMessageStoreBridge.ts) under `services/realtime/`, plus [`echoRealtimeUiTransactions.ts`](../../frontend/src/services/orchestration/echoRealtimeUiTransactions.ts) under `services/orchestration/`.
+- [`useSocket.ts`](../../clients/web/src/features/layout/useSocket.ts) — thin Vue lifecycle glue.
+- [`echoSocketRealtimeWiring.ts`](../../clients/web/src/features/layout/realtime/echoSocketRealtimeWiring.ts), [`echoSocketSessionLifecycle.ts`](../../clients/web/src/features/layout/realtime/echoSocketSessionLifecycle.ts), [`socketConnectOrchestrator.ts`](../../clients/web/src/features/layout/realtime/socketConnectOrchestrator.ts), [`socketIoSessionWire.ts`](../../clients/web/src/features/layout/realtime/socketIoSessionWire.ts), [`echoSocketInboundListeners.ts`](../../clients/web/src/features/layout/realtime/echoSocketInboundListeners.ts) — transport wiring.
+- **Merge / dual-write / UI rollback:** [`echoRealtimeChatIngest.ts`](../../clients/web/src/features/chat/ingest/echoRealtimeChatIngest.ts), [`channelMessageAuthority.ts`](../../clients/web/src/features/chat/domain/channelMessageAuthority.ts), [`echoRealtimeMessageStoreBridge.ts`](../../clients/web/src/features/chat/ingest/echoRealtimeMessageStoreBridge.ts) under `services/realtime/`, plus `echoRealtimeUiTransactions.ts` under `services/orchestration/`.
 
 **Why this is still a violation:**
 
@@ -28,9 +28,9 @@ Reference: [agents.md](../overview/agents.md).
 
 **Current code path:**
 
-- [`echoWorkspaceSessionApply.ts`](../../frontend/src/features/layout/viewModel/echoWorkspaceSessionApply.ts) — snapshot version gating, roster merge hooks, presence writes, message index disposal, reset behavior.
-- [`echoWorkspaceLifecycleViewModel.ts`](../../frontend/src/features/layout/viewModel/echoWorkspaceLifecycleViewModel.ts) and [`workspaceEchoHydrateFromApi.ts`](../../frontend/src/services/orchestration/workspaceEchoHydrateFromApi.ts) — hydrate timing, social refresh, bootstrap, logout reset, server-delete follow-up.
-- Orchestration modules (no longer under `services/domain/`): [`workspaceRosterMerge.ts`](../../frontend/src/services/orchestration/workspaceRosterMerge.ts), [`workspaceAuthUserRoster.ts`](../../frontend/src/services/orchestration/workspaceAuthUserRoster.ts), [`workspaceFirstGuildBootstrapGuard.ts`](../../frontend/src/services/orchestration/workspaceFirstGuildBootstrapGuard.ts), [`workspaceServerDeletionNav.ts`](../../frontend/src/services/orchestration/workspaceServerDeletionNav.ts), [`workspaceShellResetOnLogout.ts`](../../frontend/src/services/orchestration/workspaceShellResetOnLogout.ts), [`workspaceSocialHydrate.ts`](../../frontend/src/services/orchestration/workspaceSocialHydrate.ts), [`workspaceSocketEventHandler.ts`](../../frontend/src/services/orchestration/workspaceSocketEventHandler.ts).
+- `echoWorkspaceSessionApply.ts` — snapshot version gating, roster merge hooks, presence writes, message index disposal, reset behavior.
+- `echoWorkspaceLifecycleViewModel.ts` and [`workspaceEchoHydrateFromApi.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceEchoHydrateFromApi.ts) — hydrate timing, social refresh, bootstrap, logout reset, server-delete follow-up.
+- Orchestration modules (no longer under `services/domain/`): [`workspaceRosterMerge.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceRosterMerge.ts), [`workspaceAuthUserRoster.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceAuthUserRoster.ts), [`workspaceFirstGuildBootstrapGuard.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceFirstGuildBootstrapGuard.ts), [`workspaceServerDeletionNav.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceServerDeletionNav.ts), [`workspaceShellResetOnLogout.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceShellResetOnLogout.ts), [`workspaceSocialHydrate.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceSocialHydrate.ts), [`workspaceSocketEventHandler.ts`](../../clients/web/src/features/layout/realtime/workspaceSocketEventHandler.ts).
 
 **Why this is still a violation:**
 
@@ -47,9 +47,9 @@ Reference: [agents.md](../overview/agents.md).
 
 **Current code path:**
 
-- [`channelMessageIndex.ts`](../../frontend/src/features/chat/viewModel/channelMessageIndex.ts) — ordered channel index.
-- [`echoHistoryViewModel.ts`](../../frontend/src/features/chat/viewModel/echoHistoryViewModel.ts) — network I/O, timers, diagnostics, read-state persistence, pagination orchestration.
-- [`stores/messageIndex.ts`](../../frontend/src/stores/messageIndex.ts) — re-export shim around the index API.
+- [`channelMessageIndex.ts`](../../clients/web/src/features/chat/domain/channelMessageIndex.ts) — ordered channel index.
+- `echoHistoryViewModel.ts` — network I/O, timers, diagnostics, read-state persistence, pagination orchestration.
+- `stores/messageIndex.ts` — re-export shim around the index API.
 
 **Why this is still a violation:**
 
@@ -60,7 +60,7 @@ Reference: [agents.md](../overview/agents.md).
 
 - One owner for ordering, dedupe, caps, and history invariants (domain/server contract); client applies.
 - Controller/orchestration owns fetch timing, retries, and lifecycle.
-- [`useEchoHistory.ts`](../../frontend/src/composables/useEchoHistory.ts) stays a thin binder.
+- [`useEchoHistory.ts`](../../clients/web/src/features/chat/composables/useEchoHistory.ts) stays a thin binder.
 
 ## Clean seams worth keeping
 

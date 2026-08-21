@@ -12,7 +12,7 @@ Echo’s upload path is unchanged: clients still `POST /uploads/presign`, `PUT` 
 
 ```mermaid
 flowchart LR
-  SPA -->|POST media/sign| API[Echo API]
+  SPA -->|POST server/media/sign| API[Echo API]
   SPA -->|GET /v1/o/key?t=| CDN[media-cdn]
   CDN --> S3[Private S3/R2]
 ```
@@ -37,8 +37,8 @@ flowchart LR
 ## Commands
 
 ```bash
-npm run dev -w media-cdn    # local sidecar
-npm run test -w media-cdn   # sidecar unit tests
+npm run dev -w media    # local sidecar
+npm run test -w media   # sidecar unit tests
 ```
 
 ## Signing API

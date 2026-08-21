@@ -1,0 +1,4 @@
+{
+  "$schema-note": "Accepted dependency advisories the high-severity audit gate (server/ops/scripts/check-dependency-audit.mjs) will ignore. Add an entry ONLY for an advisory that cannot be fixed yet (e.g. awaiting an upstream major). Each entry needs a reason and an expires date (YYYY-MM-DD); expired entries stop suppressing and must be re-evaluated.",
+  "advisories": {}
+}

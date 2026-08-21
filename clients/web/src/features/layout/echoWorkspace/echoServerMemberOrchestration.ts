@@ -1,0 +1,59 @@
+import type { Ref } from 'vue';
+import { fetchEchoServerMembers } from '@/api/echo/serverLifecycle';
+import type { EchoSessionStore } from '@/features/layout/echoSession';
+import type { useAuthSessionStore } from '@/features/auth/authSession';
+import { reportPrimaryFlowFailure } from '@/features/layout/failures/primaryFlowFailure';
+import { dbgMemberList } from '@/features/layout/composables/members/echoMemberListDebug';
+
+export type EchoServerMemberOrchestrationDeps = {
+  authSession: ReturnType<typeof useAuthSessionStore>;
+  echoSession: EchoSessionStore;
+  selectedServerId: Ref<string | null>;
+};
+
+export function createEchoServerMemberOrchestration(
+  deps: EchoServerMemberOrchestrationDeps,
+) {
+  const { authSession, echoSession, selectedServerId } = deps;
+  const inFlight = new Set<string>();
+
+  async function fetchMembersForServer(serverId: string) {
+    if (!serverId || serverId === 'echo') return;
+    if (inFlight.has(serverId)) return;
+
+    const token = authSession.accessToken?.trim() ?? '';
+    if (!token) {
+      dbgMemberList('fetchMembersForServer SKIP (no token)', { serverId });
+      return;
+    }
+
+    inFlight.add(serverId);
+    try {
+      dbgMemberList('fetchMembersForServer START', { serverId });
+      const { members } = await fetchEchoServerMembers(token, serverId);
+      dbgMemberList('fetchMembersForServer OK', {
+        serverId,
+        count: Array.isArray(members) ? members.length : -1,
+        sample: Array.isArray(members)
+          ? members.slice(0, 3).map((m) => ({
+              userId: m.userId,
+              isDiscordShadow: m.isDiscordShadow,
+              isGuest: m.isGuest,
+            }))
+          : [],
+      });
+      echoSession.mergeMembersByServer({ [serverId]: members });
+      dbgMemberList('fetchMembersForServer MERGED', { serverId });
+    } catch (err) {
+      reportPrimaryFlowFailure('fetchMembersForServer', err, { serverId });
+      const msg = err instanceof Error ? err.message : String(err);
+      dbgMemberList('fetchMembersForServer ERROR', { serverId, msg });
+    } finally {
+      inFlight.delete(serverId);
+    }
+  }
+
+  return {
+    fetchMembersForServer,
+  };
+}

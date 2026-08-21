@@ -1,0 +1,31 @@
+{
+  "name": "activities",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Echo activities suite — authoritative gamespace sidecar (Socket.IO + NATS); shared game cores live under server/activities/cores.",
+  "main": "dist/server/activities/src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/server/activities/src/index.js",
+    "test": "ts-node src/tests/run.ts"
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^10.3.0",
+    "@mickl/socket.io-nats-adapter": "^2.0.1",
+    "fastify": "^5.8.5",
+    "jsonwebtoken": "^9.0.3",
+    "nats": "^2.29.3",
+    "prom-client": "^15.1.3",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.1.0",
+    "nodemon": "^3.1.14",
+    "socket.io-client": "^4.8.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

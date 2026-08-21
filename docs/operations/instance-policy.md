@@ -7,19 +7,20 @@ one validated JSON file instead of dozens of `ECHO_*` environment variables.
 Secrets and connectivity stay in env (`.env`): `JWT_SECRET`, `DATABASE_URL`,
 `REDIS_URL`, OAuth client secrets, API keys, `PORT`, `HOST`, `CORS_ORIGIN`, etc.
 
-Plan tier caps (`shared/echoPlanLimits.ts`) are **not** overridden by this file.
+Plan tier caps (`contracts/echoPlanLimits.ts`) are **not** overridden by this file.
 
 ## Quick start
 
 1. Copy [`echo.instance.example.json`](../../echo.instance.example.json) to
    `echo.instance.json` at the repo root (or set `ECHO_INSTANCE_POLICY_PATH`).
+   The live file is **gitignored** — only the example is tracked.
 2. Edit policy fields you care about.
 3. Validate without starting the API:
 
    ```bash
    npm run instance-policy:validate
    # or a custom path:
-   node scripts/validate-instance-policy.mjs /path/to/echo.instance.json
+   node server/ops/scripts/validate-instance-policy.mjs /path/to/echo.instance.json
    ```
 
 4. Start Echo as usual (`npm run dev`, `npm run prod`, …).
@@ -74,8 +75,8 @@ for split CDN/API builds).
 | `limits.upstream` | Serper, Honcho, Discord import daily caps                                            |
 | `regions.voice`   | Advertised voice region labels (LiveKit routing is configured separately)            |
 
-Typed defaults live in [`shared/instancePolicy.ts`](../../shared/instancePolicy.ts).
-JSON Schema: [`shared/instancePolicySchema.json`](../../shared/instancePolicySchema.json).
+Typed defaults live in [`contracts/instancePolicy.ts`](../../contracts/instancePolicy.ts).
+JSON Schema: [`contracts/instancePolicySchema.json`](../../contracts/instancePolicySchema.json).
 
 ## Env override map
 
@@ -125,7 +126,7 @@ for registration spam alongside per-IP limits.
 ## Voice regions
 
 `regions.voice.available` is metadata for clients (channel settings hint, future
-voice UI). LiveKit SFU URLs remain in [`infra/livekit/livekit.yaml`](../../infra/livekit/livekit.yaml)
+voice UI). LiveKit SFU URLs remain in [`server/ops/infra/livekit/livekit.yaml`](../../server/ops/infra/livekit/livekit.yaml)
 and `LIVEKIT_*` env vars.
 
 ## Related

@@ -13,7 +13,7 @@ This document extends [ECHO_CONTRACT_V1.md](./ECHO_CONTRACT_V1.md) with **messag
 
 - **`search_index_text`** is the canonical indexed plain string.
 - **`contentText` in API responses** mirrors **`search_index_text`** (same bytes). **`message.content`** is populated with that value for v2 rows for backward compatibility with clients that only read `content`.
-- **Exactly one** implementation converts `content_json` → plain for persistence: **`deriveMessagePlainText`** in `backend/src/domain/messagePlainTextProjection.ts`. No duplicate extractors elsewhere.
+- **Exactly one** implementation converts `content_json` → plain for persistence: **`deriveMessagePlainText`** in `server/backend/src/domain/messagePlainTextProjection.ts`. No duplicate extractors elsewhere.
 
 ## Mentions (`message_format_version === 2`)
 
@@ -28,7 +28,7 @@ This document extends [ECHO_CONTRACT_V1.md](./ECHO_CONTRACT_V1.md) with **messag
 ## Search
 
 - Text search (`ILIKE` / `pg_trgm`) uses **`search_index_text` only**, not `content` or `content_json`.
-- Search SQL remains in `backend/src/domain/echoMessagesDal.ts` per `check:echo-messages-dal`; do not reference `content` for text matching in search queries.
+- Search SQL remains in `server/backend/src/domain/echoMessagesDal.ts` per `check:echo-messages-dal`; do not reference `content` for text matching in search queries.
 
 ## Reverse derivation
 
@@ -48,7 +48,7 @@ Universal grammar for block nodes in plain projection / textarea edit:
 
 - **`type`** — block kind (`image` today; `button` / `buttonrow` for action-row buttons).
 - Attributes are comma-separated; values may be quoted when they contain commas or spaces.
-- Implementation: `shared/richBlockToken.ts`.
+- Implementation: `contracts/richBlockToken.ts`.
 
 ## Image slot blocks (`imageSlot`, schema v2)
 
@@ -84,4 +84,4 @@ Before removing the legacy renderer branch, require (thresholds in runbook):
 
 ## References
 
-- Implementation: `shared/echoMessageFormatV2.ts`, `backend/src/domain/messagePlainTextProjection.ts`, `backend/src/domain/contentJsonValidation.ts`, `echo_messages` columns in `backend/src/db/echoTables.ts`.
+- Implementation: `contracts/echoMessageFormatV2.ts`, `server/backend/src/domain/messagePlainTextProjection.ts`, `server/backend/src/domain/contentJsonValidation.ts`, `echo_messages` columns in `server/backend/src/db/echoTables.ts`.

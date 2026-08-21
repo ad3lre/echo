@@ -25,16 +25,19 @@ function parseEnvFile(filePath) {
   return out;
 }
 const fileEnv = parseEnvFile(pm2EnvFile);
-/** Watch Together VC uploads: local disk even when S3 is configured (see backend/src/config/storage.ts). */
+/** Watch Together VC uploads: local disk even when S3 is configured (see server/backend/src/config/storage.ts). */
 const wtLocalUploadEnv = {
-  ECHO_LOCAL_UPLOAD_DIR: path.join(repoRoot, 'backend/data/echo-local-uploads'),
+  ECHO_LOCAL_UPLOAD_DIR: path.join(
+    repoRoot,
+    'server/backend/data/echo-local-uploads',
+  ),
 };
 
 /**
  * PM2 app definitions. Install PM2 once: `npm install -g pm2` (use Node from `.nvmrc`, >=22.13).
  * Start from repo root: `pm2 start ecosystem.config.cjs` so `env_file` loads DATABASE_URL, ECHO_S3_*, etc.
  * `echo-backend` uses ECHO_VIDEO_HLS_WORKER=standalone; `echo-video-hls-worker` must run alongside it (ffmpeg on PATH).
- * `echo-media-cdn` and `echo-game-server` require Caddy routes on media.* / games.* subdomains.
+ * `echo-media` and `echo-activities` require Caddy routes on media.* / games.* subdomains.
  */
 function resolveNvmNode22Bin() {
   const home = process.env.HOME || '';
@@ -94,7 +97,7 @@ module.exports = {
       name: 'echo-backend',
       script: 'npm',
       args: 'start',
-      cwd: './backend',
+      cwd: './server/backend',
       env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
@@ -110,7 +113,7 @@ module.exports = {
       name: 'echo-video-hls-worker',
       script: 'npm',
       args: 'run worker:video-hls',
-      cwd: './backend',
+      cwd: './server/media',
       env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
@@ -121,10 +124,10 @@ module.exports = {
       max_restarts: 10,
     },
     {
-      name: 'echo-frontend',
+      name: 'echo-web',
       script: 'npm',
       args: 'run preview',
-      cwd: './frontend',
+      cwd: './clients/web',
       env: {
         NODE_ENV: 'production',
       },
@@ -132,10 +135,10 @@ module.exports = {
     },
     echoMarketing,
     {
-      name: 'echo-media-cdn',
+      name: 'echo-media',
       script: 'npm',
       args: 'start',
-      cwd: './media-cdn',
+      cwd: './server/media',
       env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
@@ -145,10 +148,10 @@ module.exports = {
       max_restarts: 10,
     },
     {
-      name: 'echo-game-server',
+      name: 'echo-activities',
       script: 'npm',
       args: 'start',
-      cwd: './game-server',
+      cwd: './server/activities',
       env: {
         NODE_ENV: 'production',
         ...fileEnv,
@@ -171,11 +174,11 @@ module.exports = {
     },
     {
       name: 'echo-watchdog',
-      script: 'scripts/watchdog.mjs',
+      script: 'server/ops/scripts/watchdog.mjs',
       env: {
         // 3005 is reserved for the Discord bot internal API (ECHO_DISCORD_BOT_INTERNAL_PORT).
         WATCHDOG_PORT: 8095,
-        TARGET_PORT: 4173, // Default route points to chat-echo.com / echo-frontend
+        TARGET_PORT: 4173, // Default route points to chat-echo.com / echo-web
         TARGET_HOST: '127.0.0.1',
         WATCHDOG_HOST_TARGETS:
           'chat-echo.com=127.0.0.1:4173,www.chat-echo.com=127.0.0.1:4173,app-echo.net=127.0.0.1:4174,www.app-echo.net=127.0.0.1:4174',

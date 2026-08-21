@@ -1,0 +1,55 @@
+{
+  "_comment": "Code placement guard config. SSOT: docs/overview/code-placement.md",
+  "componentsRoot": "clients/web/src/components",
+  "featuresRoot": "clients/web/src/features",
+  "scannedExtensions": [".vue", ".ts", ".scss"],
+  "primitiveBasenames": [
+    "TwemojiText.vue",
+    "StatusIndicator.vue",
+    "LimitedGifImg.vue",
+    "PausedGifAvatar.vue",
+    "EmojiCategorySection.vue",
+    "LegalDocsModal.vue"
+  ],
+  "echoPrimitivePrefix": "Echo",
+  "placementCutoffIso": "2026-06-15T00:00:00Z",
+  "docsUrl": "docs/overview/code-placement.md",
+  "leftoverDumpRoots": [
+    "clients/web/src/utils",
+    "clients/web/src/composables",
+    "clients/web/src/stores",
+    "clients/web/src/services",
+    "clients/web/src/types",
+    "clients/web/src/domain",
+    "clients/web/src/ui",
+    "clients/web/src/data",
+    "clients/web/src/constants",
+    "clients/web/src/shared",
+    "clients/web/src/features/chat/services",
+    "server/backend/src/tests"
+  ],
+  "leftoverDumpImmediateRoots": [
+    "clients/web/src/features/layout/composables",
+    "server/backend/src/services",
+    "server/backend/src/domain",
+    "server/backend/src/domain/echoStore",
+    "server/backend/src/tests"
+  ],
+  "layerDirNames": [
+    "components",
+    "composables",
+    "stores",
+    "services",
+    "types",
+    "utils",
+    "api",
+    "hooks",
+    "domain",
+    "presentation",
+    "viewModel",
+    "workspace",
+    "constants",
+    "editor"
+  ],
+  "minLayerDirFiles": 3
+}

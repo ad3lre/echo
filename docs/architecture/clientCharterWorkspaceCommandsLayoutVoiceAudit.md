@@ -8,8 +8,8 @@ These modules are the command entrypoints for workspace and user mutations initi
 
 Healthy part:
 
-- optimistic local graph edits can live in focused helpers such as `[workspaceLocalServerGraphApply.ts](../../frontend/src/services/domain/workspaceLocalServerGraphApply.ts)` when they only apply canonical graph changes
-- `[workspaceServerActions.ts](../../frontend/src/composables/workspace/workspaceServerActions.ts)` can stay as HTTP plus ref wiring
+- optimistic local graph edits can live in focused helpers such as `[workspaceLocalServerGraphApply.ts](../../clients/web/src/features/layout/echoWorkspace/workspaceLocalServerGraphApply.ts)` when they only apply canonical graph changes
+- `[workspaceServerActions.ts](../../clients/web/src/features/layout/echoWorkspace/workspaceServerActions.ts)` can stay as HTTP plus ref wiring
 
 Guardrail:
 

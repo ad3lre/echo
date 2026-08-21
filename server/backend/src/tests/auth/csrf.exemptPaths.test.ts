@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { isCsrfExemptPath } from '../../auth/csrf';
+
+function run(): void {
+  assert.equal(
+    isCsrfExemptPath('/api/v1/hooks/discord-bot/export-ready'),
+    true,
+  );
+  assert.equal(isCsrfExemptPath('/api/v1/hooks/discord-bridge/inbound'), true);
+  assert.equal(
+    isCsrfExemptPath('/api/v1/hooks/discord-voice-mirror/snapshot'),
+    true,
+  );
+  assert.equal(
+    isCsrfExemptPath('/api/v1/hooks/echo-channel-webhooks/abc/def'),
+    true,
+  );
+  assert.equal(
+    isCsrfExemptPath('/api/v1/hooks/echo-channel-webhooks/abc/def/slack'),
+    true,
+  );
+  assert.equal(
+    isCsrfExemptPath('/api/v1/echo/public/client-alerts/boot-stall'),
+    true,
+  );
+  assert.equal(isCsrfExemptPath('/api/v1/analytics/client-environment'), true);
+  assert.equal(isCsrfExemptPath('/api/v1/auth/verify-email'), true);
+  assert.equal(isCsrfExemptPath('/api/v1/echo/servers'), false);
+  console.log('csrf.exemptPaths: ok');
+}
+
+run();

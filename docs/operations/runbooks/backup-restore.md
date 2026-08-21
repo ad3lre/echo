@@ -94,7 +94,7 @@ This ensures:
 
 ```bash
 sudo mkdir -p /etc/echo
-sudo cp infra/systemd/echo-backup.env.example /etc/echo/backup-upload.env
+sudo cp server/ops/infra/systemd/echo-backup.env.example /etc/echo/backup-upload.env
 sudo chmod 640 /etc/echo/backup-upload.env
 sudo chown root:echo /etc/echo/backup-upload.env
 ```
@@ -139,7 +139,7 @@ DATABASE_URL=postgresql://echo:your_password@localhost:5432/echo
 ### 4. Install systemd units
 
 ```bash
-sudo cp infra/systemd/echo-backup.service infra/systemd/echo-backup.timer /etc/systemd/system/
+sudo cp server/ops/infra/systemd/echo-backup.service server/ops/infra/systemd/echo-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
@@ -337,6 +337,6 @@ Documented in [database-migrations.md](database-migrations.md) pattern:
 
 ## Related Documentation
 
-- [infra/systemd/README.md](../../../infra/systemd/README.md) — systemd setup details
+- [server/ops/infra/systemd/README.md](../../../server/ops/infra/systemd/README.md) — systemd setup details
 - [postgres-incident.md](postgres-incident.md) — incident response and restore procedures
 - [database-migrations.md](database-migrations.md) — migration testing on backup copies

@@ -17,14 +17,14 @@ After cutover, **message feed order is `id`**, not `created_at`. `created_at` re
 
 **Drift** means any production path that **sorts or pages messages by `created_at`** (or uses `created_at` as the primary cursor) while clients and other APIs assume **`id`** order. Symptoms: replies or jump-to-message land on the “wrong” neighbor, infinite scroll duplicates or gaps, and inconsistent ordering between REST and Socket.IO.
 
-**Review checklist:** (1) New **`echo_messages`** reads go through the allowed DAL / shared list helpers — no ad-hoc SQL with `ORDER BY created_at` on feeds. (2) Docs and comments that describe “newest message” use **`id`**, not “latest `created_at`”. (3) Imports or backfills that set `created_at` ≠ mint time are OK **only** if feeds still use **`id`** everywhere. **ADR:** [002-echo-public-snowflake-ids.md](../adr/002-echo-public-snowflake-ids.md) (_Message ordering_ and _created_at vs id_).
+**Review checklist:** (1) New **`echo_messages`** reads go through the allowed DAL / shared list helpers — no ad-hoc SQL with `ORDER BY created_at` on feeds. (2) Docs and comments that describe “newest message” use **`id`**, not “latest `created_at`”. (3) Imports or backfills that set `created_at` ≠ mint time are OK **only** if feeds still use **`id`** everywhere. **ADR:** [002-echo-public-snowflake-ids.md](../../adr/002-echo-public-snowflake-ids.md) (_Message ordering_ and _created_at vs id_).
 
 ## Load-test / production-shaped clone (before cutover)
 
 - Restore a **recent backup** into a staging database (same Postgres major version as prod).
 - Run **`npm run check:echo-snowflake`** against the repo revision you will deploy.
 - **Dry-run** the migrator and capture row counts / timing from logs:  
-  `DATABASE_URL=... npx ts-node backend/src/scripts/migrateEchoIdsToSnowflake.ts`
+  `DATABASE_URL=... npx ts-node server/backend/src/scripts/migrateEchoIdsToSnowflake.ts`
 - If a single-server transaction risks **long locks or WAL spikes**, use **per-channel message commits** (same script, same maps; messages commit channel-by-channel after structure/roles):  
   `DATABASE_URL=... npx ts-node src/scripts/migrateEchoIdsToSnowflake.ts --execute --commit-per-channel-messages`  
   or `MIGRATION_COMMIT_MESSAGES_PER_CHANNEL=1`.
@@ -34,7 +34,7 @@ After cutover, **message feed order is `id`**, not `created_at`. `created_at` re
 
 1. **Freeze traffic** (maintenance page or stop app workers) so no writes race the migration.
 2. **Dry-run** on a clone (see above).
-3. **Execute** on production (from `backend/` with deps installed):  
+3. **Execute** on production (from `server/backend/` with deps installed):  
    `DATABASE_URL=... npx ts-node src/scripts/migrateEchoIdsToSnowflake.ts --execute`  
    Add `--commit-per-channel-messages` if the clone dry-run suggested oversized single transactions.
 4. The script sets `session_replication_role = replica` while rewriting PK/FK text ids; your role must be allowed to set it.

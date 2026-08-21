@@ -3,19 +3,21 @@ name: Echo backend checks
 on:
   push:
     paths:
-      - 'backend/**'
-      - 'shared/**'
-      - 'scripts/check-*.mjs'
-      - 'scripts/god-file-baselines.json'
+      - 'server/backend/**'
+      - 'server/media/src/hls/**'
+      - 'contracts/**'
+      - 'server/ops/scripts/check-*.mjs'
+      - 'server/ops/scripts/god-file-baselines.json'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/echo-backend-ci.yml'
   pull_request:
     paths:
-      - 'backend/**'
-      - 'shared/**'
-      - 'scripts/check-*.mjs'
-      - 'scripts/god-file-baselines.json'
+      - 'server/backend/**'
+      - 'server/media/src/hls/**'
+      - 'contracts/**'
+      - 'server/ops/scripts/check-*.mjs'
+      - 'server/ops/scripts/god-file-baselines.json'
       - 'package.json'
       - 'package-lock.json'
   workflow_dispatch:
@@ -71,7 +73,7 @@ jobs:
           npm run test:storage-mode -w backend
           npm run test:production-config-gates -w backend
           npm run test:video-hls-worker-config -w backend
-          npm run test:video-hls-notify -w backend
+          npm run test:video-hls-notify -w media
           npm run test:linkUnfurlStubs -w backend
           npm run test:linkUnfurlExtract -w backend
           npm run test:shipping-security -w backend
@@ -82,18 +84,18 @@ jobs:
           npm run check:echo-single-reality
           npm run check:echo-rbac
           npm run check:channel-message-writes
-          node scripts/check-echo-no-sql-in-routes.mjs
-          node scripts/check-god-file-ratchet.mjs
-          node scripts/check-new-code-charter.mjs
+          node server/ops/scripts/check-echo-no-sql-in-routes.mjs
+          node server/ops/scripts/check-god-file-ratchet.mjs
+          node server/ops/scripts/check-new-code-charter.mjs
           npm run charter:new-code:test
-          node scripts/check-github-remote-policy.mjs
+          node server/ops/scripts/check-github-remote-policy.mjs
           npm run check:sql-schema-columns
           npm run check:sql-schema-columns:live
-          node --import tsx backend/src/tests/paperCollabState.test.ts
-          node --import tsx backend/src/tests/paperAttribution.test.ts
+          node --import tsx server/backend/src/tests/paper/paperCollabState.test.ts
+          node --import tsx server/backend/src/tests/paper/paperAttribution.test.ts
 
       - name: Socket handler unit tests
-        run: npm run test -w frontend -- backend/src/tests/channelHandlers.joinChannel.test.ts
+        run: npm run test -w web -- ../../server/backend/src/tests/channels/channelHandlers.joinChannel.test.ts
 
       - name: Pipeline integration (Postgres)
         env:
@@ -131,7 +133,7 @@ jobs:
       - name: RBAC sparse bench
         env:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
-        run: npx ts-node backend/src/tests/echo.rbac.sparse.bench.ts
+        run: npx ts-node server/backend/src/tests/permissions/echo.rbac.sparse.bench.ts
 
   perf-validation:
     if: github.event_name == 'workflow_dispatch'
@@ -168,7 +170,7 @@ jobs:
         run: npm run build -w backend
 
       - name: Permission cache smoke test
-        run: npx ts-node backend/src/tests/echo.permission.cache.test.ts
+        run: npx ts-node server/backend/src/tests/permissions/echo.permission.cache.test.ts
 
       - name: Discord import smoke test
         env:
@@ -176,7 +178,7 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
           PG_TEST_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
-        run: npx ts-node backend/src/tests/echo.discordImport.test.ts
+        run: npx ts-node server/backend/src/tests/discord/echo.discordImport.test.ts
 
       - name: Start backend for benchmark
         env:
@@ -186,7 +188,7 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
         run: |
-          node backend/dist/backend/src/index.js > /tmp/echo-backend.log 2>&1 &
+          node server/backend/dist/server/backend/src/index.js > /tmp/echo-backend.log 2>&1 &
           echo $! > /tmp/echo-backend.pid
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3000/api/v1/health >/dev/null; then

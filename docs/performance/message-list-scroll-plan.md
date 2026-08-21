@@ -24,7 +24,7 @@ Causal chain (usually not “either/or”):
 
 The painful loop is **not** symmetric step-for-step:
 
-1. **Async**: media/embed finishes → row height changes.
+1. **Async**: server/media/embed finishes → row height changes.
 2. **Virtualizer**: **scroll compensation** (adjust `scrollTop` / preserve anchor)—**not** “measure again” alone.
 3. **Sync**: **scroll events** fire.
 4. **Reactive**: updates rerun computeds / virtualizer inputs.
@@ -56,11 +56,11 @@ So it **expands the probability space** for overlapping layout shifts, amplifyin
 
 ## 3. Current code touchpoints
 
-| Area                           | File                                                    | Notes                                                                                          |
-| ------------------------------ | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Virtualizer + scroll           | `frontend/src/features/chat/components/MessageList.vue` | `useVirtualizer` computed, `onScrollCombined`, `estimateSize`, `overscan`, `orderKey` fallback |
-| Message index / order revision | `frontend/src/stores/messageIndex.ts`                   | `orderRevision`, `getChannelIndex`                                                             |
-| Row measure                    | `MessageList.vue`                                       | `measureElement` deferred via `requestAnimationFrame`                                          |
+| Area                           | File                                                       | Notes                                                                                          |
+| ------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Virtualizer + scroll           | `clients/web/src/features/chat/components/MessageList.vue` | `useVirtualizer` computed, `onScrollCombined`, `estimateSize`, `overscan`, `orderKey` fallback |
+| Message index / order revision | `clients/web/src/stores/messageIndex.ts`                   | `orderRevision`, `getChannelIndex`                                                             |
+| Row measure                    | `MessageList.vue`                                          | `measureElement` deferred via `requestAnimationFrame`                                          |
 
 **Known defect pattern:** when `activeChannelIndex` is null (e.g. no `channelId`), `orderKey` falls back to:
 

@@ -1,6 +1,6 @@
 # Echo permission compatibility (Option A)
 
-This document is the runtime contract for RBAC merge behavior. Implementation must live in `backend/src/domain/echoPermissionPrimitives.ts` and related modules; do not duplicate sort or fold logic elsewhere.
+This document is the runtime contract for RBAC merge behavior. Implementation must live in `server/backend/src/domain/permissions/echoPermissionPrimitives.ts` and related modules; do not duplicate sort or fold logic elsewhere.
 
 ## Sort order (fold order)
 
@@ -46,4 +46,4 @@ This document is the runtime contract for RBAC merge behavior. Implementation mu
 - **Authoring** the document body uses existing `SEND_MESSAGES` (UI: “Author in paper”); it does not imply comment permission.
 - **Comment moderation** uses `MANAGE_MESSAGES` on paper channels (UI: “Manage comments”).
 - **Download / export** (PDF, JSON, copy plain text in the File menu) uses `READ_MESSAGE_HISTORY` (UI key `readMessageHistory`, label “Download / export paper” in paper channel settings). UI gating only; document GET still returns full JSON to viewers with `VIEW_CHANNEL`.
-- Channel overwrites and role defaults follow the same last-write-wins fold as other Echo bits; see `shared/rolePermissionBridge.ts` for the bridge mapping.
+- Channel overwrites and role defaults follow the same last-write-wins fold as other Echo bits; see `contracts/rolePermissionBridge.ts` for the bridge mapping.

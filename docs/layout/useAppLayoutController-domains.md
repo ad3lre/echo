@@ -1,17 +1,17 @@
 # Domains handled by `useAppLayoutController`
 
-Inventory of concern areas inside the layout composition root: [`useAppLayoutController.ts`](../../frontend/src/features/layout/composables/useAppLayoutController.ts) (facade, ~7 lines) orchestrates via [`createAppLayoutController.ts`](../../frontend/src/features/layout/composables/createAppLayoutController.ts) and three phased `wireAppLayout*` modules. Context field-mapping lives in [`buildAppLayoutAssemblyDeps.ts`](../../frontend/src/features/layout/composables/buildAppLayoutAssemblyDeps.ts); slice instantiation in [`assembleAppLayoutControllerContext.ts`](../../frontend/src/features/layout/composables/assembleAppLayoutControllerContext.ts).
+Inventory of concern areas inside the layout composition root: [`useAppLayoutController.ts`](../../clients/web/src/features/layout/composables/controller/useAppLayoutController.ts) (facade, ~7 lines) orchestrates via [`createAppLayoutController.ts`](../../clients/web/src/features/layout/composables/controller/createAppLayoutController.ts) and three phased `wireAppLayout*` modules. Context field-mapping lives in [`buildAppLayoutAssemblyDeps.ts`](../../clients/web/src/features/layout/composables/controller/buildAppLayoutAssemblyDeps.ts); slice instantiation in [`assembleAppLayoutControllerContext.ts`](../../clients/web/src/features/layout/composables/controller/assembleAppLayoutControllerContext.ts).
 
 **Split out of the monolithic controller (still wired through phased modules):**
 
-- `[useAppLayoutShellNavigation](../../frontend/src/features/layout/composables/useAppLayoutShellNavigation.ts)` — composes `useRailNavigation`, `createDmRailIntents`, and `useUrlNavigationSync`; owns `shellNavState`, `deriveMainSurface` → `mainSurface`, `isServerEmptyOnboarding`, `closeDmPanelWhenServerChannelSurface` (+ watch), `activeChannelId` nav diagnostic watch, and tab helpers (`selectServersTab`, `selectExploreTab`, `selectDMTab`, `closeDMPanel`, `dispatchNav`).
-- `[useAppLayoutCallVoiceBridge](../../frontend/src/features/layout/composables/useAppLayoutCallVoiceBridge.ts)` — **glue only** (does not remove coupling): internal hydrate slot, runs `[useAppLayoutDmCalls](../../frontend/src/features/layout/composables/useAppLayoutDmCalls.ts)` + `[useAppLayoutShellVoice](../../frontend/src/features/layout/composables/useAppLayoutShellVoice.ts)` + `bindVoiceSession`; exposes `assignHydrateEchoFromApi` (after `useEchoWorkspaceLifecycle`) and `wireDmCallSocketSubmitters` (after `useSocket`). **Dependency graph vs lifecycle/socket is unchanged** — only where those hooks live.
-- `[useAppLayoutProfilesDomain](../../frontend/src/features/layout/composables/useAppLayoutProfilesDomain.ts)` — profile/member-list domain aggregator: composes `[useAppLayoutProfiles](../../frontend/src/features/layout/composables/useAppLayoutProfiles.ts)` + `[useAppLayoutProfileSafety](../../frontend/src/features/layout/composables/useAppLayoutProfileSafety.ts)`, owns member-list/channel-panel user projection, expanded-profile mutual-friends stale-guard watch, friend removal routing, and profile safety handlers surfaced to controller context.
+- `[useAppLayoutShellNavigation](../../clients/web/src/features/layout/composables/controller/useAppLayoutShellNavigation.ts)` — composes `useRailNavigation`, `createDmRailIntents`, and `useUrlNavigationSync`; owns `shellNavState`, `deriveMainSurface` → `mainSurface`, `isServerEmptyOnboarding`, `closeDmPanelWhenServerChannelSurface` (+ watch), `activeChannelId` nav diagnostic watch, and tab helpers (`selectServersTab`, `selectExploreTab`, `selectDMTab`, `closeDMPanel`, `dispatchNav`).
+- `[useAppLayoutCallVoiceBridge](../../clients/web/src/features/layout/composables/controller/useAppLayoutCallVoiceBridge.ts)` — **glue only** (does not remove coupling): internal hydrate slot, runs `[useAppLayoutDmCalls](../../clients/web/src/features/layout/composables/dm/useAppLayoutDmCalls.ts)` + `[useAppLayoutShellVoice](../../clients/web/src/features/layout/composables/voice/useAppLayoutShellVoice.ts)` + `bindVoiceSession`; exposes `assignHydrateEchoFromApi` (after `useEchoWorkspaceLifecycle`) and `wireDmCallSocketSubmitters` (after `useSocket`). **Dependency graph vs lifecycle/socket is unchanged** — only where those hooks live.
+- `[useAppLayoutProfilesDomain](../../clients/web/src/features/layout/composables/profiles/useAppLayoutProfilesDomain.ts)` — profile/member-list domain aggregator: composes `[useAppLayoutProfiles](../../clients/web/src/features/layout/composables/profiles/useAppLayoutProfiles.ts)` + `[useAppLayoutProfileSafety](../../clients/web/src/features/layout/composables/profiles/useAppLayoutProfileSafety.ts)`, owns member-list/channel-panel user projection, expanded-profile mutual-friends stale-guard watch, friend removal routing, and profile safety handlers surfaced to controller context.
 - **Context slice builders (new):**
-  - `[useAppLayoutContextProfileSlice](../../frontend/src/features/layout/composables/useAppLayoutContextProfileSlice.ts)`
-  - `[useAppLayoutContextVoiceSlice](../../frontend/src/features/layout/composables/useAppLayoutContextVoiceSlice.ts)`
-  - `[useAppLayoutContextMessagingSlice](../../frontend/src/features/layout/composables/useAppLayoutContextMessagingSlice.ts)`
-  - `[useAppLayoutContextServerRailSlice](../../frontend/src/features/layout/composables/useAppLayoutContextServerRailSlice.ts)`
+  - `[useAppLayoutContextProfileSlice](../../clients/web/src/features/layout/composables/profiles/useAppLayoutContextProfileSlice.ts)`
+  - `[useAppLayoutContextVoiceSlice](../../clients/web/src/features/layout/composables/voice/useAppLayoutContextVoiceSlice.ts)`
+  - `[useAppLayoutContextMessagingSlice](../../clients/web/src/features/layout/composables/messaging/useAppLayoutContextMessagingSlice.ts)`
+  - `[useAppLayoutContextServerRailSlice](../../clients/web/src/features/layout/composables/rail/useAppLayoutContextServerRailSlice.ts)`
     These assemble typed `Pick<AppLayoutControllerContext, ...>` slices that the controller spreads into the final context object to reduce API-drift risk during refactors.
 - **Nested inside the bridge:** `useAppLayoutDmCalls` (DM/group calls, `handleEchoDmCall`, ringtone, DM LiveKit after bind, `callOverlay`, …) and `useAppLayoutShellVoice` (`useServerVoiceSession`, device sync, channel-panel VC bridge, voice nav helpers, `buildVoiceBindingForDmCalls`).
 
@@ -20,7 +20,7 @@ Inventory of concern areas inside the layout composition root: [`useAppLayoutCon
 ## 1. Core stores and workspace
 
 - **Server selection & lists** — `useServerStore`, selected server/channel navigation.
-- **Echo session** — `useEchoSessionStore` (`workspaceMembersByServer`, `presenceByUserId` for chat/member-list overlays). HTTP batch presence, debounced channel/server-driven refresh, and `presence:update` application run in `[useEchoPresenceSync](../../frontend/src/features/layout/composables/useEchoPresenceSync.ts)`; allowed statuses and transient fetch classification live in `[echoPresence.ts](../../frontend/src/features/layout/workspace/echoPresence.ts)` (see §10).
+- **Echo session** — `useEchoSessionStore` (`workspaceMembersByServer`, `presenceByUserId` for chat/member-list overlays). HTTP batch presence, debounced channel/server-driven refresh, and `presence:update` application run in `[useEchoPresenceSync](../../clients/web/src/features/layout/useEchoPresenceSync.ts)`; allowed statuses and transient fetch classification live in `[echoPresence.ts](../../clients/web/src/features/layout/echoPresence.ts)` (see §10).
 - **Echo attention / read state** — `useEchoAttentionStore` (`dmAttentionByChannelId`, `serverAttentionByServerId`, socket-driven patches).
 - **Auth session** — `useAuthSessionStore` (tokens, `backendUser`, guest flag, plan limits, session-ended message).
 - **Workspace model** — `useEchoWorkspace` (messages, users, servers, categories, friends, requests, etc.).
@@ -83,7 +83,7 @@ Inventory of concern areas inside the layout composition root: [`useAppLayoutCon
 
 ## 9. DM and group voice calls (orchestration vs implementation)
 
-**Implementation:** `[useAppLayoutDmCalls](../../frontend/src/features/layout/composables/useAppLayoutDmCalls.ts)` — call UI state (`dmCallWithUserId`, fullscreen, mute/deafen/video/screenshare, signal state), partner/group computeds (`dmPartnerUser`, `activeGroupId`, `dmCallGlassPeer`, `dmVoiceJoinTargetId`, …), `startDmCall*` / `startGroupCall*`, direct-DM channel ensure (`postEchoOpenDm`), `handleEchoDmCall`, ringtone/wait audio, DM LiveKit join/leave once bound to shell voice (`bindVoiceSession`), invite/accept/end over socket (via submitters), `endDmCall` / `answerDmCall` / `declineDmCall`, `callOverlay` / quarter-view / CallView participants.
+**Implementation:** `[useAppLayoutDmCalls](../../clients/web/src/features/layout/composables/dm/useAppLayoutDmCalls.ts)` — call UI state (`dmCallWithUserId`, fullscreen, mute/deafen/video/screenshare, signal state), partner/group computeds (`dmPartnerUser`, `activeGroupId`, `dmCallGlassPeer`, `dmVoiceJoinTargetId`, …), `startDmCall*` / `startGroupCall*`, direct-DM channel ensure (`postEchoOpenDm`), `handleEchoDmCall`, ringtone/wait audio, DM LiveKit join/leave once bound to shell voice (`bindVoiceSession`), invite/accept/end over socket (via submitters), `endDmCall` / `answerDmCall` / `declineDmCall`, `callOverlay` / quarter-view / CallView participants.
 
 **Controller responsibilities:** after shell navigation, compute `effectiveActiveChannel` / `voiceChannelForParticipants` / `isViewingVoiceChannel` / `isDmUiContext` (Vue `setup()` order only — inputs for the bridge). Call `useAppLayoutCallVoiceBridge({ … })` once. After `useEchoWorkspaceLifecycle`, `assignHydrateEchoFromApi(hydrateEchoFromApi)`. Pass `handleEchoDmCall` from the bridge into `useSocket`; immediately after `useSocket`, `wireDmCallSocketSubmitters({ invite, accept, end })`.
 
@@ -91,9 +91,9 @@ Inventory of concern areas inside the layout composition root: [`useAppLayoutCon
 
 ## 10. Presence (delegated composable)
 
-Implementation lives in `[useEchoPresenceSync](../../frontend/src/features/layout/composables/useEchoPresenceSync.ts)`. The controller **instantiates** it (after `activeChannelId` exists) and threads the returned functions into lifecycle and socket wiring.
+Implementation lives in `[useEchoPresenceSync](../../clients/web/src/features/layout/useEchoPresenceSync.ts)`. The controller **instantiates** it (after `activeChannelId` exists) and threads the returned functions into lifecycle and socket wiring.
 
-- `**syncEchoPresenceFromApi`\*\* — `fetchEchoPresenceBatch` over users, friends, message authors, selected-server roster (with `workspaceMembersByServer` fallback), plus self; validates statuses via `[echoPresence](../../frontend/src/features/layout/workspace/echoPresence.ts)`; transient fetch errors suppressed, others → `reportPrimaryFlowFailure`.
+- `**syncEchoPresenceFromApi`\*\* — `fetchEchoPresenceBatch` over users, friends, message authors, selected-server roster (with `workspaceMembersByServer` fallback), plus self; validates statuses via `[echoPresence](../../clients/web/src/features/layout/echoPresence.ts)`; transient fetch errors suppressed, others → `reportPrimaryFlowFailure`.
 - **Watches (inside composable)** — `serverStore.selectedServerId` and debounced (~60ms) `activeChannelId` → batch refresh; `onScopeDispose` clears the debounce timer.
 - `**applyEchoPresenceFromSocket`\*\* — passed into `useSocket` as `onPresenceUpdate`; validates then `echoSession.patchPresence`.
 - **Controller still reads** `presenceByUserId` from `echoSession` for `useChatMessages`, `memberListUsers`, and `usersForChannelPanel` (§16, §29) — not moved into the presence composable.
@@ -191,7 +191,7 @@ Implementation lives in `[useEchoPresenceSync](../../frontend/src/features/layou
 
 ## 23. Guild voice (LiveKit) and media
 
-**Implementation:** `[useAppLayoutShellVoice](../../frontend/src/features/layout/composables/useAppLayoutShellVoice.ts)` wraps `**useServerVoiceSession`\*\* — join/leave (`joinVoiceSession` / `leaveVoiceSession`), participants, LiveKit room/API, speaking levels, mic/speaker/camera/screen share, output/input volume, voice processing reapply; bridges to UI `onJoinVoice` / `onLeaveVoice` from `useAppLayoutUiState`.
+**Implementation:** `[useAppLayoutShellVoice](../../clients/web/src/features/layout/composables/voice/useAppLayoutShellVoice.ts)` wraps `**useServerVoiceSession`\*\* — join/leave (`joinVoiceSession` / `leaveVoiceSession`), participants, LiveKit room/API, speaking levels, mic/speaker/camera/screen share, output/input volume, voice processing reapply; bridges to UI `onJoinVoice` / `onLeaveVoice` from `useAppLayoutUiState`.
 
 - **Device stores** — `useUiAudioDevicesStore`, `useVoiceLevelsStore`, `useCameraPreferencesStore`; watches sync sink/mic and volumes when connected (inside shell voice).
 - `**syncLiveKitAudioFromUiStores`\*\* — post-connect audio alignment; also passed into DM binding for DM call paths.
@@ -237,7 +237,7 @@ Implementation lives in `[useEchoPresenceSync](../../frontend/src/features/layou
 
 ## 29. Profiles, safety, and member list
 
-Primary implementation now lives in `[useAppLayoutProfilesDomain](../../frontend/src/features/layout/composables/useAppLayoutProfilesDomain.ts)`; the controller wires dependencies and exposes outputs.
+Primary implementation now lives in `[useAppLayoutProfilesDomain](../../clients/web/src/features/layout/composables/profiles/useAppLayoutProfilesDomain.ts)`; the controller wires dependencies and exposes outputs.
 
 - `**useAppLayoutProfileSafety`\*\* — custom status, block/unblock/report, expanded profile close, nickname changes, hydration/role refresh hooks (composed by `useAppLayoutProfilesDomain`).
 - `**useAppLayoutProfiles`\*\* — member/self/expanded profile open flows, notes, DM from profile (composed by `useAppLayoutProfilesDomain`).
@@ -271,7 +271,7 @@ Primary implementation now lives in `[useAppLayoutProfilesDomain](../../frontend
 
 ## 33. URL ↔ shell sync
 
-- `**useUrlNavigationSync`** — invoked **only** from `**[useAppLayoutShellNavigation](../../frontend/src/features/layout/composables/useAppLayoutShellNavigation.ts)`**. Keeps History API URL in sync with rail, DM subview, channel, modals (user settings / guild server settings), workspace readiness, `mainSurface`, Echo DM thread ids; `popstate` / initial apply / logout edge cases unchanged from the dedicated module.
+- `**useUrlNavigationSync`** — invoked **only** from `**[useAppLayoutShellNavigation](../../clients/web/src/features/layout/composables/controller/useAppLayoutShellNavigation.ts)`**. Keeps History API URL in sync with rail, DM subview, channel, modals (user settings / guild server settings), workspace readiness, `mainSurface`, Echo DM thread ids; `popstate` / initial apply / logout edge cases unchanged from the dedicated module.
 - **Server settings from URL** — uses the controller’s `**openServerSettingsFromUrl`** directly (same function as `**actionRegistryDraft.navigation.openServerSettingsFromUrl`**), not a post-`seal()` indirection through the sealed registry.
 
 ---

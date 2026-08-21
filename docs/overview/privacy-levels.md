@@ -5,7 +5,7 @@
 
 This document describes **privacy levels** for Echo communities and deployments. Levels describe how much data is collected, how identity persists, and how deeply the system may analyze behavior or content. Actual capabilities depend on product configuration, host setup (for self-hosted instances), and applicable law.
 
-For how Echo processes personal data in general, see [Privacy Policy](./privacy.md).
+For how Echo processes personal data in general, see [Privacy Policy](../../marketing/terms/en-US/privacy.md).
 
 ---
 
@@ -123,4 +123,4 @@ Higher levels imply more processing power and more privacy impact. Communities o
 ## Notes
 
 - **Self-hosted (−1)** and **cloud-hosted** Echo may not offer every level; availability is a product and configuration decision.
-- Legal requirements (e.g. GDPR, especially for minors) apply **regardless** of level labels—this document describes intent and design tiers, not a substitute for legal analysis or your [Privacy Policy](./privacy.md).
+- Legal requirements (e.g. GDPR, especially for minors) apply **regardless** of level labels—this document describes intent and design tiers, not a substitute for legal analysis or your [Privacy Policy](../../marketing/terms/en-US/privacy.md).

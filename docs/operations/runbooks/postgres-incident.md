@@ -78,5 +78,5 @@ Note: Restore requires `sudo` and read-capable credentials stored separately fro
 
 ## Related documentation
 
-- Production checklist: [`STATUS_AND_PRODUCTION_READINESS.md`](../STATUS_AND_PRODUCTION_READINESS.md) §8.
+- Production checklist: [`STATUS_AND_PRODUCTION_READINESS.md`](../../reviews/STATUS_AND_PRODUCTION_READINESS.md) §8.
 - Snowflake-specific ops (IDs, indexes): [`snowflake-cutover.md`](./snowflake-cutover.md).

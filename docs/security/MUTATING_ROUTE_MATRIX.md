@@ -1,15 +1,15 @@
 # Mutating HTTP surface matrix (`/api/v1` and related)
 
-This document summarizes **who can call what** for **POST / PUT / PATCH / DELETE** (and CSRF-exempt auth-style GETs where relevant). It is derived from route registration in [`backend/src/api/routes/index.ts`](../../backend/src/api/routes/index.ts), the Echo split in [`backend/src/api/routes/echo.ts`](../../backend/src/api/routes/echo.ts), CSRF rules in [`backend/src/auth/csrf.ts`](../../backend/src/auth/csrf.ts), and global HTTP plugins in [`backend/src/bootstrap/httpPlugins.ts`](../../backend/src/bootstrap/httpPlugins.ts).
+This document summarizes **who can call what** for **POST / PUT / PATCH / DELETE** (and CSRF-exempt auth-style GETs where relevant). It is derived from route registration in [`server/backend/src/api/routes/index.ts`](../../server/backend/src/api/routes/index.ts), the Echo split in [`server/backend/src/api/routes/echo.ts`](../../server/backend/src/api/routes/echo.ts), CSRF rules in [`server/backend/src/auth/csrf.ts`](../../server/backend/src/auth/csrf.ts), and global HTTP plugins in [`server/backend/src/bootstrap/httpPlugins.ts`](../../server/backend/src/bootstrap/httpPlugins.ts).
 
 ## Legend
 
-| Column        | Meaning                                                                                                                                                                                                                                                     |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Auth**      | Primary caller identity expected by the handler                                                                                                                                                                                                             |
-| **CSRF**      | Browser `POST`/`PUT`/`PATCH`/`DELETE` under `/api/v1`: `yes` = double-submit required unless path is exempt; `exempt` = listed in `csrf.ts`                                                                                                                 |
-| **Global RL** | [`httpPlugins.ts`](../../backend/src/bootstrap/httpPlugins.ts): **150/min** per `uid:<jwtSub>` or `ip:<req.ip>`, skipped when request matches “Echo read” allow-list ([`echoReadRateLimitPaths.ts`](../../backend/src/bootstrap/echoReadRateLimitPaths.ts)) |
-| **Scoped RL** | Additional plugin-specific limiters where registered                                                                                                                                                                                                        |
+| Column        | Meaning                                                                                                                                                                                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Auth**      | Primary caller identity expected by the handler                                                                                                                                                                                                                           |
+| **CSRF**      | Browser `POST`/`PUT`/`PATCH`/`DELETE` under `/api/v1`: `yes` = double-submit required unless path is exempt; `exempt` = listed in `csrf.ts`                                                                                                                               |
+| **Global RL** | [`httpPlugins.ts`](../../server/backend/src/bootstrap/httpPlugins.ts): **150/min** per `uid:<jwtSub>` or `ip:<req.ip>`, skipped when request matches “Echo read” allow-list ([`echoReadRateLimitPaths.ts`](../../server/backend/src/bootstrap/echoReadRateLimitPaths.ts)) |
+| **Scoped RL** | Additional plugin-specific limiters where registered                                                                                                                                                                                                                      |
 
 `req.ip` effectiveness depends on `trustProxy` and edge configuration.
 
@@ -17,7 +17,7 @@ This document summarizes **who can call what** for **POST / PUT / PATCH / DELETE
 
 ## CSRF exemptions (mutating paths only)
 
-Exact paths (from [`csrf.ts`](../../backend/src/auth/csrf.ts)):
+Exact paths (from [`csrf.ts`](../../server/backend/src/auth/csrf.ts)):
 
 | Path                                           | Rationale                                                    |
 | ---------------------------------------------- | ------------------------------------------------------------ |
@@ -76,7 +76,7 @@ Discord bot HTTP (`/discord/v10`) and gateway WebSocket are **outside** `/api/v1
 
 ## Echo domain (`/api/v1/echo`)
 
-From [`echo.ts`](../../backend/src/api/routes/echo.ts):
+From [`echo.ts`](../../server/backend/src/api/routes/echo.ts):
 
 1. **`echoPublic`** is registered **without** `requireAuth`. It exposes **GET** directory/marketing-style endpoints and **POST `/support/contact`** / **POST `/marketing-poll/adel-approval-v2`** (scoped rate limits + honeypot; poll also enforces one entry per IP). **Mutations elsewhere under `/echo` are not in this plugin.**
 
@@ -88,7 +88,7 @@ Guest write guard and other hooks apply inside this subtree per feature modules.
 
 ## Client / SPA notes
 
-- **Vite production** builds set `sourcemap: false` explicitly; CI fails if `frontend/dist/**/*.map` appears ([`.github/workflows/echo-frontend-ci.yml`](../../.github/workflows/echo-frontend-ci.yml)).
+- **Vite production** builds set `sourcemap: false` explicitly; CI fails if `clients/web/dist/**/*.map` appears ([`.github/workflows/echo-web-ci.yml`](../../.github/workflows/echo-web-ci.yml)).
 
 ---
 
@@ -96,7 +96,7 @@ Guest write guard and other hooks apply inside this subtree per feature modules.
 
 When adding a **new mutating** route:
 
-1. Decide **CSRF**: if browser-callable without prior session cookie, add a **narrow** exemption in [`csrf.ts`](../../backend/src/auth/csrf.ts) with a comment.
+1. Decide **CSRF**: if browser-callable without prior session cookie, add a **narrow** exemption in [`csrf.ts`](../../server/backend/src/auth/csrf.ts) with a comment.
 2. Decide **auth**: prefer `requireAuth` (or explicit secret/Bearer) over “obscure URL”.
-3. Decide **rate limits**: global bucket may be enough; high-abuse or unauthenticated endpoints should register a **scoped** `@fastify/rate-limit` like [`analytics.ts`](../../backend/src/api/routes/analytics.ts) or [`giphy.ts`](../../backend/src/api/routes/giphy.ts).
+3. Decide **rate limits**: global bucket may be enough; high-abuse or unauthenticated endpoints should register a **scoped** `@fastify/rate-limit` like [`analytics.ts`](../../server/backend/src/api/routes/analytics.ts) or [`giphy.ts`](../../server/backend/src/api/routes/giphy.ts).
 4. Update this matrix in the same PR when behavior is security-relevant.

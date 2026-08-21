@@ -1,11 +1,11 @@
 # LibSignal / `@privacyresearch/libsignal-protocol-typescript` roadmap
 
-Echo’s DM cryptography is built on `@privacyresearch/libsignal-protocol-typescript` (see `frontend/package.json`). This note captures maintenance expectations relative to “industry standard” Signal-class messengers.
+Echo’s DM cryptography is built on `@privacyresearch/libsignal-protocol-typescript` (see `clients/web/package.json`). This note captures maintenance expectations relative to “industry standard” Signal-class messengers.
 
 ## Current posture
 
 - **X25519 / AES** session setup via prekey bundles and the double ratchet, aligned with classic Signal Protocol semantics.
-- **Signed prekey rotation** is enforced client-side on a 14-day cadence (see `ensureEchoSignalBootstrap` in `frontend/src/services/e2ee/e2eeSignalStore.ts`), with hourly throttled re-upload of device material so servers advertise fresh signed keys without spamming `POST /e2ee/devices/register`.
+- **Signed prekey rotation** is enforced client-side on a 14-day cadence (see `ensureEchoSignalBootstrap` in `clients/web/src/services/e2ee/e2eeSignalStore.ts`), with hourly throttled re-upload of device material so servers advertise fresh signed keys without spamming `POST /e2ee/devices/register`.
 - **Multi-device** uses distinct LibSignal `SignalProtocolAddress` numeric device ids (`protocol_device_id` in Postgres), separate from the UUID `device_id` stored for UX and voice envelope routing.
 
 ## Post-quantum (PQ)

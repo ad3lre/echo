@@ -1,10 +1,10 @@
 # Discord user OAuth (account linking)
 
-Echo can link a signed-in **Echo user** to a **Discord user** via OAuth2, using the **same Discord application** as the export bot under [`bot/`](/bot/). The bot uses a **bot token** and privileged intents for guild export; account linking uses the **OAuth2 authorization code** flow with a **user access token**. These are different credentials on the same Discord application (same Client ID).
+Echo can link a signed-in **Echo user** to a **Discord user** via OAuth2, using the **same Discord application** as the export bot under [`bot/`](../../../bot). The bot uses a **bot token** and privileged intents for guild export; account linking uses the **OAuth2 authorization code** flow with a **user access token**. These are different credentials on the same Discord application (same Client ID).
 
 ## Environment
 
-Set in the monorepo root `.env` (see [`.env.example`](../../.env.example)):
+Set in the monorepo root `.env` (see [`.env.example`](../../../.env.example)):
 
 | Variable                            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -73,7 +73,7 @@ The linking flow should **no-op** when optional endpoints fail or omit data. You
 
 ## Internal model
 
-Linked accounts are stored in `auth_discord_user_links` (see `backend/src/db/authTables.ts`):
+Linked accounts are stored in `auth_discord_user_links` (see `server/backend/src/db/authTables.ts`):
 
 - **Encrypted** `access_token` / `refresh_token` (AES-256-GCM).
 - `discord_normalized_jsonb` — Echo-owned **versioned** object (`v: 1`, ids, display fields, avatar/banner CDN URLs, `emailPresent`, optional counts). All product logic and `GET /me/discord` use this layer.

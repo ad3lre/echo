@@ -5,42 +5,10 @@ updates:
     schedule:
       interval: 'weekly'
 
+  # Single lockfile at repo root covers all npm workspaces
+  # (clients/web, server/backend, contracts, bot, marketing, server/ops/scripts,
+  # server/voice, server/media, server/activities).
   - package-ecosystem: 'npm'
     directory: '/'
-    schedule:
-      interval: 'weekly'
-
-  - package-ecosystem: 'npm'
-    directory: '/backend'
-    schedule:
-      interval: 'weekly'
-
-  - package-ecosystem: 'npm'
-    directory: '/frontend'
-    schedule:
-      interval: 'weekly'
-
-  - package-ecosystem: 'npm'
-    directory: '/bot'
-    schedule:
-      interval: 'weekly'
-
-  - package-ecosystem: 'npm'
-    directory: '/marketing'
-    schedule:
-      interval: 'weekly'
-
-  - package-ecosystem: 'npm'
-    directory: '/shared'
-    schedule:
-      interval: 'weekly'
-
-  - package-ecosystem: 'npm'
-    directory: '/scripts'
-    schedule:
-      interval: 'weekly'
-
-  - package-ecosystem: 'npm'
-    directory: '/voice-sidecar'
     schedule:
       interval: 'weekly'

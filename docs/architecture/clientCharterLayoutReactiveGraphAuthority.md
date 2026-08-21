@@ -2,7 +2,7 @@
 
 Charter: [agents.md](../overview/agents.md). Leak goal **2** in [client-charter-leak-goals.md](./client-charter-leak-goals.md).
 
-This document is the **single place** that explains why the layout composition root (facade + [`createAppLayoutController.ts`](../../frontend/src/features/layout/composables/createAppLayoutController.ts) and phased `wireAppLayout*` modules) must keep a **strict setup order** across **DM state**, **effective channel / voice context**, **DM rail unread**, **chat rows**, and **realtime host/socket** glue. It complements [clientCharterStoresNavVirtualizerAuthority.md](./clientCharterStoresNavVirtualizerAuthority.md) (rows 24–26): that doc owns nav + list invalidation; this one owns **layout composition-root ordering**.
+This document is the **single place** that explains why the layout composition root (facade + [`createAppLayoutController.ts`](../../clients/web/src/features/layout/composables/controller/createAppLayoutController.ts) and phased `wireAppLayout*` modules) must keep a **strict setup order** across **DM state**, **effective channel / voice context**, **DM rail unread**, **chat rows**, and **realtime host/socket** glue. It complements [clientCharterStoresNavVirtualizerAuthority.md](./clientCharterStoresNavVirtualizerAuthority.md) (rows 24–26): that doc owns nav + list invalidation; this one owns **layout composition-root ordering**.
 
 ---
 
@@ -16,7 +16,7 @@ Truth and merge rules **belong** in domain / view-models — this file only reco
 
 ## Enforced contract
 
-**Regression guard:** [`useAppLayoutController.wiringOrder.test.ts`](../../frontend/src/features/layout/composables/useAppLayoutController.wiringOrder.test.ts) asserts that the first occurrence of each marker in the concatenated wiring sources (`createAppLayoutController.ts` + three `wireAppLayout*` phases) appears in the documented order. If you intentionally reorder setup, update **both** this doc and the marker list in that test.
+**Regression guard:** [`useAppLayoutController.wiringOrder.test.ts`](../../clients/web/src/features/layout/composables/controller/useAppLayoutController.wiringOrder.test.ts) asserts that the first occurrence of each marker in the concatenated wiring sources (`createAppLayoutController.ts` + three `wireAppLayout*` phases) appears in the documented order. If you intentionally reorder setup, update **both** this doc and the marker list in that test.
 
 ---
 

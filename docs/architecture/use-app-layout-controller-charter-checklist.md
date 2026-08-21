@@ -21,13 +21,13 @@ Status (2026-06-13): facade + phased wiring complete; context assembly extracted
 
 ## Current debt to avoid treating as final architecture
 
-- [`workspaceSocketEventHandler.ts`](../../frontend/src/services/orchestration/workspaceSocketEventHandler.ts)
-- [`workspaceRosterMerge.ts`](../../frontend/src/services/orchestration/workspaceRosterMerge.ts)
-- [x] [`workspaceSocialHydrate.ts`](../../frontend/src/services/orchestration/workspaceSocialHydrate.ts)
-- [`workspaceFirstGuildBootstrapGuard.ts`](../../frontend/src/services/orchestration/workspaceFirstGuildBootstrapGuard.ts)
-- [x] [`workspaceServerDeletionNav.ts`](../../frontend/src/services/orchestration/workspaceServerDeletionNav.ts)
-- [`workspaceShellResetOnLogout.ts`](../../frontend/src/services/orchestration/workspaceShellResetOnLogout.ts)
-- [`echoWorkspaceLifecycleViewModel.ts`](../../frontend/src/features/layout/viewModel/echoWorkspaceLifecycleViewModel.ts)
+- [`workspaceSocketEventHandler.ts`](../../clients/web/src/features/layout/realtime/workspaceSocketEventHandler.ts)
+- [`workspaceRosterMerge.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceRosterMerge.ts)
+- [x] [`workspaceSocialHydrate.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceSocialHydrate.ts)
+- [`workspaceFirstGuildBootstrapGuard.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceFirstGuildBootstrapGuard.ts)
+- [x] [`workspaceServerDeletionNav.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceServerDeletionNav.ts)
+- [`workspaceShellResetOnLogout.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceShellResetOnLogout.ts)
+- `echoWorkspaceLifecycleViewModel.ts`
 
 These files may be on the controller call path today, but they are not the final compliant homes for merge, bootstrap, refresh, or navigation policy.
 
@@ -42,6 +42,6 @@ These files may be on the controller call path today, but they are not the final
 
 ## Regression guards
 
-- [`useAppLayoutController.thinSurface.test.ts`](../../frontend/src/features/layout/composables/useAppLayoutController.thinSurface.test.ts)
-- [`useAppLayoutController.wiringOrder.test.ts`](../../frontend/src/features/layout/composables/useAppLayoutController.wiringOrder.test.ts)
-- [`assembleAppLayoutControllerContext.parity.test.ts`](../../frontend/src/features/layout/composables/assembleAppLayoutControllerContext.parity.test.ts)
+- [`useAppLayoutController.thinSurface.test.ts`](../../clients/web/src/features/layout/composables/controller/useAppLayoutController.thinSurface.test.ts)
+- [`useAppLayoutController.wiringOrder.test.ts`](../../clients/web/src/features/layout/composables/controller/useAppLayoutController.wiringOrder.test.ts)
+- [`assembleAppLayoutControllerContext.parity.test.ts`](../../clients/web/src/features/layout/composables/controller/assembleAppLayoutControllerContext.parity.test.ts)

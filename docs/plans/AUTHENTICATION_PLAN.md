@@ -1,6 +1,6 @@
 # Echo Authentication Plan
 
-**Implementation note (2026-03-27):** **Option A is largely shipped** — cookie + Redis sessions, CSRF for mutating auth routes, forgot/reset password, WebAuthn passkeys, MFA paths, and socket resolution from **`echo_sid`** (see [`auth/OPTION_A_SESSION_ARCHITECTURE.md`](./auth/OPTION_A_SESSION_ARCHITECTURE.md)). Treat sections below as **design history + forward hardening** where they still describe “gaps” that are already closed in code.
+**Implementation note (2026-03-27):** **Option A is largely shipped** — cookie + Redis sessions, CSRF for mutating auth routes, forgot/reset password, WebAuthn passkeys, MFA paths, and socket resolution from **`echo_sid`** (see [`auth/OPTION_A_SESSION_ARCHITECTURE.md`](../infra/auth/OPTION_A_SESSION_ARCHITECTURE.md)). Treat sections below as **design history + forward hardening** where they still describe “gaps” that are already closed in code.
 
 **Modern authentication system with safety-first design**
 

@@ -3,7 +3,7 @@
 **Scope:** This report has two layers:
 
 1. **Structural readiness (§1–§5, §7)** — Echo’s **persisted model and evaluation logic** vs what a Discord **bot export** describes (`guild.json`, `roles.json`, `channels.json`, `overwrites.jsonl`, etc.).
-2. **Runtime import pipeline (§6)** — What the backend **actually imports today** from an on-disk export bundle (`backend/src/services/discordImport.ts`, `discordMessageImport.ts`, routes under `echoDiscordImport.ts`). This section is the **fact check** against code; refresh it when import behavior changes.
+2. **Runtime import pipeline (§6)** — What the backend **actually imports today** from an on-disk export bundle (`server/backend/src/services/discordImport/discordImport.ts`, `discordMessageImport.ts`, routes under `echoDiscordImport.ts`). This section is the **fact check** against code; refresh it when import behavior changes.
 
 It **does not** cover calling Discord’s HTTP APIs from Echo (the **export bot** under `bot/` is separate).
 
@@ -133,7 +133,7 @@ Discord → Echo user mapping is **out of scope** for the structural comparison.
 
 **Config:** Export trees live under `**ECHO_DISCORD_EXPORTS_ROOT`\*_ (default `bot/exports` relative to repo). Binding resolves `_{guildId}/` folder names.
 
-**HTTP API** (`backend/src/api/routes/echo/echoDiscordImport.ts`):
+**HTTP API** (`server/backend/src/api/routes/echo/discordImport.ts`):
 
 | Method / path                                                          | Purpose                                                                                                       |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -143,7 +143,7 @@ Discord → Echo user mapping is **out of scope** for the structural comparison.
 | `POST …/servers/:serverId/discord-import`                              | Body `step`: `metadata`, `roles`, `members`, or `channels`; optional `force`                                  |
 | `POST …/servers/:serverId/channels/:channelId/discord-import-messages` | Optional message import for **one** Echo channel                                                              |
 
-**Service:** `backend/src/services/discordImport.ts`
+**Service:** `server/backend/src/services/discordImport/discordImport.ts`
 
 | Step         | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -154,7 +154,7 @@ Discord → Echo user mapping is **out of scope** for the structural comparison.
 
 **Guards:** Channel import refuses (unless `force`) if the server already has **messages** in channels (`countEchoMessagesForServerChannels`). `run-full` passes `force` so a freshly created server can replace the default layout.
 
-**Messages:** `backend/src/services/discordMessageImport.ts`
+**Messages:** `server/backend/src/services/discordImport/discordMessageImport.ts`
 
 - Preconditions: **channels** step done; Echo channel **empty**; Echo channel id appears in import `**channelIdMap`\*\*.
 - Calls **Discord bot** internal HTTP (`ECHO_DISCORD_BOT_INTERNAL_PORT`, `ECHO_DISCORD_BOT_WEBHOOK_SECRET`) for last **N** messages (default 90, max 100).
@@ -182,4 +182,4 @@ Discord → Echo user mapping is **out of scope** for the structural comparison.
 
 ---
 
-_Sources: `backend/src/db/echoTables.ts`, `backend/src/domain/echoStore/` (barrel `index.ts`), `backend/src/domain/echoPermissionEvaluate.ts`, `backend/src/domain/permissionOverwriteMerge.ts`, `backend/src/domain/mergeOverrideRows.ts`, `backend/src/domain/echoPermissionPrimitives.ts`, `backend/src/services/discordImport.ts`, `backend/src/services/discordMessageImport.ts`, `backend/src/api/routes/echo/echoDiscordImport.ts`, `shared/types/channel.ts`, `shared/discordEchoPermissions.ts`, `docs/rbac/RBAC_COMPLETENESS_REPORT.md`._
+_Sources: `server/backend/src/db/echoTables.ts`, `server/backend/src/domain/echoStore/` (barrel `index.ts`), `server/backend/src/domain/permissions/echoPermissionEvaluate.ts`, `server/backend/src/domain/permissions/permissionOverwriteMerge.ts`, `server/backend/src/domain/permissions/mergeOverrideRows.ts`, `server/backend/src/domain/permissions/echoPermissionPrimitives.ts`, `server/backend/src/services/discordImport/discordImport.ts`, `server/backend/src/services/discordImport/discordMessageImport.ts`, `server/backend/src/api/routes/echo/discordImport.ts`, `contracts/types/channel.ts`, `contracts/discordEchoPermissions.ts`, `docs/rbac/RBAC_COMPLETENESS_REPORT.md`._

@@ -11,14 +11,14 @@ No async or realtime submit path in a user-facing flow may fail without **both**
 
 ## `ActionResult`
 
-Defined in [`frontend/src/types/actionResult.ts`](../../frontend/src/types/actionResult.ts):
+Defined in [`clients/web/src/features/layout/actionResult.ts`](../../clients/web/src/features/layout/actionResult.ts):
 
 - `ok: boolean`
 - `error?: { code: string; userMessage: string; retryable: boolean }`
 
 Helpers: `okResult()`, `failResult()`, `toFailResultFromUnknown()`.
 
-Socket submit helpers in [`useSocket.ts`](../../frontend/src/composables/useSocket.ts) return `Promise<ActionResult>` for poll votes, reactions, pins, unpins, and message edits when live realtime is expected.
+Socket submit helpers in [`useSocket.ts`](../../clients/web/src/features/layout/useSocket.ts) return `Promise<ActionResult>` for poll votes, reactions, pins, unpins, and message edits when live realtime is expected.
 
 ## Mandatory call pattern
 
@@ -39,14 +39,14 @@ if (!result.ok) {
 }
 ```
 
-[`propagateActionFailure`](../../frontend/src/utils/actionFailurePropagation.ts) performs `UIErrorBus.emit` + `reportPrimaryFlowFailure(..., { showBanner: false })`.
+[`propagateActionFailure`](../../clients/web/src/features/layout/failures/actionFailurePropagation.ts) performs `UIErrorBus.emit` + `reportPrimaryFlowFailure(..., { showBanner: false })`.
 
 ## `UIErrorBus`
 
-- Module: [`frontend/src/utils/uiErrorBus.ts`](../../frontend/src/utils/uiErrorBus.ts)
+- Module: [`clients/web/src/features/layout/failures/uiErrorBus.ts`](../../clients/web/src/features/layout/failures/uiErrorBus.ts)
 - API: `UIErrorBus.emit(payload)` / `subscribeUIErrors(handler)`
 - Payload: `context`, `severity` (`info` | `warning` | `error`), `userMessage`, optional `code`, `retryable`, `retryAction`
-- App shell: [`AppLayout.vue`](../../frontend/src/features/layout/components/AppLayout.vue) subscribes and passes state into [`AppLayoutInfoBanners.vue`](../../frontend/src/features/layout/components/AppLayoutInfoBanners.vue)
+- App shell: [`AppLayout.vue`](../../clients/web/src/features/layout/components/AppLayout.vue) subscribes and passes state into [`AppLayoutInfoBanners.vue`](../../clients/web/src/features/layout/components/AppLayoutInfoBanners.vue)
 
 ## Relation to primary flow failures
 
@@ -64,5 +64,5 @@ if (!result.ok) {
 
 ## Tests
 
-- [`frontend/src/types/actionResult.test.ts`](../../frontend/src/types/actionResult.test.ts)
-- [`frontend/src/utils/uiErrorBus.test.ts`](../../frontend/src/utils/uiErrorBus.test.ts) (`@vitest-environment jsdom` — DOM `window` required)
+- [`clients/web/src/features/layout/actionResult.test.ts`](../../clients/web/src/features/layout/actionResult.test.ts)
+- [`clients/web/src/features/layout/failures/uiErrorBus.test.ts`](../../clients/web/src/features/layout/failures/uiErrorBus.test.ts) (`@vitest-environment jsdom` — DOM `window` required)

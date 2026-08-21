@@ -4,7 +4,7 @@ This document summarizes what Echo’s LiveKit voice E2EE and LibSignal-backed v
 
 ## Goals
 
-- **Confidentiality of voice media** in DM/group calls (default on) and guild voice/stage channels (per-channel opt-in): LiveKit client-side E2EE; the SFU sees ciphertext only.
+- **Confidentiality of voice media** in DM/group calls (default on) and guild server/voice/stage channels (per-channel opt-in): LiveKit client-side E2EE; the SFU sees ciphertext only.
 - **Group key agreement via MLS (RFC 9420, default protocol):** each call is an MLS group; media keys derive from the epoch exporter secret, giving joining members no access to prior epochs and removed members no access to later ones (the model Discord's DAVE protocol uses). The server is an untrusted delivery service for opaque handshake bytes.
 - **Legacy (v1) key wrapping** for old clients uses the Signal double-ratchet model (via `@privacyresearch/libsignal-protocol-typescript`), with prekey bundles distributed only between users who share a DM, group DM, or voice channel; the server stores only ciphertext envelopes.
 

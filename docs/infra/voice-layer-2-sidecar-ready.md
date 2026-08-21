@@ -1,6 +1,6 @@
 # Voice (Layer 2) — sidecar skeleton & wiring notes
 
-This repo now includes a minimal **Layer 2 sidecar skeleton** at `voice-sidecar/`.
+This repo now includes a minimal **Layer 2 sidecar skeleton** at `server/voice/`.
 
 ## Status (important)
 
@@ -39,7 +39,7 @@ From repo root:
 
 ```bash
 npm install
-npm run dev -w voice-sidecar
+npm run dev -w voice
 ```
 
 Then set:

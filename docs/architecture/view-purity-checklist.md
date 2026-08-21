@@ -2,7 +2,7 @@
 
 Reference: [agents.md](../overview/agents.md) — **Client Charter** and **Controller Rules**.
 
-This checklist defines what “pure view” means for `frontend/src` and how to verify it after refactors.
+This checklist defines what “pure view” means for `clients/web/src` and how to verify it after refactors.
 
 ## Allowed in the view layer
 

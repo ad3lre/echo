@@ -35,7 +35,7 @@ Full setup, PR checks, and maintainer notes: **[docs/DEVELOPMENT.md](./docs/DEVE
 
 ## What Echo is
 
-Echo is a **full-stack communication app**: a Vue 3 SPA, a Node.js (**Fastify**) API, **Socket.IO** for realtime, **PostgreSQL** for durable data, optional **NATS** for multi-process scaling, and **native Apple clients** under [`apple/`](./apple/) (more platforms to follow). A separate **marketing** site (Astro) and optional **Discord bridge / import** tooling exist for migration and interoperability—not as the core identity of the product.
+Echo is a **full-stack communication app**: a Vue 3 SPA, a Node.js (**Fastify**) API, **Socket.IO** for realtime, **PostgreSQL** for durable data, optional **NATS** for multi-process scaling, and **native Apple clients** under [`clients/apple/`](./clients/apple/) (more platforms to follow). A separate **marketing** site (Astro) and optional **Discord bridge / import** tooling exist for migration and interoperability—not as the core identity of the product.
 
 The codebase is organized for **operators and contributors**: typed shared contracts between client and server, documented API behavior under [`docs/contracts/`](./docs/contracts/), and runbooks under [`docs/operations/`](./docs/operations/).
 
@@ -43,9 +43,9 @@ The codebase is organized for **operators and contributors**: typed shared contr
 
 - **Privacy and consent by design** — built around clear boundaries for data, sessions, and what the server is allowed to assume about users.
 - **You own your deployment** — no mandatory third-party control plane; configure auth, storage, voice, and edge the way your threat model requires.
-- **Realtime-first** — chat and presence are first-class; voice/video follow a documented LiveKit path with production checklists in-repo.
+- **Realtime-first** — chat and presence are first-class; server/voice/video follow a documented LiveKit path with production checklists in-repo.
 - **Serious engineering guardrails** — contract tests, RBAC and snowflake guards in CI, observability hooks, and a single [production readiness rollup](./docs/reviews/STATUS_AND_PRODUCTION_READINESS.md) so progress is inspectable, not hand-wavy.
-- **Installable where your users are** — **PWA** for the web and **native Apple apps** in [`apple/`](./apple/) (iOS first; macOS shared where product-neutral).
+- **Installable where your users are** — **PWA** for the web and **native Apple apps** in [`clients/apple/`](./clients/apple/) (iOS first; macOS shared where product-neutral).
 
 ## Open source
 
@@ -55,20 +55,29 @@ Echo is **open source** under the [**GNU Affero General Public License v3.0 only
 
 [![Echo format check](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml)
 [![Echo backend checks](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml)
-[![Echo frontend checks](https://github.com/ad3lre/echo/actions/workflows/echo-frontend-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-frontend-ci.yml)
+[![Echo web checks](https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml)
 [![Echo E2E smoke](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml)
 [![CodeQL](https://github.com/ad3lre/echo/actions/workflows/codeql.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/codeql.yml)
 
-Release and signing workflows may need **repository secrets** on the canonical fork; forks still get format, backend, frontend, and E2E checks when relevant paths change.
+Release and signing workflows may need **repository secrets** on the canonical fork; forks still get format, backend, web, and E2E checks when relevant paths change.
 
 ## Project structure
 
-- **`frontend/`** — Vue 3 + Vite SPA (Pinia, TypeScript). Client navigation uses the History API ([`frontend/src/features/layout/urlNavigation.ts`](./frontend/src/features/layout/urlNavigation.ts)), not vue-router.
-- **`backend/`** — Fastify REST API, Socket.IO, Postgres integration, auth and Echo domain logic.
-- **`shared/`** — Shared TypeScript types and constants across client and server.
-- **`scripts/`** — Migrations, seeds, deploy helpers, asset pipelines.
-- **`marketing/`** — Astro site for public pages.
-- **`bot/`**, **`voice-sidecar/`**, **`apple/`** — Optional Discord tooling, voice sidecar, and native Apple clients.
+Echo is a **single monorepo**. UI lives in clients; suites own shared kits and sidecars. Full map: **[docs/overview/repo-layout.md](./docs/overview/repo-layout.md)**.
+
+- **`clients/web/`** — Vue 3 + Vite SPA (Pinia, TypeScript). History API navigation ([`urlNavigation.ts`](./clients/web/src/features/layout/urlNavigation.ts)), not vue-router.
+- **`clients/apple/`** — Native SwiftUI iOS/macOS clients.
+- **`server/backend/`** — Fastify REST API, Socket.IO, Postgres, auth and Echo domain logic.
+- **`contracts/`** — Shared TypeScript types/constants (client ↔ server). TS-only — do not commit emitted `.js`.
+- **`clients/web/src/features/paper/`** — Paper editor feature (fold of former top-level `paper/`).
+- **`server/backend/crypto/`** — E2EE + MLS kit (no Vue UI; settings UX stays in `clients/web/`).
+- **`server/media/`** — Media CDN + chat video HLS worker.
+- **`server/voice/`** — Voice helper sidecar (LiveKit-adjacent).
+- **`server/activities/`** — VC gamespace sidecar + shared game cores.
+- **`server/ops/`** — Glue only (`scripts/`, `infra/`, `server/ops/monitoring/`, `perf/`).
+- **`marketing/`** — Astro public site (+ `marketing/terms/`).
+- **`bot/`** — Optional Discord bridge / import tooling.
+- **`docs/`** — Narrative docs, plans, and runbooks.
 
 ## Stack (summary)
 
@@ -83,26 +92,26 @@ Release and signing workflows may need **repository secrets** on the canonical f
 
 ## Getting started
 
-- **Install from the repo root** (`npm ci` or `npm install`). Root install is required (workspaces + devDependencies such as **`sharp`** for Twemoji assets). Installing only under `frontend/` is not enough for `npm run dev` / `npm run build`.
+- **Install from the repo root** (`npm ci` or `npm install`). Root install is required (workspaces + devDependencies such as **`sharp`** for Twemoji assets). Installing only under `clients/web/` is not enough for `npm run dev` / `npm run build`.
 - **Node.js 22.13+** (see `package.json` `engines`). For `sharp`, see [sharp install](https://sharp.pixelplumbing.com/install).
 - **Local stack:** `npm run db:up` then `npm run dev` (see `.env.example`). Postgres-like behavior: **`ECHO_BACKEND_STORAGE=postgres`** and **`DATABASE_URL`**.
 - **Production-like local bundle:** `npm run prod` (full build + API on **:3000** + Vite preview on **:4173**). Skip rebuild: `npm run prod:serve`.
-- **Backend only:** `npm run build -w backend` (or root `npm run build`) before `npm start` (`node dist/backend/src/index.js`).
+- **Backend only:** `npm run build -w backend` (or root `npm run build`) before `npm start` (`node dist/server/backend/src/index.js`).
 - **Production:** `DATABASE_URL` required; **`/api/v1/mock`** is not registered in production.
 - **VPS / bare metal:** [`docs/operations/linux-vps-deployment.md`](./docs/operations/linux-vps-deployment.md).
 - **Seed dev data (API running):** `npm run seed:dev`.
 
 ### Progressive Web App
 
-The SPA ships a [manifest](https://developer.mozilla.org/en-US/docs/Web/Manifest), themed icons under `frontend/public/icons/` (regenerated on `npm run build -w frontend` via `scripts/generate-pwa-icons.mjs`), and a minimal [service worker](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) (`frontend/public/sw.js`). The worker registers in dev and production so Chrome can offer **Install Echo** on `npm run dev` (e.g. **http://localhost:8080**).
+The SPA ships a [manifest](https://developer.mozilla.org/en-US/docs/Web/Manifest), themed icons under `clients/web/public/icons/` (regenerated on `npm run build -w web` via `server/ops/scripts/generate-pwa-icons.mjs`), and a minimal [service worker](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) (`clients/web/public/sw.js`). The worker registers in dev and production so Chrome can offer **Install Echo** on `npm run dev` (e.g. **http://localhost:8080**).
 
 - **HTTPS:** production installability needs a secure context; terminate TLS at your proxy and forward **`X-Forwarded-Proto`** when HTTPS enforcement is on (see `registerHttpsEnforcementIfConfigured` and [realtime-scaling](./docs/infra/realtime-scaling.md)).
-- **Verify:** Vite dev or `npm run build -w frontend && npm run preview -w frontend` → Chrome → **Install Echo**. Hard-reload once if the prompt is missing.
+- **Verify:** Vite dev or `npm run build -w web && npm run preview -w web` → Chrome → **Install Echo**. Hard-reload once if the prompt is missing.
 - **Icons only:** `npm run pwa:icons` from repo root.
 
 ## Native apps
 
-Native clients are first-party apps (not a WebView shell). Start with **Apple** — see [`apple/README.md`](./apple/README.md). Passkeys / Universal Links: [`docs/operations/ios-passkeys.md`](./docs/operations/ios-passkeys.md).
+Native clients are first-party apps (not a WebView shell). Start with **Apple** — see [`clients/apple/README.md`](./clients/apple/README.md). Passkeys / Universal Links: [`docs/operations/ios-passkeys.md`](./docs/operations/ios-passkeys.md).
 
 ## Contributing
 
@@ -110,7 +119,7 @@ We welcome contributions on **GitHub**. Start with [docs/DEVELOPMENT.md](./docs/
 
 ## Third-party assets
 
-Icons and emoji: [terms/en-US/ATTRIBUTIONS.md](./terms/en-US/ATTRIBUTIONS.md).
+Icons and emoji: [marketing/terms/en-US/ATTRIBUTIONS.md](./marketing/terms/en-US/ATTRIBUTIONS.md).
 
 ## License
 

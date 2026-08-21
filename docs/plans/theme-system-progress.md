@@ -10,14 +10,14 @@
 
 ### Runtime and state (Rule B)
 
-- **Canonical DOM only:** `document.documentElement.dataset.theme` is `dark` or `light` only; `resolveCanonicalTheme()` in `frontend/src/utils/theme.ts` normalizes all input.
+- **Canonical DOM only:** `document.documentElement.dataset.theme` is `dark` or `light` only; `resolveCanonicalTheme()` in `clients/web/src/features/settings/theme.ts` normalizes all input.
 - **Single writer:** Only `applyThemeToDocument()` assigns `dataset.theme` (`main.ts`, `useThemeStore`).
-- **Early paint, Pinia store, OS sync:** As before (`main.ts`, `frontend/src/stores/theme.ts`).
+- **Early paint, Pinia store, OS sync:** As before (`main.ts`, `clients/web/src/features/settings/themeStore.ts`).
 
 ### Tokens and Tailwind
 
-- **Palette:** `frontend/src/assets/themes.scss` (+ partials under `themes/`) — core tokens, glass/legacy aliases, DM/call chrome, markdown/mention/VC/settings/server-settings composites, explore/slowmode helpers, and `**--vue-auto-*`\*\* entries mapping former Vue inline/style literals (both themes).
-- **Tailwind bridge:** `frontend/src/assets/tailwind.css` `@theme` utilities.
+- **Palette:** `clients/web/src/assets/themes.scss` (+ partials under `themes/`) — core tokens, glass/legacy aliases, DM/call chrome, markdown/mention/VC/settings/server-settings composites, explore/slowmode helpers, and `**--vue-auto-*`\*\* entries mapping former Vue inline/style literals (both themes).
+- **Tailwind bridge:** `clients/web/src/assets/tailwind.css` `@theme` utilities.
 
 ### UI migration
 
@@ -26,10 +26,10 @@
 
 ### Enforcement and CI
 
-- **ESLint:** `frontend/eslint.config.js` — Vue essential + theme `no-restricted-syntax` on `*.vue` / `*.ts`; `npm run lint -w frontend` uses `--quiet`.
-- `**npm run lint:theme -w frontend`:\*\* `ESLINT_THEME_STRICT=1`, `--max-warnings 0`.
-- **Stylelint:** `frontend/stylelint.config.mjs` — `color-no-hex` + disallowed color functions on `**/*.scss` and `**/*.vue` (`postcss-scss` / `postcss-html`); `themes.scss` + `themes/**` ignored.
-- **Grep script sunset:** `scripts/check-theme-no-raw-colors.mjs` and `scripts/theme-raw-colors-allowlist.txt` **removed**; CI relies on Stylelint + ESLint only.
+- **ESLint:** `clients/web/eslint.config.js` — Vue essential + theme `no-restricted-syntax` on `*.vue` / `*.ts`; `npm run lint -w web` uses `--quiet`.
+- `**npm run lint:theme -w web`:\*\* `ESLINT_THEME_STRICT=1`, `--max-warnings 0`.
+- **Stylelint:** `clients/web/stylelint.config.mjs` — `color-no-hex` + disallowed color functions on `**/*.scss` and `**/*.vue` (`postcss-scss` / `postcss-html`); `themes.scss` + `themes/**` ignored.
+- **Grep script sunset:** `server/ops/scripts/check-theme-no-raw-colors.mjs` and `server/ops/scripts/theme-raw-colors-allowlist.txt` **removed**; CI relies on Stylelint + ESLint only.
 
 ### Documentation
 
@@ -53,23 +53,23 @@
 - `**[data-theme='light']`** in `themes.css` includes Mac-glass chat tokens, warm shadows, `--echo-rail-corner-*` (full light liquid-glass family), and `**--ui-\*` semantic ramps** (`--ui-fg`, `--ui-glass-1…3`, `--ui-scrim-1/2`) mirrored on default dark and tightened on AMOLED.
 - **Tailwind** (`tailwind.css` `@theme`): `text-fg`, `text-fg-soft`, `text-fg-subtle`, `bg-glass-`_, `hover:bg-glass-hover`, `bg-scrim-_`, `bg-overlay-heavy`, `bg-overlay-ink`, etc. Prefer these over `text-white/…`, `bg-white/…`, `bg-black/…` in Vue class strings.
 - **Theme Lab (dev only):** `ThemeLab.vue` + button in `App.vue` when `import.meta.env.DEV` — toggles Light / Dark / AMOLED and shows token swatches.
-- **ESLint (theme strict):** `eslint.config.js` flags `text-white/`, `bg-white/`, `bg-black/` in string literals; `npm run lint:theme -w frontend` must pass.
+- **ESLint (theme strict):** `eslint.config.js` flags `text-white/`, `bg-white/`, `bg-black/` in string literals; `npm run lint:theme -w web` must pass.
 
 ---
 
 ## Key file reference
 
-| Piece                | Location                                 |
-| -------------------- | ---------------------------------------- |
-| Resolver + DOM write | `frontend/src/utils/theme.ts`            |
-| Store                | `frontend/src/stores/theme.ts`           |
-| Bootstrap            | `frontend/src/main.ts`                   |
-| Tokens               | `frontend/src/assets/themes.scss`        |
-| Tailwind             | `frontend/src/assets/tailwind.css`       |
-| ESLint               | `frontend/eslint.config.js`              |
-| Stylelint            | `frontend/stylelint.config.mjs`          |
-| Frontend CI          | `.github/workflows/echo-frontend-ci.yml` |
-| Contributor rules    | `AGENTS.md`                              |
+| Piece                | Location                                          |
+| -------------------- | ------------------------------------------------- |
+| Resolver + DOM write | `clients/web/src/features/settings/theme.ts`      |
+| Store                | `clients/web/src/features/settings/themeStore.ts` |
+| Bootstrap            | `clients/web/src/main.ts`                         |
+| Tokens               | `clients/web/src/assets/themes.scss`              |
+| Tailwind             | `clients/web/src/assets/tailwind.css`             |
+| ESLint               | `clients/web/eslint.config.js`                    |
+| Stylelint            | `clients/web/stylelint.config.mjs`                |
+| Frontend CI          | `.github/workflows/echo-web-ci.yml`               |
+| Contributor rules    | `AGENTS.md`                                       |
 
 ---
 

@@ -1,8 +1,8 @@
 # LiveKit voice (Layer 1) — progress
 
 **Last updated:** 2026-04-06  
-**Related plan:** `[../infra/architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md](../infra/architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md)`  
-**Voice intelligence (later):** `[../infra/architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md](../infra/architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md)`
+**Related plan:** `[../architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md](../architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md)`  
+**Voice intelligence (later):** `[../architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md](../architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md)`
 
 ---
 
@@ -15,11 +15,11 @@
 | **Layer 1 — moderation + dev TURN (Phase 3+)** | Server mute/deafen (DB + REST + `mutePublishedTrack`), workspace mute maps, `DELETE` channel → `deleteLiveKitRoom`, Compose **coturn** + `rtc.turn_servers`, voice metrics                                                                   | `████████████████████` **shipped** (in-repo)                                     |
 | **Layer 1 — client hardening (2026-04)**       | Unified teardown (`onUnmounted` → `disconnect`), `voiceClientDiag` + gated traces, `livekitTrackAdapter`, connect staleness guards + stats tick mutex, `parseEchoLiveKitSessionResponse`, camera `switchActiveDevice('videoinput')` fallback | `████████████████████` **shipped** (in-repo)                                     |
 | **Production hardening**                       | In-repo: operator checklist, example SFU YAML, `**hooks_livekit`** REST `route_group`, Prometheus `**echo_livekit`**alerts, Grafana panels, prod`**wss://**` startup guard. \*\*You still run hosted SFU, TLS TURN, DNS/certs outside git.   | `████████████████████` **100%** (repo; live infra is operator work)              |
-| **Layer 2 — “smart voice”**                    | Intelligence, policies, adaptive behavior on top of stable transport (`[ECHO_VOICE_INTELLIGENCE_LAYER.md](../infra/architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md)`)                                                                          | `░░░░░░░░░░░░░░░░░░░░` **0%** (on purpose — not blocked by Layer 1 feature work) |
+| **Layer 2 — “smart voice”**                    | Intelligence, policies, adaptive behavior on top of stable transport (`[ECHO_VOICE_INTELLIGENCE_LAYER.md](../architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md)`)                                                                                | `░░░░░░░░░░░░░░░░░░░░` **0%** (on purpose — not blocked by Layer 1 feature work) |
 
 **Layer 2 status (dev):** **Paused.** Any sidecar wiring is **hard-disabled by default** and requires explicit enable flags to avoid affecting Layer 1 VC stability.
 
-**Plain English:** Dev “pipes” are end-to-end, including **server-side mic enforcement** for moderation, **dev TURN** in Docker Compose, and **prometheus counters** for webhooks / `voice/moderate`. Speaking indicators stay **client-first** (`ActiveSpeakersChanged`); forwarding LiveKit `active_speakers_changed` to sockets is **off by default** (`LIVEKIT_EMIT_ACTIVE_SPEAKERS_WEBHOOK`). A **2026-04** pass tightened the **Vue LiveKit composable** (lifecycle, logging, adapter, API parse). **Production hardening (repo):** follow `[../operations/livekit-production.md](../operations/livekit-production.md)` — alerts, dashboards, `wss://` guard, and `infra/livekit/livekit.production.example.yaml` are in-tree; **you** still provision hosted LiveKit, TLS TURN, DNS, and certs in your environment.
+**Plain English:** Dev “pipes” are end-to-end, including **server-side mic enforcement** for moderation, **dev TURN** in Docker Compose, and **prometheus counters** for webhooks / `server/voice/moderate`. Speaking indicators stay **client-first** (`ActiveSpeakersChanged`); forwarding LiveKit `active_speakers_changed` to sockets is **off by default** (`LIVEKIT_EMIT_ACTIVE_SPEAKERS_WEBHOOK`). A **2026-04** pass tightened the **Vue LiveKit composable** (lifecycle, logging, adapter, API parse). **Production hardening (repo):** follow `[../operations/livekit-production.md](../operations/livekit-production.md)` — alerts, dashboards, `wss://` guard, and `server/ops/infra/livekit/livekit.production.example.yaml` are in-tree; **you** still provision hosted LiveKit, TLS TURN, DNS, and certs in your environment.
 
 ---
 
@@ -27,8 +27,8 @@
 
 **Names (avoid confusion):**
 
-- **Layer 1** = this document: **transport-grade** LiveKit + Echo (tokens, webhooks, client room). Per `[LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md](../infra/architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md)`, Echo does not implement “intelligence” here.
-- **Layer 2** = **Voice intelligence** only: `[ECHO_VOICE_INTELLIGENCE_LAYER.md](../infra/architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md)` (adaptive policy, quality interpretation, etc.). This is **not** the same as older internal labels “Phase 2 / Phase 3” **inside** Layer 1 (those transport milestones are already shipped).
+- **Layer 1** = this document: **transport-grade** LiveKit + Echo (tokens, webhooks, client room). Per `[LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md](../architecture/LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md)`, Echo does not implement “intelligence” here.
+- **Layer 2** = **Voice intelligence** only: `[ECHO_VOICE_INTELLIGENCE_LAYER.md](../architecture/ECHO_VOICE_INTELLIGENCE_LAYER.md)` (adaptive policy, quality interpretation, etc.). This is **not** the same as older internal labels “Phase 2 / Phase 3” **inside** Layer 1 (those transport milestones are already shipped).
 
 **Readiness:**
 
@@ -47,7 +47,7 @@
 ### Core P0 (baseline)
 
 - **Docker + dev workflow:** LiveKit + **coturn** run with Postgres when you use `npm run dev` (Compose `db:up` starts the stack). `npm run livekit:logs` tails the SFU.
-- **LiveKit config:** Local `infra/livekit/livekit.yaml` with dev keys, `**rtc.turn_servers`** → Compose service `**coturn`**, and a webhook URL that reaches the API on the host (`host.docker.internal`).
+- **LiveKit config:** Local `server/ops/infra/livekit/livekit.yaml` with dev keys, `**rtc.turn_servers`** → Compose service `**coturn`**, and a webhook URL that reaches the API on the host (`host.docker.internal`).
 - **Backend — join session:** API route checks permissions and returns a **browser-safe LiveKit URL** plus a **short-lived join token** (publish **microphone** when not server-muted/deafened; **camera** and **screen_share** included unless opted out on mint).
 - **Backend — webhooks:** Signature-verified events update `**echo_voice_participants`**, audit, and `**workspace_invalidated` for join/leave.
 - **Backend — REST voice actions:** Join / leave / moderate paths log audit and broadcast so the UI stays consistent even outside webhooks.
@@ -75,18 +75,18 @@
 
 ### Client composable hardening (2026-04)
 
-- `**voiceClientDiag**` (gated `**voiceClientTrace**` + dev/warn/error policy) replaces scattered `**console.***` in VC paths; `**[voiceClientTrace.ts](../../frontend/src/observability/voiceClientTrace.ts)**`.
+- `**voiceClientDiag**` (gated `**voiceClientTrace**` + dev/warn/error policy) replaces scattered `**console.***` in VC paths; `**[voiceClientTrace.ts](../../clients/web/src/observability/voiceClientTrace.ts)**`.
 - `**clearLocalVoiceUiState**`, `**connectGeneration` / `connectAbortTarget**` abort stale `**connect()**` after `**await**`; `**Room.disconnect()**` handled as async-safe.
-- `**frontend/src/services/livekit/livekitTrackAdapter.ts**`: sender/RTC stats + volume helpers; `**parseEchoLiveKitSessionResponse**` on `**postEchoVoiceLivekitSession**`.
+- `**clients/web/src/features/voice/livekit/livekitTrackAdapter.ts**`: sender/RTC stats + volume helpers; `**parseEchoLiveKitSessionResponse**` on `**postEchoVoiceLivekitSession**`.
 - **ChannelPanel** defaults `**liveKitState`** to `**idle`** when omitted; `**switchCamera`** prefers `**switchActiveDevice('videoinput')`\*\* with toggle fallback.
 
 ### Production hardening (in-repo)
 
 - `**[../operations/livekit-production.md](../operations/livekit-production.md)**` — operator checklist (`wss://`, HTTPS webhook, TLS TURN, secrets, firewall, verification).
-- `**[../../infra/livekit/livekit.production.example.yaml](../../infra/livekit/livekit.production.example.yaml)**` — commented template for production SFU + webhook URL shape.
+- `**[../../infra/livekit/livekit.production.example.yaml](../../server/ops/infra/livekit/livekit.production.example.yaml)**` — commented template for production SFU + webhook URL shape.
 - **REST metrics:** `hooks_livekit` route group for `POST /api/v1/hooks/livekit` (`echoHttpObservability.ts`).
-- **Prometheus:** group `echo_livekit` in `monitoring/prometheus/rules/echo-alerts.yml` (`EchoLivekitWebhook4xxSustained`, `EchoLivekitWebhookUnknownEventsSpike`, `EchoVoiceModerateForbiddenDominatesOk`).
-- **Grafana:** LiveKit / voice panels on `monitoring/grafana/echo-overview.json`.
+- **Prometheus:** group `echo_livekit` in `server/ops/monitoring/prometheus/rules/echo-alerts.yml` (`EchoLivekitWebhook4xxSustained`, `EchoLivekitWebhookUnknownEventsSpike`, `EchoVoiceModerateForbiddenDominatesOk`).
+- **Grafana:** LiveKit / voice panels on `server/ops/monitoring/grafana/echo-overview.json`.
 - **Config:** production startup **fails** if LiveKit is enabled and `LIVEKIT_PUBLIC_URL` starts with `ws://` (`config.ts`).
 
 ---
@@ -94,10 +94,10 @@
 ## What you still need to do (near term)
 
 1. **Install deps** — `npm install` at repo root / workspaces; `livekit-server-sdk` (backend), `livekit-client` (frontend).
-2. **Set `.env` for local voice** — `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_PUBLIC_URL` (see `.env.example`); must match `**infra/livekit/livekit.yaml`** keys unless both change together. **TURN** user/pass in YAML must match `**docker-compose.yml`** `coturn` `**--user=`** (LiveKit does not read `.env` for TURN — copy values manually or use a templating step for prod).
+2. **Set `.env` for local voice** — `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_PUBLIC_URL` (see `.env.example`); must match `**server/ops/infra/livekit/livekit.yaml`** keys unless both change together. **TURN** user/pass in YAML must match `**docker-compose.yml`** `coturn` `**--user=`** (LiveKit does not read `.env` for TURN — copy values manually or use a templating step for prod).
 3. **Manual check** — Two browsers: join VC, confirm audio/video/screen, mute/deafen, **server mute** from a moderator, reconnect (toggle network), moderator **disconnect** removes user from SFU and DB.
-4. **If the API is not on port 3000** — Update the webhook URL inside `**infra/livekit/livekit.yaml` accordingly.
-5. **CI** — `npm run test:echo:livekit` needs `**PG_TEST_URL` or `DATABASE_URL`** for DB sections; `**LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET`** optional for JWT portions. `**npm run test:e2e`** uses mock stack (no LiveKit); see `frontend/cypress/e2e/smoke.cy.ts`.
+4. **If the API is not on port 3000** — Update the webhook URL inside `**server/ops/infra/livekit/livekit.yaml` accordingly.
+5. **CI** — `npm run test:echo:livekit` needs `**PG_TEST_URL` or `DATABASE_URL`** for DB sections; `**LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET`** optional for JWT portions. `**npm run test:e2e`** uses mock stack (no LiveKit); see `clients/web/cypress/e2e/smoke.cy.ts`.
 
 ---
 
@@ -114,29 +114,29 @@
 
 ## Quick file map
 
-| Area                                   | Where                                                                                                 |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Compose + health + coturn              | `docker-compose.yml`                                                                                  |
-| LiveKit server config (dev)            | `infra/livekit/livekit.yaml`                                                                          |
-| TURN / prod notes                      | `docs/infra/livekit-turn.md`                                                                          |
-| Production checklist                   | `docs/operations/livekit-production.md`                                                               |
-| Example SFU YAML (prod template)       | `infra/livekit/livekit.production.example.yaml`                                                       |
-| Metrics / alerts                       | `docs/infra/livekit-observability.md`, `monitoring/prometheus/rules/echo-alerts.yml` (`echo_livekit`) |
-| Token + room + **RoomService**         | `backend/src/services/livekit/livekitAdapter.ts`                                                      |
-| Session + voice REST                   | `backend/src/api/routes/echo/echoVoice.ts`                                                            |
-| Webhooks                               | `backend/src/api/routes/livekitWebhook.ts`                                                            |
-| CSRF exemption                         | `backend/src/auth/csrf.ts`                                                                            |
-| Config flags                           | `backend/src/config.ts`                                                                               |
-| Voice participant schema + track flags | `backend/src/db/echoTables.ts` (`echo_voice_participants`)                                            |
-| Workspace roster + moderation maps     | `backend/src/domain/echoStore/categoriesWorkspace.ts`                                                 |
-| Voice domain moderation                | `backend/src/domain/echoStore/voice.ts`                                                               |
-| Frontend session API                   | `frontend/src/api/echo/voice.ts`                                                                      |
-| Room composable                        | `frontend/src/composables/useLiveKitVoiceRoom.ts`                                                     |
-| Track / stats adapter                  | `frontend/src/services/livekit/livekitTrackAdapter.ts`                                                |
-| VC diagnostics                         | `frontend/src/observability/voiceClientTrace.ts` (`voiceClientTrace`, `voiceClientDiag`)              |
-| Session + layout wiring                | `frontend/src/features/layout/composables/useServerVoiceSession.ts`                                   |
-| Voice orchestration                    | `frontend/src/services/orchestration/voice.ts`                                                        |
-| Socket event kind (optional)           | `shared/types/socket.ts` (`voice_active_speakers`)                                                    |
+| Area                                   | Where                                                                                                            |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Compose + health + coturn              | `docker-compose.yml`                                                                                             |
+| LiveKit server config (dev)            | `server/ops/infra/livekit/livekit.yaml`                                                                          |
+| TURN / prod notes                      | `docs/infra/livekit-turn.md`                                                                                     |
+| Production checklist                   | `docs/operations/livekit-production.md`                                                                          |
+| Example SFU YAML (prod template)       | `server/ops/infra/livekit/livekit.production.example.yaml`                                                       |
+| Metrics / alerts                       | `docs/infra/livekit-observability.md`, `server/ops/monitoring/prometheus/rules/echo-alerts.yml` (`echo_livekit`) |
+| Token + room + **RoomService**         | `server/backend/src/services/livekit/livekitAdapter.ts`                                                          |
+| Session + voice REST                   | `server/backend/src/api/routes/echo/voice.ts`                                                                    |
+| Webhooks                               | `server/backend/src/api/routes/livekitWebhook.ts`                                                                |
+| CSRF exemption                         | `server/backend/src/auth/csrf.ts`                                                                                |
+| Config flags                           | `server/backend/src/config.ts`                                                                                   |
+| Voice participant schema + track flags | `server/backend/src/db/echoTables.ts` (`echo_voice_participants`)                                                |
+| Workspace roster + moderation maps     | `server/backend/src/domain/echoStore/channels/categoriesWorkspace.ts`                                            |
+| Voice domain moderation                | `server/backend/src/domain/echoStore/voice/voice.ts`                                                             |
+| Frontend session API                   | `clients/web/src/api/echo/voice.ts`                                                                              |
+| Room composable                        | `clients/web/src/features/voice/useLiveKitVoiceRoom.ts`                                                          |
+| Track / stats adapter                  | `clients/web/src/features/voice/livekit/livekitTrackAdapter.ts`                                                  |
+| VC diagnostics                         | `clients/web/src/observability/voiceClientTrace.ts` (`voiceClientTrace`, `voiceClientDiag`)                      |
+| Session + layout wiring                | `clients/web/src/features/layout/composables/voice/useServerVoiceSession.ts`                                     |
+| Voice orchestration                    | `clients/web/src/features/voice/voiceService.ts`                                                                 |
+| Socket event kind (optional)           | `contracts/types/socket.ts` (`voice_active_speakers`)                                                            |
 
 ---
 

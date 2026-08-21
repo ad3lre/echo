@@ -1,3 +1,3 @@
 # Attributions
 
-Third-party credits and licenses are maintained in **[terms/ATTRIBUTIONS.md](terms/ATTRIBUTIONS.md)**.
+Third-party credits and licenses are maintained in **[marketing/terms/ATTRIBUTIONS.md](marketing/terms/ATTRIBUTIONS.md)**.

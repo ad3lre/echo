@@ -6,7 +6,7 @@
 
 - The **first-party SPA** authenticates the REST API with **cookies** (`echo_sid` server session + `echo_rt` refresh where applicable) and **CSRF** on mutating HTTP calls.
 - **Socket.IO** should use **`withCredentials: true`** so the browser sends the same **session cookies** on the handshake as on `fetch(..., { credentials: 'include' })`.
-- **`resolveSocketIdentity`** (see `backend/src/sockets/resolveSocketIdentity.ts`) resolves the user in this order:
+- **`resolveSocketIdentity`** (see `server/backend/src/sockets/resolveSocketIdentity.ts`) resolves the user in this order:
   1. **`echo_sid`** from the handshake `Cookie` header → Redis (or memory) session → active Postgres refresh row for `refreshTokenId`.
   2. If **`AUTH_LEGACY_BEARER=true`**, JWT from `Authorization: Bearer` or `auth.token` on the handshake (tooling / migration only).
 
@@ -34,8 +34,8 @@
 
 ## Related documentation
 
-- Session architecture: [`OPTION_A_SESSION_ARCHITECTURE.md`](../auth/OPTION_A_SESSION_ARCHITECTURE.md).
-- Stack / auth snapshot: [`STACK.md`](../architecture/STACK.md).
-- Auth roadmap: [`AUTHENTICATION_PLAN.md`](../AUTHENTICATION_PLAN.md).
+- Session architecture: [`OPTION_A_SESSION_ARCHITECTURE.md`](../../infra/auth/OPTION_A_SESSION_ARCHITECTURE.md).
+- Stack / auth snapshot: [`STACK.md`](../../overview/STACK.md).
+- Auth roadmap: [`AUTHENTICATION_PLAN.md`](../../plans/AUTHENTICATION_PLAN.md).
 - Production security checklist: [`../PRODUCTION_SECURITY_CHECKLIST.md`](../PRODUCTION_SECURITY_CHECKLIST.md).
-- Broader readiness: [`STATUS_AND_PRODUCTION_READINESS.md`](../STATUS_AND_PRODUCTION_READINESS.md) §8.
+- Broader readiness: [`STATUS_AND_PRODUCTION_READINESS.md`](../../reviews/STATUS_AND_PRODUCTION_READINESS.md) §8.

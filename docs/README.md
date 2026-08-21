@@ -5,8 +5,9 @@ Start here, then open the area that matches your work. **New to the repo?** See 
 ## Overview
 
 - [Stack](overview/STACK.md) — technologies and scale stance
+- [Repository layout](overview/repo-layout.md) — top-level map and client-vs-kit rule
 - [Repository tree](overview/tree.md) — layout snapshot (regenerate: `npm run docs:tree` from repo root)
-- [Domain map](overview/domain-map.md) — backend/frontend domain boundaries
+- [Domain map](overview/domain-map.md) — server/backend/web domain boundaries
 - [agents.md](overview/agents.md) — client/controller charter for contributors
 - [privacy-levels.md](overview/privacy-levels.md) — product privacy positioning
 - [i18n](overview/i18n.md) — localization stance
@@ -26,7 +27,7 @@ Start here, then open the area that matches your work. **New to the repo?** See 
 
 ## Infra
 
-Subsystem reference: [infra/](infra/).
+Subsystem reference: [server/ops/infra/](../server/ops/infra/).
 
 ## Plans
 
@@ -36,7 +37,7 @@ Forward-looking technical plans: [plans/](plans/). Treat linked **STATUS** and *
 
 Runbooks and procedures: [operations/](operations/).
 
-**Native apps:** repo root [`releases/`](../releases/README.md); deeper procedures under `operations/`.
+**Native apps:** repo root `releases/`; deeper procedures under `operations/`.
 
 ## Contracts and specs
 
@@ -57,4 +58,4 @@ Additional ADRs may land under `docs/adr/` or `docs/architecture/`; update this 
 
 ## Chat formatting (Markdown and math)
 
-User-facing copy for **Settings → Formatting** lives in **[`terms/`](../terms/)**.
+User-facing copy for **Settings → Formatting** lives in **[`marketing/terms/`](../marketing/terms/)**.

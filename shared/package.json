@@ -1,6 +1,0 @@
-{
-  "name": "shared",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Shared TypeScript types and constants for Echo frontend and backend"
-}

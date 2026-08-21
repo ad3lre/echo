@@ -1,0 +1,25 @@
+{
+  "componentsFileCount": 10,
+  "legacyAllowlistCount": 0,
+  "leftoverDumpFileCounts": {
+    "clients/web/src/utils": 0,
+    "clients/web/src/composables": 0,
+    "clients/web/src/stores": 0,
+    "clients/web/src/services": 0,
+    "clients/web/src/types": 0,
+    "clients/web/src/domain": 0,
+    "clients/web/src/ui": 0,
+    "clients/web/src/data": 0,
+    "clients/web/src/constants": 0,
+    "clients/web/src/shared": 0,
+    "clients/web/src/features/chat/services": 0,
+    "server/backend/src/tests": 185
+  },
+  "leftoverDumpImmediateFileCounts": {
+    "clients/web/src/features/layout/composables": 0,
+    "server/backend/src/services": 35,
+    "server/backend/src/domain": 38,
+    "server/backend/src/domain/echoStore": 4,
+    "server/backend/src/tests": 0
+  }
+}

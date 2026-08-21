@@ -3,9 +3,11 @@ name: Echo E2E smoke
 on:
   pull_request:
     paths:
-      - 'frontend/**'
-      - 'backend/**'
-      - 'shared/**'
+      - 'clients/web/**'
+      - 'clients/web/src/features/paper/**'
+      - 'server/backend/crypto/**'
+      - 'server/backend/**'
+      - 'contracts/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/echo-e2e-ci.yml'
@@ -13,9 +15,11 @@ on:
     branches:
       - 'release/**'
     paths:
-      - 'frontend/**'
-      - 'backend/**'
-      - 'shared/**'
+      - 'clients/web/**'
+      - 'clients/web/src/features/paper/**'
+      - 'server/backend/crypto/**'
+      - 'server/backend/**'
+      - 'contracts/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/echo-e2e-ci.yml'

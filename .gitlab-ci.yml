@@ -5,7 +5,7 @@
 # application code paths so merges do not rely solely on local pre-push hooks.
 #
 # Ignores for `.cursor/`, other AI tool dirs, IDE dirs, and `.env` align with root
-# `.gitignore` and `.prettierignore`; `scripts/check-oss-artifacts.mjs` fails if any
+# `.gitignore` and `.prettierignore`; `server/ops/scripts/check-oss-artifacts.mjs` fails if any
 # of those paths are still tracked in git.
 stages:
   - quality
@@ -32,10 +32,11 @@ stages:
   - '.gitlab-ci.yml'
 
 .ci_paths: &ci_paths
-  - 'backend/**'
-  - 'frontend/**'
-  - 'shared/**'
-  - 'scripts/**'
+  - 'server/backend/**'
+  - 'clients/web/**'
+  - 'clients/apple/**'
+  - 'contracts/**'
+  - 'server/ops/scripts/**'
   - 'package.json'
   - 'package-lock.json'
   - '.gitlab-ci.yml'
@@ -54,14 +55,20 @@ prettier:
       changes: *prettier_paths
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes: *prettier_paths
+  before_script:
+    # bookworm-slim has no git; check-oss-artifacts needs `git ls-files`
+    - apt-get update -qq && apt-get install -y -qq git >/dev/null
   script:
-    - node scripts/check-oss-artifacts.mjs
+    - node server/ops/scripts/check-oss-artifacts.mjs
     - npm ci
     - npm run format:check
 
 ship-gate:
   stage: test
   image: node:22.13-bookworm-slim
+  variables:
+    # vue-tsc + vite on the web workspace OOMs at the default ~2GB heap on shared runners
+    NODE_OPTIONS: '--max-old-space-size=6144'
   cache:
     key:
       files:
@@ -73,6 +80,8 @@ ship-gate:
       changes: *ci_paths
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes: *ci_paths
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git >/dev/null
   script:
     - npm ci
     - npm run ci:precheck

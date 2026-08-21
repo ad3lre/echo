@@ -9,15 +9,15 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Severity: Hardening (defense in depth)
 - Area: Local upload read/write, S3 presign keys, media URL → storage key extraction
 - Fixed in:
-  - `shared/echoUploadStorageKey.ts` (`normalizeEchoUploadStorageKeyPath`, `isSafeEchoUploadStorageKeyPath`)
-  - `backend/src/services/localUploadDisk.ts`
-  - `backend/src/api/routes/echo/echoUploads.ts` (unified route key decode)
-  - `backend/src/services/s3UploadPresign.ts`
+  - `contracts/echoUploadStorageKey.ts` (`normalizeEchoUploadStorageKeyPath`, `isSafeEchoUploadStorageKeyPath`)
+  - `server/backend/src/services/uploads/localUploadDisk.ts`
+  - `server/backend/src/api/routes/echo/uploads.ts` (unified route key decode)
+  - `server/backend/src/services/uploads/s3UploadPresign.ts`
 - Root issue:
   - Path safety checks were duplicated and missing on some decode paths (local files route vs S3, URL extraction).
 - Patch summary:
   - Central rejection of `..`, absolute paths, `data:` URLs, and keys over 512 chars before any disk resolve or URL-derived key use.
-  - Regression tests: `backend/src/tests/echoUploadStorageKeyPath.test.ts`, `frontend/src/utils/echoUploadStorageKey.test.ts`.
+  - Regression tests: `server/backend/src/tests/uploads/echoUploadStorageKeyPath.test.ts`, `clients/web/src/features/chat/echoUploadStorageKey.test.ts`.
 
 ## 2026-05-31
 
@@ -26,9 +26,9 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Severity: High
 - Area: Upload file delivery (`GET /uploads/files/*`, S3 read-through)
 - Fixed in:
-  - `backend/src/services/echoUploadContentTypePolicy.ts` (new)
-  - `backend/src/services/echoUploadServe.ts`
-  - `backend/src/api/routes/echo/echoUploads.ts`
+  - `server/backend/src/services/uploads/echoUploadContentTypePolicy.ts` (new)
+  - `server/backend/src/services/uploads/echoUploadServe.ts`
+  - `server/backend/src/api/routes/echo/uploads.ts`
 - Root issue:
   - Served `Content-Type` could come from DB metadata without allowlist re-check.
   - `image/svg+xml` matched presign `image/*` rule.
@@ -38,30 +38,30 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Patch summary:
   - Central MIME policy blocks SVG, HTML, and JavaScript types at presign and serve time.
   - Serve path sets `nosniff` and `Content-Disposition: attachment` when type is coerced to `application/octet-stream`.
-  - Regression tests in `backend/src/tests/echoUploadContentTypePolicy.test.ts`.
+  - Regression tests in `server/backend/src/tests/uploads/echoUploadContentTypePolicy.test.ts`.
 
 ### 2. Bot install IDOR (#71)
 
 - Severity: High
 - Area: `POST /api/v1/echo/bot-applications/:botId/guilds/:guildId`
 - Fixed in:
-  - `backend/src/api/routes/echo/echoBotApplications.ts`
+  - `server/backend/src/api/routes/echo/botApplications.ts`
 - Root issue:
   - Any user with `MANAGE_GUILD` could install any bot application by snowflake ID without being the bot owner.
 - Impact:
   - Unauthorized third-party bot propagation into guilds when bot IDs are known or guessable.
 - Patch summary:
   - Install route now requires `owner_user_id === authenticated user`.
-  - Static regression check in `backend/src/tests/echoInviteSharePage.xss.test.ts`.
+  - Static regression check in `server/backend/src/tests/safety/echoInviteSharePage.xss.test.ts`.
 
 ### 3. CSRF + XSS regression test suite
 
 - Severity: Hardening (no new vuln)
 - Area: CI / audit trail
 - Fixed in:
-  - `backend/src/tests/csrf.enforcement.test.ts`
-  - `frontend/src/features/chat/viewModel/messageBodyMarkdown.xss.test.ts`
-  - `backend/package.json` (`test:security`)
+  - `server/backend/src/tests/auth/csrf.enforcement.test.ts`
+  - `clients/web/src/features/chat/markdown/messageBodyMarkdown.xss.test.ts`
+  - `server/backend/package.json` (`test:security`)
 - Patch summary:
   - Negative CSRF tests for `PATCH /me` and `POST /guest/upgrade`.
   - Markdown XSS payload corpus for chat rendering pipeline.
@@ -71,9 +71,9 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Severity: Low–Medium
 - Area: Auth profile storage (`displayName`, `bio`, `customStatus`)
 - Fixed in:
-  - `backend/src/auth/accountPolicy.ts`
-  - `backend/src/auth/store/memory/MemoryAuthStore.ts`
-  - `backend/src/auth/store/postgres/PostgresAuthStore.ts`
+  - `server/backend/src/auth/accountPolicy.ts`
+  - `server/backend/src/auth/store/memory/MemoryAuthStore.ts`
+  - `server/backend/src/auth/store/postgres/PostgresAuthStore.ts`
 - Patch summary:
   - Strip angle-bracket markup and control chars before persisting profile text fields.
 
@@ -81,51 +81,51 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 
 - Severity: Medium
 - Fixed in:
-  - `frontend/src/features/chat/viewModel/messageBodyMarkdown.ts` (`ALLOW_UNKNOWN_PROTOCOLS: false`)
-  - `frontend/src/features/paper/editor/paperKatexRenderCache.ts` (DOMPurify on KaTeX HTML)
-  - `frontend/src/features/chat/components/EmojiAutocompletePopover.vue` (`safeCustomEmojiUrl`)
-  - `backend/src/services/linkUnfurl/linkUnfurlFetch.ts` (HTTPS-only unfurl)
-  - `backend/src/services/integrations/turnstileVerify.ts` (`remoteip` binding)
+  - `clients/web/src/features/chat/markdown/messageBodyMarkdown.ts` (`ALLOW_UNKNOWN_PROTOCOLS: false`)
+  - `clients/web/src/features/paper/editor/paperKatexRenderCache.ts` (DOMPurify on KaTeX HTML)
+  - `clients/web/src/features/chat/components/EmojiAutocompletePopover.vue` (`safeCustomEmojiUrl`)
+  - `server/backend/src/services/linkUnfurl/linkUnfurlFetch.ts` (HTTPS-only unfurl)
+  - `server/backend/src/services/integrations/turnstileVerify.ts` (`remoteip` binding)
 
 ### 6. Security backlog batch (Medium/Low ledger items)
 
 - Severity: Medium / Low (see `docs/security/vulnerability-ranking.md` ledger)
 - Area: Account step-up, bot tokens, rate limits, webhooks, config guards
 - Fixed in (highlights):
-  - `backend/src/auth/stepUpAuth.ts` — TOTP step-up for delete account, change password, transfer ownership (#85, #101, #102)
-  - `backend/src/services/botTokenHash.ts` — bcrypt bot token storage with legacy SHA-256 verify (#29)
-  - `backend/src/services/echoWebhookSignature.ts` — HMAC verification for Discord hooks in production (#93, #94)
-  - `backend/src/bootstrap/createFastify.ts` — `randomUUID()` request IDs (#18)
-  - `backend/src/sockets/eventMiddleware.ts` — sampled socket packet logging (#21)
-  - `backend/src/api/routes/echo/echoPublic.ts`, `echoSocial.ts`, `discordApi/index.ts` — rate limits (#25, #28, #87)
-  - `backend/src/config.ts` — postgres deployments require strong JWT + default socket auth (#7, #19)
-  - `backend/src/services/localUploadTokenReplay.ts` — fail closed without Redis in production (#13)
+  - `server/backend/src/auth/stepUpAuth.ts` — TOTP step-up for delete account, change password, transfer ownership (#85, #101, #102)
+  - `server/backend/src/services/botTokenHash.ts` — bcrypt bot token storage with legacy SHA-256 verify (#29)
+  - `server/backend/src/services/echoWebhookSignature.ts` — HMAC verification for Discord hooks in production (#93, #94)
+  - `server/backend/src/bootstrap/createFastify.ts` — `randomUUID()` request IDs (#18)
+  - `server/backend/src/sockets/eventMiddleware.ts` — sampled socket packet logging (#21)
+  - `server/backend/src/api/routes/echo/public.ts`, `echoSocial.ts`, `discordApi/index.ts` — rate limits (#25, #28, #87)
+  - `server/backend/src/config.ts` — postgres deployments require strong JWT + default socket auth (#7, #19)
+  - `server/backend/src/services/uploads/localUploadTokenReplay.ts` — fail closed without Redis in production (#13)
 - Regression tests: `botTokenHash.test.ts`, `echoWebhookSignature.test.ts` (in `npm run test:security`)
 
 ### 7. Large-ticket backlog (upload ACL, dedupe integrity, email verify, OAuth origins)
 
 - Severity: Medium / Low
 - Fixed in:
-  - `backend/src/services/uploadReadToken.ts` — HMAC signed read tokens (`?read=`) + `POST /uploads/read-token` (#15, #81)
-  - `backend/src/api/routes/echo/echoUploads.ts` — ACL on local + S3 read-through; conservative cache headers retained
-  - `backend/src/services/csamScan/index.ts` — server-side SHA-256 verify for image **and video** dedupe register (#84)
-  - `backend/src/auth/verifyEmailFlow.ts`, `backend/src/api/routes/auth/register.ts`, `frontend/src/views/VerifyEmailView.vue` — fragment + POST verify (#100)
-  - `backend/src/config.ts` — `ECHO_APP_PUBLIC_URL` / `ECHO_API_PUBLIC_URL` must match `CORS_ORIGIN` on postgres/production deploys (#32)
+  - `server/backend/src/services/uploads/uploadReadToken.ts` — HMAC signed read tokens (`?read=`) + `POST /uploads/read-token` (#15, #81)
+  - `server/backend/src/api/routes/echo/uploads.ts` — ACL on local + S3 read-through; conservative cache headers retained
+  - `server/backend/src/services/csamScan/index.ts` — server-side SHA-256 verify for image **and video** dedupe register (#84)
+  - `server/backend/src/auth/verifyEmailFlow.ts`, `server/backend/src/api/routes/auth/register.ts`, `clients/web/src/views/VerifyEmailView.vue` — fragment + POST verify (#100)
+  - `server/backend/src/config.ts` — `ECHO_APP_PUBLIC_URL` / `ECHO_API_PUBLIC_URL` must match `CORS_ORIGIN` on postgres/production deploys (#32)
 - Regression tests: `uploadReadToken.test.ts`
 
 ### 8. Final backlog closure (ledger #23–103)
 
 - Severity: Low / Medium (remaining ranked findings)
 - Fixed / mitigated in (highlights):
-  - `backend/src/auth/loginAudit.ts` — HMAC digests for IP/UA (#23)
-  - `backend/src/api/sharedMutationRateLimits.ts` — shared Discord import, E2EE, emoji, bridge limits (#50, #67, #69, #75–76)
-  - `backend/src/api/routes/discordApi/rest/userBatch.ts` — batch author load (#34)
-  - `backend/src/api/routes/discordApi/rest/gateway.ts` — IP rate limit (#30)
-  - `backend/src/api/routes/health.ts` — metrics auth + redacted health (#8, #17)
-  - `backend/src/api/routes/livekitWebhook.ts` — redacted logs; count-only workspace events (#92)
-  - `backend/src/api/routes/passkeyRoutes.ts` — user-scoped ceremony keys + credential bounds (#89, #90)
-  - `backend/src/api/routes/echo/echoDiscordBridgeSettings.ts` — `bridgeConfigured` GET (#66)
-  - `frontend/src/api/echo/discordBridge.ts` — compatible with `bridgeConfigured` response
+  - `server/backend/src/auth/loginAudit.ts` — HMAC digests for IP/UA (#23)
+  - `server/backend/src/api/sharedMutationRateLimits.ts` — shared Discord import, E2EE, emoji, bridge limits (#50, #67, #69, #75–76)
+  - `server/backend/src/api/routes/discordApi/rest/userBatch.ts` — batch author load (#34)
+  - `server/backend/src/api/routes/discordApi/rest/gateway.ts` — IP rate limit (#30)
+  - `server/backend/src/api/routes/health.ts` — metrics auth + redacted health (#8, #17)
+  - `server/backend/src/api/routes/livekitWebhook.ts` — redacted logs; count-only workspace events (#92)
+  - `server/backend/src/api/routes/passkeyRoutes.ts` — user-scoped ceremony keys + credential bounds (#89, #90)
+  - `server/backend/src/api/routes/echo/discordBridgeSettings.ts` — `bridgeConfigured` GET (#66)
+  - `clients/web/src/api/echo/discordBridge.ts` — compatible with `bridgeConfigured` response
 - Ledger: all **103** findings marked closed in `docs/security/vulnerability-ranking.md` (Fixed / Mitigated / Accepted).
 
 ### 9. Realtime channel access hardening (2026-05-31 follow-up)
@@ -133,21 +133,21 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Severity: Medium (defense-in-depth on #10 recovery path)
 - Area: Socket.IO `joinChannel`, connection recovery, permission mutation side effects
 - Fixed in:
-  - `backend/src/sockets/channelHandlers.ts` — `revalidateRecoveredChannelRooms`, structured `JoinChannelErrorCode` payloads
-  - `backend/src/platform/echoRealtimeMembership.ts` — category/channel realtime scope eviction on permission graph changes
-  - `backend/src/auth/middleware.ts` — always `store.getUserById` (no `cachedUser` auth shortcut)
-  - `backend/src/api/routes/echo/echoMutationRateLimits.ts` — shared admin mutation rate limit
-  - `backend/src/api/routes/echo/echo{Categories,Channels,PermissionOverwrites,Roles,ServerScoped}.ts`
-  - `backend/src/services/echoModerationOps.ts` — timeout evicts voice + realtime like ban/kick
-  - `frontend/src/services/realtime/socketJoinChannelErrorIngest.ts` — client toast + workspace invalidation on denied join
+  - `server/backend/src/sockets/channelHandlers.ts` — `revalidateRecoveredChannelRooms`, structured `JoinChannelErrorCode` payloads
+  - `server/backend/src/platform/echoRealtimeMembership.ts` — category/channel realtime scope eviction on permission graph changes
+  - `server/backend/src/auth/middleware.ts` — always `store.getUserById` (no `cachedUser` auth shortcut)
+  - `server/backend/src/api/routes/echo/mutationRateLimits.ts` — shared admin mutation rate limit
+  - `server/backend/src/api/routes/echo/echo{Categories,Channels,PermissionOverwrites,Roles,ServerScoped}.ts`
+  - `server/backend/src/services/echoModerationOps.ts` — timeout evicts voice + realtime like ban/kick
+  - `clients/web/src/features/layout/realtime/socketJoinChannelErrorIngest.ts` — client toast + workspace invalidation on denied join
 - Patch summary:
   - Recovered socket sessions re-check channel room membership; denied joins emit structured errors.
   - Permission overwrite / role mutations evict affected channel rooms so clients must re-join under fresh checks.
   - Admin settings mutations share per-user/IP rate limits (`ECHO_ADMIN_MUTATION_RATE_LIMIT`).
 - Regression tests:
-  - `backend/src/tests/channelHandlers.joinChannel.test.ts` (Vitest, also in backend CI)
-  - `frontend/src/services/realtime/__tests__/socketJoinChannelErrorIngest.test.ts`
-  - Static guards in `backend/src/tests/shippingSecurity.test.ts`
+  - `server/backend/src/tests/channels/channelHandlers.joinChannel.test.ts` (Vitest, also in backend CI)
+  - `clients/web/src/services/realtime/__tests__/socketJoinChannelErrorIngest.test.ts`
+  - Static guards in `server/backend/src/tests/platform/shippingSecurity.test.ts`
   - `npm run test:security` wired into `test:ci:backend` and `.github/workflows/echo-backend-ci.yml`
 
 ## 2026-04-23
@@ -160,7 +160,7 @@ This file tracks concrete security issues patched in the repo so we can avoid re
   - `package.json`
   - `package-lock.json`
 - Root issue:
-  - `backend/package.json` pulls `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`, which both transitively reach `@aws-sdk/xml-builder` and `fast-xml-parser`.
+  - `server/backend/package.json` pulls `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`, which both transitively reach `@aws-sdk/xml-builder` and `fast-xml-parser`.
   - The vulnerable graph selected `fast-xml-parser@5.5.8`, which is affected by `CVE-2026-41650`.
 - Impact:
   - XMLBuilder comment and CDATA injection could flow into any AWS SDK XML serialization path that builds XML from attacker-controlled content.
@@ -233,7 +233,7 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Severity: P0
 - Area: Socket.IO room authorization
 - Fixed in:
-  - `backend/src/sockets/channelHandlers.ts`
+  - `server/backend/src/sockets/channelHandlers.ts`
 - Root issue:
   - `joinChannel` allowed arbitrary non-empty room names.
   - Auth checks only ran when the requested room matched a real Echo channel row.
@@ -249,7 +249,7 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Severity: High
 - Area: Discord OAuth callback validation
 - Fixed in:
-  - `backend/src/api/routes/discordOAuth.ts`
+  - `server/backend/src/api/routes/discordOAuth.ts`
 - Root issue:
   - The callback accepted a valid signed login `state` even without the matching OAuth cookie.
   - That weakened browser continuity for normal web login.
@@ -264,8 +264,8 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Severity: High
 - Area: Outbound unfurl / oEmbed fetch safety
 - Fixed in:
-  - `backend/src/services/linkUnfurl/linkUnfurlFetch.ts`
-  - `backend/src/services/linkUnfurl/linkUnfurl.ts`
+  - `server/backend/src/services/linkUnfurl/linkUnfurlFetch.ts`
+  - `server/backend/src/services/linkUnfurl/linkUnfurl.ts`
 - Root issue:
   - The safety check blocked obvious private/local hostnames and IP literals, but did not verify what public-looking hostnames resolved to.
 - Impact:
@@ -280,9 +280,9 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Severity: High
 - Area: Guest auth / account resume
 - Fixed in:
-  - `backend/src/auth/sessionCookies.ts`
-  - `backend/src/api/routes/auth/guest.ts`
-  - `backend/src/tests/auth.integration.ts`
+  - `server/backend/src/auth/sessionCookies.ts`
+  - `server/backend/src/api/routes/auth/guest.ts`
+  - `server/backend/src/tests/auth/auth.integration.ts`
 - Root issue:
   - `echo_guest_uid` stored a raw guest user id and `/api/v1/auth/guest` trusted that id as sufficient proof to resume the account.
 - Impact:

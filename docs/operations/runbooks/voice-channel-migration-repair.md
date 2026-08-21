@@ -2,7 +2,7 @@
 
 ## What broke
 
-Two idempotent migrations in `ensureEchoTables` (`backend/src/db/echoTables.ts`) could leave production data in a bad state:
+Two idempotent migrations in `ensureEchoTables` (`server/backend/src/db/echoTables.ts`) could leave production data in a bad state:
 
 | Migration                            | Symptom                                                                                                                                                                                                                                                           |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -13,12 +13,12 @@ Discord-imported servers with custom category names are not recategorized by thi
 
 ## Automatic repair
 
-On every backend boot with Postgres, after the migrations above, `repairEchoVoiceChannelMigrationDamage` runs (see `backend/src/db/repairEchoVoiceChannelMigration.ts`).
+On every backend boot with Postgres, after the migrations above, `repairEchoVoiceChannelMigrationDamage` runs (see `server/backend/src/db/repairEchoVoiceChannelMigration.ts`).
 
 It is **idempotent** and only changes rows that match the broken patterns:
 
 1. **Recategorize** — `voice` / `stage` channels in a category named `Text Channels` move to `Voice Channels` (category created if missing, positioned after `Text Channels` when present).
-2. **Restore join** — removes `@everyone` overwrite rows whose partial is exactly `{ CONNECT: false }` on non-mirror voice/stage channels.
+2. **Restore join** — removes `@everyone` overwrite rows whose partial is exactly `{ CONNECT: false }` on non-mirror server/voice/stage channels.
 3. **Clear stuck mirror flag** — sets `discord_voice_mirror_only = false` when no voice-mirror map or enabled per-channel mirror row exists.
 
 Stage channels that intentionally use `{ CONNECT: true, SPEAK: false }` are preserved.

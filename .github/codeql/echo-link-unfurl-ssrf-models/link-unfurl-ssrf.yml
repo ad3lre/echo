@@ -4,13 +4,13 @@ extensions:
       extensible: barrierGuardModel
     data:
       - [
-          'backend/src/services/linkUnfurl/linkUnfurlFetch',
+          'server/backend/src/services/linkUnfurl/linkUnfurlFetch',
           'Member[canSafelyResolveUrlForOutboundFetch].Argument[0]',
           'true',
           'request-forgery',
         ]
       - [
-          'backend/src/services/linkUnfurl/linkUnfurlFetch',
+          'server/backend/src/services/linkUnfurl/linkUnfurlFetch',
           'Member[isUrlSafeForOutboundFetch].Argument[0]',
           'true',
           'request-forgery',
@@ -34,13 +34,13 @@ extensions:
           'request-forgery',
         ]
       - [
-          'backend/src/services/linkUnfurl/linkUnfurlFetch',
+          'server/backend/src/services/linkUnfurl/linkUnfurlFetch',
           'Member[ssrfSafeFetch].Argument[0]',
           'true',
           'request-forgery',
         ]
       - [
-          'backend/src/domain/discordCdnUrls',
+          'server/backend/src/domain/discord/discordCdnUrls',
           'Member[isDiscordHostedImportMediaUrl].Argument[0]',
           'true',
           'request-forgery',
@@ -52,7 +52,7 @@ extensions:
           'request-forgery',
         ]
       - [
-          'backend/src/domain/discordCdnUrls',
+          'server/backend/src/domain/discord/discordCdnUrls',
           'Member[canonicalDiscordHostedImportMediaUrl].Argument[0]',
           'true',
           'request-forgery',

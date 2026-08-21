@@ -8,7 +8,7 @@ Product **rules of record** (who may do what, rate limits, spam classification, 
 
 The client may:
 
-- Map server booleans / error codes to **UX copy** (e.g. `[permissions.ts](../../frontend/src/services/domain/permissions.ts)` strings).
+- Map server booleans / error codes to **UX copy** (e.g. `[permissions.ts](../../clients/web/src/features/chat/domain/permissions.ts)` strings).
 - Run **pure** helpers that mirror server _shape_ for forms (validation that matches API contracts), not a second source of truth.
 
 The client must not:
@@ -21,7 +21,7 @@ Some UX still _simulates_ role preview (`chatRolePreviewPermissions`) — explic
 
 ## Regression
 
-`[vueEchoWorkspaceApplyForbidden.test.ts](../../frontend/src/vueEchoWorkspaceApplyForbidden.test.ts)` — `.vue` trees under `components/`, `features/`, and `views/` must not reference `echoWorkspaceSessionApply` (workspace merge authority stays out of templates).
+`[vueEchoWorkspaceApplyForbidden.test.ts](../../clients/web/src/vueEchoWorkspaceApplyForbidden.test.ts)` — `.vue` trees under `components/`, `features/`, and `views/` must not reference `echoWorkspaceSessionApply` (workspace merge authority stays out of templates).
 
 ## Revision
 

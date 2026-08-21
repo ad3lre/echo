@@ -2,12 +2,12 @@
 
 > **Path note (2026-06):** P1 code placement moved feature UI from `components/` to `features/<domain>/`. Paths in the tables below are the **May 2026 snapshot**; current homes: [code-placement.md](./code-placement.md). `components/` is now **10 primitives only**.
 
-Companion to [`frontend-typescript-bloat-audit.md`](./frontend-typescript-bloat-audit.md): that document ties **gzip / chunks** to hotspots; this memo ties **raw line counts** under `frontend/src` to **maintainability** and a **safe reduction path**.
+Companion to [`frontend-typescript-bloat-audit.md`](./frontend-typescript-bloat-audit.md): that document ties **gzip / chunks** to hotspots; this memo ties **raw line counts** under `clients/web/src` to **maintainability** and a **safe reduction path**.
 
 ## Methodology
 
-- **Inventory:** walk `frontend/src` for `.vue`, `.ts`, `.tsx`, `.js`, `.jsx` (skip `node_modules` / `dist`); **physical lines** = `split(/\r?\n/).length` per file.
-- **Why not only `cloc`?** `cloc` splits `.vue` across languages and reports lower **“code”** totals (audit §1.2: ~**122k** code lines for all of `frontend/src`). Raw lines here are **~232.7k** across **1276** files—useful for “how big is the tree on disk,” not for bundle weight.
+- **Inventory:** walk `clients/web/src` for `.vue`, `.ts`, `.tsx`, `.js`, `.jsx` (skip `node_modules` / `dist`); **physical lines** = `split(/\r?\n/).length` per file.
+- **Why not only `cloc`?** `cloc` splits `.vue` across languages and reports lower **“code”** totals (audit §1.2: ~**122k** code lines for all of `clients/web/src`). Raw lines here are **~232.7k** across **1276** files—useful for “how big is the tree on disk,” not for bundle weight.
 - **SFC split:** `@vue/compiler-sfc` block bodies (`descriptor.template`, `script` + `scriptSetup`, `styles[]`, `customBlocks[]`). Respects nested `<template #slot>` (naive regex on `</template>` is wrong for those files). Residual **other** ≈ SFC wrapper lines (typically 2–4).
 
 ## What drives LOC
@@ -39,7 +39,7 @@ Companion to [`frontend-typescript-bloat-audit.md`](./frontend-typescript-bloat-
 |    6 | `features/channel-panel/components/ChannelPanelList.vue`                 |  2394 |  933 |   1000 |   458 | Mixed            |                             **Med** (presentational + list state) | **Med–high**                                                                             |
 |    7 | `features/server-settings/components/ServerSettingsRolesSection.vue`     |  2340 | 1697 |    641 |     0 | Mixed            |                    **Med** (huge template—subcomponents / tables) | **Med** (RBAC UX)                                                                        |
 |    8 | `features/layout/components/AppLayoutChatHeader.vue`                     |  2290 | 1266 |   1022 |     0 | Mixed            |                                                           **Med** | **Med**                                                                                  |
-|    9 | `features/layout/composables/useAppLayoutDmCalls.ts`                     |  2143 |    0 |   2143 |     0 | Justified        |                                                       **Low–med** | **High**                                                                                 |
+|    9 | `features/layout/composables/dm/useAppLayoutDmCalls.ts`                  |  2143 |    0 |   2143 |     0 | Justified        |                                                       **Low–med** | **High**                                                                                 |
 |   11 | `components/chat/ChatInput.vue`                                          |  1995 |  334 |   1160 |   498 | Mixed            |                                                           **Med** | **Med**                                                                                  |
 |   12 | `components/DMPanel.vue`                                                 |  1772 |  810 |    698 |   261 | Mixed            |                                                           **Med** | **Med**                                                                                  |
 |   13 | `components/CallView.vue`                                                |  1648 |  606 |    530 |   509 | Mixed            |                                                       **Low–med** | **High**                                                                                 |
@@ -54,7 +54,7 @@ Companion to [`frontend-typescript-bloat-audit.md`](./frontend-typescript-bloat-
 |   22 | `components/AddServerModal.vue`                                          |  1333 |  674 |    365 |   291 | Mixed            |                                                       **Low–med** | **Med**                                                                                  |
 |   23 | `features/server-settings/components/ServerSettingsStructureSection.vue` |  1293 |  613 |    678 |     0 | Mixed            |                                                           **Med** | **Med**                                                                                  |
 |   24 | `components/ExploreView.vue`                                             |  1264 |  555 |    395 |   310 | Mixed            |                                                       **Low–med** | **Med**                                                                                  |
-|   25 | `features/layout/composables/useServerVoiceSession.ts`                   |  1220 |    0 |   1220 |     0 | Justified        |                                                           **Low** | **High**                                                                                 |
+|   25 | `features/layout/composables/voice/useServerVoiceSession.ts`             |  1220 |    0 |   1220 |     0 | Justified        |                                                           **Low** | **High**                                                                                 |
 
 **Tag legend**
 
@@ -69,17 +69,17 @@ Companion to [`frontend-typescript-bloat-audit.md`](./frontend-typescript-bloat-
 | **Bloat**     | No importers after `grep` + route audit; duplicate module next to canonical (`services/orchestration/*` vs stale `features/layout/composables/*` **re-export**); repeated markup (audit §4 clones); debug-only paths. | Delete, merge, or extract shared primitive.                                  |
 | **Justified** | LiveKit/voice state machines, DM/call bridges, RBAC/settings, message list + realtime, API client mirroring backend, layout hub wiring.                                                                               | **Narrow public surfaces**, tests, **vertical slices**—not blanket deletion. |
 
-**Guardrail:** do not treat **LOC down** as **gzip down** unless code is removed from **hot import paths** (see audit §2). Avoid refactors that **tighten** imports around `AppLayout` / shared chunks against the **circular chunk** constraints called out in `frontend/vite.config.ts`.
+**Guardrail:** do not treat **LOC down** as **gzip down** unless code is removed from **hot import paths** (see audit §2). Avoid refactors that **tighten** imports around `AppLayout` / shared chunks against the **circular chunk** constraints called out in `clients/web/vite.config.ts`.
 
 ## Dead code and duplication (this pass)
 
-### Knip (`npx knip@5`, cwd `frontend/`, 2026-05-14)
+### Knip (`npx knip@5`, cwd `clients/web/`, 2026-05-14)
 
 - Reported **70** “unused files” and noisy dependency hints (matches prior audit: treat as **hints**).
 - **High-confidence false positives:** anything under `public/`, `vite-shims/**`, SCSS partials consumed only from Vue `<style lang="scss">`, and **barrel** files (`src/services/index.ts`) that knip does not see as entrypoints.
-- **Triage pattern (verified sample):** `src/features/layout/composables/useAppLayoutEchoDmState.ts` is a **one-line re-export** to `@/services/orchestration/useAppLayoutEchoDmState`; production imports go **directly** to `services/orchestration`. Same pattern may apply to other knip-listed layout composables—**safe removal only after** confirming zero imports of the legacy path (including docs/tests).
+- **Triage pattern (verified sample):** `src/features/layout/composables/useAppLayoutEchoDmState.ts` is a **one-line re-export** to `@/features/layout/composables/dm/useAppLayoutEchoDmState`; production imports go **directly** to `services/orchestration`. Same pattern may apply to other knip-listed layout composables—**safe removal only after** confirming zero imports of the legacy path (including docs/tests).
 
-### jscpd (`npx jscpd@4 src --min-lines 15 --min-tokens 80`, cwd `frontend/`)
+### jscpd (`npx jscpd@4 src --min-lines 15 --min-tokens 80`, cwd `clients/web/`)
 
 - **~1.88%** duplicated lines (**3324** / **176377** lines in scan scope), **129** clones—**low globally**, aligned with audit §4 (~2.18% on a slightly different scope/count). ROI is **targeted** cluster fixes (e.g. compact pane shells, settings legal/formatting overlap), not repo-wide dedupe.
 
@@ -99,10 +99,10 @@ Companion to [`frontend-typescript-bloat-audit.md`](./frontend-typescript-bloat-
 
 ```bash
 # Full inventory JSON (buckets + every file) and SFC splits for top 25 (default)
-node scripts/frontend-loc-inventory.mjs --all
+node server/ops/scripts/frontend-loc-inventory.mjs --all
 
 # Larger ranked sample with compiler splits
-node scripts/frontend-loc-inventory.mjs --top 50
+node server/ops/scripts/frontend-loc-inventory.mjs --top 50
 
 # Knip (hints only)
 cd frontend && npx knip@5
@@ -111,4 +111,4 @@ cd frontend && npx knip@5
 cd frontend && npx jscpd@4 src --min-lines 15 --min-tokens 80 --reporters json --silent -o /tmp/jscpd-frontend
 ```
 
-The **top-25** table matches `node scripts/frontend-loc-inventory.mjs` (default `--top 25`) on the revision used for this memo. The script resolves `@vue/compiler-sfc` via `frontend/package.json` (run `npm install` under `frontend/` first).
+The **top-25** table matches `node server/ops/scripts/frontend-loc-inventory.mjs` (default `--top 25`) on the revision used for this memo. The script resolves `@vue/compiler-sfc` via `clients/web/package.json` (run `npm install` under `clients/web/` first).

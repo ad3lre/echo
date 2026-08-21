@@ -1,0 +1,15 @@
+{
+  "description": "Grandfathered Echo route files that still call pool.query. Shrink-only — move callers to DAL/echoStore then remove entries.",
+  "files": [
+    "server/backend/src/api/routes/echo/botApplications.ts",
+    "server/backend/src/api/routes/echo/channels.ts",
+    "server/backend/src/api/routes/echo/discordBridgeSettings.ts",
+    "server/backend/src/api/routes/echo/discordVoiceMirrorSettings.ts",
+    "server/backend/src/api/routes/echo/instanceBanHandlers.ts",
+    "server/backend/src/api/routes/echo/messages.ts",
+    "server/backend/src/api/routes/echo/safety.ts",
+    "server/backend/src/api/routes/echo/servers.ts",
+    "server/backend/src/api/routes/echo/voice.ts",
+    "server/backend/src/api/routes/echo/voiceE2ee.ts"
+  ]
+}

@@ -6,16 +6,16 @@ Status (2026-04-11): rows 6–10 are not fully model-compliant. This note record
 
 ## Current violating owners
 
-- [`echoWorkspaceSessionApply.ts`](../../frontend/src/features/layout/viewModel/echoWorkspaceSessionApply.ts) still owns snapshot version gating, roster merge, presence writes, message disposal, and reset behavior.
-- [`echoWorkspaceLifecycleViewModel.ts`](../../frontend/src/features/layout/viewModel/echoWorkspaceLifecycleViewModel.ts) and [`workspaceEchoHydrateFromApi.ts`](../../frontend/src/services/orchestration/workspaceEchoHydrateFromApi.ts) still coordinate hydrate timing, social refresh, bootstrap, logout reset, and server-delete follow-up.
-- [`echoHistoryViewModel.ts`](../../frontend/src/features/chat/viewModel/echoHistoryViewModel.ts) still combines fetches, timers, diagnostics, read-state persistence, and pagination orchestration.
+- `echoWorkspaceSessionApply.ts` still owns snapshot version gating, roster merge, presence writes, message disposal, and reset behavior.
+- `echoWorkspaceLifecycleViewModel.ts` and [`workspaceEchoHydrateFromApi.ts`](../../clients/web/src/features/layout/echoWorkspace/workspaceEchoHydrateFromApi.ts) still coordinate hydrate timing, social refresh, bootstrap, logout reset, and server-delete follow-up.
+- `echoHistoryViewModel.ts` still combines fetches, timers, diagnostics, read-state persistence, and pagination orchestration.
 
 ## Thin seams worth preserving
 
-- [`echoSession.ts`](../../frontend/src/stores/echoSession.ts) should remain a thin store entrypoint.
-- [`useEchoWorkspaceLifecycle.ts`](../../frontend/src/features/layout/composables/useEchoWorkspaceLifecycle.ts) and [`useEchoHistory.ts`](../../frontend/src/composables/useEchoHistory.ts) should remain binders only.
-- [`channelMessageIndex.ts`](../../frontend/src/features/chat/viewModel/channelMessageIndex.ts) is still the ordered message index structure.
-- [`activeChannelMessages.ts`](../../frontend/src/features/chat/viewModel/activeChannelMessages.ts) remains presentation mapping, not canonical message merge.
+- [`echoSession.ts`](../../clients/web/src/features/layout/echoSession.ts) should remain a thin store entrypoint.
+- [`useEchoWorkspaceLifecycle.ts`](../../clients/web/src/features/layout/composables/workspace/useEchoWorkspaceLifecycle.ts) and [`useEchoHistory.ts`](../../clients/web/src/features/chat/composables/useEchoHistory.ts) should remain binders only.
+- [`channelMessageIndex.ts`](../../clients/web/src/features/chat/domain/channelMessageIndex.ts) is still the ordered message index structure.
+- [`activeChannelMessages.ts`](../../clients/web/src/features/chat/domain/activeChannelMessages.ts) remains presentation mapping, not canonical message merge.
 
 ## Charter target
 

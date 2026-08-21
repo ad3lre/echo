@@ -47,4 +47,4 @@
 
 - CSP/HSTS on the HTML document (Caddy / Cloudflare): [http-observatory-headers.md](./http-observatory-headers.md)
 - Socket auth and cookies: [runbooks/jwt-socket-auth.md](runbooks/jwt-socket-auth.md)
-- Session architecture: [../auth/OPTION_A_SESSION_ARCHITECTURE.md](../auth/OPTION_A_SESSION_ARCHITECTURE.md)
+- Session architecture: [../auth/OPTION_A_SESSION_ARCHITECTURE.md](../infra/auth/OPTION_A_SESSION_ARCHITECTURE.md)

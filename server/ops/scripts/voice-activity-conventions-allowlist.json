@@ -1,0 +1,25 @@
+{
+  "_comment": "Grandfathered violations for check-voice-activity-conventions.mjs. See docs/echo-voice-activity-conventions.md. This list may only SHRINK: when you fix a violation, delete its entry. The guard fails if an entry no longer matches a real violation (stale allowlist).",
+  "config": {
+    "voiceRoot": "clients/web/src/features/voice",
+    "sharedDir": "clients/web/src/features/voice/shared",
+    "audioEngineModule": "clients/web/src/features/voice/composables/useVoiceGameSfx.ts"
+  },
+  "privateAudioContext": [
+    "clients/web/src/features/voice/callRingtone.ts",
+    "clients/web/src/features/voice/livekit/echoRemotePlaybackWebAudio.ts",
+    "clients/web/src/features/voice/ticTacToe/ticTacToeFeedback.ts",
+    "clients/web/src/features/voice/useAudioLevelMonitor.ts"
+  ],
+  "perGameTick": [
+    "clients/web/src/features/voice/hangman/vcHangmanReducer.ts",
+    "clients/web/src/features/voice/codenames/vcCodenamesReducer.ts",
+    "clients/web/src/features/voice/skriggles/vcSkrigglesReducer.ts"
+  ],
+  "perGameHostElection": [
+    "clients/web/src/features/voice/hangman/vcHangmanReducer.ts"
+  ],
+  "unprefixedActivityComponent": [
+    "clients/web/src/features/voice/hangman/components/"
+  ]
+}

@@ -1,6 +1,6 @@
 # Runbook: NATS + Socket.IO (Echo multi-replica)
 
-**Audience:** Engineers operating Echo with **`NATS_URL`** set so Socket.IO uses the NATS adapter (`attachSocketAdapterIfConfigured` in `backend/src/bootstrap/socket.ts`).
+**Audience:** Engineers operating Echo with **`NATS_URL`** set so Socket.IO uses the NATS adapter (`attachSocketAdapterIfConfigured` in `server/backend/src/bootstrap/socket.ts`).
 
 ## When this applies
 
@@ -23,7 +23,7 @@
 
 1. Stabilize **NATS** (cluster healthy, routes stable).
 2. Restart or roll **API** replicas **after** NATS is healthy so the adapter reconnects cleanly.
-3. Validate with the steps in [`multi-replica-socketio.md`](./multi-replica-socketio.md) and the **Validation** section in [`realtime-scaling.md`](../realtime-scaling.md).
+3. Validate with the steps in [`multi-replica-socketio.md`](./multi-replica-socketio.md) and the **Validation** section in [`realtime-scaling.md`](../../infra/realtime-scaling.md).
 
 ## Split-brain / partial cluster
 
@@ -33,9 +33,9 @@
 ## Monitoring
 
 - Watch **`echo_rest_http_requests_total`** and existing socket/workspace metrics during rolls; pair with NATS server metrics from your platform.
-- Repo alert rules: [`monitoring/prometheus/rules/`](../../monitoring/prometheus/rules/) (see [`monitoring/README.md`](../../monitoring/README.md)).
+- Repo alert rules: [`server/ops/monitoring/prometheus/rules/`](../../../server/ops/monitoring/prometheus/rules) (see [`server/ops/monitoring/README.md`](../../../server/ops/monitoring/README.md)).
 
 ## Related documentation
 
-- Architecture: [`realtime-scaling.md`](../realtime-scaling.md).
+- Architecture: [`realtime-scaling.md`](../../infra/realtime-scaling.md).
 - Multi-replica drill: [`multi-replica-socketio.md`](./multi-replica-socketio.md).

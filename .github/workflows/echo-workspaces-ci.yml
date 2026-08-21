@@ -5,9 +5,12 @@ on:
     paths:
       - 'marketing/**'
       - 'bot/**'
-      - 'game-server/**'
-      - 'voice-sidecar/**'
-      - 'shared/**'
+      - 'server/activities/**'
+      - 'server/voice/**'
+      - 'server/media/**'
+      - 'clients/web/src/features/paper/**'
+      - 'server/backend/crypto/**'
+      - 'contracts/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/echo-workspaces-ci.yml'
@@ -15,9 +18,12 @@ on:
     paths:
       - 'marketing/**'
       - 'bot/**'
-      - 'game-server/**'
-      - 'voice-sidecar/**'
-      - 'shared/**'
+      - 'server/activities/**'
+      - 'server/voice/**'
+      - 'server/media/**'
+      - 'clients/web/src/features/paper/**'
+      - 'server/backend/crypto/**'
+      - 'contracts/**'
       - 'package.json'
       - 'package-lock.json'
   workflow_dispatch:
@@ -42,14 +48,29 @@ jobs:
       - name: Build Discord bot
         run: npm run build -w bot
 
-      - name: Build voice sidecar
-        run: npm run build -w voice-sidecar
+      - name: Build media
+        run: npm run build -w media
 
-      - name: Test voice sidecar
-        run: npm run test -w voice-sidecar
+      - name: Test media
+        run: npm run test -w media
 
-      - name: Build game server
-        run: npm run build -w game-server
+      - name: Build voice
+        run: npm run build -w voice
 
-      - name: Test game server
-        run: npm run test -w game-server
+      - name: Test voice
+        run: npm run test -w voice
+
+      - name: Build activities
+        run: npm run build -w activities
+
+      - name: Test activities
+        run: npm run test -w activities
+
+      - name: Typecheck crypto
+        run: npm run typecheck -w crypto
+
+      - name: Test crypto
+        run: npm run test -w crypto
+
+      - name: Test paper
+        run: npm run test -w paper

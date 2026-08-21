@@ -16,7 +16,7 @@ This plan turns the theme system from **architecturally correct** into **actuall
 
 - **Stylelint vs grep:** Treat **Stylelint as primary** for SCSS-shaped code long-term. The **grep script is a migration safety net** — document a **sunset trigger** in `AGENTS.md` (e.g. remove grep from CI once Stylelint covers all intended surfaces **including** Vue `<style lang="scss">`, plus a sign-off audit). Avoid running two “owners” indefinitely without a removal date.
 - **Allowlist:** Grep allowlists must be **shrink-oriented** (no unbounded growth as a bypass graveyard). Encode policy in `AGENTS.md`; optional CI guard on allowlist line-count vs `main`.
-- **ESLint:** Prefer **one** `eslint.config.js` for a strict theme run (env flag / conditional block / documented CLI overrides). Avoid a duplicate `eslint.theme.config.js` that can diverge on parsers and plugins. **Conditional / env-based branching is easy to run wrong locally** — mitigate by documenting **the same npm scripts CI runs** in `AGENTS.md` as the source of truth (e.g. `npm run lint:theme -w frontend`), not ad-hoc env vars alone.
+- **ESLint:** Prefer **one** `eslint.config.js` for a strict theme run (env flag / conditional block / documented CLI overrides). Avoid a duplicate `eslint.theme.config.js` that can diverge on parsers and plugins. **Conditional / env-based branching is easy to run wrong locally** — mitigate by documenting **the same npm scripts CI runs** in `AGENTS.md` as the source of truth (e.g. `npm run lint:theme -w web`), not ad-hoc env vars alone.
 - **Vue SFC SCSS:** Either **lint** `<style lang="scss">` with Stylelint (e.g. postcss-html) or **explicitly** exclude and **document** that grep (or another tool) covers that lane until included — no accidental bypass.
 - **Stylelint + Vue SFC (technical risk):** PostCSS-HTML / extraction edge cases, `scoped` styles, and false positives on `var(--*)` are the usual time sinks. Prefer a **two-phase rollout** (standalone `*.scss` first, then Vue SFC + rule tuning) if needed; grep covers `.vue` styles in the gap.
 - **Token migration vs enforcement:** Token expansion is an **ongoing loop**, not a task with an end date in a large codebase. **Success is primarily “no new raw colors”** (enforcement), not “zero legacy literals everywhere.”
@@ -50,15 +50,15 @@ This plan turns the theme system from **architecturally correct** into **actuall
 
 - Add **Stylelint** to the frontend workspace with:
   - `stylelint-config-standard-scss` (or equivalent for SCSS).
-  - Custom rules / `declaration-property-value-disallowed-list` (or plugin) to **forbid** raw color functions in UI-layer paths, e.g. under `frontend/src/**/*.scss`, **excluding** `frontend/src/assets/themes.css` (token layer — keep allowlist in `AGENTS.md` aligned).
-- Wire `npm run lint:style` (or fold into `lint`) and **run it in** `[.github/workflows/echo-frontend-ci.yml](../../.github/workflows/echo-frontend-ci.yml)`.
+  - Custom rules / `declaration-property-value-disallowed-list` (or plugin) to **forbid** raw color functions in UI-layer paths, e.g. under `clients/web/src/**/*.scss`, **excluding** `clients/web/src/assets/themes.css` (token layer — keep allowlist in `AGENTS.md` aligned).
+- Wire `npm run lint:style` (or fold into `lint`) and **run it in** `[.github/workflows/echo-web-ci.yml](../../.github/workflows/echo-web-ci.yml)`.
 
 **Acceptance criteria**
 
-- Stylelint runs on `frontend/src/**/*.scss` (legacy ignores removed after token migration).
+- Stylelint runs on `clients/web/src/**/*.scss` (legacy ignores removed after token migration).
 - Vue `<style lang="scss">` in Stylelint (`postcss-html`); grep script **sunset** 2026-04-01.
 - `themes.css` excluded from Stylelint (token layer).
-- CI fails on new forbidden literals in non-ignored SCSS (`echo-frontend-ci.yml` → `lint:style`).
+- CI fails on new forbidden literals in non-ignored SCSS (`echo-web-ci.yml` → `lint:style`).
 
 ### Option B — Gradual migration + grep gate (lighter weight)
 
@@ -88,7 +88,7 @@ This plan turns the theme system from **architecturally correct** into **actuall
 
 **Acceptance criteria**
 
-- CI runs a **zero-warnings** pass for theme-related ESLint rules (`npm run lint:theme -w frontend`).
+- CI runs a **zero-warnings** pass for theme-related ESLint rules (`npm run lint:theme -w web`).
 - `AGENTS.md` documents the **exact** npm scripts that match CI, including `lint:theme`.
 - Repo-wide `lint` without `--quiet` / full-tree `max-warnings 0` — **still open** (Step 2b).
 
@@ -111,7 +111,7 @@ This plan turns the theme system from **architecturally correct** into **actuall
 **Acceptance criteria**
 
 - Docs state the invariant explicitly (`AGENTS.md`, `theme-system-progress.md`).
-- No second code path writes `dataset.theme` without normalization — assignment only in `applyThemeToDocument()` (`frontend/src/utils/theme.ts`).
+- No second code path writes `dataset.theme` without normalization — assignment only in `applyThemeToDocument()` (`clients/web/src/features/settings/theme.ts`).
 
 ---
 
@@ -140,7 +140,7 @@ This plan turns the theme system from **architecturally correct** into **actuall
 
 ### Audit (manual + scripted)
 
-Search under `frontend/src` (respecting `AGENTS.md` allowlist):
+Search under `clients/web/src` (respecting `AGENTS.md` allowlist):
 
 - Hex: `#rgb`, `#rrggbb`, etc.
 - Functional: `rgb(`, `rgba(`, `hsl(`, `oklch(`
@@ -148,7 +148,7 @@ Search under `frontend/src` (respecting `AGENTS.md` allowlist):
 
 ### Grep-based CI (minimum viable “token-only test”)
 
-- Add `scripts/check-theme-no-raw-colors.mjs` (or similar) that:
+- Add `server/ops/scripts/check-theme-no-raw-colors.mjs` (or similar) that:
   - Scans allowed paths.
   - Ignores `themes.css`, `index.html` boot splash (per `AGENTS.md`), and an optional `allowlist.txt` of remaining lines.
   - Exits non-zero on new matches.
@@ -157,7 +157,7 @@ Run in **frontend CI** after Stylelint/ESLint or as a fallback if Stylelint is d
 
 **Acceptance criteria**
 
-- Temporary grep script + allowlist shipped and **sunset 2026-04-01** — removed after Stylelint covered `*.vue` styles; CI now relies on `npm run lint:style -w frontend` only for SCSS/Vue style literals.
+- Temporary grep script + allowlist shipped and **sunset 2026-04-01** — removed after Stylelint covered `*.vue` styles; CI now relies on `npm run lint:style -w web` only for SCSS/Vue style literals.
 
 ---
 
@@ -175,11 +175,11 @@ Run in **frontend CI** after Stylelint/ESLint or as a fallback if Stylelint is d
 
 ## References
 
-- `[AGENTS.md](../AGENTS.md)` — token vs UI layer boundary.
+- `[AGENTS.md](../../AGENTS.md)` — token vs UI layer boundary.
 - `[theme-system-progress.md](./theme-system-progress.md)` — what shipped already.
-- `[frontend/eslint.config.js](../frontend/eslint.config.js)` — current Tailwind literal rules.
-- `[.github/workflows/echo-frontend-ci.yml](../../.github/workflows/echo-frontend-ci.yml)` — where new checks plug in.
+- `[clients/web/eslint.config.js](../../clients/web/eslint.config.js)` — current Tailwind literal rules.
+- `[.github/workflows/echo-web-ci.yml](../../.github/workflows/echo-web-ci.yml)` — where new checks plug in.
 
 ---
 
-_This is an execution plan, not a commitment calendar. Adjust phases if Stylelint scope or team capacity dictates a grep-first approach. Progress vs checkboxes verified 2026-04-01 against CI and `frontend/` tooling._
+_This is an execution plan, not a commitment calendar. Adjust phases if Stylelint scope or team capacity dictates a grep-first approach. Progress vs checkboxes verified 2026-04-01 against CI and `clients/web/` tooling._

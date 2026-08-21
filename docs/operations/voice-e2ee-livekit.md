@@ -1,6 +1,6 @@
 # Voice end-to-end encryption (LiveKit-native)
 
-Echo uses **LiveKit client-side E2EE** for **all DM/group voice calls** (default on; opt out with `ECHO_DM_VOICE_E2EE_ENABLED=false`) and optionally for **guild voice/stage channels** when enabled in channel settings (`voice_e2ee_enabled`; **off by default** for new voice/stage channels). Chat text is not E2EE. Media is encrypted after encode and decrypted before decode; the SFU forwards **ciphertext** only.
+Echo uses **LiveKit client-side E2EE** for **all DM/group voice calls** (default on; opt out with `ECHO_DM_VOICE_E2EE_ENABLED=false`) and optionally for **guild server/voice/stage channels** when enabled in channel settings (`voice_e2ee_enabled`; **off by default** for new server/voice/stage channels). Chat text is not E2EE. Media is encrypted after encode and decrypted before decode; the SFU forwards **ciphertext** only.
 
 ## Key agreement protocols
 
@@ -9,7 +9,7 @@ Echo uses **LiveKit client-side E2EE** for **all DM/group voice calls** (default
 
 ## Version floor
 
-- **Web client:** `livekit-client` **^2.18.x** (see `frontend/package.json`). Confirm your **self-hosted LiveKit server** version supports E2EE for the codecs you enable.
+- **Web client:** `livekit-client` **^2.18.x** (see `clients/web/package.json`). Confirm your **self-hosted LiveKit server** version supports E2EE for the codecs you enable.
 - **Desktop:** Uses the same WebView / WebRTC stack; E2EE depends on **insertable streams** and a current runtime. Treat outdated embedded browsers as unsupported for encrypted voice.
 
 ## Infrastructure and product constraints
@@ -36,4 +36,4 @@ Echo uses **LiveKit client-side E2EE** for **all DM/group voice calls** (default
 
 ## Validation
 
-- Confirm a subscriber **without** the E2EE key (test agent, egress recorder, or second client without `setKey`) **cannot** decode voice/video, consistent with LiveKit E2EE documentation.
+- Confirm a subscriber **without** the E2EE key (test agent, egress recorder, or second client without `setKey`) **cannot** decode server/voice/video, consistent with LiveKit E2EE documentation.

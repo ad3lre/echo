@@ -7,11 +7,11 @@
 > Related (older, partly stale) analysis: [`message-list-scroll-plan.md`](./message-list-scroll-plan.md)
 > — keep that for the reactive-cost framing, but this doc supersedes it for the authority model
 > and current code state. Prepend mechanics: [`../operations/channel-message-prepend-transaction.md`](../operations/channel-message-prepend-transaction.md).
-> Hard rules: `frontend/src/features/chat/domain/viewportContract.ts`.
+> Hard rules: `clients/web/src/features/chat/domain/viewportContract.ts`.
 
 ## Context / why
 
-The chat list (`frontend/src/features/chat/components/MessageList.vue`, ~2.8k lines) renders virtual rows
+The chat list (`clients/web/src/features/chat/components/MessageList.vue`, ~2.8k lines) renders virtual rows
 as `position:absolute` + `translateY(...)`. That layout **defeats the browser's native scroll
 anchoring**, which is the root reason an elaborate JS scroll system exists: an 8-intent ownership
 arbiter (`messageListScrollOwnership`), prepend snap-math (`restorePrependScroll`), viewport-anchor
@@ -65,7 +65,7 @@ scrolls.
 - `MessageList.vue`, `virtualizerOptions` computed: `shouldAdjustScrollPositionOnItemSizeChange`
   now returns `item.start < (instance.scrollOffset ?? 0)` — above-viewport re-measures keep the
   row under the user's eyes fixed; rows at/below offset are never compensated (no tail yank).
-- `frontend/src/features/chat/domain/messageListRowEstimate.ts`: replaced the line+length
+- `clients/web/src/features/chat/domain/messageListRowEstimate.ts`: replaced the line+length
   double-add (over-guessed short headers ~114px vs ~80px real) with a line-box model
   (`HEADER_CHROME 50 + lines×22`, `GROUPED_CHROME 6 + lines×22`, soft-wrap @ ~80 chars,
   cap 12 lines). `messageListRowEstimate.test.ts` still green.
@@ -221,15 +221,15 @@ DEV removal metrics: `messageListSubtractionDiagnostics.ts`.
 
 ## Critical files
 
-| File                                                                                            | Stages  |
-| ----------------------------------------------------------------------------------------------- | ------- |
-| `frontend/src/features/chat/components/MessageList.vue`                                         | 1,2,3,4 |
-| `frontend/src/features/chat/domain/messageListRowEstimate.ts` (+ `.test.ts`)                    | 1 ✅    |
-| `frontend/src/features/chat/domain/messageListScrollOwnership.ts` (+ `.test.ts`)                | 3,4     |
-| `frontend/src/features/chat/composables/messageListViewportStorage.ts` (read for initialOffset) | 3       |
-| `frontend/src/features/chat/domain/messageListPrependAnchor.ts` (+ `.test.ts`)                  | 4       |
-| `frontend/src/features/chat/domain/messageListViewportRestore.ts` (+ `.test.ts`)                | 4       |
-| `frontend/src/features/chat/domain/viewportContract.ts`                                         | 4       |
+| File                                                                                               | Stages  |
+| -------------------------------------------------------------------------------------------------- | ------- |
+| `clients/web/src/features/chat/components/MessageList.vue`                                         | 1,2,3,4 |
+| `clients/web/src/features/chat/domain/messageListRowEstimate.ts` (+ `.test.ts`)                    | 1 ✅    |
+| `clients/web/src/features/chat/domain/messageListScrollOwnership.ts` (+ `.test.ts`)                | 3,4     |
+| `clients/web/src/features/chat/composables/messageListViewportStorage.ts` (read for initialOffset) | 3       |
+| `clients/web/src/features/chat/domain/messageListPrependAnchor.ts` (+ `.test.ts`)                  | 4       |
+| `clients/web/src/features/chat/domain/messageListViewportRestore.ts` (+ `.test.ts`)                | 4       |
+| `clients/web/src/features/chat/domain/viewportContract.ts`                                         | 4       |
 
 ## Verification (run per stage)
 

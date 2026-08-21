@@ -18,11 +18,11 @@ Echo exposes **Prometheus** metrics via `**GET /api/v1/metrics`\*\* (optional be
 
 Low-cardinality labels only — do not add raw room names or user ids.
 
-**REST `route_group`:** `POST /api/v1/hooks/livekit` is labeled **`hooks_livekit`** in `echo_rest_http_requests_total` / duration histograms (see `echoRestRouteGroup` in `backend/src/bootstrap/echoHttpObservability.ts`). Use it for webhook-specific alerts and dashboards.
+**REST `route_group`:** `POST /api/v1/hooks/livekit` is labeled **`hooks_livekit`** in `echo_rest_http_requests_total` / duration histograms (see `echoRestRouteGroup` in `server/backend/src/bootstrap/echoHttpObservability.ts`). Use it for webhook-specific alerts and dashboards.
 
 ## Prometheus alert rules (in-repo)
 
-Rules live in [`monitoring/prometheus/rules/echo-alerts.yml`](../../monitoring/prometheus/rules/echo-alerts.yml) under group **`echo_livekit`**:
+Rules live in [`server/ops/monitoring/prometheus/rules/echo-alerts.yml`](../../server/ops/monitoring/prometheus/rules/echo-alerts.yml) under group **`echo_livekit`**:
 
 | Alert                                   | Intent                                                            | Tune                                                      |
 | --------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------- |

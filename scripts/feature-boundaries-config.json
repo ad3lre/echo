@@ -1,7 +1,0 @@
-{
-  "_comment": "Feature import-boundary guard config. SSOT: docs/overview/code-placement.md (import rule). A feature must not import another feature's INTERNALS (components/composables/stores/services/editor); cross-feature coordination goes through a composer feature, shared utils, or @/api. Existing crossings are grandfathered in feature-boundaries-allowlist.json (shrink-only).",
-  "featuresRoot": "frontend/src/features",
-  "internalDirs": ["components", "composables", "stores", "services", "editor"],
-  "composerFeatures": ["layout"],
-  "docsUrl": "docs/overview/code-placement.md"
-}

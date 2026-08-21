@@ -1,5 +1,5 @@
 {
-  "$schema": "./shared/instancePolicySchema.json",
+  "$schema": "./contracts/instancePolicySchema.json",
   "general": {
     "instanceName": "Echo Instance",
     "instanceDescription": "A self-hosted Echo communications instance",

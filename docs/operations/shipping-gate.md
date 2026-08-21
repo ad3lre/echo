@@ -4,7 +4,7 @@ This document summarizes **release-blocking** risks and how the codebase enforce
 
 ## Production boot failures (misconfiguration is refused)
 
-With `NODE_ENV=production`, the server exits on dangerous or incomplete public-facing configuration (see `backend/src/config.ts` after the `config` object). Enforced examples:
+With `NODE_ENV=production`, the server exits on dangerous or incomplete public-facing configuration (see `server/backend/src/config.ts` after the `config` object). Enforced examples:
 
 - Postgres storage and `DATABASE_URL` required; in-memory backend is rejected.
 - `JWT_SECRET` must not remain the dev default.
@@ -19,7 +19,7 @@ With `NODE_ENV=production`, the server exits on dangerous or incomplete public-f
 - **`ECHO_SMTP_HOST`** must be set so transactional mail works (signup DOI, support).
 - **`ECHO_MARKETING_PUBLIC_URL`** origin must appear in **`CORS_ORIGIN`** (browser POST from app-echo.net).
 
-Automated coverage: `backend/src/tests/productionConfigGates.test.ts`.
+Automated coverage: `server/backend/src/tests/platform/productionConfigGates.test.ts`.
 
 ## Operator responsibilities (not all are expressible as code)
 
@@ -28,10 +28,10 @@ Automated coverage: `backend/src/tests/productionConfigGates.test.ts`.
 
 ## Items reviewed — not identified as code-level show-stoppers
 
-- **LiveKit webhook** (`backend/src/api/routes/livekitWebhook.ts`): signature verification before DB writes.
-- **Voice join / LiveKit session REST** (`backend/src/api/routes/echo/echoVoice.ts`): `requireAuth` and membership checks.
-- **Dev diagnostics ingest** (`backend/src/api/routes/devDiagnostics.ts`): returns 403 in production.
-- **Double-submit CSRF** on mutating `/api/v1` routes (`backend/src/auth/csrf.ts`) with documented exemptions.
+- **LiveKit webhook** (`server/backend/src/api/routes/livekitWebhook.ts`): signature verification before DB writes.
+- **Voice join / LiveKit session REST** (`server/backend/src/api/routes/echo/voice.ts`): `requireAuth` and membership checks.
+- **Dev diagnostics ingest** (`server/backend/src/api/routes/devDiagnostics.ts`): returns 403 in production.
+- **Double-submit CSRF** on mutating `/api/v1` routes (`server/backend/src/auth/csrf.ts`) with documented exemptions.
 
 ## Doc drift note
 
@@ -43,13 +43,13 @@ Static analysis runs on `release/**` via `.github/workflows/codeql.yml` with `.g
 
 Many **missing rate limiting** findings are false positives: production uses `@fastify/rate-limit` globally (`httpPlugins.ts`), on the Echo API scope (`api/routes/index.ts`), and on sensitive routes (auth, OAuth, uploads, voice, MLS). CodeQL does not model the Fastify plugin. `.github/codeql/codeql-config.yml` excludes `js/missing-rate-limiting` on `echoMls.ts` for this reason.
 
-**Insufficient password hash** (`js/insufficient-password-hash`) on `backend/src/auth/oauthCookieIntegrity.ts` is a false positive: that module HMAC-signs short-lived OAuth state cookies (Google, YouTube, Discord link/login flows), not user passwords. Passwords are hashed with **bcrypt** in `backend/src/auth/store/helpers.ts`. The MAC key is scrypt-derived from `JWT_SECRET` for domain separation (same pattern as `totpCrypto.ts` / `discordTokenCrypto.ts`). All federated OAuth cookie/state signing should go through that helper so CodeQL and reviewers see one place.
+**Insufficient password hash** (`js/insufficient-password-hash`) on `server/backend/src/auth/oauthCookieIntegrity.ts` is a false positive: that module HMAC-signs short-lived OAuth state cookies (Google, YouTube, Discord link/login flows), not user passwords. Passwords are hashed with **bcrypt** in `server/backend/src/auth/store/helpers.ts`. The MAC key is scrypt-derived from `JWT_SECRET` for domain separation (same pattern as `totpCrypto.ts` / `discordTokenCrypto.ts`). All federated OAuth cookie/state signing should go through that helper so CodeQL and reviewers see one place.
 
-Link unfurl **SSRF** alerts are mitigated by `canSafelyResolveUrlForOutboundFetch`, manual redirect validation, and `safeFetchAgent` connect-time DNS checks (`backend/src/services/linkUnfurl/`).
+Link unfurl **SSRF** alerts are mitigated by `canSafelyResolveUrlForOutboundFetch`, manual redirect validation, and `safeFetchAgent` connect-time DNS checks (`server/backend/src/services/linkUnfurl/`).
 
-**DOM text reinterpreted as HTML** (`js/xss-through-dom`) on `frontend/src/utils/captureVideoFrame.ts` is a false positive: the probe only assigns `blob:` object URLs from `URL.createObjectURL` on caller-supplied video blobs to a detached `<video>` for metadata/frame decode. `blobUrlForVideoElement` rejects non-`blob:` values; CodeQL still models `video.src` as an XSS sink, so `.github/codeql/codeql-config.yml` excludes that path.
+**DOM text reinterpreted as HTML** (`js/xss-through-dom`) on `clients/web/src/features/layout/display/captureVideoFrame.ts` is a false positive: the probe only assigns `blob:` object URLs from `URL.createObjectURL` on caller-supplied video blobs to a detached `<video>` for metadata/frame decode. `blobUrlForVideoElement` rejects non-`blob:` values; CodeQL still models `video.src` as an XSS sink, so `.github/codeql/codeql-config.yml` excludes that path.
 
 ## Related references
 
 - `docs/operations/PRODUCTION_SECURITY_CHECKLIST.md` — broader operator checklist.
-- `backend/src/tests/shippingSecurity.test.ts` — metrics auth behavior, rate limits, and media URL validation examples.
+- `server/backend/src/tests/platform/shippingSecurity.test.ts` — metrics auth behavior, rate limits, and media URL validation examples.

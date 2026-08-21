@@ -8,7 +8,7 @@ import {
 } from './botHealth.js';
 import { parseRetryAfterMs } from './util/numberParsing.js';
 
-/** Keep in sync with `shared/echoWebhookHmac.ts`. */
+/** Keep in sync with `contracts/echoWebhookHmac.ts`. */
 function signEchoWebhookBody(
   secret: string,
   rawBody: string,

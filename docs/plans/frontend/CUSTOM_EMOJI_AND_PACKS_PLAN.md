@@ -1,6 +1,6 @@
 # Custom emoji and server packs — executive plan and specification
 
-This document extends **[EMOJI_LOADING.md](./EMOJI_LOADING.md)**, which covers **unicode / Twemoji** loading, caching, search index, and picker performance. Here we specify **custom emojis**, **server-subscribed packs**, **usage-based ordering**, **personal packs (later)**, and how they integrate with the chat picker, autocomplete, message rendering, and permissions.
+This document extends **[EMOJI_LOADING.md](../../infra/frontend/EMOJI_LOADING.md)**, which covers **unicode / Twemoji** loading, caching, search index, and picker performance. Here we specify **custom emojis**, **server-subscribed packs**, **usage-based ordering**, **personal packs (later)**, and how they integrate with the chat picker, autocomplete, message rendering, and permissions.
 
 ---
 
@@ -8,9 +8,9 @@ This document extends **[EMOJI_LOADING.md](./EMOJI_LOADING.md)**, which covers *
 
 ### Problem
 
-- The chat **emoji picker** ([`useEmojiPicker`](../../frontend/src/composables/useEmojiPicker.ts), [`EmojiPopout`](../../frontend/src/features/chat/components/EmojiPopout.vue)) only surfaces **unicode** categories from [`useEmojiData`](../../frontend/src/composables/useEmojiData.ts). It does not load **server** custom emojis or **subscribed/imported packs**.
-- **Server Settings → Emoji** ([`useServerSettingsEmoji`](../../frontend/src/features/server-settings/composables/useServerSettingsEmoji.ts)) uses **mock** `serverEmojiPacks` for much of the UI; market listing exists ([`GET /emoji-market/packs`](../../backend/src/domain/echoEmojiMarket.ts)) but is not tied to a persisted server library consumed by the picker.
-- **Recently used** ([`useRecentlyUsedEmojis`](../../frontend/src/composables/useRecentlyUsedEmojis.ts)) is **global**, stores unicode-oriented entries, and does not include **custom** emoji tokens or **per-server** scope.
+- The chat **emoji picker** ([`useEmojiPicker`](../../../clients/web/src/features/chat/emoji/useEmojiPicker.ts), [`EmojiPopout`](../../../clients/web/src/features/chat/components/EmojiPopout.vue)) only surfaces **unicode** categories from [`useEmojiData`](../../../clients/web/src/features/chat/emoji/useEmojiData.ts). It does not load **server** custom emojis or **subscribed/imported packs**.
+- **Server Settings → Emoji** ([`useServerSettingsEmoji`](../../../clients/web/src/features/server-settings/composables/useServerSettingsEmoji.ts)) uses **mock** `serverEmojiPacks` for much of the UI; market listing exists ([`GET /emoji-market/packs`](../../../server/backend/src/api/routes/echo/emojiLibrary.ts)) but is not tied to a persisted server library consumed by the picker.
+- **Recently used** ([`useRecentlyUsedEmojis`](../../../clients/web/src/features/chat/emoji/useRecentlyUsedEmojis.ts)) is **global**, stores unicode-oriented entries, and does not include **custom** emoji tokens or **per-server** scope.
 
 ### Goal (product)
 
@@ -21,19 +21,19 @@ This document extends **[EMOJI_LOADING.md](./EMOJI_LOADING.md)**, which covers *
 3. **Personal packs** — same UX pattern **later**; keep a **placeholder** or empty section in the spec so the picker layout does not require a redesign.
 4. **Unicode** — existing Twemoji categories remain **below** the above.
 
-**Insert / storage:** use **linkable** tokens already defined in [`idTokens.ts`](../../frontend/src/utils/idTokens.ts): `<:name:snowflake>` (static) and `<a:name:snowflake>` (animated).
+**Insert / storage:** use **linkable** tokens already defined in [`idTokens.ts`](../../../clients/web/src/features/layout/ids/idTokens.ts): `<:name:snowflake>` (static) and `<a:name:snowflake>` (animated).
 
 ### Phases (delivery order)
 
-| Phase | Focus                                                                                                                                                                                                                                                                                                                        |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | **Backend:** Persist server pack subscriptions + emoji metadata (URLs or storage keys); maintain **per-server, per-emoji usage** counts; expose **`GET …/servers/:serverId/emoji-library`** returning packs with emojis **sorted by use** (then name). Wire **Server Settings** emoji UI to real APIs instead of mock packs. |
-| **2** | **Picker row model:** Extend or union `EmojiEntry` so a row can be **image + insert token** (not only unicode `emoji` string). Update [`EmojiCategorySection`](../../frontend/src/components/EmojiCategorySection.vue) (and related) to render `<img>` for custom rows and emit the **token** on pick.                       |
-| **3** | **`useEmojiPicker` + `EmojiPopout`:** Inject **`serverId`** from chat context; add `useServerEmojiLibrary` (fetch + cache); **merge** categories: Recent → Server packs (subsections per pack) → Personal placeholder → unicode.                                                                                             |
-| **4** | **Recents:** Bump localStorage schema; store unicode + custom (token, id, name, preview URL, **serverId**); filter/display by current server where appropriate.                                                                                                                                                              |
-| **5** | **Search + autocomplete:** Merge unicode search ([`useEmojiSearchIndex`](../../frontend/src/composables/useEmojiSearchIndex.ts)) with **custom name** search; extend [`useEmojiAutocomplete`](../../frontend/src/composables/useEmojiAutocomplete.ts) for `:slug:` completion including server custom names → insert token.  |
-| **6** | **Rendering + reactions:** Message pipeline resolves `<:name:id>` to **image URL**; reactions using custom ids resolve the same way; enforce **`useExternalEmoji`** (and related) from [channel settings types](../../frontend/src/features/channel-settings/types.ts).                                                      |
-| **7** | **Personal packs:** `GET …/users/me/emoji-library` (or equivalent); picker section **“Your packs”**; recents may tag `source: personal`.                                                                                                                                                                                     |
+| Phase | Focus                                                                                                                                                                                                                                                                                                                                                   |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **Backend:** Persist server pack subscriptions + emoji metadata (URLs or storage keys); maintain **per-server, per-emoji usage** counts; expose **`GET …/servers/:serverId/emoji-library`** returning packs with emojis **sorted by use** (then name). Wire **Server Settings** emoji UI to real APIs instead of mock packs.                            |
+| **2** | **Picker row model:** Extend or union `EmojiEntry` so a row can be **image + insert token** (not only unicode `emoji` string). Update [`EmojiCategorySection`](../../../clients/web/src/components/EmojiCategorySection.vue) (and related) to render `<img>` for custom rows and emit the **token** on pick.                                            |
+| **3** | **`useEmojiPicker` + `EmojiPopout`:** Inject **`serverId`** from chat context; add `useServerEmojiLibrary` (fetch + cache); **merge** categories: Recent → Server packs (subsections per pack) → Personal placeholder → unicode.                                                                                                                        |
+| **4** | **Recents:** Bump localStorage schema; store unicode + custom (token, id, name, preview URL, **serverId**); filter/display by current server where appropriate.                                                                                                                                                                                         |
+| **5** | **Search + autocomplete:** Merge unicode search ([`useEmojiSearchIndex`](../../../clients/web/src/features/chat/emoji/useEmojiSearchIndex.ts)) with **custom name** search; extend [`useEmojiAutocomplete`](../../../clients/web/src/features/chat/emoji/useEmojiAutocomplete.ts) for `:slug:` completion including server custom names → insert token. |
+| **6** | **Rendering + reactions:** Message pipeline resolves `<:name:id>` to **image URL**; reactions using custom ids resolve the same way; enforce **`useExternalEmoji`** (and related) from [channel settings types](../../../clients/web/src/features/channel-settings/types.ts).                                                                           |
+| **7** | **Personal packs:** `GET …/users/me/emoji-library` (or equivalent); picker section **“Your packs”**; recents may tag `source: personal`.                                                                                                                                                                                                                |
 
 ### Decisions to lock early
 
@@ -58,17 +58,17 @@ This document extends **[EMOJI_LOADING.md](./EMOJI_LOADING.md)**, which covers *
 
 ### B.1 Current state (reference)
 
-| Area                       | Location                                                                                                                                | Notes                                                                                     |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Unicode categories + cache | [`useEmojiData.ts`](../../frontend/src/composables/useEmojiData.ts)                                                                     | `EmojiEntry`, `EmojiCategory`, localStorage `echo-emoji-v2`                               |
-| Picker UI + category order | [`useEmojiPicker.ts`](../../frontend/src/composables/useEmojiPicker.ts)                                                                 | Recent + `getEmojiCategories()`, search branch                                            |
-| Popout mount               | [`EmojiPopout.vue`](../../frontend/src/features/chat/components/EmojiPopout.vue)                                                        | Calls `ensureEmojiCategoriesLoaded`, `handleInsert(entry.emoji)` — **unicode only** today |
-| Recents                    | [`useRecentlyUsedEmojis.ts`](../../frontend/src/composables/useRecentlyUsedEmojis.ts)                                                   | `echo-emoji-recent-v2`, `CachedEmojiEntry`                                                |
-| Search index               | [`useEmojiSearchIndex.ts`](../../frontend/src/composables/useEmojiSearchIndex.ts)                                                       | Prebuilt + runtime; unicode only                                                          |
-| Composer `:slug:`          | [`useEmojiAutocomplete.ts`](../../frontend/src/composables/useEmojiAutocomplete.ts)                                                     | `searchEmojisBySlugPrefix`                                                                |
-| Server settings emoji      | [`useServerSettingsEmoji.ts`](../../frontend/src/features/server-settings/composables/useServerSettingsEmoji.ts)                        | Mock packs + market fetch                                                                 |
-| Market catalog API         | [`echoEmojiMarket.ts`](../../backend/src/domain/echoEmojiMarket.ts), [`echoPublic.ts`](../../backend/src/api/routes/echo/echoPublic.ts) | `GET /emoji-market/packs`                                                                 |
-| Custom token helpers       | [`idTokens.ts`](../../frontend/src/utils/idTokens.ts)                                                                                   | `linkTokenCustomEmoji`, `linkTokenCustomEmojiAnimated`, parse `<:…:>` / `<a:…:>`          |
+| Area                       | Location                                                                                                                                                      | Notes                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Unicode categories + cache | [`useEmojiData.ts`](../../../clients/web/src/features/chat/emoji/useEmojiData.ts)                                                                             | `EmojiEntry`, `EmojiCategory`, localStorage `echo-emoji-v2`                               |
+| Picker UI + category order | [`useEmojiPicker.ts`](../../../clients/web/src/features/chat/emoji/useEmojiPicker.ts)                                                                         | Recent + `getEmojiCategories()`, search branch                                            |
+| Popout mount               | [`EmojiPopout.vue`](../../../clients/web/src/features/chat/components/EmojiPopout.vue)                                                                        | Calls `ensureEmojiCategoriesLoaded`, `handleInsert(entry.emoji)` — **unicode only** today |
+| Recents                    | [`useRecentlyUsedEmojis.ts`](../../../clients/web/src/features/chat/emoji/useRecentlyUsedEmojis.ts)                                                           | `echo-emoji-recent-v2`, `CachedEmojiEntry`                                                |
+| Search index               | [`useEmojiSearchIndex.ts`](../../../clients/web/src/features/chat/emoji/useEmojiSearchIndex.ts)                                                               | Prebuilt + runtime; unicode only                                                          |
+| Composer `:slug:`          | [`useEmojiAutocomplete.ts`](../../../clients/web/src/features/chat/emoji/useEmojiAutocomplete.ts)                                                             | `searchEmojisBySlugPrefix`                                                                |
+| Server settings emoji      | [`useServerSettingsEmoji.ts`](../../../clients/web/src/features/server-settings/composables/useServerSettingsEmoji.ts)                                        | Mock packs + market fetch                                                                 |
+| Market catalog API         | [`echoEmojiMarket.ts`](../../../server/backend/src/api/routes/echo/emojiLibrary.ts), [`echoPublic.ts`](../../../server/backend/src/api/routes/echo/public.ts) | `GET /emoji-market/packs`                                                                 |
+| Custom token helpers       | [`idTokens.ts`](../../../clients/web/src/features/layout/ids/idTokens.ts)                                                                                     | `linkTokenCustomEmoji`, `linkTokenCustomEmojiAnimated`, parse `<:…:>` / `<a:…:>`          |
 
 ### B.2 Data contract: custom emoji in the picker
 
@@ -150,7 +150,7 @@ Computed `browsingCategories` (when not searching) should become:
 
 ### B.8 Message rendering and reactions
 
-- **Parse** tokens in message body (reuse / align with [`idTokens`](../../frontend/src/utils/idTokens.ts) parsing).
+- **Parse** tokens in message body (reuse / align with [`idTokens`](../../../clients/web/src/features/layout/ids/idTokens.ts) parsing).
 - **Resolve** `id` → URL via config map, batch API, or embedded URL in token payload (avoid trusting client-only URLs from untrusted content—prefer server-resolved URL in API responses for messages).
 - **Reactions:** If custom reaction keys are `emoji_id` or token, same resolver.
 - **Permissions:** Before insert and when rendering, check channel/server **Use external emoji** (or Echo equivalent).

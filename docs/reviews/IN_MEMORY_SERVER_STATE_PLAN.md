@@ -18,7 +18,7 @@ with churn risk; the per-cache modules + shared invalidators are the working "gu
 
 The "move state to memory" idea is not greenfield. Echo already runs a Fluxer-like in-memory tier:
 
-- **Cross-node invalidation bus** — `backend/src/domain/cacheInvalidationBus.ts` (Redis pub/sub; remote nodes apply _local-only_ invalidation, never re-publish).
+- **Cross-node invalidation bus** — `server/backend/src/domain/cacheInvalidationBus.ts` (Redis pub/sub; remote nodes apply _local-only_ invalidation, never re-publish).
 - **Per-server generation counters** — `echoPermissionCache.ts` (`getEchoPermissionCacheGeneration`) used to make in-flight async fills race-safe.
 - **Caches already in RAM:**
 
@@ -37,7 +37,7 @@ So the foundation — bus, generations, choke points — is done. The big-ticket
 
 ## 2. The gap — what still hits Postgres on every hot path
 
-`getEffectiveChannelPermissions` (`backend/src/domain/echoStore/permissions.ts`) caches the **folded result** per `(server, user, channel)`. But:
+`getEffectiveChannelPermissions` (`server/backend/src/domain/echoStore/roles/permissions.ts`) caches the **folded result** per `(server, user, channel)`. But:
 
 1. Every **server-scoped invalidation clears all users** for that server (`localInvalidateForServer` deletes by `${serverId}\0` prefix in `echoPermissionCache.ts`). One role/overwrite edit cold-clears the whole server.
 2. On a fold **miss**, evaluation re-reads from Postgres data that is **identical for every user in the server**:
@@ -141,8 +141,8 @@ An `EchoServerState` facade owning roles + channels + overwrites + member-roles 
 
 ## 7. Testing
 
-- **Parity** — cached fold == uncached fold. Extend the existing `backend/src/tests/echo.permissionBatchParity.test.ts`.
-- **Invalidation + bus** — mutate a role → aggregate dropped locally **and** published remotely. Pattern from `backend/src/tests/echo.serverMemberIdsCache.test.ts`.
+- **Parity** — cached fold == uncached fold. Extend the existing `server/backend/src/tests/permissions/echo.permissionBatchParity.test.ts`.
+- **Invalidation + bus** — mutate a role → aggregate dropped locally **and** published remotely. Pattern from `server/backend/src/tests/servers/echo.serverMemberIdsCache.test.ts`.
 - **Generation race** — invalidation during an in-flight fill must not store stale.
 - **Integration** — assert the send pipeline issues **zero** roles/overwrites/channel queries in steady state, via the Phase-0 metrics or `pgQueryContext` labels.
 - All wired into `test:ci:backend` like the other cache tests.

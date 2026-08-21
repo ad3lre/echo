@@ -12,7 +12,7 @@ It is a snapshot of the repository.
 
 **Document refresh (2026-04-03, search):** Cross-check only — **RBAC engine and enforcement claims in this file are unchanged.** **Message search** shipped on `main` as a separate vertical: Postgres-backed `GET …/messages/search` (server- and channel-scoped), membership via `canUserAccessChannel`, rate limits, Prometheus histograms, contract text in [`ECHO_CONTRACT_V1.md`](../../contracts/ECHO_CONTRACT_V1.md), pipeline integration coverage for **403** on non-member, and frontend server mode + jump-to-message prefetch. That is **not** RBAC surface area beyond normal channel access checks; see the production readiness scorecard for Horizon A/B impact.
 
-**Document refresh (2026-04-03, uploads / presign):** **`POST /uploads/presign`** gates reuse existing **permission and policy helpers** (no change to merge engine, traces, or overwrite evaluation). **Channel-scoped** chat uploads call **`canUserPostMessage`** (guild + DM-safe). **Server icon/banner** presign uses **`hasServerPermission(…, 'MANAGE_GUILD')`** from [`echoPolicy.ts`](../../backend/src/domain/echoPolicy.ts). **Custom emoji** image presign uses **`canManageServerEmojis`** (merged permissions + owner bypass in [`emojiLibrary.ts`](../../backend/src/domain/echoStore/emojiLibrary.ts)). The **legacy** body shape with **`serverId`** only still uses **`isMemberOfServer`** for chat-shaped uploads. **User avatar/banner** presign is **authenticated user only** (no role fold). See [`ECHO_CONTRACT_V1.md`](../../contracts/ECHO_CONTRACT_V1.md) and [`STATUS_AND_PRODUCTION_READINESS.md`](../../reviews/STATUS_AND_PRODUCTION_READINESS.md) for product-level upload status.
+**Document refresh (2026-04-03, uploads / presign):** **`POST /uploads/presign`** gates reuse existing **permission and policy helpers** (no change to merge engine, traces, or overwrite evaluation). **Channel-scoped** chat uploads call **`canUserPostMessage`** (guild + DM-safe). **Server icon/banner** presign uses **`hasServerPermission(…, 'MANAGE_GUILD')`** from [`echoPolicy.ts`](../../../server/backend/src/domain/echoPolicy.ts). **Custom emoji** image presign uses **`canManageServerEmojis`** (merged permissions + owner bypass in [`emojiLibrary.ts`](../../../server/backend/src/domain/echoStore/emoji/emojiLibrary.ts)). The **legacy** body shape with **`serverId`** only still uses **`isMemberOfServer`** for chat-shaped uploads. **User avatar/banner** presign is **authenticated user only** (no role fold). See [`ECHO_CONTRACT_V1.md`](../../contracts/ECHO_CONTRACT_V1.md) and [`STATUS_AND_PRODUCTION_READINESS.md`](../../reviews/STATUS_AND_PRODUCTION_READINESS.md) for product-level upload status.
 
 **Document refresh (2026-03-27):** Cross-check with repo — **engine and enforcement claims below unchanged.** [`STATUS_AND_PRODUCTION_READINESS.md`](../../reviews/STATUS_AND_PRODUCTION_READINESS.md) was updated for **Option A login JSON** (no tokens in body), **Admin/Moderator seeding** on server create, **OTEL optional** via `OTEL_EXPORTER_OTLP_ENDPOINT`, and **upload presign job** in default backend CI.
 
@@ -20,24 +20,24 @@ It is a snapshot of the repository.
 
 ## Executive summary
 
-| Area                                                                                             | Status                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Core merge semantics (Option A, boolean writes, sort order)                                      | **Implemented** and documented in-repo                                                                                                                                                                  |
-| No-bypass enforcement for RBAC primitives                                                        | **Implemented** (`scripts/check-echo-rbac-primitives.mjs`)                                                                                                                                              |
-| Explicit evaluation contract boundary (build / execute)                                          | **Implemented** (`buildEvaluationPlan` / `executeEvaluationPlan` in `echoPermissionEvaluate.ts`)                                                                                                        |
-| Persist full permission matrix & create roles                                                    | **Implemented** (POST/PATCH `…/roles`, PUT `…/roles/order`, `createEchoRole`, `updateEchoRole`, `replaceEchoServerRoleOrder`; role `**hoist`\*\*)                                                       |
-| Standardized dropdowns (EchoDropdown)                                                            | **Implemented** (EchoDropdown enhanced + server settings replaced native selects)                                                                                                                       |
-| Permission preview for other users (searchable)                                                  | **Implemented** (preview user dropdown + `targetUserId` param)                                                                                                                                          |
-| Three-layer pipeline (server, category, channel)                                                 | **Implemented** (storage + evaluation)                                                                                                                                                                  |
-| Per-target channel/category overwrite rows (everyone / role / member)                            | **Implemented** (`echo_*_permission_overwrite_rows`, plan-time merge, `GET`/`PUT` …`/permission-overwrites`; legacy JSONB fallback)                                                                     |
-| Traces + compose-only explanation                                                                | **Implemented** (full vs compressed; `composePermissionExplanation`)                                                                                                                                    |
-| In-process permission cache + invalidation hooks                                                 | **Implemented** (documented contract + generation counter + mutation hooks)                                                                                                                             |
-| Enforcement / compat appendix                                                                    | **Implemented** ([`permission-compat.md`](./permission-compat.md), `npm run check:echo-rbac`)                                                                                                           |
-| API + basic UX for explanation                                                                   | **Implemented** (`permission-explain`, Roles tab preview)                                                                                                                                               |
-| Perf at scale (sort skip, ADMIN sentinel, writes-only layer, trace batching)                     | **Implemented** (see Performance section)                                                                                                                                                               |
-| Presign / upload authorization (channel post, `MANAGE_GUILD`, emoji manage, legacy member)       | **Implemented** — reuses `canUserPostMessage`, `hasServerPermission`, `canManageServerEmojis`, `isMemberOfServer` ([`echoUploads.ts`](../backend/src/api/routes/echo/echoUploads.ts)); engine unchanged |
-| Rich UX (diff, timeline, audit surfaces for RBAC)                                                | **Minimal / not implemented**                                                                                                                                                                           |
-| Plan-pure reducer (separate merge traces per layer, `applyLayer` only on merged maps everywhere) | **Partially** (see deviations)                                                                                                                                                                          |
+| Area                                                                                             | Status                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core merge semantics (Option A, boolean writes, sort order)                                      | **Implemented** and documented in-repo                                                                                                                                                                           |
+| No-bypass enforcement for RBAC primitives                                                        | **Implemented** (`server/ops/scripts/check-echo-rbac-primitives.mjs`)                                                                                                                                            |
+| Explicit evaluation contract boundary (build / execute)                                          | **Implemented** (`buildEvaluationPlan` / `executeEvaluationPlan` in `echoPermissionEvaluate.ts`)                                                                                                                 |
+| Persist full permission matrix & create roles                                                    | **Implemented** (POST/PATCH `…/roles`, PUT `…/roles/order`, `createEchoRole`, `updateEchoRole`, `replaceEchoServerRoleOrder`; role `**hoist`\*\*)                                                                |
+| Standardized dropdowns (EchoDropdown)                                                            | **Implemented** (EchoDropdown enhanced + server settings replaced native selects)                                                                                                                                |
+| Permission preview for other users (searchable)                                                  | **Implemented** (preview user dropdown + `targetUserId` param)                                                                                                                                                   |
+| Three-layer pipeline (server, category, channel)                                                 | **Implemented** (storage + evaluation)                                                                                                                                                                           |
+| Per-target channel/category overwrite rows (everyone / role / member)                            | **Implemented** (`echo_*_permission_overwrite_rows`, plan-time merge, `GET`/`PUT` …`/permission-overwrites`; legacy JSONB fallback)                                                                              |
+| Traces + compose-only explanation                                                                | **Implemented** (full vs compressed; `composePermissionExplanation`)                                                                                                                                             |
+| In-process permission cache + invalidation hooks                                                 | **Implemented** (documented contract + generation counter + mutation hooks)                                                                                                                                      |
+| Enforcement / compat appendix                                                                    | **Implemented** ([`permission-compat.md`](./permission-compat.md), `npm run check:echo-rbac`)                                                                                                                    |
+| API + basic UX for explanation                                                                   | **Implemented** (`permission-explain`, Roles tab preview)                                                                                                                                                        |
+| Perf at scale (sort skip, ADMIN sentinel, writes-only layer, trace batching)                     | **Implemented** (see Performance section)                                                                                                                                                                        |
+| Presign / upload authorization (channel post, `MANAGE_GUILD`, emoji manage, legacy member)       | **Implemented** — reuses `canUserPostMessage`, `hasServerPermission`, `canManageServerEmojis`, `isMemberOfServer` ([`echoUploads.ts`](../../../server/backend/src/api/routes/echo/uploads.ts)); engine unchanged |
+| Rich UX (diff, timeline, audit surfaces for RBAC)                                                | **Minimal / not implemented**                                                                                                                                                                                    |
+| Plan-pure reducer (separate merge traces per layer, `applyLayer` only on merged maps everywhere) | **Partially** (see deviations)                                                                                                                                                                                   |
 
 Overall: **the RBAC engine is functionally 100% aligned with the plans for correctness, explainability, and hot-path performance at Echo's current scale.** Remaining work is mostly **richer product UX** and optional **representation changes** for extreme-scale scenarios — not "missing basic RBAC."
 
@@ -49,8 +49,8 @@ Overall: **the RBAC engine is functionally 100% aligned with the plans for corre
 
 **Implemented (behaviorally).**
 
-- **state_0:** `foldRolePermissions` over member roles (+ `@everyone` fallback when unassigned), `[echoPermissionEvaluate.ts](../backend/src/domain/echoPermissionEvaluate.ts)` + `[echoPermissionPrimitives.ts](../backend/src/domain/echoPermissionPrimitives.ts)`.
-- **Category / channel:** Each layer uses a merged partial passed to `applyLayerFromPartialObject`. **When** `[echo_category_permission_overwrite_rows` / `echo_channel_permission_overwrite_rows](../backend/src/db/echoTables.ts)` contain rows for that category/channel, `[buildEvaluationPlan](../backend/src/domain/echoPermissionEvaluate.ts)` loads them, filters/sorts for the current user via `[permissionOverwriteMerge.ts](../backend/src/domain/permissionOverwriteMerge.ts)`, `**mergeOverrideRows`** (`presorted: true`), and passes the result to `**executeEvaluationPlan**`. **When no rows exist**, the evaluator falls back to legacy **single\*\* JSON blobs (`echo_category_permission_overrides` / `echo_channels.permission_overrides`) — same partial for every member on that path.
+- **state_0:** `foldRolePermissions` over member roles (+ `@everyone` fallback when unassigned), `[echoPermissionEvaluate.ts](../../../server/backend/src/domain/permissions/echoPermissionEvaluate.ts)` + `[echoPermissionPrimitives.ts](../../../server/backend/src/domain/permissions/echoPermissionPrimitives.ts)`.
+- **Category / channel:** Each layer uses a merged partial passed to `applyLayerFromPartialObject`. **When** `[echo_category_permission_overwrite_rows` / `echo_channel_permission_overwrite_rows](../../../server/backend/src/db/echoTables.ts)` contain rows for that category/channel, `[buildEvaluationPlan](../../../server/backend/src/domain/permissions/echoPermissionEvaluate.ts)` loads them, filters/sorts for the current user via `[permissionOverwriteMerge.ts](../../../server/backend/src/domain/permissions/permissionOverwriteMerge.ts)`, `**mergeOverrideRows`** (`presorted: true`), and passes the result to `**executeEvaluationPlan**`. **When no rows exist**, the evaluator falls back to legacy **single\*\* JSON blobs (`echo_category_permission_overrides` / `echo_channels.permission_overrides`) — same partial for every member on that path.
 
 **Note:** The diagram’s “merge rows then applyLayer” path is now **live** for channels/categories that use overwrite row tables. Legacy-only storage is still “pre-merged blob, no per-member split.”
 
@@ -72,7 +72,7 @@ Upload authorization is **not** a fourth permission layer; it calls the same **e
 
 **Implemented.**
 
-- Sort: `sortRolesForFold` — single canonical implementation; guarded by `[scripts/check-echo-rbac-primitives.mjs](../scripts/check-echo-rbac-primitives.mjs)`.
+- Sort: `sortRolesForFold` — single canonical implementation; guarded by `[scripts/check-echo-rbac-primitives.mjs](../../../server/ops/scripts/check-echo-rbac-primitives.mjs)`.
 - Writes: boolean-only; partial JSON semantics in [`permission-compat.md`](./permission-compat.md) and primitives.
 
 ### 3. `ADMINISTRATOR` as allow-all merge input before fold
@@ -87,7 +87,7 @@ Upload authorization is **not** a fourth permission layer; it calls the same **e
 
 **Implemented with caveats.**
 
-- **Types and emission:** `[echoPermissionTrace.ts](../backend/src/domain/echoPermissionTrace.ts)`; server fold emits in-band; category/channel layer applies emit in **full** mode via `applyLayerFromPartialObject` options.
+- **Types and emission:** `[echoPermissionTrace.ts](../../../server/backend/src/domain/permissions/echoPermissionTrace.ts)`; server fold emits in-band; category/channel layer applies emit in **full** mode via `applyLayerFromPartialObject` options.
 - **Compressed (default for prod paths):** final provenance per bit via `recordCompressedSource` / `finalizeCompressed` — not a full overwrite chain. ADMIN + owner use batched helpers (`recordCompressedBulkAdmin`, `recordCompressedBulkOwner`).
 - **Full (debug):** ADMIN roles emit a single `bit: '*'` event (not |bits| events); layer steps append to the same full array, then `composePermissionExplanation` aggregates — **no second evaluator**.
 
@@ -97,20 +97,20 @@ Upload authorization is **not** a fourth permission layer; it calls the same **e
 
 **Implemented.**
 
-- [`echoStore` barrel](../backend/src/domain/echoStore/index.ts) (`getMergedRolePermissions` / `getEffectiveChannelPermissions` in [`permissions.ts`](../backend/src/domain/echoStore/permissions.ts)) delegates both to `evaluatePermissionSet` inside [`echoPermissionCache`](../backend/src/domain/echoPermissionCache.ts).
+- [`echoStore` barrel](../../../server/backend/src/domain/echoStore/index.ts) (`getMergedRolePermissions` / `getEffectiveChannelPermissions` in [`permissions.ts`](../../../server/backend/src/domain/echoStore/roles/permissions.ts)) delegates both to `evaluatePermissionSet` inside [`echoPermissionCache`](../../../server/backend/src/domain/permissions/echoPermissionCache.ts).
 
 ### 7. Category layer storage and API
 
 **Implemented.**
 
-- Table: `echo_category_permission_overrides` in `[echoTables.ts](../backend/src/db/echoTables.ts)`.
-- Mutations: `updateEchoCategoryPermissionOverrides` in [`echoStore/permissionOverwrites.ts`](../backend/src/domain/echoStore/permissionOverwrites.ts); REST `PATCH .../category-permission-overrides` in `[echo.ts](../backend/src/api/routes/echo.ts)`.
+- Table: `echo_category_permission_overrides` in `[echoTables.ts](../../../server/backend/src/db/echoTables.ts)`.
+- Mutations: `updateEchoCategoryPermissionOverrides` in [`echoStore/roles/permissionOverwrites.ts`](../../../server/backend/src/domain/echoStore/roles/permissionOverwrites.ts); REST `PATCH .../category-permission-overrides` in `[echo.ts](../../../server/backend/src/api/routes/echo.ts)`.
 
 ### 8. Cache contract
 
 **Implemented (documented).**
 
-- `[echoPermissionCache.ts](../backend/src/domain/echoPermissionCache.ts)` documents key shape, invalidation triggers, and `**getEchoPermissionCacheGeneration`\*\* (increment on invalidate for observability; eviction remains prefix-based).
+- `[echoPermissionCache.ts](../../../server/backend/src/domain/permissions/echoPermissionCache.ts)` documents key shape, invalidation triggers, and `**getEchoPermissionCacheGeneration`\*\* (increment on invalidate for observability; eviction remains prefix-based).
 
 **Not implemented:** Sparse invalidation (e.g. only affected user/channel keys) — still full server prefix delete.
 
@@ -118,29 +118,29 @@ Upload authorization is **not** a fourth permission layer; it calls the same **e
 
 **Mostly met (unit/golden coverage present; integration gap remains).**
 
-- `[echo.rbac.perms.test.ts](../backend/src/tests/echo.rbac.perms.test.ts)`, `[echo.rbac.goldens.test.ts](../backend/src/tests/echo.rbac.goldens.test.ts)` + `[fixtures/permission-old-partial.json](../backend/src/tests/fixtures/permission-old-partial.json)`.
-- `[echo.permissionOverwriteMerge.test.ts](../backend/src/tests/echo.permissionOverwriteMerge.test.ts)` — everyone / role / member row ordering and merge smoke.
+- `[echo.rbac.perms.test.ts](../../../server/backend/src/tests/permissions/echo.rbac.perms.test.ts)`, `[echo.rbac.goldens.test.ts](../../../server/backend/src/tests/permissions/echo.rbac.goldens.test.ts)` + `[fixtures/permission-old-partial.json](../../../server/backend/src/tests/fixtures/permission-old-partial.json)`.
+- `[echo.permissionOverwriteMerge.test.ts](../../../server/backend/src/tests/permissions/echo.permissionOverwriteMerge.test.ts)` — everyone / role / member row ordering and merge smoke.
 - Added small unit assertions for permission normalization and extended keys.
-- `[echo.rbac.bench.ts](../backend/src/tests/echo.rbac.bench.ts)` — synthetic benchmark for fold + layer at 500–1000 roles.
+- `[echo.rbac.bench.ts](../../../server/backend/src/tests/permissions/echo.rbac.bench.ts)` — synthetic benchmark for fold + layer at 500–1000 roles.
 - **Remaining gap:** No automated integration test that runs **full `evaluatePermissionSet` against PostgreSQL** for cross-layer category + channel in one end-to-end suite.
 
 ### 10. UX surfaces (plan / gap doc)
 
 **Partially met.**
 
-- **Done:** Server Settings, Roles, **Permission preview** (`[ServerSettingsPermissionPreviewSection.vue](../frontend/src/features/server-settings/components/ServerSettingsPermissionPreviewSection.vue)`) with searchable "Preview as" dropdown and standardized `EchoDropdown` usage across server settings, `GET /servers/:id/permission-explain`, `[fetchEchoPermissionExplain](../frontend/src/api/echoClient.ts)`.
+- **Done:** Server Settings, Roles, **Permission preview** (`[ServerSettingsPermissionPreviewSection.vue](../../../clients/web/src/features/server-settings/components/ServerSettingsPermissionPreviewSection.vue)`) with searchable "Preview as" dropdown and standardized `EchoDropdown` usage across server settings, `GET /servers/:id/permission-explain`, `[fetchEchoPermissionExplain](../../../clients/web/src/api/echoClient.ts)`.
 - **Not done:** Dedicated **diff**, **timeline**, **intent buckets**, or **audit-log UI** wired specifically to RBAC explanation payloads (audit log exists for general server actions, not a full "permission timeline" product).
 
 ### 11. Phase / file table from `echo_rbac_completion` ("Files" section)
 
-| Plan file                  | Status                                                                                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Compatibility + Option A   | [`permission-compat.md`](./permission-compat.md)                                                                                                  |
-| `aggregateServerRoles`     | `[aggregateServerRoles.ts](../backend/src/domain/aggregateServerRoles.ts)` re-exports primitives (logic remains in `echoPermissionPrimitives.ts`) |
-| `mergeOverrideRows.ts`     | Present                                                                                                                                           |
-| `permissionLayers.ts`      | Present (`applyLayer` on merged boolean map)                                                                                                      |
-| `permissionExplanation.ts` | Present (`compose` only)                                                                                                                          |
-| Golden tests               | Present (see above)                                                                                                                               |
+| Plan file                  | Status                                                                                                                                                                     |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compatibility + Option A   | [`permission-compat.md`](./permission-compat.md)                                                                                                                           |
+| `aggregateServerRoles`     | `[aggregateServerRoles.ts](../../../server/backend/src/domain/permissions/aggregateServerRoles.ts)` re-exports primitives (logic remains in `echoPermissionPrimitives.ts`) |
+| `mergeOverrideRows.ts`     | Present                                                                                                                                                                    |
+| `permissionLayers.ts`      | Present (`applyLayer` on merged boolean map)                                                                                                                               |
+| `permissionExplanation.ts` | Present (`compose` only)                                                                                                                                                   |
+| Golden tests               | Present (see above)                                                                                                                                                        |
 
 ---
 
@@ -206,17 +206,17 @@ The following optimizations are implemented:
 
 ## File index (implementation touchpoints)
 
-| Concern                     | Primary files                                                                                                                                                                                                                                                         |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fold + layers               | `backend/src/domain/echoPermissionPrimitives.ts`, `permissionLayers.ts`, `mergeOverrideRows.ts`, `permissionOverwriteMerge.ts`                                                                                                                                        |
-| Evaluation                  | `backend/src/domain/echoPermissionEvaluate.ts`, `backend/src/domain/echoStore/permissions.ts` (barrel: `echoStore/index.ts`)                                                                                                                                          |
-| Overwrite row storage + API | `backend/src/db/echoTables.ts` (`echo_*_permission_overwrite_rows`), `backend/src/domain/echoStore/permissionOverwrites.ts` (`replaceEcho*PermissionOverwrites`, list helpers), `backend/src/api/routes/echo.ts` (`permission-overwrites`)                            |
-| Traces                      | `backend/src/domain/echoPermissionTrace.ts`                                                                                                                                                                                                                           |
-| Explanation                 | `backend/src/domain/permissionExplanation.ts`                                                                                                                                                                                                                         |
-| Cache                       | `backend/src/domain/echoPermissionCache.ts`                                                                                                                                                                                                                           |
-| Schema                      | `backend/src/db/echoTables.ts`                                                                                                                                                                                                                                        |
-| API                         | `backend/src/api/routes/echo.ts`                                                                                                                                                                                                                                      |
-| Presign (RBAC/policy hooks) | `backend/src/api/routes/echo/echoUploads.ts` (`canUserPostMessage`, `hasServerPermission`, `canManageServerEmojis`, `isMemberOfServer`)                                                                                                                               |
-| Client + UI                 | `frontend/src/api/echoClient.ts`, `ServerSettingsPermissionPreviewSection.vue`, `frontend/src/components/EchoDropdown.vue`, `frontend/src/features/server-settings/components/ServerSettingsModal.vue`, `frontend/src/features/server-settings/roleManagerFactory.ts` |
-| Docs + guardrails           | [`permission-compat.md`](./permission-compat.md), `scripts/check-echo-rbac-primitives.mjs`, root `package.json` `check:echo-rbac`                                                                                                                                     |
-| Benchmarks                  | `backend/src/tests/echo.rbac.bench.ts`                                                                                                                                                                                                                                |
+| Concern                     | Primary files                                                                                                                                                                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fold + layers               | `server/backend/src/domain/permissions/echoPermissionPrimitives.ts`, `permissionLayers.ts`, `mergeOverrideRows.ts`, `permissionOverwriteMerge.ts`                                                                                                                                 |
+| Evaluation                  | `server/backend/src/domain/permissions/echoPermissionEvaluate.ts`, `server/backend/src/domain/echoStore/roles/permissions.ts` (barrel: `echoStore/index.ts`)                                                                                                                      |
+| Overwrite row storage + API | `server/backend/src/db/echoTables.ts` (`echo_*_permission_overwrite_rows`), `server/backend/src/domain/echoStore/roles/permissionOverwrites.ts` (`replaceEcho*PermissionOverwrites`, list helpers), `server/backend/src/api/routes/echo.ts` (`permission-overwrites`)             |
+| Traces                      | `server/backend/src/domain/permissions/echoPermissionTrace.ts`                                                                                                                                                                                                                    |
+| Explanation                 | `server/backend/src/domain/permissions/permissionExplanation.ts`                                                                                                                                                                                                                  |
+| Cache                       | `server/backend/src/domain/permissions/echoPermissionCache.ts`                                                                                                                                                                                                                    |
+| Schema                      | `server/backend/src/db/echoTables.ts`                                                                                                                                                                                                                                             |
+| API                         | `server/backend/src/api/routes/echo.ts`                                                                                                                                                                                                                                           |
+| Presign (RBAC/policy hooks) | `server/backend/src/api/routes/echo/uploads.ts` (`canUserPostMessage`, `hasServerPermission`, `canManageServerEmojis`, `isMemberOfServer`)                                                                                                                                        |
+| Client + UI                 | `clients/web/src/api/echoClient.ts`, `ServerSettingsPermissionPreviewSection.vue`, `clients/web/src/components/EchoDropdown.vue`, `clients/web/src/features/server-settings/components/ServerSettingsModal.vue`, `clients/web/src/features/server-settings/roleManagerFactory.ts` |
+| Docs + guardrails           | [`permission-compat.md`](./permission-compat.md), `server/ops/scripts/check-echo-rbac-primitives.mjs`, root `package.json` `check:echo-rbac`                                                                                                                                      |
+| Benchmarks                  | `server/backend/src/tests/permissions/echo.rbac.bench.ts`                                                                                                                                                                                                                         |

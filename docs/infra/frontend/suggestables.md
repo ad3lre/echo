@@ -14,14 +14,14 @@ Reusable foundation for text-input autocomplete: emoji `:slug:`, `@mention`, `#c
 
 ## Key files
 
-| Piece                                     | Location                                                                                                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Types                                     | [`frontend/src/suggestables/types.ts`](../../frontend/src/suggestables/types.ts)                                                                                                 |
-| Core session                              | [`frontend/src/suggestables/useSuggestable.ts`](../../frontend/src/suggestables/useSuggestable.ts)                                                                               |
-| Multi-provider registry                   | [`frontend/src/suggestables/useSuggestableRegistry.ts`](../../frontend/src/suggestables/useSuggestableRegistry.ts)                                                               |
-| Emoji reference adapter                   | [`frontend/src/suggestables/adapters/emojiSuggestable.ts`](../../frontend/src/suggestables/adapters/emojiSuggestable.ts)                                                         |
-| Emoji public API (unchanged)              | [`frontend/src/composables/useEmojiAutocomplete.ts`](../../frontend/src/composables/useEmojiAutocomplete.ts)                                                                     |
-| Legacy mention/channel (not migrated yet) | [`useMentionAutocomplete.ts`](../../frontend/src/composables/useMentionAutocomplete.ts), [`useChannelAutocomplete.ts`](../../frontend/src/composables/useChannelAutocomplete.ts) |
+| Piece                                     | Location                                                                                                                                                                                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Types                                     | [`clients/web/src/suggestables/types.ts`](../../../clients/web/src/suggestables/types.ts)                                                                                                                                |
+| Core session                              | [`clients/web/src/suggestables/useSuggestable.ts`](../../../clients/web/src/suggestables/useSuggestable.ts)                                                                                                              |
+| Multi-provider registry                   | [`clients/web/src/suggestables/useSuggestableRegistry.ts`](../../../clients/web/src/suggestables/useSuggestableRegistry.ts)                                                                                              |
+| Emoji reference adapter                   | [`clients/web/src/suggestables/adapters/emojiSuggestable.ts`](../../../clients/web/src/suggestables/adapters/emojiSuggestable.ts)                                                                                        |
+| Emoji public API (unchanged)              | [`clients/web/src/features/chat/emoji/useEmojiAutocomplete.ts`](../../../clients/web/src/features/chat/emoji/useEmojiAutocomplete.ts)                                                                                    |
+| Legacy mention/channel (not migrated yet) | [`useMentionAutocomplete.ts`](../../../clients/web/src/features/chat/composables/useMentionAutocomplete.ts), [`useChannelAutocomplete.ts`](../../../clients/web/src/features/chat/composables/useChannelAutocomplete.ts) |
 
 ## Add a new suggestable (e.g. slash commands)
 
@@ -82,4 +82,4 @@ export function createCommandSuggestableConfig(
 - [ ] Optionally replace three separate composables in `ChatInput.vue` with `useSuggestableRegistry`.
 - [ ] Add adapter tests beside `useSuggestable.test.ts`.
 
-Parent entry: [docs/README.md](../README.md).
+Parent entry: [docs/README.md](../../README.md).

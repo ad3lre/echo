@@ -1,7 +1,7 @@
 # Contributor and agent charter
 
 **Audience:** Human contributors and automated agents working in this repository.  
-**Related:** [AGENTS.md](../../AGENTS.md) (repo-root pointer), [client-charter-violations.md](../architecture/client-charter-violations.md) (inventory).
+**Related:** [AGENTS.md](../../AGENTS.md) (repo-root pointer), [repo-layout.md](repo-layout.md) (top-level map), [client-charter-violations.md](../architecture/client-charter-violations.md) (inventory), [echo-code-charter.md](../echo-code-charter.md) (new-code size ratchet).
 
 This document defines how we investigate problems, control scope, and separate **domain truth** from **orchestration** and **presentation**. When behavior is unclear, prefer evidence (logs, code, reproduction) over assumptions.
 
@@ -54,6 +54,7 @@ Avoid surface-level fixes that mask systemic issues. When the problem is archite
 - Do not ignore “small” issues (type errors, structural inconsistencies, latent bugs). Fix root causes, not symptoms.
 - Work in a task-oriented way; remove temporary debug logging when work is complete.
 - Add automated tests only when explicitly requested, or when they materially support development or debugging of the change at hand.
+- Do not grow grandfathered files past their size baseline; see [echo-code-charter.md §5](../echo-code-charter.md#5-ci-enforcement-june-2026).
 
 ---
 
@@ -135,6 +136,15 @@ Think of the controller as a **traffic manager**, not a decision maker.
 | `tree.md`      | Do not edit manually; regenerate via the project script.                                                                                                                                                |
 | Lint and tests | Run in the background when practical to preserve interactive time.                                                                                                                                      |
 | Client auth    | Session rotation, desktop CORS-simple transport, and socket recycle rules: [OPTION_A_SESSION_ARCHITECTURE.md](../infra/auth/OPTION_A_SESSION_ARCHITECTURE.md#client-auth-invariants-frontend-contract). |
+
+---
+
+## Native Apple client
+
+`clients/apple/` is SwiftUI-only and independent of `clients/web/`. Keep Apps/
+thin; put shared logic in Modules/. Before merging Apple changes, run
+`npm run apple:maintainability` (LOC ceilings, theme-only color literals, module
+import direction). Details: [`clients/apple/README.md`](../../clients/apple/README.md).
 
 ---
 

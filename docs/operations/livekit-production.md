@@ -2,7 +2,7 @@
 
 This document is the **operator entry point** for running Echo voice against a **production-grade** LiveKit stack: TLS for browsers and webhooks, TURN for restrictive NATs, secrets rotation, and observability. **Implementing** DNS, certificates, and cloud resources is **outside this repository**; Echo ships **docs, metrics, alerts, and example configs** here.
 
-**Related:** [livekit-turn.md](../infra/livekit-turn.md) (ports, dev Compose), [livekit-observability.md](../infra/livekit-observability.md) (metrics, alert rules), example SFU YAML [`infra/livekit/livekit.production.example.yaml`](../../infra/livekit/livekit.production.example.yaml).
+**Related:** [livekit-turn.md](../infra/livekit-turn.md) (ports, dev Compose), [livekit-observability.md](../infra/livekit-observability.md) (metrics, alert rules), example SFU YAML [`server/ops/infra/livekit/livekit.production.example.yaml`](../../server/ops/infra/livekit/livekit.production.example.yaml).
 
 ---
 
@@ -26,7 +26,7 @@ Echo **does not** terminate WebRTC media; it only issues tokens and syncs DB sta
 | `LIVEKIT_PUBLIC_URL`                     | **`wss://`** host reachable by users’ browsers (TLS). `ws://` is rejected at API startup when `NODE_ENV=production` and LiveKit is enabled. |
 | `LIVEKIT_EMIT_ACTIVE_SPEAKERS_WEBHOOK`   | Usually `false`; UI uses client `ActiveSpeakersChanged` for low latency.                                                                    |
 
-`liveKitServiceHttpUrl` in [`backend/src/services/livekit/livekitAdapter.ts`](../../backend/src/services/livekit/livekitAdapter.ts) maps `wss://` → `https://` for RoomService HTTP calls.
+`liveKitServiceHttpUrl` in [`server/backend/src/services/livekit/livekitAdapter.ts`](../../server/backend/src/services/livekit/livekitAdapter.ts) maps `wss://` → `https://` for RoomService HTTP calls.
 
 ---
 
@@ -34,7 +34,7 @@ Echo **does not** terminate WebRTC media; it only issues tokens and syncs DB sta
 
 - LiveKit must **POST** to a **public HTTPS** URL: `https://<your-echo-api-host>/api/v1/hooks/livekit`.
 - The SFU (or its network) must resolve and reach this host; **`http://host.docker.internal`** is for local dev only.
-- Path is **CSRF-exempt** ([`backend/src/auth/csrf.ts`](../../backend/src/auth/csrf.ts)); authentication is **JWT signature** verification in [`livekitWebhook.ts`](../../backend/src/api/routes/livekitWebhook.ts).
+- Path is **CSRF-exempt** ([`server/backend/src/auth/csrf.ts`](../../server/backend/src/auth/csrf.ts)); authentication is **JWT signature** verification in [`livekitWebhook.ts`](../../server/backend/src/api/routes/livekitWebhook.ts).
 - Rotate **`LIVEKIT_API_SECRET`** together with LiveKit server config; signature mismatches appear as **4xx** on `route_group=hooks_livekit` in metrics.
 
 ---
@@ -67,8 +67,8 @@ Echo **does not** terminate WebRTC media; it only issues tokens and syncs DB sta
 ## 6. Observability
 
 - Scrape **`GET /api/v1/metrics`** (protect with `ECHO_METRICS_SCRAPE_TOKEN` and/or network policy).
-- Prometheus rules: group **`echo_livekit`** in [`monitoring/prometheus/rules/echo-alerts.yml`](../../monitoring/prometheus/rules/echo-alerts.yml).
-- Grafana: **Echo overview** dashboard includes LiveKit webhook and voice moderate panels ([`monitoring/grafana/echo-overview.json`](../../monitoring/grafana/echo-overview.json)).
+- Prometheus rules: group **`echo_livekit`** in [`server/ops/monitoring/prometheus/rules/echo-alerts.yml`](../../server/ops/monitoring/prometheus/rules/echo-alerts.yml).
+- Grafana: **Echo overview** dashboard includes LiveKit webhook and voice moderate panels ([`server/ops/monitoring/grafana/echo-overview.json`](../../server/ops/monitoring/grafana/echo-overview.json)).
 
 ---
 
@@ -77,7 +77,7 @@ Echo **does not** terminate WebRTC media; it only issues tokens and syncs DB sta
 1. From a browser, connect to a voice channel; confirm signaling uses **`wss://`** in DevTools.
 2. In Prometheus/Grafana, confirm **`echo_livekit_webhook_event_total`** increases on join/leave.
 3. Intentionally mis-sign a webhook (or use wrong secret in a staging env) and confirm **4xx** on `hooks_livekit` + alert tuning if needed.
-4. Run **`node scripts/verify-livekit-production-env.mjs`** against production `.env` (checks `wss://`, documents firewall/TURN expectations).
+4. Run **`node server/ops/scripts/verify-livekit-production-env.mjs`** against production `.env` (checks `wss://`, documents firewall/TURN expectations).
 5. **Reconnect vs token TTL:** With default `LIVEKIT_JOIN_TOKEN_TTL_SEC=300`, toggle network offline ~30s — expect SDK `Reconnecting`/`Reconnected` without re-mint. Offline **> 5 min** or `Disconnected` → guild client runs up to **8** full re-joins (fresh JWT each). Staging: set `LIVEKIT_JOIN_TOKEN_TTL_SEC=120` to exercise expiry sooner.
 
 ## 8. Production edge checklist (sign-off)

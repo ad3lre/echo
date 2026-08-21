@@ -1,16 +1,16 @@
 # Echo recovery watchdog (Discord-triggered)
 
-Lightweight **event-driven** recovery: nothing runs until the prod Discord bot’s **uptime monitor** sees **healthy → down**, then it spawns `scripts/echo-recovery-watchdog.mjs` once (lock file prevents duplicates).
+Lightweight **event-driven** recovery: nothing runs until the prod Discord bot’s **uptime monitor** sees **healthy → down**, then it spawns `server/ops/scripts/echo-recovery-watchdog.mjs` once (lock file prevents duplicates).
 
 ## Behaviour
 
-| Step | Action                                                                                                                                               |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Confirm **local** API is down (`127.0.0.1:3000/api/v1/health`)                                                                                       |
-| 2    | Scan **dev code** only (no `dist/`, `node_modules/`, exports, uploads, `terms/`, `public/`, generated `data/`, etc.) and `git log` for the last hour |
-| 3a   | **Dev activity found** → do **not** restart until the API stays down for **1 hour** (deploy in progress)                                             |
-| 3b   | **No dev activity** → **restart immediately** (`prod:serve` + PM2 `echo-marketing`)                                                                  |
-| 4    | Email summary to **`ECHO_WATCHDOG_NOTIFY_EMAIL`** (default `support@chat-echo.com`)                                                                  |
+| Step | Action                                                                                                                                                         |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Confirm **local** API is down (`127.0.0.1:3000/api/v1/health`)                                                                                                 |
+| 2    | Scan **dev code** only (no `dist/`, `node_modules/`, exports, uploads, `marketing/terms/`, `public/`, generated `data/`, etc.) and `git log` for the last hour |
+| 3a   | **Dev activity found** → do **not** restart until the API stays down for **1 hour** (deploy in progress)                                                       |
+| 3b   | **No dev activity** → **restart immediately** (`prod:serve` + PM2 `echo-marketing`)                                                                            |
+| 4    | Email summary to **`ECHO_WATCHDOG_NOTIFY_EMAIL`** (default `support@chat-echo.com`)                                                                            |
 
 If the API comes back during the 1h quiet window, the watchdog exits without restarting.
 
@@ -33,7 +33,7 @@ Rebuild/restart the bot after changing env (`npm run build -w bot` then restart 
 ## Manual test
 
 ```bash
-node scripts/echo-recovery-watchdog.mjs --reason=manual-test --dry-run
+node server/ops/scripts/echo-recovery-watchdog.mjs --reason=manual-test --dry-run
 ```
 
 ## Logs

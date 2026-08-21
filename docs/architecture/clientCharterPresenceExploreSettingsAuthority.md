@@ -10,7 +10,7 @@ Current code path:
 
 - REST path: `fetchEchoPresenceBatch` updates `echoSession.patchPresence`.
 - Socket path: `applyEchoPresenceFromSocket` also updates `echoSession.patchPresence`.
-- `echoSession.patchPresence` currently routes into [`patchPresenceOnEchoSession`](../../frontend/src/features/layout/viewModel/echoWorkspaceSessionApply.ts).
+- `echoSession.patchPresence` currently routes into `patchPresenceOnEchoSession`.
 
 Why this is still debt:
 
@@ -21,11 +21,11 @@ Why this is still debt:
 
 Healthy part:
 
-- [`ExploreView.vue`](../../frontend/src/features/layout/components/ExploreView.vue) remains prop-driven and presentation-only.
+- [`ExploreView.vue`](../../clients/web/src/features/layout/components/ExploreView.vue) remains prop-driven and presentation-only.
 
 Current caveat:
 
-- [`useAppLayoutGridChrome.ts`](../../frontend/src/features/layout/composables/useAppLayoutGridChrome.ts) filters directory rows through [`exploreDirectoryRows.ts`](../../frontend/src/services/domain/exploreDirectoryRows.ts); HTTP→row mapping (including default icon) lives in [`exploreDirectoryMap.ts`](../../frontend/src/services/orchestration/exploreDirectoryMap.ts).
+- [`useAppLayoutGridChrome.ts`](../../clients/web/src/features/layout/composables/shell/useAppLayoutGridChrome.ts) filters directory rows through [`exploreDirectoryRows.ts`](../../clients/web/src/features/layout/exploreDirectoryRows.ts); HTTP→row mapping (including default icon) lives in [`exploreDirectoryMap.ts`](../../clients/web/src/features/layout/exploreDirectoryMap.ts).
 - `exploreDirectoryRows.ts` still chooses display or icon fallback assets in `services/domain`.
 - That display choice belongs in view/projection code, not model/domain logic.
 
@@ -33,7 +33,7 @@ Current caveat:
 
 The role-manager path remains comparatively clean:
 
-- one builder path through [`fetchManagedRolesFromEcho.ts`](../../frontend/src/features/server-settings/domain/fetchManagedRolesFromEcho.ts)
+- one builder path through [`fetchManagedRolesFromEcho.ts`](../../clients/web/src/features/server-settings/fetchManagedRolesFromEcho.ts)
 - no second competing role-normalization authority in the modal or editor composables
 
 For the broader charter context, see [overview/agents.md](../overview/agents.md) and [client-layer-violations.md](./client-layer-violations.md).

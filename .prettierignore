@@ -5,15 +5,15 @@ node_modules
 # Build / coverage output
 dist
 **/dist
-frontend/coverage
+web/coverage
 
 # Machine-local / export artifacts (see docs/operations/ops/REPO_ARTIFACTS_POLICY.md)
 bot/exports
 scripts/downtime-stats.json
 console-log.json
 _console-tail.json
-frontend/lint-warnings.json
-frontend/vitest_report.json
+web/lint-warnings.json
+web/vitest_report.json
 docs/archive/
 
 # Cursor / AI assistants / IDE-local (match .gitignore; keeps CI from formatting tool churn)
@@ -43,16 +43,16 @@ package-lock.json
 **/package-lock.json
 
 # Generated frontend assets
-frontend/public/twemoji
-frontend/public/emoji-search-index.json
-frontend/src/data/emoji-secondary-aliases.json
+web/public/twemoji
+web/public/emoji-search-index.json
+clients/web/src/features/chat/emoji/emoji-secondary-aliases.json
 docs/overview/tree.md
 
 # Prisma migrations (binary SQL history; match .gitignore)
 backend/prisma/migrations
 
 # Apple SwiftPM / Xcode local build checkouts
-apple/.build/
-apple/.swiftpm/
-apple/**/DerivedData/
+clients/apple/.build/
+clients/apple/.swiftpm/
+clients/apple/**/DerivedData/
 

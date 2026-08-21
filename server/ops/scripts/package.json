@@ -1,0 +1,23 @@
+{
+  "name": "scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Echo ops utility and deployment scripts",
+  "scripts": {
+    "seed": "ts-node seed.ts",
+    "deploy": "ts-node deploy.ts",
+    "db-migrate": "ts-node db-migrate.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "execa": "^9.6.1",
+    "pg": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "@types/pg": "^8.20.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
