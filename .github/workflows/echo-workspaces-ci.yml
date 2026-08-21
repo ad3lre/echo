@@ -67,10 +67,10 @@ jobs:
         run: npm run test -w activities
 
       - name: Typecheck crypto
-        run: npm run typecheck -w crypto
+        run: npm run typecheck --prefix server/backend/crypto
 
       - name: Test crypto
-        run: npm run test -w crypto
+        run: npm run test -w web -- --run ../../server/backend/crypto/src
 
       - name: Test paper
-        run: npm run test -w paper
+        run: npm run test -w web -- --run src/features/paper
