@@ -45,12 +45,19 @@
 /clients/web/cypress/videos
 /clients/web/cypress/downloads
 
-# Production perf runs (keep committed baselines)
+# Production perf runs (keep committed baselines under server/ops/perf/baselines/)
 /server/ops/perf/.auth/
 /server/ops/perf/results/
 /server/ops/perf/perf/
-!/perf/baselines/
-!/perf/baselines/**
+
+# Accidental pre-nest workspace leftovers (real trees live under clients/ and server/)
+/activities/
+/backend/
+/media/
+/ops/
+/perf/
+/voice/
+/web/
 
 # TLS / PKCS private material (accidental commits)
 *.pem

@@ -4,6 +4,10 @@
 # dev placeholders) and historical paths that must never be tracked again.
 # Keep .env / bot/.env / raw HARs out of git; this allowlist only suppresses
 # scanner noise for those path patterns across history.
+#
+# Keep BOTH pre-monorepo and nested path prefixes: `gitleaks` scans full git
+# history on release/1.0.0, where frontend/, backend/, game-server/, and
+# infra/ still appear in older commits.
 
 title = 'Echo'
 
@@ -17,17 +21,33 @@ paths = [
   '''^bot/\.env$''',
   '''^chat-echo\.com\.har$''',
   '''^artifacts/har-clean/.*\.har$''',
+  '''^\.github/workflows/echo-backend-ci\.yml$''',
+  '''^docs/EMOJI_LOADING\.md$''',
+  '''^bot/\.env\.example$''',
+
+  # Pre-monorepo paths (still in release/1.0.0 history)
+  '''^infra/livekit/livekit\.chat-echo\.production\.yaml$''',
+  '''^infra/livekit/livekit\.yaml$''',
+  '''^backend/src/tests/''',
+  '''^backend/src/domain/discordProfileMerge\.ts$''',
+  '''^game-server/src/tests/''',
+  '''^frontend/.+\.test\.ts$''',
+  '''^frontend/src/observability/bugHunterTrace\.test\.ts$''',
+  '''^frontend/src/utils/persistentImageDimsCache\.ts$''',
+  '''^frontend/src/features/settings/composables/useDiscordLinkSettings\.ts$''',
+  '''^frontend/src/features/settings/components/SettingsDiscordLinkSection\.vue$''',
+
+  # Nested monorepo paths (current + intermediate moves)
   '''^server/ops/infra/livekit/livekit\.chat-echo\.production\.yaml$''',
+  '''^server/ops/infra/livekit/livekit\.yaml$''',
   '''^server/backend/src/tests/''',
   '''^server/activities/src/tests/''',
+  '''^server/backend/src/domain/discordProfileMerge\.ts$''',
+  '''^server/backend/src/domain/discord/discordProfileMerge\.ts$''',
   '''^clients/web/.+\.test\.ts$''',
   '''^clients/web/src/utils/persistentImageDimsCache\.ts$''',
+  '''^clients/web/src/features/layout/display/persistentImageDimsCache\.ts$''',
   '''^clients/web/src/observability/bugHunterTrace\.test\.ts$''',
-  '''^bot/\.env\.example$''',
-  '''^server/ops/infra/livekit/livekit\.yaml$''',
-  '''^docs/EMOJI_LOADING\.md$''',
-  '''^\.github/workflows/echo-backend-ci\.yml$''',
-  '''^server/backend/src/domain/discordProfileMerge\.ts$''',
   '''^clients/web/src/features/settings/composables/useDiscordLinkSettings\.ts$''',
   '''^clients/web/src/features/settings/components/SettingsDiscordLinkSection\.vue$''',
 ]
