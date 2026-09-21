@@ -1,19 +1,19 @@
 # Test coverage plan (Echo)
 
-**Doc refresh:** 2026-05-31 — counts re-counted against the repo.
+**Doc refresh:** 2026-09-20 — coverage gate and CI workflow reconciled with the repo.
 
 ## Baseline (snapshot)
 
 | Area         | Detail                                                                                                                                                     |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend** | Vitest 3, `src/**/*.test.ts`, Node environment                                                                                                             |
+| **Frontend** | Vitest 5, `src/**/*.test.ts`, Node environment                                                                                                             |
 | **Backend**  | Mixed `ts-node` / `tsx` scripts under `src/tests/` (RBAC, unfurl, integrations); GitHub CI runs pipeline/multinode/uploads/RBAC when Postgres is available |
 | **E2E**      | Cypress smoke in [`.github/workflows/echo-e2e-ci.yml`](../../.github/workflows/echo-e2e-ci.yml) (`npm run test:e2e`)                                       |
 | **Scale**    | **~430** `*.test.ts` files under `clients/web/src`; backend **112** files under `server/backend/src/tests/`                                                |
 
 Running `npm run test:coverage` in `clients/web/` uses `@vitest/coverage-v8`. Reports go to `clients/web/coverage/` (gitignored).
 
-Coverage is **scoped to `src/**/\*.ts`** (see `vitest.config.ts`) so `dist/`and`.vue` files do not skew the gate. Local thresholds on that set: **lines/statements 30%**, **functions 60%**, **branches 65%** (`clients/web/vitest.config.ts`). CI runs `vitest run`without enforcing coverage thresholds unless`--coverage` is passed.
+Coverage is **scoped to `src/**/\*.ts`** (see `vitest.config.ts`) so `dist/`and`.vue`files do not skew the gate. The current ratcheted baseline is **40% lines, 38% statements, 39% functions, and 34% branches**; the latest run measured **40.47%, 38.55%, 39.92%, and 34.38%** respectively. The web CI job runs`npm run test:coverage`, so regressions fail the PR gate.
 
 Backend socket join hardening runs via Vitest in CI: `server/backend/src/tests/channelHandlers*.test.ts` (included from `clients/web/vitest.config.ts`). Security regression suite: `npm run test:security -w backend` (CSRF, upload MIME, profile sanitize, webhooks, bot tokens) — part of `test:ci:backend`.
 
@@ -63,7 +63,7 @@ Aim for **high line coverage** on:
 ## Commands
 
 ```bash
-cd frontend
+cd clients/web
 npm test              # vitest run
 npm run test:coverage # vitest run --coverage
 npm run test:watch    # vitest

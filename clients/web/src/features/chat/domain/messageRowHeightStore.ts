@@ -35,6 +35,7 @@ function pruneChannels(): void {
 
 function pruneChannelEntries(map: ChannelHeightMap): void {
   if (map.size <= MAX_ENTRIES_PER_CHANNEL) return;
+  // Height pruning is bounded maintenance for one capped channel map.
   const sorted = [...map.entries()].sort(
     (a, b) => b[1].measuredAt - a[1].measuredAt,
   );

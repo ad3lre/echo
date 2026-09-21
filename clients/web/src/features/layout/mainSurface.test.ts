@@ -201,7 +201,7 @@ describe('deriveMainSurface', () => {
     });
   });
 
-  it('servers rail + stage guild channel type resolves to serverVoice surface', () => {
+  it('servers rail + gated stage channel type resolves to unknown surface', () => {
     const nav: NavState = {
       rail: 'servers',
       dmSubView: 'messages',
@@ -212,8 +212,9 @@ describe('deriveMainSurface', () => {
       id === 'stage-1' ? { channel: { type: 'stage' } } : null,
     );
     expect(deriveMainSurface(nav, ctxNoOnboarding(getInfo))).toEqual({
-      type: 'serverVoice',
+      type: 'unknown',
       channelId: 'stage-1',
+      reason: 'unresolved_server_channel',
     });
   });
 

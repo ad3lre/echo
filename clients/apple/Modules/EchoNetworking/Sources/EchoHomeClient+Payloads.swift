@@ -9,6 +9,11 @@ struct EchoHomeProfilePayload: Decodable {
   let bio: String?
   let bannerImage: String?
   let bannerColor: String?
+  let badges: [String]?
+  let bannerPositionY: Double?
+  let bannerRefractionEnabled: Bool?
+  let bannerBlurEnabled: Bool?
+  let bannerBlackoutEnabled: Bool?
 
   var profile: EchoUserProfile {
     EchoUserProfile(
@@ -18,8 +23,12 @@ struct EchoHomeProfilePayload: Decodable {
       avatarURL: pfp,
       bio: bio,
       bannerURL: bannerImage,
-      bannerColor: bannerColor
-    )
+      bannerColor: bannerColor,
+      badges: badges,
+      bannerPositionY: bannerPositionY,
+      bannerRefractionEnabled: bannerRefractionEnabled ?? false,
+      bannerBlurEnabled: bannerBlurEnabled ?? false,
+      bannerBlackoutEnabled: bannerBlackoutEnabled ?? false)
   }
 }
 
@@ -91,6 +100,14 @@ struct EchoHomePollVoteResponse: Decodable {
   let poll: EchoPoll
 }
 
+struct EchoHomePinsResponse: Decodable {
+  let messageIds: [String]
+}
+
+struct EchoHomePinBody: Encodable {
+  let messageId: String
+}
+
 struct EchoHomeMessageResponse: Decodable {
   let message: EchoWireMessagePayload
 }
@@ -100,6 +117,7 @@ struct EchoHomeOutgoingMessagePayload: Encodable {
   let id: String
   let attachments: [EchoMessageAttachment]?
   let poll: EchoOutgoingPoll?
+  let replyTo: EchoMessageReplyTo?
 }
 
 struct EchoHomeUploadPresignRequest: Encodable {

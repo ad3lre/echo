@@ -61,4 +61,37 @@ describe('mediaCdn service', () => {
     expect(echoFetch).toHaveBeenCalledTimes(1);
     expect(resolved).toEqual([`${unsigned}?t=signed`, `${unsigned}?t=signed`]);
   });
+
+  it('can refresh a cached token after an image load failure', async () => {
+    const unsigned = `https://media.echo.example${ECHO_MEDIA_CDN_OBJECT_PREFIX}echo/avatars/u1/a.webp`;
+    vi.mocked(echoFetch)
+      .mockResolvedValueOnce({
+        urls: [
+          {
+            storageKey: 'echo/avatars/u1/a.webp',
+            url: `${unsigned}?t=expired`,
+            expiresAt: Date.now() + 3_600_000,
+            scope: 'object',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        urls: [
+          {
+            storageKey: 'echo/avatars/u1/a.webp',
+            url: `${unsigned}?t=fresh`,
+            expiresAt: Date.now() + 3_600_000,
+            scope: 'object',
+          },
+        ],
+      });
+
+    await expect(resolveSignedEchoMediaUrl({ url: unsigned })).resolves.toBe(
+      `${unsigned}?t=expired`,
+    );
+    await expect(
+      resolveSignedEchoMediaUrl({ url: unsigned, forceRefresh: true }),
+    ).resolves.toBe(`${unsigned}?t=fresh`);
+    expect(echoFetch).toHaveBeenCalledTimes(2);
+  });
 });

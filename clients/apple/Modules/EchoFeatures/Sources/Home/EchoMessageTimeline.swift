@@ -3,11 +3,16 @@ import EchoNetworking
 import Observation
 import SwiftUI
 
+#if os(iOS)
+  import UIKit
+#endif
+
 /// Native direct-message timeline with a reusable, server-backed composer.
 struct EchoConversationView: View {
   let conversation: EchoDirectMessage
   let baseURL: URL
   let userID: String
+  let callModel: EchoCallModel?
 
   @Environment(\.dismiss) private var dismiss
   @Environment(\.scenePhase) private var scenePhase
@@ -15,15 +20,22 @@ struct EchoConversationView: View {
   @Environment(EchoRealtimeSession.self) private var realtime
   @State private var model: EchoMessageTimelineModel?
   @State private var composerAccessToken = ""
+  @State private var showingSearch = false
+  @State private var showingProfile = false
+  @State private var showingPins = false
+  @State private var searchTargetMessageID: String?
+  @State private var replyTarget: EchoMessageReplyTo?
 
   init(
     conversation: EchoDirectMessage,
     baseURL: URL,
-    userID: String
+    userID: String,
+    callModel: EchoCallModel? = nil
   ) {
     self.conversation = conversation
     self.baseURL = baseURL
     self.userID = userID
+    self.callModel = callModel
   }
 
   var body: some View {
@@ -36,7 +48,14 @@ struct EchoConversationView: View {
           $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             == userID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         } ?? false,
-        onExit: { dismiss() }
+        pinnedCount: model?.pinnedMessageIDs.count ?? 0,
+        onProfileTap: { showingProfile = true },
+        onExit: { dismiss() },
+        onCall: {
+          if let callModel { Task { await callModel.startCall(to: conversation) } }
+        },
+        onPins: { showingPins = true },
+        onSearch: { showingSearch = true }
       )
 
       if let model {
@@ -45,7 +64,17 @@ struct EchoConversationView: View {
           conversation: conversation,
           baseURL: baseURL,
           accessToken: liveComposerAccessToken,
-          userID: userID
+          userID: userID,
+          scrollTargetMessageID: searchTargetMessageID,
+          onPeerProfileTap: { showingProfile = true },
+          onReply: { message in
+            replyTarget = message.asReplyTo(
+              authorDisplayName: EchoMessageTimelineModel.authorDisplayName(
+                message: message, conversation: conversation))
+          },
+          onJumpToReply: { messageID in
+            searchTargetMessageID = messageID
+          }
         )
       } else {
         ProgressView("Loading messages")
@@ -64,6 +93,7 @@ struct EchoConversationView: View {
         onComposerTextChange: { text in
           realtime.noteComposerText(text, channelID: conversation.channelID)
         },
+        replyTo: $replyTarget,
         onSend: { submission in
           guard let model else { return }
           try await model.send(submission)
@@ -108,6 +138,53 @@ struct EchoConversationView: View {
         composerAccessToken = newToken
       }
     }
+    #if os(iOS)
+      .fullScreenCover(isPresented: $showingSearch) {
+        EchoConversationSearchView(
+          conversation: conversation,
+          baseURL: baseURL,
+          userID: userID,
+          onSelectMessage: { message in
+            searchTargetMessageID = message.id
+          }
+        )
+        .environment(auth)
+      }
+    #else
+      .sheet(isPresented: $showingSearch) {
+        EchoConversationSearchView(
+          conversation: conversation,
+          baseURL: baseURL,
+          userID: userID,
+          onSelectMessage: { message in
+            searchTargetMessageID = message.id
+          }
+        )
+        .environment(auth)
+      }
+    #endif
+    .sheet(isPresented: $showingPins) {
+      if let model {
+        EchoPinnedMessagesView(
+          model: model,
+          conversation: conversation,
+          baseURL: baseURL,
+          accessToken: liveComposerAccessToken,
+          onSelectMessage: { messageID in
+            searchTargetMessageID = messageID
+          }
+        )
+      }
+    }
+    #if os(iOS)
+      .fullScreenCover(isPresented: $showingProfile) {
+        peerProfileView
+      }
+    #else
+      .sheet(isPresented: $showingProfile) {
+        peerProfileView
+      }
+    #endif
     .background(EchoConversationBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
     // The conversation owns its exit affordance in the header. Hide the
@@ -117,11 +194,35 @@ struct EchoConversationView: View {
     #if os(iOS)
       .toolbar(.hidden, for: .navigationBar)
     #endif
+    .overlay {
+      if let callModel, callModel.isPresented {
+        EchoCallView(model: callModel, baseURL: baseURL, accessToken: liveComposerAccessToken)
+          .transition(.opacity)
+          .zIndex(20)
+      }
+    }
   }
 
   private var liveComposerAccessToken: String {
     if let token = auth.activeSession?.accessToken, !token.isEmpty { return token }
     return composerAccessToken
+  }
+
+  @ViewBuilder
+  private var peerProfileView: some View {
+    if let peerID = conversation.peerUserID {
+      EchoFullProfileView(
+        profile: EchoUserProfile(
+          id: peerID,
+          name: conversation.displayName,
+          username: conversation.username,
+          avatarURL: conversation.avatarURL
+        ),
+        presenceStatus: conversation.presenceStatus,
+        baseURL: baseURL,
+        accessToken: liveComposerAccessToken
+      )
+    }
   }
 }
 
@@ -132,6 +233,10 @@ private struct EchoConversationTimeline: View {
   let baseURL: URL
   let accessToken: String
   let userID: String
+  let scrollTargetMessageID: String?
+  var onPeerProfileTap: (() -> Void)? = nil
+  var onReply: ((EchoMessage) -> Void)? = nil
+  var onJumpToReply: ((String) -> Void)? = nil
   @State private var pendingScrollID: String?
 
   var body: some View {
@@ -180,6 +285,17 @@ private struct EchoConversationTimeline: View {
                 resolveVoterName: { voterName($0) },
                 onPollVote: { optionID in
                   Task { await model.vote(messageID: message.id, optionID: optionID) }
+                },
+                onDismissFailed: message.delivery == .failed
+                  ? { model.dismissFailedSend(id: message.id) } : nil,
+                onAuthorProfileTap: canOpenAuthorProfile(message) ? onPeerProfileTap : nil,
+                isPinned: model.isPinned(message.id),
+                onTogglePin: message.delivery == .sent
+                  ? { Task { await model.togglePin(messageID: message.id) } } : nil,
+                onReply: message.delivery == .sent
+                  ? { onReply?(message) } : nil,
+                onJumpToReply: message.replyTo.map { reply in
+                  { onJumpToReply?(reply.messageID) }
                 }
               )
               .id(message.id)
@@ -216,6 +332,24 @@ private struct EchoConversationTimeline: View {
           proxy.scrollTo(lastID, anchor: .bottom)
         }
       }
+      .onChange(of: scrollTargetMessageID) { _, messageID in
+        guard let messageID else { return }
+        Task {
+          await model.reveal(messageID: messageID)
+          await Task.yield()
+          withTransaction(Transaction(animation: .easeInOut(duration: 0.24))) {
+            proxy.scrollTo(messageID, anchor: .center)
+          }
+        }
+      }
+      .simultaneousGesture(
+        TapGesture().onEnded {
+          #if os(iOS)
+            UIApplication.shared.sendAction(
+              #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+          #endif
+        }
+      )
     }
   }
 
@@ -228,6 +362,11 @@ private struct EchoConversationTimeline: View {
       return false
     }
     return currentDate.timeIntervalSince(previousDate) > 5 * 60
+  }
+
+  private func canOpenAuthorProfile(_ message: EchoMessage) -> Bool {
+    guard onPeerProfileTap != nil, conversation.peerUserID != nil else { return false }
+    return !message.isCurrentUser && !EchoUserIdentity.matches(message.authorID, userID)
   }
 
   private func voterName(_ userID: String) -> String {

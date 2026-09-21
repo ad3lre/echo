@@ -3,6 +3,7 @@ import EchoNetworking
 import EchoPersistence
 import Foundation
 import Testing
+
 @testable import EchoFeatures
 
 @MainActor
@@ -17,11 +18,12 @@ struct EchoMessageTimelineModelTests {
           timestamp: Date(timeIntervalSince1970: 100))
       ],
       hasMoreBefore: true)
-    let client = StubTimelineLoading(pages: [page])
+    let client = StubTimelineLoading(pages: [page], pinnedIDs: ["m1"])
     let model = makeModel(conversation: conversation, client: client)
 
     await model.loadInitial()
     #expect(model.messages.map(\.id) == ["m1"])
+    #expect(model.pinnedMessageIDs == ["m1"])
     #expect(model.hasMoreBefore)
     #expect(client.loadCount == 1)
 
@@ -30,6 +32,37 @@ struct EchoMessageTimelineModelTests {
 
     await model.loadInitial()
     #expect(client.loadCount == 1)
+  }
+
+  @Test func togglePinOptimisticallyUpdatesThenConfirmsServerOrder() async {
+    let conversation = EchoDirectMessage(
+      id: "dm-1", channelID: "channel-1", displayName: "Maya", username: "maya")
+    let message = EchoMessage(
+      id: "m1", channelID: "channel-1", authorID: "user-me", content: "Keep this",
+      isCurrentUser: true, delivery: .sent)
+    let client = StubTimelineLoading()
+    let model = makeModel(
+      conversation: conversation, client: client, messages: [message], hasStarted: true)
+
+    await model.togglePin(messageID: "m1")
+    #expect(model.pinnedMessageIDs == ["m1"])
+    #expect(client.pinCount == 1)
+    #expect(model.isPinned("m1"))
+
+    await model.togglePin(messageID: "m1")
+    #expect(model.pinnedMessageIDs.isEmpty)
+    #expect(client.unpinCount == 1)
+  }
+
+  @Test func applyRealtimePinsReplacesLocalOrder() {
+    let conversation = EchoDirectMessage(
+      id: "dm-1", channelID: "channel-1", displayName: "Maya", username: "maya")
+    let client = StubTimelineLoading()
+    let model = makeModel(conversation: conversation, client: client, hasStarted: true)
+    model.applyRealtime(.pins(channelID: "channel-1", messageIDs: ["a", "b"]))
+    #expect(model.pinnedMessageIDs == ["a", "b"])
+    model.applyRealtime(.pins(channelID: "other", messageIDs: ["x"]))
+    #expect(model.pinnedMessageIDs == ["a", "b"])
   }
 
   @Test func applyRealtimeDebouncesMarkRead() async {
@@ -90,6 +123,14 @@ struct EchoMessageTimelineModelTests {
       EchoMessageTimelineModel.authorDisplayName(message: stranger, conversation: conversation)
         == EchoCopy.string("Echo user"))
 
+    let ownOptimistic = EchoMessage(
+      id: "m4", channelID: "channel-1", authorID: "user-me", content: "Sending…",
+      isCurrentUser: true)
+    #expect(
+      EchoMessageTimelineModel.authorDisplayName(
+        message: ownOptimistic, conversation: conversation)
+        == EchoCopy.string("You"))
+
     let messages = [withName, peerMessage]
     #expect(
       EchoMessageTimelineModel.voterDisplayName(
@@ -148,6 +189,68 @@ struct EchoMessageTimelineModelTests {
     #expect(client.loadCount == 1)
   }
 
+  @Test func sendInsertsUploadingOptimisticThenReplacesWithServerMessage() async throws {
+    let conversation = EchoDirectMessage(
+      id: "dm-1", channelID: "channel-1", displayName: "Maya", username: "maya")
+    let client = StubTimelineLoading(uploadDelayNanoseconds: 40_000_000)
+    let model = makeModel(conversation: conversation, client: client, hasStarted: true)
+    let jpeg = Data([0xFF, 0xD8, 0xFF, 0xD9])
+
+    async let sendResult: Void = model.send(
+      EchoComposerSubmission(
+        text: "shot",
+        assets: [
+          EchoComposerAsset(
+            data: jpeg, filename: "shot.jpg", mimeType: "image/jpeg", kind: "image")
+        ],
+        gif: nil,
+        poll: nil))
+
+    for _ in 0..<40 where model.messages.isEmpty {
+      try? await Task.sleep(nanoseconds: 2_000_000)
+    }
+    #expect(model.messages.count == 1)
+    #expect(model.messages.first?.delivery == .uploading)
+    #expect(model.messages.first?.attachments.count == 1)
+    #expect(model.messages.first?.attachments.first?.url.hasPrefix("data:image/jpeg;base64,") == true)
+
+    try await sendResult
+
+    #expect(model.messages.count == 1)
+    #expect(model.messages.first?.id == "sent")
+    #expect(model.messages.first?.delivery == .sent)
+    #expect(client.uploadCount == 1)
+    #expect(client.sendCount == 1)
+  }
+
+  @Test func sendMarksOptimisticFailedWhenUploadThrows() async {
+    let conversation = EchoDirectMessage(
+      id: "dm-1", channelID: "channel-1", displayName: "Maya", username: "maya")
+    let client = StubTimelineLoading(shouldFailUpload: true)
+    let model = makeModel(conversation: conversation, client: client, hasStarted: true)
+
+    do {
+      try await model.send(
+        EchoComposerSubmission(
+          text: "",
+          assets: [
+            EchoComposerAsset(
+              data: Data([1, 2, 3]), filename: "a.png", mimeType: "image/png", kind: "image")
+          ],
+          gif: nil,
+          poll: nil))
+      Issue.record("Expected upload failure")
+    } catch {
+      #expect(model.messages.count == 1)
+      #expect(model.messages.first?.delivery == .failed)
+    }
+
+    if let failedID = model.messages.first?.id {
+      model.dismissFailedSend(id: failedID)
+    }
+    #expect(model.messages.isEmpty)
+  }
+
   private func makeModel(
     conversation: EchoDirectMessage,
     client: StubTimelineLoading,
@@ -175,18 +278,31 @@ private final class StubTimelineLoading: EchoMessageTimelineLoading, @unchecked 
   var pages: [EchoMessagePage]
   var voteResult: EchoPoll?
   var loadDelayNanoseconds: UInt64 = 0
+  var uploadDelayNanoseconds: UInt64 = 0
+  var shouldFailUpload = false
   private(set) var loadCount = 0
   private(set) var markReadCount = 0
   private(set) var voteCount = 0
+  private(set) var uploadCount = 0
+  private(set) var sendCount = 0
+  private(set) var pinCount = 0
+  private(set) var unpinCount = 0
+  var pinnedIDs: [String] = []
 
   init(
     pages: [EchoMessagePage] = [],
     voteResult: EchoPoll? = nil,
-    loadDelayNanoseconds: UInt64 = 0
+    loadDelayNanoseconds: UInt64 = 0,
+    uploadDelayNanoseconds: UInt64 = 0,
+    shouldFailUpload: Bool = false,
+    pinnedIDs: [String] = []
   ) {
     self.pages = pages
     self.voteResult = voteResult
     self.loadDelayNanoseconds = loadDelayNanoseconds
+    self.uploadDelayNanoseconds = uploadDelayNanoseconds
+    self.shouldFailUpload = shouldFailUpload
+    self.pinnedIDs = pinnedIDs
   }
 
   func loadMessages(
@@ -211,11 +327,13 @@ private final class StubTimelineLoading: EchoMessageTimelineLoading, @unchecked 
     currentUserID: String,
     content: String,
     attachments _: [EchoMessageAttachment],
-    poll _: EchoOutgoingPoll?
+    poll _: EchoOutgoingPoll?,
+    replyTo: EchoMessageReplyTo?
   ) async throws -> EchoMessage {
-    EchoMessage(
+    sendCount += 1
+    return EchoMessage(
       id: "sent", channelID: channelID, authorID: currentUserID, content: content,
-      isCurrentUser: true)
+      isCurrentUser: true, replyTo: replyTo)
   }
 
   func votePoll(
@@ -245,6 +363,33 @@ private final class StubTimelineLoading: EchoMessageTimelineLoading, @unchecked 
     mimeType: String,
     kind: String
   ) async throws -> EchoMessageAttachment {
-    EchoMessageAttachment(url: "https://example.com/\(filename)", kind: kind, mimeType: mimeType)
+    uploadCount += 1
+    if uploadDelayNanoseconds > 0 {
+      try await Task.sleep(nanoseconds: uploadDelayNanoseconds)
+    }
+    if shouldFailUpload { throw URLError(.networkConnectionLost) }
+    return EchoMessageAttachment(url: "https://example.com/\(filename)", kind: kind, mimeType: mimeType)
+  }
+
+  func loadChannelPins(accessToken _: String, channelID _: String) async throws -> [String] {
+    pinnedIDs
+  }
+
+  func pinMessage(
+    accessToken _: String, channelID _: String, messageID: String
+  ) async throws -> [String] {
+    pinCount += 1
+    if !pinnedIDs.contains(messageID) {
+      pinnedIDs = [messageID] + pinnedIDs
+    }
+    return pinnedIDs
+  }
+
+  func unpinMessage(
+    accessToken _: String, channelID _: String, messageID: String
+  ) async throws -> [String] {
+    unpinCount += 1
+    pinnedIDs = pinnedIDs.filter { $0 != messageID }
+    return pinnedIDs
   }
 }

@@ -74,9 +74,14 @@ struct EchoPollComposerSheet: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(
-                  option.emoji.isEmpty ? EchoCopy.string("Add option emoji") : EchoCopy.string("Change option emoji"))
+                  option.emoji.isEmpty
+                    ? EchoCopy.string("Add option emoji") : EchoCopy.string("Change option emoji"))
 
-                TextField(EchoCopy.format("Option %@", String(draft.options.firstIndex(where: { $0.id == option.id }).map { $0 + 1 } ?? 1)),
+                TextField(
+                  EchoCopy.format(
+                    "Option %@",
+                    String(
+                      draft.options.firstIndex(where: { $0.id == option.id }).map { $0 + 1 } ?? 1)),
                   text: $option.text
                 )
                 .textFieldStyle(.plain)

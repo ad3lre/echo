@@ -147,7 +147,8 @@ function createGuildMobileLobbyChrome(
     const uid = lobby.channelId.trim();
     for (const cat of unref(deps.categoriesForServer)) {
       for (const ch of cat.channels ?? []) {
-        if (ch.id !== uid || ch.type !== 'voice') continue;
+        if (ch.id !== uid || (ch.type !== 'voice' && ch.type !== 'stage'))
+          continue;
         const ids = ch.voiceParticipantIds ?? [];
         return ids.map((id: string) => {
           const u = unref(deps.workspaceUsers).find((x) => x.id === id);

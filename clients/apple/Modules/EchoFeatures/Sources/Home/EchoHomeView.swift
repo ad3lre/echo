@@ -3,7 +3,6 @@ import EchoNetworking
 import Observation
 import SwiftUI
 
-
 /// The authenticated home surface backed exclusively by Echo REST data.
 public struct EchoHomeView: View {
   @Environment(\.openURL) private var openURL
@@ -23,6 +22,8 @@ public struct EchoHomeView: View {
   @State private var pendingNotificationChannelID: String?
   @State private var pendingNotificationURL: URL?
   @State private var sheetAccessToken = ""
+  @State private var callModel: EchoCallModel?
+  @State private var hiddenInboxEpoch = 0
 
   public init(
     baseURL: URL,
@@ -75,6 +76,7 @@ public struct EchoHomeView: View {
             searchText: $searchText,
             baseURL: baseURL,
             accessToken: liveMediaAccessToken,
+            currentUserID: userID,
             onRefresh: {
               await homeModel.reload()
               openPendingNotificationIfPossible()
@@ -83,6 +85,15 @@ public struct EchoHomeView: View {
               Task {
                 await prepareSheetToken()
                 selectedConversation = conversation
+              }
+            },
+            onLeave: { conversation in
+              withAnimation(.easeInOut(duration: 0.2)) {
+                EchoHiddenDmInboxStore.shared.hide(conversation, selfUserID: userID)
+                hiddenInboxEpoch &+= 1
+                if selectedConversation?.id == conversation.id {
+                  selectedConversation = nil
+                }
               }
             },
             inboxNotificationCount: homeModel.inboxNotificationCount,
@@ -97,7 +108,8 @@ public struct EchoHomeView: View {
           EchoHomeLoadingView()
         } else {
           EchoHomeUnavailableView(
-            message: homeModel.errorMessage ?? EchoCopy.string("Echo could not load your messages."),
+            message: homeModel.errorMessage
+              ?? EchoCopy.string("Echo could not load your messages."),
             retry: { Task { await homeModel.reload() } }
           )
         }
@@ -112,6 +124,13 @@ public struct EchoHomeView: View {
       let model = homeModel ?? EchoHomeModel(baseURL: baseURL, auth: auth, userID: userID)
       homeModel = model
       model.auth = auth
+      if callModel == nil {
+        callModel = EchoCallModel(
+          baseURL: baseURL, realtime: realtime, currentUserID: userID
+        ) {
+          (try? await auth.ensureAccessToken()) ?? auth.activeSession?.accessToken
+        }
+      }
       await prepareSheetToken()
       EchoAttentionSync.shared.configure(baseURL: baseURL)
       await model.loadIfNeeded()
@@ -122,6 +141,7 @@ public struct EchoHomeView: View {
       let handlerID = realtime.addHandler { event in
         homeModel?.applyRealtime(event)
         applyRealtimeToSelectedConversation(event)
+        applyRealtimeToCalling(event)
       }
       defer { realtime.removeHandler(handlerID) }
       await EchoRealtimeWait.untilCancelled()
@@ -129,6 +149,7 @@ public struct EchoHomeView: View {
     .task(id: auth.activeSession?.accessToken) {
       if let token = auth.activeSession?.accessToken {
         await realtime.connect(accessToken: token)
+        await EchoCustomEmojiCatalog.shared.refresh(baseURL: baseURL, accessToken: token)
       } else {
         await realtime.disconnect()
       }
@@ -207,6 +228,7 @@ public struct EchoHomeView: View {
         profile: homeModel?.snapshot?.profile,
         onSignOut: onSignOut
       )
+      .environment(auth)
     }
     #if os(iOS)
       .fullScreenCover(
@@ -219,6 +241,8 @@ public struct EchoHomeView: View {
           accessToken: sheetAccessToken,
           userID: userID
         )
+        .environment(auth)
+        .environment(realtime)
       }
     #else
       .sheet(
@@ -231,6 +255,8 @@ public struct EchoHomeView: View {
           accessToken: sheetAccessToken,
           userID: userID
         )
+        .environment(auth)
+        .environment(realtime)
       }
     #endif
     #if os(iOS)
@@ -238,18 +264,31 @@ public struct EchoHomeView: View {
         EchoConversationView(
           conversation: conversation,
           baseURL: baseURL,
-          userID: userID
+          userID: userID,
+          callModel: callModel
         )
+        .environment(auth)
+        .environment(realtime)
       }
     #else
       .sheet(item: $selectedConversation) { conversation in
         EchoConversationView(
           conversation: conversation,
           baseURL: baseURL,
-          userID: userID
+          userID: userID,
+          callModel: callModel
         )
+        .environment(auth)
+        .environment(realtime)
       }
     #endif
+    .overlay {
+      if let callModel, callModel.isPresented, selectedConversation == nil {
+        EchoCallView(model: callModel, baseURL: baseURL, accessToken: liveMediaAccessToken)
+          .transition(.opacity)
+          .zIndex(20)
+      }
+    }
   }
 
   private func retryHomeIfUnavailable() {
@@ -268,6 +307,24 @@ public struct EchoHomeView: View {
       else { return }
       selectedConversation =
         snapshot.conversations.first { $0.channelID == channelID } ?? snapshot.personalNotes
+    default:
+      break
+    }
+  }
+
+  private func applyRealtimeToCalling(_ event: EchoRealtimeEvent) {
+    guard let callModel else { return }
+    switch event {
+    case .dmCall(let signal):
+      let known = homeModel?.snapshot.flatMap { conversation(matching: signal.channelID, in: $0) }
+      let fallback = EchoDirectMessage(
+        id: signal.channelID,
+        channelID: signal.channelID,
+        peerUserID: signal.actorUserID,
+        displayName: EchoCopy.string("Echo caller"))
+      callModel.receive(signal: signal, conversation: known ?? fallback)
+    case .voiceMlsMessage(let channelID, _):
+      callModel.handleVoiceMlsMessage(channelID: channelID)
     default:
       break
     }
@@ -369,6 +426,9 @@ public struct EchoHomeView: View {
   }
 
   private func filteredConversations(_ conversations: [EchoDirectMessage]) -> [EchoDirectMessage] {
-    EchoHomeModel.filteredConversations(conversations, query: searchText)
+    _ = hiddenInboxEpoch
+    let visible = EchoHiddenDmInboxStore.shared.visibleConversations(
+      conversations, selfUserID: userID)
+    return EchoHomeModel.filteredConversations(visible, query: searchText)
   }
 }

@@ -15,6 +15,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
   let mentions: [EchoMessageMention]?
   let attachments: [EchoMessageAttachment]?
   let poll: EchoPoll?
+  let replyTo: EchoMessageReplyTo?
 
   enum CodingKeys: String, CodingKey {
     case id
@@ -29,6 +30,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
     case mentions
     case attachments
     case poll
+    case replyTo
   }
 
   init(from decoder: Decoder) throws {
@@ -45,6 +47,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
     mentions = try values.decodeIfPresent([EchoMessageMention].self, forKey: .mentions)
     attachments = try values.decodeIfPresent([EchoMessageAttachment].self, forKey: .attachments)
     poll = try values.decodeIfPresent(EchoPoll.self, forKey: .poll)
+    replyTo = try values.decodeIfPresent(EchoMessageReplyTo.self, forKey: .replyTo)
   }
 
   func message(channelID fallbackChannelID: String, currentUserID: String?) -> EchoMessage? {
@@ -62,10 +65,11 @@ struct EchoWireMessagePayload: Decodable, Sendable {
       content: body,
       timestamp: EchoPoll.parseDate(timestamp) ?? EchoWireDate.parse(timestamp),
       editedAt: EchoPoll.parseDate(editedAt ?? "") ?? EchoWireDate.parse(editedAt),
-      isCurrentUser: authorID == currentUserID,
+      isCurrentUser: EchoUserIdentity.matches(authorID, currentUserID),
       mentions: mentions ?? [],
       attachments: attachments ?? [],
-      poll: poll
+      poll: poll,
+      replyTo: replyTo
     )
   }
 }
@@ -140,6 +144,59 @@ private struct EchoWireMessageFailedPayload: Decodable {
   }
 }
 
+private struct EchoWireDmCallPayload: Decodable {
+  let kind: EchoDmCallKind
+  let channelID: String
+  let actorUserID: String
+  let correlationID: String?
+  let reason: EchoDmCallEndReason?
+
+  enum CodingKeys: String, CodingKey {
+    case kind
+    case channelID = "channelId"
+    case actorUserID = "actorUserId"
+    case correlationID = "correlationId"
+    case reason
+  }
+}
+
+private struct EchoWirePinsPayload: Decodable {
+  let channelID: String
+  let messageIDs: [String]
+
+  enum CodingKeys: String, CodingKey {
+    case channelID = "channelId"
+    case messageIDs = "messageIds"
+  }
+}
+
+private struct EchoWireWorkspaceEventPayload: Decodable {
+  let kind: String
+  let serverID: String?
+  let voiceChannelID: String?
+  let voiceMls: VoiceMls?
+
+  struct VoiceMls: Decodable {
+    let channelID: String
+    let serverID: String?
+
+    enum CodingKeys: String, CodingKey {
+      case channelID = "channelId"
+      case serverID = "serverId"
+    }
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case kind
+    case serverID = "serverId"
+    case voiceChannelID = "voiceChannelId"
+    case voiceMls
+  }
+}
+
+extension EchoDmCallKind: Decodable {}
+extension EchoDmCallEndReason: Decodable {}
+
 /// Decodes Socket.IO v1 payloads into domain events without depending on the
 /// Socket.IO client. REST history uses the same message wire type.
 public enum EchoRealtimeEventDecoder {
@@ -183,6 +240,35 @@ public enum EchoRealtimeEventDecoder {
         message: message,
         lastActivityAt: EchoWireDate.parse(payload.thread.lastActivityAt)
       )
+    case "dm:call":
+      guard let payload = decode(EchoWireDmCallPayload.self, from: json),
+        !payload.channelID.isEmpty, !payload.actorUserID.isEmpty
+      else { return nil }
+      return .dmCall(
+        EchoDmCallSignal(
+          kind: payload.kind,
+          channelID: payload.channelID,
+          actorUserID: payload.actorUserID,
+          correlationID: payload.correlationID,
+          reason: payload.reason))
+    case "message:pins":
+      guard let payload = decode(EchoWirePinsPayload.self, from: json),
+        !payload.channelID.isEmpty
+      else { return nil }
+      return .pins(channelID: payload.channelID, messageIDs: payload.messageIDs)
+    case "echo:workspace_event":
+      guard let payload = decode(EchoWireWorkspaceEventPayload.self, from: json),
+        payload.kind == "voice_mls_message"
+      else { return nil }
+      let channelID =
+        payload.voiceMls?.channelID
+        ?? payload.voiceChannelID
+        ?? ""
+      let trimmed = channelID.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !trimmed.isEmpty else { return nil }
+      return .voiceMlsMessage(
+        channelID: trimmed,
+        serverID: payload.voiceMls?.serverID ?? payload.serverID)
     default:
       return nil
     }

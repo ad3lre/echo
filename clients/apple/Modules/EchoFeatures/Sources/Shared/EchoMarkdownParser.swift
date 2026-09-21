@@ -32,19 +32,19 @@ enum EchoMarkdownParser {
         continue
       }
 
-      if let math = displayMathLine(at: index, lines: lines) {
+      if let math = EchoMarkdownMath.displayLine(at: index, lines: lines) {
         result.append(.math(source: math.source, display: true))
         index = math.nextIndex
         continue
       }
 
-      if let math = bareDisplayMathEnvironment(at: index, lines: lines) {
+      if let math = EchoMarkdownMath.bareDisplayEnvironment(at: index, lines: lines) {
         result.append(.math(source: math.source, display: true))
         index = math.nextIndex
         continue
       }
 
-      if let math = singleLineDisplayMath(line) {
+      if let math = EchoMarkdownMath.singleLineDisplay(line) {
         result.append(.math(source: math, display: true))
         index += 1
         continue
@@ -189,27 +189,72 @@ enum EchoMarkdownParser {
   enum InlineSegment: Sendable {
     case text(AttributedString)
     case math(source: String, display: Bool)
+    case customEmoji(EchoCustomEmojiRef)
   }
 
   static func inlineSegments(
     _ source: String,
     mentions: [EchoMessageMention] = [],
-    revealSpoilers: Bool = false
+    revealSpoilers: Bool = false,
+    knownShortcodes: Set<String> = []
   ) -> [InlineSegment] {
-    guard let math = firstInlineMath(in: source) else {
+    if let token = EchoMarkdownCustomEmoji.firstToken(in: source) {
+      return splitSegments(
+        source: source,
+        open: token.open,
+        close: token.close,
+        middle: .customEmoji(token.ref),
+        mentions: mentions,
+        revealSpoilers: revealSpoilers,
+        knownShortcodes: knownShortcodes)
+    }
+    if let short = EchoMarkdownCustomEmoji.firstShortcode(in: source, known: knownShortcodes) {
+      return splitSegments(
+        source: source,
+        open: short.open,
+        close: short.close,
+        middle: .customEmoji(short.ref),
+        mentions: mentions,
+        revealSpoilers: revealSpoilers,
+        knownShortcodes: knownShortcodes)
+    }
+    guard let math = EchoMarkdownMath.firstInline(in: source) else {
       return [.text(inline(source, mentions: mentions, revealSpoilers: revealSpoilers))]
     }
+    return splitSegments(
+      source: source,
+      open: math.open,
+      close: math.close,
+      middle: .math(source: math.source, display: math.display),
+      mentions: mentions,
+      revealSpoilers: revealSpoilers,
+      knownShortcodes: knownShortcodes)
+  }
+
+  private static func splitSegments(
+    source: String,
+    open: String.Index,
+    close: Range<String.Index>,
+    middle: InlineSegment,
+    mentions: [EchoMessageMention],
+    revealSpoilers: Bool,
+    knownShortcodes: Set<String>
+  ) -> [InlineSegment] {
     var segments: [InlineSegment] = []
-    let before = String(source[..<math.open])
+    let before = String(source[..<open])
     if !before.isEmpty {
-      segments.append(.text(inline(before, mentions: mentions, revealSpoilers: revealSpoilers)))
+      segments.append(
+        contentsOf: inlineSegments(
+          before, mentions: mentions, revealSpoilers: revealSpoilers,
+          knownShortcodes: knownShortcodes))
     }
-    segments.append(.math(source: math.source, display: math.display))
-    let after = String(source[math.close.upperBound...])
+    segments.append(middle)
+    let after = String(source[close.upperBound...])
     if !after.isEmpty {
       segments.append(
         contentsOf: inlineSegments(
-          after, mentions: mentions, revealSpoilers: revealSpoilers))
+          after, mentions: mentions, revealSpoilers: revealSpoilers,
+          knownShortcodes: knownShortcodes))
     }
     return segments
   }
@@ -255,41 +300,8 @@ enum EchoMarkdownParser {
     let close: Range<String.Index>
   }
 
-  private struct InlineMathSpan {
-    let open: String.Index
-    let source: String
-    let close: Range<String.Index>
-    let display: Bool
-  }
 
-  private static func firstInlineMath(in source: String) -> InlineMathSpan? {
-    let tokens = ["$$", "$", "\\("]
-    return tokens.compactMap { token -> InlineMathSpan? in
-      guard let open = source.range(of: token)?.lowerBound, !isEscaped(source, at: open),
-        !isInsideInlineCode(source, at: open)
-      else { return nil }
-      let after = source.index(open, offsetBy: token.count)
-      let closing = token == "\\(" ? "\\)" : token
-      guard let close = source.range(of: closing, range: after..<source.endIndex),
-        close.lowerBound > after, !isEscaped(source, at: close.lowerBound)
-      else { return nil }
-      let body = String(source[after..<close.lowerBound])
-      guard !body.isEmpty, !body.contains("\n"), !body.hasSuffix(" ") else { return nil }
-      if token == "$", body.hasPrefix("$") { return nil }
-      return InlineMathSpan(
-        open: open, source: body, close: close, display: token == "$$")
-    }.sorted { $0.open < $1.open }.first
-  }
 
-  private static func isInsideInlineCode(_ source: String, at index: String.Index) -> Bool {
-    var cursor = source.startIndex
-    var isOpen = false
-    while cursor < index {
-      if source[cursor] == "`", !isEscaped(source, at: cursor) { isOpen.toggle() }
-      cursor = source.index(after: cursor)
-    }
-    return isOpen
-  }
 
   private static func firstCustomSpan(in source: String) -> CustomSpan? {
     let tokens: [(String, CustomKind)] = [("__", .underline), ("==", .highlight), ("||", .spoiler)]
@@ -401,17 +413,12 @@ enum EchoMarkdownParser {
     fenceOpening(line) != nil || headingLine(line) != nil || isRule(line)
       || line.trimmingCharacters(in: .whitespaces).hasPrefix(">")
       || listOpening(line) != nil || standaloneImage(line) != nil
-      || bareMathEnvironmentName(line) != nil
-      || displayMathOpening(line) != nil
-      || singleLineDisplayMath(line) != nil
+      || EchoMarkdownMath.bareEnvironmentName(line) != nil
+      || EchoMarkdownMath.displayOpening(line) != nil
+      || EchoMarkdownMath.singleLineDisplay(line) != nil
       || (line.contains("|") && next.map { isTableSeparatorLine($0) } == true)
   }
 
-  private static func displayMathOpening(_ line: String) -> String? {
-    let value = line.trimmingCharacters(in: .whitespaces)
-    guard value == "$$" || value == "\\[" else { return nil }
-    return value
-  }
 
   private static func footnoteDefinitionLine(at index: Int, lines: [String]) -> (
     label: String, text: String, nextIndex: Int
@@ -446,87 +453,19 @@ enum EchoMarkdownParser {
     return value
   }
 
-  private static func displayMathLine(at index: Int, lines: [String]) -> (
-    source: String, nextIndex: Int
-  )? {
-    guard index < lines.count else { return nil }
-    let line = lines[index].trimmingCharacters(in: .whitespaces)
-    guard line == "$$" || line == "\\[" else { return nil }
-    let closing = line == "$$" ? "$$" : "\\]"
-    var body: [String] = []
-    var cursor = index + 1
-    while cursor < lines.count {
-      let current = lines[cursor].trimmingCharacters(in: .whitespaces)
-      if current == closing {
-        return (body.joined(separator: "\n"), cursor + 1)
-      }
-      body.append(lines[cursor])
-      cursor += 1
-    }
-    return nil
-  }
 
-  private static let bareMathEnvironments: Set<String> = [
-    "matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix", "smallmatrix",
-    "cases", "aligned", "aligned*", "align", "align*", "gather", "gather*", "array",
-  ]
 
-  private static func bareMathEnvironmentName(_ line: String) -> String? {
-    let value = line.trimmingCharacters(in: .whitespaces)
-    guard let match = value.firstMatch(of: /^\\begin\{([A-Za-z][A-Za-z*]*)\}$/) else {
-      return nil
-    }
-    let name = String(match.1)
-    return bareMathEnvironments.contains(name) ? name : nil
-  }
 
-  private static func bareDisplayMathEnvironment(at index: Int, lines: [String]) -> (
-    source: String, nextIndex: Int
-  )? {
-    guard let name = bareMathEnvironmentName(lines[index]) else { return nil }
-    let closing = "\\end{\(name)}"
-    var body: [String] = [lines[index]]
-    var cursor = index + 1
-    while cursor < lines.count {
-      body.append(lines[cursor])
-      if lines[cursor].trimmingCharacters(in: .whitespaces) == closing {
-        return (body.joined(separator: "\n"), cursor + 1)
-      }
-      cursor += 1
-    }
-    return nil
-  }
 
-  private static func singleLineDisplayMath(_ line: String) -> String? {
-    let value = line.trimmingCharacters(in: .whitespaces)
-    if value.hasPrefix("$$"), value.hasSuffix("$$"), value.count > 4 {
-      return String(value.dropFirst(2).dropLast(2))
-    }
-    if value.hasPrefix("\\["), value.hasSuffix("\\]"), value.count > 4 {
-      return String(value.dropFirst(2).dropLast(2))
-    }
-    return nil
-  }
 
-  /// Mirrors the web pipeline's narrow compatibility layer before SwiftMath
-  /// receives a source string. This is intentionally deterministic rather than
-  /// trying to become a second LaTeX parser.
-  static func normalizedMathSource(_ source: String, display: Bool) -> String {
-    var value =
-      source
-      .replacingOccurrences(of: "\\left{", with: "\\left\\{")
-      .replacingOccurrences(of: "\\right}", with: "\\right\\}")
-      .replacingOccurrences(of: "\\mathcal{P}{i}", with: "\\mathcal{P}_{i}")
-      .replacingOccurrences(of: "^{\\mathbf{V}{i}}", with: "^{\\mathbf{V}_i}")
-      .replacingOccurrences(of: "_{\\mathcal{D}i}", with: "_{\\mathcal{D}_i}")
-      .replacingOccurrences(of: "Z{\\text{univ}}", with: "Z_{\\text{univ}}")
-    value = value.replacingOccurrences(of: "\\mathbb{Z}{", with: "\\mathbb{Z}_{")
-
-    return value
-  }
 
   private static func stripHTMLTags(_ source: String) -> String {
-    source.replacingOccurrences(of: #"</?[A-Za-z][^>]*>"#, with: "", options: .regularExpression)
+    // Require a real HTML tag name (letters then whitespace/`>`/`/`), so Discord-
+    // style custom emoji tokens like `<a:name:id>` / `<:name:id>` are preserved.
+    source.replacingOccurrences(
+      of: #"</?[A-Za-z][A-Za-z0-9]*(\s[^>]*)?>"#,
+      with: "",
+      options: .regularExpression)
   }
 
   private static func fenceOpening(_ line: String) -> (

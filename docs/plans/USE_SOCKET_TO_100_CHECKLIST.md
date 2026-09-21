@@ -24,4 +24,4 @@ What is no longer claimed: the current realtime ingest split is **not** fully mo
 - execution order and rollback wiring in controller/orchestration code
 - one model/domain authority for message truth, merge, dedupe, and reconciliation
 
-For the broader audit, see [clientCharterRealtimePipelineAuthority.md](../../architecture/clientCharterRealtimePipelineAuthority.md) and [overview/agents.md](../../overview/agents.md).
+For the broader audit, see [clientCharterRealtimePipelineAuthority.md](../architecture/clientCharterRealtimePipelineAuthority.md) and [overview/agents.md](../overview/agents.md).

@@ -86,6 +86,27 @@ export type VideoHlsJobRow = {
   source_content_type: string;
 };
 
+export type EchoVideoHlsFailureClass = 'transient' | 'permanent';
+
+/**
+ * Classify failures at the queue boundary so permanent source/format errors do
+ * not consume infrastructure retries, while storage and worker failures can
+ * still recover from transient outages.
+ */
+export function classifyEchoVideoHlsFailure(
+  message: string,
+): EchoVideoHlsFailureClass {
+  const m = message.trim().toLowerCase();
+  if (
+    /source object not found|empty source file|source exceeds max input bytes|video exceeds max duration|no video stream found|invalid video dimensions|invalid video duration|missing master\.m3u8|master\.m3u8 references no variant|must use relative uris|missing variant playlist|missing #ext-x-endlist|media uri must be a flat relative name|playlist references missing file|references no media segments|missing hls segments/.test(
+      m,
+    )
+  ) {
+    return 'permanent';
+  }
+  return 'transient';
+}
+
 export async function reclaimStaleEchoVideoHlsJobs(
   pool: pg.Pool,
   staleAfterMs: number,
@@ -170,18 +191,20 @@ export async function markEchoVideoHlsJobFailed(
 ): Promise<void> {
   const err = message.slice(0, 2000);
   const maxAttempts = config.echoVideoHlsMaxAttempts;
+  const failureClass = classifyEchoVideoHlsFailure(message);
   const r = await pool.query<{ status: string }>(
     `UPDATE echo_video_hls_queue
      SET attempts = attempts + 1,
          status = CASE
+           WHEN $4 = 'permanent' THEN 'failed'
            WHEN attempts + 1 < $3 THEN 'pending'
            ELSE 'failed'
          END,
-         last_error = $2,
+         last_error = CONCAT('[', $4, '] ', $2),
          updated_at = NOW()
      WHERE id = $1
      RETURNING status`,
-    [jobId, err, maxAttempts],
+    [jobId, err, maxAttempts, failureClass],
   );
   const row = r.rows[0];
   if (!row) return;

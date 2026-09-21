@@ -1,42 +1,43 @@
 # Frontend TypeScript bloat audit
 
-> **Status (2026-08-17):** Historical snapshot from **2026-05-14**. Several headline
-> numbers are **stale** — do not treat them as current CI truth:
+> **Status (2026-09-20):** This audit was refreshed against the current
+> checkout. The modularization report remains report-only because the repository
+> carries existing oversized files; the god-file ratchet prevents growth.
 >
-> | May 2026 claim                                       | Live (Aug 2026)                                                                                        |
-> | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-> | `AppLayout.vue` ~4488 LOC                            | ~3520 LOC (and dropping via shell-mode extraction)                                                     |
-> | `useAppLayoutController.ts` ~3926 LOC                | ~16 LOC facade → `createAppLayoutController` + `wireAppLayout*`                                        |
-> | `useLiveKitVoiceRoom.ts` ~2959 / charter C4-003 3502 | ~29 LOC facade → `features/voice/livekit/*`                                                            |
-> | 59 files ≥700; “CI fails modularity”                 | ~94 files ≥700; `modularity:report` is warn-only in `test:ci:guards`; growth gated by `god-file:check` |
+> | Snapshot claim                               | Live (2026-09-20)                                                                                     |
+> | -------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+> | Largest file was `useAppLayoutController.ts` | `useServerVoiceSession.ts` is largest at 3308 lines; the controller is now a small facade             |
+> | Largest file was `AppLayout.vue`             | `ChannelPanelList.vue` is 3197 lines; `AppLayout.vue` is 2332 lines                                   |
+> | 59 files ≥700; “CI fails modularity”         | 91 files ≥700; `modularity:report` is warn-only in `test:ci:guards`; growth gated by `god-file:check` |
 >
 > Re-run: `npm run modularity:report`, `npm run god-file:check`, `wc -l` on hotspots.
 > Prefer [god-file-baselines.json](../../server/ops/scripts/god-file-baselines.json) for
 > enforceable ceilings.
 
-Systematic audit of `clients/web/src` (TypeScript and Vue SFC scripts) per the agreed axes: **A** shipped JS, **B** first-load graph, **C** maintainability / coupling, **D** duplication, **E** dependency hygiene. Evidence gathered **2026-05-14** on this repo revision.
+Systematic audit of `clients/web/src` (TypeScript and Vue SFC scripts) per the agreed axes: **A** shipped JS, **B** first-load graph, **C** maintainability / coupling, **D** duplication, **E** dependency hygiene. Evidence refreshed **2026-09-20** on this repo revision; bundle and clone measurements below remain historical where explicitly marked.
 
 ---
 
 ## Executive summary
 
-| Axis  | Headline                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A** | Largest shipped artifacts are **Krisp WASM** (~5.9 MB minified), **`AppLayout` app chunk** (~3.4 MB minified, ~964 kB gzip), then LiveKit vendor, entry `index`, server/settings modals, and `unicode-emoji-json`.                                                                                                                                                                                                     |
-| **B** | Vite already constrains **modulepreload** to the `AppLayout` shell; remaining “first load” risk is dominated by the **size of the AppLayout async chunk**, not missing lazy splits for small auth views.                                                                                                                                                                                                               |
-| **C** | **59 files** exceed the **700-line** hard threshold (`modularity:check` fails). The layout controller (`useAppLayoutController.ts`, **3926** lines) and **`AppLayout.vue`** (**4488** lines) are the primary maintainability hotspots. **Hub imports:** `@/features/auth/authSession` appears in **78** files; `@/api/authClient` in **41** files; `@/features/layout/echoWorkspace/useEchoWorkspace` in **28** files. |
-| **D** | **jscpd:** ~**2.18%** duplicated lines (3858 / ~177k logical lines in scan scope); **140** exact clones. Notable **production** overlaps: `useAppLayoutCallVoiceBridge` vs `useAppLayoutShellVoice`; **SettingsFormattingGuide** vs **SettingsLegal** (~125 lines); **CompactDualPaneShell** vs **CompactTriPaneShell**.                                                                                               |
-| **E** | **`vue-router`** and **`@tiptap/extension-character-count`** appear **unused** in `src` (safe removal candidates after CI grep). `-apps/*` removed with Tauri shell.                                                                                                                                                                                                                                                   |
+| Axis  | Headline                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **A** | Largest shipped artifacts are **Krisp WASM** (~5.9 MB minified), **`AppLayout` app chunk** (~3.4 MB minified, ~964 kB gzip), then LiveKit vendor, entry `index`, server/settings modals, and `unicode-emoji-json`.                                                                                                                                                                                                             |
+| **B** | Vite already constrains **modulepreload** to the `AppLayout` shell; remaining “first load” risk is dominated by the **size of the AppLayout async chunk**, not missing lazy splits for small auth views.                                                                                                                                                                                                                       |
+| **C** | **91 files** exceed the **700-line** hard threshold (`modularity:report` reports them). The largest current hotspots are `useServerVoiceSession.ts` (**3308** lines), `ChannelPanelList.vue` (**3197**), and `VcActivityStage.vue` (**3159**). **Hub imports:** `@/features/auth/authSession` appears in **78** files; `@/api/authClient` in **41** files; `@/features/layout/echoWorkspace/useEchoWorkspace` in **28** files. |
+| **D** | **jscpd:** ~**2.18%** duplicated lines (3858 / ~177k logical lines in scan scope); **140** exact clones. Notable **production** overlaps: `useAppLayoutCallVoiceBridge` vs `useAppLayoutShellVoice`; **SettingsFormattingGuide** vs **SettingsLegal** (~125 lines); **CompactDualPaneShell** vs **CompactTriPaneShell**.                                                                                                       |
+| **E** | The previously reported unused `vue-router` and `@tiptap/extension-character-count` dependencies are no longer present in the web workspace. `-apps/*` was removed with the Tauri shell.                                                                                                                                                                                                                                       |
 
 ---
 
 ## 1) Baseline metrics (reproducible)
 
-### 1.1 Modularization (`npm run modularity:check`)
+### 1.1 Modularization (`npm run modularity:report`)
 
 - Thresholds: **soft 400** lines, **hard 700** lines (Vue/TS/JS under `clients/web/src`).
-- **130** files ≥ 400 lines; **59** files ≥ 700 lines (**CI fails** today).
-- Largest (lines): `AppLayout.vue` (4488), `useAppLayoutController.ts` (3926), `useLiveKitVoiceRoom.ts` (2959), `VcActivityStage.vue` (2941), `MessageList.vue` (2517), `ChannelPanelList.vue` (2394), `ServerSettingsRolesSection.vue` (2340), `AppLayoutChatHeader.vue` (2290), `useAppLayoutDmCalls.ts` (2143), …
+- **215** files ≥ 400 lines; **91** files ≥ 700 lines. The report is visible in CI; the separate god-file ratchet fails only on growth or unbaselined new oversized files.
+- `npm run modularity:check` is the actionable gate: it runs the same ratchet used by CI, while `modularity:report` remains the debt inventory.
+- Largest current files: `useServerVoiceSession.ts` (3308), `ChannelPanelList.vue` (3197), `VcActivityStage.vue` (3159), `ServerSettingsRolesSection.vue` (2735), `ChatInput.vue` (2713), `AppLayoutChatHeader.vue` (2476), `AppLayout.vue` (2332), `useAppLayoutDmCalls.ts` (2159), `DMPanel.vue` (2062), `MessageList.vue` (1977), …
 
 ### 1.2 LOC by area (`cloc` on `clients/web/src`, excluding `json` / `md` / `lock`)
 
@@ -121,10 +122,9 @@ Build produced `clients/web/dist/bundle-stats.html` and typical chunk sizes (Rol
 
 ### 5.1 Unused dependencies (high confidence)
 
-| Package                                 | Evidence                                                                                                                                                                                                                               |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`vue-router`**                        | No imports under `clients/web/src`; navigation is URL-driven via layout helpers (`App.vue` async views). Listed in `manualChunks` in `vite.config.ts` but **tree-shaken** if never imported—still **npm install bloat** and confusion. |
-| **`@tiptap/extension-character-count`** | Only listed in `package.json`; **no** `CharacterCount` / package imports in `src`.                                                                                                                                                     |
+| Package                             | Evidence                                                                                                                         |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Previously unused frontend packages | Resolved: neither `vue-router` nor `@tiptap/extension-character-count` is present in `clients/web/package.json` or the lockfile. |
 
 ### 5.2 Context-specific / false “unused”
 
@@ -141,18 +141,17 @@ Build produced `clients/web/dist/bundle-stats.html` and typical chunk sizes (Rol
 
 Use this as the prioritized backlog; each row follows the agreed template.
 
-| #   | Axis | Finding                                                                                   | Evidence                               | User impact                                  | Confidence | Recommended action                                                                                                                                                | Risk                                                  |
-| --- | ---- | ----------------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| 1   | A/B  | **`AppLayout` JS chunk ~964 kB gzip** dominates perceived load after shell.               | `dist/assets/AppLayout-*.js` build log | Slow post-login / layout interactive         | High       | Trace chunk with `ANALYZE=1` treemap; split **data** loading (emoji index, heavy modals) from **controller** wiring; avoid new static imports in `AppLayout.vue`. | High — chunk cycle risk per `vite.config.ts` comments |
-| 2   | A    | **Krisp** ~2 MB gzip is inherent to noise cancellation.                                   | `voice-krisp-*.js`                     | Memory + download                            | High       | Treat as **product cost**; optional “download on first voice join” if product allows.                                                                             | Product / UX                                          |
-| 3   | C    | **`useAppLayoutController.ts` ~3926 lines** + **`AppLayout.vue` ~4488 lines**.            | `modularity:check`                     | Bugs, review time, merge conflicts           | High       | Incremental extraction only with graph awareness (already split composables—continue along **domain seams**).                                                     | High                                                  |
-| 4   | C    | **59 files > 700 lines**; CI already fails `modularity:check`.                            | Script exit 1                          | Same as #3                                   | High       | Pick **2–3** worst offenders per quarter; avoid drive-by edits.                                                                                                   | Medium                                                |
-| 5   | C    | **Session store 78 importers**; **authClient 41**.                                        | `grep -rl` hub counts                  | Every auth change ripples wide               | High       | Stabilize small **read-only selectors** / facades for UI leaves.                                                                                                  | Medium                                                |
-| 6   | C    | **Cycles:** `authClient` ↔ `authSession`; emoji composables cycle.                        | `dpdm`                                 | Subtle init bugs                             | High       | Break cycles with interfaces / lazy getters.                                                                                                                      | Medium                                                |
-| 7   | D    | **SettingsFormattingGuide** vs **SettingsLegal** large clone.                             | `jscpd`                                | Drift between legal vs help UI               | Medium     | Extract shared **markdown doc renderer** snippet.                                                                                                                 | Low                                                   |
-| 8   | D    | **Voice bridge** duplication (`useAppLayoutCallVoiceBridge` vs `useAppLayoutShellVoice`). | `jscpd`                                | Voice regressions if one path updated        | Medium     | Extract shared helper for shared lines only.                                                                                                                      | High (voice)                                          |
-| 9   | E    | **`vue-router`** unused.                                                                  | `package.json` + no `src` imports      | Cleaner deps; less misleading `manualChunks` | High       | Remove dep + `manualChunks` branch after grep across repo/tests.                                                                                                  | Low                                                   |
-| 10  | E    | **`@tiptap/extension-character-count`** unused.                                           | `package.json` only                    | Install + audit surface                      | High       | Remove from `dependencies`.                                                                                                                                       | Low                                                   |
+| #   | Axis | Finding                                                                                   | Evidence                               | User impact                           | Confidence | Recommended action                                                                                                                                                | Risk                                                  |
+| --- | ---- | ----------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1   | A/B  | **`AppLayout` JS chunk ~964 kB gzip** dominates perceived load after shell.               | `dist/assets/AppLayout-*.js` build log | Slow post-login / layout interactive  | High       | Trace chunk with `ANALYZE=1` treemap; split **data** loading (emoji index, heavy modals) from **controller** wiring; avoid new static imports in `AppLayout.vue`. | High — chunk cycle risk per `vite.config.ts` comments |
+| 2   | A    | **Krisp** ~2 MB gzip is inherent to noise cancellation.                                   | `voice-krisp-*.js`                     | Memory + download                     | High       | Treat as **product cost**; optional “download on first voice join” if product allows.                                                                             | Product / UX                                          |
+| 3   | C    | **91 files > 700 lines**; the strict report remains a deliberate debt inventory.          | `modularity:report` + god-file ratchet | Bugs, review time, merge conflicts    | High       | Pick **2–3** worst offenders per quarter; avoid drive-by edits.                                                                                                   | Medium                                                |
+| 4   | C    | Existing large files can drift without visibility if contributors skip the report.        | `god-file:check` only gates growth     | New maintainability debt              | High       | Keep the report in CI and require a reviewed baseline change for intentional growth.                                                                              | Low                                                   |
+| 5   | C    | **Session store 78 importers**; **authClient 41**.                                        | `grep -rl` hub counts                  | Every auth change ripples wide        | High       | Stabilize small **read-only selectors** / facades for UI leaves.                                                                                                  | Medium                                                |
+| 6   | C    | **Cycles:** `authClient` ↔ `authSession`; emoji composables cycle.                        | `dpdm`                                 | Subtle init bugs                      | High       | Break cycles with interfaces / lazy getters.                                                                                                                      | Medium                                                |
+| 7   | D    | **SettingsFormattingGuide** vs **SettingsLegal** large clone.                             | `jscpd`                                | Drift between legal vs help UI        | Medium     | Extract shared **markdown doc renderer** snippet.                                                                                                                 | Low                                                   |
+| 8   | D    | **Voice bridge** duplication (`useAppLayoutCallVoiceBridge` vs `useAppLayoutShellVoice`). | `jscpd`                                | Voice regressions if one path updated | Medium     | Extract shared helper for shared lines only.                                                                                                                      | High (voice)                                          |
+| 9   | E    | Previously unused frontend dependencies.                                                  | Current workspace manifests + lockfile | Install clarity and audit surface     | High       | Resolved; keep dependency cleanup covered by periodic manifest/import checks.                                                                                     | Low                                                   |
 
 ### Second-tier watchlist
 
@@ -167,7 +166,7 @@ Use this as the prioritized backlog; each row follows the agreed template.
 
 ```bash
 # Modularization
-npm run modularity:check
+npm run modularity:report
 
 # Perf lint
 npm run lint:perf -w web

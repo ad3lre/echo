@@ -51,6 +51,7 @@ import type { Server } from '@shared/types/server';
 import type { ChannelCategory } from '@/features/layout/channels/useChannels';
 import type { EchoChannelPatch } from '@/api/echo/types';
 import type { RailTab } from '@/features/layout/mainSurface';
+import { isExperimentalChannelTypeEnabled } from '@/features/paper/paperFeatureToggle';
 import { getChannelDisplayName, icons } from '@/assets/icons';
 import {
   dispatchAppToast,
@@ -222,6 +223,7 @@ export function useGuildChannelModals(deps: {
     categoryId: string;
     iconKey: string;
   }) {
+    if (!isExperimentalChannelTypeEnabled(payload.type)) return;
     const sid = selectedServer.value?.id;
     if (!sid || sid === 'echo') return;
     if (authSession.isAuthenticated && isEchoGraphId(sid)) {

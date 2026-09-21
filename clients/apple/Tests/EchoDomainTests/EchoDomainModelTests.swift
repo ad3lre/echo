@@ -98,11 +98,34 @@ struct EchoDomainModelTests {
       url: "https://cdn.example/a.m4a", kind: "document", mimeType: "audio/mp4")
     let file = EchoMessageAttachment(
       url: "https://cdn.example/f.pdf", kind: "document", mimeType: "application/pdf")
+    let mislabeledPhoto = EchoMessageAttachment(
+      url: "https://cdn.example/shot.png", kind: "document", mimeType: "image/png")
+    let mislabeledPdf = EchoMessageAttachment(
+      url: "https://cdn.example/d.pdf", kind: "image", mimeType: "application/pdf")
 
     #expect(photo.isImage && !photo.isVideo && !photo.isAudio)
     #expect(gif.isImage && !gif.isVideo)
     #expect(video.isVideo && !video.isImage && !video.isAudio)
     #expect(audio.isAudio && !audio.isImage && !audio.isVideo)
-    #expect(!file.isImage && !file.isVideo && !file.isAudio)
+    #expect(!file.isImage && !file.isVideo && !file.isAudio && file.isDocument)
+    #expect(mislabeledPhoto.isImage && !mislabeledPhoto.isDocument)
+    #expect(!mislabeledPdf.isImage && mislabeledPdf.isDocument)
+  }
+
+  @Test func previewTextDescribesMediaOnlyMessages() {
+    let photo = EchoMessage(
+      id: "1", channelID: "c", authorID: "u", content: "",
+      attachments: [
+        EchoMessageAttachment(url: "https://cdn.example/p.jpg", kind: "image", mimeType: "image/jpeg")
+      ])
+    #expect(photo.previewText == "Photo")
+    let named = EchoMessage(
+      id: "2", channelID: "c", authorID: "u", content: "",
+      attachments: [
+        EchoMessageAttachment(
+          url: "https://cdn.example/a.pdf", kind: "document", filename: "notes.pdf",
+          mimeType: "application/pdf")
+      ])
+    #expect(named.previewText == "notes.pdf")
   }
 }

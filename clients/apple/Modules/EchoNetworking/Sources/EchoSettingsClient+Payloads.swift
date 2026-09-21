@@ -8,6 +8,8 @@ struct NotificationResponse: Decodable { let settings: EchoNotificationPreferenc
 struct NotificationPayload: Encodable { let settings: EchoNotificationPreferences }
 struct FriendsResponse: Decodable { let friends: [EchoFriendSummary] }
 struct CandidatesResponse: Decodable { let users: [EchoFriendCandidate] }
+struct MutualFriendsResponse: Decodable { let userIds: [String] }
+struct ProfilesResponse: Decodable { let profiles: [EchoHomeProfilePayload] }
 struct SessionsResponse: Decodable { let sessions: [EchoAuthSession] }
 struct PasskeysResponse: Decodable { let passkeys: [EchoPasskeyCredential] }
 struct AccountResponse: Decodable { let user: EchoAccountIdentity }

@@ -20,10 +20,14 @@ export async function postEchoVoiceJoin(
 export async function postEchoVoiceLeave(
   token: string,
   serverId: string,
+  expectedChannelId?: string,
 ): Promise<void> {
+  const query = expectedChannelId?.trim()
+    ? `?channelId=${encodeURIComponent(expectedChannelId.trim())}`
+    : '';
   await echoFetch<Record<string, unknown>>(
     token,
-    `/servers/${encodeURIComponent(serverId)}/voice/leave`,
+    `/servers/${encodeURIComponent(serverId)}/voice/leave${query}`,
     { method: 'POST' },
   );
 }

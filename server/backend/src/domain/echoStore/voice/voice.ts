@@ -229,15 +229,20 @@ export async function leaveEchoVoiceChannel(
   pool: pg.Pool,
   serverId: string,
   userId: string,
-): Promise<void> {
-  await pool.query(
-    `DELETE FROM echo_stage_speak_requests WHERE server_id = $1 AND user_id = $2`,
-    [serverId, userId],
+  expectedChannelId?: string,
+): Promise<boolean> {
+  const expected = expectedChannelId?.trim() ?? '';
+  const channelClause = expected ? ' AND channel_id = $3' : '';
+  const params = expected ? [serverId, userId, expected] : [serverId, userId];
+  const stageRequest = await pool.query(
+    `DELETE FROM echo_stage_speak_requests WHERE server_id = $1 AND user_id = $2${channelClause}`,
+    params,
   );
-  await pool.query(
-    `DELETE FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
-    [serverId, userId],
+  const participant = await pool.query(
+    `DELETE FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2${channelClause} RETURNING channel_id`,
+    params,
   );
+  return (stageRequest.rowCount ?? 0) > 0 || (participant.rowCount ?? 0) > 0;
 }
 
 export async function listEchoVoiceParticipants(

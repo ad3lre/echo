@@ -9,6 +9,10 @@ import {
   isDiscordHostedImportMediaUrl,
 } from '../../domain/discord/discordCdnUrls';
 import {
+  fetchFreshDiscordMediaUrlsForMessage,
+  freshDiscordMediaUrlForStableKey,
+} from './discordImportMediaFreshUrls';
+import {
   getEchoMessageById,
   updateEchoMessageDiscordImportMirroredMedia,
 } from '../../domain/echoMessagesDal';
@@ -20,6 +24,7 @@ import {
   markDiscordImportMediaMirrorDone,
   markDiscordImportMediaMirrorFailed,
   requeueDiscordImportMediaMirrorPending,
+  type DiscordImportMediaMirrorFailureClass,
   type DiscordImportMediaMirrorJobRow,
 } from './discordImportMediaMirrorQueue';
 import { resolveEchoUploadStorageKey } from '../uploads/echoUploadResolveDest';
@@ -40,8 +45,6 @@ import type {
   MessageStickerPayload,
   ReplyTo,
 } from '../../../../../contracts/types';
-
-const MIRROR_MAX_BYTES = 100 * 1024 * 1024;
 
 function coerceAllowedChatContentType(
   headerCt: string | null | undefined,
@@ -109,6 +112,14 @@ async function fetchDiscordMedia(
   return { buf: Buffer.from(ab), contentType: ct };
 }
 
+type MirrorDiscordUrlResult =
+  | { ok: true; echoUrl: string }
+  | {
+      ok: false;
+      failureClass: DiscordImportMediaMirrorFailureClass;
+      reason: string;
+    };
+
 async function mirrorDiscordUrlToEcho(opts: {
   pool: pg.Pool;
   actorId: string;
@@ -116,12 +127,15 @@ async function mirrorDiscordUrlToEcho(opts: {
   discordUrl: string;
   filenameHint?: string;
   log: FastifyBaseLogger;
-}): Promise<string | null> {
+}): Promise<MirrorDiscordUrlResult> {
   const { pool, actorId, channelId, discordUrl, filenameHint, log } = opts;
   let buf: Buffer;
   let headerCt: string;
   try {
-    const r = await fetchDiscordMedia(discordUrl, MIRROR_MAX_BYTES);
+    const r = await fetchDiscordMedia(
+      discordUrl,
+      config.echoDiscordImportMediaMirrorMaxBytes,
+    );
     buf = r.buf;
     headerCt = r.contentType;
   } catch (e) {
@@ -133,7 +147,11 @@ async function mirrorDiscordUrlToEcho(opts: {
       },
       'Discord CDN fetch failed',
     );
-    return null;
+    return {
+      ok: false,
+      failureClass: 'transient',
+      reason: e instanceof Error ? e.message : String(e),
+    };
   }
 
   const ct =
@@ -149,7 +167,11 @@ async function mirrorDiscordUrlToEcho(opts: {
       },
       'Could not map Discord media to allowed chat content type',
     );
-    return null;
+    return {
+      ok: false,
+      failureClass: 'permanent',
+      reason: 'Could not map media to an allowed content type',
+    };
   }
 
   const prepared = isRasterImageContentType(ct)
@@ -177,7 +199,11 @@ async function mirrorDiscordUrlToEcho(opts: {
       { msg: 'discord_import_media_mirror.dest_denied' },
       'Could not resolve upload destination for Discord mirror',
     );
-    return null;
+    return {
+      ok: false,
+      failureClass: 'permanent',
+      reason: 'Could not resolve an upload destination',
+    };
   }
 
   try {
@@ -192,7 +218,13 @@ async function mirrorDiscordUrlToEcho(opts: {
     } else {
       const client = createEchoS3UploadClient();
       const bucket = getEchoS3UploadBucket();
-      if (!client || !bucket) return null;
+      if (!client || !bucket) {
+        return {
+          ok: false,
+          failureClass: 'transient',
+          reason: 'S3 storage is not configured',
+        };
+      }
       await client.send(
         new PutObjectCommand({
           Bucket: bucket,
@@ -210,7 +242,11 @@ async function mirrorDiscordUrlToEcho(opts: {
       },
       'Failed to store mirrored Discord media',
     );
-    return null;
+    return {
+      ok: false,
+      failureClass: 'transient',
+      reason: e instanceof Error ? e.message : String(e),
+    };
   }
 
   await registerChatUploadRetention(pool, {
@@ -220,7 +256,15 @@ async function mirrorDiscordUrlToEcho(opts: {
     uploaderId: actorId,
   });
 
-  return buildEchoUploadPublicUrlForStorageKey(dest.storageKey) ?? null;
+  const echoUrl = buildEchoUploadPublicUrlForStorageKey(dest.storageKey);
+  if (!echoUrl) {
+    return {
+      ok: false,
+      failureClass: 'transient',
+      reason: 'Could not build mirrored media URL',
+    };
+  }
+  return { ok: true, echoUrl };
 }
 
 type UrlWork = { url: string; hint?: string };
@@ -437,21 +481,77 @@ async function runDiscordImportMediaMirrorJobBody(
 
   const work = dedupeWork(collectDiscordUrlWork(row));
   const urlMap = new Map<string, string>();
+  let permanentFailures = 0;
+  let transientFailures = 0;
+  let freshByStableKey: Map<string, string> | null = null;
   for (const w of work) {
     if (urlMap.has(w.url)) continue;
-    const echoUrl = await mirrorDiscordUrlToEcho({
+    let sourceUrl = w.url;
+    let mirrorResult = await mirrorDiscordUrlToEcho({
       pool,
       actorId,
       channelId,
-      discordUrl: w.url,
+      discordUrl: sourceUrl,
       filenameHint: w.hint,
       log,
     });
-    if (echoUrl) urlMap.set(w.url, echoUrl);
+
+    // Discord attachment signatures expire. Refresh the source message once
+    // per job when a stored URL fails, then retry with the current signature.
+    if (!mirrorResult.ok) {
+      if (freshByStableKey === null) {
+        try {
+          freshByStableKey = await fetchFreshDiscordMediaUrlsForMessage(
+            pool,
+            channelId,
+            messageId,
+          );
+        } catch (e) {
+          freshByStableKey = new Map();
+          log.debug(
+            {
+              err: e instanceof Error ? e.message : String(e),
+              messageId,
+              msg: 'discord_import_media_mirror.refresh_failed',
+            },
+            'Could not refresh Discord media URL after fetch failure',
+          );
+        }
+      }
+      const freshUrl = freshDiscordMediaUrlForStableKey(
+        freshByStableKey,
+        w.url,
+      );
+      if (freshUrl && freshUrl !== sourceUrl) {
+        sourceUrl = freshUrl;
+        mirrorResult = await mirrorDiscordUrlToEcho({
+          pool,
+          actorId,
+          channelId,
+          discordUrl: sourceUrl,
+          filenameHint: w.hint,
+          log,
+        });
+      }
+    }
+    if (mirrorResult.ok) {
+      urlMap.set(w.url, mirrorResult.echoUrl);
+    } else if (mirrorResult.failureClass === 'permanent') {
+      permanentFailures += 1;
+    } else {
+      transientFailures += 1;
+    }
   }
 
   if (urlMap.size === 0) {
-    if (job.attempts >= 12) {
+    if (permanentFailures > 0 && transientFailures === 0) {
+      await markDiscordImportMediaMirrorFailed(
+        pool,
+        messageId,
+        'Discord media is permanently invalid or unavailable',
+        'permanent',
+      );
+    } else if (job.attempts >= 12) {
       await markDiscordImportMediaMirrorFailed(
         pool,
         messageId,
@@ -494,7 +594,14 @@ async function runDiscordImportMediaMirrorJobBody(
   }
 
   if (refreshed && echoMessageRowNeedsDiscordMediaMirror(refreshed)) {
-    if (job.attempts >= 12) {
+    if (permanentFailures > 0) {
+      await markDiscordImportMediaMirrorFailed(
+        pool,
+        messageId,
+        'Some Discord media URLs are permanently invalid or unavailable',
+        'permanent',
+      );
+    } else if (job.attempts >= 12) {
       await markDiscordImportMediaMirrorFailed(
         pool,
         messageId,

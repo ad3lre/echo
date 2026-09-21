@@ -34,6 +34,7 @@ function makeEditableEditor(content: JSONContent): Editor {
         codeBlock: false,
         dropcursor: false,
         gapcursor: false,
+        hardBreak: false,
         heading: false,
         horizontalRule: false,
         italic: false,

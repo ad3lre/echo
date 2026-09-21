@@ -22,6 +22,7 @@ import { startEchoVoiceRosterReconcileJob } from '../jobs/voiceRosterReconcile';
 import { startStatusPageProbeJob } from '../jobs/statusPageProbe';
 import { startMetricsWeeklyDigestJob } from '../jobs/metricsWeeklyDigest';
 import { startImageBrowseCategoriesRefreshJob } from '../jobs/imageBrowseCategoriesRefresh';
+import { startEchoWorkspaceEventOutboxJob } from '../jobs/workspaceEventOutbox';
 import { getPgPool } from '../db/pg';
 import { reconcileEchoVoiceParticipantsAgainstLiveKit } from '../services/echoVoiceLiveKitReconcile';
 import {
@@ -73,6 +74,7 @@ export async function startServer(
   startStatusPageProbeJob(fastify);
   startMetricsWeeklyDigestJob(fastify);
   startImageBrowseCategoriesRefreshJob(fastify);
+  startEchoWorkspaceEventOutboxJob(fastify);
 
   if (config.backendStorageMode === 'postgres') {
     const pool = getPgPool();

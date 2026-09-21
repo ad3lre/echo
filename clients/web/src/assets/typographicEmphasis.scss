@@ -24,42 +24,42 @@
   }
 }
 
-.message-content :deep(em),
-.message-content :deep(i) {
+.message-content em,
+.message-content i {
   @include echo-typographic-italic;
 }
 
-.message-content :deep(pre em),
-.message-content :deep(pre i),
-.message-content :deep(code em),
-.message-content :deep(code i),
-.message-content :deep(kbd em),
-.message-content :deep(kbd i) {
+.message-content pre em,
+.message-content pre i,
+.message-content code em,
+.message-content code i,
+.message-content kbd em,
+.message-content kbd i {
   font-style: inherit;
   font-synthesis: auto;
 }
 
-.message-preview :deep(em),
-.message-preview :deep(i),
-.message-preview-snippet :deep(em),
-.message-preview-snippet :deep(i) {
+.message-preview em,
+.message-preview i,
+.message-preview-snippet em,
+.message-preview-snippet i {
   @include echo-typographic-italic;
 }
 
-.discord-embed-md :deep(em),
-.discord-embed-md :deep(i) {
+.discord-embed-md em,
+.discord-embed-md i {
   @include echo-typographic-italic;
 }
 
-.chat-input-surface :deep(.tiptap .composer-md-italic),
-.chat-input-surface :deep(.tiptap .composer-md-blockquote) {
+.chat-input-surface .tiptap .composer-md-italic,
+.chat-input-surface .tiptap .composer-md-blockquote {
   @include echo-typographic-italic;
 }
 
-.message-content :deep(blockquote),
-.message-preview :deep(blockquote),
-.message-preview-snippet :deep(blockquote),
-.discord-embed-md :deep(blockquote),
+.message-content blockquote,
+.message-preview blockquote,
+.message-preview-snippet blockquote,
+.discord-embed-md blockquote,
 .markdown-preview__content blockquote {
   @include echo-markdown-blockquote;
   @include echo-markdown-blockquote-code-reset;

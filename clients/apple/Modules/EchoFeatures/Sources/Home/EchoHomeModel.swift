@@ -178,6 +178,7 @@ final class EchoHomeModel {
       Task { await EchoAttentionSync.shared.refresh(auth: auth) }
     case .message(let message):
       applyActivity(channelID: message.channelID, message: message, at: message.timestamp)
+      playIncomingDmSoundIfNeeded(message)
       Task { await EchoAttentionSync.shared.refresh(auth: auth) }
     case .connected:
       guard hasLoaded, snapshot != nil else { return }
@@ -198,6 +199,11 @@ final class EchoHomeModel {
     } else {
       scheduleUnknownChannelReload()
     }
+  }
+
+  private func playIncomingDmSoundIfNeeded(_ message: EchoMessage) {
+    guard message.authorID != userID else { return }
+    EchoSoundPlayback.play(.dmPing)
   }
 
   private func scheduleUnknownChannelReload() {

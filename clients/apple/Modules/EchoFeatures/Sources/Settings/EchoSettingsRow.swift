@@ -1,6 +1,12 @@
 import EchoDomain
 import SwiftUI
 
+#if canImport(UIKit)
+  import UIKit
+#elseif canImport(AppKit)
+  import AppKit
+#endif
+
 enum EchoSettingsRoute: String, CaseIterable, Hashable, Identifiable {
   case account = "Account"
   case friends = "Friends"
@@ -80,7 +86,7 @@ struct EchoSettingsRowView: View {
           .white.opacity(0.28))
       }.padding(.horizontal, 14).padding(.vertical, 12)
     }
-    .buttonStyle(EchoSettingsRowButtonStyle(tint: row.tint))
+    .buttonStyle(.plain)
   }
 }
 
@@ -91,16 +97,11 @@ private struct EchoSettingsBrandIcon: View {
     Group {
       switch row.route {
       case .discord:
-        Image("Discord", bundle: .module)
-          .renderingMode(.template)
-          .resizable()
-          .scaledToFit()
-          .padding(8)
+        EchoBrandImage(name: "Discord", template: true)
+          .padding(7)
           .foregroundStyle(row.tint)
       case .google:
-        Image("Google", bundle: .module)
-          .resizable()
-          .scaledToFit()
+        EchoBrandImage(name: "Google", template: false)
           .padding(8)
       default:
         Image(systemName: row.icon)
@@ -111,21 +112,35 @@ private struct EchoSettingsBrandIcon: View {
   }
 }
 
-private struct EchoSettingsRowButtonStyle: ButtonStyle {
-  let tint: Color
+/// Loads brand marks as loose PNGs from the module bundle.
+/// SwiftPM copies `.xcassets` without compiling them to `Assets.car`, so
+/// `Image("Name", bundle:)` would stay blank — use scaled PNGs instead.
+private struct EchoBrandImage: View {
+  let name: String
+  var template: Bool = false
 
-  func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .background(
-        tint.opacity(configuration.isPressed ? 0.13 : 0),
-        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-      )
-      .overlay {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-          .stroke(tint.opacity(configuration.isPressed ? 0.30 : 0), lineWidth: 1)
+  var body: some View {
+    image
+      .resizable()
+      .scaledToFit()
+  }
+
+  private var image: Image {
+    #if canImport(UIKit)
+      if let ui = UIImage(named: name, in: .module, compatibleWith: nil) {
+        let rendered = ui.withRenderingMode(template ? .alwaysTemplate : .alwaysOriginal)
+        return Image(uiImage: rendered)
       }
-      .shadow(color: tint.opacity(configuration.isPressed ? 0.20 : 0), radius: 12)
-      .scaleEffect(configuration.isPressed ? 0.985 : 1)
-      .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
+      return Image(systemName: "app.fill")
+    #elseif canImport(AppKit)
+      if let ns = Bundle.module.image(forResource: name) {
+        let image = Image(nsImage: ns)
+        return template ? image.renderingMode(.template) : image.renderingMode(.original)
+      }
+      return Image(systemName: "app.fill")
+    #else
+      return Image(systemName: "app.fill")
+    #endif
   }
 }
+

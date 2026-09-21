@@ -179,14 +179,23 @@ export function useChannelPanelVoiceState(options: VoiceStateOptions) {
             channelMatches: true,
           });
         }
-        const sorted = [...ids].sort((a, b) => {
+        const compareParticipantIds = (a: string, b: string) => {
           const ra = getVoiceParticipantSortRank(a);
           const rb = getVoiceParticipantSortRank(b);
           if (ra !== rb) return rb - ra;
           const ua = getUserById(a)?.name ?? '';
           const ub = getUserById(b)?.name ?? '';
           return ua.localeCompare(ub);
-        });
+        };
+        let sorted = ids;
+        for (let i = 1; i < ids.length; i += 1) {
+          if (compareParticipantIds(ids[i - 1]!, ids[i]!) > 0) {
+            // Sorting is conditional: steady-state LiveKit updates preserve
+            // canonical order and never allocate here.
+            sorted = [...ids].sort(compareParticipantIds);
+            break;
+          }
+        }
         catChanged = true;
         anyChange = true;
         nextChannels.push({

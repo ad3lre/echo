@@ -125,6 +125,7 @@ struct EchoSettingDetailView: View {
             )
             .font(.footnote).foregroundStyle(.secondary)
           }
+          EchoRingtoneSettingsSection()
         case .sounds:
           EchoSoundsMasterControls(
             soundEffectsEnabled: $model.notificationSettings.soundEffects,
@@ -383,7 +384,7 @@ struct EchoSettingDetailView: View {
             EchoSettingToggle(
               title: EchoCopy.string("Verbose diagnostics"),
               subtitle: EchoCopy.string("Capture extra information for troubleshooting"),
-              icon: "stethoscope.fill", tint: .gray, isOn: $diagnosticsEnabled)
+              icon: "stethoscope", tint: .gray, isOn: $diagnosticsEnabled)
             EchoCopy.text(
               "Developer Mode and Bug Hunter are device-only options. Bug Hunter keeps a bounded, privacy-safe trace in memory and clears it when disabled."
             )
@@ -408,7 +409,7 @@ struct EchoSettingDetailView: View {
       .padding(.bottom, 28)
     }
     .safeAreaPadding(.top, 34)
-    navigationTitle(EchoCopy.string(""))
+    .navigationTitle(EchoCopy.string(""))
     .navigationBarBackButtonHidden(true)
     #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
@@ -417,6 +418,9 @@ struct EchoSettingDetailView: View {
       .toolbar(.hidden, for: .navigationBar)
     #endif
     .background(EchoSettingsBackdrop().ignoresSafeArea())
+    #if os(iOS)
+      .echoSettingsSwipeBack()
+    #endif
     .task {
       await model.loadRemoteState(
         syncLocale: { localeIdentifier = $0 },
@@ -515,7 +519,8 @@ struct EchoSettingDetailView: View {
     }
     .sheet(isPresented: $showDisableTotp) {
       EchoDisableTotpSheet(
-        password: $model.totpPassword, code: $model.totpCode, recoveryCode: $model.totpRecoveryCode
+        password: $model.totpPassword, code: $model.totpCode,
+        recoveryCode: $model.totpRecoveryCode
       ) {
         model.disableTotp()
         showDisableTotp = false

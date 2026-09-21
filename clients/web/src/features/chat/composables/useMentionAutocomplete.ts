@@ -108,9 +108,13 @@ export function useMentionAutocomplete(
     const specials = filtered.filter((u) => u.special);
     const roleItems = filtered.filter((u) => u.kind === 'role');
     const regular = filtered.filter((u) => !u.special && u.kind !== 'role');
+    // Autocomplete output is capped below; deterministic role ordering is
+    // required for stable keyboard navigation.
     roleItems.sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
     );
+    // The user result set is bounded by the suggestion catalog and must keep
+    // offline users after active users.
     regular.sort((a, b) => {
       const aOff = isMessageAuthorOffline(a.status);
       const bOff = isMessageAuthorOffline(b.status);

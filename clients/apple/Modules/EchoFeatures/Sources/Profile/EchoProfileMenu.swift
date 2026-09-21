@@ -10,10 +10,13 @@ struct EchoProfileMenu: View {
   var body: some View {
     VStack(spacing: 10) {
       EchoMenuAction(
-        title: EchoCopy.string("Edit profile"), icon: "person.crop.circle", tint: .indigo, action: onEditProfile)
-      EchoMenuAction(title: EchoCopy.string("Settings"), icon: "gearshape", tint: .blue, action: onSettings)
+        title: EchoCopy.string("Edit profile"), icon: "person.crop.circle", tint: .indigo,
+        action: onEditProfile)
       EchoMenuAction(
-        title: EchoCopy.string("Log out"), icon: "rectangle.portrait.and.arrow.right", tint: .red, action: onSignOut)
+        title: EchoCopy.string("Settings"), icon: "gearshape", tint: .blue, action: onSettings)
+      EchoMenuAction(
+        title: EchoCopy.string("Log out"), icon: "rectangle.portrait.and.arrow.right", tint: .red,
+        action: onSignOut)
     }
     .padding(.horizontal, 18).padding(.vertical, 14).foregroundStyle(.white)
     .frame(maxWidth: .infinity)

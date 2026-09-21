@@ -27,10 +27,16 @@ struct EchoProfileHeader: View {
     Button(action: onProfileTap) {
       VStack(spacing: 0) {
         ZStack(alignment: .bottom) {
-          EchoProfileBanner(profile: profile, baseURL: baseURL, accessToken: accessToken)
-            // Extend the artwork beneath the curve so raster/remote-image
-            // edges can never form a hairline seam at the section boundary.
-            .frame(height: 226)
+          // Home DM chrome keeps banner effects off. Blur/refraction bloom was
+          // painting a hard light seam into the conversation search row.
+          EchoProfileBanner(
+            profile: profile, baseURL: baseURL, accessToken: accessToken,
+            appliesEffects: false,
+            showsRefractionBleed: false
+          )
+          // Extend the artwork beneath the curve so raster/remote-image
+          // edges can never form a hairline seam at the section boundary.
+          .frame(height: 226)
 
           EchoHeaderSlice()
             .fill(EchoTheme.Color.canvas)
@@ -70,41 +76,17 @@ struct EchoProfileHeader: View {
           .padding(.horizontal, 22)
         }
         .background(EchoTheme.Color.canvas)
+        .compositingGroup()
         .clipped()
+
+        // Opaque seal so no banner fringe can show between header and search.
+        EchoTheme.Color.canvas
+          .frame(height: 1)
+          .allowsHitTesting(false)
       }
     }
     .buttonStyle(.plain)
     .accessibilityLabel(EchoCopy.format("Open profile for %@", profile.name))
-  }
-}
-
-struct EchoProfileBanner: View {
-  let profile: EchoUserProfile
-  let baseURL: URL
-  var accessToken: String? = nil
-
-  var body: some View {
-    ZStack {
-      if let bannerURL = profile.bannerURL,
-        !bannerURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-      {
-        EchoMediaImage(source: profile.bannerURL, baseURL: baseURL, accessToken: accessToken) {
-          fallbackColor.overlay(ProgressView().tint(.white.opacity(0.55)))
-        }
-      } else {
-        fallbackColor
-      }
-      LinearGradient(
-        colors: [.black.opacity(0.02), .black.opacity(0.42)],
-        startPoint: .top,
-        endPoint: .bottom
-      )
-    }
-    .clipped()
-  }
-
-  private var fallbackColor: some View {
-    Color(hex: profile.bannerColor) ?? Color.white.opacity(0.08)
   }
 }
 
@@ -156,8 +138,10 @@ struct EchoDirectMessageList: View {
   @Binding var searchText: String
   let baseURL: URL
   var accessToken: String? = nil
+  let currentUserID: String
   let onRefresh: () async -> Void
   let onOpen: (EchoDirectMessage) -> Void
+  let onLeave: (EchoDirectMessage) -> Void
   let inboxNotificationCount: Int
   let onOpenInbox: () -> Void
   @State private var hasScrolled = false
@@ -205,17 +189,20 @@ struct EchoDirectMessageList: View {
                   ? EchoCopy.string("No conversations yet.")
                   : EchoCopy.string("No conversations found.")
               )
-                .font(.system(size: 15, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.46))
-                .padding(.horizontal, 24)
-                .padding(.top, 18)
+              .font(.system(size: 15, weight: .regular, design: .rounded))
+              .foregroundStyle(.white.opacity(0.46))
+              .padding(.horizontal, 24)
+              .padding(.top, 18)
             } else {
               ForEach(conversations) { conversation in
                 EchoDirectMessageRow(
                   conversation: conversation,
                   baseURL: baseURL,
                   accessToken: accessToken,
-                  onTap: { onOpen(conversation) }
+                  canLeave: EchoHiddenDmInboxStore.shared.canLeave(
+                    conversation, selfUserID: currentUserID),
+                  onTap: { onOpen(conversation) },
+                  onLeave: { onLeave(conversation) }
                 )
               }
             }
@@ -316,7 +303,9 @@ struct EchoDirectMessageRow: View {
   let conversation: EchoDirectMessage
   let baseURL: URL
   var accessToken: String? = nil
+  var canLeave = true
   let onTap: () -> Void
+  var onLeave: (() -> Void)? = nil
 
   var body: some View {
     Button(action: onTap) {
@@ -344,21 +333,33 @@ struct EchoDirectMessageRow: View {
             conversation.lastMessage
               ?? (conversation.lastMessageAt == nil ? EchoCopy.string("No messages yet") : " ")
           )
-            .font(.system(size: 14, weight: .regular, design: .rounded))
-            .foregroundStyle(.white.opacity(0.48))
-            .lineLimit(1)
+          .font(.system(size: 14, weight: .regular, design: .rounded))
+          .foregroundStyle(.white.opacity(0.48))
+          .lineLimit(1)
         }
       }
       .padding(.horizontal, 22)
       .padding(.vertical, 12)
     }
     .buttonStyle(.plain)
+    .echoSwipeAction(
+      edge: .trailing,
+      systemImage: "rectangle.portrait.and.arrow.right",
+      tint: .red.opacity(0.92),
+      enabled: canLeave && onLeave != nil
+    ) {
+      onLeave?()
+    }
     .accessibilityElement(children: .combine)
     .accessibilityLabel(conversation.displayName)
     .accessibilityValue(
       conversation.lastMessage ?? EchoCopy.string("No messages yet")
     )
     .accessibilityHint(EchoCopy.string("Open conversation"))
+    .accessibilityAction(named: EchoCopy.string("Leave conversation")) {
+      guard canLeave else { return }
+      onLeave?()
+    }
   }
 }
 
@@ -487,4 +488,3 @@ enum EchoRelativeDateFormatter {
     }
   }
 #endif
-

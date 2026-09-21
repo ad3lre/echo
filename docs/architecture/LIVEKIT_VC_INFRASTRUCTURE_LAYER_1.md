@@ -1,6 +1,6 @@
 # Layer 1 — LiveKit VC Infrastructure Plan
 
-**Status:** Shipped (Layer 1 VC); see operational notes in [`docs/plans/livekit-vc-layer-1-progress.md`](../../plans/livekit-vc-layer-1-progress.md).
+**Status:** Shipped (Layer 1 VC); see operational notes in [`docs/plans/livekit-vc-layer-1-progress.md`](../plans/livekit-vc-layer-1-progress.md).
 **Date:** 2026-04-04 (architecture); implementation status tracked in the progress doc.
 **Prerequisite reading:** [`ECHO_VOICE_INTELLIGENCE_LAYER.md`](./ECHO_VOICE_INTELLIGENCE_LAYER.md) (Layer 2 - Voice Intelligence).
 

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import { useLimitedGifPlayback } from '@/features/chat/useLimitedGifPlayback';
 import { useSignedEchoMediaResponsive } from '@/features/chat/composables/useSignedEchoMediaResponsive';
+import { echoMediaUrlNeedsSigning } from '@/features/chat/mediaCdn';
 import {
   ECHO_AVATAR_RESPONSIVE_WIDTHS,
   ECHO_AVATAR_SIZES,
@@ -86,6 +87,7 @@ const reducedMotion = ref(false);
 const loadFailed = ref(false);
 const imageLoaded = ref(false);
 const responsiveVariantFailed = ref(false);
+const signedUrlRefreshAttempted = ref(false);
 
 function onImgError(event: Event) {
   // Responsive variants are an optimization. If a variant is missing or its
@@ -101,6 +103,20 @@ function onImgError(event: Event) {
   ) {
     responsiveVariantFailed.value = true;
     imageLoaded.value = false;
+    return;
+  }
+  // A cached signed URL can expire between render and the browser request.
+  // Re-sign once before showing the unavailable avatar state.
+  if (
+    props.unavailableVariant === 'avatar' &&
+    !signedUrlRefreshAttempted.value &&
+    echoMediaUrlNeedsSigning(safeImageUrl(props.src))
+  ) {
+    signedUrlRefreshAttempted.value = true;
+    loadFailed.value = false;
+    imageLoaded.value = false;
+    responsiveVariantFailed.value = false;
+    void avatarResponsive.refresh(true);
     return;
   }
   loadFailed.value = true;
@@ -223,6 +239,7 @@ watch(
     loadFailed.value = false;
     imageLoaded.value = false;
     responsiveVariantFailed.value = false;
+    signedUrlRefreshAttempted.value = false;
   },
 );
 

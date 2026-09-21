@@ -44,7 +44,9 @@ struct EchoSettingValueRow: View {
           Image(systemName: statusIcon)
             .font(.system(size: 15, weight: .semibold))
             .foregroundStyle(statusTint)
-            .accessibilityLabel(statusIcon == "checkmark.seal.fill" ? EchoCopy.string("Verified") : EchoCopy.string("Not verified"))
+            .accessibilityLabel(
+              statusIcon == "checkmark.seal.fill"
+                ? EchoCopy.string("Verified") : EchoCopy.string("Not verified"))
         }
         Image(systemName: "chevron.right")
           .font(.system(size: 12, weight: .bold))
@@ -109,7 +111,8 @@ struct EchoSessionRow: View {
       Button(role: .destructive, action: onRevoke) {
         Label(
           session.sessionIDs.count > 1
-            ? EchoCopy.format("Revoke all %lld sessions", session.sessionIDs.count) : EchoCopy.string("Revoke session"),
+            ? EchoCopy.format("Revoke all %lld sessions", session.sessionIDs.count)
+            : EchoCopy.string("Revoke session"),
           systemImage: "rectangle.portrait.and.arrow.right"
         )
         .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -152,8 +155,10 @@ struct EchoPasskeyRow: View {
         Spacer(minLength: 0)
       }
       HStack(spacing: 10) {
-        EchoCompactAction(title: EchoCopy.string("Rename"), icon: "pencil", tint: .purple, action: onRename)
-        EchoCompactAction(title: EchoCopy.string("Remove"), icon: "trash", tint: .red, action: onRemove)
+        EchoCompactAction(
+          title: EchoCopy.string("Rename"), icon: "pencil", tint: .purple, action: onRename)
+        EchoCompactAction(
+          title: EchoCopy.string("Remove"), icon: "trash", tint: .red, action: onRemove)
       }
     }
   }

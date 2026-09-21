@@ -292,6 +292,14 @@ export default async function echoChannelsRoutes(
             persistRes.detail ?? 'Attachment URL is not valid for this channel',
           );
         }
+        if (persistRes.code === 'FORBIDDEN') {
+          return sendError(
+            reply,
+            403,
+            'FORBIDDEN',
+            persistRes.detail ?? 'You cannot send messages in this channel',
+          );
+        }
         return sendError(
           reply,
           500,

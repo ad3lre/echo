@@ -15,20 +15,25 @@ struct EchoPasswordChangeSheet: View {
 
   var body: some View {
     EchoSettingsSheetShell(
-      title: EchoCopy.string("Change password"), description: EchoCopy.string("Protect your Echo account with a new password."),
+      title: EchoCopy.string("Change password"),
+      description: EchoCopy.string("Protect your Echo account with a new password."),
       icon: "key.fill", tint: .orange, onCancel: { dismiss() },
       content: {
         EchoSettingsSheetField(
-          title: EchoCopy.string("Current password"), icon: "lock.fill", tint: .orange, value: $current,
+          title: EchoCopy.string("Current password"), icon: "lock.fill", tint: .orange,
+          value: $current,
           isSecure: true)
         EchoSettingsSheetField(
-          title: EchoCopy.string("New password"), icon: "key.fill", tint: .purple, value: $newPassword,
+          title: EchoCopy.string("New password"), icon: "key.fill", tint: .purple,
+          value: $newPassword,
           isSecure: true)
         EchoSettingsSheetField(
-          title: EchoCopy.string("Confirm new password"), icon: "checkmark.shield.fill", tint: .green,
+          title: EchoCopy.string("Confirm new password"), icon: "checkmark.shield.fill",
+          tint: .green,
           value: $confirmation, isSecure: true)
         EchoSettingsSheetField(
-          title: EchoCopy.string("Authenticator code (if enabled)"), icon: "lock.shield.fill", tint: .blue,
+          title: EchoCopy.string("Authenticator code (if enabled)"), icon: "lock.shield.fill",
+          tint: .blue,
           value: $totpCode, keyboard: .numberPad)
         if let errorMessage {
           Text(errorMessage).font(.footnote).foregroundStyle(.red)

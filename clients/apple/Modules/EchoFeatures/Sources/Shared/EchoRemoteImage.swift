@@ -9,13 +9,14 @@ import SwiftUI
 
 struct EchoRemoteImage<Placeholder: View>: View {
   let url: URL
+  var contentMode: ContentMode = .fill
   @ViewBuilder let placeholder: () -> Placeholder
   @StateObject private var loader = EchoImageLoader()
 
   var body: some View {
     Group {
       if let image = loader.image {
-        image.resizable().scaledToFill()
+        image.resizable().aspectRatio(contentMode: contentMode)
       } else {
         placeholder().overlay {
           if loader.isLoading {

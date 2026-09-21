@@ -6,7 +6,12 @@ struct EchoConversationHeader: View {
   let baseURL: URL
   var accessToken: String? = nil
   let isPersonalNotes: Bool
+  var pinnedCount: Int = 0
+  let onProfileTap: () -> Void
   let onExit: () -> Void
+  let onCall: () -> Void
+  let onPins: () -> Void
+  let onSearch: () -> Void
 
   var body: some View {
     HStack(spacing: 8) {
@@ -20,7 +25,7 @@ struct EchoConversationHeader: View {
       .buttonStyle(.plain)
       .accessibilityLabel(EchoCopy.string("Close conversation"))
 
-      Button(action: {}) {
+      Button(action: onProfileTap) {
         HStack(spacing: 9) {
           EchoMediaImage(
             source: conversation.avatarURL, baseURL: baseURL, accessToken: accessToken
@@ -57,15 +62,21 @@ struct EchoConversationHeader: View {
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
+      .disabled(isPersonalNotes)
       .accessibilityLabel(EchoCopy.format("Open %@ profile", conversation.displayName))
-      .accessibilityHint(EchoCopy.string("Profile view coming soon"))
 
       HStack(spacing: 4) {
         if !isPersonalNotes {
-          conversationAction("phone.fill", label: EchoCopy.string("Call"))
+          conversationAction("phone.fill", label: EchoCopy.string("Call"), action: onCall)
         }
-        conversationAction("pin.fill", label: EchoCopy.string("Pinned messages"), size: 13)
-        conversationAction("magnifyingglass", label: EchoCopy.string("Search messages"))
+        conversationAction(
+          pinnedCount > 0 ? "pin.fill" : "pin",
+          label: EchoCopy.string("Pinned messages"),
+          size: 13,
+          emphasized: pinnedCount > 0,
+          action: onPins)
+        conversationAction(
+          "magnifyingglass", label: EchoCopy.string("Search messages"), action: onSearch)
       }
     }
     .padding(.horizontal, 14)
@@ -80,18 +91,21 @@ struct EchoConversationHeader: View {
   private func conversationAction(
     _ systemName: String,
     label: String,
-    size: CGFloat = 16
+    size: CGFloat = 16,
+    emphasized: Bool = false,
+    action: @escaping () -> Void = {}
   ) -> some View {
-    Button(action: {}) {
+    Button(action: action) {
       Image(systemName: systemName)
         .font(.system(size: size, weight: .medium))
-        .foregroundStyle(.white.opacity(0.68))
+        .foregroundStyle(
+          emphasized ? EchoTheme.Color.indigoSoft : .white.opacity(0.68)
+        )
         .frame(width: 31, height: 34)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .accessibilityLabel(label)
-    .accessibilityHint(EchoCopy.string("Available soon"))
   }
 }
 

@@ -1,3 +1,5 @@
+@use './typographicEmphasis';
+
 /*
  * Glass & accent tokens now live in themes.scss (Phase B).
  * Legacy var(--chat-glass-*) / var(--chat-accent*) still work because
@@ -992,5 +994,3 @@ img.brightness-0.invert {
     height: 0.5rem;
   }
 }
-
-@import './typographicEmphasis.scss';

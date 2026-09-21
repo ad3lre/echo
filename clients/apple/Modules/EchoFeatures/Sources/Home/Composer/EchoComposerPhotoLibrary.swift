@@ -24,28 +24,43 @@ final class EchoComposerPhotoLibrary {
   private(set) var isLoading = false
   private let imageManager = PHCachingImageManager()
   private var requestedIDs = Set<String>()
-  /// ~120pt cell at 2x — enough for the composer grid without decoding full assets.
-  private let thumbnailSize = CGSize(width: 240, height: 240)
+  private var fetchResult: PHFetchResult<PHAsset>?
+  private var isObserving = false
+  /// Held by Photos while registered; Sendable so `deinit` can unregister.
+  private let changeObserver = PhotoLibraryChangeObserver()
+  /// ~90pt cell at 3x — sharp enough for gallery-style browsing.
+  private let thumbnailSize = CGSize(width: 360, height: 360)
 
+  init() {
+    changeObserver.owner = self
+  }
+
+  deinit {
+    PHPhotoLibrary.shared().unregisterChangeObserver(changeObserver)
+  }
+
+  /// Loads the gallery on first open and refreshes when called again so newly
+  /// captured / saved photos appear without relaunching Echo.
   func load() async {
+    await refresh(forceSpinner: items.isEmpty)
+  }
+
+  func refresh(forceSpinner: Bool = false) async {
     if authorizationStatus == .notDetermined {
       authorizationStatus = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
     }
     guard authorizationStatus == .authorized || authorizationStatus == .limited else { return }
-    guard items.isEmpty else { return }
-    isLoading = true
+    startObservingIfNeeded()
+
+    let showSpinner = forceSpinner || items.isEmpty
+    if showSpinner { isLoading = true }
+    defer { if showSpinner { isLoading = false } }
+
     let options = PHFetchOptions()
     options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-    options.fetchLimit = 72
+    options.fetchLimit = 96
     let results = PHAsset.fetchAssets(with: .image, options: options)
-    var loaded: [Item] = []
-    results.enumerateObjects { asset, _, _ in
-      loaded.append(Item(id: asset.localIdentifier, asset: asset, thumbnail: nil))
-    }
-    items = loaded
-    isLoading = false
-    // Warm the first screen of cells only; the rest load on appear.
-    prefetchThumbnails(around: 0, window: 16)
+    applyFetchResult(results, preserveThumbnails: true)
   }
 
   func ensureThumbnail(for itemID: String) {
@@ -53,7 +68,7 @@ final class EchoComposerPhotoLibrary {
     requestThumbnail(at: index)
   }
 
-  func prefetchThumbnails(around index: Int, window: Int = 12) {
+  func prefetchThumbnails(around index: Int, window: Int = 16) {
     guard !items.isEmpty else { return }
     let lower = max(0, index - window / 2)
     let upper = min(items.count - 1, index + window / 2)
@@ -99,12 +114,67 @@ final class EchoComposerPhotoLibrary {
               data: data,
               filename: "Photo-\(UUID().uuidString.prefix(8)).\(extensionName)",
               mimeType: mimeType,
-              kind: "image"))
+              kind: "image",
+              sourcePhotoID: item.id))
         } else {
           continuation.resume(throwing: CocoaError(.fileReadUnknown))
         }
       }
     }
+  }
+
+  fileprivate func handlePhotoLibraryChange(_ changeInstance: PHChange) {
+    if let fetchResult, let details = changeInstance.changeDetails(for: fetchResult) {
+      applyFetchResult(details.fetchResultAfterChanges, preserveThumbnails: true)
+      if details.hasIncrementalChanges {
+        // Thumbnails for inserted assets still need a request.
+        prefetchThumbnails(around: 0, window: 24)
+      }
+      return
+    }
+    // Limited-library selection changes (and first observer fire) often omit
+    // incremental details — re-query the latest assets.
+    Task { await refresh(forceSpinner: false) }
+  }
+
+  private func startObservingIfNeeded() {
+    guard !isObserving else { return }
+    PHPhotoLibrary.shared().register(changeObserver)
+    isObserving = true
+  }
+
+  private func applyFetchResult(
+    _ results: PHFetchResult<PHAsset>, preserveThumbnails: Bool
+  ) {
+    fetchResult = results
+    let previousThumbs: [String: EchoPlatformImage] = preserveThumbnails
+      ? Dictionary(
+        uniqueKeysWithValues: items.compactMap { item in
+          item.thumbnail.map { (item.id, $0) }
+        })
+      : [:]
+    var loaded: [Item] = []
+    loaded.reserveCapacity(results.count)
+    results.enumerateObjects { asset, _, _ in
+      let id = asset.localIdentifier
+      loaded.append(Item(id: id, asset: asset, thumbnail: previousThumbs[id]))
+    }
+
+    let previousIDs = items.map(\.id)
+    let nextIDs = loaded.map(\.id)
+    guard previousIDs != nextIDs || items.isEmpty != loaded.isEmpty else {
+      // Same set — still refresh asset references for metadata edits.
+      if !loaded.isEmpty { items = loaded }
+      return
+    }
+
+    let kept = Set(nextIDs)
+    requestedIDs = requestedIDs.intersection(kept)
+    for item in loaded where item.thumbnail != nil {
+      requestedIDs.insert(item.id)
+    }
+    items = loaded
+    prefetchThumbnails(around: 0, window: 20)
   }
 
   private func requestThumbnail(at index: Int) {
@@ -138,9 +208,26 @@ final class EchoComposerPhotoLibrary {
   }
 }
 
+/// Bridges Photos change callbacks into the main-actor gallery model.
+private final class PhotoLibraryChangeObserver: NSObject, PHPhotoLibraryChangeObserver,
+  @unchecked Sendable
+{
+  weak var owner: EchoComposerPhotoLibrary?
+
+  func photoLibraryDidChange(_ changeInstance: PHChange) {
+    let change = changeInstance
+    Task { @MainActor [weak owner] in
+      owner?.handlePhotoLibraryChange(change)
+    }
+  }
+}
+
 struct EchoComposerPhotoLibraryPane: View {
   @Bindable var photos: EchoComposerPhotoLibrary
+  /// Ordered PHAsset identifiers currently attached to the composer draft.
+  var selectedPhotoIDs: [String] = []
   let onChoose: (EchoComposerPhotoLibrary.Item) -> Void
+  @Environment(\.scenePhase) private var scenePhase
 
   var body: some View {
     Group {
@@ -161,21 +248,27 @@ struct EchoComposerPhotoLibraryPane: View {
           detail: EchoCopy.string("Pictures you take or save will show up here.")
         )
       } else {
-        EchoComposerPhotoGrid(photos: photos, onChoose: onChoose)
+        EchoComposerPhotoGrid(
+          photos: photos, selectedPhotoIDs: selectedPhotoIDs, onChoose: onChoose)
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .task { await photos.load() }
+    .onChange(of: scenePhase) { _, phase in
+      guard phase == .active else { return }
+      Task { await photos.refresh(forceSpinner: false) }
+    }
   }
 }
 
 struct EchoComposerPhotoGrid: View {
   @Bindable var photos: EchoComposerPhotoLibrary
+  var selectedPhotoIDs: [String]
   let onChoose: (EchoComposerPhotoLibrary.Item) -> Void
 
-  private let spacing: CGFloat = 5
+  private let spacing: CGFloat = 2
   private let columns = Array(
-    repeating: GridItem(.flexible(minimum: 0), spacing: 5),
+    repeating: GridItem(.flexible(minimum: 0), spacing: 2),
     count: 4
   )
 
@@ -183,6 +276,7 @@ struct EchoComposerPhotoGrid: View {
     ScrollView(showsIndicators: false) {
       LazyVGrid(columns: columns, spacing: spacing) {
         ForEach(Array(photos.items.enumerated()), id: \.element.id) { index, item in
+          let selectionIndex = selectedPhotoIDs.firstIndex(of: item.id).map { $0 + 1 }
           Button {
             onChoose(item)
           } label: {
@@ -191,15 +285,36 @@ struct EchoComposerPhotoGrid: View {
               .overlay {
                 EchoComposerPhotoThumbnail(image: item.thumbnail)
               }
-              .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
               .overlay {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                  .stroke(.white.opacity(0.08), lineWidth: 1)
+                if selectionIndex != nil {
+                  Color.black.opacity(0.22)
+                }
               }
-              .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+              .overlay(alignment: .topTrailing) {
+                EchoComposerPhotoSelectionMark(index: selectionIndex)
+                  .padding(5)
+              }
+              .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+              .overlay {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                  .stroke(
+                    selectionIndex == nil ? .white.opacity(0.06) : EchoTheme.Color.indigo,
+                    lineWidth: selectionIndex == nil ? 1 : 2
+                  )
+              }
+              .contentShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
           }
           .buttonStyle(EchoComposerPhotoCellButtonStyle())
-          .accessibilityLabel("Attach photo")
+          .accessibilityLabel(EchoCopy.string("Photo"))
+          .accessibilityValue(
+            selectionIndex.map { EchoCopy.format("Selected, %lld", $0) }
+              ?? EchoCopy.string("Not selected")
+          )
+          .accessibilityHint(
+            selectionIndex == nil
+              ? EchoCopy.string("Double tap to select")
+              : EchoCopy.string("Double tap to deselect")
+          )
           .onAppear {
             photos.ensureThumbnail(for: item.id)
             photos.prefetchThumbnails(around: index)
@@ -207,6 +322,35 @@ struct EchoComposerPhotoGrid: View {
         }
       }
     }
+  }
+}
+
+struct EchoComposerPhotoSelectionMark: View {
+  let index: Int?
+
+  var body: some View {
+    ZStack {
+      if let index {
+        Circle()
+          .fill(EchoTheme.Color.indigo)
+          .overlay {
+            Circle().stroke(.white.opacity(0.92), lineWidth: 1.5)
+          }
+        Text("\(index)")
+          .font(.system(size: 11, weight: .bold, design: .rounded))
+          .foregroundStyle(.white)
+          .minimumScaleFactor(0.7)
+      } else {
+        Circle()
+          .fill(.black.opacity(0.28))
+          .overlay {
+            Circle().stroke(.white.opacity(0.92), lineWidth: 1.5)
+          }
+      }
+    }
+    .frame(width: 22, height: 22)
+    .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+    .accessibilityHidden(true)
   }
 }
 

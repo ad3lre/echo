@@ -57,20 +57,19 @@ export function useOptimisticEventRsvp(events: Ref<readonly EventWithRsvp[]>) {
   }
 
   watch(
-    events,
+    () => events.value.map((ev) => [ev.id, ev.userRsvp] as const),
     (list) => {
       const nextPending = { ...pendingRsvpByEventId.value };
       let changed = false;
-      for (const ev of list) {
-        const pending = nextPending[ev.id];
-        if (pending != null && ev.userRsvp === pending) {
-          delete nextPending[ev.id];
+      for (const [eventId, userRsvp] of list) {
+        const pending = nextPending[eventId];
+        if (pending != null && userRsvp === pending) {
+          delete nextPending[eventId];
           changed = true;
         }
       }
       if (changed) pendingRsvpByEventId.value = nextPending;
     },
-    { deep: true },
   );
 
   return {

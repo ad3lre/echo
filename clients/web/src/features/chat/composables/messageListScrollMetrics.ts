@@ -116,6 +116,8 @@ export function isMessageListScrollMetricsEnabled(): boolean {
 }
 
 function buildReport(): MessageListScrollMetricsReport {
+  // Percentiles are calculated only when a diagnostic report is requested;
+  // this is outside the scroll handler and the sample list is session-bounded.
   const sorted = [...scrollHandlerSamples].sort((a, b) => a - b);
   return {
     scenario,

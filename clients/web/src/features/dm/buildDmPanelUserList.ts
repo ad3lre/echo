@@ -215,6 +215,7 @@ export function buildDmPanelUserList(input: {
     );
   }
 
+  // Inbox rows require activity-first ordering after rank computation.
   rows.sort((a, b) => {
     const ta = ranks.get(a.id)!;
     const tb = ranks.get(b.id)!;
@@ -359,6 +360,8 @@ export function buildDmPanelInboxList(input: {
     });
   }
 
+  // The stamped inbox is the bounded visible DM list; ordering is part of its
+  // presentation contract.
   stamped.sort((a, b) => {
     const byActivity = compareActivityRankDesc(a.rank, b.rank);
     if (byActivity !== 0) return byActivity;

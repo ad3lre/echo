@@ -1,6 +1,11 @@
+import EchoDomain
 import EchoNetworking
 import SwiftUI
 import UniformTypeIdentifiers
+
+#if os(iOS)
+  import UIKit
+#endif
 
 private enum EchoComposerControlIcon: Equatable {
   case attachment
@@ -12,6 +17,7 @@ struct EchoMessageComposer: View {
   let accessToken: String
   let placeholder: String
   var onComposerTextChange: ((String) -> Void)? = nil
+  @Binding var replyTo: EchoMessageReplyTo?
   let onSend: @MainActor (EchoComposerSubmission) async throws -> Void
 
   @State private var state = EchoComposerState()
@@ -31,7 +37,22 @@ struct EchoMessageComposer: View {
           .padding(.horizontal, 6)
       }
 
-      selectionPreview
+      if let replyTo {
+        EchoComposerReplyBar(replyTo: replyTo) {
+          self.replyTo = nil
+          state.replyTo = nil
+        }
+        .padding(.horizontal, 6)
+      }
+
+      EchoComposerPendingPreview(
+        assets: state.assets,
+        gif: state.selectedGIF,
+        baseURL: baseURL,
+        accessToken: accessToken,
+        onRemoveAsset: { state.removeAsset($0) },
+        onRemoveGIF: { state.selectedGIF = nil }
+      )
 
       if let panel = state.panel {
         panelView(panel)
@@ -40,23 +61,27 @@ struct EchoMessageComposer: View {
       }
 
       HStack(alignment: .bottom, spacing: 4) {
-        composerButton(.attachment, selected: state.panel == .attachments, label: EchoCopy.string("Add attachment"))
-        {
+        composerButton(
+          .attachment, selected: state.panel == .attachments,
+          label: EchoCopy.string("Add attachment")
+        ) {
           toggle(.attachments)
         }
 
         ZStack(alignment: .leading) {
           if state.text.isEmpty {
             Text(placeholder)
-              .font(.system(size: 16, design: .rounded))
+              .font(.system(size: EchoTheme.Typography.composer, design: .rounded))
               .foregroundStyle(.white.opacity(0.34))
               .padding(.leading, 1)
               .lineLimit(1)
               .truncationMode(.tail)
               .allowsHitTesting(false)
           }
-          EchoInlineMarkdownEditor(text: $state.text, height: $editorHeight)
-            .frame(height: editorHeight)
+          EchoInlineMarkdownEditor(
+            text: $state.text, height: $editorHeight, apiBaseURL: baseURL
+          )
+          .frame(height: editorHeight)
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 8)
@@ -130,36 +155,13 @@ struct EchoMessageComposer: View {
   }
 
   @ViewBuilder
-  private var selectionPreview: some View {
-    if !state.assets.isEmpty || state.selectedGIF != nil {
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 8) {
-          ForEach(state.assets) { asset in
-            previewChip(
-              icon: asset.kind == "image" ? "photo.fill" : "doc.fill", title: asset.filename
-            ) {
-              state.removeAsset(asset.id)
-            }
-          }
-          if let gif = state.selectedGIF {
-            previewChip(
-              icon: "sparkles.rectangle.stack", title: gif.title.isEmpty ? EchoCopy.string("GIF") : gif.title
-            ) {
-              state.selectedGIF = nil
-            }
-          }
-        }
-      }
-    }
-  }
-
-  @ViewBuilder
   private func panelView(_ panel: EchoComposerPanel) -> some View {
     switch panel {
     case .attachments:
       EchoAttachmentPanel(
         photos: photos,
-        onChoosePhoto: addPhoto,
+        selectedPhotoIDs: state.selectedPhotoIDs,
+        onChoosePhoto: togglePhoto,
         onChooseFiles: { showingFileImporter = true },
         onCreatePoll: { showingPoll = true })
     case .emoji:
@@ -167,6 +169,7 @@ struct EchoMessageComposer: View {
         baseURL: baseURL,
         accessToken: accessToken,
         photos: photos,
+        selectedPhotoIDs: state.selectedPhotoIDs,
         onEmoji: { state.insertEmoji($0) },
         onGIF: { gif in
           state.selectedGIF = gif
@@ -174,7 +177,7 @@ struct EchoMessageComposer: View {
           state.poll = nil
           state.panel = nil
         },
-        onPhoto: addPhoto)
+        onPhoto: togglePhoto)
     }
   }
 
@@ -182,6 +185,7 @@ struct EchoMessageComposer: View {
     _ icon: EchoComposerControlIcon,
     selected: Bool,
     label: String,
+    hint: String? = nil,
     action: @escaping () -> Void
   ) -> some View {
     Button(action: action) {
@@ -192,6 +196,8 @@ struct EchoMessageComposer: View {
     }
     .buttonStyle(.plain)
     .accessibilityLabel(label)
+    .accessibilityValue(selected ? EchoCopy.string("On") : EchoCopy.string("Off"))
+    .accessibilityHint(hint ?? "")
   }
 
   @ViewBuilder
@@ -206,37 +212,34 @@ struct EchoMessageComposer: View {
     }
   }
 
-  private func previewChip(icon: String, title: String, remove: @escaping () -> Void) -> some View {
-    HStack(spacing: 7) {
-      Image(systemName: icon).foregroundStyle(EchoTheme.Color.indigoSoft)
-      Text(title).lineLimit(1)
-      Button(action: remove) {
-        Image(systemName: "xmark.circle.fill").foregroundStyle(.white.opacity(0.42))
-      }
-      .buttonStyle(.plain)
-      .accessibilityLabel(EchoCopy.format("Remove %@", title))
-    }
-    .font(.system(size: 12, weight: .medium, design: .rounded))
-    .foregroundStyle(.white.opacity(0.82))
-    .padding(.horizontal, 10)
-    .padding(.vertical, 7)
-    .background(.white.opacity(0.065), in: Capsule())
-  }
-
   private func toggle(_ panel: EchoComposerPanel) {
     state.panel = state.panel == panel ? nil : panel
     state.errorMessage = nil
   }
 
-  private func addPhoto(_ item: EchoComposerPhotoLibrary.Item) {
+  private func togglePhoto(_ item: EchoComposerPhotoLibrary.Item) {
+    if state.asset(forSourcePhotoID: item.id) != nil {
+      state.removeAsset(sourcePhotoID: item.id)
+      #if os(iOS)
+        UISelectionFeedbackGenerator().selectionChanged()
+      #endif
+      return
+    }
+    guard state.assets.count < 10 else {
+      state.errorMessage = EchoCopy.string("You can attach up to 10 files.")
+      return
+    }
     Task {
       do {
         let asset = try await photos.composerAsset(for: item)
         state.poll = nil
         state.selectedGIF = nil
         state.assets.append(asset)
+        #if os(iOS)
+          UISelectionFeedbackGenerator().selectionChanged()
+        #endif
       } catch {
-        state.errorMessage = "That photo couldn’t be opened."
+        state.errorMessage = EchoCopy.string("That photo couldn’t be opened.")
       }
     }
   }
@@ -263,7 +266,7 @@ struct EchoMessageComposer: View {
       state.poll = nil
       state.selectedGIF = nil
     } catch {
-      state.errorMessage = "Those files couldn’t be opened."
+      state.errorMessage = EchoCopy.string("Those files couldn’t be opened.")
     }
   }
 
@@ -271,11 +274,15 @@ struct EchoMessageComposer: View {
   private func sendPoll(_ poll: EchoOutgoingPoll) async {
     state.isSending = true
     state.errorMessage = nil
+    let reply = replyTo
     do {
       try await onSend(
-        EchoComposerSubmission(text: "", assets: [], gif: nil, poll: poll))
+        EchoComposerSubmission(text: "", assets: [], gif: nil, poll: poll, replyTo: reply))
+      replyTo = nil
+      state.replyTo = nil
     } catch {
-      state.errorMessage = (error as? LocalizedError)?.errorDescription ?? EchoCopy.string("Poll failed to send.")
+      state.errorMessage =
+        (error as? LocalizedError)?.errorDescription ?? EchoCopy.string("Poll failed to send.")
     }
     state.isSending = false
   }
@@ -283,20 +290,23 @@ struct EchoMessageComposer: View {
   @MainActor
   private func send() async {
     guard state.canSend else { return }
-    state.isSending = true
-    state.errorMessage = nil
     let submission = EchoComposerSubmission(
       text: state.text.trimmingCharacters(in: .whitespacesAndNewlines),
       assets: state.assets,
       gif: state.selectedGIF,
-      poll: state.poll?.outgoingPoll)
+      poll: state.poll?.outgoingPoll,
+      replyTo: replyTo)
+    // Clear the composer immediately so image sends feel instant; upload
+    // progress lives on the optimistic timeline bubble instead.
+    state.reset()
+    replyTo = nil
+    onComposerTextChange?("")
     do {
       try await onSend(submission)
-      state.reset()
     } catch {
-      state.errorMessage = (error as? LocalizedError)?.errorDescription ?? EchoCopy.string("Message failed to send.")
+      state.errorMessage =
+        (error as? LocalizedError)?.errorDescription ?? EchoCopy.string("Message failed to send.")
     }
-    state.isSending = false
   }
 }
 
@@ -350,6 +360,7 @@ private struct EchoWebEmotesIcon: View {
 
 private struct EchoAttachmentPanel: View {
   @Bindable var photos: EchoComposerPhotoLibrary
+  var selectedPhotoIDs: [String]
   let onChoosePhoto: (EchoComposerPhotoLibrary.Item) -> Void
   let onChooseFiles: () -> Void
   let onCreatePoll: () -> Void
@@ -370,16 +381,18 @@ private struct EchoAttachmentPanel: View {
       }
       .padding(.bottom, 10)
 
-      EchoComposerPhotoLibraryPane(photos: photos, onChoose: onChoosePhoto)
-        .padding(6)
-        .background(
-          Color.black.opacity(0.22),
-          in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-        )
-        .overlay {
-          RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .stroke(.white.opacity(0.05), lineWidth: 1)
-        }
+      EchoComposerPhotoLibraryPane(
+        photos: photos, selectedPhotoIDs: selectedPhotoIDs, onChoose: onChoosePhoto
+      )
+      .padding(6)
+      .background(
+        Color.black.opacity(0.22),
+        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+      )
+      .overlay {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+          .stroke(.white.opacity(0.05), lineWidth: 1)
+      }
     }
     .padding(12)
     .background(

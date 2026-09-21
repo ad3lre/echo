@@ -46,6 +46,8 @@ function dropLegacyPersistedViewports(): void {
 function pruneStore(): void {
   const ids = Object.keys(sessionStore);
   if (ids.length <= MAX_STORED_VIEWPORTS) return;
+  // Pruning is a capped session-memory maintenance operation, not a scroll
+  // path; at most MAX_STORED_VIEWPORTS + 1 IDs are retained.
   const sorted = ids.sort(
     (a, b) =>
       (sessionStore[b]?.updatedAt ?? 0) - (sessionStore[a]?.updatedAt ?? 0),

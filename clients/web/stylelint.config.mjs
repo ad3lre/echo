@@ -4,28 +4,18 @@
  */
 /** @type {import('stylelint').Config} */
 const colorRules = {
-  'color-no-hex': [
-    true,
-    {
-      ignore: ['inside-function'],
-    },
-  ],
+  'color-no-hex': true,
   'function-disallowed-list': [
-    [
-      'rgb',
-      'rgba',
-      'hsl',
-      'hsla',
-      'hwb',
-      'lab',
-      'lch',
-      'oklch',
-      'oklab',
-      'color',
-    ],
-    {
-      ignore: ['inside-function'],
-    },
+    'rgb',
+    'rgba',
+    'hsl',
+    'hsla',
+    'hwb',
+    'lab',
+    'lch',
+    'oklch',
+    'oklab',
+    'color',
   ],
 };
 

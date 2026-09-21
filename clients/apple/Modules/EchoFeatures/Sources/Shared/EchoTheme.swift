@@ -45,6 +45,8 @@ enum EchoTheme {
     static let presenceOffline = SwiftUI.Color(red: 0.42, green: 0.44, blue: 0.50)
     /// Cool accent used in links / selection washes.
     static let linkBlue = SwiftUI.Color(red: 0.18, green: 0.56, blue: 1.0)
+    /// Discord-style reply accent (`#00a8fc`).
+    static let replyAccent = SwiftUI.Color(red: 0, green: 0.66, blue: 0.99)
     static let softBlue = SwiftUI.Color(red: 0.72, green: 0.82, blue: 1.0)
     static let electricBlue = SwiftUI.Color(red: 0.02, green: 0.38, blue: 1.0)
     static let skyBlue = SwiftUI.Color(red: 0.34, green: 0.63, blue: 1.0)
@@ -59,6 +61,20 @@ enum EchoTheme {
     /// Composer control chrome (dark capsule / ink).
     static let composerChrome = SwiftUI.Color(red: 60 / 255, green: 61 / 255, blue: 74 / 255)
     static let composerInk = SwiftUI.Color(red: 17 / 255, green: 11 / 255, blue: 25 / 255)
+  }
+
+  /// Chat typography aligned with Discord mobile’s default chat scale (~16pt body).
+  enum Typography {
+    /// Message body / markdown paragraph size.
+    static let messageBody: CGFloat = 16
+    /// Author name in a message header.
+    static let messageAuthor: CGFloat = 16
+    /// Timestamp beside the author name.
+    static let messageTimestamp: CGFloat = 12
+    /// Fenced code blocks inside messages.
+    static let messageCode: CGFloat = 14
+    /// Composer draft text (matches message body).
+    static let composer: CGFloat = 16
   }
 }
 

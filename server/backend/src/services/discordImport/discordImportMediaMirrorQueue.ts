@@ -3,6 +3,7 @@ import { config } from '../../config';
 import { isEchoS3UploadConfigured } from '../uploads/s3UploadPresign';
 import { isDiscordHostedImportMediaUrl } from '../../domain/discord/discordCdnUrls';
 import { kickDiscordImportMediaMirrorDrain } from './discordImportMediaMirrorScheduler';
+import { enqueueUnqueuedEchoDiscordImportMediaMirrorJobs } from '../../domain/echoStore/messages/discordImportMediaMirrorQueue';
 import type {
   Embed,
   ForwardedFrom,
@@ -18,8 +19,43 @@ export type DiscordImportMediaMirrorJobRow = {
   attempts: number;
 };
 
-function discordImportMediaEchoStorageReady(): boolean {
+export type DiscordImportMediaMirrorFailureClass = 'transient' | 'permanent';
+
+/** Classify failures so invalid media does not consume CDN/storage retries. */
+export function classifyDiscordImportMediaMirrorFailure(
+  message: string,
+): DiscordImportMediaMirrorFailureClass {
+  const m = message.trim().toLowerCase();
+  if (
+    /http (400|401|403|404|410)\b|content-length exceeds cap|body exceeds cap|bad content type|could not map .*content type|destination denied|invalid .*media|unsupported .*media/.test(
+      m,
+    )
+  ) {
+    return 'permanent';
+  }
+  return 'transient';
+}
+
+export function discordImportMediaEchoStorageReady(): boolean {
   return !!(config.echoLocalUploadDir || isEchoS3UploadConfigured());
+}
+
+/**
+ * Recover imported/synced messages that were persisted while mirroring was
+ * unavailable, or whose queue row was lost during an earlier deployment.
+ * The processor still performs the authoritative URL check before copying.
+ */
+export async function enqueueUnqueuedDiscordImportMediaMirrorJobs(
+  pool: pg.Pool,
+  limit: number,
+): Promise<number> {
+  const enqueued = await enqueueUnqueuedEchoDiscordImportMediaMirrorJobs(
+    pool,
+    limit,
+    config.echoDiscordImportMediaMirrorMaxQueueDepth,
+  );
+  if (enqueued > 0) kickDiscordImportMediaMirrorDrain();
+  return enqueued;
 }
 
 function collectEmbedDiscordUrls(embeds: unknown, out: Set<string>): void {
@@ -111,18 +147,35 @@ export function importedDiscordMessageNeedsMediaMirror(payload: {
 export async function enqueueDiscordImportMediaMirrorJob(
   pool: pg.Pool,
   row: { messageId: string; channelId: string; actorId: string },
-): Promise<void> {
-  if (!discordImportMediaEchoStorageReady()) return;
+): Promise<boolean> {
   const ins = await pool.query(
-    `INSERT INTO echo_discord_import_media_mirror_queue (message_id, channel_id, actor_id)
-     VALUES ($1, $2, $3)
+    `WITH admission_lock AS (
+       SELECT pg_advisory_xact_lock(
+         hashtext('echo_discord_import_media_mirror_queue_depth')
+       ) AS locked
+     ), queue_depth AS (
+       SELECT COUNT(*)::int AS active_count
+       FROM echo_discord_import_media_mirror_queue
+       CROSS JOIN admission_lock
+       WHERE status IN ('pending', 'processing')
+     )
+     INSERT INTO echo_discord_import_media_mirror_queue (message_id, channel_id, actor_id)
+     SELECT $1, $2, $3
+     FROM queue_depth
+     WHERE active_count < $4
      ON CONFLICT (message_id) DO NOTHING
      RETURNING message_id`,
-    [row.messageId, row.channelId, row.actorId],
+    [
+      row.messageId,
+      row.channelId,
+      row.actorId,
+      config.echoDiscordImportMediaMirrorMaxQueueDepth,
+    ],
   );
   if (ins.rowCount && ins.rowCount > 0) {
     kickDiscordImportMediaMirrorDrain();
   }
+  return Boolean(ins.rowCount && ins.rowCount > 0);
 }
 
 /** Queue background rehost when a persisted message still references Discord CDN media. */
@@ -164,7 +217,14 @@ export async function claimNextDiscordImportMediaMirrorJob(
     const sel = await c.query(
       `SELECT message_id, channel_id, actor_id, attempts
        FROM echo_discord_import_media_mirror_queue
-       WHERE status = 'pending' AND attempts < 12
+       WHERE attempts < 12
+         AND (
+           status = 'pending'
+           OR (
+             status = 'processing'
+             AND updated_at < NOW() - INTERVAL '10 minutes'
+           )
+         )
        ORDER BY message_id ASC
        LIMIT 1
        FOR UPDATE SKIP LOCKED`,
@@ -215,12 +275,15 @@ export async function markDiscordImportMediaMirrorFailed(
   pool: pg.Pool,
   messageId: string,
   message: string,
+  failureClass: DiscordImportMediaMirrorFailureClass = classifyDiscordImportMediaMirrorFailure(
+    message,
+  ),
 ): Promise<void> {
   await pool.query(
     `UPDATE echo_discord_import_media_mirror_queue
-     SET status = 'failed', updated_at = NOW(), last_error = $2
+     SET status = 'failed', updated_at = NOW(), last_error = CONCAT('[', $3, '] ', $2)
      WHERE message_id = $1`,
-    [messageId, message.slice(0, 2000)],
+    [messageId, message.slice(0, 2000), failureClass],
   );
 }
 

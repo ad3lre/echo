@@ -3,62 +3,61 @@ import AVKit
 import EchoDomain
 import SwiftUI
 
-/// In-chat audio and video using AVKit. URLs are signed the same way as images.
-struct EchoVideoAttachmentView: View {
+/// Compact video tile that opens the full-screen media viewer on tap.
+struct EchoVideoAttachmentPreview: View {
   let attachment: EchoMessageAttachment
-  let baseURL: URL
-  var accessToken: String? = nil
-  @Environment(EchoAuthenticationModel.self) private var auth
-  @State private var player: AVPlayer?
+  let onOpen: () -> Void
   @State private var revealed: Bool
 
-  init(attachment: EchoMessageAttachment, baseURL: URL, accessToken: String? = nil) {
+  init(attachment: EchoMessageAttachment, onOpen: @escaping () -> Void) {
     self.attachment = attachment
-    self.baseURL = baseURL
-    self.accessToken = accessToken
+    self.onOpen = onOpen
     _revealed = State(initialValue: !attachment.spoiler)
   }
 
   var body: some View {
-    ZStack {
-      if revealed, let player {
-        VideoPlayer(player: player)
-      } else if revealed {
-        Color.white.opacity(0.06)
-          .overlay { ProgressView().tint(.white.opacity(0.55)) }
+    Button {
+      if revealed {
+        onOpen()
       } else {
-        Color.white.opacity(0.06)
+        revealed = true
       }
-      if !revealed {
-        spoilerCover { revealed = true }
+    } label: {
+      ZStack {
+        LinearGradient(
+          colors: [.white.opacity(0.08), .black.opacity(0.35)],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing)
+        VStack(spacing: 10) {
+          Image(systemName: "play.circle.fill")
+            .font(.system(size: 44))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(.white)
+          Text(attachment.filename ?? EchoCopy.string("Video"))
+            .font(.system(size: 13, weight: .medium, design: .rounded))
+            .foregroundStyle(.white.opacity(0.82))
+            .lineLimit(1)
+        }
+        if !revealed {
+          RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(.black.opacity(0.55))
+            .overlay {
+              Label(EchoCopy.string("Spoiler"), systemImage: "eye.slash.fill")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+            }
+        }
       }
+      .frame(maxWidth: 300, minHeight: 168, maxHeight: 240)
+      .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
-    .frame(maxWidth: 300, minHeight: 168, maxHeight: 240)
-    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    .task(id: "\(attachment.url)|\(revealed)") {
-      guard revealed else {
-        player?.pause()
-        player = nil
-        return
-      }
-      await EchoPlaybackAudio.activate()
-      if let url = await EchoMediaURLResolver.resolve(
-        source: attachment.url,
-        baseURL: baseURL,
-        storageKey: attachment.storageKey,
-        accessToken: accessToken,
-        auth: auth)
-      {
-        player = AVPlayer(url: url)
-      }
-    }
-    .onDisappear {
-      player?.pause()
-      player = nil
-    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(EchoCopy.string("Play video"))
+    .accessibilityHint(EchoCopy.string("Opens the media viewer"))
   }
 }
 
+/// In-chat audio using AVKit. URLs are signed the same way as images.
 struct EchoAudioAttachmentView: View {
   let attachment: EchoMessageAttachment
   let baseURL: URL
@@ -90,7 +89,8 @@ struct EchoAudioAttachmentView: View {
         }
         .buttonStyle(.plain)
         .disabled(isPreparing)
-        .accessibilityLabel(isPlaying ? EchoCopy.string("Pause audio") : EchoCopy.string("Play audio"))
+        .accessibilityLabel(
+          isPlaying ? EchoCopy.string("Pause audio") : EchoCopy.string("Play audio"))
 
         VStack(alignment: .leading, spacing: 2) {
           Text(attachment.filename ?? EchoCopy.string("Audio"))

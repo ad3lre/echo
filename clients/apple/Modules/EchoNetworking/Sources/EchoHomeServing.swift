@@ -24,7 +24,7 @@ public protocol EchoInboxFriendServing: Sendable {
   func declineFriendRequest(peerID: String, accessToken: String) async throws
 }
 
-/// Conversation timeline surface: history, send, uploads, votes, and read-state.
+/// Conversation timeline surface: history, send, uploads, votes, pins, and read-state.
 public protocol EchoMessageTimelineLoading: Sendable {
   func loadMessages(
     accessToken: String,
@@ -41,7 +41,8 @@ public protocol EchoMessageTimelineLoading: Sendable {
     currentUserID: String,
     content: String,
     attachments: [EchoMessageAttachment],
-    poll: EchoOutgoingPoll?
+    poll: EchoOutgoingPoll?,
+    replyTo: EchoMessageReplyTo?
   ) async throws -> EchoMessage
 
   func votePoll(
@@ -65,9 +66,38 @@ public protocol EchoMessageTimelineLoading: Sendable {
     mimeType: String,
     kind: String
   ) async throws -> EchoMessageAttachment
+
+  /// Newest pin first — matches `GET /channels/:id/pins` and `message:pins`.
+  func loadChannelPins(accessToken: String, channelID: String) async throws -> [String]
+
+  func pinMessage(
+    accessToken: String,
+    channelID: String,
+    messageID: String
+  ) async throws -> [String]
+
+  func unpinMessage(
+    accessToken: String,
+    channelID: String,
+    messageID: String
+  ) async throws -> [String]
+}
+
+/// Conversation-scoped search used by the native DM search surface.
+public protocol EchoMessageSearchLoading: Sendable {
+  func searchMessages(
+    accessToken: String,
+    channelID: String,
+    currentUserID: String?,
+    query: String,
+    before: String?,
+    limit: Int,
+    criteria: EchoMessageSearchCriteria
+  ) async throws -> EchoMessageSearchPage
 }
 
 extension EchoHomeClient: EchoHomeLoading {}
 extension EchoHomeClient: EchoMessageTimelineLoading {}
+extension EchoHomeClient: EchoMessageSearchLoading {}
 extension EchoSettingsClient: EchoHomeSocialReading {}
 extension EchoSettingsClient: EchoInboxFriendServing {}

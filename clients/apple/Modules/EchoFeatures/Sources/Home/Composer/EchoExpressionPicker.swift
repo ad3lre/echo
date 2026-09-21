@@ -138,6 +138,7 @@ private final class EchoExpressionPickerModel {
     defer { isLoadingLibrary = false }
     do {
       packs = try await client.loadEmojiLibrary(accessToken: accessToken)
+      EchoCustomEmojiCatalog.shared.ingest(packs)
     } catch {
       errorMessage = "Custom emoji couldn’t be loaded."
     }
@@ -169,6 +170,7 @@ struct EchoExpressionPicker: View {
   let baseURL: URL
   let accessToken: String
   @Bindable var photos: EchoComposerPhotoLibrary
+  var selectedPhotoIDs: [String] = []
   let onEmoji: (String) -> Void
   let onGIF: (EchoGIF) -> Void
   let onPhoto: (EchoComposerPhotoLibrary.Item) -> Void
@@ -179,6 +181,7 @@ struct EchoExpressionPicker: View {
     baseURL: URL,
     accessToken: String,
     photos: EchoComposerPhotoLibrary,
+    selectedPhotoIDs: [String] = [],
     onEmoji: @escaping (String) -> Void,
     onGIF: @escaping (EchoGIF) -> Void,
     onPhoto: @escaping (EchoComposerPhotoLibrary.Item) -> Void
@@ -186,6 +189,7 @@ struct EchoExpressionPicker: View {
     self.baseURL = baseURL
     self.accessToken = accessToken
     self.photos = photos
+    self.selectedPhotoIDs = selectedPhotoIDs
     self.onEmoji = onEmoji
     self.onGIF = onGIF
     self.onPhoto = onPhoto
@@ -218,9 +222,12 @@ struct EchoExpressionPicker: View {
       if model.tab != .images {
         HStack(spacing: 8) {
           Image(systemName: "magnifyingglass").foregroundStyle(.white.opacity(0.35))
-          TextField(model.tab == .emoji ? EchoCopy.string("Search emoji") : EchoCopy.string("Search GIFs"), text: $model.query)
-            .textFieldStyle(.plain)
-            .font(.system(size: 14, design: .rounded))
+          TextField(
+            model.tab == .emoji ? EchoCopy.string("Search emoji") : EchoCopy.string("Search GIFs"),
+            text: $model.query
+          )
+          .textFieldStyle(.plain)
+          .font(.system(size: 14, design: .rounded))
         }
         .padding(.horizontal, 11)
         .frame(height: 36)
@@ -386,7 +393,8 @@ struct EchoExpressionPicker: View {
       if model.isLoadingGIFs && model.gifs.isEmpty {
         ProgressView().tint(.white.opacity(0.7))
       } else if model.gifs.isEmpty {
-        ContentUnavailableView(EchoCopy.string("No GIFs found"), systemImage: "rectangle.on.rectangle.slash")
+        ContentUnavailableView(
+          EchoCopy.string("No GIFs found"), systemImage: "rectangle.on.rectangle.slash")
       } else {
         ScrollView(showsIndicators: false) {
           LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 5) {
@@ -399,7 +407,8 @@ struct EchoExpressionPicker: View {
                   Rectangle().fill(.white.opacity(0.05))
                 }
                 .frame(height: 92).clipShape(RoundedRectangle(cornerRadius: 8))
-              }.buttonStyle(.plain).accessibilityLabel(gif.title.isEmpty ? EchoCopy.string("GIF") : gif.title)
+              }.buttonStyle(.plain).accessibilityLabel(
+                gif.title.isEmpty ? EchoCopy.string("GIF") : gif.title)
             }
           }
         }
@@ -408,7 +417,8 @@ struct EchoExpressionPicker: View {
   }
 
   private var imageContent: some View {
-    EchoComposerPhotoLibraryPane(photos: photos, onChoose: onPhoto)
+    EchoComposerPhotoLibraryPane(
+      photos: photos, selectedPhotoIDs: selectedPhotoIDs, onChoose: onPhoto)
   }
 
   private var emojiColumns: [GridItem] {

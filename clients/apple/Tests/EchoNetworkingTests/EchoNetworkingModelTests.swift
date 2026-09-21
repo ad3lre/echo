@@ -46,6 +46,44 @@ struct EchoNetworkingModelTests {
     #expect(message.poll?.options.map(\.text) == ["Cafe", "Park"])
   }
 
+  @Test func sendsMessageWithReplyToUsingTheEchoContract() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [EchoURLProtocolStub.self]
+    let session = URLSession(configuration: configuration)
+    EchoURLProtocolStub.handler = { request in
+      let body = try #require(echoRequestBody(request))
+      let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+      let reply = try #require(json["replyTo"] as? [String: Any])
+      #expect(reply["messageId"] as? String == "message-parent")
+      #expect(reply["authorName"] as? String == "Maya")
+      let response = Data(
+        """
+        {"message":{"id":"message-reply","channelId":"channel-1","authorId":"user-me","content":"Agreed","timestamp":"2026-08-14T12:00:00Z","replyTo":{"messageId":"message-parent","authorId":"user-maya","authorName":"Maya","content":"Lunch?"}}}
+        """.utf8)
+      return (
+        HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil)!,
+        response
+      )
+    }
+
+    let message = try await EchoHomeClient(
+      baseURL: URL(string: "https://example.com")!, session: session
+    ).sendMessage(
+      accessToken: "token",
+      channelID: "channel-1",
+      currentUserID: "user-me",
+      content: "Agreed",
+      replyTo: EchoMessageReplyTo(
+        messageID: "message-parent",
+        authorID: "user-maya",
+        authorName: "Maya",
+        content: "Lunch?"))
+
+    #expect(message.id == "message-reply")
+    #expect(message.replyTo?.messageID == "message-parent")
+    #expect(message.replyTo?.authorName == "Maya")
+  }
+
   @Test func votesOnPollsUsingTheEchoContract() async throws {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [EchoURLProtocolStub.self]
@@ -107,6 +145,37 @@ struct EchoNetworkingModelTests {
 
     #expect(users.map(\.id) == ["user-1"])
     #expect(users.first?.username == "maya")
+  }
+
+  @Test func fullProfileLoadsWebProfilePresentationFields() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [EchoURLProtocolStub.self]
+    let session = URLSession(configuration: configuration)
+    EchoURLProtocolStub.handler = { request in
+      #expect(request.url?.path == "/api/v1/echo/users/user-1/profile")
+      let data = Data(
+        """
+        {"id":"user-1","name":"Maya","username":"maya","pfp":"/maya.png","bio":"Building Echo.","bannerImage":"/banner.png","bannerColor":"#4338ca","badges":["og"],"bannerPositionY":32,"bannerRefractionEnabled":true,"bannerBlurEnabled":true,"bannerBlackoutEnabled":false}
+        """.utf8)
+      return (
+        HTTPURLResponse(
+          url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+        data
+      )
+    }
+
+    let profile = try await EchoSettingsClient(
+      baseURL: URL(string: "https://example.com")!, session: session
+    ).loadProfile(userID: "user-1", accessToken: "token")
+
+    #expect(profile.id == "user-1")
+    #expect(profile.bio == "Building Echo.")
+    #expect(profile.bannerURL == "/banner.png")
+    #expect(profile.badges == ["og"])
+    #expect(profile.bannerPositionY == 32)
+    #expect(profile.bannerRefractionEnabled)
+    #expect(profile.bannerBlurEnabled)
+    #expect(!profile.bannerBlackoutEnabled)
   }
 
   @Test func incomingFriendRequestsResolveTheirSenderProfiles() async throws {
@@ -171,6 +240,43 @@ struct EchoNetworkingModelTests {
 
     #expect(page.messages.map(\.id) == ["message-1"])
     #expect(page.hasMoreBefore)
+  }
+
+  @Test func searchesMessagesInTheActiveConversationUsingTheEchoContract() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [EchoURLProtocolStub.self]
+    let session = URLSession(configuration: configuration)
+    EchoURLProtocolStub.handler = { request in
+      #expect(request.url?.path == "/api/v1/echo/channels/channel-1/messages/search")
+      let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems
+      #expect(query?.first { $0.name == "q" }?.value == "quadratic")
+      #expect(query?.first { $0.name == "before" }?.value == "message-2")
+      #expect(query?.first { $0.name == "limit" }?.value == "24")
+      #expect(query?.first { $0.name == "hasType" }?.value == "image")
+      #expect(query?.first { $0.name == "authorId" }?.value == "user-me")
+      return (
+        HTTPURLResponse(
+          url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+        Data(
+          """
+          {"messages":[{"id":"message-1","channelId":"channel-1","authorId":"user-1","authorDisplayName":"Maya","content":"quadratic formula","timestamp":"2026-08-14T12:00:00Z"}]}
+          """.utf8)
+      )
+    }
+
+    let page = try await EchoHomeClient(
+      baseURL: URL(string: "https://example.com")!, session: session
+    ).searchMessages(
+      accessToken: "token",
+      channelID: "channel-1",
+      currentUserID: "user-me",
+      query: " quadratic ",
+      before: "message-2",
+      criteria: EchoMessageSearchCriteria(authorID: "user-me", hasType: .image)
+    )
+
+    #expect(page.messages.map(\.id) == ["message-1"])
+    #expect(page.messages.first?.channelID == "channel-1")
   }
 
   @Test func sessionsGroupMatchingInactiveLoginsButKeepCurrentSessionSeparate() async throws {

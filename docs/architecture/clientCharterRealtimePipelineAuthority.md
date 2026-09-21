@@ -25,6 +25,6 @@ Status (2026-04-11): `useSocket.ts` is still the right thin lifecycle shell, but
 
 ## Regression guard that still matters
 
-- [`socketInbound.attachDetachParity.test.ts`](../../clients/web/src/services/realtime/__tests__/socketInbound.attachDetachParity.test.ts)
+- [`socketInbound.attachDetachParity.test.ts`](../../clients/web/src/features/layout/realtime/socketInbound.attachDetachParity.test.ts)
 
 For the broader charter context, see [overview/agents.md](../overview/agents.md) and [client-layer-violations.md](./client-layer-violations.md).

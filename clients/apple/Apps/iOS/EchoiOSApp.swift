@@ -49,7 +49,9 @@ final class EchoiOSAppDelegate: NSObject, UIApplicationDelegate,
   ) {
     NotificationCenter.default.post(
       name: .echoRemoteNotificationReceived, object: nil, userInfo: userInfo)
-    completionHandler(.newData)
+    // This callback only forwards the payload to the live app. No background
+    // fetch or durable work is performed here, so report that accurately.
+    completionHandler(.noData)
   }
 
   func userNotificationCenter(

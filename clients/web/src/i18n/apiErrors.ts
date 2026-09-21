@@ -3,12 +3,15 @@ import { echoT } from '@/i18n';
 
 const API_ERROR_PREFIX = 'errors.api.';
 
-function tryApiErrorKey(token: string | undefined): string | null {
-  if (!token?.trim()) return null;
-  const key = `${API_ERROR_PREFIX}${token.trim()}`;
+export function translateApiErrorToken(
+  token: string | undefined,
+): string | null {
+  const normalized = token?.trim();
+  if (!normalized || !/^[A-Z0-9_]+$/.test(normalized)) return null;
+  const candidate = normalized === 'UNKNOWN' ? 'unknown' : normalized;
+  const key = `${API_ERROR_PREFIX}${candidate}`;
   const translated = echoT(key);
-  if (translated !== key) return translated;
-  return null;
+  return translated !== key ? translated : null;
 }
 
 /**
@@ -16,9 +19,9 @@ function tryApiErrorKey(token: string | undefined): string | null {
  * tokens, falling back to the server `message` and then a generic string.
  */
 export function translateApiErrorBody(body: ApiErrorBody): string {
-  const fromDetail = tryApiErrorKey(body.detail);
+  const fromDetail = translateApiErrorToken(body.detail);
   if (fromDetail) return fromDetail;
-  const fromCode = tryApiErrorKey(body.code);
+  const fromCode = translateApiErrorToken(body.code);
   if (fromCode) return fromCode;
   const serverMessage = body.message?.trim();
   if (serverMessage) return serverMessage;
@@ -29,10 +32,6 @@ export function formatApiErrorForDisplay(body: ApiErrorBody): string {
   const base = translateApiErrorBody(body);
   const detail = body.detail?.trim();
   if (!detail) return base;
-  const detailKey = `${API_ERROR_PREFIX}${detail}`;
-  const detailMsg = echoT(detailKey);
-  if (detailMsg !== detailKey && detailMsg !== base) {
-    return detailMsg;
-  }
-  return base;
+  const detailMsg = translateApiErrorToken(detail);
+  return detailMsg && detailMsg !== base ? detailMsg : base;
 }

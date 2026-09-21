@@ -242,7 +242,11 @@ async function run(): Promise<void> {
       const { registerHttpsEnforcementIfConfigured } =
         await import('../../bootstrap/httpPlugins');
       const httpsApp = createFastifyServer();
-      registerHttpsEnforcementIfConfigured(httpsApp);
+      registerHttpsEnforcementIfConfigured(
+        httpsApp as unknown as Parameters<
+          typeof registerHttpsEnforcementIfConfigured
+        >[0],
+      );
       httpsApp.get('/probe', async () => ({ ok: true }));
 
       httpsRes = await httpsApp.inject({
@@ -275,7 +279,11 @@ async function run(): Promise<void> {
         registerHttpsEnforcementIfConfigured: registerTrustedHttpsEnforcement,
       } = await import('../../bootstrap/httpPlugins');
       const trustedHttpsApp = createTrustedFastifyServer();
-      registerTrustedHttpsEnforcement(trustedHttpsApp);
+      registerTrustedHttpsEnforcement(
+        trustedHttpsApp as unknown as Parameters<
+          typeof registerTrustedHttpsEnforcement
+        >[0],
+      );
       trustedHttpsApp.get('/probe', async () => ({ ok: true }));
       httpsRes = await trustedHttpsApp.inject({
         method: 'GET',

@@ -1,10 +1,38 @@
-import { describe, expect, it } from 'vitest';
-import { ref } from 'vue';
+/** @vitest-environment happy-dom */
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createApp, defineComponent, ref } from 'vue';
 import { useAppLayoutLayoutChrome } from './useAppLayoutLayoutChrome';
 
+vi.mock('@/features/auth/passkeyWebCeremony', () => ({
+  prefetchPasskeyLoginOptions: vi.fn(),
+}));
+
+function mountChrome() {
+  let chrome!: ReturnType<typeof useAppLayoutLayoutChrome>;
+  const app = createApp(
+    defineComponent({
+      setup() {
+        chrome = useAppLayoutLayoutChrome(ref(false));
+        return () => null;
+      },
+    }),
+  );
+  app.mount(document.createElement('div'));
+  return { chrome, unmount: () => app.unmount() };
+}
+
 describe('useAppLayoutLayoutChrome', () => {
+  let unmount: (() => void) | undefined;
+
+  afterEach(() => {
+    unmount?.();
+    unmount = undefined;
+  });
+
   it('openAuthModal applies forgot-password preset', () => {
-    const chrome = useAppLayoutLayoutChrome(ref(false));
+    const mounted = mountChrome();
+    unmount = mounted.unmount;
+    const chrome = mounted.chrome;
     chrome.openAuthModal({ forgot: true });
     expect(chrome.isAuthModalOpen.value).toBe(true);
     expect(chrome.authModalInitialSubView.value).toBe('forgot');
@@ -14,7 +42,9 @@ describe('useAppLayoutLayoutChrome', () => {
   });
 
   it('openAuthModal resets sub-view and applies entry/tab/passkey', () => {
-    const chrome = useAppLayoutLayoutChrome(ref(false));
+    const mounted = mountChrome();
+    unmount = mounted.unmount;
+    const chrome = mounted.chrome;
     chrome.authModalInitialSubView.value = 'forgot';
     chrome.openAuthModal({ entry: 'echo', tab: 'register', passkey: true });
     expect(chrome.authModalInitialSubView.value).toBeNull();
@@ -24,7 +54,9 @@ describe('useAppLayoutLayoutChrome', () => {
   });
 
   it('openUserSettingsToDiscordFromAddServer closes add-server and opens settings on Discord', () => {
-    const chrome = useAppLayoutLayoutChrome(ref(false));
+    const mounted = mountChrome();
+    unmount = mounted.unmount;
+    const chrome = mounted.chrome;
     chrome.isAddServerModalOpen.value = true;
     chrome.openUserSettingsToDiscordFromAddServer();
     expect(chrome.isAddServerModalOpen.value).toBe(false);
@@ -33,7 +65,9 @@ describe('useAppLayoutLayoutChrome', () => {
   });
 
   it('clears auth modal initial fields when modal closes', () => {
-    const chrome = useAppLayoutLayoutChrome(ref(false));
+    const mounted = mountChrome();
+    unmount = mounted.unmount;
+    const chrome = mounted.chrome;
     chrome.openAuthModal({ entry: 'echo', tab: 'register', passkey: true });
     chrome.isAuthModalOpen.value = false;
     expect(chrome.authModalInitialLoginEntry.value).toBe('social');
@@ -43,7 +77,9 @@ describe('useAppLayoutLayoutChrome', () => {
   });
 
   it('clears local media flags when leaving voice', () => {
-    const chrome = useAppLayoutLayoutChrome(ref(false));
+    const mounted = mountChrome();
+    unmount = mounted.unmount;
+    const chrome = mounted.chrome;
     chrome.currentVoiceChannelId.value = 'voice-1';
     chrome.currentVoiceChannelName.value = 'General';
     chrome.vcVideo.value = true;

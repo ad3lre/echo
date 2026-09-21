@@ -48,7 +48,8 @@ public final class EchoAuthenticationModel {
       biometricLabel = EchoCopy.string("Biometrics")
       return
     }
-    biometricLabel = context.biometryType == .touchID ? EchoCopy.string("Touch ID") : EchoCopy.string("Face ID")
+    biometricLabel =
+      context.biometryType == .touchID ? EchoCopy.string("Touch ID") : EchoCopy.string("Face ID")
   }
 
   /// Returns a usable access token, refreshing when forced or within 90s of expiry.

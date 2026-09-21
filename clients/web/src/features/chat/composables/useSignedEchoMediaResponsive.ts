@@ -27,25 +27,38 @@ export function useSignedEchoMediaResponsive(
     /** Fallback `src` width (largest sensible default for the slot). */
     fallbackWidth: MediaCdnAllowedWidth;
   },
-): { src: Ref<string>; srcset: Ref<string>; sizes: string } {
+): {
+  src: Ref<string>;
+  srcset: Ref<string>;
+  sizes: string;
+  refresh: (forceRefresh?: boolean) => Promise<void>;
+} {
   const src = ref('');
   const srcset = ref('');
   let requestId = 0;
 
-  async function refresh(): Promise<void> {
+  async function refresh(forceRefresh = false): Promise<void> {
     const raw = safeImageUrl(toValue(url));
     const id = ++requestId;
     const signed = await resolveSignedEchoMediaUrl({
       url: raw,
       storageKey: toValue(opts.storageKey),
       scope: opts.scope,
+      forceRefresh,
     });
     if (id !== requestId) return;
-    if (echoMediaUrlSupportsVariants(signed)) {
+    const storageKey = toValue(opts.storageKey);
+    if (echoMediaUrlSupportsVariants(signed, storageKey)) {
       src.value = buildEchoMediaVariantUrl(signed, {
         width: opts.fallbackWidth,
+        storageKey,
       });
-      srcset.value = buildEchoMediaSrcSet(signed, opts.widths);
+      srcset.value = buildEchoMediaSrcSet(
+        signed,
+        opts.widths,
+        'webp',
+        storageKey,
+      );
     } else {
       src.value = signed;
       srcset.value = '';
@@ -71,5 +84,5 @@ export function useSignedEchoMediaResponsive(
     requestId++;
   });
 
-  return { src, srcset, sizes: opts.sizes };
+  return { src, srcset, sizes: opts.sizes, refresh };
 }

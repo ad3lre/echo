@@ -30,6 +30,7 @@ export function buildSortedDmGroupFriendsList(opts: {
   const me = opts.currentUserId;
   if (!me) return [];
   const byId = new Map(opts.users.map((u) => [u.id, u]));
+  // Group-DM picker rows need deterministic presence ordering for selection.
   return opts.friendIds
     .map((id) => byId.get(id))
     .filter((u): u is WorkspaceUserRow => u != null && u.id !== me)

@@ -58,7 +58,7 @@ That gives immediate UX improvement and cleaner signal.
 
 Step 2: see what pain remains
 
-Checklist and DEV diagnostic event names: [docs/operations/channel-message-step2-evaluation.md](docs/operations/channel-message-step2-evaluation.md).
+Checklist and DEV diagnostic event names: [channel-message-step2-evaluation.md](../operations/channel-message-step2-evaluation.md).
 
 If after those fixes it still feels:
 

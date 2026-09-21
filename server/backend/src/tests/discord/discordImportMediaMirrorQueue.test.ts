@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { echoMessageRowNeedsDiscordMediaMirror } from '../../services/discordImport/discordImportMediaMirrorQueue';
+import {
+  classifyDiscordImportMediaMirrorFailure,
+  echoMessageRowNeedsDiscordMediaMirror,
+} from '../../services/discordImport/discordImportMediaMirrorQueue';
 import type { EchoMessageRow } from '../../domain/echoMessagesDal';
 
 function row(partial: Partial<EchoMessageRow>): EchoMessageRow {
@@ -28,6 +31,16 @@ assert.equal(
   ),
   false,
   'lottie-only messages should not need Discord media mirror',
+);
+
+assert.equal(classifyDiscordImportMediaMirrorFailure('HTTP 404'), 'permanent');
+assert.equal(
+  classifyDiscordImportMediaMirrorFailure('Discord CDN fetch failed'),
+  'transient',
+);
+assert.equal(
+  classifyDiscordImportMediaMirrorFailure('body exceeds cap'),
+  'permanent',
 );
 
 assert.equal(

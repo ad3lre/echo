@@ -2,7 +2,6 @@
 import {
   computed,
   inject,
-  nextTick,
   onMounted,
   onUnmounted,
   ref,
@@ -232,7 +231,6 @@ watch(
     });
     void voiceProcessingApi?.reapplyVoiceProcessing();
   },
-  { deep: true },
 );
 
 watch(

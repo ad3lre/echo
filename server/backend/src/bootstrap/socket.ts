@@ -59,6 +59,11 @@ export function attachSocketServer(fastify: FastifyInstance): Server {
   });
 
   fastify.decorate('io', io);
+  fastify.addHook('onClose', async () => {
+    await new Promise<void>((resolve) => {
+      void io.close(() => resolve());
+    });
+  });
   registerSocketHandlers(fastify);
   return io;
 }

@@ -11,6 +11,7 @@ import {
 import type { useAuthSessionStore } from '@/features/auth/authSession';
 import type { WorkspaceStateApi } from '@/features/layout/echoWorkspace/types';
 import { createVoiceService } from '@/features/voice/voiceService';
+import { isVoiceConnectSupersededError } from '@/features/voice/livekit/connect';
 import { postEchoVoiceQosSample } from '@/api/echo/voice';
 import { ensureGuildVoiceParticipantRow } from '@/features/voice/voiceService';
 import {
@@ -307,6 +308,17 @@ export function useServerVoiceSession(deps: {
     shallowRef<VcWatchTogetherRemotePlaybackState | null>(null);
   let handlingIncomingYoutubeActivity = false;
   let handlingIncomingWatchTogetherActivity = false;
+  /** Serialize server voice mutations so an old leave cannot overtake a rejoin. */
+  let voiceTransportQueue: Promise<void> = Promise.resolve();
+
+  function enqueueVoiceTransport<T>(operation: () => Promise<T>): Promise<T> {
+    const next = voiceTransportQueue.then(operation, operation);
+    voiceTransportQueue = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
 
   const vcYoutubePlaybackShouldPublish = computed(
     () => vcActivitySyncKingUserId.value == null,
@@ -2405,7 +2417,9 @@ export function useServerVoiceSession(deps: {
     await runGuildVoiceJoinTransport(channelId);
   }
 
-  async function runGuildVoiceJoinTransport(channelId: string): Promise<void> {
+  async function runGuildVoiceJoinTransportNow(
+    channelId: string,
+  ): Promise<void> {
     const sid = resolveGuildVoiceServerId(channelId);
     const voiceService = createVoiceService({
       authSession,
@@ -2417,6 +2431,12 @@ export function useServerVoiceSession(deps: {
     await voiceService.onJoinVoice(sid, channelId);
   }
 
+  function runGuildVoiceJoinTransport(channelId: string): Promise<void> {
+    return enqueueVoiceTransport(() =>
+      runGuildVoiceJoinTransportNow(channelId),
+    );
+  }
+
   async function onJoinVoice(payload: {
     channelId: string;
     channelName: string;
@@ -2425,24 +2445,31 @@ export function useServerVoiceSession(deps: {
       channelId: payload.channelId,
       serverId: selectedServer.value?.id,
     });
-    onJoinVoiceUi(payload);
-
+    // A manual join supersedes any reconnect loop for the previous channel.
+    vcAutoReconnectEpoch++;
     const sid = resolveGuildVoiceServerId(payload.channelId);
-    const voiceService = createVoiceService({
-      authSession,
-      workspace,
-      workspaceHydrator: { hydrate: hydrateWorkspace },
-      liveKit: guildLiveKitTransport(),
-      getGuildVoiceE2eeMediaKey: guildVoiceE2eePrepare,
+    return enqueueVoiceTransport(async () => {
+      const voiceService = createVoiceService({
+        authSession,
+        workspace,
+        workspaceHydrator: { hydrate: hydrateWorkspace },
+        liveKit: guildLiveKitTransport(),
+        getGuildVoiceE2eeMediaKey: guildVoiceE2eePrepare,
+      });
+      try {
+        await voiceService.onJoinVoice(sid, payload.channelId);
+        // The connection indicator is transport-backed. Do not show the
+        // current voice channel until the LiveKit/session join has completed.
+        onJoinVoiceUi(payload);
+        playEchoSound('joinVoiceChannel');
+      } catch (e) {
+        if (!isVoiceConnectSupersededError(e)) {
+          onLeaveVoiceUi();
+          await voiceService.onLeaveVoice(sid ?? '', payload.channelId);
+        }
+        throw e;
+      }
     });
-    try {
-      await voiceService.onJoinVoice(sid, payload.channelId);
-      playEchoSound('joinVoiceChannel');
-    } catch (e) {
-      onLeaveVoiceUi();
-      await voiceService.onLeaveVoice(sid ?? '');
-      throw e;
-    }
   }
 
   function onLeaveVoice() {
@@ -2465,14 +2492,16 @@ export function useServerVoiceSession(deps: {
     playEchoSound('leaveVc');
     onLeaveVoiceUi();
 
-    const voiceService = createVoiceService({
-      authSession,
-      workspace,
-      workspaceHydrator: { hydrate: hydrateWorkspace },
-      liveKit: guildLiveKitTransport(),
-      getGuildVoiceE2eeMediaKey: guildVoiceE2eePrepare,
+    void enqueueVoiceTransport(async () => {
+      const voiceService = createVoiceService({
+        authSession,
+        workspace,
+        workspaceHydrator: { hydrate: hydrateWorkspace },
+        liveKit: guildLiveKitTransport(),
+        getGuildVoiceE2eeMediaKey: guildVoiceE2eePrepare,
+      });
+      await voiceService.onLeaveVoice(sid, voiceChannelId);
     });
-    void voiceService.onLeaveVoice(sid);
   }
 
   const VC_AUTO_RECONNECT_MAX_ATTEMPTS = 8;

@@ -1,3 +1,4 @@
+import EchoDomain
 import Foundation
 
 public enum EchoSettingsClientError: LocalizedError, Equatable, Sendable {
@@ -53,6 +54,33 @@ public struct EchoSettingsClient: Sendable {
   }
   public func loadFriendRequests(accessToken: String) async throws -> EchoFriendRequestSummary {
     try await request(path: "/friends/requests", accessToken: accessToken)
+  }
+  public func loadProfile(userID: String, accessToken: String) async throws -> EchoUserProfile {
+    let payload: EchoHomeProfilePayload = try await request(
+      path: "/users/\(escapedPathComponent(userID))/profile", accessToken: accessToken)
+    return payload.profile
+  }
+  public func loadProfiles(userIDs: [String], accessToken: String) async throws
+    -> [EchoUserProfile]
+  {
+    let ids = Array(Set(userIDs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }))
+      .filter { !$0.isEmpty }
+      .sorted()
+    guard !ids.isEmpty else { return [] }
+    var profiles: [EchoUserProfile] = []
+    for start in stride(from: 0, to: ids.count, by: 200) {
+      let chunk = ids[start..<min(start + 200, ids.count)]
+      let query = chunk.map { escapedQueryComponent($0) }.joined(separator: ",")
+      let response: ProfilesResponse = try await request(
+        path: "/users/profiles?ids=\(query)", accessToken: accessToken)
+      profiles.append(contentsOf: response.profiles.map(\.profile))
+    }
+    return profiles
+  }
+  public func loadMutualFriendIDs(peerID: String, accessToken: String) async throws -> [String] {
+    let response: MutualFriendsResponse = try await request(
+      path: "/friends/mutual?peerId=\(escapedQueryComponent(peerID))", accessToken: accessToken)
+    return response.userIds
   }
   public func loadPresence(userID: String, accessToken: String) async throws -> String? {
     let escapedID = userID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? userID
@@ -129,6 +157,18 @@ public struct EchoSettingsClient: Sendable {
       path: "/friends/decline", method: "POST", body: body, accessToken: accessToken,
       allowEmpty: true)
   }
+  public func cancelFriendRequest(peerID: String, accessToken: String) async throws {
+    let body = try JSONEncoder().encode(["peerId": peerID])
+    _ = try await send(
+      path: "/friends/cancel", method: "POST", body: body, accessToken: accessToken,
+      allowEmpty: true)
+  }
+  public func removeFriend(peerID: String, accessToken: String) async throws {
+    let body = try JSONEncoder().encode(["peerId": peerID])
+    _ = try await send(
+      path: "/friends/remove", method: "POST", body: body, accessToken: accessToken,
+      allowEmpty: true)
+  }
   public func reportUser(
     targetUserID: String, category: String, reason: String, accessToken: String
   ) async throws {
@@ -155,7 +195,11 @@ public struct EchoSettingsClient: Sendable {
   }
   public func updateProfile(
     displayName: String?, username: String?, bio: String?, customStatus: String?,
-    presenceStatus: String? = nil, bannerImage: Data?, avatarImage: Data?, accessToken: String
+    presenceStatus: String? = nil, bannerImage: Data?, avatarImage: Data?,
+    bannerRefractionEnabled: Bool? = nil,
+    bannerBlurEnabled: Bool? = nil,
+    bannerBlackoutEnabled: Bool? = nil,
+    accessToken: String
   ) async throws {
     var body: [String: Any] = [:]
     if let displayName { body["displayName"] = displayName }
@@ -169,6 +213,25 @@ public struct EchoSettingsClient: Sendable {
     if let avatarImage {
       body["pfp"] = "data:image/png;base64,\(avatarImage.base64EncodedString())"
     }
+    if let bannerRefractionEnabled { body["bannerRefractionEnabled"] = bannerRefractionEnabled }
+    if let bannerBlurEnabled { body["bannerBlurEnabled"] = bannerBlurEnabled }
+    if let bannerBlackoutEnabled { body["bannerBlackoutEnabled"] = bannerBlackoutEnabled }
+    let data = try JSONSerialization.data(withJSONObject: body)
+    _ = try await sendAuth(path: "/me", method: "PATCH", body: data, accessToken: accessToken)
+  }
+
+  /// Persist banner effect toggles immediately (web settings profile widgets).
+  public func updateBannerEffects(
+    refractionEnabled: Bool,
+    blurEnabled: Bool,
+    blackoutEnabled: Bool,
+    accessToken: String
+  ) async throws {
+    let body: [String: Bool] = [
+      "bannerRefractionEnabled": refractionEnabled,
+      "bannerBlurEnabled": blurEnabled,
+      "bannerBlackoutEnabled": blackoutEnabled,
+    ]
     let data = try JSONSerialization.data(withJSONObject: body)
     _ = try await sendAuth(path: "/me", method: "PATCH", body: data, accessToken: accessToken)
   }
@@ -306,7 +369,12 @@ public struct EchoSettingsClient: Sendable {
   }
 
   private func escapedPathComponent(_ value: String) -> String {
-    value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
+    escapedQueryComponent(value)
+  }
+  private func escapedQueryComponent(_ value: String) -> String {
+    var allowed = CharacterSet.alphanumerics
+    allowed.insert(charactersIn: "-._~")
+    return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
   }
   public func revokeSession(_ id: String, accessToken: String) async throws {
     let body = try JSONEncoder().encode(["sessionId": id])

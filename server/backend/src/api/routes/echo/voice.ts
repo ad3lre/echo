@@ -607,7 +607,10 @@ export default async function echoVoiceRoutes(
     },
   );
 
-  fastify.post<{ Params: { serverId: string } }>(
+  fastify.post<{
+    Params: { serverId: string };
+    Querystring: { channelId?: string };
+  }>(
     '/servers/:serverId/voice/leave',
     {
       preHandler: [requireAuth, requireEchoStore],
@@ -622,6 +625,7 @@ export default async function echoVoiceRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
+      const expectedChannelId = trimEchoPathParam(req.query.channelId ?? '');
       vcTrace(req.log, 'voice.leave:request', {
         serverId: sid,
         userId: getAuthUser(req).id,
@@ -646,7 +650,20 @@ export default async function echoVoiceRoutes(
         ? String(leaveChannelRow.rows[0].channel_id)
         : '';
 
-      await leaveEchoVoiceChannel(pool, sid, getAuthUser(req).id);
+      const removed = await leaveEchoVoiceChannel(
+        pool,
+        sid,
+        getAuthUser(req).id,
+        expectedChannelId || undefined,
+      );
+      if (!removed) {
+        vcTrace(req.log, 'voice.leave:stale_request_ignored', {
+          serverId: sid,
+          expectedChannelId: expectedChannelId || null,
+          currentChannelId: leaveChannelId || null,
+        });
+        return reply.code(204).send();
+      }
       vcTrace(req.log, 'voice.leave:ok', {
         serverId: sid,
         userId: getAuthUser(req).id,

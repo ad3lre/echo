@@ -3,6 +3,7 @@ import EchoNetworking
 import EchoPersistence
 import Foundation
 import Testing
+
 @testable import EchoFeatures
 
 @MainActor
@@ -116,10 +117,13 @@ struct EchoHomeModelTests {
       activeSession: EchoSession(
         accessToken: "token", refreshToken: "refresh", expiresInSec: 3600, userID: "user-me")
     )
-    let homeClient = client ?? StubHomeLoading(
-      snapshot: snapshot ?? EchoHomeSnapshot(
-        profile: EchoUserProfile(id: "user-me", name: "Me"), conversations: [])
-    )
+    let homeClient =
+      client
+      ?? StubHomeLoading(
+        snapshot: snapshot
+          ?? EchoHomeSnapshot(
+            profile: EchoUserProfile(id: "user-me", name: "Me"), conversations: [])
+      )
     return EchoHomeModel(
       auth: auth,
       userID: "user-me",

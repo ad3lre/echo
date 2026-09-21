@@ -1,7 +1,6 @@
 import EchoNetworking
 import SwiftUI
 
-
 enum EchoAccountKeyboard {
   case username
   case emailAddress
@@ -40,7 +39,8 @@ struct EchoAccountFieldSheet: View {
       ScrollView(showsIndicators: false) {
         VStack(alignment: .leading, spacing: 22) {
           EchoDetailHeader(
-            title: title, description: EchoCopy.string("Keep your Echo account details up to date."),
+            title: title,
+            description: EchoCopy.string("Keep your Echo account details up to date."),
             icon: fieldIcon, tint: .purple)
           VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
@@ -66,7 +66,8 @@ struct EchoAccountFieldSheet: View {
               #endif
           }
           EchoSettingAction(
-            title: EchoCopy.format("Save %@", title.lowercased()), subtitle: EchoCopy.string("Apply this change to your Echo account"),
+            title: EchoCopy.format("Save %@", title.lowercased()),
+            subtitle: EchoCopy.string("Apply this change to your Echo account"),
             icon: "checkmark.circle.fill", tint: .purple
           ) {
             onSave()
@@ -126,10 +127,14 @@ struct EchoDeleteAccountSheet: View {
       icon: "trash.fill", tint: .red, onCancel: { dismiss() },
       content: {
         VStack(alignment: .leading, spacing: 10) {
-          Label(EchoCopy.string("This cannot be undone"), systemImage: "exclamationmark.triangle.fill")
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
-            .foregroundStyle(.red)
-          EchoCopy.text("Enter your password if your account requires one, plus an authenticator code when 2FA is enabled, then confirm deletion.")
+          Label(
+            EchoCopy.string("This cannot be undone"), systemImage: "exclamationmark.triangle.fill"
+          )
+          .font(.system(size: 14, weight: .semibold, design: .rounded))
+          .foregroundStyle(.red)
+          EchoCopy.text(
+            "Enter your password if your account requires one, plus an authenticator code when 2FA is enabled, then confirm deletion."
+          )
           .font(.system(size: 13, design: .rounded))
           .foregroundStyle(.white.opacity(0.54))
         }
@@ -144,10 +149,12 @@ struct EchoDeleteAccountSheet: View {
           title: EchoCopy.string("Password (if required)"), icon: "lock.fill", tint: .red,
           value: $password, isSecure: true)
         EchoSettingsSheetField(
-          title: EchoCopy.string("Authenticator code (if enabled)"), icon: "lock.shield.fill", tint: .orange,
+          title: EchoCopy.string("Authenticator code (if enabled)"), icon: "lock.shield.fill",
+          tint: .orange,
           value: $totpCode, keyboard: .numberPad)
         EchoSettingAction(
-          title: EchoCopy.string("Delete permanently"), subtitle: EchoCopy.string("Remove Echo account and data"),
+          title: EchoCopy.string("Delete permanently"),
+          subtitle: EchoCopy.string("Remove Echo account and data"),
           icon: "trash.fill", tint: .red, role: .destructive
         ) {
           onDelete()
@@ -193,7 +200,8 @@ struct EchoSettingsErrorSheet: View {
           dismiss()
         }
         EchoSettingAction(
-          title: EchoCopy.string("Dismiss"), subtitle: EchoCopy.string("Return to your Echo settings"),
+          title: EchoCopy.string("Dismiss"),
+          subtitle: EchoCopy.string("Return to your Echo settings"),
           icon: "xmark.circle.fill", tint: .orange
         ) {
           onDismiss()
@@ -210,13 +218,15 @@ struct EchoPasskeyRenameSheet: View {
 
   var body: some View {
     EchoSettingsSheetShell(
-      title: EchoCopy.string("Rename passkey"), description: EchoCopy.string("Give this secure sign-in a name you recognize."),
+      title: EchoCopy.string("Rename passkey"),
+      description: EchoCopy.string("Give this secure sign-in a name you recognize."),
       icon: "pencil", tint: .purple, onCancel: { dismiss() },
       content: {
         EchoSettingsSheetField(
           title: EchoCopy.string("Passkey name"), icon: "tag.fill", tint: .purple, value: $label)
         EchoSettingAction(
-          title: EchoCopy.string("Save name"), subtitle: EchoCopy.string("Update this passkey on Echo"),
+          title: EchoCopy.string("Save name"),
+          subtitle: EchoCopy.string("Update this passkey on Echo"),
           icon: "checkmark.circle.fill", tint: .purple
         ) {
           onSave()
@@ -237,7 +247,8 @@ struct EchoDisableTotpSheet: View {
   var body: some View {
     EchoSettingsSheetShell(
       title: EchoCopy.string("Disable two-factor authentication"),
-      description: EchoCopy.string("Confirm your identity before removing authenticator protection."),
+      description: EchoCopy.string(
+        "Confirm your identity before removing authenticator protection."),
       icon: "lock.open.fill", tint: .red, onCancel: { dismiss() },
       content: {
         EchoSettingsSheetField(
@@ -247,7 +258,8 @@ struct EchoDisableTotpSheet: View {
           title: EchoCopy.string("Authenticator code"), icon: "number.square.fill", tint: .blue,
           value: $code, keyboard: .numberPad)
         EchoSettingsSheetField(
-          title: EchoCopy.string("Recovery code (alternative)"), icon: "lifepreserver.fill", tint: .purple,
+          title: EchoCopy.string("Recovery code (alternative)"), icon: "lifepreserver.fill",
+          tint: .purple,
           value: $recoveryCode)
         EchoSettingAction(
           title: EchoCopy.string("Disable two-factor authentication"),

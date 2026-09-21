@@ -17,3 +17,7 @@
 *.webm binary
 *.zip binary
 *.safetensors binary
+
+*.ogg binary
+*.m4a binary
+*.caf binary

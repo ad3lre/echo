@@ -187,6 +187,14 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+  // Composite references below use the parent server scope as part of the key.
+  // `NOT VALID` keeps existing legacy rows deployable while enforcing new writes.
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_channels
+      ADD CONSTRAINT echo_channels_server_id_id_key UNIQUE (server_id, id);
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
+  `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_channels_server_idx ON echo_channels(server_id);
   `);
@@ -268,6 +276,12 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_messages
+      ADD CONSTRAINT echo_messages_channel_id_id_key UNIQUE (channel_id, id);
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
+  `);
   /* Legacy timeline index; safe to drop after snowflake cutover is stable (see ADR 002 / runbook). */
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_messages_channel_created ON echo_messages(channel_id, created_at DESC);
@@ -295,6 +309,16 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       pinned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (channel_id, message_id)
     );
+  `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_channel_pins
+      ADD CONSTRAINT echo_channel_pins_channel_message_fk
+      FOREIGN KEY (channel_id, message_id)
+      REFERENCES echo_messages (channel_id, id)
+      ON DELETE CASCADE
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_channel_pins_channel_idx ON echo_channel_pins (channel_id, pinned_at DESC);
@@ -619,6 +643,12 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     );
   `);
   await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_roles
+      ADD CONSTRAINT echo_roles_server_id_id_key UNIQUE (server_id, id);
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_member_roles (
       server_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
@@ -626,12 +656,26 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       PRIMARY KEY (server_id, user_id, role_id)
     );
   `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_member_roles
+      ADD CONSTRAINT echo_member_roles_server_role_fk
+      FOREIGN KEY (server_id, role_id)
+      REFERENCES echo_roles (server_id, id)
+      ON DELETE CASCADE
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
+  `);
   // PK prefix (server_id, user_id) serves member lookups; role_id is the trailing
   // column, so the ON DELETE CASCADE from echo_roles (and role-scoped deletes)
   // would otherwise scan. Cheap index to make role deletion index-driven.
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_member_roles_role_idx
     ON echo_member_roles (role_id);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_member_roles_server_role_idx
+    ON echo_member_roles (server_id, role_id);
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_role_links (
@@ -642,6 +686,26 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       PRIMARY KEY (server_id, anchor_role_id, linked_role_id),
       CHECK (anchor_role_id <> linked_role_id)
     );
+  `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_role_links
+      ADD CONSTRAINT echo_role_links_server_anchor_fk
+      FOREIGN KEY (server_id, anchor_role_id)
+      REFERENCES echo_roles (server_id, id)
+      ON DELETE CASCADE
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
+  `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_role_links
+      ADD CONSTRAINT echo_role_links_server_linked_fk
+      FOREIGN KEY (server_id, linked_role_id)
+      REFERENCES echo_roles (server_id, id)
+      ON DELETE CASCADE
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
   `);
   await pool.query(
     `CREATE INDEX IF NOT EXISTS echo_role_links_linked_idx ON echo_role_links(server_id, linked_role_id);`,
@@ -657,6 +721,37 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       meta JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_workspace_event_outbox (
+      id TEXT PRIMARY KEY,
+      event_kind TEXT NOT NULL,
+      payload JSONB NOT NULL,
+      target_server_id TEXT NULL,
+      target_user_id TEXT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INT NOT NULL DEFAULT 0,
+      available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      locked_at TIMESTAMPTZ NULL,
+      delivered_at TIMESTAMPTZ NULL,
+      last_error TEXT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT echo_workspace_event_outbox_status_chk
+        CHECK (status IN ('pending', 'processing', 'delivered', 'failed')),
+      CONSTRAINT echo_workspace_event_outbox_target_chk
+        CHECK (NOT (target_server_id IS NOT NULL AND target_user_id IS NOT NULL))
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_workspace_event_outbox_claim_idx
+    ON echo_workspace_event_outbox (available_at, created_at, id)
+    WHERE status IN ('pending', 'processing');
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_workspace_event_outbox_retention_idx
+    ON echo_workspace_event_outbox (updated_at, id)
+    WHERE status IN ('delivered', 'failed');
   `);
   // Audit-log reads are always scoped to one server and ordered newest-first
   // (overview + per-target moderation history). The table grows monotonically,
@@ -2412,8 +2507,29 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
     );
   `);
   await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_paper_comments
+      ADD CONSTRAINT echo_paper_comments_channel_id_id_key UNIQUE (channel_id, id);
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
+  `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_paper_comments
+      ADD CONSTRAINT echo_paper_comments_channel_parent_fk
+      FOREIGN KEY (channel_id, parent_comment_id)
+      REFERENCES echo_paper_comments (channel_id, id)
+      ON DELETE CASCADE
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
+  `);
+  await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_paper_comments_channel_anchor_idx
     ON echo_paper_comments (channel_id, anchor_block_id);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_paper_comments_channel_parent_idx
+    ON echo_paper_comments (channel_id, parent_comment_id)
+    WHERE parent_comment_id IS NOT NULL;
   `);
 
   await pool.query(`
@@ -2499,6 +2615,16 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
     );
   `);
   await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_server_events
+      ADD CONSTRAINT echo_server_events_server_channel_fk
+      FOREIGN KEY (server_id, channel_id)
+      REFERENCES echo_channels (server_id, id)
+      ON DELETE SET NULL (channel_id)
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
+  `);
+  await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_server_events_server_starts_idx
     ON echo_server_events(server_id, starts_at ASC);
   `);
@@ -2506,6 +2632,11 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS echo_server_events_upcoming_idx
     ON echo_server_events(server_id, starts_at)
     WHERE status = 'scheduled';
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_server_events_server_channel_idx
+    ON echo_server_events(server_id, channel_id)
+    WHERE channel_id IS NOT NULL;
   `);
 
   await pool.query(`
@@ -3004,8 +3135,166 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
                  OR (att->>'mimeType') ILIKE '%document%')
           ),
           has_attachment = (
-            m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array'
-            AND jsonb_array_length(m.attachments) > 0
+            -- Postgres does not short-circuit AND; CASE avoids jsonb_array_length on JSON null/scalars.
+            CASE
+              WHEN m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array'
+                THEN jsonb_array_length(m.attachments) > 0
+              ELSE false
+            END
+          )
+        WHERE m.deleted_at IS NULL
+      `);
+    },
+  );
+
+  // v1 missed attachment-kind images/gifs (native clients send photos via
+  // `attachments[]`, so they were only flagged `has_attachment`).
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'backfill_echo_message_search_flags_attachments_v2',
+    async () => {
+      // Normalize JSON null scalars to SQL NULL so later array helpers stay safe.
+      await pool.query(`
+        UPDATE echo_messages
+        SET attachments = NULL
+        WHERE attachments IS NOT NULL AND jsonb_typeof(attachments) = 'null'
+      `);
+      await pool.query(`
+        UPDATE echo_messages m SET
+          has_gif = (
+            m.has_gif
+            OR (
+              m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements(m.attachments) att
+                WHERE LOWER(COALESCE(att->>'kind', '')) = 'gif'
+                   OR LOWER(COALESCE(att->>'mimeType', '')) = 'image/gif'
+                   OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.gif'
+                   OR LOWER(COALESCE(att->>'url', '')) LIKE '%.gif%'
+                   OR LOWER(COALESCE(att->>'url', '')) LIKE '%giphy%'
+                   OR LOWER(COALESCE(att->>'url', '')) LIKE '%tenor%'
+              )
+            )
+          ),
+          has_image = (
+            m.has_image
+            OR (
+              m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements(m.attachments) att
+                WHERE (
+                  LOWER(COALESCE(att->>'mimeType', '')) LIKE 'image/%'
+                  OR LOWER(COALESCE(att->>'filename', '')) ~* '\\.(jpe?g|png|webp|heic|heif|bmp|tif|tiff)$'
+                  OR LOWER(COALESCE(att->>'url', '')) ~* '\\.(jpe?g|png|webp|heic|heif|bmp|tif|tiff)(\\?|$)'
+                )
+                AND LOWER(COALESCE(att->>'kind', '')) <> 'gif'
+                AND LOWER(COALESCE(att->>'mimeType', '')) <> 'image/gif'
+                AND LOWER(COALESCE(att->>'filename', '')) NOT LIKE '%.gif'
+                AND COALESCE(att->>'mimeType', '') NOT ILIKE 'application/%'
+                AND COALESCE(att->>'mimeType', '') NOT ILIKE '%pdf%'
+                AND COALESCE(att->>'mimeType', '') NOT ILIKE '%document%'
+              )
+            )
+          ),
+          has_docs = (
+            m.has_docs
+            OR (
+              m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements(m.attachments) att
+                WHERE (
+                  LOWER(COALESCE(att->>'kind', '')) = 'document'
+                  OR (att->>'mimeType') ILIKE 'application/%'
+                  OR (att->>'mimeType') ILIKE '%pdf%'
+                  OR (att->>'mimeType') ILIKE '%document%'
+                  OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.pdf'
+                  OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.doc'
+                  OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.docx'
+                )
+                AND COALESCE(att->>'mimeType', '') NOT ILIKE 'image/%'
+              )
+            )
+          )
+        WHERE m.deleted_at IS NULL
+          AND m.attachments IS NOT NULL
+          AND jsonb_typeof(m.attachments) = 'array'
+          AND CASE
+            WHEN jsonb_typeof(m.attachments) = 'array' THEN jsonb_array_length(m.attachments)
+            ELSE 0
+          END > 0
+      `);
+    },
+  );
+
+  // v2 trusted bare `kind: image`, which mis-flagged some document rows and
+  // still missed photos that only had image mime/extension evidence. Recompute.
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'backfill_echo_message_search_flags_attachments_v3',
+    async () => {
+      await pool.query(`
+        UPDATE echo_messages m SET
+          has_gif = (
+            m.gif = true
+            OR (m.image_url IS NOT NULL AND (
+              LOWER(m.image_url) LIKE '%giphy%' OR LOWER(m.image_url) LIKE '%tenor%'
+              OR LOWER(m.image_url) LIKE '%.gif%' OR LOWER(m.image_url) LIKE '%media.giphy%'))
+            OR (m.stickers IS NOT NULL AND jsonb_typeof(m.stickers) = 'array' AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(m.stickers) sticker
+              WHERE sticker->>'format' = 'gif'))
+            OR (m.embeds IS NOT NULL AND jsonb_typeof(m.embeds) = 'array' AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(m.embeds) embed
+              WHERE COALESCE(embed->'image'->>'url', '') ILIKE '%media.tenor.%'
+                 OR COALESCE(embed->'image'->>'url', '') ILIKE '%media.giphy.%'
+                 OR COALESCE(embed->>'url', '') ILIKE '%tenor.com/view/%'
+                 OR COALESCE(embed->>'url', '') ILIKE '%giphy.com/gifs/%'))
+            OR (
+              m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements(m.attachments) att
+                WHERE LOWER(COALESCE(att->>'kind', '')) = 'gif'
+                   OR LOWER(COALESCE(att->>'mimeType', '')) = 'image/gif'
+                   OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.gif'
+                   OR LOWER(COALESCE(att->>'url', '')) LIKE '%.gif%'
+                   OR LOWER(COALESCE(att->>'url', '')) LIKE '%giphy%'
+                   OR LOWER(COALESCE(att->>'url', '')) LIKE '%tenor%'
+              )
+            )
+          ),
+          has_image = (
+            (m.image_url IS NOT NULL AND TRIM(COALESCE(m.image_url, '')) <> ''
+              AND COALESCE(m.gif, false) = false
+              AND NOT (LOWER(m.image_url) LIKE '%giphy%' OR LOWER(m.image_url) LIKE '%.gif%' OR LOWER(m.image_url) LIKE '%media.giphy%'))
+            OR (m.stickers IS NOT NULL AND jsonb_typeof(m.stickers) = 'array' AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(m.stickers) sticker
+              WHERE sticker->>'format' IN ('png', 'apng')))
+            OR (
+              m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements(m.attachments) att
+                WHERE (
+                  LOWER(COALESCE(att->>'mimeType', '')) LIKE 'image/%'
+                  OR LOWER(COALESCE(att->>'filename', '')) ~* '\\.(jpe?g|png|webp|heic|heif|bmp|tif|tiff)$'
+                  OR LOWER(COALESCE(att->>'url', '')) ~* '\\.(jpe?g|png|webp|heic|heif|bmp|tif|tiff)(\\?|$)'
+                )
+                AND LOWER(COALESCE(att->>'kind', '')) <> 'gif'
+                AND LOWER(COALESCE(att->>'mimeType', '')) <> 'image/gif'
+                AND LOWER(COALESCE(att->>'filename', '')) NOT LIKE '%.gif'
+                AND COALESCE(att->>'mimeType', '') NOT ILIKE 'application/%'
+                AND COALESCE(att->>'mimeType', '') NOT ILIKE '%pdf%'
+                AND COALESCE(att->>'mimeType', '') NOT ILIKE '%document%'
+              )
+            )
+          ),
+          has_docs = (
+            m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(m.attachments) att
+              WHERE (
+                LOWER(COALESCE(att->>'kind', '')) = 'document'
+                OR (att->>'mimeType') ILIKE 'application/%'
+                OR (att->>'mimeType') ILIKE '%pdf%'
+                OR (att->>'mimeType') ILIKE '%document%'
+                OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.pdf'
+                OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.doc'
+                OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.docx'
+              )
+              AND COALESCE(att->>'mimeType', '') NOT ILIKE 'image/%'
+            )
           )
         WHERE m.deleted_at IS NULL
       `);

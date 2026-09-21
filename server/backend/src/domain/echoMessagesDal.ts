@@ -17,6 +17,7 @@ import {
   mergePollVotesIntoDefinition,
 } from './echoPollVotesDal';
 import {
+  ECHO_MESSAGE_WALL_CLOCK_ORDER_DESC,
   ECHO_MESSAGE_TIMELINE_ORDER_DESC,
   echoMessageIdPgGreaterThan,
 } from './echoMessageIdPgCompare';
@@ -1152,9 +1153,27 @@ export function escapeIlikePattern(s: string): string {
 function sqlFragmentForHasType(hasType: EchoMessageSearchHasType): string {
   switch (hasType) {
     case 'video':
-      return `(m.video_url IS NOT NULL AND TRIM(COALESCE(m.video_url, '')) <> '')`;
+      return `(
+        (m.video_url IS NOT NULL AND TRIM(COALESCE(m.video_url, '')) <> '')
+        OR (
+          m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements(m.attachments) att
+            WHERE LOWER(COALESCE(att->>'kind', '')) = 'video'
+               OR LOWER(COALESCE(att->>'mimeType', '')) LIKE 'video/%'
+          )
+        )
+      )`;
     case 'audio':
-      return `(m.audio_url IS NOT NULL AND TRIM(COALESCE(m.audio_url, '')) <> '')`;
+      return `(
+        (m.audio_url IS NOT NULL AND TRIM(COALESCE(m.audio_url, '')) <> '')
+        OR (
+          m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements(m.attachments) att
+            WHERE LOWER(COALESCE(att->>'kind', '')) = 'audio'
+               OR LOWER(COALESCE(att->>'mimeType', '')) LIKE 'audio/%'
+          )
+        )
+      )`;
     case 'gif':
       return `m.has_gif = true`;
     case 'image':
@@ -1632,7 +1651,7 @@ export async function selectLastAuthorMessageCreatedAtForSlowmode(
     `
     SELECT created_at FROM echo_messages
     WHERE channel_id = $1 AND author_id = $2 AND deleted_at IS NULL
-    ORDER BY ${ECHO_MESSAGE_TIMELINE_ORDER_DESC} LIMIT 1
+    ORDER BY ${ECHO_MESSAGE_WALL_CLOCK_ORDER_DESC} LIMIT 1
     `,
     [channelId, authorId],
   );
@@ -2079,7 +2098,7 @@ function boundedUnreadRowsSql(channelExpr: string, viewerExpr: string): string {
           OR m.created_at > ra.last_read_created_at
           OR (m.created_at = ra.last_read_created_at AND ${tieBreak})
         )
-      ORDER BY ${ECHO_MESSAGE_TIMELINE_ORDER_DESC}
+      ORDER BY ${ECHO_MESSAGE_WALL_CLOCK_ORDER_DESC}
       LIMIT ${UNREAD_ATTENTION_SCAN_LIMIT}`;
 }
 

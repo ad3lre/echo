@@ -97,19 +97,73 @@ public struct EchoHomeClient: Sendable {
     )
   }
 
+  /// Searches messages in one conversation. The server owns visibility and
+  /// ordering; the client only maps the wire rows into the native message model.
+  public func searchMessages(
+    accessToken: String,
+    channelID: String,
+    currentUserID: String?,
+    query: String,
+    before: String? = nil,
+    limit: Int = 24,
+    criteria: EchoMessageSearchCriteria = EchoMessageSearchCriteria()
+  ) async throws -> EchoMessageSearchPage {
+    let pageLimit = min(max(limit, 1), 50)
+    let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    var queryItems: [URLQueryItem] = [
+      URLQueryItem(name: "limit", value: String(pageLimit))
+    ]
+    if !trimmedQuery.isEmpty {
+      queryItems.append(URLQueryItem(name: "q", value: trimmedQuery))
+    }
+    if let before, !before.isEmpty {
+      queryItems.append(URLQueryItem(name: "before", value: before))
+    }
+    if let authorID = criteria.authorID?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !authorID.isEmpty
+    {
+      queryItems.append(URLQueryItem(name: "authorId", value: authorID))
+    }
+    if let mentions = criteria.mentions?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !mentions.isEmpty
+    {
+      queryItems.append(URLQueryItem(name: "mentions", value: mentions))
+    }
+    if let hasType = criteria.hasType {
+      queryItems.append(URLQueryItem(name: "hasType", value: hasType.rawValue))
+    }
+    if criteria.hasAttachment {
+      queryItems.append(URLQueryItem(name: "hasAttachment", value: "1"))
+    }
+    let response: EchoHomeMessagesResponse = try await request(
+      path: "/channels/\(escaped(channelID))/messages/search",
+      queryItems: queryItems,
+      accessToken: accessToken
+    )
+    let messages = response.messages.compactMap {
+      $0.message(channelID: channelID, currentUserID: currentUserID)
+    }
+    return EchoMessageSearchPage(
+      messages: messages,
+      hasMoreBefore: response.messages.count >= pageLimit
+    )
+  }
+
   public func sendMessage(
     accessToken: String,
     channelID: String,
     currentUserID: String,
     content: String,
     attachments: [EchoMessageAttachment] = [],
-    poll: EchoOutgoingPoll? = nil
+    poll: EchoOutgoingPoll? = nil,
+    replyTo: EchoMessageReplyTo? = nil
   ) async throws -> EchoMessage {
     let payload = EchoHomeOutgoingMessagePayload(
       content: content,
       id: UUID().uuidString,
       attachments: attachments.isEmpty ? nil : attachments,
-      poll: poll)
+      poll: poll,
+      replyTo: replyTo)
     let response: EchoHomeMessageResponse = try await sendJSON(
       path: "/api/v1/echo/channels/\(escaped(channelID))/messages",
       method: "POST",
@@ -154,6 +208,40 @@ public struct EchoHomeClient: Sendable {
       method: "PUT",
       body: body,
       accessToken: accessToken)
+  }
+
+  public func loadChannelPins(accessToken: String, channelID: String) async throws -> [String] {
+    let response: EchoHomePinsResponse = try await request(
+      path: "/channels/\(escaped(channelID))/pins",
+      accessToken: accessToken)
+    return response.messageIds
+  }
+
+  public func pinMessage(
+    accessToken: String,
+    channelID: String,
+    messageID: String
+  ) async throws -> [String] {
+    let body = try JSONEncoder().encode(EchoHomePinBody(messageId: messageID))
+    let response: EchoHomePinsResponse = try await sendJSON(
+      path: "/api/v1/echo/channels/\(escaped(channelID))/pins",
+      method: "POST",
+      body: body,
+      accessToken: accessToken)
+    return response.messageIds
+  }
+
+  public func unpinMessage(
+    accessToken: String,
+    channelID: String,
+    messageID: String
+  ) async throws -> [String] {
+    let response: EchoHomePinsResponse = try await sendJSON(
+      path: "/api/v1/echo/channels/\(escaped(channelID))/pins/\(escaped(messageID))",
+      method: "DELETE",
+      body: Data(),
+      accessToken: accessToken)
+    return response.messageIds
   }
 
   public func uploadAttachment(
@@ -304,7 +392,8 @@ public struct EchoHomeClient: Sendable {
   }
 
   private func fetchThreads(accessToken: String) async throws -> [EchoHomeThreadPayload] {
-    let response: EchoHomeThreadsResponse = try await request(path: "/dm/threads", accessToken: accessToken)
+    let response: EchoHomeThreadsResponse = try await request(
+      path: "/dm/threads", accessToken: accessToken)
     return response.threads.filter { !$0.channelID.isEmpty }
   }
 

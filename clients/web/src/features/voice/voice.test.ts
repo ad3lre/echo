@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createVoiceService } from '@/features/voice/voiceService';
 import {
   postEchoDmLivekitSession,
+  postEchoVoiceLeave,
   postEchoVoiceLivekitSession,
 } from '@/api/echoClient';
 import { EchoApiError } from '@/api/echo/transport';
@@ -60,6 +61,44 @@ describe('voice orchestration', () => {
       '',
       undefined,
       undefined,
+    );
+  });
+
+  it('propagates a failed LiveKit join instead of treating it as connected', async () => {
+    vi.mocked(postEchoVoiceLivekitSession).mockResolvedValueOnce({
+      url: 'wss://example.livekit.invalid',
+      token: 'token',
+      roomName: 'echo_realm:test',
+      bitrateBps: null,
+    });
+    const connect = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('LiveKit connection failed'));
+
+    const svc = createVoiceService({
+      authSession: { isAuthenticated: true, accessToken: 'test-token' },
+      workspace: {},
+      liveKit: { connect, disconnect: vi.fn() },
+    });
+
+    await expect(svc.onJoinVoice(SERVER_ID, CHANNEL_ID)).rejects.toThrow(
+      'LiveKit connection failed',
+    );
+  });
+
+  it('passes the expected channel when leaving so stale leaves cannot remove a rejoin', async () => {
+    const svc = createVoiceService({
+      authSession: { isAuthenticated: true, accessToken: 'test-token' },
+      workspace: {},
+      liveKit: { connect: vi.fn(async () => {}), disconnect: vi.fn() },
+    });
+
+    await svc.onLeaveVoice(SERVER_ID, CHANNEL_ID);
+
+    expect(postEchoVoiceLeave).toHaveBeenLastCalledWith(
+      'test-token',
+      SERVER_ID,
+      CHANNEL_ID,
     );
   });
 

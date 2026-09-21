@@ -15,6 +15,13 @@ const allowlisted = new Set(
   [
     path.join(backendSrc, 'db', 'echoTables.ts'),
     path.join(backendSrc, 'domain', 'echoMessagesDal.ts'),
+    path.join(
+      backendSrc,
+      'domain',
+      'echoStore',
+      'messages',
+      'discordImportMediaMirrorQueue.ts',
+    ),
     path.join(backendSrc, 'domain', 'echoStore', 'community', 'forums.ts'),
     path.join(backendSrc, 'domain', 'echoStore', 'servers', 'servers.ts'),
   ].map((p) => path.normalize(p)),
@@ -48,7 +55,7 @@ for (const file of walkTsFiles(backendSrc)) {
 
 if (violations.length) {
   console.error(
-    'echo_messages SQL must live only in server/backend/src/domain/echoMessagesDal.ts and server/backend/src/db/echoTables.ts.\nOffenders:\n',
+    'echo_messages SQL must live in an allowlisted domain storage adapter.\nOffenders:\n',
     violations.join('\n'),
   );
   process.exit(1);

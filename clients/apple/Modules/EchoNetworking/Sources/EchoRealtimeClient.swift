@@ -16,6 +16,39 @@ public enum EchoRealtimePresence {
   public static let heartbeatInterval: Duration = .seconds(120)
 }
 
+public enum EchoDmCallKind: String, Sendable {
+  case incoming
+  case accepted
+  case ended
+}
+
+public enum EchoDmCallEndReason: String, Sendable {
+  case ended
+  case declined
+}
+
+public struct EchoDmCallSignal: Equatable, Sendable {
+  public let kind: EchoDmCallKind
+  public let channelID: String
+  public let actorUserID: String
+  public let correlationID: String?
+  public let reason: EchoDmCallEndReason?
+
+  public init(
+    kind: EchoDmCallKind,
+    channelID: String,
+    actorUserID: String,
+    correlationID: String? = nil,
+    reason: EchoDmCallEndReason? = nil
+  ) {
+    self.kind = kind
+    self.channelID = channelID
+    self.actorUserID = actorUserID
+    self.correlationID = correlationID
+    self.reason = reason
+  }
+}
+
 /// Socket presence `client` values accepted by Echo (`web` | `mobile`).
 public enum EchoPresenceClient {
   public static var identifier: String {
@@ -35,6 +68,11 @@ public enum EchoRealtimeEvent: Equatable, Sendable {
   case presence(userID: String, status: String)
   case typing(channelID: String, userID: String, displayName: String)
   case dmActivity(channelID: String, message: EchoMessage, lastActivityAt: Date?)
+  case dmCall(EchoDmCallSignal)
+  /// MLS delivery-log append for an active voice channel (`voice_mls_message`).
+  case voiceMlsMessage(channelID: String, serverID: String?)
+  /// Authoritative pin order for a channel (`message:pins`, newest first).
+  case pins(channelID: String, messageIDs: [String])
   case messageFailed(channelID: String?, detail: String?)
 }
 
@@ -81,5 +119,12 @@ public protocol EchoRealtimeClient: AnyObject, Sendable {
   func leaveChannel(_ channelID: String)
   func emitTyping(channelID: String)
   func emitPresence(status: String, heartbeat: Bool)
+  func inviteToCall(channelID: String, correlationID: String)
+  func acceptCall(channelID: String, correlationID: String?)
+  func endCall(
+    channelID: String,
+    correlationID: String?,
+    reason: EchoDmCallEndReason
+  )
   func ping(timeout: Duration) async -> Bool
 }

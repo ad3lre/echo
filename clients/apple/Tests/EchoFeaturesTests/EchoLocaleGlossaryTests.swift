@@ -31,8 +31,10 @@ struct EchoLocaleGlossaryTests {
     for (key, value) in strings {
       let entry = try #require(value as? [String: Any])
       let locs = try #require(entry["localizations"] as? [String: Any])
-      let en = ((locs["en"] as? [String: Any])?["stringUnit"] as? [String: Any])?["value"] as? String
-      let es = ((locs["es"] as? [String: Any])?["stringUnit"] as? [String: Any])?["value"] as? String
+      let en =
+        ((locs["en"] as? [String: Any])?["stringUnit"] as? [String: Any])?["value"] as? String
+      let es =
+        ((locs["es"] as? [String: Any])?["stringUnit"] as? [String: Any])?["value"] as? String
       #expect(en?.isEmpty == false, "missing en for \(key)")
       #expect(es?.isEmpty == false, "missing es for \(key)")
     }

@@ -501,6 +501,7 @@ export function buildChatSlashCommands(
 function sortSlashCommands(
   commands: readonly ChatSlashCommand[],
 ): ChatSlashCommand[] {
+  // The command catalog is a small, static bounded list.
   return [...commands].sort((a, b) => {
     const ga = GROUP_ORDER[a.group];
     const gb = GROUP_ORDER[b.group];

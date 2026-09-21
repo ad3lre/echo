@@ -9,6 +9,10 @@ import {
   clampEchoChannelName,
   ECHO_CHANNEL_NAME_MAX_LENGTH,
 } from '@shared/echoChannelLimits';
+import {
+  isPaperFeatureEnabled,
+  isExperimentalChannelTypeEnabled,
+} from '@/features/paper/paperFeatureToggle';
 
 export type CreateChannelCategoryOption = { id: string; label: string };
 
@@ -57,24 +61,32 @@ const CHANNEL_TYPE_OPTIONS: {
     subtitle: 'Organized threads',
     icon: icons.messageAlt,
   },
-  {
-    id: 'paper',
-    label: 'Paper',
-    subtitle: 'Collaborative document',
-    icon: icons.file,
-  },
+  ...(isPaperFeatureEnabled
+    ? [
+        {
+          id: 'paper' as const,
+          label: 'Paper',
+          subtitle: 'Collaborative document',
+          icon: icons.file,
+        },
+      ]
+    : []),
   {
     id: 'voice',
     label: 'Voice',
     subtitle: 'Voice, video, screen share',
     icon: icons.volumeUp,
   },
-  {
-    id: 'stage',
-    label: 'Stage',
-    subtitle: 'Events and panels',
-    icon: icons.sofa,
-  },
+  ...(isExperimentalChannelTypeEnabled('stage')
+    ? [
+        {
+          id: 'stage' as const,
+          label: 'Stage',
+          subtitle: 'Events and panels',
+          icon: icons.sofa,
+        },
+      ]
+    : []),
   {
     id: 'category',
     label: 'Category',

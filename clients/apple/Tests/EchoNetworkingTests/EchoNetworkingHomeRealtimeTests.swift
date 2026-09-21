@@ -81,6 +81,18 @@ struct EchoNetworkingHomeRealtimeTests {
     #expect(activityChannel == "ch-1")
     #expect(activityMessage.content == "Ping")
     #expect(lastActivityAt != nil)
+
+    let pinsJSON = Data(
+      "{\"channelId\":\"ch-1\",\"messageIds\":[\"m9\",\"m2\"]}".utf8)
+    guard
+      case .pins(let pinsChannel, let messageIDs)? = EchoRealtimeEventDecoder.event(
+        name: "message:pins", json: pinsJSON, currentUserID: "user-me")
+    else {
+      Issue.record("expected message:pins")
+      return
+    }
+    #expect(pinsChannel == "ch-1")
+    #expect(messageIDs == ["m9", "m2"])
   }
 
   @Test func homeSnapshotMovesActiveConversationToTheTop() {
@@ -155,7 +167,8 @@ struct EchoNetworkingHomeRealtimeTests {
       }
       if path.hasSuffix("/users/profiles") {
         profileBatchCalls += 1
-        let ids = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
+        let ids =
+          URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
           .queryItems?.first { $0.name == "ids" }?.value ?? ""
         #expect(ids.contains("user-2"))
         #expect(ids.contains("user-3"))

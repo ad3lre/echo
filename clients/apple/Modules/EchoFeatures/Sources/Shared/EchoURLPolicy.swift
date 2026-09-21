@@ -61,7 +61,8 @@ enum EchoURLPolicy {
     if host == "0.0.0.0" || host == "::" || host == "0:0:0:0:0:0:0:0" { return true }
 
     if let ipv4 = ipv4Octets(host) {
-      let a = ipv4[0], b = ipv4[1]
+      let a = ipv4[0]
+      let b = ipv4[1]
       if a == 10 { return true }
       if a == 127 { return true }
       if a == 169, b == 254 { return true }

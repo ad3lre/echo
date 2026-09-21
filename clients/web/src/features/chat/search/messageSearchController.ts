@@ -12,14 +12,10 @@ import {
   fetchEchoServerMessageSearch,
   type EchoApiMessage,
 } from '@/api/echoClient';
-import type {
-  RawMessage,
-  UserForAuthor,
-} from '@/features/chat/chatMessageTypes';
+import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import type { UseSearchApiModeOptions } from '@/features/chat/messageSearchTypes';
 import type { ChannelCategory } from '@/features/layout/channels/useChannels';
 import {
-  API_BATCH_LIMIT,
   MESSAGES_PER_PAGE,
   SEARCH_DEBOUNCE_MS,
   apiMessagesToDisplay,
@@ -219,6 +215,8 @@ export function createMessageSearchController(
       }
       scheduleApiSearch();
     },
+    // Search criteria can be edited in place; preserve cancellation semantics
+    // for nested filter changes.
     { deep: true },
   );
 

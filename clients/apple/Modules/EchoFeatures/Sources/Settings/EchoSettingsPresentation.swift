@@ -1,5 +1,9 @@
 import SwiftUI
 
+#if os(iOS)
+  import UIKit
+#endif
+
 struct EchoDetailSection<Content: View>: View {
   let title: String
   @ViewBuilder let content: () -> Content
@@ -99,3 +103,42 @@ struct EchoSettingDetailHeader: View {
     .frame(minHeight: 58)
   }
 }
+
+#if os(iOS)
+  /// Restores the system edge swipe-back when the nav bar (and its back button)
+  /// is hidden — otherwise `navigationBarBackButtonHidden` disables the gesture.
+  struct EchoSwipeBackEnabler: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController {
+      Controller()
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+
+    private final class Controller: UIViewController, UIGestureRecognizerDelegate {
+      override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard let pop = navigationController?.interactivePopGestureRecognizer else { return }
+        pop.isEnabled = true
+        pop.delegate = self
+      }
+
+      func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        (navigationController?.viewControllers.count ?? 0) > 1
+      }
+
+      func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+      ) -> Bool {
+        false
+      }
+    }
+  }
+
+  extension View {
+    /// Edge-swipe back to the settings list while Echo’s custom Back chrome is shown.
+    func echoSettingsSwipeBack() -> some View {
+      background(EchoSwipeBackEnabler())
+    }
+  }
+#endif

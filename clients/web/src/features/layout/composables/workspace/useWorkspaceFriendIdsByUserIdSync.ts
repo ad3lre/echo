@@ -11,16 +11,16 @@ export function useWorkspaceFriendIdsByUserIdSync(deps: {
   watch(
     () =>
       [
-        deps.workspace.friendIds.value,
+        deps.workspace.friendIds.value.join('\x1f'),
         deps.authSession.backendUser?.id,
       ] as const,
-    ([ids, me]) => {
+    ([, me]) => {
       deps.workspace.friendIdsByUserId.value = patchFriendIdsByUserIdMap(
         deps.workspace.friendIdsByUserId.value,
         me,
-        ids,
+        deps.workspace.friendIds.value,
       );
     },
-    { deep: true, immediate: true },
+    { immediate: true },
   );
 }

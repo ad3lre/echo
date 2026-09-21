@@ -63,6 +63,7 @@ import ServerEventsCarousel from '@/features/channel-panel/components/ServerEven
 import PaperEditorPanel from '@/features/paper/PaperEditorPanel.vue';
 import { usePaperEditorPanelBridge } from '@/features/paper/paperEditorPanelBridge';
 import { useChannelHoverMessagePrefetch } from '@/features/channel-panel/composables/useChannelHoverMessagePrefetch';
+import { isExperimentalChannelTypeEnabled } from '@/features/paper/paperFeatureToggle';
 
 /** Quick self-dismissing shell toasts for channel panel context menu actions. */
 const PANEL_MENU_ACTION_TOAST_MS = 2400;
@@ -369,7 +370,18 @@ function getServerVoiceModerationForUser(userId: string) {
 
 const { getVoiceParticipantState, effectiveCategories } =
   useChannelPanelVoiceState({
-    categories: computed(() => props.categories as ChannelCategory[]),
+    categories: computed(() =>
+      (props.categories as ChannelCategory[]).map((category) => ({
+        ...category,
+        channels:
+          isExperimentalChannelTypeEnabled('paper') &&
+          isExperimentalChannelTypeEnabled('stage')
+            ? category.channels
+            : category.channels.filter((channel) =>
+                isExperimentalChannelTypeEnabled(channel.type),
+              ),
+      })),
+    ),
     getCurrentVoiceChannelId: () => props.currentVoiceChannelId,
     getCurrentUserId: () => props.currentUserId,
     users: computed(() => props.users),

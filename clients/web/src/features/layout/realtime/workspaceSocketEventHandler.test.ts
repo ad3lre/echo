@@ -150,6 +150,26 @@ describe('createWorkspaceSocketEventHandler', () => {
     expect(hydrate).toHaveBeenCalledTimes(1);
   });
 
+  it('deduplicates replayed versioned events before side effects', () => {
+    const onVoiceMlsMessage = vi.fn();
+    const handler = createWorkspaceSocketEventHandler({
+      noteWorkspaceEventVersion: () => true,
+      bumpLiveChannelCapabilities: vi.fn(),
+      hydrateEchoFromApi: vi.fn(async () => undefined),
+      refreshEchoSocialFromApi: vi.fn(async () => undefined),
+      onVoiceMlsMessage,
+    });
+    const payload = {
+      kind: 'voice_mls_message' as const,
+      version: '42',
+    };
+
+    handler(payload);
+    handler(payload);
+
+    expect(onVoiceMlsMessage).toHaveBeenCalledTimes(1);
+  });
+
   it('ECHO_WORKSPACE_SOCKET_REFRESH_KINDS covers expected strings', () => {
     expect(
       ECHO_WORKSPACE_SOCKET_REFRESH_KINDS.has('workspace_invalidated'),

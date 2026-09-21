@@ -84,13 +84,12 @@ export default async function appleOAuthRoutes(
           'identityToken is required.',
         );
       }
-      const nonce =
-        typeof req.body?.nonce === 'string' ? req.body.nonce.trim() : '';
-
+      const nonce = req.body?.nonce?.trim() ?? '';
+      if (!nonce) return sendError(reply, 400, 'BAD_REQUEST', 'Missing nonce.');
       let claims;
       try {
         claims = await verifyAppleIdentityToken(identityToken, {
-          expectedNonce: nonce || undefined,
+          expectedNonce: nonce,
         });
       } catch (err) {
         fastify.log.warn({ err }, 'apple_oauth_verify_failed');

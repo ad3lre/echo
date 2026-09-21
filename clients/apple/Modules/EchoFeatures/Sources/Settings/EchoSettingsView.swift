@@ -34,39 +34,55 @@ struct EchoSettingsView: View {
       title: EchoCopy.string("App"),
       rows: [
         .init(
-          route: .style, subtitle: EchoCopy.string("Tune Echo’s look and spacing"), icon: "paintbrush.fill",
+          route: .style, subtitle: EchoCopy.string("Tune Echo’s look and spacing"),
+          icon: "paintbrush.fill",
           tint: .cyan),
         .init(
           route: .accessibility, subtitle: EchoCopy.string("Readability, motion, and interaction"),
           icon: "figure.wave", tint: .green),
         .init(
-          route: .voiceVideo, subtitle: EchoCopy.string("Devices and call behavior"), icon: "video.fill",
+          route: .voiceVideo, subtitle: EchoCopy.string("Devices and call behavior"),
+          icon: "video.fill",
           tint: .purple),
         .init(
-          route: .timeLanguage, subtitle: EchoCopy.string("Language, region, and timestamps"), icon: "globe",
+          route: .timeLanguage, subtitle: EchoCopy.string("Language, region, and timestamps"),
+          icon: "globe",
           tint: .mint),
         .init(
-          route: .advanced, subtitle: EchoCopy.string("Optional developer controls"), icon: "slider.horizontal.3",
+          route: .advanced, subtitle: EchoCopy.string("Optional developer controls"),
+          icon: "slider.horizontal.3",
           tint: .gray),
       ]),
     .init(
       title: EchoCopy.string("External apps"),
-      rows: [
-        .init(
-          route: .discord, subtitle: EchoCopy.string("Link Discord for profile and identity import"), icon: "link",
-          tint: .indigo),
-        .init(
-          route: .google, subtitle: EchoCopy.string("Link Google for sign-in and YouTube"), icon: "g.circle.fill",
-          tint: .blue),
-        .init(
-          route: .youtube, subtitle: EchoCopy.string("Connect a channel for live broadcasts"),
-          icon: "play.rectangle.fill", tint: .red),
-      ]),
+      rows: {
+        var rows: [EchoSettingsRow] = [
+          .init(
+            route: .discord,
+            subtitle: EchoCopy.string("Link Discord for profile and identity import"),
+            icon: "link",
+            tint: EchoTheme.Color.avatarFallback)
+        ]
+        #if !os(iOS)
+          rows.append(
+            contentsOf: [
+              .init(
+                route: .google, subtitle: EchoCopy.string("Link Google for sign-in and YouTube"),
+                icon: "g.circle.fill",
+                tint: .blue),
+              .init(
+                route: .youtube, subtitle: EchoCopy.string("Connect a channel for live broadcasts"),
+                icon: "play.rectangle.fill", tint: .red),
+            ])
+        #endif
+        return rows
+      }()),
     .init(
       title: EchoCopy.string("Payment"),
       rows: [
         .init(
-          route: .echoPlus, subtitle: EchoCopy.string("Membership benefits and perks"), icon: "sparkles",
+          route: .echoPlus, subtitle: EchoCopy.string("Membership benefits and perks"),
+          icon: "sparkles",
           tint: .purple
         ),
         .init(
@@ -77,13 +93,15 @@ struct EchoSettingsView: View {
       title: EchoCopy.string("Legal"),
       rows: [
         .init(
-          route: .termsPolicies, subtitle: EchoCopy.string("Privacy, terms, and community guidelines"),
+          route: .termsPolicies,
+          subtitle: EchoCopy.string("Privacy, terms, and community guidelines"),
           icon: "doc.text.fill", tint: .gray),
         .init(
           route: .reportAbuse, subtitle: EchoCopy.string("Report spam, harassment, or violations"),
           icon: "exclamationmark.shield.fill", tint: .red),
         .init(
-          route: .formattingGuide, subtitle: EchoCopy.string("How Echo formats messages"), icon: "textformat",
+          route: .formattingGuide, subtitle: EchoCopy.string("How Echo formats messages"),
+          icon: "textformat",
           tint: .cyan),
       ]),
   ]
@@ -144,7 +162,7 @@ struct EchoSettingsView: View {
       #endif
       .background(EchoSettingsBackdrop().ignoresSafeArea())
       .scrollContentBackground(.hidden)
-      navigationTitle(EchoCopy.string(""))
+      .navigationTitle("")
       .navigationBarBackButtonHidden(true)
       #if os(iOS)
         .toolbar(.hidden, for: .navigationBar)
@@ -289,9 +307,12 @@ private struct EchoSettingsHero: View {
       VStack(alignment: .leading, spacing: 4) {
         EchoCopy.text("Settings")
           .font(.system(size: 31, weight: .bold, design: .rounded))
-        Text(profile.map { EchoCopy.format("Tune Echo for %@.", $0.name) } ?? EchoCopy.string("Make Echo feel like yours."))
-          .font(.system(size: 14, design: .rounded))
-          .foregroundStyle(.white.opacity(0.48))
+        Text(
+          profile.map { EchoCopy.format("Tune Echo for %@.", $0.name) }
+            ?? EchoCopy.string("Make Echo feel like yours.")
+        )
+        .font(.system(size: 14, design: .rounded))
+        .foregroundStyle(.white.opacity(0.48))
       }
       Spacer(minLength: 0)
       Button(EchoCopy.string("Done"), action: onDone)

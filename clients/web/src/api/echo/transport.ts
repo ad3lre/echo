@@ -8,7 +8,10 @@ import { useAuthSessionStore } from '@/features/auth/authSession';
 import { assertEchoApiAllowed } from '@/echoMode';
 import { echoCsrfHeaders } from '@/features/layout/ids/echoCsrf';
 import type { ApiErrorBody } from '@shared/types/api';
-import { translateApiErrorBody } from '@/i18n/apiErrors';
+import {
+  translateApiErrorBody,
+  translateApiErrorToken,
+} from '@/i18n/apiErrors';
 import { echoT } from '@/i18n';
 import {
   isBugHunterRecordingEnabled,
@@ -31,10 +34,12 @@ export class EchoApiError extends Error {
     public readonly status: number,
     public readonly body: ApiErrorBody,
   ) {
-    /* Avoid surfacing the bare placeholder `UNKNOWN` (sentinel used when the response body has
-     * no `code`/`message` and HTTP/2 omits `statusText`) — fall back to the HTTP status so the
-     * primary-flow banner says e.g. `HTTP 503` instead of `UNKNOWN`. */
-    let baseMessage = translateApiErrorBody(body);
+    const serverMessage = body.message?.trim();
+    let baseMessage =
+      serverMessage &&
+      (body.code === 'RATE_LIMITED' || body.code === 'SERVER_BUSY')
+        ? serverMessage
+        : translateApiErrorBody(body);
     const placeholderCode = body.code === 'UNKNOWN' || !body.code;
     if (
       placeholderCode &&
@@ -47,13 +52,7 @@ export class EchoApiError extends Error {
           ? echoT('errors.api.serverUnavailable')
           : echoT('errors.api.requestFailed');
     }
-    const detailKey = body.detail?.trim()
-      ? `errors.api.${body.detail.trim()}`
-      : '';
-    const detailMsg =
-      detailKey && echoT(detailKey) !== detailKey ? echoT(detailKey) : '';
-    const msg =
-      detailMsg && detailMsg !== baseMessage ? detailMsg : baseMessage;
+    const msg = translateApiErrorToken(body.detail) ?? baseMessage;
     super(msg);
     this.name = 'EchoApiError';
   }

@@ -151,6 +151,8 @@ export function createMessageSearchControllerState(
     () => {
       rebuildCorpusNow();
     },
+    // Channels/users and Echo DM IDs are mutable collections; corpus rebuilds
+    // must observe in-place updates from workspace hydration.
     { immediate: true, deep: true },
   );
 
@@ -178,6 +180,7 @@ export function createMessageSearchControllerState(
       stripFilterPrefixes(normalizedText),
       filters.value,
     );
+    // Search results require stable display ordering after filtering.
     clientSearchResultMessages.value = [...filtered].sort(
       (a, b) => (a._order ?? 0) - (b._order ?? 0),
     ) as MessageWithOrder[];
@@ -196,6 +199,8 @@ export function createMessageSearchControllerState(
     () => {
       scheduleDebouncedClientFilter();
     },
+    // The local corpus and filter model are mutated in place by ingestion and
+    // search controls; shallow watching would miss those updates.
     { deep: true, immediate: true },
   );
 

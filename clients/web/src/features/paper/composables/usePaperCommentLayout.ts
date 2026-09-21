@@ -42,7 +42,9 @@ export function usePaperCommentLayout(
     window.removeEventListener('resize', measure);
   });
 
-  watch(pageLayout, measure, { deep: true });
+  // Layout measurement only depends on the page width; avoid traversing the
+  // full reactive layout object when editor geometry updates other fields.
+  watch(() => pageLayout.value.width, measure);
 
   return { mode, stackedBaseTop, measure };
 }
@@ -53,6 +55,8 @@ export function stackCommentTops(
   cardEstimate = 108,
   gap = 8,
 ): Map<string, number> {
+  // Comments are the bounded visible annotation set; vertical stacking needs
+  // an ordered pass to resolve overlaps deterministically.
   const sorted = [...items].sort((a, b) => a.top - b.top);
   const result = new Map<string, number>();
   let lastBottom = -Infinity;

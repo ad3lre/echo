@@ -3,7 +3,6 @@ import {
   io as ioClient,
   type Socket as IoClientSocket,
 } from 'socket.io-client';
-import { buildEchoTestApp } from '../helpers/echoTestApp';
 
 type CookieJar = {
   header: string;
@@ -83,6 +82,8 @@ async function run(): Promise<void> {
   process.env.ECHO_AUTH_STORE = '';
   process.env.REDIS_URL = '';
 
+  // Set test storage before importing the app/config graph, which loads env files.
+  const { buildEchoTestApp } = await import('../helpers/echoTestApp');
   const { baseUrl, close } = await buildEchoTestApp();
   const username = `sock_auth_${Date.now().toString(36)}`;
 
@@ -123,6 +124,9 @@ async function run(): Promise<void> {
     );
   } finally {
     socket?.disconnect();
+    // Close the Engine.IO manager too; otherwise its polling timer can keep this
+    // one-shot integration process alive until the ping timeout expires.
+    socket?.io._close();
     await close();
   }
 }
@@ -130,6 +134,9 @@ async function run(): Promise<void> {
 run()
   .then(() => {
     process.stdout.write('socketSessionRevocation.integration.ts passed\n');
+    // The one-shot test uses Node's pooled fetch sockets, which otherwise keep
+    // the process alive until the undici idle timeout expires.
+    process.exit(0);
   })
   .catch((e) => {
     process.stderr.write(

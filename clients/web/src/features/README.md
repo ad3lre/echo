@@ -35,5 +35,5 @@ This directory is the **home for all feature-owned code**. See **[docs/overview/
 
 - Soft limit: 400 lines per frontend source file.
 - Hard limit: 700 lines per frontend source file.
-- Use `npm run modularity:check` from repo root to report oversized files.
+- Use `npm run modularity:report` from repo root to inspect oversized files. `npm run modularity:check` enforces the no-growth ratchet for existing oversized files and rejects new unbaselined ones.
 - **God-file ratchet (CI + pre-commit):** files already at or above 700 lines are frozen in `server/ops/scripts/god-file-baselines.json`. They cannot grow without raising that baseline in a reviewed PR. Emergency local bypass: `ECHO_GOD_FILE_RATCHET_BYPASS=1`. Check: `npm run god-file:check`.

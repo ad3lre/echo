@@ -16,10 +16,13 @@ enum EchoAuthMode {
   case register
   case signIn
 
-  var title: String { self == .register ? EchoCopy.string("Create your Echo") : EchoCopy.string("Welcome back") }
+  var title: String {
+    self == .register ? EchoCopy.string("Create your Echo") : EchoCopy.string("Welcome back")
+  }
   var subtitle: String {
     self == .register
-      ? EchoCopy.string("A better place to talk starts here.") : EchoCopy.string("Sign in and pick up where you left off.")
+      ? EchoCopy.string("A better place to talk starts here.")
+      : EchoCopy.string("Sign in and pick up where you left off.")
   }
 }
 
@@ -108,8 +111,10 @@ struct EchoAuthScreen: View {
       }
       .padding(.top, 64)
 
-      EchoAuthField(title: EchoCopy.string("Authentication or recovery code"), text: $mfaCode, isSecure: false)
-        .padding(.top, 30)
+      EchoAuthField(
+        title: EchoCopy.string("Authentication or recovery code"), text: $mfaCode, isSecure: false
+      )
+      .padding(.top, 30)
 
       Button {
         Task { _ = await model.completeMfa(code: mfaCode) }
@@ -159,15 +164,18 @@ struct EchoAuthScreen: View {
 
       VStack(spacing: 11) {
         EchoAuthField(
-          title: isRegistration ? EchoCopy.string("Username") : EchoCopy.string("Username or email"), text: $username,
+          title: isRegistration
+            ? EchoCopy.string("Username") : EchoCopy.string("Username or email"), text: $username,
           isSecure: false)
         if isRegistration {
-          EchoAuthField(title: EchoCopy.string("Email"), text: $email, isSecure: false, isEmail: true)
+          EchoAuthField(
+            title: EchoCopy.string("Email"), text: $email, isSecure: false, isEmail: true)
           EchoAuthField(title: EchoCopy.string("Display name"), text: $displayName, isSecure: false)
         }
         EchoAuthField(title: EchoCopy.string("Password"), text: $password, isSecure: true)
         if isRegistration {
-          EchoAuthField(title: EchoCopy.string("Confirm password"), text: $confirmPassword, isSecure: true)
+          EchoAuthField(
+            title: EchoCopy.string("Confirm password"), text: $confirmPassword, isSecure: true)
         }
       }
       .padding(.top, 20)
@@ -274,8 +282,9 @@ private struct EchoQuickAuthButton: View {
         if provider == .apple {
           Image(systemName: "apple.logo").font(.system(size: 16, weight: .medium))
         } else {
-          EchoCopy.text("G").font(.system(size: 17, weight: .bold, design: .rounded)).foregroundStyle(
-            EchoTheme.Color.authAccentBlue)
+          EchoCopy.text("G").font(.system(size: 17, weight: .bold, design: .rounded))
+            .foregroundStyle(
+              EchoTheme.Color.authAccentBlue)
         }
         Text(provider.rawValue).font(.system(size: 14, weight: .medium, design: .rounded))
       }

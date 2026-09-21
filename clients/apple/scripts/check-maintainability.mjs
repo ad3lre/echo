@@ -34,6 +34,8 @@ export const MAX_TEST_FILE_LOC = 600;
 export const COLOR_LITERAL_ALLOWLIST = new Set([
   'Modules/EchoFeatures/Sources/Shared/EchoTheme.swift',
   'Modules/EchoFeatures/Sources/Shared/EchoWelcomeScene.swift',
+  // Profile badge gradients match web SVG chrome (same class of brand art as welcome).
+  'Modules/EchoFeatures/Sources/Profile/EchoProfileUserBadges.swift',
 ]);
 
 /**
@@ -46,6 +48,7 @@ export const RAW_UI_COPY_ALLOWLIST = new Set([
   'Modules/EchoFeatures/Sources/Shared/EchoWelcomeView.swift',
   'Modules/EchoFeatures/Sources/Shared/EchoCopy.swift',
   'Modules/EchoFeatures/Sources/Shared/EchoMarkdownView.swift',
+  'Modules/EchoFeatures/Sources/Shared/EchoMarkdownBlockViews.swift',
   'Modules/EchoFeatures/Sources/Shared/EchoMarkdownParser.swift',
   'Modules/EchoFeatures/Sources/Shared/EchoMarkdownModels.swift',
 ]);

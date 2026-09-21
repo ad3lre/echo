@@ -96,7 +96,7 @@ export function useMessageJumpEmbedPreview(
         }
       })();
     },
-    { immediate: true, deep: true },
+    { immediate: true },
   );
 
   return { displayEmbed, loading, resolveError };

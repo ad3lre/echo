@@ -4,7 +4,6 @@ import {
   RoomEvent,
   type LocalTrackPublication,
   type Participant,
-  type RemoteParticipant,
   type Room as LKRoom,
 } from 'livekit-client';
 import {
@@ -100,8 +99,13 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
   }
 
   function attachRoomEventHandlers(room: LKRoom) {
+    const roomGeneration = ctx.connectGeneration.value;
+    const isCurrentRoom = () =>
+      ctx.connectGeneration.value === roomGeneration &&
+      (ctx.lkRoom.value === room || ctx.connectInFlight.value);
     let detachLocalMicRecovery: (() => void) | null = null;
     room.on(RoomEvent.Reconnecting, () => {
+      if (!isCurrentRoom()) return;
       voiceClientTrace('voice.client:lk_room_reconnecting', {});
       voiceClientDiag('info', 'voice.client:room_reconnecting', {});
       actions.stopStatsPolling();
@@ -109,6 +113,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.Reconnected, () => {
+      if (!isCurrentRoom()) return;
       voiceClientTrace('voice.client:lk_room_reconnected', {});
       voiceClientDiag('info', 'voice.client:room_reconnected', {});
       roomState.value = 'connected';
@@ -120,6 +125,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.Connected, () => {
+      if (!isCurrentRoom()) return;
       voiceClientTrace('voice.client:lk_room_connected_event', {});
       voiceClientDiag('info', 'voice.client:room_connected_event', {});
       if (activeVoiceE2eeChannelKey.value) {
@@ -136,6 +142,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     room.on(
       RoomEvent.ParticipantEncryptionStatusChanged,
       (enabled: boolean, participant?: Participant) => {
+        if (!isCurrentRoom()) return;
         const identity = participant?.identity?.trim();
         if (!identity) return;
         setVoiceParticipantE2eeStatus(identity, enabled);
@@ -147,6 +154,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     );
 
     room.on(RoomEvent.Disconnected, (reason) => {
+      if (!isCurrentRoom()) return;
       detachLocalMicRecovery?.();
       detachLocalMicRecovery = null;
       clearVoiceParticipantE2eeStatus();
@@ -163,6 +171,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.DataReceived, (payload, participant) => {
+      if (!isCurrentRoom()) return;
       if (!participant?.identity) return;
       if (participant.identity === room.localParticipant.identity) return;
 
@@ -214,6 +223,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.ParticipantConnected, (p) => {
+      if (!isCurrentRoom()) return;
       voiceClientTrace('voice.client:lk_participant_connected', {
         identity: p.identity,
       });
@@ -233,6 +243,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.ParticipantDisconnected, (p) => {
+      if (!isCurrentRoom()) return;
       voiceClientTrace('voice.client:lk_participant_disconnected', {
         identity: p.identity,
       });
@@ -251,6 +262,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      if (!isCurrentRoom()) return;
       if (
         !participant.isLocal &&
         (publication as PublicationLike).source === LK_SOURCE_SCREEN_SHARE &&
@@ -335,6 +347,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+      if (!isCurrentRoom()) return;
       if (
         !participant?.isLocal &&
         (track as TrackLike).kind === LK_KIND_AUDIO
@@ -352,6 +365,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
         const streamerIdentity = participant.identity;
         const trackSid = (publication as PublicationLike).trackSid ?? '';
         queueMicrotask(() => {
+          if (!isCurrentRoom()) return;
           if (room.state !== ConnectionState.Connected) return;
           const remote = liveKitRemoteParticipantByIdentity(
             room,
@@ -369,18 +383,21 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.TrackPublished, (_publication, participant) => {
+      if (!isCurrentRoom()) return;
       if (!participant?.isLocal) {
         actions.syncRemoteParticipants(room);
       }
     });
 
     room.on(RoomEvent.TrackUnpublished, (_publication, participant) => {
+      if (!isCurrentRoom()) return;
       if (!participant?.isLocal) {
         actions.syncRemoteParticipants(room);
       }
     });
 
     room.on(RoomEvent.TrackMuted, (pub, participant) => {
+      if (!isCurrentRoom()) return;
       if (
         !participant?.isLocal &&
         (pub as PublicationLike).kind === LK_KIND_AUDIO
@@ -394,6 +411,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.TrackUnmuted, (pub, participant) => {
+      if (!isCurrentRoom()) return;
       if (
         !participant?.isLocal &&
         (pub as PublicationLike).kind === LK_KIND_AUDIO
@@ -408,6 +426,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
 
     if (RoomEvent.AudioPlaybackStatusChanged) {
       room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+        if (!isCurrentRoom()) return;
         const canPlay = (room as unknown as { canPlaybackAudio?: boolean })
           .canPlaybackAudio;
         voiceClientDiag('info', 'voice.client:audio_playback_status_changed', {
@@ -418,6 +437,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     }
 
     room.on(RoomEvent.ConnectionStateChanged, (state) => {
+      if (!isCurrentRoom()) return;
       const canPlay = (room as unknown as { canPlaybackAudio?: boolean })
         .canPlaybackAudio;
       voiceClientDiag('info', 'voice.client:connection_state_changed', {
@@ -427,6 +447,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.LocalTrackPublished, (pub) => {
+      if (!isCurrentRoom()) return;
       const p = pub as LocalTrackPublication & PublicationLike;
       if (p.source === LK_SOURCE_CAMERA) {
         isCameraEnabled.value = true;
@@ -451,6 +472,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
+      if (!isCurrentRoom()) return;
       const p = pub as LocalTrackPublication & PublicationLike;
       if (p.source === LK_SOURCE_CAMERA) {
         isCameraEnabled.value = false;
@@ -469,7 +491,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
       }
     });
 
-    actions.setupActiveSpeakerTracking(room);
+    if (isCurrentRoom()) actions.setupActiveSpeakerTracking(room);
   }
 
   return { attachRoomEventHandlers, shouldPlayViewerLeaveSound };

@@ -23,7 +23,7 @@ export function buildGuildVoiceActivityCardsForJoinedServers(input: {
     const cats = input.categoriesByServer[sid] ?? [];
     for (const cat of cats) {
       for (const ch of cat.channels ?? []) {
-        if (ch.type !== 'voice') continue;
+        if (ch.type !== 'voice' && ch.type !== 'stage') continue;
         const ids = ch.voiceParticipantIds ?? [];
         if (ids.length < 1) continue;
         const participantPreviewUserIds = ids.slice(0, 4);

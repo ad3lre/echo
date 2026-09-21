@@ -46,6 +46,7 @@ package-lock.json
 web/public/twemoji
 web/public/emoji-search-index.json
 clients/web/src/features/chat/emoji/emoji-secondary-aliases.json
+clients/apple/Modules/EchoFeatures/Resources/EchoMlsBridge.js
 docs/overview/tree.md
 
 # Prisma migrations (binary SQL history; match .gitignore)

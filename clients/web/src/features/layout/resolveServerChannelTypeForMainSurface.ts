@@ -1,4 +1,5 @@
 import { isDmThreadId } from '@/features/layout/mainSurface';
+import { isExperimentalChannelTypeEnabled } from '@/features/paper/paperFeatureToggle';
 
 export type ServerChannelContextForMainSurface = {
   channel: { type: string; parentChannelId?: string };
@@ -18,9 +19,12 @@ export function resolveServerChannelInfoForMainSurface(
   const ctx = findChannelContextById(channelId);
   if (!ctx?.channel) return null;
   const t = ctx.channel.type;
+  if (t === 'stage' && !isExperimentalChannelTypeEnabled('stage')) return null;
   if (t === 'voice' || t === 'stage') return { type: 'voice' };
   if (t === 'forum') return { type: 'forum' };
-  if (t === 'paper') return { type: 'paper' };
+  if (t === 'paper') {
+    return isExperimentalChannelTypeEnabled('paper') ? { type: 'paper' } : null;
+  }
   return {
     type: 'text',
     ...(typeof ctx.channel.parentChannelId === 'string' &&

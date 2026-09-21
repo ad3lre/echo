@@ -6,7 +6,7 @@ Start here, then open the area that matches your work. **New to the repo?** See 
 
 - [Stack](overview/STACK.md) — technologies and scale stance
 - [Repository layout](overview/repo-layout.md) — top-level map and client-vs-kit rule
-- [Repository tree](overview/tree.md) — layout snapshot (regenerate: `npm run docs:tree` from repo root)
+- Repository tree — generate the local layout snapshot with `npm run docs:tree` (the generated `docs/overview/tree.md` is intentionally not committed)
 - [Domain map](overview/domain-map.md) — server/backend/web domain boundaries
 - [agents.md](overview/agents.md) — client/controller charter for contributors
 - [privacy-levels.md](overview/privacy-levels.md) — product privacy positioning

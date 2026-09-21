@@ -3,6 +3,7 @@ import type pg from 'pg';
 import {
   enqueueEchoChatVideoHls,
   markEchoVideoHlsJobFailed,
+  classifyEchoVideoHlsFailure,
   reclaimStaleEchoVideoHlsJobs,
 } from '../../services/echoVideoOptimizeQueue';
 
@@ -122,6 +123,47 @@ async function testMarkFailedTerminal(): Promise<void> {
   assert.ok(terminalFailed);
 }
 
+async function testPermanentFailureDoesNotRetry(): Promise<void> {
+  assert.equal(
+    classifyEchoVideoHlsFailure('Source exceeds max input bytes'),
+    'permanent',
+  );
+  assert.equal(
+    classifyEchoVideoHlsFailure('ffmpeg exited with code 1'),
+    'transient',
+  );
+
+  const pool = createRecordingPool({
+    onQuery: (call) => {
+      if (call.text.includes('RETURNING status')) {
+        return { rows: [{ status: 'failed' }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  });
+
+  await markEchoVideoHlsJobFailed(
+    pool,
+    '42',
+    'echo/channels/ch/u/clip.mp4',
+    'Video exceeds max duration',
+  );
+
+  const failUpdate = pool.calls.find((c) =>
+    c.text.includes('RETURNING status'),
+  );
+  assert.ok(failUpdate);
+  assert.equal(failUpdate!.values?.[3], 'permanent');
+  assert.equal(
+    pool.calls.some(
+      (c) =>
+        c.text.includes("SET status = 'pending'") &&
+        c.text.includes('echo_video_playback'),
+    ),
+    false,
+  );
+}
+
 async function testReclaimStaleProcessing(): Promise<void> {
   const pool = createRecordingPool({
     onQuery: () => ({ rows: [], rowCount: 2 }),
@@ -137,6 +179,7 @@ async function run(): Promise<void> {
   await testEnqueueSkipsNonChatVideo();
   await testMarkFailedRetriesAsPending();
   await testMarkFailedTerminal();
+  await testPermanentFailureDoesNotRetry();
   await testReclaimStaleProcessing();
   // eslint-disable-next-line no-console
   console.log('echoVideoOptimizeQueue.test.ts ok');

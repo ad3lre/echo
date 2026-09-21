@@ -2,7 +2,7 @@
 
 **Goal:** One system, one identity model, one data path. Mock becomes **dev-only tooling** (fixtures, local scripts, optional secondary app), not a **compile-time or env-selected alternate product** running inside the same production binary.
 
-**Why now:** Dual reality is the largest source of permission drift, socket semantics drift, and “works on my machine” failures (`[STATUS_AND_PRODUCTION_READINESS.md](../../reviews/STATUS_AND_PRODUCTION_READINESS.md)`).
+**Why now:** Dual reality is the largest source of permission drift, socket semantics drift, and “works on my machine” failures (`[STATUS_AND_PRODUCTION_READINESS.md](../reviews/STATUS_AND_PRODUCTION_READINESS.md)`).
 
 ### Implementation status (2026-03)
 
@@ -49,7 +49,7 @@ These are the main levers today; all must be retired or confined to non-shipped 
 
 **Contract / docs**
 
-- `[ECHO_CONTRACT_V1.md](../../contracts/ECHO_CONTRACT_V1.md)` — documents dual-world rules; update when mock is dev-only.
+- `[ECHO_CONTRACT_V1.md](../contracts/ECHO_CONTRACT_V1.md)` — documents dual-world rules; update when mock is dev-only.
 
 ---
 
@@ -129,7 +129,7 @@ These are the main levers today; all must be retired or confined to non-shipped 
 
 **Do:** Delete legacy env vars from `.env.example`: `USE_MOCK_DB` (and document mock under `ECHO_BACKEND_STORAGE=memory`); keep `ALLOW_MOCK_API` as dev-only.
 
-**Do:** Update `[STACK.md](../../overview/STACK.md)`, `[ECHO_CONTRACT_V1.md](../../contracts/ECHO_CONTRACT_V1.md)`, `[STATUS_AND_PRODUCTION_READINESS.md](../../reviews/STATUS_AND_PRODUCTION_READINESS.md)`, runbooks.
+**Do:** Update `[STACK.md](../overview/STACK.md)`, `[ECHO_CONTRACT_V1.md](../contracts/ECHO_CONTRACT_V1.md)`, `[STATUS_AND_PRODUCTION_READINESS.md](../reviews/STATUS_AND_PRODUCTION_READINESS.md)`, runbooks.
 
 **Do:** Add `**npm run doctor`\*\* or startup log line: prints effective `database: connected`, `mock routes: disabled`.
 

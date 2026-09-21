@@ -36,6 +36,7 @@ clients/apple/
     EchoFeatures/       # SwiftUI feature surfaces and navigation
       Sources/
         Authentication/                 # Auth state, passkeys, push, and auth UI
+        Calling/                        # Native DM calling (CallKit, LiveKit, high-fidelity audio)
         Home/                           # Authenticated home and DM surface
         Profile/                        # Profile editing and account menu
         Settings/                       # Settings navigation, rows, sheets, and sounds
@@ -59,7 +60,7 @@ Requirements: Xcode 26.5 or newer and [XcodeGen](https://github.com/yonaskolb/Xc
 cd clients/apple
 xcodegen generate
 open EchoApple.xcodeproj
-swift test --package-path .
+swift test --package-path . --no-parallel
 npm run apple:maintainability
 npm run apple:maintainability:test
 xcrun swift-format format --in-place --recursive --parallel Apps Modules Tests
@@ -123,6 +124,26 @@ Xcode.
    connectivity, and media playback using Apple frameworks.
 4. Voice, accessibility, offline behavior, iPad layouts, then a macOS-specific
    interaction pass.
+
+### Native DM calling (current)
+
+iOS DM calls use CallKit + LiveKit with a high-fidelity audio session
+(`.playAndRecord` + `.default` at 48 kHz, software AEC/NS, music bitrate
+preset). The stack deliberately avoids iOS `.voiceChat` / `.videoChat` modes,
+which apply call-tuned gain and degrade perceived quality.
+
+Wiring lives under `Modules/EchoFeatures/Sources/Calling/`:
+
+- `EchoCallModel` — invite / accept / end signaling + session lifecycle
+- `EchoCallTransport` — LiveKit publish/subscribe + optional frame E2EE keys
+- `EchoSystemCallCoordinator` — CallKit + audio-session ownership
+- `EchoCallView` — in-app incoming / active call UI
+
+Production DM rooms require Echo voice E2EE (MLS v2). Apple runs the same
+`ts-mls` prepare path as web inside JavaScriptCore (`MlsBridge/` →
+`Resources/EchoMlsBridge.js`), with Keychain KV + URLSession host bridges, then
+installs the derived LiveKit frame keys. Rebuild the bridge after MLS crypto
+changes with `npm run apple:mls:bridge`.
 
 ## Realtime (Socket.IO)
 

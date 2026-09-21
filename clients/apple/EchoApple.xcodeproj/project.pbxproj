@@ -110,7 +110,7 @@
 				418078B1CEE715C322178C32 /* data-by-group.json */,
 			);
 			name = "unicode-emoji-json";
-			path = "../node_modules/unicode-emoji-json";
+			path = "../../node_modules/unicode-emoji-json";
 			sourceTree = "<group>";
 		};
 		CDA97F4469E5D0F91500B159 = {
@@ -358,6 +358,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = Echo;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
@@ -444,6 +445,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = Echo;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;

@@ -47,7 +47,8 @@ struct EchoTotpSetupSheet: View {
           .background(
             .white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
           EchoSettingsSheetField(
-            title: EchoCopy.string("6-digit code"), icon: "number.square.fill", tint: .blue, value: $code,
+            title: EchoCopy.string("6-digit code"), icon: "number.square.fill", tint: .blue,
+            value: $code,
             keyboard: .numberPad)
           EchoSettingAction(
             title: EchoCopy.string("Confirm two-factor authentication"),
@@ -56,9 +57,12 @@ struct EchoTotpSetupSheet: View {
           ) { confirm() }
           .disabled(code.count < 6)
         } else {
-          Label(EchoCopy.string("Two-factor authentication enabled"), systemImage: "checkmark.shield.fill")
-            .font(.system(size: 16, weight: .semibold, design: .rounded))
-            .foregroundStyle(.green)
+          Label(
+            EchoCopy.string("Two-factor authentication enabled"),
+            systemImage: "checkmark.shield.fill"
+          )
+          .font(.system(size: 16, weight: .semibold, design: .rounded))
+          .foregroundStyle(.green)
         }
         if let errorMessage {
           Text(errorMessage).font(.footnote).foregroundStyle(.red)

@@ -12,6 +12,7 @@ let package = Package(
     .library(name: "EchoFeatures", targets: ["EchoFeatures"]),
   ],
   dependencies: [
+    .package(url: "https://github.com/livekit/client-sdk-swift.git", from: "2.17.0"),
     .package(url: "https://github.com/mgriebling/SwiftMath.git", from: "1.7.3"),
     .package(url: "https://github.com/socketio/socket.io-client-swift", from: "16.1.1"),
   ],
@@ -30,12 +31,14 @@ let package = Package(
       name: "EchoFeatures",
       dependencies: [
         "EchoDomain", "EchoNetworking", "EchoPersistence",
+        .product(name: "LiveKit", package: "client-sdk-swift"),
         .product(name: "SwiftMath", package: "swiftmath"),
       ],
       path: "Modules/EchoFeatures",
       resources: [.process("Resources")],
       linkerSettings: [
-        .linkedFramework("ImageIO")
+        .linkedFramework("ImageIO"),
+        .linkedFramework("WebKit"),
       ]
     ),
     .testTarget(

@@ -21,6 +21,8 @@ struct EchoMediaImage<Placeholder: View>: View {
   /// Optional override / preview fallback. Prefer the live auth environment token.
   var accessToken: String? = nil
   var storageKey: String? = nil
+  /// `.fill` for collage cells / avatars; `.fit` for lone letterboxed images.
+  var contentMode: ContentMode = .fill
   @Environment(EchoAuthenticationModel.self) private var auth
   @ViewBuilder let placeholder: () -> Placeholder
   @State private var fetchURL: URL?
@@ -31,12 +33,12 @@ struct EchoMediaImage<Placeholder: View>: View {
         if dataURL.mimeType == "image/svg+xml" {
           placeholder()
         } else if let image = platformImage(dataURL.data) {
-          image.resizable().scaledToFill()
+          image.resizable().aspectRatio(contentMode: contentMode)
         } else {
           placeholder()
         }
       } else if let url = fetchURL {
-        EchoRemoteImage(url: url, placeholder: placeholder)
+        EchoRemoteImage(url: url, contentMode: contentMode, placeholder: placeholder)
       } else if resolvedURL(source, baseURL: baseURL) != nil {
         placeholder().overlay {
           ProgressView().tint(.white.opacity(0.55))

@@ -5,6 +5,8 @@ import { getPgPool } from '../../db/pg';
 import { ensureEchoTables } from '../../db/echoTables';
 import {
   claimNextDiscordImportMediaMirrorJob,
+  discordImportMediaEchoStorageReady,
+  enqueueUnqueuedDiscordImportMediaMirrorJobs,
   type DiscordImportMediaMirrorJobRow,
 } from './discordImportMediaMirrorQueue';
 import { processDiscordImportMediaMirrorJob } from './discordImportMediaMirrorProcessor';
@@ -13,6 +15,8 @@ let runtimeIo: Server | undefined;
 let runtimeLog: FastifyBaseLogger | undefined;
 let tickInProgress = false;
 let kickTimer: NodeJS.Timeout | null = null;
+let lastQueueReconcileAt = 0;
+const QUEUE_RECONCILE_INTERVAL_MS = 60_000;
 
 export function registerDiscordImportMediaMirrorRuntime(
   io: Server | undefined,
@@ -42,6 +46,7 @@ export async function runDiscordImportMediaMirrorDrain(
 ): Promise<void> {
   if (tickInProgress) return;
   if (config.echoDiscordImportMediaMirrorIntervalMs <= 0) return;
+  if (!discordImportMediaEchoStorageReady()) return;
   const pool = getPgPool();
   if (!pool) return;
 
@@ -49,6 +54,10 @@ export async function runDiscordImportMediaMirrorDrain(
   try {
     await ensureEchoTables(pool);
     const batch = Math.max(1, config.echoDiscordImportMediaMirrorBatchSize);
+    if (Date.now() - lastQueueReconcileAt >= QUEUE_RECONCILE_INTERVAL_MS) {
+      await enqueueUnqueuedDiscordImportMediaMirrorJobs(pool, batch * 4);
+      lastQueueReconcileAt = Date.now();
+    }
     const jobs: DiscordImportMediaMirrorJobRow[] = [];
     for (let i = 0; i < batch; i++) {
       const job = await claimNextDiscordImportMediaMirrorJob(pool);

@@ -15,19 +15,23 @@ struct EchoPasskeyRegistrationSheet: View {
   var body: some View {
     EchoSettingsSheetShell(
       title: EchoCopy.string("Add passkey"),
-      description: EchoCopy.string("Use Face ID, Touch ID, or your device passcode to sign in faster."),
+      description: EchoCopy.string(
+        "Use Face ID, Touch ID, or your device passcode to sign in faster."),
       icon: "person.badge.key.fill", tint: .purple, onCancel: { dismiss() },
       content: {
         EchoSettingsSheetField(
           title: EchoCopy.string("Passkey name"), icon: "tag.fill", tint: .purple, value: $label)
         EchoSettingsSheetField(
-          title: EchoCopy.string("Current password"), icon: "lock.fill", tint: .orange, value: $password,
+          title: EchoCopy.string("Current password"), icon: "lock.fill", tint: .orange,
+          value: $password,
           isSecure: true)
         EchoSettingsSheetField(
-          title: EchoCopy.string("Authenticator code (if enabled)"), icon: "number.square.fill", tint: .blue,
+          title: EchoCopy.string("Authenticator code (if enabled)"), icon: "number.square.fill",
+          tint: .blue,
           value: $totpCode, keyboard: .numberPad)
         EchoSettingAction(
-          title: isWorking ? EchoCopy.string("Waiting for Face ID…") : EchoCopy.string("Add passkey"),
+          title: isWorking
+            ? EchoCopy.string("Waiting for Face ID…") : EchoCopy.string("Add passkey"),
           subtitle: EchoCopy.string("Register this device as a secure Echo sign-in"),
           icon: "person.badge.key.fill", tint: .purple
         ) { register() }

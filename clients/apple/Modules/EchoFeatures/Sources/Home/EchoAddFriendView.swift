@@ -116,10 +116,12 @@ struct EchoAddFriendView: View {
           .overlay(RoundedRectangle(cornerRadius: 17).stroke(.white.opacity(0.09)))
 
           VStack(alignment: .leading, spacing: 9) {
-            Text(searchText.isEmpty ? EchoCopy.string("SUGGESTED PEOPLE") : EchoCopy.string("RESULTS"))
-              .font(.system(size: 11, weight: .semibold, design: .rounded))
-              .tracking(2.2)
-              .foregroundStyle(.white.opacity(0.38))
+            Text(
+              searchText.isEmpty ? EchoCopy.string("SUGGESTED PEOPLE") : EchoCopy.string("RESULTS")
+            )
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .tracking(2.2)
+            .foregroundStyle(.white.opacity(0.38))
 
             if model.isLoading && model.candidates.isEmpty {
               ProgressView()
@@ -140,10 +142,13 @@ struct EchoAddFriendView: View {
               }
               .padding(.vertical, 20)
             } else if model.candidates.isEmpty {
-              Text(searchText.isEmpty ? EchoCopy.string("No suggestions yet.") : EchoCopy.string("No people found."))
-                .font(.system(size: 14, design: .rounded))
-                .foregroundStyle(.white.opacity(0.48))
-                .padding(.vertical, 20)
+              Text(
+                searchText.isEmpty
+                  ? EchoCopy.string("No suggestions yet.") : EchoCopy.string("No people found.")
+              )
+              .font(.system(size: 14, design: .rounded))
+              .foregroundStyle(.white.opacity(0.48))
+              .padding(.vertical, 20)
             } else {
               VStack(spacing: 1) {
                 ForEach(model.candidates) { candidate in
@@ -234,7 +239,9 @@ private struct EchoFriendCandidateRow: View {
       }
       .buttonStyle(.plain)
       .disabled(isSending || didSend)
-      .accessibilityLabel(didSend ? EchoCopy.string("Friend request sent") : EchoCopy.format("Add %@", candidate.name))
+      .accessibilityLabel(
+        didSend ? EchoCopy.string("Friend request sent") : EchoCopy.format("Add %@", candidate.name)
+      )
     }
     .padding(.horizontal, 13)
     .padding(.vertical, 10)

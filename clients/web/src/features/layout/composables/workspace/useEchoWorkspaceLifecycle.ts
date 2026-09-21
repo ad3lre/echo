@@ -42,11 +42,11 @@ export function useEchoWorkspaceLifecycle(deps: {
   watch(
     () =>
       [
-        deps.workspace.friendIds.value,
+        deps.workspace.friendIds.value.join('\x1f'),
         deps.authSession.backendUser?.id,
       ] as const,
-    ([ids, me]) => vm.onFriendIdsOrMeChanged(ids, me),
-    { deep: true, immediate: true },
+    ([, me]) => vm.onFriendIdsOrMeChanged(deps.workspace.friendIds.value, me),
+    { immediate: true },
   );
 
   watch(

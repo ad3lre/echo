@@ -1,7 +1,20 @@
 import Foundation
 
+/// Normalizes Echo user IDs for equality checks across REST and realtime.
+public enum EchoUserIdentity {
+  public static func normalize(_ value: String?) -> String {
+    value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+  }
+
+  public static func matches(_ lhs: String?, _ rhs: String?) -> Bool {
+    let a = normalize(lhs)
+    let b = normalize(rhs)
+    return !a.isEmpty && a == b
+  }
+}
+
 /// Public profile data returned by the Echo social API.
-public struct EchoUserProfile: Codable, Equatable, Sendable, Identifiable {
+public struct EchoUserProfile: Codable, Equatable, Hashable, Sendable, Identifiable {
   public let id: String
   public let name: String
   public let username: String?
@@ -9,6 +22,14 @@ public struct EchoUserProfile: Codable, Equatable, Sendable, Identifiable {
   public let bio: String?
   public let bannerURL: String?
   public let bannerColor: String?
+  public let badges: [String]?
+  public let bannerPositionY: Double?
+  /// Ambient blurred banner glow behind profile chrome (web `bannerRefractionEnabled`).
+  public let bannerRefractionEnabled: Bool
+  /// Frosted softness over the banner image (web `bannerBlurEnabled`).
+  public let bannerBlurEnabled: Bool
+  /// Dark scrim over the banner for depth contrast (web `bannerBlackoutEnabled`).
+  public let bannerBlackoutEnabled: Bool
 
   public init(
     id: String,
@@ -17,7 +38,12 @@ public struct EchoUserProfile: Codable, Equatable, Sendable, Identifiable {
     avatarURL: String? = nil,
     bio: String? = nil,
     bannerURL: String? = nil,
-    bannerColor: String? = nil
+    bannerColor: String? = nil,
+    badges: [String]? = nil,
+    bannerPositionY: Double? = nil,
+    bannerRefractionEnabled: Bool = false,
+    bannerBlurEnabled: Bool = false,
+    bannerBlackoutEnabled: Bool = false
   ) {
     self.id = id
     self.name = name
@@ -26,6 +52,50 @@ public struct EchoUserProfile: Codable, Equatable, Sendable, Identifiable {
     self.bio = bio
     self.bannerURL = bannerURL
     self.bannerColor = bannerColor
+    self.badges = badges
+    self.bannerPositionY = bannerPositionY
+    self.bannerRefractionEnabled = bannerRefractionEnabled
+    self.bannerBlurEnabled = bannerBlurEnabled
+    self.bannerBlackoutEnabled = bannerBlackoutEnabled
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(String.self, forKey: .id)
+    name = try container.decode(String.self, forKey: .name)
+    username = try container.decodeIfPresent(String.self, forKey: .username)
+    avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
+    bio = try container.decodeIfPresent(String.self, forKey: .bio)
+    bannerURL = try container.decodeIfPresent(String.self, forKey: .bannerURL)
+    bannerColor = try container.decodeIfPresent(String.self, forKey: .bannerColor)
+    badges = try container.decodeIfPresent([String].self, forKey: .badges)
+    bannerPositionY = try container.decodeIfPresent(Double.self, forKey: .bannerPositionY)
+    bannerRefractionEnabled =
+      try container.decodeIfPresent(Bool.self, forKey: .bannerRefractionEnabled) ?? false
+    bannerBlurEnabled = try container.decodeIfPresent(Bool.self, forKey: .bannerBlurEnabled) ?? false
+    bannerBlackoutEnabled =
+      try container.decodeIfPresent(Bool.self, forKey: .bannerBlackoutEnabled) ?? false
+  }
+
+  /// Copy with selected banner-effect flags updated (settings toggles).
+  public func withBannerEffects(
+    refraction: Bool? = nil,
+    blur: Bool? = nil,
+    blackout: Bool? = nil
+  ) -> EchoUserProfile {
+    EchoUserProfile(
+      id: id,
+      name: name,
+      username: username,
+      avatarURL: avatarURL,
+      bio: bio,
+      bannerURL: bannerURL,
+      bannerColor: bannerColor,
+      badges: badges,
+      bannerPositionY: bannerPositionY,
+      bannerRefractionEnabled: refraction ?? bannerRefractionEnabled,
+      bannerBlurEnabled: blur ?? bannerBlurEnabled,
+      bannerBlackoutEnabled: blackout ?? bannerBlackoutEnabled)
   }
 }
 
@@ -94,6 +164,37 @@ public struct EchoDirectMessage: Identifiable, Equatable, Sendable {
       lastMessageAt: lastMessageAt,
       presenceStatus: status
     )
+  }
+}
+
+/// Snapshot of the message being replied to — mirrors web `ReplyTo`.
+public struct EchoMessageReplyTo: Codable, Equatable, Sendable, Hashable {
+  public let messageID: String
+  public let authorID: String?
+  public let authorName: String
+  public let authorAvatar: String?
+  public let content: String
+
+  public init(
+    messageID: String,
+    authorID: String? = nil,
+    authorName: String,
+    authorAvatar: String? = nil,
+    content: String
+  ) {
+    self.messageID = messageID
+    self.authorID = authorID
+    self.authorName = authorName
+    self.authorAvatar = authorAvatar
+    self.content = content
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case messageID = "messageId"
+    case authorID = "authorId"
+    case authorName
+    case authorAvatar
+    case content
   }
 }
 
@@ -182,15 +283,46 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
   public var isImage: Bool {
     let kind = kind.lowercased()
     let mime = mimeType?.lowercased() ?? ""
-    return kind == "image" || kind == "gif" || mime.hasPrefix("image/")
+    // Document mime wins over a mislabeled `kind: image` (legacy/search parity).
+    if mime.hasPrefix("application/") || mime.contains("pdf") || mime.contains("document") {
+      return false
+    }
+    if kind == "image" || kind == "gif" || mime.hasPrefix("image/") { return true }
+    let name = (filename ?? url).lowercased()
+    return name.hasSuffix(".jpg") || name.hasSuffix(".jpeg") || name.hasSuffix(".png")
+      || name.hasSuffix(".webp") || name.hasSuffix(".heic") || name.hasSuffix(".heif")
+      || name.hasSuffix(".gif") || name.hasSuffix(".bmp") || name.hasSuffix(".tif")
+      || name.hasSuffix(".tiff") || name.contains(".jpg?") || name.contains(".jpeg?")
+      || name.contains(".png?") || name.contains(".webp?")
   }
 
   public var isVideo: Bool {
-    kind.lowercased() == "video" || (mimeType?.lowercased().hasPrefix("video/") ?? false)
+    if kind.lowercased() == "video" || (mimeType?.lowercased().hasPrefix("video/") ?? false) {
+      return true
+    }
+    let name = (filename ?? url).lowercased()
+    return name.hasSuffix(".mp4") || name.hasSuffix(".mov") || name.hasSuffix(".webm")
+      || name.contains(".mp4?") || name.contains(".mov?")
   }
 
   public var isAudio: Bool {
-    kind.lowercased() == "audio" || (mimeType?.lowercased().hasPrefix("audio/") ?? false)
+    if kind.lowercased() == "audio" || (mimeType?.lowercased().hasPrefix("audio/") ?? false) {
+      return true
+    }
+    let name = (filename ?? url).lowercased()
+    return name.hasSuffix(".mp3") || name.hasSuffix(".m4a") || name.hasSuffix(".aac")
+      || name.hasSuffix(".wav") || name.hasSuffix(".ogg") || name.hasSuffix(".flac")
+  }
+
+  public var isDocument: Bool {
+    if isImage || isVideo || isAudio { return false }
+    let kind = kind.lowercased()
+    let mime = mimeType?.lowercased() ?? ""
+    if kind == "document" || mime.hasPrefix("application/") || mime.contains("pdf") {
+      return true
+    }
+    let name = (filename ?? url).lowercased()
+    return name.hasSuffix(".pdf") || name.hasSuffix(".doc") || name.hasSuffix(".docx")
   }
 
   public init(from decoder: Decoder) throws {
@@ -339,6 +471,13 @@ public struct EchoPoll: Codable, Equatable, Sendable {
   }
 }
 
+/// Local outbound delivery for optimistic sends (never decoded from the API).
+public enum EchoMessageDelivery: Equatable, Sendable {
+  case sent
+  case uploading
+  case failed
+}
+
 public struct EchoMessage: Identifiable, Equatable, Sendable {
   public let id: String
   public let channelID: String
@@ -352,6 +491,8 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
   public let mentions: [EchoMessageMention]
   public let attachments: [EchoMessageAttachment]
   public let poll: EchoPoll?
+  public let replyTo: EchoMessageReplyTo?
+  public let delivery: EchoMessageDelivery
 
   public init(
     id: String,
@@ -365,7 +506,9 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     isCurrentUser: Bool = false,
     mentions: [EchoMessageMention] = [],
     attachments: [EchoMessageAttachment] = [],
-    poll: EchoPoll? = nil
+    poll: EchoPoll? = nil,
+    replyTo: EchoMessageReplyTo? = nil,
+    delivery: EchoMessageDelivery = .sent
   ) {
     self.id = id
     self.channelID = channelID
@@ -379,6 +522,8 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     self.mentions = mentions
     self.attachments = attachments
     self.poll = poll
+    self.replyTo = replyTo
+    self.delivery = delivery
   }
 
   public func replacingPoll(_ poll: EchoPoll) -> EchoMessage {
@@ -394,7 +539,44 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
       isCurrentUser: isCurrentUser,
       mentions: mentions,
       attachments: attachments,
-      poll: poll
+      poll: poll,
+      replyTo: replyTo,
+      delivery: delivery
+    )
+  }
+
+  public func withDelivery(_ delivery: EchoMessageDelivery) -> EchoMessage {
+    EchoMessage(
+      id: id,
+      channelID: channelID,
+      authorID: authorID,
+      authorDisplayName: authorDisplayName,
+      authorAvatarURL: authorAvatarURL,
+      content: content,
+      timestamp: timestamp,
+      editedAt: editedAt,
+      isCurrentUser: isCurrentUser,
+      mentions: mentions,
+      attachments: attachments,
+      poll: poll,
+      replyTo: replyTo,
+      delivery: delivery
+    )
+  }
+
+  /// Build a composer/send reply snapshot from a timeline message.
+  public func asReplyTo(
+    authorDisplayName fallbackName: String
+  ) -> EchoMessageReplyTo {
+    let trimmedName = authorDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let name = trimmedName.isEmpty ? fallbackName : trimmedName
+    let preview = previewText.trimmingCharacters(in: .whitespacesAndNewlines)
+    return EchoMessageReplyTo(
+      messageID: id,
+      authorID: authorID,
+      authorName: name,
+      authorAvatar: authorAvatarURL,
+      content: preview.isEmpty ? "Message" : String(preview.prefix(160))
     )
   }
 
@@ -402,6 +584,16 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
     if !trimmed.isEmpty { return trimmed }
     let question = poll?.question.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    return question
+    if !question.isEmpty { return question }
+    if let first = attachments.first {
+      if first.isImage { return first.kind.lowercased() == "gif" ? "GIF" : "Photo" }
+      if first.isVideo { return "Video" }
+      if first.isAudio { return "Audio" }
+      if let name = first.filename?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+        return name
+      }
+      return "Attachment"
+    }
+    return ""
   }
 }

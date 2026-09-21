@@ -24,6 +24,7 @@ function makeEditor(content: string, mentions: MentionEntity[]): Editor {
         codeBlock: false,
         dropcursor: false,
         gapcursor: false,
+        hardBreak: false,
         heading: false,
         horizontalRule: false,
         italic: false,

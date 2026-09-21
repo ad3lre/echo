@@ -4,10 +4,10 @@ Date: 2026-04-11
 
 This file no longer claims `100%` charter completion.
 
-Code reads and [overview/agents.md](../../overview/agents.md) + [client-charter-violations.md](../../architecture/client-charter-violations.md) should inform boundary work in the current history pipeline:
+Code reads and [overview/agents.md](../overview/agents.md) + [client-charter-violations.md](../architecture/client-charter-violations.md) should inform boundary work in the current history pipeline:
 
-- [`channelMessageAuthority.ts`](../../../clients/web/src/features/chat/domain/channelMessageAuthority.ts) still participates in duplicate message authority.
-- [`echoRealtimeMessageStoreBridge.ts`](../../../clients/web/src/features/chat/ingest/echoRealtimeMessageStoreBridge.ts) still dual-writes raw messages and the channel index.
+- [`channelMessageAuthority.ts`](../../clients/web/src/features/chat/domain/channelMessageAuthority.ts) still participates in duplicate message authority.
+- [`echoRealtimeMessageStoreBridge.ts`](../../clients/web/src/features/chat/ingest/echoRealtimeMessageStoreBridge.ts) still dual-writes raw messages and the channel index.
 - `echoHistoryViewModel.ts` still mixes fetches, timers, diagnostics, read-state persistence, and pagination orchestration.
 
 ## Non-negotiables

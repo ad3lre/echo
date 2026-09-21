@@ -83,6 +83,26 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
     emit(event, ["status": status, "client": EchoPresenceClient.identifier])
   }
 
+  public func inviteToCall(channelID: String, correlationID: String) {
+    emit("dm_call:invite", ["channelId": channelID, "correlationId": correlationID])
+  }
+
+  public func acceptCall(channelID: String, correlationID: String?) {
+    var payload = ["channelId": channelID]
+    if let correlationID, !correlationID.isEmpty { payload["correlationId"] = correlationID }
+    emit("dm_call:accept", payload)
+  }
+
+  public func endCall(
+    channelID: String,
+    correlationID: String?,
+    reason: EchoDmCallEndReason
+  ) {
+    var payload = ["channelId": channelID, "reason": reason.rawValue]
+    if let correlationID, !correlationID.isEmpty { payload["correlationId"] = correlationID }
+    emit("dm_call:end", payload)
+  }
+
   public func ping(timeout: Duration) async -> Bool {
     let timeoutSeconds = Self.seconds(timeout)
     return await withCheckedContinuation { continuation in
@@ -182,7 +202,8 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
 
     let names = [
       "message", "message_ack", "message_failed", "poll:updated",
-      "presence:update", "channel:typing", "dm:activity",
+      "presence:update", "channel:typing", "dm:activity", "dm:call",
+      "message:pins", "echo:workspace_event",
     ]
     for name in names {
       socket.on(name) { [weak self] data, _ in

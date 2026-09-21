@@ -20,8 +20,13 @@ export function echoMessageIdPgLessThan(a: string, b: string): string {
 }
 
 /**
- * Newest-first ordering for channel message pages. Uses wall-clock `created_at` so
- * optimistic client UUID ids (legacy) are not dropped from the latest page when
- * snowflake ids sort later under raw `ORDER BY id DESC`.
+ * Newest-first ordering for channel message pages.
+ *
+ * Message ids are the timeline authority after the Snowflake cutover. `created_at`
+ * remains metadata for moderation, analytics, and wall-clock policies; it must not
+ * become a second pagination/order key.
  */
-export const ECHO_MESSAGE_TIMELINE_ORDER_DESC = 'created_at DESC, id DESC';
+export const ECHO_MESSAGE_TIMELINE_ORDER_DESC = 'id DESC';
+
+/** Wall-clock ordering for policies that ask which row was written most recently. */
+export const ECHO_MESSAGE_WALL_CLOCK_ORDER_DESC = 'created_at DESC, id DESC';

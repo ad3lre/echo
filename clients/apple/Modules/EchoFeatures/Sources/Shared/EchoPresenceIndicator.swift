@@ -61,4 +61,3 @@ struct EchoPresenceIndicator: View {
     .background(EchoTheme.Color.canvas)
   }
 #endif
-

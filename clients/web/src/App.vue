@@ -11,6 +11,7 @@ import {
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
 import { PLATFORM_KEY } from '@/platform/keys';
 import { useAuthSessionStore } from '@/features/auth/authSession';
+import { isPaperFeatureEnabled } from '@/features/paper/paperFeatureToggle';
 import { useAppBootGate } from '@/features/layout/composables/controller/useAppBootGate';
 import { ENABLE_NUMBERED_ICON_RENAME_TOOL } from '@/dev/echoDevTools';
 import AppLayoutLoadError from '@/features/layout/components/AppLayoutLoadError.vue';
@@ -174,6 +175,7 @@ function paperPublicTokenFromLocation(): string | null {
   const base = import.meta.env.BASE_URL || '/';
   const p = normalizePathname(stripBasePath(window.location.pathname, base));
   if (!p.startsWith('/paper/s/')) return null;
+  if (!isPaperFeatureEnabled) return null;
   const token = p.slice('/paper/s/'.length).trim();
   return token || null;
 }

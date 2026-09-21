@@ -57,42 +57,106 @@ function hasNonGifLink(content: string | undefined): boolean {
   return matches.some((url) => !isGifUrl(url));
 }
 
+const SEARCH_IMAGE_EXT_RE = /\.(jpe?g|png|webp|heic|heif|bmp|tif|tiff)(\?|$)/i;
+
+function mimeLooksDocument(mime: string): boolean {
+  return (
+    mime.startsWith('application/') ||
+    mime.includes('pdf') ||
+    mime.includes('document')
+  );
+}
+
+function attachmentLooksSearchImage(a: {
+  mimeType?: string;
+  kind?: string;
+  filename?: string;
+  url?: string;
+}): boolean {
+  const kind = (a.kind ?? '').toLowerCase();
+  const mime = (a.mimeType ?? '').toLowerCase();
+  const name = (a.filename ?? '').toLowerCase();
+  const url = (a.url ?? '').toLowerCase();
+  if (kind === 'gif' || mime === 'image/gif' || name.endsWith('.gif')) {
+    return false;
+  }
+  if (mimeLooksDocument(mime)) return false;
+  // Prefer mime + extension; do not trust bare `kind: image` (mislabeled docs).
+  return (
+    mime.startsWith('image/') ||
+    SEARCH_IMAGE_EXT_RE.test(name) ||
+    SEARCH_IMAGE_EXT_RE.test(url)
+  );
+}
+
 function messageMatchesHasType(
   m: MessageWithAuthor & {
     videoUrl?: string;
     audioUrl?: string;
-    attachments?: { mimeType?: string }[];
+    attachments?: {
+      mimeType?: string;
+      kind?: string;
+      filename?: string;
+      url?: string;
+    }[];
   },
   type: HasType,
 ): boolean {
+  const atts = m.attachments ?? [];
+  const attLooks = (pred: (a: (typeof atts)[number]) => boolean) =>
+    atts.some(pred);
+
   switch (type) {
     case 'image':
-      return !!(m.imageUrl && !m.gif && !isGifUrl(m.imageUrl));
+      return !!(
+        (m.imageUrl && !m.gif && !isGifUrl(m.imageUrl)) ||
+        attLooks(attachmentLooksSearchImage)
+      );
     case 'gif':
       return !!(
         m.gif ||
         (m.imageUrl && isGifUrl(m.imageUrl)) ||
-        messageHasInlineGifEmbed(m)
+        messageHasInlineGifEmbed(m) ||
+        attLooks((a) => {
+          const kind = (a.kind ?? '').toLowerCase();
+          const mime = (a.mimeType ?? '').toLowerCase();
+          const name = (a.filename ?? '').toLowerCase();
+          const url = (a.url ?? '').toLowerCase();
+          return (
+            kind === 'gif' ||
+            mime === 'image/gif' ||
+            name.endsWith('.gif') ||
+            isGifUrl(url)
+          );
+        })
       );
     case 'link':
       return hasNonGifLink(m.content);
     case 'video':
-      return !!(m as { videoUrl?: string }).videoUrl;
-    case 'audio':
-      return !!(m as { audioUrl?: string }).audioUrl;
-    case 'docs': {
-      const atts = (m as { attachments?: { mimeType?: string }[] }).attachments;
       return !!(
-        atts?.length &&
-        atts.some((a) => {
+        (m as { videoUrl?: string }).videoUrl ||
+        attLooks((a) => {
+          const kind = (a.kind ?? '').toLowerCase();
           const mime = (a.mimeType ?? '').toLowerCase();
-          return (
-            mime.startsWith('application/') ||
-            mime.includes('pdf') ||
-            mime.includes('document')
-          );
+          return kind === 'video' || mime.startsWith('video/');
         })
       );
+    case 'audio':
+      return !!(
+        (m as { audioUrl?: string }).audioUrl ||
+        attLooks((a) => {
+          const kind = (a.kind ?? '').toLowerCase();
+          const mime = (a.mimeType ?? '').toLowerCase();
+          return kind === 'audio' || mime.startsWith('audio/');
+        })
+      );
+    case 'docs': {
+      return attLooks((a) => {
+        if (attachmentLooksSearchImage(a)) return false;
+        const kind = (a.kind ?? '').toLowerCase();
+        const mime = (a.mimeType ?? '').toLowerCase();
+        return kind === 'document' || mimeLooksDocument(mime);
+      });
     }
     default:
       return false;

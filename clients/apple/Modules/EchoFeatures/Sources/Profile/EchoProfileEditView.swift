@@ -3,7 +3,25 @@ import EchoNetworking
 import PhotosUI
 import SwiftUI
 
+#if os(iOS)
+  import UIKit
+#endif
+
 struct EchoProfileEditView: View {
+  enum EditTab: String, CaseIterable, Identifiable, Hashable {
+    case profile
+    case banner
+
+    var id: Self { self }
+
+    var title: String {
+      switch self {
+      case .profile: EchoCopy.string("Profile")
+      case .banner: EchoCopy.string("Banner")
+      }
+    }
+  }
+
   let profile: EchoUserProfile?
   let baseURL: URL
   let accessToken: String
@@ -21,123 +39,64 @@ struct EchoProfileEditView: View {
   @State private var avatarData: Data?
   @State private var isSaving = false
   @State private var errorMessage: String?
+  @State private var bannerRefractionEnabled = false
+  @State private var bannerBlurEnabled = false
+  @State private var bannerBlackoutEnabled = false
+  @State private var effectsPersisting = false
+  @State private var selectedTab: EditTab = .profile
 
   var body: some View {
-    ScrollView(showsIndicators: false) {
-      VStack(spacing: 0) {
-        // This is the home surface transformed in place: the profile banner,
-        // curved slice, avatar, and spacing are the same primitives as DMs.
-        ZStack {
-          EchoCopy.text("Edit Profile")
-            .font(.system(size: 21, weight: .semibold, design: .rounded))
-
-          HStack {
-            Button(action: onExit) {
-              Image(systemName: "arrow.left")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.9))
-                .frame(width: 40, height: 40)
-                .background(.white.opacity(0.08), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(EchoCopy.string("Close edit profile"))
-            Spacer(minLength: 0)
-          }
-        }
-        .padding(.horizontal, 22)
-        .padding(.top, headerTopPadding)
-        .padding(.bottom, 16)
-
-        ZStack(alignment: .bottom) {
-          PhotosPicker(selection: $bannerItem, matching: .images) {
-            Group {
-              if let bannerData, let image = platformImage(bannerData) {
-                image.resizable().scaledToFill()
-              } else if let bannerURL = profile?.bannerURL {
-                EchoMediaImage(source: bannerURL, baseURL: baseURL, accessToken: accessToken) {
-                  Color.indigo.opacity(0.55)
-                }
-              } else {
-                Color.indigo.opacity(0.55)
-              }
-            }
-            .frame(height: 226)
-            .frame(maxWidth: .infinity)
-            .clipped()
+    VStack(spacing: 0) {
+      HStack {
+        Button(action: onExit) {
+          Image(systemName: "arrow.left")
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.9))
+            .frame(width: 40, height: 40)
             .contentShape(Rectangle())
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel(EchoCopy.string("Change profile banner"))
-          EchoProfileEditSlice()
-            .fill(EchoTheme.Color.canvas)
-            .frame(height: 84)
-            .allowsHitTesting(false)
-          HStack(alignment: .bottom, spacing: 8) {
-            ZStack(alignment: .bottomTrailing) {
-              PhotosPicker(selection: $avatarItem, matching: .images) {
-                EchoEditableAvatar(
-                  profile: profile, baseURL: baseURL, accessToken: accessToken, data: avatarData
-                )
-              }
-              .buttonStyle(.plain)
-              .frame(width: 76, height: 76)
-              .accessibilityLabel(EchoCopy.string("Change profile picture"))
-              if !presenceStatus.isEmpty {
-                EchoPresenceIndicator(status: presenceStatus, size: 16)
-                  .allowsHitTesting(false)
-              }
-            }
-            .frame(width: 76, height: 76)
-            VStack(alignment: .leading, spacing: 3) {
-              Text(displayName.isEmpty ? (profile?.name ?? "") : displayName)
-                .font(.system(size: 21, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-              Text(profile?.username.map { "@\($0)" } ?? "")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.58))
-                .lineLimit(1)
-            }
-            .padding(.bottom, 7)
-            .allowsHitTesting(false)
-            Spacer(minLength: 0)
-              .allowsHitTesting(false)
-          }
-          .padding(.horizontal, 22)
         }
-        .padding(.bottom, 24)
-
-        VStack(alignment: .leading, spacing: 10) {
-          EchoCopy.text("PROFILE")
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
-            .tracking(2.2)
-            .foregroundStyle(.white.opacity(0.38))
-
-          VStack(spacing: 0) {
-            ProfileInlineField(title: EchoCopy.string("Display name")) {
-              TextField(EchoCopy.string("Display name"), text: $displayName)
-            }
-            ProfileInlineField(title: EchoCopy.string("Bio")) {
-              TextField(EchoCopy.string("Add a bio"), text: $bio, axis: .vertical)
-                .lineLimit(2...5)
-            }
-            ProfileInlineField(title: EchoCopy.string("Status")) {
-              TextField(EchoCopy.string("Set a status"), text: $status)
-            }
-            ProfilePresencePicker(selection: $presenceStatus)
-          }
-          .padding(6)
-          .background(
-            EchoTheme.Color.sheetVeil.opacity(0.98),
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-          )
-          .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-              .stroke(.white.opacity(0.055), lineWidth: 1)
-          }
-        }
-        .padding(.horizontal, 22)
+        .buttonStyle(.plain)
+        .accessibilityLabel(EchoCopy.string("Close edit profile"))
+        Spacer(minLength: 0)
       }
+      .padding(.horizontal, 22)
+      .padding(.top, headerTopPadding)
+      .padding(.bottom, 12)
+
+      profileHero
+
+      ProfileEditTabBar(selection: $selectedTab)
+        .padding(.horizontal, 22)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
+
+      TabView(selection: $selectedTab) {
+        ScrollView(showsIndicators: false) {
+          profileFields
+            .padding(.horizontal, 22)
+            .padding(.bottom, 28)
+        }
+        .tag(EditTab.profile)
+        .scrollDismissesKeyboard(.interactively)
+
+        ScrollView(showsIndicators: false) {
+          bannerEffectsFields
+            .padding(.horizontal, 22)
+            .padding(.bottom, 28)
+        }
+        .tag(EditTab.banner)
+        .scrollDismissesKeyboard(.interactively)
+      }
+      #if os(iOS)
+        .tabViewStyle(.page(indexDisplayMode: .never))
+      #endif
+      .animation(.easeInOut(duration: 0.18), value: selectedTab)
     }
+    .simultaneousGesture(
+      TapGesture().onEnded {
+        dismissKeyboard()
+      }
+    )
     .background(EchoHomeBackground().ignoresSafeArea())
     .safeAreaInset(edge: .bottom, spacing: 0) {
       if hasChanges {
@@ -152,10 +111,14 @@ struct EchoProfileEditView: View {
       }
     }
     .animation(.spring(response: 0.3, dampingFraction: 0.84), value: hasChanges)
-    .onAppear { applyLoadedPresence(currentPresence) }
+    .onAppear {
+      applyLoadedPresence(currentPresence)
+      syncEffectsFromProfile()
+    }
     .task {
       displayName = profile?.name ?? ""
       bio = profile?.bio ?? ""
+      syncEffectsFromProfile()
       let client = EchoSettingsClient(baseURL: baseURL)
       if let identity = try? await client.loadAccountIdentity(accessToken: accessToken) {
         let loadedStatus = identity.customStatus ?? ""
@@ -170,7 +133,11 @@ struct EchoProfileEditView: View {
     .onChange(of: avatarItem) { _, item in
       Task { avatarData = try? await item?.loadTransferable(type: Data.self) }
     }
-    .alert(EchoCopy.string("Profile update failed"),
+    .onChange(of: selectedTab) { _, _ in
+      dismissKeyboard()
+    }
+    .alert(
+      EchoCopy.string("Profile update failed"),
       isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
     ) {
       Button(EchoCopy.string("OK"), role: .cancel) {}
@@ -179,22 +146,205 @@ struct EchoProfileEditView: View {
     }
   }
 
+  private func dismissKeyboard() {
+    #if os(iOS)
+      UIApplication.shared.sendAction(
+        #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    #endif
+  }
+
+  private var profileHero: some View {
+    ZStack(alignment: .bottom) {
+      PhotosPicker(selection: $bannerItem, matching: .images) {
+        Group {
+          if let bannerData, let image = platformImage(bannerData) {
+            ZStack {
+              image.resizable().scaledToFill()
+                .blur(radius: bannerBlurEnabled ? EchoBannerEffectStyle.bannerBlur : 0)
+              if bannerBlackoutEnabled {
+                Color.black.opacity(EchoBannerEffectStyle.blackoutOpacity)
+              }
+              LinearGradient(
+                colors: [.black.opacity(0.02), .black.opacity(0.42)],
+                startPoint: .top,
+                endPoint: .bottom
+              )
+            }
+            .clipped()
+          } else if let previewProfile {
+            EchoProfileBanner(
+              profile: previewProfile, baseURL: baseURL, accessToken: accessToken,
+              showsRefractionBleed: true)
+          } else {
+            Color.indigo.opacity(0.55)
+          }
+        }
+        .frame(height: 226)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(EchoCopy.string("Change profile banner"))
+      EchoProfileEditSlice()
+        .fill(EchoTheme.Color.canvas)
+        .frame(height: 84)
+        .allowsHitTesting(false)
+      HStack(alignment: .bottom, spacing: 8) {
+        ZStack(alignment: .bottomTrailing) {
+          PhotosPicker(selection: $avatarItem, matching: .images) {
+            EchoEditableAvatar(
+              profile: profile, baseURL: baseURL, accessToken: accessToken, data: avatarData
+            )
+          }
+          .buttonStyle(.plain)
+          .frame(width: 76, height: 76)
+          .accessibilityLabel(EchoCopy.string("Change profile picture"))
+          if !presenceStatus.isEmpty {
+            EchoPresenceIndicator(status: presenceStatus, size: 16)
+              .allowsHitTesting(false)
+          }
+        }
+        .frame(width: 76, height: 76)
+        VStack(alignment: .leading, spacing: 3) {
+          Text(displayName.isEmpty ? (profile?.name ?? "") : displayName)
+            .font(.system(size: 21, weight: .semibold, design: .rounded))
+            .lineLimit(1)
+          Text(profile?.username.map { "@\($0)" } ?? "")
+            .font(.system(size: 13, weight: .medium, design: .rounded))
+            .foregroundStyle(.white.opacity(0.58))
+            .lineLimit(1)
+        }
+        .padding(.bottom, 7)
+        .allowsHitTesting(false)
+        Spacer(minLength: 0)
+          .allowsHitTesting(false)
+      }
+      .padding(.horizontal, 22)
+    }
+    .padding(.bottom, 20)
+  }
+
+  private var profileFields: some View {
+    VStack(spacing: 0) {
+      ProfileInlineField(title: EchoCopy.string("Display name")) {
+        TextField(EchoCopy.string("Your name"), text: $displayName)
+      }
+      profileDivider
+      ProfileInlineField(title: EchoCopy.string("Bio")) {
+        TextField(EchoCopy.string("About you"), text: $bio, axis: .vertical)
+          .lineLimit(2...5)
+      }
+      profileDivider
+      ProfileInlineField(title: EchoCopy.string("Status")) {
+        TextField(EchoCopy.string("What’s up?"), text: $status)
+      }
+      profileDivider
+        ProfilePresencePicker(selection: presenceStatus) { next in
+          selectPresence(next)
+        }
+    }
+  }
+
+  private var profileDivider: some View {
+    Rectangle()
+      .fill(.white.opacity(0.06))
+      .frame(height: 1)
+      .padding(.leading, 2)
+  }
+
+  private var bannerEffectsFields: some View {
+    VStack(spacing: 0) {
+      EchoBannerEffectToggle(
+        title: EchoCopy.string("Blur"),
+        systemImage: "slider.horizontal.3",
+        isOn: bannerBlurEnabled,
+        disabled: effectsPersisting
+      ) {
+        bannerBlurEnabled.toggle()
+        Task { await persistBannerEffects() }
+      }
+      profileDivider
+      EchoBannerEffectToggle(
+        title: EchoCopy.string("Blackout"),
+        systemImage: "moon.fill",
+        isOn: bannerBlackoutEnabled,
+        disabled: effectsPersisting
+      ) {
+        bannerBlackoutEnabled.toggle()
+        Task { await persistBannerEffects() }
+      }
+      profileDivider
+      EchoBannerEffectToggle(
+        title: EchoCopy.string("Refraction"),
+        systemImage: "sun.max.fill",
+        isOn: bannerRefractionEnabled,
+        disabled: effectsPersisting
+      ) {
+        bannerRefractionEnabled.toggle()
+        Task { await persistBannerEffects() }
+      }
+    }
+  }
+
+  private var previewProfile: EchoUserProfile? {
+    profile?.withBannerEffects(
+      refraction: bannerRefractionEnabled,
+      blur: bannerBlurEnabled,
+      blackout: bannerBlackoutEnabled)
+  }
+
+  private func syncEffectsFromProfile() {
+    bannerRefractionEnabled = profile?.bannerRefractionEnabled ?? false
+    bannerBlurEnabled = profile?.bannerBlurEnabled ?? false
+    bannerBlackoutEnabled = profile?.bannerBlackoutEnabled ?? false
+  }
+
+  private func persistBannerEffects() async {
+    effectsPersisting = true
+    defer { effectsPersisting = false }
+    do {
+      try await EchoSettingsClient(baseURL: baseURL).updateBannerEffects(
+        refractionEnabled: bannerRefractionEnabled,
+        blurEnabled: bannerBlurEnabled,
+        blackoutEnabled: bannerBlackoutEnabled,
+        accessToken: accessToken)
+    } catch {
+      errorMessage = error.localizedDescription
+      syncEffectsFromProfile()
+    }
+  }
+
+  private func selectPresence(_ next: String) {
+    guard next != presenceStatus, Self.canonicalPresence(next) != nil else { return }
+    let previous = presenceStatus
+    presenceStatus = next
+    Task { await persistPresence(previous: previous) }
+  }
+
+  private func persistPresence(previous: String) async {
+    do {
+      try await EchoSettingsClient(baseURL: baseURL).updatePresence(
+        presenceStatus, accessToken: accessToken)
+      originalPresenceStatus = presenceStatus
+    } catch {
+      presenceStatus = previous
+      errorMessage = error.localizedDescription
+    }
+  }
+
   private func save() {
     isSaving = true
     Task {
       do {
-        let presenceChanged =
-          presenceStatus != originalPresenceStatus
-          && Self.canonicalPresence(presenceStatus) != nil
         try await EchoSettingsClient(baseURL: baseURL).updateProfile(
           displayName: displayName, username: nil, bio: bio,
           customStatus: status != originalStatus ? status : nil,
-          presenceStatus: presenceChanged ? presenceStatus : nil,
-          bannerImage: bannerData, avatarImage: avatarData, accessToken: accessToken)
-        if presenceChanged {
-          try await EchoSettingsClient(baseURL: baseURL).updatePresence(
-            presenceStatus, accessToken: accessToken)
-        }
+          presenceStatus: nil,
+          bannerImage: bannerData, avatarImage: avatarData,
+          bannerRefractionEnabled: bannerRefractionEnabled,
+          bannerBlurEnabled: bannerBlurEnabled,
+          bannerBlackoutEnabled: bannerBlackoutEnabled,
+          accessToken: accessToken)
         onExit()
       } catch { errorMessage = error.localizedDescription }
       isSaving = false
@@ -205,7 +355,6 @@ struct EchoProfileEditView: View {
     displayName != (profile?.name ?? "")
       || bio != (profile?.bio ?? "")
       || status != originalStatus
-      || presenceStatus != originalPresenceStatus
       || bannerData != nil
       || avatarData != nil
   }
@@ -214,12 +363,12 @@ struct EchoProfileEditView: View {
     displayName = profile?.name ?? ""
     bio = profile?.bio ?? ""
     status = originalStatus
-    presenceStatus = originalPresenceStatus
     bannerItem = nil
     avatarItem = nil
     bannerData = nil
     avatarData = nil
     errorMessage = nil
+    syncEffectsFromProfile()
   }
 
   private var headerTopPadding: CGFloat {
@@ -247,56 +396,66 @@ struct EchoProfileEditView: View {
   }
 }
 
+private struct ProfileEditTabBar: View {
+  @Binding var selection: EchoProfileEditView.EditTab
+
+  var body: some View {
+    HStack(spacing: 22) {
+      ForEach(EchoProfileEditView.EditTab.allCases) { tab in
+        Button {
+          selection = tab
+        } label: {
+          VStack(spacing: 8) {
+            Text(tab.title)
+              .font(.system(size: 15, weight: .semibold, design: .rounded))
+              .foregroundStyle(selection == tab ? .white : .white.opacity(0.42))
+            Capsule()
+              .fill(selection == tab ? EchoTheme.Color.indigoSoft : .clear)
+              .frame(width: 22, height: 3)
+          }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tab.title)
+        .accessibilityAddTraits(selection == tab ? .isSelected : [])
+      }
+      Spacer(minLength: 0)
+    }
+  }
+}
+
 private struct ProfileUnsavedChangesBar: View {
   let isSaving: Bool
   let onDiscard: () -> Void
   let onSave: () -> Void
 
   var body: some View {
-    HStack(spacing: 10) {
-      VStack(alignment: .leading, spacing: 2) {
-        EchoCopy.text("Unsaved changes")
-          .font(.system(size: 14, weight: .semibold, design: .rounded))
-        EchoCopy.text("Save to update your profile")
-          .font(.system(size: 11, design: .rounded))
-          .foregroundStyle(.white.opacity(0.48))
-      }
-      Spacer(minLength: 4)
+    HStack(spacing: 12) {
       Button(EchoCopy.string("Discard"), action: onDiscard)
-        .font(.system(size: 12, weight: .semibold, design: .rounded))
+        .font(.system(size: 14, weight: .semibold, design: .rounded))
         .foregroundStyle(.white.opacity(0.62))
         .disabled(isSaving)
+      Spacer(minLength: 0)
       Button(action: onSave) {
         Group {
           if isSaving {
             ProgressView().controlSize(.small).tint(.white)
           } else {
-            EchoCopy.text("Save Changes")
+            EchoCopy.text("Save")
           }
         }
-        .font(.system(size: 12, weight: .bold, design: .rounded))
+        .font(.system(size: 14, weight: .bold, design: .rounded))
         .foregroundStyle(.white)
-        .frame(minWidth: 92)
-        .padding(.horizontal, 10)
-        .frame(height: 36)
-        .background(
-          EchoTheme.Color.indigoDeep, in: RoundedRectangle(cornerRadius: 11))
+        .frame(minWidth: 72)
+        .padding(.horizontal, 16)
+        .frame(height: 40)
+        .background(EchoTheme.Color.indigoDeep, in: Capsule())
       }
       .buttonStyle(.plain)
       .disabled(isSaving)
     }
-    .padding(.leading, 15)
-    .padding(.trailing, 8)
-    .padding(.vertical, 8)
-    .background(
-      EchoTheme.Color.elevated.opacity(0.98),
-      in: RoundedRectangle(cornerRadius: 17, style: .continuous)
-    )
-    .overlay {
-      RoundedRectangle(cornerRadius: 17, style: .continuous)
-        .stroke(.white.opacity(0.10), lineWidth: 1)
-    }
-    .shadow(color: .black.opacity(0.44), radius: 18, y: 8)
+    .padding(.horizontal, 18)
+    .padding(.vertical, 12)
+    .background(.ultraThinMaterial.opacity(0.92), in: Capsule())
   }
 }
 
@@ -320,32 +479,24 @@ private struct ProfileInlineField<Content: View>: View {
   @ViewBuilder let content: () -> Content
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 7) {
-      Text(title.uppercased())
-        .font(.system(size: 11, weight: .semibold, design: .rounded))
-        .tracking(1.2)
-        .foregroundStyle(.secondary)
+    VStack(alignment: .leading, spacing: 8) {
+      Text(title)
+        .font(.system(size: 12, weight: .medium, design: .rounded))
+        .foregroundStyle(.white.opacity(0.4))
       content()
-        .font(.system(size: 16, weight: .medium, design: .rounded))
+        .font(.system(size: 17, weight: .medium, design: .rounded))
         .textFieldStyle(.plain)
-        .foregroundStyle(.primary)
-        .tint(.indigo)
+        .foregroundStyle(.white.opacity(0.94))
+        .tint(EchoTheme.Color.indigoSoft)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
-        .overlay {
-          RoundedRectangle(cornerRadius: 12)
-            .stroke(.white.opacity(0.075), lineWidth: 1)
-        }
     }
-    .padding(.horizontal, 14)
-    .padding(.vertical, 8)
+    .padding(.vertical, 14)
   }
 }
 
 private struct ProfilePresencePicker: View {
-  @Binding var selection: String
+  let selection: String
+  let onSelect: (String) -> Void
 
   private let options = [
     (id: "online", label: EchoCopy.string("Online"), color: EchoTheme.Color.presenceOnline),
@@ -357,49 +508,60 @@ private struct ProfilePresencePicker: View {
   ]
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      EchoCopy.text("ONLINE STATUS")
-        .font(.system(size: 11, weight: .semibold, design: .rounded))
-        .tracking(1.2)
-        .foregroundStyle(.secondary)
+    VStack(alignment: .leading, spacing: 12) {
+      Text(EchoCopy.string("Presence"))
+        .font(.system(size: 12, weight: .medium, design: .rounded))
+        .foregroundStyle(.white.opacity(0.4))
 
-      HStack(spacing: 6) {
+      HStack(spacing: 8) {
         ForEach(options, id: \.id) { option in
+          let selected = selection == option.id
           Button {
-            selection = option.id
+            onSelect(option.id)
           } label: {
-            VStack(spacing: 7) {
-              Circle()
-                .fill(option.color)
-                .frame(width: 11, height: 11)
-              Text(option.label)
-                .font(
-                  .system(
-                    size: option.id == "do_not_disturb" ? 10 : 11, weight: .semibold,
-                    design: .rounded)
+            VStack(spacing: 9) {
+              HStack(spacing: 7) {
+                Circle()
+                  .fill(option.color)
+                  .frame(width: 9, height: 9)
+                Text(option.label)
+                  .font(.system(size: 13, weight: .semibold, design: .rounded))
+                  .lineLimit(1)
+                  .minimumScaleFactor(0.78)
+              }
+              .foregroundStyle(selected ? .white : .white.opacity(0.42))
+
+              Capsule()
+                .fill(
+                  LinearGradient(
+                    colors: [
+                      .white.opacity(0.05),
+                      .white.opacity(0.95),
+                      option.color.opacity(0.9),
+                      .white.opacity(0.95),
+                      .white.opacity(0.05),
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                  )
                 )
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
+                .frame(width: 34, height: 2.5)
+                .shadow(color: option.color.opacity(0.4), radius: 4, y: 0)
+                .opacity(selected ? 1 : 0)
+                .animation(.easeOut(duration: 0.18), value: selection)
             }
-            .foregroundStyle(selection == option.id ? .white : .white.opacity(0.54))
-            .frame(maxWidth: .infinity)
-            .frame(height: 58)
-            .background(
-              selection == option.id ? option.color.opacity(0.14) : .white.opacity(0.035),
-              in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-            )
-            .overlay {
-              RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(selection == option.id ? option.color.opacity(0.42) : .clear)
-            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
+          .accessibilityLabel(option.label)
+          .accessibilityAddTraits(selected ? .isSelected : [])
         }
+        Spacer(minLength: 0)
       }
     }
-    .padding(.horizontal, 14)
-    .padding(.top, 8)
-    .padding(.bottom, 14)
+    .padding(.vertical, 14)
   }
 }
 
@@ -422,5 +584,48 @@ private struct EchoEditableAvatar: View {
     }
     .clipShape(Circle())
     .contentShape(Circle())
+  }
+}
+
+/// Immediate-toggle row for blur / blackout / refraction (web banner-effect parity).
+private struct EchoBannerEffectToggle: View {
+  let title: String
+  let systemImage: String
+  let isOn: Bool
+  var disabled: Bool = false
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      HStack(spacing: 14) {
+        Image(systemName: systemImage)
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(.white.opacity(0.55))
+          .frame(width: 22)
+
+        Text(title)
+          .font(.system(size: 16, weight: .semibold, design: .rounded))
+          .foregroundStyle(.white.opacity(0.92))
+
+        Spacer(minLength: 0)
+
+        Capsule()
+          .fill(isOn ? EchoTheme.Color.actionHighlight.opacity(0.92) : Color.white.opacity(0.12))
+          .frame(width: 44, height: 26)
+          .overlay(alignment: isOn ? .trailing : .leading) {
+            Circle()
+              .fill(.white)
+              .frame(width: 20, height: 20)
+              .padding(3)
+          }
+      }
+      .padding(.vertical, 16)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .disabled(disabled)
+    .opacity(disabled ? 0.55 : 1)
+    .accessibilityLabel(title)
+    .accessibilityValue(isOn ? EchoCopy.string("On") : EchoCopy.string("Off"))
   }
 }

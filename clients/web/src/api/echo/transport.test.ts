@@ -51,9 +51,9 @@ describe('EchoApiError message fallback', () => {
     expect(err.message).toBe('Slow down');
   });
 
-  it('falls back to generic copy when code has no i18n entry', () => {
+  it('uses stable localized copy when the server omits a message', () => {
     const err = new EchoApiError(403, { code: 'CSRF_REQUIRED', message: '' });
-    expect(err.message).toBe(echoT('errors.api.unknown'));
+    expect(err.message).toBe(echoT('errors.api.CSRF_REQUIRED'));
   });
 
   it('prefers translated detail over base message when present', () => {

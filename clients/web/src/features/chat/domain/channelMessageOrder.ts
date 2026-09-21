@@ -52,5 +52,7 @@ export function compareRawMessagesChronologically(
 }
 
 export function sortRawMessagesInPlace(list: RawMessage[]): void {
+  // Workspace prefetch uses this as a one-time normalization boundary before
+  // handing the batch to the channel index.
   list.sort(compareRawMessagesChronologically);
 }

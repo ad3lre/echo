@@ -61,9 +61,9 @@ export function buildPaperEditorExtensions(
 ): Extensions {
   const extensions: Extensions = [
     StarterKit.configure({
+      link: false,
       dropcursor: { color: 'rgba(99,102,241,0.6)', width: 2 },
       heading: { levels: [1, 2, 3] },
-      // Keep literal `**`, `` ` ``, etc. in the doc; inline/raw preview is decoration-driven.
       bold: false,
       italic: false,
       strike: false,

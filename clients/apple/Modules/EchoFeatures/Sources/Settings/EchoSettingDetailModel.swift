@@ -165,6 +165,7 @@ final class EchoSettingDetailModel {
         }
         if let lastError { throw lastError }
         lastPersistedNotificationSettings = settings
+        EchoSoundPlayback.cache(settings)
         EchoAppBadge.unreadBadgesEnabled = settings.unreadBadge
         EchoForegroundNotifications.alertsEnabled = settings.desktopAlerts
         errorRetry = nil
@@ -221,6 +222,7 @@ final class EchoSettingDetailModel {
         notificationSettings = try await client.loadNotificationPreferences(
           accessToken: accessToken)
         lastPersistedNotificationSettings = notificationSettings
+        EchoSoundPlayback.cache(notificationSettings)
       } catch {
         presentFailure(error)
       }
@@ -470,9 +472,10 @@ final class EchoSettingDetailModel {
   }
 
   func retryPresentedFailure() {
-    let retry = errorRetry ?? { [weak self] in
-      Task { await self?.loadRemoteState() }
-    }
+    let retry =
+      errorRetry ?? { [weak self] in
+        Task { await self?.loadRemoteState() }
+      }
     errorMessage = nil
     errorRetry = nil
     errorIsConnectivity = false

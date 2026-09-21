@@ -93,6 +93,54 @@ public struct EchoMessagePage: Equatable, Sendable {
   }
 }
 
+/// A search page ordered newest-first by the Echo message search endpoint.
+public struct EchoMessageSearchPage: Equatable, Sendable {
+  public let messages: [EchoMessage]
+  public let hasMoreBefore: Bool
+
+  public init(messages: [EchoMessage], hasMoreBefore: Bool) {
+    self.messages = messages
+    self.hasMoreBefore = hasMoreBefore
+  }
+}
+
+/// `hasType` values accepted by `GET …/messages/search` (web parity).
+public enum EchoMessageSearchHasType: String, CaseIterable, Sendable, Equatable {
+  case image
+  case gif
+  case link
+  case video
+  case audio
+  case docs
+}
+
+/// Optional criteria layered on free-text `q` for conversation search.
+public struct EchoMessageSearchCriteria: Equatable, Sendable {
+  public var authorID: String?
+  public var mentions: String?
+  public var hasType: EchoMessageSearchHasType?
+  public var hasAttachment: Bool
+
+  public init(
+    authorID: String? = nil,
+    mentions: String? = nil,
+    hasType: EchoMessageSearchHasType? = nil,
+    hasAttachment: Bool = false
+  ) {
+    self.authorID = authorID
+    self.mentions = mentions
+    self.hasType = hasType
+    self.hasAttachment = hasAttachment
+  }
+
+  public var isEmpty: Bool {
+    (authorID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+      && (mentions?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+      && hasType == nil
+      && !hasAttachment
+  }
+}
+
 public struct EchoAttentionChannelSummary: Decodable, Equatable, Sendable {
   public let channelID: String
   public let unreadCount: Int
@@ -195,6 +243,22 @@ public struct EchoCustomEmoji: Decodable, Equatable, Sendable, Identifiable {
   public var messageToken: String {
     let safeName = name.replacingOccurrences(of: ":", with: "_")
     return animated ? "<a:\(safeName):\(id)>" : "<:\(safeName):\(id)>"
+  }
+
+  public init(
+    id: String,
+    serverID: String? = nil,
+    name: String,
+    animated: Bool = false,
+    imageURL: String,
+    useCount: Int = 0
+  ) {
+    self.id = id
+    self.serverID = serverID
+    self.name = name
+    self.animated = animated
+    self.imageURL = imageURL
+    self.useCount = useCount
   }
 
   private enum CodingKeys: String, CodingKey {

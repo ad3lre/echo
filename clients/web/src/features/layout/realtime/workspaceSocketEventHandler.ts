@@ -43,8 +43,24 @@ export function createWorkspaceSocketEventHandler(
 ): (payload: EchoWorkspaceEvent) => void {
   const debounceMs = deps.debounceMs ?? 200;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  const seenVersionedEvents = new Set<string>();
+  const maxSeenVersionedEvents = 2048;
 
   return (payload: EchoWorkspaceEvent) => {
+    // Socket reconnects and outbox replay are at-least-once delivery paths.
+    // Version gating intentionally accepts equal versions for snapshot races;
+    // this separate bounded key set prevents duplicate side effects in event
+    // consumers that do not hydrate a snapshot.
+    const version = payload.version?.trim();
+    if (version) {
+      const eventKey = `${payload.kind}:${version}`;
+      if (seenVersionedEvents.has(eventKey)) return;
+      seenVersionedEvents.add(eventKey);
+      if (seenVersionedEvents.size > maxSeenVersionedEvents) {
+        const oldest = seenVersionedEvents.values().next().value;
+        if (typeof oldest === 'string') seenVersionedEvents.delete(oldest);
+      }
+    }
     if (payload.kind === 'paper_document_updated' && payload.paperDocument) {
       void import('@/features/paper/paperRealtimeBus').then((m) =>
         m.emitPaperDocumentUpdated(payload.paperDocument!),

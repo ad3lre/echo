@@ -17,22 +17,25 @@ npm ci
 cp .env.example .env
 # Edit .env if needed (see comments inside .env.example).
 npm run db:up
-npm run dev
+npm run dev:core
 ```
+
+`dev:core` starts the API and web client. Use `npm run dev` when you also need
+the Discord bot and activities worker.
 
 - API: default **http://localhost:3000**
 - Vite dev server: **http://localhost:8080** (see `.env` / `CORS_ORIGIN` if you change ports).
 
 ## Day 2 — where things live
 
-| Topic                               | Start here                                                                                                                                    |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Top-level layout (client vs kit)    | [`docs/overview/repo-layout.md`](overview/repo-layout.md)                                                                                     |
-| Stack and scale stance              | [`docs/overview/STACK.md`](overview/STACK.md)                                                                                                 |
-| Contributor / client–server charter | [`docs/overview/agents.md`](overview/agents.md)                                                                                               |
-| REST / data contracts               | [`docs/contracts/`](contracts/)                                                                                                               |
-| Voice / LiveKit (high level)        | [`docs/infra/livekit-turn.md`](server/ops/infra/livekit-turn.md), [`docs/operations/livekit-production.md`](operations/livekit-production.md) |
-| Native builds                       | [`clients/apple/README.md`](../clients/apple/README.md)                                                                                       |
+| Topic                               | Start here                                                                                                                         |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Top-level layout (client vs kit)    | [`docs/overview/repo-layout.md`](overview/repo-layout.md)                                                                          |
+| Stack and scale stance              | [`docs/overview/STACK.md`](overview/STACK.md)                                                                                      |
+| Contributor / client–server charter | [`docs/overview/agents.md`](overview/agents.md)                                                                                    |
+| REST / data contracts               | [`docs/contracts/`](contracts/)                                                                                                    |
+| Voice / LiveKit (high level)        | [`docs/infra/livekit-turn.md`](infra/livekit-turn.md), [`docs/operations/livekit-production.md`](operations/livekit-production.md) |
+| Native builds                       | [`clients/apple/README.md`](../clients/apple/README.md)                                                                            |
 
 ## Checks before you open a PR
 

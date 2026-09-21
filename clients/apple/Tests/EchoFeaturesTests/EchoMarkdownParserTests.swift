@@ -79,6 +79,68 @@ struct EchoMarkdownParserTests {
     #expect(value.runs.count >= 7)
   }
 
+  @Test func styledForDisplayMaterializesEmphasisFonts() {
+    let raw = EchoMarkdownParser.inline("plain **bold** *italic* `code`")
+    let styled = EchoMarkdownDisplayStyle.attributed(raw)
+    var sawStrong = false
+    var sawEmphasis = false
+    var sawCode = false
+    for run in styled.runs {
+      let intent = run.inlinePresentationIntent ?? []
+      if intent.contains(.stronglyEmphasized) {
+        sawStrong = true
+        #expect(run.font != nil)
+      }
+      if intent.contains(.emphasized) {
+        sawEmphasis = true
+        #expect(run.font != nil)
+      }
+      if intent.contains(.code) {
+        sawCode = true
+        #expect(run.font != nil)
+        #expect(run.backgroundColor != nil)
+      }
+    }
+    #expect(sawStrong && sawEmphasis && sawCode)
+  }
+
+  @Test func parsesDiscordStyleCustomEmojiTokens() {
+    let segments = EchoMarkdownParser.inlineSegments(
+      "hi <:adel:304238867010606080> and <a:wave:304238867010606081>")
+    #expect(segments.count == 4)
+    guard case .customEmoji(let staticEmoji) = segments[1] else {
+      Issue.record("expected static custom emoji")
+      return
+    }
+    #expect(staticEmoji.name == "adel")
+    #expect(staticEmoji.id == "304238867010606080")
+    #expect(!staticEmoji.animated)
+    guard case .customEmoji(let animated) = segments[3] else {
+      Issue.record("expected animated custom emoji")
+      return
+    }
+    #expect(animated.name == "wave")
+    #expect(animated.animated)
+  }
+
+  @Test func expandsKnownCustomEmojiShortcodes() {
+    let segments = EchoMarkdownParser.inlineSegments(
+      "hey :cheese: there", knownShortcodes: ["cheese"])
+    #expect(segments.count == 3)
+    guard case .customEmoji(let emoji) = segments[1] else {
+      Issue.record("expected shortcode custom emoji")
+      return
+    }
+    #expect(emoji.name == "cheese")
+    #expect(emoji.id == nil)
+  }
+
+  @Test func preservesCustomEmojiTokensWhenStrippingHTML() {
+    let value = EchoMarkdownParser.inline("x <a:wave:304238867010606080> y</div>")
+    #expect(String(value.characters).contains("<a:wave:304238867010606080>"))
+    #expect(!String(value.characters).contains("</div>"))
+  }
+
   @Test func parsesInlineDisplayAndFootnoteMath() {
     let blocks = EchoMarkdownParser.blocks(
       "Energy $E = mc^2$\n\n$$\n\\int_0^1 x^2 dx\n$$\n\n[^1]\n\n[^1]: Source")
@@ -103,6 +165,23 @@ struct EchoMarkdownParserTests {
         return false
       })
     #expect(EchoMarkdownParser.inlineSegments("Energy $E = mc^2$").count == 2)
+  }
+
+  @Test func parsesBracketDelimitedInlineAndDisplayMath() {
+    let inline = EchoMarkdownParser.inlineSegments("Area \\(A = \\pi r^2\\) and \\[x + y\\]")
+    #expect(inline.count == 4)
+    #expect(
+      inline.contains { segment in
+        if case .math(let source, let display) = segment {
+          return source == "A = \\pi r^2" && !display
+        }
+        return false
+      })
+    #expect(
+      inline.contains { segment in
+        if case .math(let source, let display) = segment { return source == "x + y" && display }
+        return false
+      })
   }
 
   @Test func recognizesDisplayMathAfterTextAndPreservesMatrixRowBreaks() {

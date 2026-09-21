@@ -3,20 +3,40 @@ import {
   type MediaCdnAllowedWidth,
   type MediaCdnOutputFormat,
 } from '@shared/mediaCdnVariants';
-import { echoMediaUrlNeedsSigning } from '@/features/chat/mediaCdn';
+import { extractStorageKeyFromMediaCdnUrl } from '@shared/mediaCdn';
 
-export function echoMediaUrlSupportsVariants(url: string): boolean {
+const RASTER_STORAGE_KEY_SUFFIX = /\.(png|jpe?g|webp|bmp|tiff?|heic|heif)$/i;
+
+/**
+ * The media CDN validates variants from the object key before reading bytes.
+ * Do not ask it for a WebP variant when a legacy key has no raster extension;
+ * the original signed object can still be a perfectly valid image.
+ */
+export function echoMediaUrlSupportsVariants(
+  url: string,
+  storageKey?: string,
+): boolean {
   const t = url.trim();
   if (!t || t.startsWith('data:') || t.startsWith('blob:')) return false;
-  return echoMediaUrlNeedsSigning(t);
+  // This function is called after signing too. `echoMediaUrlNeedsSigning()` is
+  // intentionally false for `?t=...`, so use the URL shape—not token state—to
+  // recognize a canonical media-CDN object here.
+  const canonicalKey = extractStorageKeyFromMediaCdnUrl(t);
+  const key = canonicalKey || storageKey?.trim();
+  if (!key || !canonicalKey) return false;
+  return RASTER_STORAGE_KEY_SUFFIX.test(key.split('?')[0]!);
 }
 
 export function buildEchoMediaSrcSet(
   signedUrl: string,
   widths: readonly MediaCdnAllowedWidth[],
   format: MediaCdnOutputFormat = 'webp',
+  storageKey?: string,
 ): string {
-  if (!echoMediaUrlSupportsVariants(signedUrl) || widths.length === 0) {
+  if (
+    !echoMediaUrlSupportsVariants(signedUrl, storageKey) ||
+    widths.length === 0
+  ) {
     return '';
   }
   return widths
@@ -29,9 +49,15 @@ export function buildEchoMediaSrcSet(
 
 export function buildEchoMediaVariantUrl(
   signedUrl: string,
-  opts: { width: MediaCdnAllowedWidth; format?: MediaCdnOutputFormat },
+  opts: {
+    width: MediaCdnAllowedWidth;
+    format?: MediaCdnOutputFormat;
+    storageKey?: string;
+  },
 ): string {
-  if (!echoMediaUrlSupportsVariants(signedUrl)) return signedUrl;
+  if (!echoMediaUrlSupportsVariants(signedUrl, opts.storageKey)) {
+    return signedUrl;
+  }
   return appendMediaCdnVariantParams(signedUrl, {
     width: opts.width,
     format: opts.format ?? 'webp',

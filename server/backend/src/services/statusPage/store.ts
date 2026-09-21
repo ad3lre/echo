@@ -113,7 +113,7 @@ export async function recordStatusProbes(
     await client.query(
       `
       DELETE FROM echo_status_daily
-      WHERE day_utc < (CURRENT_DATE AT TIME ZONE 'UTC') - $1::int
+      WHERE day_utc < ((CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date - $1::int)
       `,
       [config.echoStatusHistoryDays],
     );

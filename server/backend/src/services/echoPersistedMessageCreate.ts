@@ -65,6 +65,7 @@ import { isHonchoActive } from './honcho/client';
 import { scheduleHonchoMessageSync } from './honcho/memory';
 import { isDiscordSyncedBridgeSource } from '../../../../contracts/discordBridgeSources';
 import { deriveMessageComponentsFromContentJson } from '../../../../contracts/buttonRowContentJson';
+import { evaluateEchoPostMessageAccess } from '../domain/permissions/echoPermissions';
 
 async function resolveSafeReplyTo(
   pool: pg.Pool,
@@ -210,6 +211,7 @@ export type EchoPersistedMessageCreateResult =
   | {
       ok: false;
       code:
+        | 'FORBIDDEN'
         | 'PERSIST_FAILED'
         | 'IDEMPOTENCY_EXPIRED'
         | 'E2EE_STORAGE_UNAVAILABLE'
@@ -263,7 +265,9 @@ async function validateEchoUploadAttachmentOwnership(opts: {
 
 /**
  * Insert (or reconcile duplicate id) and broadcast `message` / `message_ack` side effects.
- * Caller must have already validated payload, auth, channel branch, post permission, and slowmode.
+ * Revalidates channel post authorization at this shared persistence boundary.
+ * Callers may still perform earlier checks for better diagnostics, but those checks
+ * are no longer the only protection against an unauthorized write.
  *
  * Wraps {@link echoPersistedMessageCreateAndBroadcastImpl} with the hot-path send SLIs:
  * end-to-end latency and the PG query count for this one send (persist + broadcast).
@@ -326,6 +330,20 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
     e2eeSenderDeviceId,
     e2eeEncryptionVersion,
   } = input;
+
+  const postAccess = await evaluateEchoPostMessageAccess(
+    pool,
+    userId,
+    channelId,
+  );
+  if (!postAccess.ok) {
+    return {
+      ok: false,
+      code: 'FORBIDDEN',
+      clientMessageId,
+      detail: `Message send denied: ${postAccess.reason}`,
+    };
+  }
 
   const attachmentOwnership = await validateEchoUploadAttachmentOwnership({
     pool,

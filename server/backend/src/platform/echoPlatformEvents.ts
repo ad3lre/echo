@@ -2,7 +2,15 @@ import type { FastifyInstance } from 'fastify';
 import type { Server } from 'socket.io';
 import type { EchoWorkspaceEvent } from '../../../../contracts/types/socket';
 import { canUserAccessChannel } from '../domain/permissions/echoPermissions';
+import {
+  claimEchoWorkspaceEventOutbox,
+  insertEchoWorkspaceEventOutboxProcessing,
+  markEchoWorkspaceEventOutboxDelivered,
+  markEchoWorkspaceEventOutboxFailed,
+  pruneEchoWorkspaceEventOutbox,
+} from '../domain/echoStore/platform/workspaceEventOutbox';
 import { getPgPool } from '../db/pg';
+import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { echoWorkspaceEventPublishedTotal } from '../observability/echoMetrics';
 import { botEventBus } from './botEventBus';
 
@@ -10,8 +18,28 @@ function getIo(fastify: FastifyInstance): Server | null {
   return (fastify as FastifyInstance & { io?: Server }).io ?? null;
 }
 
-/** Platform-level publisher for versioned Echo workspace/server-state events. */
-export function publishEchoWorkspaceEvent(
+/**
+ * Only facts or invalidations with a useful meaning after reconnect belong in
+ * the durable outbox. Presence-like snapshots and voice deltas have their own
+ * current-state reconciliation paths and must not be replayed stale.
+ */
+const DURABLE_WORKSPACE_EVENT_KINDS = new Set<EchoWorkspaceEvent['kind']>([
+  'workspace_invalidated',
+  'membership_changed',
+  'role_graph_changed',
+  'channel_tree_changed',
+  'server_updated',
+  'permission_invalidated',
+  'friend_requests_changed',
+  'discord_export_ready',
+  'voice_mls_message',
+  'paper_document_updated',
+  'paper_comment_updated',
+  'ticket_created',
+  'ticket_updated',
+]);
+
+function dispatchEchoWorkspaceEvent(
   fastify: FastifyInstance,
   payload: EchoWorkspaceEvent,
   targets?: { serverId?: string; userId?: string },
@@ -32,6 +60,75 @@ export function publishEchoWorkspaceEvent(
     io.emit('echo:workspace_event', payload);
   }
   botEventBus.emitBotEvent({ kind: 'workspace', payload });
+}
+
+/** Platform-level publisher for versioned Echo workspace/server-state events. */
+export function publishEchoWorkspaceEvent(
+  fastify: FastifyInstance,
+  payload: EchoWorkspaceEvent,
+  targets?: { serverId?: string; userId?: string },
+): void {
+  // Keep the existing immediate fanout semantics for request paths. The
+  // outbox is recorded asynchronously so callers do not need to become async.
+  dispatchEchoWorkspaceEvent(fastify, payload, targets);
+
+  if (!DURABLE_WORKSPACE_EVENT_KINDS.has(payload.kind)) return;
+  const pool = getPgPool();
+  if (!pool) return;
+  const id = nextEchoSnowflakeId();
+  void insertEchoWorkspaceEventOutboxProcessing(pool, {
+    id,
+    payload,
+    targets,
+  })
+    .then(() => markEchoWorkspaceEventOutboxDelivered(pool, id))
+    .catch((error) => {
+      fastify.log.warn(
+        { err: error, eventId: id, kind: payload.kind },
+        'echo.workspace_event_outbox_persist_failed',
+      );
+    });
+}
+
+/** Replay events whose immediate publisher was interrupted or failed. */
+export async function drainEchoWorkspaceEventOutbox(
+  fastify: FastifyInstance,
+  limit: number,
+): Promise<{ delivered: number; failed: number }> {
+  const pool = getPgPool();
+  if (!pool || !getIo(fastify)) return { delivered: 0, failed: 0 };
+  const rows = await claimEchoWorkspaceEventOutbox(pool, limit);
+  let delivered = 0;
+  let failed = 0;
+  for (const row of rows) {
+    try {
+      dispatchEchoWorkspaceEvent(fastify, row.payload, {
+        ...(row.targetServerId ? { serverId: row.targetServerId } : {}),
+        ...(row.targetUserId ? { userId: row.targetUserId } : {}),
+      });
+      await markEchoWorkspaceEventOutboxDelivered(pool, row.id);
+      delivered += 1;
+    } catch (error) {
+      failed += 1;
+      await markEchoWorkspaceEventOutboxFailed(pool, {
+        id: row.id,
+        attempts: row.attempts,
+        error: error instanceof Error ? error.message : String(error),
+        maxAttempts: 12,
+      });
+      fastify.log.warn(
+        { err: error, eventId: row.id, kind: row.payload.kind },
+        'echo.workspace_event_outbox_delivery_failed',
+      );
+    }
+  }
+  return { delivered, failed };
+}
+
+export async function pruneEchoWorkspaceEventOutboxRows(): Promise<number> {
+  const pool = getPgPool();
+  if (!pool) return 0;
+  return pruneEchoWorkspaceEventOutbox(pool);
 }
 
 /**

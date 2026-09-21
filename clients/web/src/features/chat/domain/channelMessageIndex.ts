@@ -49,6 +49,15 @@ function binaryInsertionIndex(
   return lo;
 }
 
+function isChronologicallyOrdered(messages: readonly RawMessage[]): boolean {
+  for (let i = 1; i < messages.length; i += 1) {
+    if (compareRawMessagesChronologically(messages[i - 1], messages[i]) > 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export interface ChannelMessageIndex {
   readonly sorted: Readonly<Ref<readonly RawMessage[]>>;
   readonly byId: ReadonlyMap<string, RawMessage>;
@@ -84,6 +93,7 @@ export function createChannelMessageIndex(
     next: ReadonlySet<string>,
   ) => void,
 ): ChannelMessageIndex {
+  // Initial hydration is a one-time normalization boundary.
   const sortedArr = [...initial].sort(compareRawMessagesChronologically);
 
   const sortedRef = shallowRef<readonly RawMessage[]>(sortedArr);
@@ -249,7 +259,15 @@ export function createChannelMessageIndex(
     msgs: RawMessage[],
     position: 'append' | 'prepend' | 'replace',
   ): void {
-    const incomingSorted = [...msgs].sort(compareRawMessagesChronologically);
+    // History pagination normally returns chronological batches. Avoid sorting
+    // those batches on every channel update; retain the sort fallback for
+    // providers that return an unordered response.
+    const incomingSorted = [...msgs];
+    if (!isChronologicallyOrdered(incomingSorted)) {
+      // Provider responses are normally ordered; this is the correctness
+      // fallback for unordered batches only.
+      incomingSorted.sort(compareRawMessagesChronologically);
+    }
     if (position === 'replace') {
       sortedRef.value = incomingSorted;
       fullRebuildFromSorted();
@@ -273,6 +291,8 @@ export function createChannelMessageIndex(
           sortedRef.value[0],
         ) <= 0;
       if (!prependAlreadyOrdered) {
+        // Merge fallback is only reached when the page crosses the existing
+        // channel boundary out of order.
         merged.sort(compareRawMessagesChronologically);
       }
     } else {
@@ -285,6 +305,8 @@ export function createChannelMessageIndex(
           deduped[0],
         ) <= 0;
       if (!appendAlreadyOrdered) {
+        // Merge fallback is only reached when the page crosses the existing
+        // channel boundary out of order.
         merged.sort(compareRawMessagesChronologically);
       }
     }

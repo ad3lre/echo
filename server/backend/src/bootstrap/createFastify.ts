@@ -5,7 +5,12 @@ import { config } from '../config';
 export function createFastifyServer() {
   return Fastify({
     requestIdHeader: 'x-request-id',
-    trustProxy: config.trustProxy ? config.trustProxyHops : false,
+    // Fastify 5 accepts a hop-aware function instead of the removed numeric form.
+    // Trust only the configured number of nearest proxy hops; never trust arbitrary
+    // user-supplied forwarding headers when proxy trust is disabled.
+    trustProxy: config.trustProxy
+      ? (_address: string, hop: number) => hop < config.trustProxyHops
+      : false,
     genReqId: () => randomUUID(),
     /** Allow legacy base64 profile banner / avatar uploads without keeping the limit overly large. */
     bodyLimit: 8 * 1024 * 1024,

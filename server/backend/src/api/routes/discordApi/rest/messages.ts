@@ -297,6 +297,13 @@ export default async function discordMessagesRoutes(
         },
       );
       if (!persistRes.ok) {
+        if (persistRes.code === 'FORBIDDEN') {
+          return discordError(
+            reply,
+            403,
+            persistRes.detail ?? 'You cannot send messages in this channel',
+          );
+        }
         return discordError(reply, 500, '500: Failed to persist message');
       }
 

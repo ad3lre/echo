@@ -110,6 +110,8 @@ export const useChannelTypingStore = defineStore('channelTyping', () => {
   ): ChannelTypingUser[] {
     if (!channelId) return [];
     const now = Date.now();
+    // Typing rosters are bounded by currently active users; this is a display
+    // normalization, not message-feed processing.
     return activeUsers(typersByChannel.value[channelId], now)
       .filter((u) => u.userId !== excludeUserId)
       .sort((a, b) =>

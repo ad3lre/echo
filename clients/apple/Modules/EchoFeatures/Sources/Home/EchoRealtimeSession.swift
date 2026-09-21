@@ -119,6 +119,22 @@ final class EchoRealtimeSession {
     }
   }
 
+  func inviteToCall(channelID: String, correlationID: String) {
+    client.inviteToCall(channelID: channelID, correlationID: correlationID)
+  }
+
+  func acceptCall(channelID: String, correlationID: String?) {
+    client.acceptCall(channelID: channelID, correlationID: correlationID)
+  }
+
+  func endCall(
+    channelID: String,
+    correlationID: String?,
+    reason: EchoDmCallEndReason
+  ) {
+    client.endCall(channelID: channelID, correlationID: correlationID, reason: reason)
+  }
+
   private func handle(_ event: EchoRealtimeEvent) {
     switch event {
     case .connected:

@@ -1,3 +1,4 @@
+import EchoDomain
 import EchoNetworking
 import Foundation
 import Observation
@@ -8,19 +9,28 @@ struct EchoComposerAsset: Identifiable, Equatable, Sendable {
   let filename: String
   let mimeType: String
   let kind: String
+  /// PHAsset local identifier when this draft came from the in-composer photo grid.
+  let sourcePhotoID: String?
 
   init(
     id: UUID = UUID(),
     data: Data,
     filename: String,
     mimeType: String,
-    kind: String
+    kind: String,
+    sourcePhotoID: String? = nil
   ) {
     self.id = id
     self.data = data
     self.filename = filename
     self.mimeType = mimeType
     self.kind = kind
+    self.sourcePhotoID = sourcePhotoID
+  }
+
+  var isVisual: Bool {
+    kind == "image" || kind == "video" || mimeType.hasPrefix("image/")
+      || mimeType.hasPrefix("video/")
   }
 }
 
@@ -78,6 +88,21 @@ struct EchoComposerSubmission: Sendable {
   let assets: [EchoComposerAsset]
   let gif: EchoGIF?
   let poll: EchoOutgoingPoll?
+  let replyTo: EchoMessageReplyTo?
+
+  init(
+    text: String,
+    assets: [EchoComposerAsset],
+    gif: EchoGIF?,
+    poll: EchoOutgoingPoll?,
+    replyTo: EchoMessageReplyTo? = nil
+  ) {
+    self.text = text
+    self.assets = assets
+    self.gif = gif
+    self.poll = poll
+    self.replyTo = replyTo
+  }
 }
 
 enum EchoComposerPanel: Equatable {
@@ -92,6 +117,7 @@ final class EchoComposerState {
   var assets: [EchoComposerAsset] = []
   var selectedGIF: EchoGIF?
   var poll: EchoComposerPollDraft?
+  var replyTo: EchoMessageReplyTo?
   var panel: EchoComposerPanel?
   var isSending = false
   var errorMessage: String?
@@ -110,12 +136,31 @@ final class EchoComposerState {
     assets.removeAll { $0.id == id }
   }
 
-  func reset() {
+  func removeAsset(sourcePhotoID: String) {
+    assets.removeAll { $0.sourcePhotoID == sourcePhotoID }
+  }
+
+  func asset(forSourcePhotoID id: String) -> EchoComposerAsset? {
+    assets.first { $0.sourcePhotoID == id }
+  }
+
+  /// 1-based selection order for gallery badges; `nil` when not selected.
+  func selectionIndex(forSourcePhotoID id: String) -> Int? {
+    guard let index = assets.firstIndex(where: { $0.sourcePhotoID == id }) else { return nil }
+    return index + 1
+  }
+
+  var selectedPhotoIDs: [String] {
+    assets.compactMap(\.sourcePhotoID)
+  }
+
+  func reset(clearReply: Bool = true) {
     text = ""
     assets = []
     selectedGIF = nil
     poll = nil
     panel = nil
     errorMessage = nil
+    if clearReply { replyTo = nil }
   }
 }

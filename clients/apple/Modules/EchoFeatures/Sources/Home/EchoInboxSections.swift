@@ -333,14 +333,15 @@ struct EchoInboxPreview {
 
 struct EchoPersonalNotesView: View {
   var body: some View {
-    ContentUnavailableView(EchoCopy.string("No personal notes"),
+    ContentUnavailableView(
+      EchoCopy.string("No personal notes"),
       systemImage: "note.text",
       description: EchoCopy.text("Private notes will live here when you create one.")
     )
     .foregroundStyle(.white.opacity(0.62))
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(EchoInboxBackground().ignoresSafeArea())
-    navigationTitle(EchoCopy.string("Personal notes"))
+    .navigationTitle(EchoCopy.string("Personal notes"))
     #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
     #endif

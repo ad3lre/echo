@@ -92,4 +92,29 @@ describe('buildGuildVoiceActivityCardsForJoinedServers', () => {
       }),
     ).toEqual([]);
   });
+
+  it('includes occupied stage channels in the activity indicator', () => {
+    const cards = buildGuildVoiceActivityCardsForJoinedServers({
+      joinedServers: [servers[0]!],
+      categoriesByServer: {
+        'srv-a': [
+          {
+            channels: [
+              {
+                id: 'stage-main',
+                name: 'Town hall',
+                type: 'stage',
+                voiceParticipantIds: ['u1', 'u2'],
+              },
+            ],
+          },
+        ],
+      },
+      roster: [],
+      getChannelDisplayName: (n) => n,
+      resolveCallTileAvatarUrl: (_p, uid) => uid,
+    });
+
+    expect(cards.map((card) => card.channelId)).toEqual(['stage-main']);
+  });
 });

@@ -47,14 +47,14 @@ clients/web/src/composables/          137  (P2; not moved in P1)
 
 **Existing guards (relevant):**
 
-| Script                                                    | What it does today                                    | P1 change                                              |
-| --------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------ |
-| `server/ops/scripts/check-frontend-modularization.mjs`    | Line-count report; **hard-fails ≥700 lines**          | Keep as size guard; **do not** overload with placement |
-| `server/ops/scripts/check-god-file-ratchet.mjs`           | Baseline ceiling per oversized file                   | Unchanged                                              |
-| `server/ops/scripts/check-new-code-charter.mjs`           | Post-cutoff quality ratchet                           | Unchanged                                              |
-| `server/ops/scripts/check-voice-activity-conventions.mjs` | **Template for P1 guard** — allowlist may only shrink | Mirror pattern for placement                           |
+| Script                                                    | What it does today                                       | P1 change                                   |
+| --------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------- |
+| `server/ops/scripts/check-frontend-modularization.mjs`    | Line-count report; `modularity:report` is inventory-only | Keep size inventory separate from placement |
+| `server/ops/scripts/check-god-file-ratchet.mjs`           | Baseline ceiling per oversized file                      | Unchanged                                   |
+| `server/ops/scripts/check-new-code-charter.mjs`           | Post-cutoff quality ratchet                              | Unchanged                                   |
+| `server/ops/scripts/check-voice-activity-conventions.mjs` | **Template for P1 guard** — allowlist may only shrink    | Mirror pattern for placement                |
 
-`modularity:check` is **not** in `test:ci:guards` today. P1 adds a **new** guard there.
+`modularity:report` is in `test:ci:guards` as a visibility signal. `modularity:check` runs the god-file no-growth ratchet; placement remains enforced by its dedicated guard.
 
 ---
 
@@ -182,7 +182,7 @@ node server/ops/scripts/check-code-placement.mjs --staged
 
 ### Do **not** extend `check-frontend-modularization.mjs`
 
-That script is a **line-count** tool (`modularity:check`). Placement is orthogonal; keep them separate so failures are actionable.
+That script is a **line-count** tool (`modularity:report`). The actionable `modularity:check` command runs the god-file no-growth ratchet. Placement is orthogonal; keep them separate so failures are actionable.
 
 ---
 

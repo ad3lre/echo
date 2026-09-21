@@ -176,7 +176,7 @@ Same facts as before, kept for **at-a-glance** scanning. **Green** = aligned wit
 3. **Polls and attachment abuse** — multi-attach is durable when S3 + https URLs are used; **polls** and **rate limits on presign** vs competitor depth remain gaps.
 4. **Import** — legal/ops complexity even after code is “ready.”
 5. **Auth** — Option A **cookie + Redis** spine and **passkeys** are implemented; see pillar 2 row and `[OPTION_A_SESSION_ARCHITECTURE.md](../infra/auth/OPTION_A_SESSION_ARCHITECTURE.md)`. Further items in `[AUTHENTICATION_PLAN.md](../plans/AUTHENTICATION_PLAN.md)` are incremental hardening, not a parallel stack.
-6. **Test pyramid** — strong **contract/integration** on backend; **E2E** not in CI.
+6. **Test pyramid** — strong **contract/integration** on backend; Cypress smoke is in CI, while the full product E2E grid remains thin.
 
 ---
 
@@ -202,7 +202,7 @@ Same facts as before, kept for **at-a-glance** scanning. **Green** = aligned wit
 
 - ESLint, `lint:theme`, `lint:style`, `npm run build -w web`, `**npm run test -w web` (Vitest).
 
-**Not in CI:** full frontend **E2E** (Cypress mentioned as direction in `[STACK.md](../overview/STACK.md)`).
+**Not in CI:** the full frontend **E2E grid**; the Cypress smoke workflow is active and documented in `[STACK.md](../overview/STACK.md)`.
 
 ---
 

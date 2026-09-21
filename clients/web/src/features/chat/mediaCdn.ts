@@ -165,10 +165,12 @@ export async function resolveSignedEchoMediaUrl(opts: {
   url: string;
   storageKey?: string;
   scope?: MediaCdnReadScope;
+  /** Ignore the cached token after a failed image load and obtain a fresh one. */
+  forceRefresh?: boolean;
 }): Promise<string> {
   const raw = opts.url.trim();
   if (!raw) return raw;
-  if (!echoMediaUrlNeedsSigning(raw)) {
+  if (!opts.forceRefresh && !echoMediaUrlNeedsSigning(raw)) {
     return rewriteR2EchoUploadUrlForReadThrough(raw);
   }
   const storageKey = resolveStorageKey(raw, opts.storageKey);
@@ -176,7 +178,12 @@ export async function resolveSignedEchoMediaUrl(opts: {
     return rewriteR2EchoUploadUrlForReadThrough(raw);
   }
   const scope = opts.scope ?? 'object';
-  const cached = readCachedSignedUrl(storageKey, scope);
+  if (opts.forceRefresh) {
+    signedUrlCache.delete(signedCacheKey(storageKey, scope));
+  }
+  const cached = opts.forceRefresh
+    ? null
+    : readCachedSignedUrl(storageKey, scope);
   if (cached) return cached;
 
   const key = signedCacheKey(storageKey, scope);

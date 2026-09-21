@@ -202,6 +202,10 @@ export async function waitForLiveKitConnected(
           clearTimeout(timer);
           stop();
           resolve(true);
+        } else if (s === 'error' || s === 'idle') {
+          clearTimeout(timer);
+          stop();
+          resolve(false);
         }
       },
       { immediate: true },

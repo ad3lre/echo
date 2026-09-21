@@ -930,6 +930,8 @@ describe('Echo REST helper wrappers', () => {
     expectLast('/servers/srv/channels/chan/voice/join', { method: 'POST' });
     await postEchoVoiceLeave('tok', 'srv');
     expectLast('/servers/srv/voice/leave', { method: 'POST' });
+    await postEchoVoiceLeave('tok', 'srv', 'chan');
+    expectLast('/servers/srv/voice/leave?channelId=chan', { method: 'POST' });
     await fetchEchoVoiceParticipants('tok', 'srv', 'chan');
     expectLast('/servers/srv/channels/chan/voice/participants');
 

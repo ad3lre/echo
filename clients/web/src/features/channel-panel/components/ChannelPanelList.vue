@@ -21,6 +21,7 @@ import ChannelIconPickerPopover from '@/features/channel-settings/ChannelIconPic
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import type { CreateChannelModalSubmitPayload } from '@/features/channel-panel/components/CreateChannelModal.vue';
 import { layoutHyperLog } from '@/features/layout/layoutHyperLog';
+import { isExperimentalChannelTypeEnabled } from '@/features/paper/paperFeatureToggle';
 import {
   clampEchoChannelName,
   ECHO_CHANNEL_NAME_MAX_LENGTH,
@@ -1003,6 +1004,7 @@ const activeForumContextId = computed((): string | null => {
 
 function topLevelChannelsForCategory(channels: ChannelWithParticipants[]) {
   return channels.filter((c) => {
+    if (!isExperimentalChannelTypeEnabled(c.type)) return false;
     if (getParentChannelIdOrNull(c)) return false;
     if (isForumPostChannel(c)) return false;
     return true;
@@ -2419,6 +2421,7 @@ watch(
                       !quickCreateCanUseChannels,
                   }"
                   :disabled="!quickCreateCanUseChannels"
+                  v-if="isExperimentalChannelTypeEnabled('stage')"
                   @click="selectQuickCreateType('stage')"
                 >
                   <div class="channel-quick-create__widget-left">
@@ -2473,6 +2476,7 @@ watch(
                       !quickCreateCanUseChannels,
                   }"
                   :disabled="!quickCreateCanUseChannels"
+                  v-if="isExperimentalChannelTypeEnabled('paper')"
                   @click="selectQuickCreateType('paper')"
                 >
                   <div class="channel-quick-create__widget-left">
@@ -3008,7 +3012,7 @@ watch(
 }
 
 .channel-list--mobile .channel-row-drop-target.channel-row--has-unread::before {
-  height: 1.375rem;
+  height: 0.375rem;
 }
 
 .channel-list--mobile .channel-row-gear {
@@ -3110,7 +3114,7 @@ watch(
     0 0 14px var(--vue-auto-089) !important;
 }
 
-/** Guild sidebar: unread strip in a left gutter so it never covers the channel icon. */
+/** Guild sidebar: unread dot in a left gutter so it never covers the channel icon. */
 .channel-row-drop-target.channel-row--has-unread {
   position: relative;
   padding-left: 0.75rem;
@@ -3122,8 +3126,8 @@ watch(
   left: 0.22rem;
   top: 50%;
   transform: translateY(-50%);
-  width: 0.1875rem;
-  height: 1.125rem;
+  width: 0.375rem;
+  height: 0.375rem;
   border-radius: 9999px;
   background: color-mix(in srgb, var(--text) 82%, var(--accent) 18%);
   box-shadow: 0 0 12px color-mix(in srgb, var(--vue-auto-089) 55%, transparent);

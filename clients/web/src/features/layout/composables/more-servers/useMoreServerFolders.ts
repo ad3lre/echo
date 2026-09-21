@@ -3,7 +3,6 @@ import { useMoreServers } from '@/features/layout/composables/more-servers/useMo
 import {
   readMoreServerFoldersFile,
   writeMoreServerFoldersFile,
-  visibleFolderServerIds,
   type MoreServerWidgetFolder,
   type MoreServerFoldersUiState,
 } from '@/features/layout/composables/more-servers/moreServerFoldersPersistence';
@@ -65,10 +64,6 @@ function bindWatchersIfNeeded() {
 
   const { moreServersList } = useMoreServers();
 
-  const validServerIds = computed(
-    () => new Set(moreServersList.value.map((s) => s.id)),
-  );
-
   watch(
     () => moreServersList.value.length,
     () => {
@@ -82,6 +77,7 @@ function bindWatchersIfNeeded() {
     () => {
       schedulePersist();
     },
+    // Folder membership and names are edited in place by drag/drop controls.
     { deep: true },
   );
 
@@ -90,6 +86,7 @@ function bindWatchersIfNeeded() {
     () => {
       schedulePersist();
     },
+    // UI expansion arrays are edited in place by the panel controls.
     { deep: true },
   );
 

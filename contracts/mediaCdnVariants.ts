@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 /** Max width query param on media-cdn object GET (resize, never upscale). */
 export const ECHO_MEDIA_CDN_WIDTH_QUERY_PARAM = 'w';
 
@@ -59,7 +57,10 @@ export function isRasterImageContentType(contentType: string): boolean {
 }
 
 export function isRasterImageStorageKey(storageKey: string): boolean {
-  const ext = path.extname(storageKey.trim()).toLowerCase();
+  const key = storageKey.trim();
+  const basename = key.slice(key.lastIndexOf('/') + 1);
+  const dot = basename.lastIndexOf('.');
+  const ext = dot >= 0 ? basename.slice(dot).toLowerCase() : '';
   return RASTER_IMAGE_EXTENSIONS.has(ext);
 }
 

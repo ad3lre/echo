@@ -30,16 +30,10 @@ $server-rail-pill-ease: cubic-bezier(0.33, 1, 0.68, 1);
   width: 5px;
   height: 28px;
   border-radius: 0 6px 6px 0;
-  background-color: var(--server-rail-pill-fg);
-  transform: translateY(-50%);
-}
-
-.server-folder__slot:hover:not(.server-folder__slot--active)
-  .server-folder__pill--v {
-  background-color: transparent;
   box-sizing: border-box;
   border: 1px solid var(--server-rail-pill-fg);
   border-left: none;
+  transform: translateY(-50%);
 }
 
 .server-folder__slot--active .server-folder__pill--v {
@@ -56,7 +50,8 @@ $server-rail-pill-ease: cubic-bezier(0.33, 1, 0.68, 1);
   width: 20px;
   height: 4px;
   border-radius: 9999px;
-  background-color: var(--server-rail-pill-fg);
+  box-sizing: border-box;
+  border: 1px solid var(--server-rail-pill-fg);
   transform: translateX(-50%) scaleX(0.75);
   transform-origin: center;
   transition:
@@ -66,9 +61,6 @@ $server-rail-pill-ease: cubic-bezier(0.33, 1, 0.68, 1);
 
 .server-folder__slot:hover:not(.server-folder__slot--active)
   .server-folder__pill--h {
-  background-color: transparent;
-  box-sizing: border-box;
-  border: 1px solid var(--server-rail-pill-fg);
   transform: translateX(-50%) scaleX(1);
 }
 

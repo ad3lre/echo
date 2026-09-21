@@ -347,8 +347,14 @@ interface AppConfig {
   readonly echoDiscordImportMediaMirrorIntervalMs: number;
   /** Max mirror jobs processed per drain tick (interval + post-enqueue kick). */
   readonly echoDiscordImportMediaMirrorBatchSize: number;
+  /** Maximum bytes buffered for one Discord import mirror fetch. */
+  readonly echoDiscordImportMediaMirrorMaxBytes: number;
+  /** Maximum pending/processing Discord import mirror jobs. */
+  readonly echoDiscordImportMediaMirrorMaxQueueDepth: number;
   /** Debounce (ms) before running a drain after enqueueing mirror work. */
   readonly echoDiscordImportMediaMirrorKickDebounceMs: number;
+  /** Poll interval for replaying interrupted workspace-event fanout (ms). 0 disables. */
+  readonly echoWorkspaceEventOutboxIntervalMs: number;
   /**
    * Poll interval for chat upload abandonment purge (ms). 0 disables.
    * Deletes S3/local objects past `echo_chat_upload_retention.expires_at`.
@@ -1035,15 +1041,34 @@ export const config: AppConfig = {
   })(),
   echoDiscordImportMediaMirrorBatchSize: (() => {
     const raw = process.env.ECHO_DISCORD_IMPORT_MEDIA_MIRROR_BATCH_SIZE;
-    if (raw === undefined) return 6;
+    if (raw === undefined) return 2;
     const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1 ? n : 6;
+    return Number.isFinite(n) && n >= 1 ? n : 2;
+  })(),
+  echoDiscordImportMediaMirrorMaxBytes: (() => {
+    const raw = process.env.ECHO_DISCORD_IMPORT_MEDIA_MIRROR_MAX_BYTES;
+    const fallback = 512 * 1024 * 1024;
+    if (raw === undefined || raw === '') return fallback;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 ? n : fallback;
+  })(),
+  echoDiscordImportMediaMirrorMaxQueueDepth: (() => {
+    const raw = process.env.ECHO_DISCORD_IMPORT_MEDIA_MIRROR_MAX_QUEUE_DEPTH;
+    if (raw === undefined || raw === '') return 10_000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 ? n : 10_000;
   })(),
   echoDiscordImportMediaMirrorKickDebounceMs: (() => {
     const raw = process.env.ECHO_DISCORD_IMPORT_MEDIA_MIRROR_KICK_DEBOUNCE_MS;
     if (raw === undefined) return 50;
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 50;
+  })(),
+  echoWorkspaceEventOutboxIntervalMs: (() => {
+    const raw = process.env.ECHO_WORKSPACE_EVENT_OUTBOX_MS;
+    if (raw === undefined || raw === '') return 1_000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 1_000;
   })(),
   echoChatUploadRetentionIntervalMs: (() => {
     const raw = process.env.ECHO_CHAT_UPLOAD_RETENTION_INTERVAL_MS;

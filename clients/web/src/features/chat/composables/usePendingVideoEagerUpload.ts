@@ -138,6 +138,8 @@ export function usePendingVideoEagerUpload(
         inFlight.set(video.file, job);
       }
     },
+    // Pending upload status is mutated in place by the upload lifecycle; a
+    // shallow watch would miss transitions from queued → uploading → done.
     { deep: true, immediate: true },
   );
 }

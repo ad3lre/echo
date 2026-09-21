@@ -21,5 +21,13 @@
   "GUEST_USERNAME_LOCKED": "Upgrade your guest account to change your username.",
   "USERNAME_SHADOW_LOCKED": "This account cannot change its username.",
   "INVALID_DISPLAY_NAME": "Display name cannot be empty",
-  "CHANNEL_FULL": "This voice channel is full."
+  "CHANNEL_FULL": "This voice channel is full.",
+  "DM_USER_BLOCKED": "You can't message this person because one of you has blocked the other.",
+  "CHANNEL_NOT_FOUND": "That channel is no longer available.",
+  "GROUP_DM_NOT_MEMBER": "You are no longer a member of this group conversation.",
+  "RATE_LIMITED": "You're doing that too quickly. Try again in a moment.",
+  "CSRF_REQUIRED": "Your session expired. Refresh and try again.",
+  "SERVER_BUSY": "Echo is busy right now. Try again in a moment.",
+  "NOT_AVAILABLE": "This feature is not available right now.",
+  "CONFLICT": "That change conflicts with the current state. Refresh and try again."
 }

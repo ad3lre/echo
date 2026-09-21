@@ -1,32 +1,122 @@
 import AVFoundation
+import Foundation
 
 @MainActor
 final class EchoSoundPlayer {
   static let shared = EchoSoundPlayer()
-  private var player: AVAudioPlayer?
+
+  private var effectPlayer: AVAudioPlayer?
+  private var ringtonePlayer: AVAudioPlayer?
 
   func preview(_ sound: EchoSoundOption, volume: Double) {
-    guard
-      let url = Bundle.module.url(
-        forResource: sound.resourceName, withExtension: "ogg", subdirectory: "Sounds")
-    else { return }
+    play(sound, volume: volume)
+  }
+
+  func play(_ sound: EchoSoundOption, volume: Double) {
+    guard let url = Self.resourceURL(for: sound) else { return }
+    playOneShot(url: url, volume: volume)
+  }
+
+  func previewRingtone(_ entry: EchoRingtoneEntry, volume: Double) {
+    guard let url = Self.resourceURL(for: entry) else { return }
+    stopRingtone()
+    playOneShot(url: url, volume: volume)
+  }
+
+  func startRingtoneLoop(_ entry: EchoRingtoneEntry, volume: Double) {
+    guard let url = Self.resourceURL(for: entry) else { return }
     do {
-      #if os(iOS)
-        try AVAudioSession.sharedInstance().setCategory(
-          .ambient, mode: .default, options: [.mixWithOthers])
-        try AVAudioSession.sharedInstance().setActive(true)
-      #endif
-      player = try AVAudioPlayer(contentsOf: url)
-      player?.volume = Float(max(0, min(1, volume)))
-      player?.play()
+      prepareSession(forRingtone: true)
+      let player = try AVAudioPlayer(contentsOf: url)
+      player.numberOfLoops = -1
+      player.volume = Float(max(0, min(1, volume)))
+      player.prepareToPlay()
+      ringtonePlayer = player
+      player.play()
     } catch {
-      // A preview is non-critical; the settings screen remains usable if audio is unavailable.
+      // Incoming ringtone is best-effort; CallKit still surfaces the call.
     }
+  }
+
+  func stopRingtone() {
+    ringtonePlayer?.stop()
+    ringtonePlayer = nil
+  }
+
+  private func playOneShot(url: URL, volume: Double) {
+    do {
+      prepareSession(forRingtone: false)
+      let player = try AVAudioPlayer(contentsOf: url)
+      player.volume = Float(max(0, min(1, volume)))
+      effectPlayer = player
+      player.play()
+    } catch {
+      // Preview / SFX are non-critical.
+    }
+  }
+
+  private func prepareSession(forRingtone: Bool) {
+    #if os(iOS)
+      do {
+        let session = AVAudioSession.sharedInstance()
+        if forRingtone {
+          try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        } else {
+          try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+        }
+        try session.setActive(true)
+      } catch {
+        // Session setup failures should not block UI.
+      }
+    #endif
+  }
+
+  nonisolated static func resourceURL(for sound: EchoSoundOption) -> URL? {
+    resourceURL(
+      name: sound.resourceName,
+      subdirectory: "Sounds",
+      preferredExtension: "m4a",
+      fallbacks: ["ogg", "mp3", "caf", "wav"]
+    )
+  }
+
+  nonisolated static func resourceURL(for entry: EchoRingtoneEntry) -> URL? {
+    resourceURL(
+      name: entry.resourceName,
+      subdirectory: entry.subdirectory,
+      preferredExtension: entry.resourceExtension,
+      fallbacks: ["m4a", "mp3", "ogg", "caf"]
+    )
+  }
+
+  private nonisolated static func resourceURL(
+    name: String,
+    subdirectory: String,
+    preferredExtension: String,
+    fallbacks: [String]
+  ) -> URL? {
+    var extensions = [preferredExtension]
+    for ext in fallbacks where !extensions.contains(ext) {
+      extensions.append(ext)
+    }
+    // SPM `.process` flattens nested audio into the module bundle root, so try
+    // the packaged subdirectory first and then a root-level lookup.
+    let directories: [String?] = [subdirectory, nil]
+    for directory in directories {
+      for ext in extensions {
+        if let url = Bundle.module.url(
+          forResource: name, withExtension: ext, subdirectory: directory)
+        {
+          return url
+        }
+      }
+    }
+    return nil
   }
 }
 
 extension EchoSoundOption {
-  fileprivate var resourceName: String {
+  nonisolated fileprivate var resourceName: String {
     switch self {
     case .streamingOn: "Streaming ON"
     case .streamingOff: "Streaming OFF"

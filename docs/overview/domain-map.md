@@ -13,7 +13,7 @@ Cross-cutting behavior may be described in prose as _touching_ another domain; t
 1. Any change that introduces a **new** Pinia store, `clients/web/src/features/<name>/` top-level folder, root-level composable (`clients/web/src/composables/*.ts`), API module, or route file **must** update this document in the same PR.
 2. Moves or renames of mapped files **must** update the relevant rows here; no follow-up “docs PR”.
 3. Product domains may depend on `foundation` and `realtime-transport`. Product domains **must not** import `platform-shell` internals. `platform-shell` composes product domains through stable seams (props, orchestration services, small public feature APIs), per `[clients/web/src/features/README.md](../../clients/web/src/features/README.md)`.
-4. Service layering rules in `[clients/web/src/services/README.md](../../clients/web/src/services/README.md)` apply **within** each domain’s orchestration; this map assigns **which domain owns** each file.
+4. Feature placement and layering rules in `[code-placement.md](./code-placement.md)` apply **within** each domain’s orchestration; this map assigns **which domain owns** each file.
 
 ---
 

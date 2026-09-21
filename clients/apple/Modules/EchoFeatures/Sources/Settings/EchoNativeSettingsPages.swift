@@ -12,8 +12,10 @@ struct EchoMembershipSettingsView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       EchoDetailSection(title: EchoCopy.string("Echo+")) {
-        EchoCopy.text("Echo+ is the membership layer for people who want more room to make Echo theirs.")
-          .foregroundStyle(.secondary)
+        EchoCopy.text(
+          "Echo+ is the membership layer for people who want more room to make Echo theirs."
+        )
+        .foregroundStyle(.secondary)
         ForEach(
           [
             ("sparkles", "More personalization"), ("bolt.fill", "Priority feature access"),
@@ -24,14 +26,18 @@ struct EchoMembershipSettingsView: View {
         }
       }
       EchoDetailSection(title: EchoCopy.string("Early access")) {
-        EchoCopy.text("Subscriptions are being introduced in stages. Register your preference and Echo will keep it with your account.")
+        EchoCopy.text(
+          "Subscriptions are being introduced in stages. Register your preference and Echo will keep it with your account."
+        )
         .font(.footnote).foregroundStyle(.secondary)
         Picker("Billing preference", selection: $cycle) {
           EchoCopy.text("Monthly").tag("monthly")
           EchoCopy.text("Yearly").tag("yearly")
         }.pickerStyle(.segmented)
         EchoSettingAction(
-          title: isSaving ? EchoCopy.string("Saving…") : saved ? EchoCopy.string("Preference saved") : EchoCopy.string("Join the Echo+ list"),
+          title: isSaving
+            ? EchoCopy.string("Saving…")
+            : saved ? EchoCopy.string("Preference saved") : EchoCopy.string("Join the Echo+ list"),
           subtitle: EchoCopy.string("We’ll notify you when your plan is available"),
           icon: saved ? "checkmark.circle.fill" : "sparkles", tint: .purple
         ) { save() }.disabled(isSaving || saved)
@@ -65,13 +71,19 @@ struct EchoLegalSettingsView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       EchoDetailSection(title: EchoCopy.string("Terms of service")) {
-        EchoCopy.text("Echo is a place to talk, create, and share responsibly. You are responsible for what you post, for protecting your account, and for respecting other people’s rights. Do not use Echo to harass, impersonate, exploit, or distribute unlawful content.")
+        EchoCopy.text(
+          "Echo is a place to talk, create, and share responsibly. You are responsible for what you post, for protecting your account, and for respecting other people’s rights. Do not use Echo to harass, impersonate, exploit, or distribute unlawful content."
+        )
       }
       EchoDetailSection(title: EchoCopy.string("Privacy")) {
-        EchoCopy.text("Echo uses the information needed to provide your account, conversations, safety systems, and notifications. You control optional analytics, discoverability, read receipts, and personalized tips in Data & Privacy. You can export or delete your account there.")
+        EchoCopy.text(
+          "Echo uses the information needed to provide your account, conversations, safety systems, and notifications. You control optional analytics, discoverability, read receipts, and personalized tips in Data & Privacy. You can export or delete your account there."
+        )
       }
       EchoDetailSection(title: EchoCopy.string("Community guidelines")) {
-        EchoCopy.text("Be human. Keep conversations consensual, avoid targeted abuse and threats, and report content that puts people at risk. Safety reports are reviewed by the Echo team and may be retained to protect the community.")
+        EchoCopy.text(
+          "Be human. Keep conversations consensual, avoid targeted abuse and threats, and report content that puts people at risk. Safety reports are reviewed by the Echo team and may be retained to protect the community."
+        )
       }
       EchoCopy.text("Last updated: 2026-01-01").font(.footnote).foregroundStyle(.secondary)
     }
@@ -89,9 +101,14 @@ struct EchoFormattingGuideView: View {
         .font(.system(size: 15, design: .rounded))
       }
       EchoDetailSection(title: EchoCopy.string("Tips")) {
-        Label(EchoCopy.string("Use Markdown for emphasis, lists, quotes, and code."), systemImage: "textformat")
-        Label(EchoCopy.string("Use $$…$$ for display math and $…$ for inline math."), systemImage: "function")
-        Label(EchoCopy.string("Links and mentions become interactive when sent."), systemImage: "link")
+        Label(
+          EchoCopy.string("Use Markdown for emphasis, lists, quotes, and code."),
+          systemImage: "textformat")
+        Label(
+          EchoCopy.string("Use $$…$$ for display math and $…$ for inline math."),
+          systemImage: "function")
+        Label(
+          EchoCopy.string("Links and mentions become interactive when sent."), systemImage: "link")
       }
     }
   }
@@ -114,17 +131,23 @@ struct EchoReportAbuseView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       EchoDetailSection(title: EchoCopy.string("Report a person")) {
-        EchoCopy.text("Reports are private. Include the person’s Echo username or user ID and enough context for the safety team to review it.")
+        EchoCopy.text(
+          "Reports are private. Include the person’s Echo username or user ID and enough context for the safety team to review it."
+        )
         .font(.footnote).foregroundStyle(.secondary)
         TextField(EchoCopy.string("@username or user ID"), text: $target)
           .padding(12).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
         Picker("Category", selection: $category) {
           ForEach(categories, id: \.0) { Text($0.1).tag($0.0) }
         }
-        TextField(EchoCopy.string("What happened?"), text: $details, axis: .vertical).lineLimit(4...8)
-          .padding(12).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        TextField(EchoCopy.string("What happened?"), text: $details, axis: .vertical).lineLimit(
+          4...8
+        )
+        .padding(12).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
         EchoSettingAction(
-          title: isSubmitting ? EchoCopy.string("Sending…") : submitted ? EchoCopy.string("Report sent") : EchoCopy.string("Send report"),
+          title: isSubmitting
+            ? EchoCopy.string("Sending…")
+            : submitted ? EchoCopy.string("Report sent") : EchoCopy.string("Send report"),
           subtitle: EchoCopy.string("Echo safety will review it"),
           icon: submitted ? "checkmark.shield.fill" : "exclamationmark.shield.fill", tint: .red
         ) { submit() }

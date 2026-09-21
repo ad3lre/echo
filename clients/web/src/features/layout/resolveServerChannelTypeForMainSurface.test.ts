@@ -31,7 +31,7 @@ describe('resolveServerChannelInfoForMainSurface', () => {
       resolveServerChannelInfoForMainSurface('c4', (id) =>
         id === 'c4' ? { channel: { type: 'stage' } } : null,
       ),
-    ).toEqual({ type: 'voice' });
+    ).toBeNull();
   });
 
   it('bindResolveServerChannelInfoForMainSurface closes over findChannelContextById', () => {

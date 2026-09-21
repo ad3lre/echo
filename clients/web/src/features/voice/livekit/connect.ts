@@ -38,6 +38,18 @@ export type ConnectSessionDeps = {
   registerMediaRecovery: (room: LKRoom) => void;
 };
 
+/** A join was replaced by a newer join request before transport completed. */
+export class VoiceConnectSupersededError extends Error {
+  constructor() {
+    super('Voice connection was superseded by a newer join request.');
+    this.name = 'VoiceConnectSupersededError';
+  }
+}
+
+export function isVoiceConnectSupersededError(error: unknown): boolean {
+  return error instanceof VoiceConnectSupersededError;
+}
+
 export function createConnectController(
   ctx: LiveKitVoiceSessionContext,
   attachRoomEventHandlers: (room: LKRoom) => void,
@@ -169,7 +181,13 @@ export function createConnectController(
       tokenChars: token.length,
     });
     if (connectInFlight.value || roomState.value === 'connecting') {
-      return;
+      voiceClientTrace('voice.client:lk_connect_supersede_previous', {});
+      // Invalidate the previous attempt before disconnecting its Room. Its
+      // asynchronous rejection and Disconnected event must not touch the new
+      // attempt's state.
+      connectGeneration.value += 1;
+      abortConnectInProgress();
+      releaseLiveKitE2eeWorker();
     }
     connectInFlight.value = true;
 
@@ -181,6 +199,24 @@ export function createConnectController(
     }
     const myGen = ++connectGeneration.value;
     roomState.value = 'connecting';
+    let room: LKRoom | null = null;
+    let createdWorker: Worker | null = null;
+
+    const disposeRoom = (target: LKRoom) => {
+      if (connectAbortTarget.value === target) {
+        connectAbortTarget.value = null;
+      }
+      void target.disconnect().catch(() => {});
+    };
+
+    const disposeSupersededWorker = () => {
+      if (!createdWorker || liveKitE2eeWorker.value !== createdWorker) return;
+      liveKitE2eeWorker.value.terminate();
+      liveKitE2eeWorker.value = null;
+      liveKitMlsKeyProvider.value = null;
+      clearVoiceParticipantE2eeStatus();
+    };
+
     try {
       if (isDesktop() && DESKTOP_NATIVE_AUDIO_ENABLED) {
         void initDesktopNativeAudio().catch(() => {});
@@ -249,6 +285,11 @@ export function createConnectController(
           }
         }
         const worker = createLiveKitE2eeWorker();
+        createdWorker = worker;
+        if (myGen !== connectGeneration.value) {
+          worker.terminate();
+          throw new VoiceConnectSupersededError();
+        }
         liveKitE2eeWorker.value = worker;
         liveKitMlsKeyProvider.value = keyProvider;
         encryption = { keyProvider, worker };
@@ -256,11 +297,16 @@ export function createConnectController(
         const keyProvider = new ExternalE2EEKeyProvider();
         await keyProvider.setKey(legacyKey);
         const worker = createLiveKitE2eeWorker();
+        createdWorker = worker;
+        if (myGen !== connectGeneration.value) {
+          worker.terminate();
+          throw new VoiceConnectSupersededError();
+        }
         liveKitE2eeWorker.value = worker;
         encryption = { keyProvider, worker };
       }
 
-      const room = new Room({
+      room = new Room({
         adaptiveStream: true,
         dynacast: true,
         audioCaptureDefaults: captureDefaults,
@@ -275,10 +321,8 @@ export function createConnectController(
       await room.connect(url, token);
       void echoPlaybackEnsureAudioContextRunning();
       if (myGen !== connectGeneration.value) {
-        connectAbortTarget.value = null;
-        void room.disconnect().catch(() => {});
-        releaseLiveKitE2eeWorker();
-        return;
+        disposeRoom(room);
+        throw new VoiceConnectSupersededError();
       }
 
       lastVcAudioOpts.value = { ...initialAudioState };
@@ -298,10 +342,8 @@ export function createConnectController(
         await room.localParticipant.setMicrophoneEnabled(false);
       }
       if (myGen !== connectGeneration.value) {
-        connectAbortTarget.value = null;
-        void room.disconnect().catch(() => {});
-        releaseLiveKitE2eeWorker();
-        return;
+        disposeRoom(room);
+        throw new VoiceConnectSupersededError();
       }
 
       try {
@@ -312,10 +354,8 @@ export function createConnectController(
         });
       }
       if (myGen !== connectGeneration.value) {
-        connectAbortTarget.value = null;
-        void room.disconnect().catch(() => {});
-        releaseLiveKitE2eeWorker();
-        return;
+        disposeRoom(room);
+        throw new VoiceConnectSupersededError();
       }
 
       actions.reapplyRemotePlaybackGains(room);
@@ -326,10 +366,8 @@ export function createConnectController(
         await localMicMonitor.ensureAudioContextRunning();
       }
       if (myGen !== connectGeneration.value) {
-        connectAbortTarget.value = null;
-        void room.disconnect().catch(() => {});
-        releaseLiveKitE2eeWorker();
-        return;
+        disposeRoom(room);
+        throw new VoiceConnectSupersededError();
       }
 
       connectAbortTarget.value = null;
@@ -344,6 +382,22 @@ export function createConnectController(
       actions.dumpLiveKitDomAudioElements();
       actions.startAudioHealthPolling(room);
     } catch (e) {
+      const isCurrentAttempt = myGen === connectGeneration.value;
+      if (room) {
+        if (isCurrentAttempt) {
+          // Invalidate the attempt before disconnecting so its Disconnected
+          // event cannot race this cleanup.
+          connectGeneration.value += 1;
+        }
+        disposeRoom(room);
+      }
+      if (!isCurrentAttempt) {
+        disposeSupersededWorker();
+        throw e instanceof VoiceConnectSupersededError
+          ? e
+          : new VoiceConnectSupersededError();
+      }
+
       connectGeneration.value += 1;
       abortConnectInProgress();
       roomState.value = 'error';
@@ -353,8 +407,12 @@ export function createConnectController(
       voiceClientDiag('error', 'voice.client:connect_failed', {
         err: e instanceof Error ? e.message : String(e),
       });
-    } finally {
       connectInFlight.value = false;
+      throw e;
+    } finally {
+      if (myGen === connectGeneration.value) {
+        connectInFlight.value = false;
+      }
     }
   }
 

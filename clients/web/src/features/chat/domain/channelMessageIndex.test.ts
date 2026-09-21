@@ -50,6 +50,25 @@ describe('channelMessageIndex', () => {
     expect([...index.authorIds]).toEqual(['u2', 'u3', 'u0', 'u1']);
   });
 
+  it('keeps unordered provider batches chronologically sorted', () => {
+    const index = createChannelMessageIndex([]);
+
+    index.mergeBatch(
+      [
+        makeMessage('m2', 'u2', '2026-04-10T12:02:00.000Z'),
+        makeMessage('m0', 'u0', '2026-04-10T12:00:00.000Z'),
+        makeMessage('m1', 'u1', '2026-04-10T12:01:00.000Z'),
+      ],
+      'append',
+    );
+
+    expect(index.sorted.value.map((message) => message.id)).toEqual([
+      'm0',
+      'm1',
+      'm2',
+    ]);
+  });
+
   it('getChannelIndex does not replace a populated index from a stale bucket', () => {
     const channelId = 'ch-stale-bucket';
     const fresh = [

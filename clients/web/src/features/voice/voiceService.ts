@@ -511,7 +511,7 @@ export function createVoiceService({
       if (workspaceHydrator) await workspaceHydrator.hydrate();
     },
 
-    async onLeaveVoice(serverId: string) {
+    async onLeaveVoice(serverId: string, expectedChannelId?: string) {
       const token = authSession.accessToken ?? '';
       voiceClientTrace('voice.client:onLeaveVoice', {
         serverId,
@@ -534,8 +534,11 @@ export function createVoiceService({
 
       if (authSession.isAuthenticated && serverId && isEchoGraphId(serverId)) {
         try {
-          await postEchoVoiceLeave(token, serverId);
-          voiceClientTrace('voice.client:leave_api_ok', { serverId });
+          await postEchoVoiceLeave(token, serverId, expectedChannelId);
+          voiceClientTrace('voice.client:leave_api_ok', {
+            serverId,
+            expectedChannelId: expectedChannelId?.trim() || null,
+          });
           if (workspaceHydrator) await workspaceHydrator.hydrate();
         } catch (e) {
           voiceClientTrace('voice.client:onLeaveVoice_error', {
@@ -544,6 +547,14 @@ export function createVoiceService({
           voiceClientDiag('error', 'voice.service:onLeaveVoice_failed', {
             err: e instanceof Error ? e.message : String(e),
           });
+          // The UI is optimistically cleared before the request. Reconcile
+          // after a failed leave so a transient API error cannot strand a
+          // stale local/server voice roster indefinitely.
+          try {
+            if (workspaceHydrator) await workspaceHydrator.hydrate();
+          } catch {
+            /* best effort; the next workspace event or retry will reconcile */
+          }
           const msg = e instanceof Error ? e.message : String(e);
           UIErrorBus.emit({
             context: 'voice.leave',

@@ -36,7 +36,10 @@ struct EchoPollDisplay: View {
 
       HStack(alignment: .firstTextBaseline, spacing: 10) {
         if showTallies {
-          Text(totalVotes == 1 ? EchoCopy.format("%lld vote total", totalVotes) : EchoCopy.format("%lld votes total", totalVotes))
+          Text(
+            totalVotes == 1
+              ? EchoCopy.format("%lld vote total", totalVotes)
+              : EchoCopy.format("%lld votes total", totalVotes))
         } else {
           EchoCopy.text("Results hidden until you vote")
         }
@@ -81,7 +84,8 @@ struct EchoPollDisplay: View {
     let selected = poll.isSelected(optionID: option.id, userID: currentUserID)
     let percent =
       totalVotes == 0 ? 0 : Int((Double(option.votes) / Double(totalVotes) * 100).rounded())
-    var tally = option.votes == 1
+    var tally =
+      option.votes == 1
       ? EchoCopy.format("%lld vote", option.votes)
       : EchoCopy.format("%lld votes", option.votes)
     if totalVotes > 0 {
