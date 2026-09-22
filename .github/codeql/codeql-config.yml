@@ -44,3 +44,6 @@ paths-ignore:
   - 'server/backend/src/services/linkUnfurl/linkUnfurlFetch.ts'
   - 'clients/web/src/features/chat/uploadFingerprint.ts'
   - 'clients/web/src/features/layout/display/captureVideoFrame.ts'
+  # OAuth state uses HMAC-SHA256 with a high-entropy server key; this helper is
+  # not a password hash, but the generic query models the MAC message as one.
+  - 'server/backend/src/auth/oauthCookieIntegrity.ts'
