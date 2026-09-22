@@ -41,14 +41,21 @@ const MAX_REDIRECTS = 4;
 const FETCH_TIMEOUT_MS = 8000;
 
 function decodeBasicEntities(s: string): string {
-  return s
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/gi, "'");
+  // Decode one entity token at a time. A single pass preserves literal
+  // sequences such as `&amp;lt;` as `&lt;` instead of double-unescaping them.
+  return s.replace(
+    /&(?:nbsp|amp|lt|gt|quot|#39|#x27);/gi,
+    (entity) =>
+      ({
+        '&nbsp;': ' ',
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#39;': "'",
+        '&#x27;': "'",
+      })[entity.toLowerCase()] ?? entity,
+  );
 }
 
 function escapePropRe(prop: string): string {

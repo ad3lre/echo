@@ -10124,7 +10124,7 @@
       "maxNestingSpaces": 10
     },
     "server/backend/src/services/linkUnfurl/linkUnfurl.ts": {
-      "lines": 438,
+      "lines": 445,
       "longestFunction": 108,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
