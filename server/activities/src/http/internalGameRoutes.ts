@@ -122,7 +122,7 @@ export function registerInternalGameRoutes(
       if (!parsed || typeof body.type !== 'string' || !body.type.trim()) {
         return replyError(reply, 'invalid_action');
       }
-      const err = manager.dispatch(
+      const err = await manager.dispatch(
         parsed.roomId,
         parsed.userId,
         body.type,

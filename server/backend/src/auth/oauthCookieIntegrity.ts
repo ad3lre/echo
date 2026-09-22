@@ -13,9 +13,7 @@ export function oauthCookieIntegrityTag(
   payload: string,
 ): string {
   const message = `${OAUTH_COOKIE_MAC_SALT}\0${payload}`;
-  return createHmac('sha256', masterSecret)
-    .update(message)
-    .digest('hex');
+  return createHmac('sha256', masterSecret).update(message).digest('hex');
 }
 
 export function oauthCookieIntegrityTagsEqual(

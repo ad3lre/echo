@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "tsc",
+    "build:holyc": "bash cores/games/ticTacToe/holyc/build-engine.sh",
     "typecheck": "tsc --noEmit",
     "start": "node dist/server/activities/src/index.js",
     "test": "ts-node src/tests/run.ts"

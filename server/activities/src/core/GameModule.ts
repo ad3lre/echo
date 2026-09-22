@@ -13,8 +13,12 @@ export interface ActionCtx {
   /** Game-specific action discriminator from `GameActionMsg.type`. */
   type: string;
   now: number;
+  /** Current authoritative room revision before this action is applied. */
+  revision: number;
   roster: readonly string[];
 }
+
+export type MaybePromise<T> = T | Promise<T>;
 
 /**
  * The contract every game implements server-side. Implementations wrap an
@@ -33,8 +37,8 @@ export interface GameModule<S = unknown, V = unknown> {
 
   createInitialState(ctx: RoomCtx): S;
 
-  /** Apply a validated client action. Return next state, or `null` to reject (no change). */
-  reduce(state: S, payload: unknown, ctx: ActionCtx): S | null;
+  /** Apply a validated client action. Async modules may await an isolated engine. */
+  reduce(state: S, payload: unknown, ctx: ActionCtx): MaybePromise<S | null>;
 
   /** Advance timers/phases. Return next state, or `null` when nothing changed. */
   tick?(state: S, now: number, roster: readonly string[]): S | null;
@@ -44,6 +48,9 @@ export interface GameModule<S = unknown, V = unknown> {
 
   onJoin?(state: S, userId: string, now: number): S | null;
   onLeave?(state: S, userId: string, now: number): S | null;
+
+  /** Release external resources owned by a room instance. */
+  dispose?(state: S): void;
 
   /**
    * Optional relay for actions that fan out without mutating state (e.g.

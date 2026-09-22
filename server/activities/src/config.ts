@@ -7,6 +7,17 @@ function env(name: string): string | undefined {
   return t ? t : undefined;
 }
 
+function parseStringArray(raw: string | undefined): readonly string[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((value): value is string => typeof value === 'string');
+  } catch {
+    return [];
+  }
+}
+
 export function parsePort(raw: string | undefined, fallback: number): number {
   if (raw === undefined) return fallback;
   const n = Number(raw);
@@ -62,7 +73,28 @@ export const gameServerConfig = {
     'http://127.0.0.1:3000',
   /** Dispose an instance this long after its last member leaves. */
   idleDisposeMs: parsePort(env('GAME_SERVER_IDLE_DISPOSE_MS'), 60_000),
+  /** Experimental tic-tac-toe engine. TypeScript remains the safe default. */
+  ticTacToeEngine:
+    env('GAME_SERVER_TTT_ENGINE') === 'holyc' ? 'holyc' : 'typescript',
+  /** Absolute executable path for the supervised HolyC line-protocol engine. */
+  ticTacToeHolyCCommand: env('GAME_SERVER_TTT_HOLYC_COMMAND') ?? null,
+  /** JSON array of argv entries; no shell interpolation is ever used. */
+  ticTacToeHolyCArgs: parseStringArray(env('GAME_SERVER_TTT_HOLYC_ARGS')),
+  ticTacToeHolyCTimeoutMs: parsePort(
+    env('GAME_SERVER_TTT_HOLYC_TIMEOUT_MS'),
+    1_000,
+  ),
 } as const;
+
+if (
+  gameServerConfig.ticTacToeEngine === 'holyc' &&
+  (!gameServerConfig.ticTacToeHolyCCommand ||
+    !gameServerConfig.ticTacToeHolyCCommand.startsWith('/'))
+) {
+  throw new Error(
+    'GAME_SERVER_TTT_ENGINE=holyc requires GAME_SERVER_TTT_HOLYC_COMMAND to be an absolute executable path',
+  );
+}
 
 assertGameServerProductionConfig({
   gameTokenSecret: gameServerConfig.gameTokenSecret,

@@ -99,6 +99,9 @@ export function attachGameSocketServer(
     (roomId) => makeCompositeEmitter(io, roomId, tunneled, relay),
     (gameKey, delta) => gameServerActiveInstances.inc({ game: gameKey }, delta),
   );
+  fastify.addHook('onClose', async () => {
+    manager.disposeAll();
+  });
   registerInternalGameRoutes(fastify, manager, tunneled);
 
   io.use((socket, next) => {
@@ -139,15 +142,17 @@ export function attachGameSocketServer(
         socket.emit(GAME_S2C.error, { reason: 'invalid_action' });
         return;
       }
-      const err = manager.dispatch(
-        roomId,
-        userId,
-        msg.type,
-        msg.payload,
-        Date.now(),
-      );
-      gameServerActionsTotal.inc({ game: gameKey, outcome: err ?? 'ok' });
-      if (err) socket.emit(GAME_S2C.error, { reason: err });
+      void (async () => {
+        const err = await manager.dispatch(
+          roomId,
+          userId,
+          msg.type,
+          msg.payload,
+          Date.now(),
+        );
+        gameServerActionsTotal.inc({ game: gameKey, outcome: err ?? 'ok' });
+        if (err) socket.emit(GAME_S2C.error, { reason: err });
+      })();
     });
 
     socket.on(GAME_C2S.leave, () => {

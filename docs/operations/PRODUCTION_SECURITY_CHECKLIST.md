@@ -43,6 +43,11 @@
 19. If TLS is terminated at the proxy, set **`ENFORCE_HTTPS=true`** and forward the canonical proto header through that trusted proxy path.
 20. **`CORS_ORIGIN`** — **Required in production**: explicit origin(s), comma-separated if needed; never `*` or empty (the server enforces this for credentialed auth and Socket.IO).
 
+## PostgreSQL trust boundary
+
+21. **Runtime database role** — `DATABASE_URL` must use a dedicated login role such as `echo_app` with `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, and `NOCREATEROLE`. The PostgreSQL bootstrap role may remain a superuser because PostgreSQL requires that attribute, but it must be `NOLOGIN` and must never be used by Echo.
+22. **PostgreSQL HBA** — Use `scram-sha-256` for every local and loopback rule. Allow only the Echo database and runtime role, plus the Docker bridge gateway when the host connects through a published container port. Do not use `trust` authentication in production.
+
 ## Related docs
 
 - CSP/HSTS on the HTML document (Caddy / Cloudflare): [http-observatory-headers.md](./http-observatory-headers.md)

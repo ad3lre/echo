@@ -21,7 +21,10 @@ services:
       # pg_isready defaults to OS username; the healthcheck runs as root, so without -U Postgres
       # logs FATAL: role "root" does not exist. Use the same DB role the server creates.
       test:
-        ['CMD-SHELL', 'pg_isready -h localhost -p 5432 -U "$$POSTGRES_USER"']
+        [
+          'CMD-SHELL',
+          'pg_isready -h localhost -p 5432 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"',
+        ]
       interval: 5s
       timeout: 5s
       retries: 10

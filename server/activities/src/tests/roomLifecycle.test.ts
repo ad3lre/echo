@@ -66,7 +66,7 @@ const timedModule: GameModule = {
   serializeFor: (_viewer, state) => state,
 };
 
-export function runRoomLifecycleTests(): void {
+export async function runRoomLifecycleTests(): Promise<void> {
   const emitters = new Map<string, CapturingEmitter>();
   const counts: Array<{ key: string; delta: number }> = [];
   const manager = new RoomManager(
@@ -98,7 +98,10 @@ export function runRoomLifecycleTests(): void {
 
   // member action applies + broadcasts to ALL members with a higher rev
   const revBefore = e1.last.get('alice')!.rev;
-  assert.equal(manager.dispatch('R1', 'alice', 'claim', undefined, 1200), null);
+  assert.equal(
+    await manager.dispatch('R1', 'alice', 'claim', undefined, 1200),
+    null,
+  );
   const aliceSnap = e1.last.get('alice')!;
   const bobSnap = e1.last.get('bob')!;
   assert.ok(aliceSnap.rev > revBefore, 'rev should advance on a state change');
@@ -117,7 +120,7 @@ export function runRoomLifecycleTests(): void {
   const revAfterClaim = e1.last.get('alice')!.rev;
   const aliceCountBefore = e1.snapshotCount.get('alice')!;
   assert.equal(
-    manager.dispatch('R1', 'alice', 'noop', undefined, 1300),
+    await manager.dispatch('R1', 'alice', 'noop', undefined, 1300),
     'rejected',
   );
   assert.equal(e1.last.get('alice')!.rev, revAfterClaim);
@@ -125,7 +128,7 @@ export function runRoomLifecycleTests(): void {
 
   // non-member action → not_in_room
   assert.equal(
-    manager.dispatch('R1', 'mallory', 'claim', undefined, 1400),
+    await manager.dispatch('R1', 'mallory', 'claim', undefined, 1400),
     'not_in_room',
   );
 

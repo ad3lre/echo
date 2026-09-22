@@ -22,6 +22,7 @@ export class GameInstance<S = unknown, V = unknown> {
   private rev = 0;
   private readonly members = new Set<string>();
   private lastActiveAt: number;
+  private dispatchChain: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly module: GameModule<S, V>,
@@ -92,16 +93,41 @@ export class GameInstance<S = unknown, V = unknown> {
     type: string,
     payload: unknown,
     now: number,
-  ): GameErrorReason | null {
+  ): Promise<GameErrorReason | null> {
+    const run = this.dispatchChain.then(
+      () => this.dispatchNow(userId, type, payload, now),
+      () => this.dispatchNow(userId, type, payload, now),
+    );
+    this.dispatchChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async dispatchNow(
+    userId: string,
+    type: string,
+    payload: unknown,
+    now: number,
+  ): Promise<GameErrorReason | null> {
     if (!this.members.has(userId)) return 'not_in_room';
     this.lastActiveAt = now;
     const ctx = {
       userId,
       type,
       now,
+      revision: this.rev,
       roster: this.roster(),
     };
-    const next = this.module.reduce(this.state, payload, ctx);
+    let next: S | null;
+    try {
+      next = await this.module.reduce(this.state, payload, ctx);
+    } catch {
+      // External engines fail closed: the action is rejected and the previous
+      // authoritative state remains intact.
+      return 'rejected';
+    }
     if (next != null) {
       this.state = next;
       this.rev++;
@@ -120,6 +146,10 @@ export class GameInstance<S = unknown, V = unknown> {
       }
     }
     return 'rejected';
+  }
+
+  dispose(): void {
+    this.module.dispose?.(this.state);
   }
 
   /** Drive timers. Returns true if state mutated. */

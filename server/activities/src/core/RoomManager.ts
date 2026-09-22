@@ -60,9 +60,9 @@ export class RoomManager {
     type: string,
     payload: unknown,
     now: number,
-  ): GameErrorReason | null {
+  ): Promise<GameErrorReason | null> {
     const inst = this.instances.get(roomId);
-    if (!inst) return 'not_in_room';
+    if (!inst) return Promise.resolve('not_in_room');
     return inst.dispatch(userId, type, payload, now);
   }
 
@@ -75,10 +75,19 @@ export class RoomManager {
   sweepIdle(now: number, idleMs: number): void {
     for (const [roomId, inst] of this.instances) {
       if (inst.isEmpty() && now - inst.idleSince() > idleMs) {
+        inst.dispose();
         this.instances.delete(roomId);
         this.onInstanceCountChange?.(inst.gameKey, -1);
       }
     }
+  }
+
+  disposeAll(): void {
+    for (const inst of this.instances.values()) {
+      inst.dispose();
+      this.onInstanceCountChange?.(inst.gameKey, -1);
+    }
+    this.instances.clear();
   }
 
   get size(): number {
