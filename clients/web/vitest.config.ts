@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [vue()],
   test: {
     environment: 'node',
+    maxWorkers: 2,
     include: [
       'src/**/*.test.ts',
       './src/features/paper/**/*.test.ts',

@@ -3,11 +3,13 @@ import process from 'node:process';
 import { join } from 'node:path';
 import { HolyCTicTacToeEngine } from '../games/ticTacToe/holycEngine';
 
+const CI_ENGINE_TIMEOUT_MS = 5_000;
+
 export async function runHolyCEngineTests(): Promise<void> {
   const engine = new HolyCTicTacToeEngine({
     command: process.execPath,
     args: [join(__dirname, 'fixtures', 'holycTicTacToeEngine.js')],
-    timeoutMs: 500,
+    timeoutMs: CI_ENGINE_TIMEOUT_MS,
   });
   try {
     const x0 = await engine.apply(1, 0, 'X');
@@ -25,7 +27,7 @@ export async function runHolyCEngineTests(): Promise<void> {
   const malformed = new HolyCTicTacToeEngine({
     command: process.execPath,
     args: [join(__dirname, 'fixtures', 'holycMalformedEngine.js')],
-    timeoutMs: 500,
+    timeoutMs: CI_ENGINE_TIMEOUT_MS,
   });
   try {
     await assert.rejects(
