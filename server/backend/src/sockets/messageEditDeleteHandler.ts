@@ -4,14 +4,13 @@ import type {
   MentionEntity,
   MessageFailedCode,
 } from '../../../../contracts/types';
-import { canDeleteOthersMessagesInChannel } from '../domain/echoPolicy';
 import {
   canUserAccessChannel,
   canUserPostMessage,
 } from '../domain/permissions/echoPermissions';
 import {
   getEchoChannelServerId,
-  getEchoMessageById,
+  getEchoMessageByIdInChannel,
   getEchoStore,
   selectEchoMessageAuthorDeleted,
   softDeleteEchoMessage,
@@ -219,7 +218,7 @@ export function registerMessageEditDeleteHandler(
         });
         return;
       }
-      const row = await getEchoMessageById(pool, messageId);
+      const row = await getEchoMessageByIdInChannel(pool, messageId, channelId);
       const editedAt = row?.editedAt ?? new Date().toISOString();
       const plain = row?.searchIndexText ?? row?.content ?? v.content;
       const mf = row?.messageFormatVersion ?? (v.editKind === 'json' ? 2 : 1);
@@ -401,24 +400,12 @@ export function registerMessageEditDeleteHandler(
         fail('VALIDATION', { channelId, detail: 'channel not found' });
         return;
       }
-      const canDeleteOthers = await canDeleteOthersMessagesInChannel(
-        pool,
-        userId,
-        sid,
-        channelId,
-      );
       const okAccess = await canUserAccessChannel(pool, userId, channelId);
       if (!okAccess) {
         fail('FORBIDDEN', { channelId });
         return;
       }
-      const r = await softDeleteEchoMessage(
-        pool,
-        channelId,
-        messageId,
-        userId,
-        canDeleteOthers,
-      );
+      const r = await softDeleteEchoMessage(pool, channelId, messageId, userId);
       if (r !== 'ok') {
         log.warn({
           msg: 'echo.socket.message_delete_denied',

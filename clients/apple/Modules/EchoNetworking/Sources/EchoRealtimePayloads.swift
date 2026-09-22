@@ -14,6 +14,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
   let editedAt: String?
   let mentions: [EchoMessageMention]?
   let attachments: [EchoMessageAttachment]?
+  let embeds: [EchoMessageEmbed]?
   let poll: EchoPoll?
   let replyTo: EchoMessageReplyTo?
 
@@ -29,6 +30,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
     case editedAt
     case mentions
     case attachments
+    case embeds
     case poll
     case replyTo
   }
@@ -46,6 +48,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
     editedAt = try values.decodeIfPresent(String.self, forKey: .editedAt)
     mentions = try values.decodeIfPresent([EchoMessageMention].self, forKey: .mentions)
     attachments = try values.decodeIfPresent([EchoMessageAttachment].self, forKey: .attachments)
+    embeds = try values.decodeIfPresent([EchoMessageEmbed].self, forKey: .embeds)
     poll = try values.decodeIfPresent(EchoPoll.self, forKey: .poll)
     replyTo = try values.decodeIfPresent(EchoMessageReplyTo.self, forKey: .replyTo)
   }
@@ -68,6 +71,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
       isCurrentUser: EchoUserIdentity.matches(authorID, currentUserID),
       mentions: mentions ?? [],
       attachments: attachments ?? [],
+      embeds: embeds ?? [],
       poll: poll,
       replyTo: replyTo
     )

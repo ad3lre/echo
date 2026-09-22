@@ -38,4 +38,20 @@ describe('applyEmbedTitlesToMessageContent', () => {
     expect(out).toContain('[Alpha](https://a.test/one)');
     expect(out).toContain('[Beta](https://b.test/two)');
   });
+
+  it('strips inline Tenor GIF page URLs instead of turning them into title links', () => {
+    const url = 'https://tenor.com/view/cat-gif-123';
+    const embeds: Embed[] = [
+      {
+        url,
+        title: 'Cat GIF',
+        provider: 'Tenor',
+        image: { url: 'https://media.tenor.com/LSI81MmB6gEAAAAC/cat.gif' },
+      },
+    ];
+    expect(applyEmbedTitlesToMessageContent(url, embeds)).toBe('');
+    expect(applyEmbedTitlesToMessageContent(`check ${url}`, embeds)).toBe(
+      'check',
+    );
+  });
 });

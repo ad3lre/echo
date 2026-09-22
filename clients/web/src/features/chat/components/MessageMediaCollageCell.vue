@@ -10,6 +10,9 @@ import {
   queueChatMediaRetentionTouch,
 } from '@/features/chat/composables/useChatMediaRetentionTouch';
 import { isTrustedMediaUrl } from '@/features/layout/display/safeImageUrl';
+import { echoUploadMediaCrossOrigin } from '@/features/chat/echoUploadMediaCredentials';
+import { sampleLetterboxMatteFromImage } from '@/features/chat/composables/sampleLetterboxMatteFromImage';
+import type { LetterboxMatte } from '@/features/chat/domain/imageLetterboxMatte';
 import LimitedGifImg from '@/components/LimitedGifImg.vue';
 import MediaUnavailablePanel from './MediaUnavailablePanel.vue';
 import type { CollageSourceItem } from '@/features/chat/domain/messageMediaCollage';
@@ -27,6 +30,9 @@ const emit = defineEmits<{ open: [] }>();
 const loadFailed = ref(false);
 const loaded = ref(false);
 const revealed = ref(false);
+/** Letterbox fill: blur wash from the image, or exact solid when flat. */
+const letterboxMatte = ref<LetterboxMatte>({ kind: 'blur' });
+const imgRef = ref<HTMLImageElement | null>(null);
 
 const {
   src: resolved,
@@ -39,11 +45,16 @@ const {
   fallbackWidth: 640,
 });
 
+const imgCrossOrigin = computed(() =>
+  echoUploadMediaCrossOrigin(resolved.value ?? props.item.url),
+);
+
 watch(
   () => [resolved.value, props.item.url] as const,
   () => {
     loadFailed.value = false;
     loaded.value = false;
+    letterboxMatte.value = { kind: 'blur' };
   },
 );
 
@@ -58,6 +69,9 @@ const unavailable = computed(
     (!isTrustedMediaUrl(props.item.url) || loadFailed.value),
 );
 const spoilered = computed(() => !!props.item.spoiler && !revealed.value);
+const showLetterboxMatte = computed(
+  () => props.fit === 'contain' && loaded.value && !spoilered.value,
+);
 
 /** GIF cell fill: cover -> object-cover (fill-cover), contain -> absolute-stack contain. */
 const gifImgClass = computed(() =>
@@ -66,9 +80,26 @@ const gifImgClass = computed(() =>
     : 'absolute inset-0 box-border h-full w-full !max-h-none !max-w-none object-contain',
 );
 
-function onLoad(): void {
+const gifMatteClass =
+  'absolute inset-0 box-border h-full w-full !max-h-none !max-w-none object-cover';
+
+function refreshLetterboxMatte(img: HTMLImageElement | null): void {
+  if (props.fit !== 'contain' || !img?.naturalWidth) {
+    letterboxMatte.value = { kind: 'blur' };
+    return;
+  }
+  letterboxMatte.value = sampleLetterboxMatteFromImage(img);
+}
+
+function onLoad(event?: Event): void {
   loaded.value = true;
   queueChatMediaRetentionTouch(props.item.storageKey);
+  const target = event?.target;
+  if (target instanceof HTMLImageElement) {
+    refreshLetterboxMatte(target);
+  } else {
+    refreshLetterboxMatte(imgRef.value);
+  }
 }
 
 function onClick(): void {
@@ -97,11 +128,46 @@ onUnmounted(() => stopObserve?.());
     ref="rootRef"
     type="button"
     class="collage-cell chat-focus-ring"
+    :class="{ 'collage-cell--letterbox': fit === 'contain' }"
+    :style="
+      showLetterboxMatte && letterboxMatte.kind === 'solid'
+        ? { background: letterboxMatte.css }
+        : undefined
+    "
     @click="onClick"
   >
     <MediaUnavailablePanel v-if="unavailable" headline="Image unavailable" />
     <template v-else>
       <div v-if="!loaded" class="collage-cell__skeleton" aria-hidden="true" />
+      <!-- Soft image-derived wash behind letterboxed (contain) media. -->
+      <template v-if="fit === 'contain' && letterboxMatte.kind === 'blur'">
+        <div
+          v-if="item.isGif && loaded"
+          class="collage-cell__matte"
+          aria-hidden="true"
+        >
+          <LimitedGifImg
+            :src="item.url"
+            :storage-key="item.storageKey"
+            alt=""
+            wrapper-class="absolute inset-0 h-full w-full"
+            :img-class="gifMatteClass"
+            :respect-reduced-motion="true"
+            loading="eager"
+            force-gif
+          />
+        </div>
+        <img
+          v-else-if="!item.isGif && loaded && resolved"
+          :src="resolved"
+          :srcset="srcset || undefined"
+          :sizes="srcset ? sizes : undefined"
+          alt=""
+          aria-hidden="true"
+          class="collage-cell__matte-img"
+          :crossorigin="imgCrossOrigin ?? undefined"
+        />
+      </template>
       <div
         v-if="item.isGif"
         class="collage-cell__media"
@@ -125,6 +191,7 @@ onUnmounted(() => stopObserve?.());
       </div>
       <img
         v-else
+        ref="imgRef"
         :src="resolved"
         :srcset="srcset || undefined"
         :sizes="srcset ? sizes : undefined"
@@ -140,6 +207,7 @@ onUnmounted(() => stopObserve?.());
             'collage-cell__img--spoiler': spoilered,
           },
         ]"
+        :crossorigin="imgCrossOrigin ?? undefined"
         @load="onLoad"
         @error="loadFailed = true"
       />
@@ -166,11 +234,40 @@ onUnmounted(() => stopObserve?.());
   background: color-mix(in srgb, var(--bg) 70%, black);
 }
 
+.collage-cell--letterbox {
+  /* Fallback only until the image-derived matte paints. */
+  background: color-mix(in srgb, var(--bg) 55%, black);
+}
+
 .collage-cell__skeleton {
   position: absolute;
   inset: 0;
   @include skel.fill;
   @include skel.reduced-motion;
+}
+
+.collage-cell__matte,
+.collage-cell__matte-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.collage-cell__matte-img {
+  object-fit: cover;
+  transform: scale(1.18);
+  filter: blur(28px) saturate(1.15);
+  opacity: 0.92;
+}
+
+.collage-cell__matte {
+  overflow: hidden;
+  transform: scale(1.18);
+  filter: blur(28px) saturate(1.15);
+  opacity: 0.92;
 }
 
 .collage-cell__img {
@@ -179,6 +276,7 @@ onUnmounted(() => stopObserve?.());
   width: 100%;
   height: 100%;
   display: block;
+  z-index: 1;
 }
 .collage-cell__img--cover {
   object-fit: cover;
@@ -201,6 +299,7 @@ onUnmounted(() => stopObserve?.());
 .collage-cell__media {
   position: absolute;
   inset: 0;
+  z-index: 1;
 }
 .collage-cell__media--hidden {
   opacity: 0;
@@ -224,6 +323,7 @@ onUnmounted(() => stopObserve?.());
   color: #fff;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
   pointer-events: none;
+  z-index: 2;
 }
 
 .collage-cell__spoiler {
@@ -238,5 +338,6 @@ onUnmounted(() => stopObserve?.());
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   pointer-events: none;
+  z-index: 2;
 }
 </style>

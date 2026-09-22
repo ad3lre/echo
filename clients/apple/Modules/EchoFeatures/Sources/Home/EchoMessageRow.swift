@@ -16,8 +16,11 @@ struct EchoMessageRow: View {
   var onTogglePin: (() -> Void)? = nil
   var onReply: (() -> Void)? = nil
   var onJumpToReply: (() -> Void)? = nil
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
+    let metrics = displayPrefs.densityMetrics
     HStack(alignment: .top, spacing: 10) {
       if showsHeader {
         authorAvatar
@@ -26,59 +29,75 @@ struct EchoMessageRow: View {
       }
 
       VStack(alignment: .leading, spacing: 4) {
-        if showsHeader {
-          HStack(alignment: .firstTextBaseline, spacing: 8) {
-            authorNameLabel
-            if isPinned {
+        // Swipe-to-reply lives on chrome + text only so horizontal pans on
+        // media / polls do not start a reply, and so a reply swipe on an
+        // image cannot also open the media viewer.
+        VStack(alignment: .leading, spacing: 4) {
+          if showsHeader {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+              authorNameLabel
+              if isPinned {
+                Image(systemName: "pin.fill")
+                  .font(.system(size: 9, weight: .bold))
+                  .foregroundStyle(displayPrefs.indigoSoft(colorScheme: colorScheme).opacity(0.92))
+                  .accessibilityLabel(EchoCopy.string("Pinned"))
+              }
+              if let timestamp = message.timestamp {
+                Text(timestampLabel(timestamp))
+                  .font(displayPrefs.uiFont(size: EchoTheme.Typography.messageTimestamp))
+                  .foregroundStyle(displayPrefs.ink(0.34))
+              }
+            }
+          } else if isPinned {
+            HStack(spacing: 4) {
               Image(systemName: "pin.fill")
                 .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(EchoTheme.Color.indigoSoft.opacity(0.92))
-                .accessibilityLabel(EchoCopy.string("Pinned"))
+                .foregroundStyle(EchoTheme.Color.indigoSoft.opacity(0.8))
+              Text(EchoCopy.string("Pinned"))
+                .font(displayPrefs.uiFont(size: 10, weight: .semibold))
+                .foregroundStyle(displayPrefs.ink(0.38))
             }
-            if let timestamp = message.timestamp {
-              Text(timestampLabel(timestamp))
-                .font(
-                  .system(
-                    size: EchoTheme.Typography.messageTimestamp, weight: .regular, design: .rounded)
-                )
-                .foregroundStyle(.white.opacity(0.34))
-            }
+            .padding(.bottom, 1)
           }
-        } else if isPinned {
-          HStack(spacing: 4) {
-            Image(systemName: "pin.fill")
-              .font(.system(size: 9, weight: .bold))
-              .foregroundStyle(EchoTheme.Color.indigoSoft.opacity(0.8))
-            Text(EchoCopy.string("Pinned"))
-              .font(.system(size: 10, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.38))
+
+          if let replyTo = message.replyTo {
+            EchoMessageReplyPreview(
+              replyTo: replyTo,
+              baseURL: baseURL,
+              accessToken: accessToken,
+              onTap: onJumpToReply
+            )
           }
-          .padding(.bottom, 1)
+
+          if !displayContent.isEmpty {
+            EchoMarkdownView(
+              markdown: displayContent,
+              mentions: message.mentions,
+              apiBaseURL: baseURL,
+              accessToken: accessToken
+            )
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .opacity(message.delivery == .uploading ? 0.78 : 1)
+          }
+
+          deliveryStatusChrome
+        }
+        .echoSwipeAction(
+          edge: .trailing,
+          systemImage: "arrowshape.turn.up.left.fill",
+          tint: EchoTheme.Color.replyAccent,
+          enabled: onReply != nil && message.delivery == .sent
+            && (!displayContent.isEmpty || message.replyTo != nil || showsHeader)
+        ) {
+          onReply?()
         }
 
-        if let replyTo = message.replyTo {
-          EchoMessageReplyPreview(
-            replyTo: replyTo,
-            baseURL: baseURL,
-            accessToken: accessToken,
-            onTap: onJumpToReply
-          )
-        }
-
-        if !message.content.isEmpty {
-          EchoMarkdownView(
-            markdown: message.content,
-            mentions: message.mentions,
-            apiBaseURL: baseURL,
-            accessToken: accessToken
-          )
-          .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-          .opacity(message.delivery == .uploading ? 0.78 : 1)
-        }
-
-        if !message.attachments.isEmpty {
+        // Media / polls stay outside reply-swipe so their large hit targets
+        // cannot compete with timeline scrolling (esp. on the right half of
+        // the row). Reply on attachment-only messages stays via context menu.
+        if !displayAttachments.isEmpty {
           EchoMessageAttachmentsView(
-            attachments: message.attachments,
+            attachments: displayAttachments,
             baseURL: baseURL,
             accessToken: accessToken,
             isUploading: message.delivery == .uploading)
@@ -92,63 +111,22 @@ struct EchoMessageRow: View {
             onVote: onPollVote
           )
         }
-
-        switch message.delivery {
-        case .uploading:
-          HStack(spacing: 7) {
-            ProgressView()
-              .controlSize(.mini)
-              .tint(.white.opacity(0.72))
-            EchoCopy.text("Uploading…")
-              .font(.system(size: 12, weight: .medium, design: .rounded))
-              .foregroundStyle(.white.opacity(0.58))
-          }
-          .padding(.top, 2)
-          .accessibilityLabel(EchoCopy.string("Uploading attachment"))
-        case .failed:
-          Button {
-            onDismissFailed?()
-          } label: {
-            HStack(spacing: 6) {
-              Image(systemName: "exclamationmark.circle.fill")
-                .font(.system(size: 12, weight: .semibold))
-              EchoCopy.text("Couldn’t send")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-              EchoCopy.text("·")
-                .foregroundStyle(.white.opacity(0.28))
-              EchoCopy.text("Dismiss")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(.red.opacity(0.88))
-          }
-          .buttonStyle(.plain)
-          .padding(.top, 2)
-          .accessibilityLabel(EchoCopy.string("Couldn’t send. Dismiss"))
-        case .sent:
-          EmptyView()
-        }
-
-        if message.editedAt != nil {
-          EchoCopy.text("edited")
-            .font(.system(size: 10, weight: .regular, design: .rounded))
-            .foregroundStyle(.white.opacity(0.32))
-        }
       }
       .padding(.top, showsHeader ? 0 : 2)
       Spacer(minLength: 0)
     }
     // A new message gets breathing room; consecutive messages from the same
     // author stay visually grouped without collapsing into one unreadable run.
-    .padding(.top, showsHeader ? 14 : 2)
-    .padding(.bottom, showsHeader ? 5 : 2)
-    .echoSwipeAction(
-      edge: .leading,
-      systemImage: "arrowshape.turn.up.left.fill",
-      tint: EchoTheme.Color.replyAccent,
-      enabled: onReply != nil && message.delivery == .sent
-    ) {
-      onReply?()
-    }
+    .padding(
+      .top,
+      metrics.messageHeaderTop(
+        showsHeader: showsHeader, messageSpacing: displayPrefs.messageSpacing)
+    )
+    .padding(
+      .bottom,
+      metrics.messageBottom(
+        showsHeader: showsHeader, messageSpacing: displayPrefs.messageSpacing)
+    )
     .contextMenu {
       if let onReply, message.delivery == .sent {
         Button {
@@ -169,10 +147,54 @@ struct EchoMessageRow: View {
     }
     .accessibilityElement(children: .combine)
     .accessibilityLabel(
-      "\(EchoMessageTimelineModel.authorDisplayName(message: message, conversation: conversation)): \(message.content.isEmpty ? (message.poll?.question ?? EchoCopy.string("Attachment")) : message.content)"
+      "\(EchoMessageTimelineModel.authorDisplayName(message: message, conversation: conversation)): \(displayContent.isEmpty ? (message.poll?.question ?? EchoCopy.string("Attachment")) : displayContent)"
     )
     .accessibilityAction(named: EchoCopy.string("Reply")) {
       onReply?()
+    }
+  }
+
+  @ViewBuilder
+  private var deliveryStatusChrome: some View {
+    switch message.delivery {
+    case .uploading:
+      HStack(spacing: 7) {
+        ProgressView()
+          .controlSize(.mini)
+          .tint(EchoTheme.Color.ink(0.72))
+        EchoCopy.text("Uploading…")
+          .font(.system(size: 12, weight: .medium, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.ink(0.58))
+      }
+      .padding(.top, 2)
+      .accessibilityLabel(EchoCopy.string("Uploading attachment"))
+    case .failed:
+      Button {
+        onDismissFailed?()
+      } label: {
+        HStack(spacing: 6) {
+          Image(systemName: "exclamationmark.circle.fill")
+            .font(.system(size: 12, weight: .semibold))
+          EchoCopy.text("Couldn’t send")
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+          EchoCopy.text("·")
+            .foregroundStyle(EchoTheme.Color.ink(0.28))
+          EchoCopy.text("Dismiss")
+            .font(.system(size: 12, weight: .semibold, design: .rounded))
+        }
+        .foregroundStyle(.red.opacity(0.88))
+      }
+      .buttonStyle(.plain)
+      .padding(.top, 2)
+      .accessibilityLabel(EchoCopy.string("Couldn’t send. Dismiss"))
+    case .sent:
+      EmptyView()
+    }
+
+    if message.editedAt != nil {
+      EchoCopy.text("edited")
+        .font(.system(size: 10, weight: .regular, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.32))
     }
   }
 
@@ -187,6 +209,23 @@ struct EchoMessageRow: View {
     }
     if message.isCurrentUser { return nil }
     return conversation.avatarURL
+  }
+
+  /// Strip Tenor/Giphy page URLs that already render as inline GIFs.
+  private var displayContent: String {
+    EchoGifHostLinks.contentWithoutInlineGifHostURLs(message.content, embeds: message.embeds)
+  }
+
+  /// Attachments plus synthetic GIF tiles from Tenor/Giphy embeds.
+  private var displayAttachments: [EchoMessageAttachment] {
+    let fromEmbeds = EchoGifHostLinks.inlineGifAttachments(from: message.embeds)
+    guard !fromEmbeds.isEmpty else { return message.attachments }
+    var seen = Set(message.attachments.map(\.url))
+    var merged = message.attachments
+    for gif in fromEmbeds where seen.insert(gif.url).inserted {
+      merged.append(gif)
+    }
+    return merged
   }
 
   private var authorDisplayName: String {
@@ -219,10 +258,8 @@ struct EchoMessageRow: View {
   @ViewBuilder
   private var authorNameLabel: some View {
     let label = Text(authorDisplayName)
-      .font(
-        .system(size: EchoTheme.Typography.messageAuthor, weight: .semibold, design: .rounded)
-      )
-      .foregroundStyle(.white.opacity(0.94))
+      .font(displayPrefs.uiFont(size: EchoTheme.Typography.messageAuthor, weight: .semibold))
+      .foregroundStyle(displayPrefs.ink(0.94))
       .lineLimit(1)
 
     if let onAuthorProfileTap {
@@ -289,7 +326,11 @@ struct EchoMessageAttachmentsView: View {
       // Non-image attachments stay as a vertical stack.
       ForEach(Array(nonImageAttachments.enumerated()), id: \.offset) { _, attachment in
         if attachment.isVideo {
-          EchoVideoAttachmentPreview(attachment: attachment) {
+          EchoVideoAttachmentPreview(
+            attachment: attachment,
+            baseURL: baseURL,
+            accessToken: accessToken
+          ) {
             viewerSession = EchoMediaViewerSession.media(
               attachments, startingAt: attachment)
           }
@@ -335,10 +376,10 @@ struct EchoMessageAttachmentsView: View {
           VStack(spacing: 8) {
             ProgressView()
               .controlSize(.regular)
-              .tint(.white)
+              .tint(EchoTheme.Color.onAccent)
             EchoCopy.text("Uploading")
               .font(.system(size: 12, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.92))
+              .foregroundStyle(EchoTheme.Color.onAccent)
           }
         }
         .allowsHitTesting(false)
@@ -356,13 +397,13 @@ struct EchoMessageAttachmentsView: View {
         if let mimeType = attachment.mimeType {
           Text(mimeType)
             .font(.system(size: 11, design: .rounded))
-            .foregroundStyle(.white.opacity(0.45))
+            .foregroundStyle(EchoTheme.Color.ink(0.45))
         }
       }
     }
-    .foregroundStyle(.white.opacity(0.78))
+    .foregroundStyle(EchoTheme.Color.ink(0.78))
     .padding(.horizontal, 12)
     .padding(.vertical, 10)
-    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .background(EchoTheme.Color.ink(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
   }
 }

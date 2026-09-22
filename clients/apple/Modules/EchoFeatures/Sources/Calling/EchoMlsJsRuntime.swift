@@ -22,18 +22,25 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
     viewerUserID: String,
     deviceID: String,
     peerUserID: String?,
+    authorizedUserIDs: [String] = [],
     baseURL: URL
   ) async throws -> EchoVoiceE2EEPrepareResult {
     try await ensureReady(baseURL: baseURL)
-    let authorized = [viewerUserID, peerUserID].compactMap {
-      $0?.trimmingCharacters(in: .whitespacesAndNewlines)
-    }.filter { !$0.isEmpty }
+    var authorized = authorizedUserIDs
+    if let peer = peerUserID { authorized.append(peer) }
+    authorized.append(viewerUserID)
+    var seen = Set<String>()
+    let uniqueAuthorized = authorized.compactMap { raw -> String? in
+      let id = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !id.isEmpty, seen.insert(id).inserted else { return nil }
+      return id
+    }
     let input: [String: Any] = [
       "channelId": channelID,
       "token": accessToken,
       "viewerUserId": viewerUserID,
       "deviceId": deviceID,
-      "authorizedUserIds": authorized,
+      "authorizedUserIds": uniqueAuthorized,
     ]
     let inputData = try JSONSerialization.data(withJSONObject: input)
     let inputJSON = String(data: inputData, encoding: .utf8) ?? "{}"
@@ -80,6 +87,16 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
 
   func stopActive() async {
     _ = try? await invokeJSON("__echoMlsStop")
+  }
+
+  /// Update the live MLS authorized roster (group-DM membership / leave reconcile).
+  func setAuthorizedUserIDs(_ ids: [String]) {
+    guard ready else { return }
+    guard JSONSerialization.isValidJSONObject(ids),
+      let data = try? JSONSerialization.data(withJSONObject: ids),
+      let json = String(data: data, encoding: .utf8)
+    else { return }
+    evaluate("__echoMlsSetAuthorized(\(Self.jsStringLiteral(json)));")
   }
 
   private func invokeJSON(_ globalName: String) async throws -> EchoCallMediaEncryption? {

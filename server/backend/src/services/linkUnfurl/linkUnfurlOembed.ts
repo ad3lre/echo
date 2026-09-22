@@ -3,6 +3,10 @@
  * Runs before generic HTML fetch; complements YouTube/Vimeo-specific helpers in linkUnfurl.ts.
  */
 
+import {
+  isLikelyGifMediaUrl,
+  normalizeTenorAnimatedGifUrl,
+} from '../../../../../contracts/gifHostLinks';
 import type { Embed } from '../../../../../contracts/types';
 import {
   fetchJsonWithTimeout,
@@ -37,7 +41,6 @@ function oembedToEmbed(
   const provider = str(data.provider_name).slice(0, 40) || 'Link';
   const author = str(data.author_name);
   const authorUrl = str(data.author_url);
-  const thumb = str(data.thumbnail_url);
   const thumbW = positiveInt(data.thumbnail_width);
   const thumbH = positiveInt(data.thumbnail_height);
   const embed: Embed = {
@@ -58,13 +61,42 @@ function oembedToEmbed(
         : {}),
     };
   }
-  if (thumb && isUrlSafeForOutboundFetch(thumb)) {
+  const imageUrl = pickOembedImageUrl(data);
+  if (imageUrl) {
     embed.image = {
-      url: thumb,
+      url: imageUrl,
       ...(thumbW && thumbH ? { width: thumbW, height: thumbH } : {}),
     };
   }
   return embed;
+}
+
+/**
+ * Giphy puts the animated GIF in oEmbed `url` (type=photo). Tenor puts a static
+ * PNG in `thumbnail_url` — normalize that to the AAAAC.gif CDN variant.
+ * Other hosts keep their thumbnail as a normal preview image.
+ */
+function pickOembedImageUrl(data: Record<string, unknown>): string {
+  const mediaUrl = str(data.url);
+  const thumb = str(data.thumbnail_url);
+  const type = str(data.type).toLowerCase();
+
+  const asGif = (raw: string): string | null => {
+    if (!raw || !isUrlSafeForOutboundFetch(raw)) return null;
+    if (!isLikelyGifMediaUrl(raw)) return null;
+    return normalizeTenorAnimatedGifUrl(raw);
+  };
+
+  if (type === 'photo' && mediaUrl && isUrlSafeForOutboundFetch(mediaUrl)) {
+    return normalizeTenorAnimatedGifUrl(mediaUrl);
+  }
+
+  return (
+    asGif(mediaUrl) ||
+    asGif(thumb) ||
+    (thumb && isUrlSafeForOutboundFetch(thumb) ? thumb : '') ||
+    ''
+  );
 }
 
 type OembedTry = { endpoint: string; color?: number };
@@ -158,7 +190,7 @@ function oembedAttemptsForUrl(originalUrl: string): OembedTry[] {
     out.push({ endpoint: `https://giphy.com/services/oembed?url=${enc}` });
   }
 
-  if (h.endsWith('bandcamp.com')) {
+  if (hostIs(h, 'bandcamp.com')) {
     out.push({
       endpoint: `https://bandcamp.com/oembed?url=${enc}`,
       color: 0x629aa9,

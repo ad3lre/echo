@@ -10,7 +10,6 @@ final class EchoInboxModel {
   @ObservationIgnored var auth: EchoAuthenticationModel
 
   private(set) var incomingFriendRequests: [EchoIncomingFriendRequest] = []
-  private(set) var isLoadingFriendRequests = false
   private(set) var friendRequestError: String?
   private(set) var respondingRequestIDs = Set<String>()
 
@@ -35,9 +34,7 @@ final class EchoInboxModel {
   }
 
   func loadFriendRequests() async {
-    isLoadingFriendRequests = true
     friendRequestError = nil
-    defer { isLoadingFriendRequests = false }
     do {
       incomingFriendRequests = try await auth.withAccessTokenRetry { token in
         try await client.loadIncomingFriendRequests(accessToken: token)

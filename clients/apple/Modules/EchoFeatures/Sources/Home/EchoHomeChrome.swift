@@ -2,9 +2,12 @@ import EchoDomain
 import SwiftUI
 
 struct EchoHomeBackground: View {
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.colorScheme) private var colorScheme
+
   var body: some View {
     ZStack {
-      EchoTheme.Color.canvas
+      displayPrefs.canvas(colorScheme: colorScheme)
       RadialGradient(
         colors: [EchoTheme.Color.ambientIndigo.opacity(0.22), .clear],
         center: UnitPoint(x: 0.88, y: 0.03),
@@ -16,6 +19,8 @@ struct EchoHomeBackground: View {
 }
 
 struct EchoProfileHeader: View {
+  @Environment(\.colorScheme) private var colorScheme
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
   let profile: EchoUserProfile
   let baseURL: URL
   var accessToken: String? = nil
@@ -27,19 +32,17 @@ struct EchoProfileHeader: View {
     Button(action: onProfileTap) {
       VStack(spacing: 0) {
         ZStack(alignment: .bottom) {
-          // Home DM chrome keeps banner effects off. Blur/refraction bloom was
-          // painting a hard light seam into the conversation search row.
           EchoProfileBanner(
             profile: profile, baseURL: baseURL, accessToken: accessToken,
-            appliesEffects: false,
+            appliesEffects: true,
             showsRefractionBleed: false
           )
           // Extend the artwork beneath the curve so raster/remote-image
           // edges can never form a hairline seam at the section boundary.
           .frame(height: 226)
 
-          EchoHeaderSlice()
-            .fill(EchoTheme.Color.canvas)
+          EchoHeaderSlice(raisedChromeShelves: colorScheme == .light)
+            .fill(displayPrefs.canvas(colorScheme: colorScheme))
             .frame(height: 84)
 
           HStack(alignment: .bottom, spacing: 14) {
@@ -52,11 +55,11 @@ struct EchoProfileHeader: View {
             VStack(alignment: .leading, spacing: 3) {
               Text(profile.name)
                 .font(.system(size: 21, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(EchoTheme.Color.fg)
                 .lineLimit(1)
               Text(profile.username.map { "@\($0)" } ?? "")
                 .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.58))
+                .foregroundStyle(EchoTheme.Color.ink(0.58))
                 .lineLimit(1)
             }
             .padding(.bottom, 7)
@@ -66,7 +69,7 @@ struct EchoProfileHeader: View {
             Button(action: onMenuTap) {
               Image(systemName: "chevron.right")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white.opacity(0.46))
+                .foregroundStyle(EchoTheme.Color.ink(0.46))
                 .frame(width: 42, height: 52)
                 .contentShape(Rectangle())
             }
@@ -75,12 +78,12 @@ struct EchoProfileHeader: View {
           }
           .padding(.horizontal, 22)
         }
-        .background(EchoTheme.Color.canvas)
+        .background(displayPrefs.canvas(colorScheme: colorScheme))
         .compositingGroup()
         .clipped()
 
         // Opaque seal so no banner fringe can show between header and search.
-        EchoTheme.Color.canvas
+        displayPrefs.canvas(colorScheme: colorScheme)
           .frame(height: 1)
           .allowsHitTesting(false)
       }
@@ -90,14 +93,57 @@ struct EchoProfileHeader: View {
   }
 }
 
+/// Canvas fill that seals the home banner. In light mode the top edge lifts in
+/// two soft shelves under the display name and the trailing caret so ink stays
+/// readable without raising the entire wave.
 struct EchoHeaderSlice: Shape {
+  /// When true, peek the curve up under name + caret (light / sunny chrome).
+  var raisedChromeShelves: Bool = false
+
   func path(in rect: CGRect) -> Path {
+    if raisedChromeShelves {
+      return lightReadablePath(in: rect)
+    }
+    return standardPath(in: rect)
+  }
+
+  private func standardPath(in rect: CGRect) -> Path {
     var path = Path()
     path.move(to: CGPoint(x: rect.minX, y: rect.midY + 10))
     path.addCurve(
       to: CGPoint(x: rect.maxX, y: rect.midY - 8),
       control1: CGPoint(x: rect.width * 0.27, y: rect.minY - 4),
       control2: CGPoint(x: rect.width * 0.70, y: rect.maxY + 8)
+    )
+    path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+    path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+    path.closeSubpath()
+    return path
+  }
+
+  /// Gentle rises under the name and caret — enough contrast for light ink,
+  /// without the tall twin peaks that read as excessive shelves.
+  private func lightReadablePath(in rect: CGRect) -> Path {
+    var path = Path()
+    let w = rect.width
+    let nameY = rect.midY - 4
+    let dipY = rect.midY + 6
+    let caretY = rect.midY - 2
+    path.move(to: CGPoint(x: rect.minX, y: rect.midY + 10))
+    path.addCurve(
+      to: CGPoint(x: w * 0.36, y: nameY),
+      control1: CGPoint(x: w * 0.16, y: rect.midY + 8),
+      control2: CGPoint(x: w * 0.26, y: nameY + 1)
+    )
+    path.addCurve(
+      to: CGPoint(x: w * 0.70, y: dipY),
+      control1: CGPoint(x: w * 0.48, y: nameY),
+      control2: CGPoint(x: w * 0.58, y: dipY + 2)
+    )
+    path.addCurve(
+      to: CGPoint(x: rect.maxX, y: caretY),
+      control1: CGPoint(x: w * 0.82, y: dipY),
+      control2: CGPoint(x: w * 0.92, y: caretY)
     )
     path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
     path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
@@ -128,7 +174,7 @@ struct EchoProfileAvatar: View {
         EchoPresenceIndicator(status: presenceStatus, size: 16)
       }
     }
-    .shadow(color: .black.opacity(0.32), radius: 14, y: 8)
+    .echoShadow(color: .black.opacity(0.32), radius: 14, y: 8)
   }
 
 }
@@ -145,6 +191,8 @@ struct EchoDirectMessageList: View {
   let inboxNotificationCount: Int
   let onOpenInbox: () -> Void
   @State private var hasScrolled = false
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     VStack(spacing: 0) {
@@ -152,21 +200,21 @@ struct EchoDirectMessageList: View {
         HStack(spacing: 10) {
           Image(systemName: "magnifyingglass")
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.42))
+            .foregroundStyle(EchoTheme.Color.ink(0.42))
           TextField(EchoCopy.string("Search conversations"), text: $searchText)
             .font(.system(size: 15, weight: .regular, design: .rounded))
-            .foregroundStyle(.white)
-            .tint(.white)
+            .foregroundStyle(EchoTheme.Color.fg)
+            .tint(EchoTheme.Color.fg)
             .textFieldStyle(.plain)
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
         .frame(height: 48)
         .background(
-          .white.opacity(0.065), in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+          EchoTheme.Color.ink(0.065), in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
         .overlay(
-          RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.08))
+          RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(EchoTheme.Color.ink(0.08))
         )
 
         EchoHomeActionButton(
@@ -190,7 +238,7 @@ struct EchoDirectMessageList: View {
                   : EchoCopy.string("No conversations found.")
               )
               .font(.system(size: 15, weight: .regular, design: .rounded))
-              .foregroundStyle(.white.opacity(0.46))
+              .foregroundStyle(EchoTheme.Color.ink(0.46))
               .padding(.horizontal, 24)
               .padding(.top, 18)
             } else {
@@ -224,8 +272,8 @@ struct EchoDirectMessageList: View {
 
         LinearGradient(
           colors: [
-            EchoTheme.Color.canvas,
-            EchoTheme.Color.canvas.opacity(0),
+            displayPrefs.canvas(colorScheme: colorScheme),
+            displayPrefs.canvas(colorScheme: colorScheme).opacity(0),
           ],
           startPoint: .top,
           endPoint: .bottom
@@ -247,6 +295,8 @@ struct EchoHomeActionButton: View {
   let accessibilityLabel: String
   var notificationCount = 0
   let action: () -> Void
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.colorScheme) private var colorScheme
 
   private var isHighlighted: Bool { notificationCount > 0 }
 
@@ -255,13 +305,13 @@ struct EchoHomeActionButton: View {
       ZStack(alignment: .topTrailing) {
         Image(systemName: systemName)
           .font(.system(size: 17, weight: .semibold))
-          .foregroundStyle(isHighlighted ? .white : .white.opacity(0.82))
+          .foregroundStyle(isHighlighted ? EchoTheme.Color.onAccent : displayPrefs.ink(0.82))
           .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         if isHighlighted {
           Text(notificationCount > 99 ? "99+" : String(notificationCount))
             .font(.system(size: notificationCount > 9 ? 8 : 10, weight: .bold, design: .rounded))
-            .foregroundStyle(.white)
+            .foregroundStyle(EchoTheme.Color.onAccent)
             .padding(.horizontal, notificationCount > 9 ? 4 : 0)
             .frame(minWidth: 18, minHeight: 18)
             .background(EchoTheme.Color.badge, in: Capsule())
@@ -272,13 +322,16 @@ struct EchoHomeActionButton: View {
       .frame(width: 54, height: 48)
       .background(
         isHighlighted
-          ? EchoTheme.Color.actionHighlight.opacity(0.92)
-          : .white.opacity(0.065),
+          ? displayPrefs.actionHighlight(colorScheme: colorScheme).opacity(0.92)
+          : EchoTheme.Color.ink(displayPrefs.inkOpacity(0.065)),
         in: RoundedRectangle(cornerRadius: 16, style: .continuous)
       )
       .overlay(
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-          .stroke(isHighlighted ? .white.opacity(0.19) : .white.opacity(0.08))
+          .stroke(
+            isHighlighted
+              ? EchoTheme.Color.ink(displayPrefs.hairlineOpacity(0.19))
+              : EchoTheme.Color.ink(displayPrefs.hairlineOpacity(0.08)))
       )
     }
     .buttonStyle(.plain)
@@ -306,8 +359,10 @@ struct EchoDirectMessageRow: View {
   var canLeave = true
   let onTap: () -> Void
   var onLeave: (() -> Void)? = nil
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
 
   var body: some View {
+    let metrics = displayPrefs.densityMetrics
     Button(action: onTap) {
       HStack(spacing: 13) {
         EchoConversationAvatar(
@@ -318,14 +373,14 @@ struct EchoDirectMessageRow: View {
         VStack(alignment: .leading, spacing: 5) {
           HStack(spacing: 7) {
             Text(conversation.displayName)
-              .font(.system(size: 16, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.94))
+              .font(displayPrefs.uiFont(size: 16, weight: .semibold))
+              .foregroundStyle(displayPrefs.ink(0.94))
               .lineLimit(1)
             Spacer(minLength: 0)
             if let date = conversation.lastMessageAt {
               Text(relativeDateLabel(date))
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.34))
+                .font(displayPrefs.uiFont(size: 12, weight: .medium))
+                .foregroundStyle(displayPrefs.ink(0.34))
             }
           }
 
@@ -333,13 +388,16 @@ struct EchoDirectMessageRow: View {
             conversation.lastMessage
               ?? (conversation.lastMessageAt == nil ? EchoCopy.string("No messages yet") : " ")
           )
-          .font(.system(size: 14, weight: .regular, design: .rounded))
-          .foregroundStyle(.white.opacity(0.48))
+          .font(displayPrefs.uiFont(size: 14))
+          .foregroundStyle(displayPrefs.ink(0.48))
           .lineLimit(1)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .padding(.horizontal, 22)
-      .padding(.vertical, 12)
+      .padding(.horizontal, metrics.dmRowPaddingX + 10)
+      .padding(.vertical, metrics.dmRowPaddingY)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .echoSwipeAction(
@@ -370,7 +428,7 @@ struct EchoConversationAvatar: View {
 
   var body: some View {
     ZStack(alignment: .bottomTrailing) {
-      Circle().fill(Color.white.opacity(0.08))
+      Circle().fill(EchoTheme.Color.ink(0.08))
       if conversation.avatarURLs.count > 1 {
         EchoGroupAvatar(
           conversation: conversation, baseURL: baseURL, accessToken: accessToken)
@@ -427,10 +485,10 @@ struct EchoGroupAvatar: View {
 struct EchoHomeLoadingView: View {
   var body: some View {
     VStack(spacing: 18) {
-      ProgressView().tint(.white.opacity(0.78)).scaleEffect(1.1)
+      ProgressView().tint(EchoTheme.Color.ink(0.78)).scaleEffect(1.1)
       EchoCopy.text("Loading your Echo")
         .font(.system(size: 14, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.54))
+        .foregroundStyle(EchoTheme.Color.ink(0.54))
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
@@ -444,10 +502,10 @@ struct EchoHomeUnavailableView: View {
     VStack(spacing: 16) {
       Image(systemName: "wifi.exclamationmark")
         .font(.system(size: 24, weight: .medium))
-        .foregroundStyle(.white.opacity(0.58))
+        .foregroundStyle(EchoTheme.Color.ink(0.58))
       Text(message)
         .font(.system(size: 15, weight: .regular, design: .rounded))
-        .foregroundStyle(.white.opacity(0.58))
+        .foregroundStyle(EchoTheme.Color.ink(0.58))
         .multilineTextAlignment(.center)
         .frame(maxWidth: 280)
       Button(EchoCopy.string("Try again"), action: retry)

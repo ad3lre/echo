@@ -227,6 +227,8 @@ declare global {
   var __echoMlsStop: (
     callback: (error: string | null, resultJson: string | null) => void,
   ) => void;
+  // eslint-disable-next-line no-var
+  var __echoMlsSetAuthorized: (idsJson: string) => void;
 }
 
 function report(
@@ -276,4 +278,13 @@ globalThis.__echoMlsStop = (callback) => {
     await stopActiveVoiceMls();
     return { stopped: true };
   });
+};
+
+globalThis.__echoMlsSetAuthorized = (idsJson) => {
+  try {
+    const ids = JSON.parse(idsJson) as string[];
+    if (Array.isArray(ids)) setActiveAuthorizedUserIds(ids);
+  } catch {
+    /* ignore malformed */
+  }
 };

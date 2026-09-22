@@ -32,9 +32,14 @@ struct EchoCallMediaEncryption: Sendable, Equatable {
 protocol EchoCallTransporting: AnyObject, Sendable {
   var onStateChange: (@Sendable (EchoCallTransportState) -> Void)? { get set }
   var onParticipantCountChange: (@Sendable (Int) -> Void)? { get set }
+  /// Fired when a remote LiveKit participant joins (MLS may need a sender-key install).
+  var onRemoteParticipantConnected: (@Sendable (String) -> Void)? { get set }
+  /// Fired when a remote LiveKit participant leaves (MLS roster reconcile).
+  var onRemoteParticipantDisconnected: (@Sendable (String) -> Void)? { get set }
   func connect(session: EchoLiveKitSession, encryption: EchoCallMediaEncryption?) async throws
   func rotateEncryption(_ encryption: EchoCallMediaEncryption) async throws
   func setMuted(_ muted: Bool) async throws
+  func setDeafened(_ deafened: Bool) throws
   func setSpeakerEnabled(_ enabled: Bool) throws
   func disconnect() async
 }
@@ -61,9 +66,12 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
 {
   var onStateChange: (@Sendable (EchoCallTransportState) -> Void)?
   var onParticipantCountChange: (@Sendable (Int) -> Void)?
+  var onRemoteParticipantConnected: (@Sendable (String) -> Void)?
+  var onRemoteParticipantDisconnected: (@Sendable (String) -> Void)?
 
   private let room = Room()
   private var outputGain = 1.0
+  private var isDeafened = false
   private var keyProvider: BaseKeyProvider?
 
   override init() {
@@ -156,6 +164,11 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
     try await room.localParticipant.setMicrophone(enabled: !muted)
   }
 
+  func setDeafened(_ deafened: Bool) throws {
+    isDeafened = deafened
+    applyRemoteVolumes()
+  }
+
   func setSpeakerEnabled(_ enabled: Bool) throws {
     #if os(iOS)
       try EchoSystemCallCoordinator.shared.setSpeakerEnabled(enabled)
@@ -165,6 +178,7 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
   func disconnect() async {
     await room.disconnect()
     keyProvider = nil
+    isDeafened = false
   }
 
   func room(
@@ -186,10 +200,18 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
 
   func room(_ room: Room, participantDidConnect participant: RemoteParticipant) {
     publishParticipantCount()
+    let identity = participant.identity?.stringValue ?? ""
+    if !identity.isEmpty {
+      onRemoteParticipantConnected?(identity)
+    }
   }
 
   func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant) {
     publishParticipantCount()
+    let identity = participant.identity?.stringValue ?? ""
+    if !identity.isEmpty {
+      onRemoteParticipantDisconnected?(identity)
+    }
   }
 
   func room(
@@ -197,11 +219,23 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
     participant: RemoteParticipant,
     didSubscribeTrack publication: RemoteTrackPublication
   ) {
-    (publication.track as? RemoteAudioTrack)?.volume = outputGain
+    applyRemoteVolume(to: publication.track as? RemoteAudioTrack)
   }
 
   private func publishParticipantCount() {
     onParticipantCountChange?(room.remoteParticipants.count + 1)
+  }
+
+  private func applyRemoteVolumes() {
+    for participant in room.remoteParticipants.values {
+      for publication in participant.audioTracks {
+        applyRemoteVolume(to: publication.track as? RemoteAudioTrack)
+      }
+    }
+  }
+
+  private func applyRemoteVolume(to track: RemoteAudioTrack?) {
+    track?.volume = isDeafened ? 0 : outputGain
   }
 
   private func makeEncryptionOptions(_ encryption: EchoCallMediaEncryption?) throws

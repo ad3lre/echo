@@ -18,7 +18,7 @@ struct EchoProfileMenu: View {
         title: EchoCopy.string("Log out"), icon: "rectangle.portrait.and.arrow.right", tint: .red,
         action: onSignOut)
     }
-    .padding(.horizontal, 18).padding(.vertical, 14).foregroundStyle(.white)
+    .padding(.horizontal, 18).padding(.vertical, 14).foregroundStyle(EchoTheme.Color.fg)
     .frame(maxWidth: .infinity)
   }
 }
@@ -26,7 +26,7 @@ struct EchoProfileMenu: View {
 private struct EchoMenuAction: View {
   let title: String
   let icon: String
-  var tint: Color = .white
+  var tint: Color = EchoTheme.Color.fg
   let action: () -> Void
 
   var body: some View {
@@ -44,10 +44,10 @@ private struct EchoMenuAction: View {
         .frame(width: 42, height: 42)
 
         Text(title).font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(
-          .white.opacity(0.86))
+          EchoTheme.Color.ink(0.86))
         Spacer()
         Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(
-          .white.opacity(0.28))
+          EchoTheme.Color.ink(0.28))
       }
       .padding(.horizontal, 14)
       .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
@@ -80,7 +80,7 @@ private struct EchoMenuActionButtonStyle: ButtonStyle {
         .blur(radius: configuration.isPressed ? 5 : 10)
         .allowsHitTesting(false)
       }
-      .shadow(color: tint.opacity(configuration.isPressed ? 0.30 : 0.12), radius: 24)
+      .echoShadow(color: tint.opacity(configuration.isPressed ? 0.30 : 0.12), radius: 24)
       .scaleEffect(configuration.isPressed ? 0.985 : 1)
       .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
   }

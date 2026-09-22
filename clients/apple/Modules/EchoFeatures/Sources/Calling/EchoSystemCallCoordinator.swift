@@ -11,23 +11,36 @@ import LiveKit
     var onAnswer: (@Sendable (UUID) -> Void)?
     var onEnd: (@Sendable (UUID) -> Void)?
     var onMute: (@Sendable (UUID, Bool) -> Void)?
+    /// Fired when CallKit activates the shared audio session (ringback may need a restart).
+    var onAudioActivated: (@Sendable () -> Void)?
 
     private let provider: CXProvider
     private let controller = CXCallController()
+    private let audioQueue = DispatchQueue(label: "echo.system-call.audio")
     private var prefersSpeaker = true
     private var audioIsActive = false
     private var audioReadyWaiters: [CheckedContinuation<Void, Never>] = []
 
     private override init() {
+      let configuration = Self.makeProviderConfiguration()
+      provider = CXProvider(configuration: configuration)
+      super.init()
+      provider.setDelegate(self, queue: nil)
+    }
+
+    private static func makeProviderConfiguration() -> CXProviderConfiguration {
       let configuration = CXProviderConfiguration()
       configuration.maximumCallGroups = 1
       configuration.maximumCallsPerCallGroup = 1
       configuration.supportsVideo = false
       configuration.supportedHandleTypes = [.generic]
       configuration.includesCallsInRecents = true
-      provider = CXProvider(configuration: configuration)
-      super.init()
-      provider.setDelegate(self, queue: nil)
+      // Bundled in the iOS app target (`Resources/iOS/Sounds/EchoCallRingtone.m4a`).
+      // In-app ringback still uses the user-selected pack via AVAudioPlayer.
+      if Bundle.main.url(forResource: "EchoCallRingtone", withExtension: "m4a") != nil {
+        configuration.ringtoneSound = "EchoCallRingtone.m4a"
+      }
+      return configuration
     }
 
     func prepare() throws {
@@ -81,19 +94,40 @@ import LiveKit
     }
 
     /// CallKit activates the session asynchronously; media publish must wait.
-    func waitForAudioActivation() async {
-      if audioIsActive { return }
+    /// Times out so a missed `didActivate` cannot hang the connect forever.
+    func waitForAudioActivation(timeoutNanoseconds: UInt64 = 2_500_000_000) async {
       await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-        if audioIsActive {
-          continuation.resume()
-        } else {
-          audioReadyWaiters.append(continuation)
+        audioQueue.async {
+          if self.audioIsActive {
+            continuation.resume()
+            return
+          }
+          self.audioReadyWaiters.append(continuation)
+          DispatchQueue.global().asyncAfter(
+            deadline: .now() + .nanoseconds(Int(timeoutNanoseconds))
+          ) { [weak self] in
+            guard let self else { return }
+            self.audioQueue.async {
+              self.resumeAudioWaitersLocked(active: self.audioIsActive)
+            }
+          }
         }
+      }
+      let active = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+        audioQueue.async {
+          continuation.resume(returning: self.audioIsActive)
+        }
+      }
+      if !active {
+        // Simulator / edge cases where CallKit never activates — still allow LiveKit.
+        activateOwnedAudioSession()
       }
     }
 
     func providerDidReset(_ provider: CXProvider) {
-      audioIsActive = false
+      audioQueue.sync {
+        audioIsActive = false
+      }
       try? AudioManager.shared.setEngineAvailability(.none)
     }
 
@@ -117,31 +151,7 @@ import LiveKit
     }
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-      do {
-        // Mirror LiveKit's playAndRecordSpeakerMedia: .default mode keeps
-        // media playback gain instead of iOS's quieter voiceChat/videoChat path.
-        try audioSession.setCategory(
-          .playAndRecord,
-          mode: .default,
-          options: [
-            .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay, .defaultToSpeaker,
-          ])
-        try audioSession.setPreferredSampleRate(48_000)
-        try audioSession.setPreferredIOBufferDuration(0.02)
-        if UserDefaults.standard.string(forKey: "echo.settings.voice.inputDevice")
-          == "built-in-mic",
-          let microphone = audioSession.availableInputs?.first(where: { $0.portType == .builtInMic }
-          )
-        {
-          try audioSession.setPreferredInput(microphone)
-        }
-        try audioSession.overrideOutputAudioPort(prefersSpeaker ? .speaker : .none)
-        try AudioManager.shared.setEngineAvailability(.default)
-        resumeAudioWaiters(active: true)
-      } catch {
-        try? AudioManager.shared.setEngineAvailability(.none)
-        resumeAudioWaiters(active: false)
-      }
+      activateOwnedAudioSession(session: audioSession)
     }
 
     func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
@@ -150,7 +160,45 @@ import LiveKit
       try? audioSession.setActive(false, options: .notifyOthersOnDeactivation)
     }
 
+    private func activateOwnedAudioSession(session: AVAudioSession = .sharedInstance()) {
+      do {
+        // Mirror LiveKit's playAndRecordSpeakerMedia: .default mode keeps
+        // media playback gain instead of iOS's quieter voiceChat/videoChat path.
+        // `.mixWithOthers` lets the in-app ringback keep playing until the peer
+        // answers without fighting CallKit's session ownership.
+        try session.setCategory(
+          .playAndRecord,
+          mode: .default,
+          options: [
+            .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay, .defaultToSpeaker,
+            .mixWithOthers,
+          ])
+        try session.setPreferredSampleRate(48_000)
+        try session.setPreferredIOBufferDuration(0.02)
+        if UserDefaults.standard.string(forKey: "echo.settings.voice.inputDevice")
+          == "built-in-mic",
+          let microphone = session.availableInputs?.first(where: { $0.portType == .builtInMic })
+        {
+          try session.setPreferredInput(microphone)
+        }
+        try session.overrideOutputAudioPort(prefersSpeaker ? .speaker : .none)
+        try session.setActive(true)
+        try AudioManager.shared.setEngineAvailability(.default)
+        resumeAudioWaiters(active: true)
+        onAudioActivated?()
+      } catch {
+        try? AudioManager.shared.setEngineAvailability(.none)
+        resumeAudioWaiters(active: false)
+      }
+    }
+
     private func resumeAudioWaiters(active: Bool) {
+      audioQueue.async {
+        self.resumeAudioWaitersLocked(active: active)
+      }
+    }
+
+    private func resumeAudioWaitersLocked(active: Bool) {
       audioIsActive = active
       let waiters = audioReadyWaiters
       audioReadyWaiters = []
@@ -172,6 +220,7 @@ import LiveKit
     var onAnswer: (@Sendable (UUID) -> Void)?
     var onEnd: (@Sendable (UUID) -> Void)?
     var onMute: (@Sendable (UUID, Bool) -> Void)?
+    var onAudioActivated: (@Sendable () -> Void)?
     func prepare() throws {}
     func startOutgoing(id: UUID, handle: String) async throws {}
     func reportIncoming(id: UUID, handle: String) async throws {}
@@ -181,6 +230,6 @@ import LiveKit
     func requestEnd(id: UUID) async { onEnd?(id) }
     func reportEnded(id: UUID, declined: Bool = false) {}
     func setSpeakerEnabled(_ enabled: Bool) throws {}
-    func waitForAudioActivation() async {}
+    func waitForAudioActivation(timeoutNanoseconds: UInt64 = 2_500_000_000) async {}
   }
 #endif

@@ -1,5 +1,6 @@
 import { stat } from 'fs/promises';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
+import sharp from 'sharp';
 import { config } from '../../config';
 import { echoUploadPrefersS3ObjectStore } from './echoUploadObjectBackend';
 import {
@@ -7,6 +8,17 @@ import {
   getEchoS3UploadBucket,
 } from './s3UploadPresign';
 import { resolveLocalUploadFilePath } from './localUploadDisk';
+import { readEchoUploadObjectBytes } from '../csamScan/readUploadObjectBytes';
+
+/**
+ * Decode image uploads during registration. This bounds the synchronous memory
+ * cost of the verification step while still rejecting a claimed image that is
+ * actually arbitrary bytes. Large video/audio/document uploads are checked by
+ * their declared type and exact object length and are handled by their media
+ * processing pipelines.
+ */
+const MAX_IMAGE_VERIFY_BYTES = 64 * 1024 * 1024;
+const MAX_IMAGE_VERIFY_PIXELS = 40_000_000;
 
 export type EchoStoredUploadVerifyResult =
   | { ok: true }
@@ -16,6 +28,8 @@ export type EchoStoredUploadVerifyResult =
         | 'NOT_FOUND'
         | 'SIZE_MISMATCH'
         | 'TYPE_MISMATCH'
+        | 'CONTENT_INVALID'
+        | 'CONTENT_TOO_LARGE_TO_VERIFY'
         | 'NOT_CONFIGURED'
         | 'INVALID_KEY';
     };
@@ -57,7 +71,7 @@ export async function verifyEchoStoredUploadObject(opts: {
     if (!headType || headType !== expectedType) {
       return { ok: false, reason: 'TYPE_MISMATCH' };
     }
-    return { ok: true };
+    return verifyImageBytesIfNeeded(storageKey, expectedSize, expectedType);
   }
 
   if (config.echoLocalUploadDir) {
@@ -70,10 +84,69 @@ export async function verifyEchoStoredUploadObject(opts: {
     if (info.size !== expectedSize) {
       return { ok: false, reason: 'SIZE_MISMATCH' };
     }
-    return { ok: true };
+    return verifyImageBytesIfNeeded(storageKey, expectedSize, expectedType);
   }
 
   return { ok: false, reason: 'NOT_CONFIGURED' };
+}
+
+async function verifyImageBytesIfNeeded(
+  storageKey: string,
+  expectedSize: number,
+  expectedType: string,
+): Promise<EchoStoredUploadVerifyResult> {
+  if (!expectedType.startsWith('image/')) return { ok: true };
+  if (expectedSize > MAX_IMAGE_VERIFY_BYTES) {
+    return { ok: false, reason: 'CONTENT_TOO_LARGE_TO_VERIFY' };
+  }
+
+  let bytes: Buffer;
+  try {
+    bytes = await readEchoUploadObjectBytes({
+      storageKey,
+      byteLength: expectedSize,
+    });
+    const meta = await sharp(bytes, {
+      failOn: 'error',
+      limitInputPixels: MAX_IMAGE_VERIFY_PIXELS,
+    }).metadata();
+    if (!meta.format || !meta.width || !meta.height) {
+      return { ok: false, reason: 'CONTENT_INVALID' };
+    }
+    if (meta.width * meta.height > MAX_IMAGE_VERIFY_PIXELS) {
+      return { ok: false, reason: 'CONTENT_INVALID' };
+    }
+    const actualType = imageContentTypeForSharpFormat(meta.format);
+    if (!actualType || actualType !== expectedType) {
+      return { ok: false, reason: 'CONTENT_INVALID' };
+    }
+  } catch {
+    return { ok: false, reason: 'CONTENT_INVALID' };
+  }
+  return { ok: true };
+}
+
+function imageContentTypeForSharpFormat(format: string): string | null {
+  switch (format.toLowerCase()) {
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    case 'tiff':
+      return 'image/tiff';
+    case 'bmp':
+      return 'image/bmp';
+    case 'avif':
+      return 'image/avif';
+    case 'heif':
+      return 'image/heif';
+    default:
+      return null;
+  }
 }
 
 /** Best-effort object presence check (no size/type validation). */

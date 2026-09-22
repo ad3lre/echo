@@ -512,6 +512,13 @@ export class MemoryAuthStore implements AuthStore {
     return { ...r };
   }
 
+  async findRefreshTokenByHash(
+    tokenHash: string,
+  ): Promise<RefreshTokenRecord | null> {
+    const r = this.refreshTokens.get(tokenHash);
+    return r ? { ...r } : null;
+  }
+
   async findRefreshTokenById(
     tokenId: string,
   ): Promise<RefreshTokenRecord | null> {

@@ -193,7 +193,11 @@ struct EchoMessageTimelineModelTests {
     let conversation = EchoDirectMessage(
       id: "dm-1", channelID: "channel-1", displayName: "Maya", username: "maya")
     let client = StubTimelineLoading(uploadDelayNanoseconds: 40_000_000)
-    let model = makeModel(conversation: conversation, client: client, hasStarted: true)
+    let model = makeModel(
+      conversation: conversation,
+      client: client,
+      hasStarted: true,
+      selfAuthorAvatarURL: "https://cdn.example/me.png")
     let jpeg = Data([0xFF, 0xD8, 0xFF, 0xD9])
 
     async let sendResult: Void = model.send(
@@ -211,6 +215,7 @@ struct EchoMessageTimelineModelTests {
     }
     #expect(model.messages.count == 1)
     #expect(model.messages.first?.delivery == .uploading)
+    #expect(model.messages.first?.authorAvatarURL == "https://cdn.example/me.png")
     #expect(model.messages.first?.attachments.count == 1)
     #expect(model.messages.first?.attachments.first?.url.hasPrefix("data:image/jpeg;base64,") == true)
 
@@ -255,7 +260,8 @@ struct EchoMessageTimelineModelTests {
     conversation: EchoDirectMessage,
     client: StubTimelineLoading,
     messages: [EchoMessage] = [],
-    hasStarted: Bool = false
+    hasStarted: Bool = false,
+    selfAuthorAvatarURL: String? = nil
   ) -> EchoMessageTimelineModel {
     let auth = EchoAuthenticationModel(
       baseURL: URL(string: "https://example.com")!,
@@ -269,7 +275,8 @@ struct EchoMessageTimelineModelTests {
       userID: "user-me",
       client: client,
       messages: messages,
-      hasStarted: hasStarted
+      hasStarted: hasStarted,
+      selfAuthorAvatarURL: selfAuthorAvatarURL
     )
   }
 }

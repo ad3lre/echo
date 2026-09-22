@@ -798,23 +798,6 @@
         }
       }
     },
-    "Action rail": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Action rail"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Carril de acción"
-          }
-        }
-      }
-    },
     "Active sessions": {
       "extractionState": "manual",
       "localizations": {
@@ -1406,23 +1389,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elige dónde reproduce Echo el audio"
-          }
-        }
-      }
-    },
-    "Choose where actions appear": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose where actions appear"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Elige dónde aparecen las acciones"
           }
         }
       }
@@ -8560,6 +8526,23 @@
         }
       }
     },
+    "Mutual servers": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mutual servers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidores en común"
+          }
+        }
+      }
+    },
     "No mutual friends": {
       "extractionState": "manual",
       "localizations": {
@@ -8573,6 +8556,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "No hay amigos en común"
+          }
+        }
+      }
+    },
+    "No mutual servers": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No mutual servers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay servidores en común"
           }
         }
       }
@@ -9537,6 +9537,256 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardar"
+          }
+        }
+      }
+    },
+    "Light, Dark, or System — Echo’s surfaces and ink adapt across the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light, Dark, or System — Echo’s surfaces and ink adapt across the app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claro, Oscuro o Sistema: las superficies y el texto de Echo se adaptan en toda la app."
+          }
+        }
+      }
+    },
+    "Amoled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amoled"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amoled"
+          }
+        }
+      }
+    },
+    "Sunny": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sunny"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sunny"
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apariencia"
+          }
+        }
+      }
+    },
+    "Dark, Light, Amoled, and Sunny adapt Echo’s surfaces; density and accents apply across the app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark, Light, Amoled, and Sunny adapt Echo’s surfaces; density and accents apply across the app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oscuro, Claro, Amoled y Sunny adaptan las superficies de Echo; la densidad y los acentos se aplican en toda la app."
+          }
+        }
+      }
+    },
+    "Text scale, contrast, spacing, and motion apply live. Reduce motion also follows the system setting.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text scale, contrast, spacing, and motion apply live. Reduce motion also follows the system setting."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La escala de texto, el contraste, el espaciado y el movimiento se aplican al instante. Reducir movimiento también sigue el ajuste del sistema."
+          }
+        }
+      }
+    },
+    "Encrypted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encrypted"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cifrado"
+          }
+        }
+      }
+    },
+    "Deafen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deafen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ensordecer"
+          }
+        }
+      }
+    },
+    "Undeafen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undeafen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dejar de ensordecer"
+          }
+        }
+      }
+    },
+    "Mute ringtone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mute ringtone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silenciar tono"
+          }
+        }
+      }
+    },
+    "Unmute ringtone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unmute ringtone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activar tono"
+          }
+        }
+      }
+    },
+    "Silence the in-app call ringtone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silence the in-app call ringtone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silenciar el tono de llamada en la app"
+          }
+        }
+      }
+    },
+    "Call declined": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call declined"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada rechazada"
+          }
+        }
+      }
+    },
+    "No answer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No answer"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin respuesta"
+          }
+        }
+      }
+    },
+    "Call ended": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call ended"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada finalizada"
           }
         }
       }

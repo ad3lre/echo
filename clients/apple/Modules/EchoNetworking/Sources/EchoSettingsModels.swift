@@ -99,6 +99,19 @@ public struct EchoIncomingFriendRequest: Sendable, Identifiable, Equatable {
   }
 }
 
+/// Server shared with another user — web `MutualServerSummary` parity.
+public struct EchoMutualServerSummary: Equatable, Sendable, Identifiable, Hashable {
+  public let id: String
+  public let name: String
+  public let iconURL: String?
+
+  public init(id: String, name: String, iconURL: String? = nil) {
+    self.id = id
+    self.name = name
+    self.iconURL = iconURL
+  }
+}
+
 public struct EchoAuthSession: Decodable, Sendable, Identifiable {
   public let id: String
   public let createdAt: String

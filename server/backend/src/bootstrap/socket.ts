@@ -21,6 +21,21 @@ function resolveSocketIoCorsOrigin():
   return config.corsOrigin;
 }
 
+/**
+ * CORS protects the polling handshake, while `allowRequest` also gates the
+ * WebSocket upgrade itself. Keep both checks aligned so an untrusted browser
+ * origin cannot bypass the configured origin policy by selecting websocket
+ * transport directly. Non-browser clients normally omit Origin and remain
+ * supported.
+ */
+function isSocketOriginAllowed(origin: string | undefined): boolean {
+  if (!origin || config.corsOrigin === true) return true;
+  if (typeof config.corsOrigin === 'string') {
+    return origin === config.corsOrigin;
+  }
+  return config.corsOrigin.includes(origin);
+}
+
 declare module 'fastify' {
   interface FastifyInstance {
     io: Server;
@@ -40,6 +55,11 @@ export function attachSocketServer(fastify: FastifyInstance): Server {
       origin: resolveSocketIoCorsOrigin(),
       credentials: true,
       methods: ['GET', 'POST'],
+    },
+    allowRequest: (req, callback) => {
+      const origin =
+        typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+      callback(null, isSocketOriginAllowed(origin));
     },
     /**
      * Connection state recovery allows clients to reconnect without losing state (e.g. room joins).

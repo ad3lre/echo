@@ -42,6 +42,8 @@ import { touchAuthUserLastSeenIp } from '../auth/authUserLastSeenIp';
 import { clientIpFromSocketHandshake } from '../net/clientIp';
 import { pruneOfflineUsersFromAllVoiceChannels } from '../services/echoVoiceOfflineCleanup';
 import { reconcileEchoVoiceParticipantsForUserAgainstLiveKit } from '../services/echoVoiceLiveKitReconcile';
+import { getAuthStore } from '../auth/store';
+import { getServerSession } from '../auth/serverSession';
 
 import {
   ClientToServerEvents,
@@ -160,6 +162,39 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
       );
       socket.disconnect(true);
       return;
+    }
+
+    // Revalidate the session before every client event. Connection-time auth is
+    // insufficient for password changes, logout-all, reset, account deletion,
+    // and cross-device compromise response because an existing transport can
+    // otherwise continue sending packets after its refresh token is revoked.
+    if (authenticated && socket.data.authSessionId) {
+      socket.use((_, next) => {
+        void (async () => {
+          try {
+            const sess = await getServerSession(socket.data.authSessionId!);
+            const { store } = await getAuthStore();
+            const active = sess
+              ? await store.findRefreshTokenById(sess.refreshTokenId)
+              : null;
+            const user = sess ? await store.getUserById(sess.userId) : null;
+            if (
+              !sess ||
+              sess.userId !== socket.data.userId ||
+              !active ||
+              !user
+            ) {
+              socket.disconnect(true);
+              next(new Error('Unauthorized'));
+              return;
+            }
+            next();
+          } catch {
+            socket.disconnect(true);
+            next(new Error('Unauthorized'));
+          }
+        })();
+      });
     }
 
     if (authenticated) {

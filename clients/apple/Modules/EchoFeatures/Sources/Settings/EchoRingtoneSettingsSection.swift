@@ -37,13 +37,13 @@ struct EchoRingtoneSettingsSection: View {
         .buttonStyle(.plain)
 
         Rectangle()
-          .fill(.white.opacity(0.08))
+          .fill(EchoTheme.Color.ink(0.08))
           .frame(height: 1)
           .padding(.vertical, 16)
 
         EchoSettingToggle(
           title: EchoCopy.string("Mute ringtone"),
-          subtitle: EchoCopy.string("Silence the in-app incoming call loop"),
+          subtitle: EchoCopy.string("Silence the in-app call ringtone"),
           icon: "bell.slash.fill",
           tint: .orange,
           isOn: $store.muted,
@@ -51,14 +51,14 @@ struct EchoRingtoneSettingsSection: View {
         )
 
         Rectangle()
-          .fill(.white.opacity(0.08))
+          .fill(EchoTheme.Color.ink(0.08))
           .frame(height: 1)
           .padding(.vertical, 16)
 
         EchoSettingSlider(
           title: EchoCopy.string("Ringtone volume"),
           icon: "speaker.wave.2",
-          tint: Color.white.opacity(0.82),
+          tint: EchoTheme.Color.ink(0.82),
           value: $store.volumePercent,
           range: 0...100,
           showsIcon: true
@@ -67,7 +67,7 @@ struct EchoRingtoneSettingsSection: View {
         .opacity(store.muted ? 0.45 : 1)
 
         Rectangle()
-          .fill(.white.opacity(0.08))
+          .fill(EchoTheme.Color.ink(0.08))
           .frame(height: 1)
           .padding(.vertical, 16)
 

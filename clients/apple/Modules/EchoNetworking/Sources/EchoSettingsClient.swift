@@ -82,6 +82,21 @@ public struct EchoSettingsClient: Sendable {
       path: "/friends/mutual?peerId=\(escapedQueryComponent(peerID))", accessToken: accessToken)
     return response.userIds
   }
+  /// Servers the viewer shares with `peerID` — web expanded-profile mutual servers.
+  public func loadMutualServers(peerID: String, accessToken: String) async throws
+    -> [EchoMutualServerSummary]
+  {
+    let response: MutualServersResponse = try await request(
+      path: "/friends/mutual-servers?peerId=\(escapedQueryComponent(peerID))",
+      accessToken: accessToken)
+    return response.servers.map { row in
+      let icon = row.iconUrl?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      return EchoMutualServerSummary(
+        id: row.id,
+        name: row.name,
+        iconURL: icon.isEmpty ? nil : icon)
+    }
+  }
   public func loadPresence(userID: String, accessToken: String) async throws -> String? {
     let escapedID = userID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? userID
     let response: EchoSettingsPresenceResponse = try await request(
@@ -170,15 +185,36 @@ public struct EchoSettingsClient: Sendable {
       allowEmpty: true)
   }
   public func reportUser(
-    targetUserID: String, category: String, reason: String, accessToken: String
+    targetUserID: String, category: String, reason: String, accessToken: String,
+    messageID: String? = nil, channelID: String? = nil
   ) async throws {
-    let body = try JSONEncoder().encode([
+    var body: [String: String] = [
       "targetUserId": targetUserID,
       "category": category,
-      "reason": reason,
-    ])
+    ]
+    let trimmedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !trimmedReason.isEmpty { body["reason"] = trimmedReason }
+    if let messageID, !messageID.isEmpty { body["messageId"] = messageID }
+    if let channelID, !channelID.isEmpty { body["channelId"] = channelID }
+    let data = try JSONEncoder().encode(body)
     _ = try await send(
-      path: "/reports/user", method: "POST", body: body, accessToken: accessToken,
+      path: "/reports/user", method: "POST", body: data, accessToken: accessToken,
+      allowEmpty: true)
+  }
+
+  public func reportMessage(
+    messageID: String, channelID: String, category: String, reason: String, accessToken: String
+  ) async throws {
+    var body: [String: String] = [
+      "messageId": messageID,
+      "channelId": channelID,
+      "category": category,
+    ]
+    let trimmedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !trimmedReason.isEmpty { body["reason"] = trimmedReason }
+    let data = try JSONEncoder().encode(body)
+    _ = try await send(
+      path: "/reports/message", method: "POST", body: data, accessToken: accessToken,
       allowEmpty: true)
   }
   public func registerEchoPlusInterest(

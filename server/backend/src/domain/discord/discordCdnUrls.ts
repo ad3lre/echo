@@ -6,6 +6,7 @@
 import { ssrfSafeFetch } from '../../services/linkUnfurl/linkUnfurlFetch';
 
 const URL_KEYS_DEFAULT = ['url', 'proxy_url', 'proxyURL'] as const;
+const MAX_REDIRECTS = 4;
 
 /** Discord-controlled CDN zones (incl. `images-ext-*.discordapp.net` embed proxies). */
 export function isDiscordImportMediaHostname(hostname: string): boolean {
@@ -82,18 +83,29 @@ export async function fetchDiscordHostedImportMedia(
   raw: string,
   init: RequestInit & { maxBytes?: number } = {},
 ): Promise<Response | null> {
-  const url = canonicalDiscordHostedImportMediaUrl(raw);
-  if (!url) return null;
-  try {
-    // Host allowlist + DNS validation via ssrfSafeFetch; plain fetch (no pinned TLS agent)
-    // because Discord's CDN edge often hangs on the pinned agent path.
-    return await ssrfSafeFetch(url, {
-      redirect: 'follow',
-      ...init,
-    });
-  } catch {
-    return null;
+  let current = canonicalDiscordHostedImportMediaUrl(raw);
+  if (!current) return null;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    try {
+      // Revalidate every hop and require the redirect target to remain on a
+      // Discord CDN host. Automatic redirects would bypass that boundary.
+      const res = await ssrfSafeFetch(current, {
+        ...init,
+        redirect: 'manual',
+      });
+      if (res.status < 300 || res.status >= 400) return res;
+      const location = res.headers.get('location');
+      if (!location) return null;
+      const next = canonicalDiscordHostedImportMediaUrl(
+        new URL(location, current).href,
+      );
+      if (!next) return null;
+      current = next;
+    } catch {
+      return null;
+    }
   }
+  return null;
 }
 
 /**

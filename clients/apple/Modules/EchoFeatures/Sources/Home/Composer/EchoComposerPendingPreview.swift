@@ -45,7 +45,7 @@ struct EchoComposerPendingPreview: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
           RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .stroke(.white.opacity(0.10), lineWidth: 1)
+            .stroke(EchoTheme.Color.ink(0.10), lineWidth: 1)
         }
       removeButton(EchoCopy.format("Remove %@", asset.filename)) {
         onRemoveAsset(asset.id)
@@ -62,7 +62,7 @@ struct EchoComposerPendingPreview: View {
         baseURL: baseURL,
         accessToken: accessToken
       ) {
-        Rectangle().fill(.white.opacity(0.06))
+        Rectangle().fill(EchoTheme.Color.ink(0.06))
       }
       .scaledToFill()
       .frame(width: 64, height: 64)
@@ -70,12 +70,12 @@ struct EchoComposerPendingPreview: View {
       .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
       .overlay {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .stroke(.white.opacity(0.10), lineWidth: 1)
+          .stroke(EchoTheme.Color.ink(0.10), lineWidth: 1)
       }
       .overlay(alignment: .bottomLeading) {
         Text(EchoCopy.string("GIF"))
           .font(.system(size: 9, weight: .bold, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.onAccent)
           .padding(.horizontal, 5)
           .padding(.vertical, 2)
           .background(.black.opacity(0.55), in: Capsule())
@@ -95,10 +95,10 @@ struct EchoComposerPendingPreview: View {
         .font(.system(size: 14, weight: .semibold))
         .foregroundStyle(EchoTheme.Color.indigoSoft)
         .frame(width: 28, height: 28)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background(EchoTheme.Color.ink(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
       Text(asset.filename)
         .font(.system(size: 12, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.84))
+        .foregroundStyle(EchoTheme.Color.ink(0.84))
         .lineLimit(1)
         .frame(maxWidth: 120, alignment: .leading)
       Button {
@@ -106,7 +106,7 @@ struct EchoComposerPendingPreview: View {
       } label: {
         Image(systemName: "xmark.circle.fill")
           .font(.system(size: 16))
-          .foregroundStyle(.white.opacity(0.42))
+          .foregroundStyle(EchoTheme.Color.ink(0.42))
       }
       .buttonStyle(.plain)
       .accessibilityLabel(EchoCopy.format("Remove %@", asset.filename))
@@ -115,10 +115,10 @@ struct EchoComposerPendingPreview: View {
     .padding(.trailing, 8)
     .padding(.vertical, 10)
     .frame(height: 64)
-    .background(.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .background(EchoTheme.Color.ink(0.065), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     .overlay {
       RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .stroke(.white.opacity(0.08), lineWidth: 1)
+        .stroke(EchoTheme.Color.ink(0.08), lineWidth: 1)
     }
   }
 
@@ -126,10 +126,10 @@ struct EchoComposerPendingPreview: View {
     Button(action: action) {
       Image(systemName: "xmark")
         .font(.system(size: 9, weight: .bold))
-        .foregroundStyle(.white)
+        .foregroundStyle(EchoTheme.Color.onAccent)
         .frame(width: 20, height: 20)
         .background(.black.opacity(0.72), in: Circle())
-        .overlay { Circle().stroke(.white.opacity(0.22), lineWidth: 1) }
+        .overlay { Circle().stroke(EchoTheme.Color.ink(0.22), lineWidth: 1) }
     }
     .buttonStyle(.plain)
     .padding(5)
@@ -152,7 +152,7 @@ private struct EchoComposerLocalThumb: View {
   var body: some View {
     GeometryReader { geo in
       ZStack {
-        Rectangle().fill(.white.opacity(0.055))
+        Rectangle().fill(EchoTheme.Color.ink(0.055))
         if let image {
           #if os(iOS)
             Image(uiImage: image)
@@ -170,9 +170,9 @@ private struct EchoComposerLocalThumb: View {
         } else if didFail {
           Image(systemName: fallbackSystemImage)
             .font(.system(size: 18, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.45))
+            .foregroundStyle(EchoTheme.Color.ink(0.45))
         } else {
-          ProgressView().controlSize(.small).tint(.white.opacity(0.42))
+          ProgressView().controlSize(.small).tint(EchoTheme.Color.ink(0.42))
         }
       }
     }

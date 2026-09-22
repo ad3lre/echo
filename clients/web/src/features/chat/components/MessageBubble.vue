@@ -17,6 +17,7 @@ import type {
 import { stubVideoEmbedsFromMessage } from '@shared/linkEmbedCandidates';
 import { docContainsButtonRows } from '@shared/buttonRowContentJson';
 import {
+  contentWithoutInlineGifHostUrls,
   isInlineGifHostEmbed,
   linkEmbedsExcludingInlineGifs,
 } from '@shared/gifHostLinks';
@@ -397,7 +398,9 @@ const showMentionAuthorInComposer = computed(
  */
 const displayMessageContent = computed(() => {
   const raw = plainTextForRawMessage(message.value);
-  if (message.value.mentions?.length) return raw;
+  if (message.value.mentions?.length) {
+    return contentWithoutInlineGifHostUrls(raw, message.value.embeds);
+  }
   return applyEmbedTitlesToMessageContent(raw, message.value.embeds);
 });
 

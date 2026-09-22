@@ -19,6 +19,7 @@ import echoRoles from './echo/roles';
 import echoInvites from './echo/invites';
 import echoServerApplications from './echo/serverApplications';
 import echoSocial from './echo/social';
+import echoMutualServers from './echo/mutualServers';
 import echoDm from './echo/dm';
 import echoSafety from './echo/safety';
 import echoUploads from './echo/uploads';
@@ -95,6 +96,7 @@ export default async function echoRoutes(
     await secured.register(echoInvites);
     await secured.register(echoServerApplications);
     await secured.register(echoSocial);
+    await secured.register(echoMutualServers);
     await secured.register(echoDm);
     await secured.register(echoSafety);
     await secured.register(echoModeration);

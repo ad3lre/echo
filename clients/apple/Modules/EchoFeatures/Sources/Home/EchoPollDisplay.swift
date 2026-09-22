@@ -18,7 +18,7 @@ struct EchoPollDisplay: View {
     VStack(alignment: .leading, spacing: 12) {
       Text(poll.question)
         .font(.system(size: 14, weight: .semibold, design: .rounded))
-        .foregroundStyle(.white.opacity(0.94))
+        .foregroundStyle(EchoTheme.Color.ink(0.94))
         .fixedSize(horizontal: false, vertical: true)
 
       VStack(spacing: 6) {
@@ -52,12 +52,12 @@ struct EchoPollDisplay: View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
           if let label = formatPollTimeRemaining(poll.endsAt, now: context.date) {
             Text(label)
-              .foregroundStyle(poll.hasEnded ? accent.opacity(0.72) : .white.opacity(0.42))
+              .foregroundStyle(poll.hasEnded ? accent.opacity(0.72) : EchoTheme.Color.ink(0.42))
           }
         }
       }
       .font(.system(size: 11, design: .rounded))
-      .foregroundStyle(.white.opacity(0.42))
+      .foregroundStyle(EchoTheme.Color.ink(0.42))
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 14)
@@ -68,7 +68,7 @@ struct EchoPollDisplay: View {
     )
     .overlay {
       RoundedRectangle(cornerRadius: 12, style: .continuous)
-        .stroke(.white.opacity(0.08), lineWidth: 1)
+        .stroke(EchoTheme.Color.ink(0.08), lineWidth: 1)
     }
     .sheet(isPresented: $showingVoters) {
       EchoPollVotersSheet(
@@ -97,12 +97,12 @@ struct EchoPollDisplay: View {
       }
       Text(option.text)
         .lineLimit(2)
-        .foregroundStyle(.white.opacity(0.92))
+        .foregroundStyle(EchoTheme.Color.ink(0.92))
       Spacer(minLength: 8)
       if showTallies {
         Text(tally)
           .font(.system(size: 11, weight: .regular, design: .rounded).monospacedDigit())
-          .foregroundStyle(.white.opacity(0.48))
+          .foregroundStyle(EchoTheme.Color.ink(0.48))
       }
     }
     .font(.system(size: 14, design: .rounded))
@@ -110,7 +110,7 @@ struct EchoPollDisplay: View {
     .padding(.vertical, 10)
     .background {
       RoundedRectangle(cornerRadius: 8, style: .continuous)
-        .fill(Color.white.opacity(selected ? 0.04 : 0.03))
+        .fill(EchoTheme.Color.ink(selected ? 0.04 : 0.03))
         .overlay(alignment: .leading) {
           if showTallies {
             GeometryReader { geo in
@@ -123,7 +123,7 @@ struct EchoPollDisplay: View {
     }
     .overlay {
       RoundedRectangle(cornerRadius: 8, style: .continuous)
-        .stroke(selected ? accent.opacity(0.40) : .white.opacity(0.07), lineWidth: 1)
+        .stroke(selected ? accent.opacity(0.40) : EchoTheme.Color.ink(0.07), lineWidth: 1)
     }
     .opacity(poll.hasEnded ? 0.80 : 1)
   }
@@ -160,7 +160,7 @@ private struct EchoPollVotersSheet: View {
             .font(.system(size: 18, weight: .semibold, design: .rounded))
           Text(poll.question)
             .font(.system(size: 13, design: .rounded))
-            .foregroundStyle(.white.opacity(0.48))
+            .foregroundStyle(EchoTheme.Color.ink(0.48))
             .lineLimit(2)
         }
         Spacer()
@@ -169,9 +169,9 @@ private struct EchoPollVotersSheet: View {
         } label: {
           Image(systemName: "xmark")
             .font(.system(size: 13, weight: .bold))
-            .foregroundStyle(.white.opacity(0.45))
+            .foregroundStyle(EchoTheme.Color.ink(0.45))
             .frame(width: 30, height: 30)
-            .background(.white.opacity(0.06), in: Circle())
+            .background(EchoTheme.Color.ink(0.06), in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(EchoCopy.string("Close"))
@@ -190,12 +190,12 @@ private struct EchoPollVotersSheet: View {
                   .font(.system(size: 10, weight: .semibold, design: .rounded))
                   .padding(.horizontal, 6)
                   .padding(.vertical, 2)
-                  .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
+                  .background(EchoTheme.Color.ink(0.06), in: RoundedRectangle(cornerRadius: 5))
               }
               .font(.system(size: 12, weight: .medium, design: .rounded))
               .padding(.horizontal, 10)
               .padding(.vertical, 8)
-              .foregroundStyle(selectedOptionID == option.id ? .white : .white.opacity(0.5))
+              .foregroundStyle(selectedOptionID == option.id ? EchoTheme.Color.fg : EchoTheme.Color.ink(0.5))
               .background(
                 selectedOptionID == option.id
                   ? Color.indigo.opacity(0.18) : .clear,
@@ -216,7 +216,7 @@ private struct EchoPollVotersSheet: View {
       .padding(.top, 16)
       .padding(.bottom, 12)
 
-      Divider().overlay(.white.opacity(0.08))
+      Divider().overlay(EchoTheme.Color.ink(0.08))
 
       let voters = (poll.options.first { $0.id == selectedOptionID }?.voterIDs ?? [])
         .map { id in (id: id, label: voterLabel(id)) }
@@ -225,7 +225,7 @@ private struct EchoPollVotersSheet: View {
       if voters.isEmpty {
         EchoCopy.text("No votes on this option yet")
           .font(.system(size: 14, design: .rounded))
-          .foregroundStyle(.white.opacity(0.42))
+          .foregroundStyle(EchoTheme.Color.ink(0.42))
           .italic()
           .frame(maxWidth: .infinity, maxHeight: .infinity)
       } else {
@@ -252,7 +252,7 @@ private struct EchoPollVotersSheet: View {
         Spacer()
         Button(EchoCopy.string("Close")) { dismiss() }
           .font(.system(size: 14, weight: .medium, design: .rounded))
-          .foregroundStyle(.white.opacity(0.55))
+          .foregroundStyle(EchoTheme.Color.ink(0.55))
           .padding(.horizontal, 14)
           .padding(.vertical, 9)
       }
@@ -260,7 +260,6 @@ private struct EchoPollVotersSheet: View {
     }
     .padding(22)
     .frame(minWidth: 360, minHeight: 420)
-    .preferredColorScheme(.dark)
   }
 
   private func voterLabel(_ userID: String) -> String {

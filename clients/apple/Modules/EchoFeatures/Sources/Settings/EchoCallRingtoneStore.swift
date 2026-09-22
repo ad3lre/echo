@@ -33,7 +33,11 @@ final class EchoCallRingtoneStore {
 
   var playbackVolume01: Float {
     guard !muted else { return 0 }
-    return Float(max(0, min(100, volumePercent)) / 100)
+    let ringtone = max(0, min(100, volumePercent)) / 100
+    let output =
+      (UserDefaults.standard.object(forKey: "echo.settings.voice.outputVolume") as? Double) ?? 100
+    let output01 = Float(max(0, min(100, output)) / 100)
+    return Float(ringtone) * output01
   }
 
   private init() {
@@ -53,6 +57,8 @@ final class EchoCallRingtoneStore {
 
   func startIncomingLoop() {
     guard !muted else { return }
+    // Match web: master sound-effects toggle gates call ringtone.
+    guard EchoSoundPlayback.cachedPreferences().soundEffects else { return }
     EchoSoundPlayer.shared.startRingtoneLoop(selectedEntry, volume: Double(playbackVolume01))
   }
 

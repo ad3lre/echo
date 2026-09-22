@@ -974,6 +974,52 @@ export async function getEchoMessageById(
   return enriched.rows[0] ?? null;
 }
 
+/** Fetch a message only when it belongs to the requested channel. */
+export async function getEchoMessageByIdInChannel(
+  pool: pg.Pool,
+  messageId: string,
+  channelId: string,
+): Promise<EchoMessageRow | null> {
+  const hasE2ee = await echoMessagesTableHasE2eeColumns(pool);
+  const q = await pool.query(
+    `
+    SELECT ${selectEchoMessageRowSqlFields(hasE2ee)}
+    FROM echo_messages WHERE id = $1 AND channel_id = $2 AND deleted_at IS NULL
+    `,
+    [messageId, channelId],
+  );
+  if (!q.rows.length) return null;
+  const drafts = mapMsgRowsDraft(q.rows);
+  const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
+  return enriched.rows[0] ?? null;
+}
+
+/**
+ * Idempotency reconciliation must stay inside the caller's message scope.
+ * A client may choose a syntactically valid id that already belongs to another
+ * message; returning that row would disclose cross-channel data.
+ */
+export async function getEchoMessageByIdForAuthorInChannel(
+  pool: pg.Pool,
+  messageId: string,
+  authorId: string,
+  channelId: string,
+): Promise<EchoMessageRow | null> {
+  const hasE2ee = await echoMessagesTableHasE2eeColumns(pool);
+  const q = await pool.query(
+    `
+    SELECT ${selectEchoMessageRowSqlFields(hasE2ee)}
+    FROM echo_messages
+    WHERE id = $1 AND author_id = $2 AND channel_id = $3 AND deleted_at IS NULL
+    `,
+    [messageId, authorId, channelId],
+  );
+  if (!q.rows.length) return null;
+  const drafts = mapMsgRowsDraft(q.rows);
+  const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
+  return enriched.rows[0] ?? null;
+}
+
 export async function listEchoMessages(
   pool: pg.Pool,
   channelId: string,
@@ -1151,6 +1197,54 @@ export function escapeIlikePattern(s: string): string {
 }
 
 function sqlFragmentForHasType(hasType: EchoMessageSearchHasType): string {
+  // Prefer precomputed flags, but also match live attachment JSON. Older rows
+  // (and some native uploads) were only flagged `has_attachment`, so a pure
+  // `has_image = true` predicate misses every photo in those channels.
+  const attachmentImagePred = `(
+    m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements(m.attachments) att
+      WHERE (
+        LOWER(COALESCE(att->>'kind', '')) = 'image'
+        OR LOWER(COALESCE(att->>'mimeType', '')) LIKE 'image/%'
+        OR LOWER(COALESCE(att->>'filename', '')) ~* '\\.(jpe?g|png|webp|heic|heif|bmp|tif|tiff)$'
+        OR LOWER(COALESCE(att->>'url', '')) ~* '\\.(jpe?g|png|webp|heic|heif|bmp|tif|tiff)(\\?|$)'
+      )
+      AND LOWER(COALESCE(att->>'kind', '')) <> 'gif'
+      AND LOWER(COALESCE(att->>'mimeType', '')) <> 'image/gif'
+      AND LOWER(COALESCE(att->>'filename', '')) NOT LIKE '%.gif'
+      AND COALESCE(att->>'mimeType', '') NOT ILIKE 'application/%'
+      AND COALESCE(att->>'mimeType', '') NOT ILIKE '%pdf%'
+      AND COALESCE(att->>'mimeType', '') NOT ILIKE '%document%'
+    )
+  )`;
+  const attachmentGifPred = `(
+    m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements(m.attachments) att
+      WHERE LOWER(COALESCE(att->>'kind', '')) = 'gif'
+         OR LOWER(COALESCE(att->>'mimeType', '')) = 'image/gif'
+         OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.gif'
+         OR LOWER(COALESCE(att->>'url', '')) LIKE '%.gif%'
+         OR LOWER(COALESCE(att->>'url', '')) LIKE '%giphy%'
+         OR LOWER(COALESCE(att->>'url', '')) LIKE '%tenor%'
+    )
+  )`;
+  const attachmentDocsPred = `(
+    m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements(m.attachments) att
+      WHERE (
+        LOWER(COALESCE(att->>'kind', '')) = 'document'
+        OR (att->>'mimeType') ILIKE 'application/%'
+        OR (att->>'mimeType') ILIKE '%pdf%'
+        OR (att->>'mimeType') ILIKE '%document%'
+        OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.pdf'
+        OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.doc'
+        OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.docx'
+      )
+      AND COALESCE(att->>'mimeType', '') NOT ILIKE 'image/%'
+      AND LOWER(COALESCE(att->>'kind', '')) NOT IN ('image', 'gif', 'video', 'audio')
+    )
+  )`;
+
   switch (hasType) {
     case 'video':
       return `(
@@ -1175,13 +1269,26 @@ function sqlFragmentForHasType(hasType: EchoMessageSearchHasType): string {
         )
       )`;
     case 'gif':
-      return `m.has_gif = true`;
+      return `(m.has_gif = true OR ${attachmentGifPred})`;
     case 'image':
-      return `m.has_image = true`;
+      return `(
+        m.has_image = true
+        OR ${attachmentImagePred}
+        OR (
+          m.image_url IS NOT NULL AND TRIM(COALESCE(m.image_url, '')) <> ''
+          AND COALESCE(m.gif, false) = false
+          AND NOT (
+            LOWER(m.image_url) LIKE '%giphy%'
+            OR LOWER(m.image_url) LIKE '%.gif%'
+            OR LOWER(m.image_url) LIKE '%media.giphy%'
+            OR LOWER(m.image_url) LIKE '%tenor%'
+          )
+        )
+      )`;
     case 'link':
-      return `m.has_link = true`;
+      return `(m.has_link = true OR m.search_index_text ~* 'https?://')`;
     case 'docs':
-      return `m.has_docs = true`;
+      return `(m.has_docs = true OR ${attachmentDocsPred})`;
     default:
       return 'TRUE';
   }
@@ -1634,6 +1741,23 @@ export async function getEchoMessageCreatedAtById(
   const q = await pool.query(
     `SELECT created_at FROM echo_messages WHERE id = $1`,
     [messageId],
+  );
+  const row = q.rows[0];
+  if (!row?.created_at) return null;
+  const c = row.created_at;
+  return c instanceof Date ? c : new Date(c as string);
+}
+
+export async function getEchoMessageCreatedAtByIdForAuthorInChannel(
+  pool: pg.Pool,
+  messageId: string,
+  authorId: string,
+  channelId: string,
+): Promise<Date | null> {
+  const q = await pool.query(
+    `SELECT created_at FROM echo_messages
+     WHERE id = $1 AND author_id = $2 AND channel_id = $3`,
+    [messageId, authorId, channelId],
   );
   const row = q.rows[0];
   if (!row?.created_at) return null;

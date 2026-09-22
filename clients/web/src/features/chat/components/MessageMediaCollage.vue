@@ -41,6 +41,6 @@ const boxStyle = computed(() =>
   margin-top: 0.25rem;
   border-radius: 0.6rem;
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg) 60%, black);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
 }
 </style>

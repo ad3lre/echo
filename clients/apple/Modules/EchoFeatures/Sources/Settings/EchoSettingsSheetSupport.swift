@@ -56,7 +56,7 @@ struct EchoSettingsSheetShell<Content: View>: View {
           Button(EchoCopy.string("Cancel"), action: onCancel)
         }
       }
-      .tint(.white)
+      .tint(EchoTheme.Color.fg)
     }
   }
 }
@@ -83,13 +83,13 @@ struct EchoSettingsSheetField: View {
         }
       }
       .font(.system(size: 16, weight: .medium, design: .rounded))
-      .foregroundStyle(.white)
+      .foregroundStyle(EchoTheme.Color.fg)
       .padding(.horizontal, 15)
       .frame(minHeight: 52)
-      .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .background(EchoTheme.Color.ink(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
       .overlay {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-          .stroke(.white.opacity(0.12), lineWidth: 1)
+          .stroke(EchoTheme.Color.ink(0.12), lineWidth: 1)
       }
       #if os(iOS)
         .textInputAutocapitalization(.never)
@@ -133,10 +133,10 @@ struct EchoSheetHeader: View {
       VStack(alignment: .leading, spacing: 5) {
         Text(title)
           .font(.system(size: 24, weight: .bold, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.fg)
         Text(description)
           .font(.system(size: 13, design: .rounded))
-          .foregroundStyle(.white.opacity(0.54))
+          .foregroundStyle(EchoTheme.Color.ink(0.54))
       }
       Spacer(minLength: 0)
     }

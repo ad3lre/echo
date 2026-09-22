@@ -37,6 +37,8 @@ describe('safeImageUrl', () => {
     const p = safeImageUrl('javascript:alert(1)');
     expect(p.startsWith('data:image/gif')).toBe(true);
     expect(safeImageUrl('vbscript:evil')).toBe(p);
+    expect(safeImageUrl('httpx://attacker.test/image.png')).toBe(p);
+    expect(safeImageUrl('data:text/html,<svg onload=alert(1)>')).toBe(p);
   });
 
   it('prefixes safe bare relative paths with / (API paths without leading slash)', () => {

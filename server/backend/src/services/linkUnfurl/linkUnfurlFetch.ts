@@ -208,7 +208,11 @@ export async function ssrfSafeFetch(
   if (!(await canSafelyResolveUrlForOutboundFetch(url))) {
     throw new Error('SSRF: URL failed safety validation');
   }
-  return fetch(url, init);
+  // Parse only after the full scheme/host/DNS check. Passing the validated URL
+  // object also prevents callers from smuggling a different request target via
+  // string coercion or an alternate URL-like value.
+  const validatedUrl = new URL(url);
+  return fetch(validatedUrl, init);
 }
 
 export async function fetchJsonWithTimeout(

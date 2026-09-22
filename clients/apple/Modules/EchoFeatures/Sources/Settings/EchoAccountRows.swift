@@ -99,11 +99,11 @@ struct EchoSessionRow: View {
         VStack(alignment: .leading, spacing: 3) {
           Text(deviceName)
             .font(.system(size: 14, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.92))
+            .foregroundStyle(EchoTheme.Color.ink(0.92))
             .lineLimit(1)
           Text(detail)
             .font(.system(size: 12, design: .rounded))
-            .foregroundStyle(.white.opacity(0.48))
+            .foregroundStyle(EchoTheme.Color.ink(0.48))
             .lineLimit(1)
         }
         Spacer(minLength: 0)
@@ -147,10 +147,10 @@ struct EchoPasskeyRow: View {
         VStack(alignment: .leading, spacing: 3) {
           Text(passkey.label)
             .font(.system(size: 14, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.92))
+            .foregroundStyle(EchoTheme.Color.ink(0.92))
           Text(passkey.createdAt)
             .font(.system(size: 12, design: .rounded))
-            .foregroundStyle(.white.opacity(0.48))
+            .foregroundStyle(EchoTheme.Color.ink(0.48))
         }
         Spacer(minLength: 0)
       }

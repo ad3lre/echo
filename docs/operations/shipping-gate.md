@@ -49,6 +49,8 @@ Link unfurl **SSRF** alerts are mitigated by `canSafelyResolveUrlForOutboundFetc
 
 **DOM text reinterpreted as HTML** (`js/xss-through-dom`) on `clients/web/src/features/layout/display/captureVideoFrame.ts` is a false positive: the probe only assigns `blob:` object URLs from `URL.createObjectURL` on caller-supplied video blobs to a detached `<video>` for metadata/frame decode. `blobUrlForVideoElement` rejects non-`blob:` values; CodeQL still models `video.src` as an XSS sink, so `.github/codeql/codeql-config.yml` excludes that path.
 
+The same narrowly scoped exception applies to `clients/web/src/features/chat/uploadFingerprint.ts`: `fingerprintVideoFile` creates a local object URL from the selected `File`, assigns it only to a detached `<video>` for metadata/frame decoding, and revokes it in `finally`. It never writes the value to HTML or a document-capable element.
+
 ## Related references
 
 - `docs/operations/PRODUCTION_SECURITY_CHECKLIST.md` — broader operator checklist.

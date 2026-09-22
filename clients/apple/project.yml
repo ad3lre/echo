@@ -10,7 +10,7 @@ settings:
     PRODUCT_NAME: Echo
     DEVELOPMENT_TEAM: '7HBQV8236H'
     CODE_SIGN_STYLE: Automatic
-    CURRENT_PROJECT_VERSION: 2
+    CURRENT_PROJECT_VERSION: 4
     MARKETING_VERSION: 0.1.1
     STRING_CATALOG_GENERATE_SYMBOLS: NO
 packages:
@@ -23,6 +23,8 @@ targets:
     sources:
       - Apps/iOS
       - Resources/iOS/Assets.xcassets
+      - path: Resources/iOS/Sounds
+        buildPhase: resources
       - path: ../../node_modules/unicode-emoji-json/data-by-group.json
         buildPhase: resources
     info:

@@ -18,17 +18,17 @@ struct EchoDetailSection<Content: View>: View {
       Text(title.uppercased())
         .font(.system(size: 11, weight: .bold, design: .rounded))
         .tracking(1.8)
-        .foregroundStyle(.white.opacity(0.42))
+        .foregroundStyle(EchoTheme.Color.ink(0.42))
         .padding(.horizontal, 4)
       VStack(alignment: .leading, spacing: 14) {
         content()
       }
       .padding(14)
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+      .echoGlassBackground(cornerRadius: 22)
       .overlay {
         RoundedRectangle(cornerRadius: 22, style: .continuous)
-          .stroke(.white.opacity(0.09), lineWidth: 1)
+          .stroke(EchoTheme.Color.ink(0.09), lineWidth: 1)
       }
     }
   }
@@ -50,10 +50,10 @@ struct EchoDetailHeader: View {
       VStack(alignment: .leading, spacing: 4) {
         Text(title)
           .font(.system(size: 24, weight: .bold, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.fg)
         Text(description)
           .font(.system(size: 14, design: .rounded))
-          .foregroundStyle(.white.opacity(0.48))
+          .foregroundStyle(EchoTheme.Color.ink(0.48))
       }
       Spacer(minLength: 0)
     }
@@ -80,10 +80,10 @@ struct EchoSettingDetailHeader: View {
       VStack(alignment: .leading, spacing: 3) {
         Text(title)
           .font(.system(size: 25, weight: .bold, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.fg)
         Text(description)
           .font(.system(size: 13, design: .rounded))
-          .foregroundStyle(.white.opacity(0.48))
+          .foregroundStyle(EchoTheme.Color.ink(0.48))
           .lineLimit(1)
       }
       Spacer(minLength: 8)
@@ -91,11 +91,11 @@ struct EchoSettingDetailHeader: View {
         Label(EchoCopy.string("Back"), systemImage: "chevron.left")
           .labelStyle(.titleAndIcon)
           .font(.system(size: 14, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white.opacity(0.9))
+          .foregroundStyle(EchoTheme.Color.ink(0.9))
           .padding(.horizontal, 13)
           .frame(height: 40)
-          .background(.white.opacity(0.075), in: Capsule())
-          .overlay { Capsule().stroke(.white.opacity(0.10), lineWidth: 1) }
+          .background(EchoTheme.Color.ink(0.075), in: Capsule())
+          .overlay { Capsule().stroke(EchoTheme.Color.ink(0.10), lineWidth: 1) }
       }
       .buttonStyle(.plain)
       .accessibilityLabel(EchoCopy.string("Back to Settings"))

@@ -18,6 +18,9 @@ enum EchoCallPhase: Equatable {
   case failed
 }
 
+/// How long to wait for accept before giving up (matches web `3 * 60_000`).
+private let echoCallRingTimeoutNanoseconds: UInt64 = 180_000_000_000
+
 @MainActor
 @Observable
 final class EchoCallModel {
@@ -35,14 +38,19 @@ final class EchoCallModel {
   private(set) var participantCount = 0
   private(set) var errorMessage: String?
   private(set) var isMuted = false
+  private(set) var isDeafened = false
   private(set) var isSpeakerEnabled = true
+  private(set) var isEncrypted = false
 
   private var callID: UUID?
   private var correlationID: String?
   private var connectTask: Task<Void, Never>?
+  private var ringTimeoutTask: Task<Void, Never>?
+  private var dismissTask: Task<Void, Never>?
   private var transportIsConnected = false
   private var remoteAccepted = false
   private var isOutgoing = false
+  private var liveRemoteIdentities: Set<String> = []
 
   init(
     baseURL: URL,
@@ -74,6 +82,22 @@ final class EchoCallModel {
         }
       }
     }
+    self.transport.onRemoteParticipantConnected = { [weak self] identity in
+      Task { @MainActor in
+        guard let self else { return }
+        self.liveRemoteIdentities.insert(identity)
+        self.publishAuthorizedRoster()
+        await self.syncVoiceMlsKeys()
+      }
+    }
+    self.transport.onRemoteParticipantDisconnected = { [weak self] identity in
+      Task { @MainActor in
+        guard let self else { return }
+        self.liveRemoteIdentities.remove(identity)
+        self.publishAuthorizedRoster()
+        await self.syncVoiceMlsKeys()
+      }
+    }
     systemCalls.onAnswer = { [weak self] id in
       Task { @MainActor in await self?.answerFromSystem(id: id) }
     }
@@ -82,6 +106,9 @@ final class EchoCallModel {
     }
     systemCalls.onMute = { [weak self] id, muted in
       Task { @MainActor in await self?.setMuted(muted, callID: id) }
+    }
+    systemCalls.onAudioActivated = { [weak self] in
+      Task { @MainActor in self?.syncCallRingtone() }
     }
   }
 
@@ -99,6 +126,8 @@ final class EchoCallModel {
       try systemCalls.prepare()
       try await systemCalls.startOutgoing(id: id, handle: conversation.displayName)
       systemCalls.reportConnecting(id: id)
+      // CallKit may have taken the audio session — restart ringback on it.
+      syncCallRingtone()
       realtime.inviteToCall(channelID: conversation.channelID, correlationID: correlation)
       connect()
     } catch {
@@ -120,6 +149,7 @@ final class EchoCallModel {
         do {
           try systemCalls.prepare()
           try await systemCalls.reportIncoming(id: id, handle: conversation.displayName)
+          syncCallRingtone()
         } catch {
           fail(error)
         }
@@ -131,7 +161,19 @@ final class EchoCallModel {
       activateIfReady()
     case .ended:
       guard matches(signal) else { return }
-      Task { await finish(reportSystemEnd: true, emitSignal: false, reason: .ended) }
+      let wasRinging = phase == .incoming || phase == .dialing
+      let reason = signal.reason ?? .ended
+      Task {
+        await self.finish(
+          reportSystemEnd: true,
+          emitSignal: false,
+          reason: reason,
+          terminalMessage: wasRinging
+            ? (reason == .declined
+              ? EchoCopy.string("Call declined")
+              : EchoCopy.string("No answer"))
+            : EchoCopy.string("Call ended"))
+      }
     }
   }
 
@@ -174,12 +216,32 @@ final class EchoCallModel {
   }
 
   func end() async {
-    guard let callID else { return }
+    guard let callID else {
+      await finish(reportSystemEnd: false, emitSignal: true, reason: .ended)
+      return
+    }
+    let phaseBefore = phase
     await systemCalls.requestEnd(id: callID)
+    // CallKit normally drives `onEnd` → finish. If the transaction is ignored
+    // or fails silently, tear down the in-app session ourselves.
+    if phase == phaseBefore && phase != .idle && phase != .ending {
+      await finish(reportSystemEnd: true, emitSignal: true, reason: .ended)
+    }
   }
 
   func toggleMute() async {
     await setMuted(!isMuted, callID: callID)
+  }
+
+  func toggleDeafen() {
+    let next = !isDeafened
+    do {
+      try transport.setDeafened(next)
+      isDeafened = next
+      EchoSoundPlayback.play(next ? .deafen : .undeafen)
+    } catch {
+      errorMessage = error.localizedDescription
+    }
   }
 
   func toggleSpeaker() {
@@ -190,6 +252,11 @@ final class EchoCallModel {
     } catch {
       errorMessage = error.localizedDescription
     }
+  }
+
+  func toggleRingtoneMute() {
+    EchoCallRingtoneStore.shared.muted.toggle()
+    syncCallRingtone()
   }
 
   func dismissError() {
@@ -214,15 +281,45 @@ final class EchoCallModel {
     participantCount = 1
     errorMessage = nil
     isMuted = false
+    isDeafened = false
     isSpeakerEnabled = true
+    isEncrypted = false
     transportIsConnected = false
     remoteAccepted = false
     isOutgoing = phase == .dialing
-    syncIncomingRingtone()
+    liveRemoteIdentities = []
+    syncCallRingtone()
+    scheduleRingTimeoutIfNeeded()
+  }
+
+  private func scheduleRingTimeoutIfNeeded() {
+    ringTimeoutTask?.cancel()
+    ringTimeoutTask = nil
+    guard phase == .incoming || phase == .dialing else { return }
+    let expectedCallID = callID
+    ringTimeoutTask = Task { @MainActor in
+      try? await Task.sleep(nanoseconds: echoCallRingTimeoutNanoseconds)
+      guard !Task.isCancelled, callID == expectedCallID else { return }
+      guard phase == .incoming || phase == .dialing, !remoteAccepted else { return }
+      await finish(
+        reportSystemEnd: true,
+        emitSignal: true,
+        reason: .ended,
+        terminalMessage: EchoCopy.string("No answer"))
+    }
+  }
+
+  private func publishAuthorizedRoster() {
+    guard let conversation else { return }
+    var ids = conversation.authorizedUserIDs(including: currentUserID)
+    ids.append(contentsOf: liveRemoteIdentities)
+    EchoMlsJsRuntime.shared.setAuthorizedUserIDs(ids)
   }
 
   private func answerFromSystem(id: UUID) async {
     guard callID == id, phase == .incoming, let conversation else { return }
+    ringTimeoutTask?.cancel()
+    ringTimeoutTask = nil
     EchoCallRingtoneStore.shared.stopIncomingLoop()
     phase = .connecting
     remoteAccepted = true
@@ -238,18 +335,29 @@ final class EchoCallModel {
   }
 
   private func setMuted(_ muted: Bool, callID expectedID: UUID?) async {
-    guard expectedID == callID, phase == .active || phase == .reconnecting else { return }
+    guard expectedID == callID else { return }
+    guard phase == .active || phase == .reconnecting || phase == .connecting
+      || phase == .dialing
+    else { return }
     do {
-      try await transport.setMuted(muted)
+      if transportIsConnected {
+        try await transport.setMuted(muted)
+      }
       isMuted = muted
-      EchoSoundPlayback.play(muted ? .mute : .unmute)
+      if phase == .active || phase == .reconnecting {
+        EchoSoundPlayback.play(muted ? .mute : .unmute)
+      }
     } catch {
       errorMessage = error.localizedDescription
     }
   }
 
-  private func syncIncomingRingtone() {
-    if phase == .incoming {
+  /// Ring while inviting / being invited — mirrors web `dmCallRinging`.
+  private func syncCallRingtone() {
+    let shouldRing =
+      !isDeafened
+      && (phase == .incoming || phase == .dialing)
+    if shouldRing {
       EchoCallRingtoneStore.shared.startIncomingLoop()
     } else {
       EchoCallRingtoneStore.shared.stopIncomingLoop()
@@ -276,12 +384,21 @@ final class EchoCallModel {
           channelID: conversation.channelID,
           accessToken: token,
           viewerUserID: currentUserID,
-          peerUserID: conversation.peerUserID)
+          peerUserID: conversation.peerUserID,
+          authorizedUserIDs: conversation.authorizedUserIDs(including: currentUserID))
+        isEncrypted = prepared.hasMaterial
+        publishAuthorizedRoster()
         let session = try await client.createDMSession(
           channelID: conversation.channelID,
           accessToken: token,
           e2eeDeviceID: prepared.deviceID)
         try await transport.connect(session: session, encryption: prepared.encryption)
+        if isMuted {
+          try? await transport.setMuted(true)
+        }
+        if isDeafened {
+          try? transport.setDeafened(true)
+        }
       } catch is CancellationError {
         return
       } catch {
@@ -300,13 +417,17 @@ final class EchoCallModel {
     case .disconnected:
       transportIsConnected = false
       if phase != .ending && phase != .failed && phase != .idle {
-        Task { await finish(reportSystemEnd: true, emitSignal: false, reason: .ended) }
+        // Notify the peer — otherwise they can stay ringing / connected alone.
+        Task { await finish(reportSystemEnd: true, emitSignal: true, reason: .ended) }
       }
     }
   }
 
   private func activateIfReady() {
     guard transportIsConnected, remoteAccepted else { return }
+    ringTimeoutTask?.cancel()
+    ringTimeoutTask = nil
+    EchoCallRingtoneStore.shared.stopIncomingLoop()
     phase = .active
     if startedAt == nil { startedAt = Date() }
     if isOutgoing, let callID { systemCalls.reportConnected(id: callID) }
@@ -321,9 +442,14 @@ final class EchoCallModel {
   private func finish(
     reportSystemEnd: Bool,
     emitSignal: Bool,
-    reason: EchoDmCallEndReason
+    reason: EchoDmCallEndReason,
+    terminalMessage: String? = nil
   ) async {
     guard phase != .idle else { return }
+    ringTimeoutTask?.cancel()
+    ringTimeoutTask = nil
+    dismissTask?.cancel()
+    dismissTask = nil
     EchoCallRingtoneStore.shared.stopIncomingLoop()
     phase = .ending
     connectTask?.cancel()
@@ -339,10 +465,23 @@ final class EchoCallModel {
     if reportSystemEnd, let callID {
       systemCalls.reportEnded(id: callID, declined: reason == .declined)
     }
+    if let terminalMessage, !terminalMessage.isEmpty {
+      errorMessage = terminalMessage
+      phase = .failed
+      let dismissID = callID
+      dismissTask = Task { @MainActor in
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        guard !Task.isCancelled, callID == dismissID || phase == .failed else { return }
+        reset()
+      }
+      return
+    }
     reset()
   }
 
   private func fail(_ error: Error) {
+    ringTimeoutTask?.cancel()
+    ringTimeoutTask = nil
     EchoCallRingtoneStore.shared.stopIncomingLoop()
     connectTask?.cancel()
     connectTask = nil
@@ -362,6 +501,10 @@ final class EchoCallModel {
   }
 
   private func reset() {
+    ringTimeoutTask?.cancel()
+    ringTimeoutTask = nil
+    dismissTask?.cancel()
+    dismissTask = nil
     EchoCallRingtoneStore.shared.stopIncomingLoop()
     phase = .idle
     conversation = nil
@@ -371,10 +514,13 @@ final class EchoCallModel {
     participantCount = 0
     errorMessage = nil
     isMuted = false
+    isDeafened = false
     isSpeakerEnabled = true
+    isEncrypted = false
     transportIsConnected = false
     remoteAccepted = false
     isOutgoing = false
+    liveRemoteIdentities = []
   }
 
   private func ensureMicrophoneAccess() async throws {

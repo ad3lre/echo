@@ -69,7 +69,7 @@ export async function getEchoChannelVoiceE2eeEnabled(
 
 /**
  * Whether this DM / group-DM voice call must use LiveKit E2EE.
- * Gated by `config.dmVoiceE2eeEnabled` (default off): when disabled, private
+ * Gated by `config.dmVoiceE2eeEnabled` (default on): when disabled, private
  * calls skip epoch/envelope requirements entirely and connect like regular
  * (transport-encrypted) voice.
  */

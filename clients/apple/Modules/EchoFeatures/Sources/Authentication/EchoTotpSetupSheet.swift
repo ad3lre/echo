@@ -33,11 +33,11 @@ struct EchoTotpSetupSheet: View {
           VStack(alignment: .leading, spacing: 10) {
             EchoCopy.text("Authenticator secret")
               .font(.system(size: 12, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.55))
+              .foregroundStyle(EchoTheme.Color.ink(0.55))
             Text(secret)
               .font(.system(size: 14, weight: .semibold, design: .monospaced))
               .textSelection(.enabled)
-              .foregroundStyle(.white)
+              .foregroundStyle(EchoTheme.Color.fg)
             if !otpauthURL.isEmpty {
               Text(otpauthURL).font(.caption).textSelection(.enabled).foregroundStyle(.secondary)
             }
@@ -45,7 +45,7 @@ struct EchoTotpSetupSheet: View {
           .padding(14)
           .frame(maxWidth: .infinity, alignment: .leading)
           .background(
-            .white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            EchoTheme.Color.ink(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
           EchoSettingsSheetField(
             title: EchoCopy.string("6-digit code"), icon: "number.square.fill", tint: .blue,
             value: $code,

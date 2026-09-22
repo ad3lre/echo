@@ -984,25 +984,74 @@ export async function transferEchoServerOwnership(
   newOwnerId: string,
 ): Promise<TransferEchoServerOwnershipResult> {
   if (newOwnerId === actorId) return 'invalid_target';
-  const srv = await pool.query(
-    `SELECT owner_id FROM echo_servers WHERE id = $1`,
-    [serverId],
-  );
-  if (!srv.rows[0]) return 'not_found';
-  if (String(srv.rows[0].owner_id) !== actorId) return 'forbidden';
-  const mem = await pool.query(
-    `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
-    [serverId, newOwnerId],
-  );
-  if (mem.rows.length === 0) return 'invalid_target';
-  if (await isUserBannedFromServer(pool, serverId, newOwnerId))
-    return 'target_banned';
-  await pool.query(`UPDATE echo_servers SET owner_id = $1 WHERE id = $2`, [
-    newOwnerId,
-    serverId,
-  ]);
-  invalidateEchoPermissionCacheForServer(serverId);
-  return 'ok';
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const srv = await client.query(
+      `SELECT owner_id FROM echo_servers WHERE id = $1 FOR UPDATE`,
+      [serverId],
+    );
+    if (!srv.rows[0]) {
+      await client.query('ROLLBACK');
+      return 'not_found';
+    }
+    if (String(srv.rows[0].owner_id) !== actorId) {
+      await client.query('ROLLBACK');
+      return 'forbidden';
+    }
+
+    // Lock the membership row so a concurrent leave/kick cannot remove the
+    // target between validation and the ownership update.
+    const mem = await client.query(
+      `SELECT 1 FROM echo_server_members
+       WHERE server_id = $1 AND user_id = $2
+       FOR UPDATE`,
+      [serverId, newOwnerId],
+    );
+    if (mem.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return 'invalid_target';
+    }
+    const banned = await client.query(
+      `SELECT 1 FROM echo_server_bans
+       WHERE server_id = $1 AND user_id = $2
+         AND (expires_at IS NULL OR expires_at > NOW())
+       FOR UPDATE`,
+      [serverId, newOwnerId],
+    );
+    if (banned.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return 'target_banned';
+    }
+
+    const updated = await client.query(
+      `UPDATE echo_servers
+       SET owner_id = $1
+       WHERE id = $2 AND owner_id = $3
+         AND EXISTS (
+           SELECT 1 FROM echo_server_members
+           WHERE server_id = $2 AND user_id = $1
+         )
+       RETURNING id`,
+      [newOwnerId, serverId, actorId],
+    );
+    if (updated.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return 'forbidden';
+    }
+    await client.query('COMMIT');
+    invalidateEchoPermissionCacheForServer(serverId);
+    return 'ok';
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Preserve the original database error.
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export type DeleteEchoServerByOwnerResult = 'ok' | 'not_found' | 'forbidden';
@@ -1013,17 +1062,20 @@ export async function deleteEchoServerByOwner(
   serverId: string,
   requesterId: string,
 ): Promise<DeleteEchoServerByOwnerResult> {
-  if (!(await isEchoServerOwner(pool, serverId, requesterId))) {
-    return 'forbidden';
-  }
   const del = await pool.query(
-    `DELETE FROM echo_servers WHERE id = $1 RETURNING id`,
-    [serverId],
+    `DELETE FROM echo_servers
+     WHERE id = $1 AND owner_id = $2
+     RETURNING id`,
+    [serverId, requesterId],
   );
   if (del.rowCount) {
     invalidateEchoPermissionCacheForServer(serverId);
+    return 'ok';
   }
-  return del.rowCount ? 'ok' : 'not_found';
+  const exists = await pool.query(`SELECT 1 FROM echo_servers WHERE id = $1`, [
+    serverId,
+  ]);
+  return exists.rowCount ? 'forbidden' : 'not_found';
 }
 
 /** Channel create: MANAGE_CHANNELS (+ member, not banned/timeout). Owner has all perms via getMergedRolePermissions. */
@@ -1065,23 +1117,115 @@ export async function removeEchoServerMember(
   serverId: string,
   userId: string,
 ): Promise<void> {
-  await pool.query(
-    `DELETE FROM echo_member_roles WHERE server_id = $1 AND user_id = $2`,
-    [serverId, userId],
-  );
-  await pool.query(
-    `DELETE FROM echo_server_member_timeouts WHERE server_id = $1 AND user_id = $2`,
-    [serverId, userId],
-  );
-  await pool.query(
-    `DELETE FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
-    [serverId, userId],
-  );
-  await pool.query(
-    `DELETE FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
-    [serverId, userId],
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Serialize moderation removal with message inserts and ownership changes.
+    // The message persistence trigger performs the matching membership check.
+    await client.query(
+      `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2 FOR UPDATE`,
+      [serverId, userId],
+    );
+    await client.query(
+      `DELETE FROM echo_member_roles WHERE server_id = $1 AND user_id = $2`,
+      [serverId, userId],
+    );
+    await client.query(
+      `DELETE FROM echo_server_member_timeouts WHERE server_id = $1 AND user_id = $2`,
+      [serverId, userId],
+    );
+    await client.query(
+      `DELETE FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+      [serverId, userId],
+    );
+    await client.query(
+      `DELETE FROM echo_server_members
+       WHERE server_id = $1 AND user_id = $2
+         AND NOT EXISTS (
+           SELECT 1 FROM echo_servers
+           WHERE id = $1 AND owner_id = $2
+         )`,
+      [serverId, userId],
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Preserve the original database error.
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
   invalidateEchoPermissionCacheForServer(serverId);
+}
+
+export type LeaveEchoServerResult =
+  | 'ok'
+  | 'not_found'
+  | 'owner_cannot_leave'
+  | 'not_member';
+
+/** Atomically enforce the non-owner voluntary-leave invariant. */
+export async function leaveEchoServer(
+  pool: pg.Pool,
+  serverId: string,
+  userId: string,
+): Promise<LeaveEchoServerResult> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const server = await client.query(
+      `SELECT owner_id FROM echo_servers WHERE id = $1 FOR UPDATE`,
+      [serverId],
+    );
+    if (!server.rows[0]) {
+      await client.query('ROLLBACK');
+      return 'not_found';
+    }
+    if (String(server.rows[0].owner_id) === userId) {
+      await client.query('ROLLBACK');
+      return 'owner_cannot_leave';
+    }
+    const member = await client.query(
+      `SELECT 1 FROM echo_server_members
+       WHERE server_id = $1 AND user_id = $2 FOR UPDATE`,
+      [serverId, userId],
+    );
+    if (member.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return 'not_member';
+    }
+    await client.query(
+      `DELETE FROM echo_member_roles WHERE server_id = $1 AND user_id = $2`,
+      [serverId, userId],
+    );
+    await client.query(
+      `DELETE FROM echo_server_member_timeouts WHERE server_id = $1 AND user_id = $2`,
+      [serverId, userId],
+    );
+    await client.query(
+      `DELETE FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+      [serverId, userId],
+    );
+    await client.query(
+      `DELETE FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
+      [serverId, userId],
+    );
+    await client.query('COMMIT');
+    invalidateEchoPermissionCacheForServer(serverId);
+    return 'ok';
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Preserve the original database error.
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function getMemberTopRolePosition(

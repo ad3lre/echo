@@ -7,6 +7,7 @@ import {
 } from '../../../../contracts/attentionPing';
 import { config } from '../config';
 import {
+  canUserAccessChannel,
   listEchoChannelNotificationOverridesForUser,
   listEchoMemberRoleAssignmentsByUser,
   listEchoServerNotificationLevelsForUser,
@@ -108,6 +109,9 @@ async function pushToUserIfAllowed(
     pingKind?: 'personal' | 'role';
   },
 ): Promise<void> {
+  // Re-check authorization at delivery time. Notification target lists are
+  // computed before fan-out and membership/permission can change meanwhile.
+  if (!(await canUserAccessChannel(pool, userId, channelId))) return;
   const preferences = await getEchoUserNotificationPreferences(pool, userId);
   if (!userAllowsMessagePush(preferences?.settings)) return;
 

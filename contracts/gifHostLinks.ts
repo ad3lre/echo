@@ -13,6 +13,14 @@ const GIF_HOST_SUFFIXES = [
   'klipy.com',
 ] as const;
 
+/**
+ * Tenor CDN paths look like `/LSI81MmB6gEAAAAD/cat-fear.png` where the trailing
+ * `AAAxx` token selects a format (mp4 / png preview / gif). Rewrite to `AAAAC`
+ * + `.gif` so chat always gets an animated GIF, not a static preview or mp4.
+ */
+const TENOR_CDN_FORMAT_RE =
+  /^(https?:\/\/(?:media\.tenor\.com|c\.tenor\.com)\/)([A-Za-z0-9_-]+?)(AAA[A-Za-z0-9]{2})(\/[^/?#]*?)(\.[a-z0-9]+)(\?[^#]*)?(#.*)?$/i;
+
 function hostMatchesGifHost(hostname: string): boolean {
   const h = hostname.toLowerCase();
   return GIF_HOST_SUFFIXES.some((s) => h === s || h.endsWith(`.${s}`));
@@ -28,6 +36,24 @@ function tryParseHttpUrl(url: string): URL | null {
   }
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Rewrite Tenor CDN preview/mp4 URLs to the animated GIF variant. */
+export function normalizeTenorAnimatedGifUrl(url: string): string {
+  const t = url.trim();
+  if (!t) return t;
+  const m = t.match(TENOR_CDN_FORMAT_RE);
+  if (!m) return t;
+  const origin = m[1]!;
+  const id = m[2]!;
+  const pathBase = (m[4] || '/tenor').replace(/\.[^.]+$/, '') || '/tenor';
+  const query = m[6] ?? '';
+  const hash = m[7] ?? '';
+  return `${origin}${id}AAAAC${pathBase}.gif${query}${hash}`;
+}
+
 /** Direct GIF / GIF-host CDN URL (media.tenor.com, media.giphy.com, *.gif, …). */
 export function isLikelyGifMediaUrl(url: string | undefined | null): boolean {
   if (!url || typeof url !== 'string') return false;
@@ -41,6 +67,7 @@ export function isLikelyGifMediaUrl(url: string | undefined | null): boolean {
   if (isGifHostPageUrl(t)) return false;
   const h = u.hostname.toLowerCase();
   if (h === 'media.tenor.com' || h.endsWith('.media.tenor.com')) return true;
+  if (h === 'c.tenor.com' || h.endsWith('.c.tenor.com')) return true;
   if (h === 'media.giphy.com' || h.endsWith('.media.giphy.com')) return true;
   if (h === 'i.giphy.com' || h.endsWith('.i.giphy.com')) return true;
   if (h === 'static.klipy.com' || h.endsWith('.static.klipy.com')) return true;
@@ -70,24 +97,32 @@ function providerLooksLikeGifHost(provider: string | undefined): boolean {
   return p === 'tenor' || p === 'giphy';
 }
 
+function candidateMediaUrls(embed: Embed): string[] {
+  const out: string[] = [];
+  const push = (raw: string | undefined) => {
+    const t = raw?.trim();
+    if (t) out.push(t);
+  };
+  push(embed.image?.url);
+  push(embed.thumbnail?.url);
+  push(embed.url);
+  return out;
+}
+
 /** Best-effort animated media URL from a link unfurl / Discord embed row. */
 export function gifDisplayUrlFromEmbed(embed: Embed): string | null {
-  const imageUrl = embed.image?.url?.trim();
-  if (imageUrl && isLikelyGifMediaUrl(imageUrl)) return imageUrl;
-
-  const thumbUrl = embed.thumbnail?.url?.trim();
-  if (thumbUrl && isLikelyGifMediaUrl(thumbUrl)) return thumbUrl;
-
-  const pageOrMediaUrl = embed.url?.trim();
-  if (pageOrMediaUrl && isLikelyGifMediaUrl(pageOrMediaUrl))
-    return pageOrMediaUrl;
-
+  for (const raw of candidateMediaUrls(embed)) {
+    if (!isLikelyGifMediaUrl(raw)) continue;
+    return normalizeTenorAnimatedGifUrl(raw);
+  }
   return null;
 }
 
 /** Whether this embed should be shown as an inline GIF instead of a link preview card. */
 export function isGifHostEmbed(embed: Embed): boolean {
-  if (embed.echoJump || embed.video) return false;
+  if (embed.echoJump) return false;
+  // YouTube/Vimeo iframes stay as video cards; Tenor/Giphy "gifv" never sets this.
+  if (embed.video) return false;
   if (gifDisplayUrlFromEmbed(embed)) return true;
   const pageUrl = embed.url?.trim();
   if (pageUrl && isGifHostPageUrl(pageUrl)) return true;
@@ -103,4 +138,28 @@ export function linkEmbedsExcludingInlineGifs(
   embeds: Embed[] | undefined,
 ): Embed[] {
   return (embeds ?? []).filter((e) => !isInlineGifHostEmbed(e));
+}
+
+/**
+ * Drop bare Tenor/Giphy page URLs from message body text when those URLs already
+ * render as inline GIFs — avoids showing a clickable link next to the GIF.
+ */
+export function contentWithoutInlineGifHostUrls(
+  content: string,
+  embeds: Embed[] | undefined,
+): string {
+  if (!content || !embeds?.length) return content;
+  let out = content;
+  for (const embed of embeds) {
+    if (!isInlineGifHostEmbed(embed)) continue;
+    const pageUrl = embed.url?.trim();
+    if (!pageUrl || !isGifHostPageUrl(pageUrl)) continue;
+    const re = new RegExp(`(^|\\s)${escapeRegExp(pageUrl)}(?=\\s|$)`, 'g');
+    out = out.replace(re, '$1');
+  }
+  return out
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
 }

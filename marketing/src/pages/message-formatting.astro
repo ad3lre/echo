@@ -1,0 +1,22 @@
+---
+import LegalMarkdownArticle from '../components/LegalMarkdownArticle.astro';
+import messageMarkdownMd from '../../terms/en-US/message-markdown.md?raw';
+
+const title = 'Message formatting | Echo';
+const description = 'How Markdown formatting works in Echo messages — bold, lists, code, spoilers, and more.';
+const lastUpdated = '3 June 2026';
+---
+
+<LegalMarkdownArticle
+  title={title}
+  pageHeading="Message formatting"
+  description={description}
+  canonicalPath="/message-formatting"
+  lastUpdated={lastUpdated}
+  markdown={messageMarkdownMd}
+  footerLinks={[
+    { href: '/message-math', label: 'Math & LaTeX' },
+    { href: '/terms', label: 'Terms of Service' },
+    { href: '/support', label: 'Support' },
+  ]}
+/>

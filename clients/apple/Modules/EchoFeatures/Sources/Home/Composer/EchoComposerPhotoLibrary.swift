@@ -240,7 +240,7 @@ struct EchoComposerPhotoLibraryPane: View {
           action: photos.openSystemPhotoSettings
         )
       } else if photos.isLoading {
-        ProgressView().tint(.white.opacity(0.62))
+        ProgressView().tint(EchoTheme.Color.ink(0.62))
       } else if photos.items.isEmpty {
         EchoComposerPhotoEmptyState(
           icon: "photo.on.rectangle",
@@ -291,14 +291,16 @@ struct EchoComposerPhotoGrid: View {
                 }
               }
               .overlay(alignment: .topTrailing) {
-                EchoComposerPhotoSelectionMark(index: selectionIndex)
-                  .padding(5)
+                if selectionIndex != nil {
+                  EchoComposerPhotoSelectionMark()
+                    .padding(5)
+                }
               }
               .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
               .overlay {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
                   .stroke(
-                    selectionIndex == nil ? .white.opacity(0.06) : EchoTheme.Color.indigo,
+                    selectionIndex == nil ? EchoTheme.Color.ink(0.06) : EchoTheme.Color.indigo,
                     lineWidth: selectionIndex == nil ? 1 : 2
                   )
               }
@@ -326,31 +328,12 @@ struct EchoComposerPhotoGrid: View {
 }
 
 struct EchoComposerPhotoSelectionMark: View {
-  let index: Int?
-
   var body: some View {
-    ZStack {
-      if let index {
-        Circle()
-          .fill(EchoTheme.Color.indigo)
-          .overlay {
-            Circle().stroke(.white.opacity(0.92), lineWidth: 1.5)
-          }
-        Text("\(index)")
-          .font(.system(size: 11, weight: .bold, design: .rounded))
-          .foregroundStyle(.white)
-          .minimumScaleFactor(0.7)
-      } else {
-        Circle()
-          .fill(.black.opacity(0.28))
-          .overlay {
-            Circle().stroke(.white.opacity(0.92), lineWidth: 1.5)
-          }
-      }
-    }
-    .frame(width: 22, height: 22)
-    .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-    .accessibilityHidden(true)
+    Image(systemName: "checkmark.circle.fill")
+      .font(.system(size: 20, weight: .semibold))
+      .symbolRenderingMode(.palette)
+      .foregroundStyle(EchoTheme.Color.onAccent, EchoTheme.Color.indigo)
+      .accessibilityHidden(true)
   }
 }
 
@@ -360,7 +343,7 @@ struct EchoComposerPhotoThumbnail: View {
   var body: some View {
     GeometryReader { geo in
       ZStack {
-        Rectangle().fill(.white.opacity(0.055))
+        Rectangle().fill(EchoTheme.Color.ink(0.055))
         if let image {
           platformPhoto(image)
             .resizable()
@@ -368,7 +351,7 @@ struct EchoComposerPhotoThumbnail: View {
             .frame(width: geo.size.width, height: geo.size.height)
             .clipped()
         } else {
-          ProgressView().controlSize(.small).tint(.white.opacity(0.42))
+          ProgressView().controlSize(.small).tint(EchoTheme.Color.ink(0.42))
         }
       }
     }
@@ -395,19 +378,19 @@ private struct EchoComposerPhotoEmptyState: View {
     VStack(spacing: 10) {
       Image(systemName: icon)
         .font(.system(size: 26, weight: .medium))
-        .foregroundStyle(.white.opacity(0.32))
+        .foregroundStyle(EchoTheme.Color.ink(0.32))
       Text(title)
         .font(.system(size: 14, weight: .semibold, design: .rounded))
-        .foregroundStyle(.white.opacity(0.78))
+        .foregroundStyle(EchoTheme.Color.ink(0.78))
       Text(detail)
         .font(.system(size: 12, design: .rounded))
-        .foregroundStyle(.white.opacity(0.42))
+        .foregroundStyle(EchoTheme.Color.ink(0.42))
         .multilineTextAlignment(.center)
         .frame(maxWidth: 220)
       if let actionTitle, let action {
         Button(actionTitle, action: action)
           .font(.system(size: 12, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.onAccent)
           .padding(.horizontal, 12)
           .padding(.vertical, 7)
           .background(

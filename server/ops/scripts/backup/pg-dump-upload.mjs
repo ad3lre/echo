@@ -23,6 +23,8 @@
 
 import { spawn } from 'child_process';
 import { mkdtemp, writeFile, chmod, unlink, rmdir } from 'fs/promises';
+import { createHash } from 'crypto';
+import { createReadStream } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 
@@ -131,6 +133,24 @@ async function uploadToS3(localPath, remoteKey) {
   }
 }
 
+async function writeAndUploadChecksum(localPath, remoteKey) {
+  const digest = await sha256File(localPath);
+  const checksumPath = `${localPath}.sha256`;
+  await writeFile(checksumPath, `${digest}  ${remoteKey}\n`, { mode: 0o600 });
+  await uploadToS3(checksumPath, `${remoteKey}.sha256`);
+  await unlink(checksumPath);
+}
+
+function sha256File(path) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = createReadStream(path);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
 async function main() {
   log('info', 'Echo backup upload starting');
 
@@ -160,11 +180,13 @@ async function main() {
     // Upload to daily/
     const dailyKey = `${prefix}/daily/${dateStr}.dump`;
     await uploadToS3(dumpPath, dailyKey);
+    await writeAndUploadChecksum(dumpPath, dailyKey);
 
     // On Sunday, also upload to weekly/
     if (isSunday) {
       const weeklyKey = `${prefix}/weekly/${dateStr}.dump`;
       await uploadToS3(dumpPath, weeklyKey);
+      await writeAndUploadChecksum(dumpPath, weeklyKey);
       log('info', 'Weekly backup created (Sunday)', { key: weeklyKey });
     }
 

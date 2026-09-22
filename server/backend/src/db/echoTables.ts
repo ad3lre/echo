@@ -103,6 +103,29 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     ALTER TABLE echo_server_members ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT '';
   `);
+  // The owner must always be a member. Repair legacy rows before adding the
+  // composite FK; NOT VALID preserves boot for any historical inconsistency
+  // while enforcing this invariant for every new write/update.
+  await pool.query(`
+    INSERT INTO echo_server_members (server_id, user_id)
+    SELECT s.id, s.owner_id
+    FROM echo_servers s
+    WHERE NOT EXISTS (
+      SELECT 1 FROM echo_server_members m
+      WHERE m.server_id = s.id AND m.user_id = s.owner_id
+    )
+    ON CONFLICT DO NOTHING;
+  `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_servers
+      ADD CONSTRAINT echo_servers_owner_member_fk
+      FOREIGN KEY (id, owner_id)
+      REFERENCES echo_server_members (server_id, user_id)
+      DEFERRABLE INITIALLY DEFERRED
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  `);
   // Denormalized echo_servers.member_count so directory/invite/server reads never re-run
   // COUNT(*) over echo_server_members. Add + backfill exactly once (the backfill is heavy;
   // guard it to the boot where the column is first created). Defined here — after the
@@ -218,9 +241,23 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS echo_categories_server_name_lower_unique
     ON echo_categories (server_id, LOWER(name));
   `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS echo_categories_server_id_id_unique
+    ON echo_categories (server_id, id);
+  `);
   await pool.query(
     `ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS category_id TEXT;`,
   );
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_channels
+      ADD CONSTRAINT echo_channels_server_category_fk
+      FOREIGN KEY (server_id, category_id)
+      REFERENCES echo_categories (server_id, id)
+      ON DELETE RESTRICT
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_invites (
       code TEXT PRIMARY KEY,
@@ -659,6 +696,16 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     DO $$ BEGIN
       ALTER TABLE echo_member_roles
+      ADD CONSTRAINT echo_member_roles_member_fk
+      FOREIGN KEY (server_id, user_id)
+      REFERENCES echo_server_members (server_id, user_id)
+      ON DELETE CASCADE
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_member_roles
       ADD CONSTRAINT echo_member_roles_server_role_fk
       FOREIGN KEY (server_id, role_id)
       REFERENCES echo_roles (server_id, id)
@@ -780,6 +827,30 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     ALTER TABLE echo_server_bans ADD COLUMN IF NOT EXISTS banned_by TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL;
   `);
+  // Ownership and bans are mutually exclusive. The locking read makes a
+  // concurrent ownership transfer serialize with the ban decision instead of
+  // allowing a ban to land against the newly elected owner.
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION echo_prevent_owner_ban() RETURNS trigger AS $fn$
+    DECLARE current_owner TEXT;
+    BEGIN
+      SELECT owner_id INTO current_owner
+      FROM echo_servers WHERE id = NEW.server_id FOR KEY SHARE;
+      IF current_owner = NEW.user_id THEN
+        RAISE EXCEPTION 'cannot ban server owner';
+      END IF;
+      RETURN NEW;
+    END;
+    $fn$ LANGUAGE plpgsql;
+  `);
+  await pool.query(`
+    DROP TRIGGER IF EXISTS echo_prevent_owner_ban_trg ON echo_server_bans;
+  `);
+  await pool.query(`
+    CREATE TRIGGER echo_prevent_owner_ban_trg
+    BEFORE INSERT OR UPDATE OF server_id, user_id ON echo_server_bans
+    FOR EACH ROW EXECUTE PROCEDURE echo_prevent_owner_ban();
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_server_ip_bans (
       server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
@@ -804,6 +875,51 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (server_id, user_id)
     );
+  `);
+  // Enforce the membership boundary at the persistence layer as well as in
+  // the request handlers. This closes the authorization TOCTOU window where a
+  // member can be removed (or banned/timed out) between the permission read
+  // and the message INSERT. DM realm channels intentionally skip this check;
+  // their participant authorization is enforced by the DM access evaluator.
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION echo_guard_message_author_membership() RETURNS trigger AS $fn$
+    DECLARE sid TEXT;
+    BEGIN
+      SELECT server_id INTO sid FROM echo_channels WHERE id = NEW.channel_id;
+      IF sid IS NULL OR sid = 'echo_dm_realm' THEN
+        RETURN NEW;
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM echo_server_members
+        WHERE server_id = sid AND user_id = NEW.author_id
+      ) THEN
+        RAISE EXCEPTION 'message author is not a server member';
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM echo_server_bans
+        WHERE server_id = sid AND user_id = NEW.author_id
+          AND (expires_at IS NULL OR expires_at > NOW())
+      ) THEN
+        RAISE EXCEPTION 'message author is banned';
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM echo_server_member_timeouts
+        WHERE server_id = sid AND user_id = NEW.author_id
+          AND timeout_until > NOW()
+      ) THEN
+        RAISE EXCEPTION 'message author is timed out';
+      END IF;
+      RETURN NEW;
+    END;
+    $fn$ LANGUAGE plpgsql;
+  `);
+  await pool.query(
+    `DROP TRIGGER IF EXISTS echo_guard_message_author_membership_trg ON echo_messages;`,
+  );
+  await pool.query(`
+    CREATE TRIGGER echo_guard_message_author_membership_trg
+    BEFORE INSERT ON echo_messages
+    FOR EACH ROW EXECUTE PROCEDURE echo_guard_message_author_membership();
   `);
   const membersPermsJson = JSON.stringify([
     ...DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS,
@@ -1119,6 +1235,16 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   `);
   await pool.query(`
     ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS parent_channel_id TEXT NULL;
+  `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_channels
+      ADD CONSTRAINT echo_channels_server_parent_fk
+      FOREIGN KEY (server_id, parent_channel_id)
+      REFERENCES echo_channels (server_id, id)
+      ON DELETE CASCADE
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
   `);
   await pool.query(`
     ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS forum_available_tags JSONB NULL;
@@ -1785,6 +1911,16 @@ async function ensureEchoPermissionOverwriteTables(
     ON echo_channel_permission_overwrite_rows (server_id, channel_id);
   `);
   await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_channel_permission_overwrite_rows
+      ADD CONSTRAINT echo_ch_ow_server_channel_fk
+      FOREIGN KEY (server_id, channel_id)
+      REFERENCES echo_channels (server_id, id)
+      ON DELETE CASCADE
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  `);
+  await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS echo_ch_ow_evr
     ON echo_channel_permission_overwrite_rows (server_id, channel_id)
     WHERE target_type = 'members';
@@ -1818,6 +1954,16 @@ async function ensureEchoPermissionOverwriteTables(
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_cat_ow_lookup
     ON echo_category_permission_overwrite_rows (server_id, category_id);
+  `);
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TABLE echo_category_permission_overwrite_rows
+      ADD CONSTRAINT echo_cat_ow_server_category_fk
+      FOREIGN KEY (server_id, category_id)
+      REFERENCES echo_categories (server_id, id)
+      ON DELETE CASCADE
+      NOT VALID;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
   `);
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS echo_cat_ow_evr
@@ -3297,6 +3443,48 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
             )
           )
         WHERE m.deleted_at IS NULL
+      `);
+    },
+  );
+
+  // Search predicates used to require precomputed has_image only. Ensure flags
+  // include native `kind: image` rows even when mimeType/url lack extensions.
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'backfill_echo_message_search_flags_attachments_v4',
+    async () => {
+      await pool.query(`
+        UPDATE echo_messages m SET
+          has_image = (
+            m.has_image
+            OR (
+              m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements(m.attachments) att
+                WHERE LOWER(COALESCE(att->>'kind', '')) = 'image'
+                  AND LOWER(COALESCE(att->>'kind', '')) <> 'gif'
+                  AND LOWER(COALESCE(att->>'mimeType', '')) <> 'image/gif'
+                  AND LOWER(COALESCE(att->>'filename', '')) NOT LIKE '%.gif'
+                  AND COALESCE(att->>'mimeType', '') NOT ILIKE 'application/%'
+                  AND COALESCE(att->>'mimeType', '') NOT ILIKE '%pdf%'
+                  AND COALESCE(att->>'mimeType', '') NOT ILIKE '%document%'
+              )
+            )
+          ),
+          has_gif = (
+            m.has_gif
+            OR (
+              m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements(m.attachments) att
+                WHERE LOWER(COALESCE(att->>'kind', '')) = 'gif'
+                   OR LOWER(COALESCE(att->>'mimeType', '')) = 'image/gif'
+                   OR LOWER(COALESCE(att->>'filename', '')) LIKE '%.gif'
+              )
+            )
+          )
+        WHERE m.deleted_at IS NULL
+          AND m.attachments IS NOT NULL
+          AND jsonb_typeof(m.attachments) = 'array'
+          AND jsonb_array_length(m.attachments) > 0
       `);
     },
   );

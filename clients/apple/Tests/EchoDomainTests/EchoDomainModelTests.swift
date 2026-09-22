@@ -20,6 +20,17 @@ struct EchoDomainModelTests {
     #expect(conversation.presenceStatus == "online")
   }
 
+  @Test func groupDmAuthorizedRosterIncludesMembersAndViewer() {
+    let group = EchoDirectMessage(
+      id: "g1",
+      channelID: "g1",
+      memberUserIDs: ["a", "b", "me"],
+      displayName: "Squad"
+    )
+    #expect(group.isGroup)
+    #expect(group.authorizedUserIDs(including: "me") == ["a", "b", "me"])
+  }
+
   @Test func messageCarriesStableAuthorAndTimelineMetadata() {
     let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
     let message = EchoMessage(
@@ -110,6 +121,10 @@ struct EchoDomainModelTests {
     #expect(!file.isImage && !file.isVideo && !file.isAudio && file.isDocument)
     #expect(mislabeledPhoto.isImage && !mislabeledPhoto.isDocument)
     #expect(!mislabeledPdf.isImage && mislabeledPdf.isDocument)
+
+    let mislabeledVideo = EchoMessageAttachment(
+      url: "https://cdn.example/clip.mp4", kind: "image", mimeType: "image/jpeg")
+    #expect(mislabeledVideo.isVideo && !mislabeledVideo.isImage)
   }
 
   @Test func previewTextDescribesMediaOnlyMessages() {

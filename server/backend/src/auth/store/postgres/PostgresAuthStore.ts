@@ -873,6 +873,19 @@ export class PostgresAuthStore implements AuthStore {
     return this.mapRefreshTokenRow(r);
   }
 
+  async findRefreshTokenByHash(
+    tokenHash: string,
+  ): Promise<RefreshTokenRecord | null> {
+    const row = await this.pool.query(
+      `SELECT id, user_id, token_hash, expires_at, revoked_at, created_at,
+              user_agent, client_location
+       FROM auth_refresh_tokens WHERE token_hash = $1 LIMIT 1`,
+      [tokenHash],
+    );
+    const r = row?.rows?.[0];
+    return r ? this.mapRefreshTokenRow(r) : null;
+  }
+
   async findRefreshTokenById(
     tokenId: string,
   ): Promise<RefreshTokenRecord | null> {
@@ -1076,37 +1089,59 @@ export class PostgresAuthStore implements AuthStore {
     }
     const cooldownMs = config.echoEmailVerificationResendCooldownSeconds * 1000;
     const ttlMs = config.echoEmailVerificationTokenHours * 60 * 60 * 1000;
-    if (options?.enforceResendCooldown) {
-      const recent = await this.pool.query(
-        `
-        SELECT created_at FROM auth_email_verification_tokens
-        WHERE user_id = $1 AND purpose = $2 AND consumed_at IS NULL
-        ORDER BY created_at DESC LIMIT 1
-        `,
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Serialize resend/retarget races per account. The newest token is the
+      // only live token for this purpose when this transaction commits.
+      await client.query(`SELECT id FROM auth_users WHERE id = $1 FOR UPDATE`, [
+        userId,
+      ]);
+      if (options?.enforceResendCooldown) {
+        const recent = await client.query(
+          `
+          SELECT created_at FROM auth_email_verification_tokens
+          WHERE user_id = $1 AND purpose = $2 AND consumed_at IS NULL
+          ORDER BY created_at DESC LIMIT 1
+          `,
+          [userId, purpose],
+        );
+        const row = recent?.rows?.[0];
+        if (row?.created_at) {
+          const age = Date.now() - new Date(row.created_at).getTime();
+          if (age < cooldownMs) {
+            await client.query('ROLLBACK');
+            throw new Error('VERIFICATION_EMAIL_COOLDOWN');
+          }
+        }
+      }
+      await client.query(
+        `DELETE FROM auth_email_verification_tokens WHERE user_id = $1 AND purpose = $2 AND consumed_at IS NULL`,
         [userId, purpose],
       );
-      const row = recent?.rows?.[0];
-      if (row?.created_at) {
-        const age = Date.now() - new Date(row.created_at).getTime();
-        if (age < cooldownMs) throw new Error('VERIFICATION_EMAIL_COOLDOWN');
+      const plainToken = randomBytes(32).toString('base64url');
+      const tokenHash = hashRefreshToken(plainToken);
+      const tokenId = nextEchoSnowflakeId();
+      const expiresAt = new Date(Date.now() + ttlMs).toISOString();
+      await client.query(
+        `
+        INSERT INTO auth_email_verification_tokens (id, user_id, token_hash, purpose, expires_at)
+        VALUES ($1, $2, $3, $4, $5)
+        `,
+        [tokenId, userId, tokenHash, purpose, expiresAt],
+      );
+      await client.query('COMMIT');
+      return { plainToken };
+    } catch (e) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* ignore */
       }
+      throw e;
+    } finally {
+      client.release();
     }
-    await this.pool.query(
-      `DELETE FROM auth_email_verification_tokens WHERE user_id = $1 AND purpose = $2 AND consumed_at IS NULL`,
-      [userId, purpose],
-    );
-    const plainToken = randomBytes(32).toString('base64url');
-    const tokenHash = hashRefreshToken(plainToken);
-    const tokenId = nextEchoSnowflakeId();
-    const expiresAt = new Date(Date.now() + ttlMs).toISOString();
-    await this.pool.query(
-      `
-      INSERT INTO auth_email_verification_tokens (id, user_id, token_hash, purpose, expires_at)
-      VALUES ($1, $2, $3, $4, $5)
-      `,
-      [tokenId, userId, tokenHash, purpose, expiresAt],
-    );
-    return { plainToken };
   }
 
   async consumeEmailVerificationToken(

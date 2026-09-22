@@ -39,19 +39,36 @@ const DURABLE_WORKSPACE_EVENT_KINDS = new Set<EchoWorkspaceEvent['kind']>([
   'ticket_updated',
 ]);
 
-function dispatchEchoWorkspaceEvent(
+async function dispatchEchoWorkspaceEvent(
   fastify: FastifyInstance,
   payload: EchoWorkspaceEvent,
   targets?: { serverId?: string; userId?: string },
-): void {
+): Promise<void> {
   const io = getIo(fastify);
   if (!io) return;
   echoWorkspaceEventPublishedTotal.inc({ kind: payload.kind });
+  botEventBus.emitBotEvent({ kind: 'workspace', payload });
   if (targets?.serverId) {
-    io.to(`echo:server:${targets.serverId}`).emit(
-      'echo:workspace_event',
-      payload,
-    );
+    const pool = getPgPool();
+    if (pool) {
+      const sockets = await io
+        .in(`echo:server:${targets.serverId}`)
+        .fetchSockets();
+      await Promise.all(
+        sockets.map(async (socket) => {
+          if (!socket.data?.authenticated) return;
+          const userId = String(socket.data.userId ?? '').trim();
+          if (!userId) return;
+          const member = await pool.query(
+            `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2 LIMIT 1`,
+            [targets.serverId, userId],
+          );
+          if ((member.rowCount ?? 0) > 0) {
+            socket.emit('echo:workspace_event', payload);
+          }
+        }),
+      );
+    }
   }
   if (targets?.userId) {
     io.to(`echo:user:${targets.userId}`).emit('echo:workspace_event', payload);
@@ -59,7 +76,6 @@ function dispatchEchoWorkspaceEvent(
   if (!targets?.serverId && !targets?.userId) {
     io.emit('echo:workspace_event', payload);
   }
-  botEventBus.emitBotEvent({ kind: 'workspace', payload });
 }
 
 /** Platform-level publisher for versioned Echo workspace/server-state events. */
@@ -70,7 +86,12 @@ export function publishEchoWorkspaceEvent(
 ): void {
   // Keep the existing immediate fanout semantics for request paths. The
   // outbox is recorded asynchronously so callers do not need to become async.
-  dispatchEchoWorkspaceEvent(fastify, payload, targets);
+  void dispatchEchoWorkspaceEvent(fastify, payload, targets).catch((error) => {
+    fastify.log.warn(
+      { err: error, kind: payload.kind, targets },
+      'echo.workspace_event_dispatch_failed',
+    );
+  });
 
   if (!DURABLE_WORKSPACE_EVENT_KINDS.has(payload.kind)) return;
   const pool = getPgPool();
@@ -102,7 +123,7 @@ export async function drainEchoWorkspaceEventOutbox(
   let failed = 0;
   for (const row of rows) {
     try {
-      dispatchEchoWorkspaceEvent(fastify, row.payload, {
+      await dispatchEchoWorkspaceEvent(fastify, row.payload, {
         ...(row.targetServerId ? { serverId: row.targetServerId } : {}),
         ...(row.targetUserId ? { userId: row.targetUserId } : {}),
       });

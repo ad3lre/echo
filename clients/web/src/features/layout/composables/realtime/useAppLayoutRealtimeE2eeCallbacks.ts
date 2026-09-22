@@ -2,6 +2,7 @@ import type { Ref } from 'vue';
 import type { EchoWorkspaceEvent } from '@shared/types';
 import type { LiveKitVoiceRoomApi } from '@/features/voice/livekitVoiceRoom.types';
 import { dispatchAppToast } from '@/features/layout/failures/controllerMissingAction';
+import { voiceClientDiag } from '@/observability/voiceClientTrace';
 
 export function createAppLayoutVoiceE2eeEpochSupersededHandler(deps: {
   currentVoiceChannelId: Ref<string | null | undefined>;
@@ -19,6 +20,9 @@ export function createAppLayoutVoiceE2eeEpochSupersededHandler(deps: {
     void (async () => {
       await deps.getLiveKitVoiceApi()?.disconnect();
       if (dmVc === cid) {
+        // Clear so the DM LiveKit join watch treats this as a fresh connect
+        // (rejoinDmCallVoice alone only restores UI signal state).
+        deps.dmLiveKitJoinChannelId.value = null;
         deps.rejoinDmCallVoice();
         return;
       }
@@ -64,8 +68,15 @@ export function createAppLayoutVoiceMlsMessageHandler(deps: {
         if (reconciled) {
           await deps.getLiveKitVoiceApi()?.rotateEpochKey(reconciled);
         }
-      } catch {
-        /* transient; next event or reconnect recovers */
+      } catch (e) {
+        voiceClientDiag('warn', 'voice.client:mls_sync_failed', {
+          channelKey: key,
+          err: e instanceof Error ? e.message : String(e),
+        });
+        dispatchAppToast(
+          'Call encryption sync slipped. Audio may briefly drop until it recovers.',
+          'warning',
+        );
       }
     })();
   };

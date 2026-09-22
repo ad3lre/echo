@@ -17,6 +17,7 @@
 		6F93B22605F741F0090CC422 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3CB3EFBED7CC682448B6B9F3 /* Assets.xcassets */; };
 		8059CD531F6D5A15BDA4B94A /* EchoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = BE1E4BBDD0456FE092D9A869 /* EchoFeatures */; };
 		86C52A148B5DABF50AEA4B3B /* EchoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = 1454F9CA2C76E69A9476A5C4 /* EchoFeatures */; };
+		8E7D1418673453E0FAF30FEB /* EchoCallRingtone.m4a in Resources */ = {isa = PBXBuildFile; fileRef = F9F74875CD0BBDBF3DC824DE /* EchoCallRingtone.m4a */; };
 		A92D83F873C3A5AE12B8D001 /* EchoPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 20820A24B07A7F04C4896108 /* EchoPersistence */; };
 		AA9EBCAFD41E0D5BF5D3E640 /* EchoNetworking in Frameworks */ = {isa = PBXBuildFile; productRef = F2BC8AFB1C2E8C512E1710E1 /* EchoNetworking */; };
 		C77D3F1DE19F5A139E280603 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A75700E0FC547644E4A1388 /* Assets.xcassets */; };
@@ -32,6 +33,7 @@
 		418078B1CEE715C322178C32 /* data-by-group.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "data-by-group.json"; sourceTree = "<group>"; };
 		7615AEF11554B06DAA1C815C /* EchoMacOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EchoMacOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BDE48D00A4FB6F12C06D6D72 /* apple */ = {isa = PBXFileReference; lastKnownFileType = folder; name = apple; path = .; sourceTree = SOURCE_ROOT; };
+		F9F74875CD0BBDBF3DC824DE /* EchoCallRingtone.m4a */ = {isa = PBXFileReference; path = EchoCallRingtone.m4a; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,6 +97,15 @@
 			path = Resources/macOS;
 			sourceTree = "<group>";
 		};
+		959DF15F2600E273157FA87E /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				F9F74875CD0BBDBF3DC824DE /* EchoCallRingtone.m4a */,
+			);
+			name = Sounds;
+			path = Resources/iOS/Sounds;
+			sourceTree = "<group>";
+		};
 		9AAC0211ABFCADD757ADAF73 /* macOS */ = {
 			isa = PBXGroup;
 			children = (
@@ -121,6 +132,7 @@
 				9AAC0211ABFCADD757ADAF73 /* macOS */,
 				4BA856FA5AAB6B8118A42DCC /* macOS */,
 				4B1813DCDAF1C047C4FEF93B /* Packages */,
+				959DF15F2600E273157FA87E /* Sounds */,
 				A5EA8199922E828F2E4F3DBA /* unicode-emoji-json */,
 				D5BA79D933E2232580A26FEB /* Products */,
 			);
@@ -232,6 +244,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C77D3F1DE19F5A139E280603 /* Assets.xcassets in Resources */,
+				8E7D1418673453E0FAF30FEB /* EchoCallRingtone.m4a in Resources */,
 				29091F1085EC948031309172 /* data-by-group.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -339,7 +352,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 7HBQV8236H;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -419,7 +432,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7HBQV8236H;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

@@ -19,7 +19,7 @@ import { getEchoStore } from '../../../../domain/echoStore/bootstrap';
 import { getAuthStore } from '../../../../auth/store';
 import {
   listEchoMessages,
-  getEchoMessageById,
+  getEchoMessageByIdInChannel,
   persistAddEchoMessageReaction,
   persistRemoveEchoMessageReaction,
   isEchoServerOwner,
@@ -202,8 +202,12 @@ export default async function discordMessagesRoutes(
       const { pool } = await getEchoStore();
       if (!pool) return discordError(reply, 503, '503: Service Unavailable');
 
-      const msg = await getEchoMessageById(pool, messageId.trim());
-      if (!msg || msg.channelId !== channelId) {
+      const msg = await getEchoMessageByIdInChannel(
+        pool,
+        messageId.trim(),
+        channelId,
+      );
+      if (!msg) {
         return discordError(reply, 404, '404: Unknown Message');
       }
 
@@ -383,7 +387,11 @@ export default async function discordMessagesRoutes(
       if (result === 'forbidden')
         return discordError(reply, 403, '403: Missing Permissions');
 
-      const msg = await getEchoMessageById(pool, messageId.trim());
+      const msg = await getEchoMessageByIdInChannel(
+        pool,
+        messageId.trim(),
+        channelId.trim(),
+      );
       if (!msg) return discordError(reply, 404, '404: Unknown Message');
 
       const author = serializeBotUser(req.botApp!);
@@ -420,7 +428,6 @@ export default async function discordMessagesRoutes(
         channelId.trim(),
         messageId.trim(),
         access.installerId,
-        true,
       );
 
       if (result === 'not_found')

@@ -33,7 +33,7 @@ import {
   echoChannelExistsInDb,
   getEchoChannelReadState,
   getEchoChannelServerId,
-  getEchoMessageById,
+  getEchoMessageByIdInChannel,
   getEchoUserNotificationPreferences,
   upsertEchoUserNotificationPreferences,
   listEchoChannelNotificationOverridesForUser,
@@ -87,7 +87,6 @@ import {
   validateMessagePayload,
 } from '../../../sockets/messageValidation';
 import { fillEchoMessageImageSlotAndBroadcast } from '../../../services/echoImageSlotFillBroadcast';
-import { canDeleteOthersMessagesInChannel } from '../../../domain/echoPolicy';
 import { listAggregatedReactionsForMessages } from '../../../domain/echoMessagesDal';
 import type {
   ForwardedFrom,
@@ -637,8 +636,8 @@ export default async function echoMessagesRoutes(
         channelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
-      const row = await getEchoMessageById(pool, messageId);
-      if (!row || row.channelId !== channelId) {
+      const row = await getEchoMessageByIdInChannel(pool, messageId, channelId);
+      if (!row) {
         return sendError(reply, 404, 'NOT_FOUND', 'Message not found');
       }
       const [redacted] = redactAnonymousPollsInEchoMessageRows(
@@ -662,8 +661,8 @@ export default async function echoMessagesRoutes(
         channelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
-      const row = await getEchoMessageById(pool, messageId);
-      if (!row || row.channelId !== channelId) {
+      const row = await getEchoMessageByIdInChannel(pool, messageId, channelId);
+      if (!row) {
         return sendError(reply, 404, 'NOT_FOUND', 'Message not found');
       }
       const map = await listAggregatedReactionsForMessages(pool, [messageId]);
@@ -1222,6 +1221,14 @@ export default async function echoMessagesRoutes(
             persistRes.detail ?? 'Idempotency window expired',
           );
         }
+        if (persistRes.code === 'IDEMPOTENCY_CONFLICT') {
+          return sendError(
+            reply,
+            409,
+            'IDEMPOTENCY_CONFLICT',
+            persistRes.detail ?? 'Message id is already in use',
+          );
+        }
         if (persistRes.code === 'E2EE_STORAGE_UNAVAILABLE') {
           return sendError(
             reply,
@@ -1509,19 +1516,12 @@ export default async function echoMessagesRoutes(
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
       const sid = await getEchoChannelServerId(pool, channelId);
       if (!sid) return sendError(reply, 404, 'NOT_FOUND', 'Channel not found');
-      const canDeleteOthers = await canDeleteOthersMessagesInChannel(
-        pool,
-        getAuthUser(req).id,
-        sid,
-        channelId,
-      );
       const r = await deleteEchoMessageAndBroadcast(
         pool,
         fastify.io,
         channelId,
         messageId,
         getAuthUser(req).id,
-        canDeleteOthers,
       );
       if (r === 'not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'Message not found');

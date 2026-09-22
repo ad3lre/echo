@@ -15,9 +15,9 @@ import {
   createEchoServer,
   insertEchoAudit,
   joinEchoServerFromDirectory,
+  leaveEchoServer,
   listEchoServersForUser,
   listEchoWorkspaceForUser,
-  removeEchoServerMember,
   shouldBlockEchoJoinForPendingApplication,
   type EchoWorkspaceMemberDetail,
 } from '../../../domain/echoStore';
@@ -339,32 +339,11 @@ export default async function echoServersRoutes(
       const userId = getAuthUser(req).id;
 
       const server = await pool.query(
-        `SELECT id, owner_id FROM echo_servers WHERE id = $1`,
+        `SELECT id FROM echo_servers WHERE id = $1`,
         [sid],
       );
       if (!server.rows[0]) {
         return sendError(reply, 404, 'NOT_FOUND', 'Server not found');
-      }
-      if (String(server.rows[0].owner_id) === userId) {
-        return sendError(
-          reply,
-          403,
-          'FORBIDDEN',
-          'Transfer server ownership before leaving.',
-          'OWNER_CANNOT_LEAVE',
-        );
-      }
-      const mem = await pool.query(
-        `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
-        [sid, userId],
-      );
-      if (mem.rows.length === 0) {
-        return sendError(
-          reply,
-          404,
-          'NOT_FOUND',
-          'You are not a member of this server.',
-        );
       }
 
       let liveKitVoiceChannelId: string | null = null;
@@ -377,7 +356,27 @@ export default async function echoServersRoutes(
         if (channelId != null) liveKitVoiceChannelId = String(channelId);
       }
 
-      await removeEchoServerMember(pool, sid, userId);
+      const leaveResult = await leaveEchoServer(pool, sid, userId);
+      if (leaveResult === 'owner_cannot_leave') {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Transfer server ownership before leaving.',
+          'OWNER_CANNOT_LEAVE',
+        );
+      }
+      if (leaveResult === 'not_member') {
+        return sendError(
+          reply,
+          404,
+          'NOT_FOUND',
+          'You are not a member of this server.',
+        );
+      }
+      if (leaveResult === 'not_found') {
+        return sendError(reply, 404, 'NOT_FOUND', 'Server not found');
+      }
 
       await evictUserFromEchoServerRealtimeScopes(fastify, pool, {
         serverId: sid,

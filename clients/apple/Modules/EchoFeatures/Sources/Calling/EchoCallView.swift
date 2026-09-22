@@ -9,6 +9,7 @@ struct EchoCallView: View {
   @Bindable var model: EchoCallModel
   let baseURL: URL
   let accessToken: String
+  @Bindable private var ringtoneStore = EchoCallRingtoneStore.shared
 
   var body: some View {
     ZStack {
@@ -16,7 +17,9 @@ struct EchoCallView: View {
       background
 
       VStack(spacing: 0) {
-        Spacer(minLength: 54)
+        topBar
+          .padding(.top, 18)
+        Spacer(minLength: 36)
         identity
         Spacer()
         controls
@@ -31,32 +34,76 @@ struct EchoCallView: View {
   private var background: some View {
     ZStack {
       RadialGradient(
-        colors: [.indigo.opacity(0.42), .clear],
+        colors: [EchoTheme.Color.indigoBright.opacity(0.42), .clear],
         center: UnitPoint(x: 0.5, y: 0.18),
         startRadius: 0,
         endRadius: 430)
       LinearGradient(
-        colors: [.clear, .purple.opacity(0.12), .black.opacity(0.28)],
+        colors: [.clear, EchoTheme.Color.indigo.opacity(0.18), .black.opacity(0.42)],
         startPoint: .top,
         endPoint: .bottom)
     }
     .ignoresSafeArea()
   }
 
+  private var topBar: some View {
+    HStack(spacing: 10) {
+      if model.isEncrypted {
+        Label(EchoCopy.string("Encrypted"), systemImage: "lock.fill")
+          .font(.system(size: 12, weight: .semibold, design: .rounded))
+          .foregroundStyle(.white.opacity(0.78))
+          .padding(.horizontal, 10)
+          .padding(.vertical, 6)
+          .background(.white.opacity(0.12), in: Capsule())
+      }
+      Spacer()
+      if model.phase == .incoming || model.phase == .dialing {
+        Button {
+          model.toggleRingtoneMute()
+        } label: {
+          Image(systemName: ringtoneStore.muted ? "bell.slash.fill" : "bell.fill")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.82))
+            .frame(width: 36, height: 36)
+            .background(.white.opacity(0.12), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+          ringtoneStore.muted
+            ? EchoCopy.string("Unmute ringtone")
+            : EchoCopy.string("Mute ringtone"))
+      }
+    }
+  }
+
   private var identity: some View {
     VStack(spacing: 22) {
       if let conversation = model.conversation {
-        EchoMediaImage(
-          source: conversation.avatarURL,
-          baseURL: baseURL,
-          accessToken: accessToken
-        ) {
-          EchoGeneratedAvatar(name: conversation.displayName, seed: conversation.channelID)
+        ZStack {
+          if model.phase == .incoming || model.phase == .dialing {
+            Circle()
+              .stroke(.white.opacity(0.18), lineWidth: 2)
+              .frame(width: 148, height: 148)
+              .scaleEffect(ringPulse ? 1.12 : 0.96)
+              .opacity(ringPulse ? 0.15 : 0.45)
+              .animation(
+                .easeInOut(duration: 1.1).repeatForever(autoreverses: true),
+                value: ringPulse)
+          }
+
+          EchoMediaImage(
+            source: conversation.avatarURL,
+            baseURL: baseURL,
+            accessToken: accessToken
+          ) {
+            EchoGeneratedAvatar(name: conversation.displayName, seed: conversation.channelID)
+          }
+          .clipShape(Circle())
+          .frame(width: 124, height: 124)
+          .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
+          .echoShadow(color: .black.opacity(0.38), radius: 26, y: 14)
         }
-        .clipShape(Circle())
-        .frame(width: 124, height: 124)
-        .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
-        .shadow(color: .black.opacity(0.38), radius: 26, y: 14)
+        .onAppear { ringPulse = true }
 
         Text(conversation.displayName)
           .font(.system(size: 29, weight: .semibold, design: .rounded))
@@ -68,6 +115,8 @@ struct EchoCallView: View {
       status
     }
   }
+
+  @State private var ringPulse = false
 
   @ViewBuilder
   private var status: some View {
@@ -113,7 +162,7 @@ struct EchoCallView: View {
         .buttonStyle(.borderedProminent)
         .tint(.white.opacity(0.16))
     } else {
-      VStack(spacing: 34) {
+      VStack(spacing: 28) {
         HStack(spacing: 22) {
           callButton(
             title: model.isMuted ? EchoCopy.string("Unmute") : EchoCopy.string("Mute"),
@@ -122,11 +171,20 @@ struct EchoCallView: View {
             foreground: model.isMuted ? .black : .white
           ) { Task { await model.toggleMute() } }
           callButton(
+            title: model.isDeafened ? EchoCopy.string("Undeafen") : EchoCopy.string("Deafen"),
+            icon: model.isDeafened ? "speaker.slash.fill" : "speaker.wave.2.fill",
+            color: model.isDeafened ? .white : .white.opacity(0.14),
+            foreground: model.isDeafened ? .black : .white
+          ) { model.toggleDeafen() }
+          callButton(
             title: EchoCopy.string("Speaker"),
             icon: model.isSpeakerEnabled ? "speaker.wave.3.fill" : "speaker.wave.2.fill",
             color: model.isSpeakerEnabled ? .white : .white.opacity(0.14),
             foreground: model.isSpeakerEnabled ? .black : .white
           ) { model.toggleSpeaker() }
+        }
+
+        HStack(spacing: 22) {
           #if os(iOS)
             VStack(spacing: 8) {
               EchoAudioRoutePicker()
@@ -137,13 +195,14 @@ struct EchoCallView: View {
                 .foregroundStyle(.white.opacity(0.72))
             }
           #endif
+          callButton(
+            title: model.phase == .dialing
+              ? EchoCopy.string("Cancel")
+              : EchoCopy.string("End call"),
+            icon: "phone.down.fill",
+            color: .red
+          ) { Task { await model.end() } }
         }
-
-        callButton(
-          title: EchoCopy.string("End call"),
-          icon: "phone.down.fill",
-          color: .red
-        ) { Task { await model.end() } }
       }
     }
   }

@@ -51,7 +51,9 @@ export async function consumeWebhookDeliveryOnce(
       );
       return ok === 'OK';
     } catch {
-      // Fall through to process-local dedupe if Redis is unavailable.
+      // A process-local fallback is unsafe in a multi-node production
+      // deployment: the same delivery could be accepted on another node.
+      if (config.isProduction) return false;
     }
   }
   const now = Date.now();

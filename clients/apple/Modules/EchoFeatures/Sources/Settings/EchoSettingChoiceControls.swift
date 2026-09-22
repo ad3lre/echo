@@ -106,11 +106,11 @@ struct EchoChoiceSheet: View {
                 .foregroundStyle(.secondary)
               TextField(EchoCopy.format("Search %@", title.lowercased()), text: $searchText)
                 .textFieldStyle(.plain)
-                .foregroundStyle(.white)
+                .foregroundStyle(EchoTheme.Color.fg)
             }
             .padding(.horizontal, 14)
             .frame(minHeight: 46)
-            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+            .background(EchoTheme.Color.ink(0.07), in: RoundedRectangle(cornerRadius: 14))
           }
           ForEach(filteredOptions, id: \.0) { option in
             Button {
@@ -119,16 +119,16 @@ struct EchoChoiceSheet: View {
             } label: {
               HStack(spacing: 12) {
                 Circle()
-                  .fill(option.0 == value ? tint : .white.opacity(0.12))
+                  .fill(option.0 == value ? tint : EchoTheme.Color.ink(0.12))
                   .frame(width: 12, height: 12)
                   .overlay {
                     if option.0 == value {
-                      Circle().stroke(.white.opacity(0.9), lineWidth: 2).padding(3)
+                      Circle().stroke(EchoTheme.Color.ink(0.9), lineWidth: 2).padding(3)
                     }
                   }
                 Text(option.1)
                   .font(.system(size: 16, weight: .semibold, design: .rounded))
-                  .foregroundStyle(.white.opacity(0.92))
+                  .foregroundStyle(EchoTheme.Color.ink(0.92))
                 Spacer()
                 if option.0 == value {
                   Image(systemName: "checkmark")
@@ -139,13 +139,13 @@ struct EchoChoiceSheet: View {
               .padding(.horizontal, 15)
               .frame(minHeight: 54)
               .background(
-                option.0 == value ? tint.opacity(0.13) : .white.opacity(0.06),
+                option.0 == value ? tint.opacity(0.13) : EchoTheme.Color.ink(0.06),
                 in: RoundedRectangle(cornerRadius: 16, style: .continuous)
               )
               .overlay {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                   .stroke(
-                    option.0 == value ? tint.opacity(0.42) : .white.opacity(0.10), lineWidth: 1)
+                    option.0 == value ? tint.opacity(0.42) : EchoTheme.Color.ink(0.10), lineWidth: 1)
               }
             }
             .buttonStyle(.plain)

@@ -241,6 +241,32 @@ async function run(): Promise<void> {
   const winner = raceA.statusCode === 200 ? raceA : raceB;
   jar = jarMergeSetCookie(jar, winner.headers['set-cookie'], CSRF_COOKIE);
 
+  const revokedWinnerSession = await app.inject({
+    method: 'GET',
+    url: '/api/v1/auth/sessions',
+    headers: { cookie: jar.header },
+  });
+  assert.equal(
+    revokedWinnerSession.statusCode,
+    401,
+    'refresh replay must revoke the winning successor session too',
+  );
+
+  // A refresh replay is treated as token theft and revokes the entire refresh
+  // family. Establish a fresh session before testing session listing.
+  const reloginAfterReplay = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/login',
+    headers: { 'user-agent': testUserAgent },
+    payload: { username, password },
+  });
+  assert.equal(
+    reloginAfterReplay.statusCode,
+    200,
+    `re-login after replay revocation failed: ${reloginAfterReplay.body}`,
+  );
+  jar = jarFromSetCookie(reloginAfterReplay.headers['set-cookie'], CSRF_COOKIE);
+
   const sessionsRes = await app.inject({
     method: 'GET',
     url: '/api/v1/auth/sessions',

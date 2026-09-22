@@ -22,6 +22,7 @@ struct EchoProfileEditView: View {
     }
   }
 
+  @Environment(\.colorScheme) private var colorScheme
   let profile: EchoUserProfile?
   let baseURL: URL
   let accessToken: String
@@ -46,52 +47,68 @@ struct EchoProfileEditView: View {
   @State private var selectedTab: EditTab = .profile
 
   var body: some View {
-    VStack(spacing: 0) {
-      HStack {
-        Button(action: onExit) {
-          Image(systemName: "arrow.left")
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.9))
-            .frame(width: 40, height: 40)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(EchoCopy.string("Close edit profile"))
-        Spacer(minLength: 0)
-      }
-      .padding(.horizontal, 22)
-      .padding(.top, headerTopPadding)
-      .padding(.bottom, 12)
-
-      profileHero
-
-      ProfileEditTabBar(selection: $selectedTab)
-        .padding(.horizontal, 22)
-        .padding(.top, 4)
-        .padding(.bottom, 6)
-
-      TabView(selection: $selectedTab) {
-        ScrollView(showsIndicators: false) {
-          profileFields
-            .padding(.horizontal, 22)
-            .padding(.bottom, 28)
-        }
-        .tag(EditTab.profile)
-        .scrollDismissesKeyboard(.interactively)
-
-        ScrollView(showsIndicators: false) {
-          bannerEffectsFields
-            .padding(.horizontal, 22)
-            .padding(.bottom, 28)
-        }
-        .tag(EditTab.banner)
-        .scrollDismissesKeyboard(.interactively)
-      }
+    GeometryReader { proxy in
+      // Home already ignores the top container safe area, so the reader often
+      // reports 0. Fall back so the leave control stays in the prior band (~58).
       #if os(iOS)
-        .tabViewStyle(.page(indexDisplayMode: .never))
+        let topInset = proxy.safeAreaInsets.top > 0 ? proxy.safeAreaInsets.top : 47
+      #else
+        let topInset = proxy.safeAreaInsets.top
       #endif
-      .animation(.easeInOut(duration: 0.18), value: selectedTab)
+      ZStack(alignment: .top) {
+        VStack(spacing: 0) {
+          profileHero(topInset: topInset)
+
+          ProfileEditTabBar(selection: $selectedTab)
+            .padding(.horizontal, 22)
+            .padding(.top, 4)
+            .padding(.bottom, 6)
+
+          // Avoid `.tabViewStyle(.page)` here — it often fails to honor programmatic
+          // selection from the custom tab bar (Banner appears selected but content
+          // stays on Profile). Explicit branching is reliable.
+          Group {
+            switch selectedTab {
+            case .profile:
+              ScrollView(showsIndicators: false) {
+                profileFields
+                  .padding(.horizontal, 22)
+                  .padding(.bottom, 28)
+              }
+              .scrollDismissesKeyboard(.interactively)
+            case .banner:
+              ScrollView(showsIndicators: false) {
+                bannerEffectsFields
+                  .padding(.horizontal, 22)
+                  .padding(.bottom, 28)
+              }
+              .scrollDismissesKeyboard(.interactively)
+            }
+          }
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .animation(.easeInOut(duration: 0.18), value: selectedTab)
+        }
+
+        // Banner fills under the notch; keep the leave control in the same
+        // vertical band as before, trailing so it stays clear of Dynamic Island.
+        HStack {
+          Spacer(minLength: 0)
+          Button(action: onExit) {
+            Image(systemName: "arrow.left")
+              .font(.system(size: 15, weight: .bold))
+              .foregroundStyle(chromeIconColor)
+              .frame(width: 40, height: 40)
+              .background(.black.opacity(0.38), in: Circle())
+              .overlay(Circle().stroke(Color.white.opacity(0.18)))
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(EchoCopy.string("Close edit profile"))
+        }
+        .padding(.top, topInset + 12)
+        .padding(.horizontal, 16)
+      }
     }
+    .ignoresSafeArea(edges: .top)
     .simultaneousGesture(
       TapGesture().onEnded {
         dismissKeyboard()
@@ -146,6 +163,11 @@ struct EchoProfileEditView: View {
     }
   }
 
+  private var chromeIconColor: Color {
+    let scheme = EchoTheme.forcedColorScheme ?? colorScheme
+    return scheme == .light ? EchoTheme.Color.ink(0.92) : .white
+  }
+
   private func dismissKeyboard() {
     #if os(iOS)
       UIApplication.shared.sendAction(
@@ -153,7 +175,7 @@ struct EchoProfileEditView: View {
     #endif
   }
 
-  private var profileHero: some View {
+  private func profileHero(topInset: CGFloat) -> some View {
     ZStack(alignment: .bottom) {
       PhotosPicker(selection: $bannerItem, matching: .images) {
         Group {
@@ -179,13 +201,13 @@ struct EchoProfileEditView: View {
             Color.indigo.opacity(0.55)
           }
         }
-        .frame(height: 226)
+        .frame(height: 226 + topInset)
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
       .accessibilityLabel(EchoCopy.string("Change profile banner"))
-      EchoProfileEditSlice()
+      EchoHeaderSlice(raisedChromeShelves: colorScheme == .light)
         .fill(EchoTheme.Color.canvas)
         .frame(height: 84)
         .allowsHitTesting(false)
@@ -211,7 +233,7 @@ struct EchoProfileEditView: View {
             .lineLimit(1)
           Text(profile?.username.map { "@\($0)" } ?? "")
             .font(.system(size: 13, weight: .medium, design: .rounded))
-            .foregroundStyle(.white.opacity(0.58))
+            .foregroundStyle(EchoTheme.Color.ink(0.58))
             .lineLimit(1)
         }
         .padding(.bottom, 7)
@@ -247,7 +269,7 @@ struct EchoProfileEditView: View {
 
   private var profileDivider: some View {
     Rectangle()
-      .fill(.white.opacity(0.06))
+      .fill(EchoTheme.Color.ink(0.06))
       .frame(height: 1)
       .padding(.leading, 2)
   }
@@ -371,14 +393,6 @@ struct EchoProfileEditView: View {
     syncEffectsFromProfile()
   }
 
-  private var headerTopPadding: CGFloat {
-    #if os(iOS)
-      58
-    #else
-      12
-    #endif
-  }
-
   private func applyLoadedPresence(_ raw: String?) {
     guard let canonical = Self.canonicalPresence(raw) else { return }
     guard presenceStatus == originalPresenceStatus else { return }
@@ -403,16 +417,19 @@ private struct ProfileEditTabBar: View {
     HStack(spacing: 22) {
       ForEach(EchoProfileEditView.EditTab.allCases) { tab in
         Button {
-          selection = tab
+          withAnimation(.easeInOut(duration: 0.18)) {
+            selection = tab
+          }
         } label: {
           VStack(spacing: 8) {
             Text(tab.title)
               .font(.system(size: 15, weight: .semibold, design: .rounded))
-              .foregroundStyle(selection == tab ? .white : .white.opacity(0.42))
+              .foregroundStyle(selection == tab ? EchoTheme.Color.fg : EchoTheme.Color.ink(0.42))
             Capsule()
               .fill(selection == tab ? EchoTheme.Color.indigoSoft : .clear)
               .frame(width: 22, height: 3)
           }
+          .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tab.title)
@@ -432,19 +449,19 @@ private struct ProfileUnsavedChangesBar: View {
     HStack(spacing: 12) {
       Button(EchoCopy.string("Discard"), action: onDiscard)
         .font(.system(size: 14, weight: .semibold, design: .rounded))
-        .foregroundStyle(.white.opacity(0.62))
+        .foregroundStyle(EchoTheme.Color.ink(0.62))
         .disabled(isSaving)
       Spacer(minLength: 0)
       Button(action: onSave) {
         Group {
           if isSaving {
-            ProgressView().controlSize(.small).tint(.white)
+            ProgressView().controlSize(.small).tint(EchoTheme.Color.onAccent)
           } else {
             EchoCopy.text("Save")
           }
         }
         .font(.system(size: 14, weight: .bold, design: .rounded))
-        .foregroundStyle(.white)
+        .foregroundStyle(EchoTheme.Color.onAccent)
         .frame(minWidth: 72)
         .padding(.horizontal, 16)
         .frame(height: 40)
@@ -455,22 +472,7 @@ private struct ProfileUnsavedChangesBar: View {
     }
     .padding(.horizontal, 18)
     .padding(.vertical, 12)
-    .background(.ultraThinMaterial.opacity(0.92), in: Capsule())
-  }
-}
-
-private struct EchoProfileEditSlice: Shape {
-  func path(in rect: CGRect) -> Path {
-    var path = Path()
-    path.move(to: CGPoint(x: rect.minX, y: rect.midY + 10))
-    path.addCurve(
-      to: CGPoint(x: rect.maxX, y: rect.midY - 8),
-      control1: CGPoint(x: rect.width * 0.27, y: rect.minY - 4),
-      control2: CGPoint(x: rect.width * 0.70, y: rect.maxY + 8))
-    path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-    path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-    path.closeSubpath()
-    return path
+    .echoGlassCapsule(opacity: 0.92)
   }
 }
 
@@ -482,11 +484,11 @@ private struct ProfileInlineField<Content: View>: View {
     VStack(alignment: .leading, spacing: 8) {
       Text(title)
         .font(.system(size: 12, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.4))
+        .foregroundStyle(EchoTheme.Color.ink(0.4))
       content()
         .font(.system(size: 17, weight: .medium, design: .rounded))
         .textFieldStyle(.plain)
-        .foregroundStyle(.white.opacity(0.94))
+        .foregroundStyle(EchoTheme.Color.ink(0.94))
         .tint(EchoTheme.Color.indigoSoft)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -511,7 +513,7 @@ private struct ProfilePresencePicker: View {
     VStack(alignment: .leading, spacing: 12) {
       Text(EchoCopy.string("Presence"))
         .font(.system(size: 12, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.4))
+        .foregroundStyle(EchoTheme.Color.ink(0.4))
 
       HStack(spacing: 8) {
         ForEach(options, id: \.id) { option in
@@ -529,24 +531,11 @@ private struct ProfilePresencePicker: View {
                   .lineLimit(1)
                   .minimumScaleFactor(0.78)
               }
-              .foregroundStyle(selected ? .white : .white.opacity(0.42))
+              .foregroundStyle(selected ? EchoTheme.Color.fg : EchoTheme.Color.ink(0.42))
 
               Capsule()
-                .fill(
-                  LinearGradient(
-                    colors: [
-                      .white.opacity(0.05),
-                      .white.opacity(0.95),
-                      option.color.opacity(0.9),
-                      .white.opacity(0.95),
-                      .white.opacity(0.05),
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                  )
-                )
+                .fill(option.color)
                 .frame(width: 34, height: 2.5)
-                .shadow(color: option.color.opacity(0.4), radius: 4, y: 0)
                 .opacity(selected ? 1 : 0)
                 .animation(.easeOut(duration: 0.18), value: selection)
             }
@@ -600,21 +589,21 @@ private struct EchoBannerEffectToggle: View {
       HStack(spacing: 14) {
         Image(systemName: systemImage)
           .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.55))
+          .foregroundStyle(EchoTheme.Color.ink(0.55))
           .frame(width: 22)
 
         Text(title)
           .font(.system(size: 16, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white.opacity(0.92))
+          .foregroundStyle(EchoTheme.Color.ink(0.92))
 
         Spacer(minLength: 0)
 
         Capsule()
-          .fill(isOn ? EchoTheme.Color.actionHighlight.opacity(0.92) : Color.white.opacity(0.12))
+          .fill(isOn ? EchoTheme.Color.actionHighlight.opacity(0.92) : EchoTheme.Color.ink(0.12))
           .frame(width: 44, height: 26)
           .overlay(alignment: isOn ? .trailing : .leading) {
             Circle()
-              .fill(.white)
+              .fill(EchoTheme.Color.fg)
               .frame(width: 20, height: 20)
               .padding(3)
           }

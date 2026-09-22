@@ -210,9 +210,9 @@ struct EchoExpressionPicker: View {
               .font(.system(size: 12, weight: .semibold, design: .rounded))
               .frame(maxWidth: .infinity)
               .padding(.vertical, 8)
-              .foregroundStyle(model.tab == tab ? .white : .white.opacity(0.48))
+              .foregroundStyle(model.tab == tab ? EchoTheme.Color.fg : EchoTheme.Color.ink(0.48))
               .background(
-                model.tab == tab ? .white.opacity(0.09) : .clear,
+                model.tab == tab ? EchoTheme.Color.ink(0.09) : .clear,
                 in: RoundedRectangle(cornerRadius: 9))
           }
           .buttonStyle(.plain)
@@ -221,7 +221,7 @@ struct EchoExpressionPicker: View {
 
       if model.tab != .images {
         HStack(spacing: 8) {
-          Image(systemName: "magnifyingglass").foregroundStyle(.white.opacity(0.35))
+          Image(systemName: "magnifyingglass").foregroundStyle(EchoTheme.Color.ink(0.35))
           TextField(
             model.tab == .emoji ? EchoCopy.string("Search emoji") : EchoCopy.string("Search GIFs"),
             text: $model.query
@@ -231,7 +231,7 @@ struct EchoExpressionPicker: View {
         }
         .padding(.horizontal, 11)
         .frame(height: 36)
-        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 11))
+        .background(EchoTheme.Color.ink(0.055), in: RoundedRectangle(cornerRadius: 11))
       }
 
       Group {
@@ -248,8 +248,8 @@ struct EchoExpressionPicker: View {
       EchoTheme.Color.elevatedDeep.opacity(0.99),
       in: RoundedRectangle(cornerRadius: 20, style: .continuous)
     )
-    .overlay { RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.08)) }
-    .shadow(color: .black.opacity(0.34), radius: 16, y: 7)
+    .overlay { RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(EchoTheme.Color.ink(0.08)) }
+    .echoShadow(color: .black.opacity(0.34), radius: 16, y: 7)
     .task { await model.loadLibrary() }
     .task(id: model.tab) { if model.tab == .images { await photos.load() } }
     .task(id: model.tab == .gifs ? model.query : "") {
@@ -312,14 +312,14 @@ struct EchoExpressionPicker: View {
       }
     }
     .frame(width: 36)
-    .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 11))
+    .background(EchoTheme.Color.ink(0.035), in: RoundedRectangle(cornerRadius: 11))
   }
 
   private func railButton(_ icon: String, target: String, proxy: ScrollViewProxy) -> some View {
     Button {
       withAnimation { proxy.scrollTo(target, anchor: .top) }
     } label: {
-      Image(systemName: icon).font(.system(size: 15)).foregroundStyle(.white.opacity(0.62))
+      Image(systemName: icon).font(.system(size: 15)).foregroundStyle(EchoTheme.Color.ink(0.62))
     }
     .buttonStyle(.plain).frame(width: 34, height: 34)
   }
@@ -354,7 +354,7 @@ struct EchoExpressionPicker: View {
               onEmoji(token)
             } label: {
               EchoMediaImage(source: custom.imageURL, baseURL: baseURL, accessToken: accessToken) {
-                Image(systemName: "face.smiling").foregroundStyle(.white.opacity(0.25))
+                Image(systemName: "face.smiling").foregroundStyle(EchoTheme.Color.ink(0.25))
               }.frame(width: 29, height: 29)
             }.buttonStyle(.plain).accessibilityLabel(custom.name)
           } else if !token.hasPrefix("<") {
@@ -379,7 +379,7 @@ struct EchoExpressionPicker: View {
             onEmoji(emoji.messageToken)
           } label: {
             EchoMediaImage(source: emoji.imageURL, baseURL: baseURL, accessToken: accessToken) {
-              Image(systemName: "face.smiling").foregroundStyle(.white.opacity(0.25))
+              Image(systemName: "face.smiling").foregroundStyle(EchoTheme.Color.ink(0.25))
             }.frame(width: 29, height: 29)
           }
           .buttonStyle(.plain).accessibilityLabel(emoji.name)
@@ -391,7 +391,7 @@ struct EchoExpressionPicker: View {
   private var gifContent: some View {
     Group {
       if model.isLoadingGIFs && model.gifs.isEmpty {
-        ProgressView().tint(.white.opacity(0.7))
+        ProgressView().tint(EchoTheme.Color.ink(0.7))
       } else if model.gifs.isEmpty {
         ContentUnavailableView(
           EchoCopy.string("No GIFs found"), systemImage: "rectangle.on.rectangle.slash")
@@ -404,7 +404,7 @@ struct EchoExpressionPicker: View {
               } label: {
                 EchoMediaImage(source: gif.thumbnailURL, baseURL: baseURL, accessToken: accessToken)
                 {
-                  Rectangle().fill(.white.opacity(0.05))
+                  Rectangle().fill(EchoTheme.Color.ink(0.05))
                 }
                 .frame(height: 92).clipShape(RoundedRectangle(cornerRadius: 8))
               }.buttonStyle(.plain).accessibilityLabel(
@@ -428,6 +428,6 @@ struct EchoExpressionPicker: View {
   private func sectionTitle(_ title: String) -> some View {
     Text(title.uppercased())
       .font(.system(size: 10, weight: .bold, design: .rounded)).tracking(1.2)
-      .foregroundStyle(.white.opacity(0.42))
+      .foregroundStyle(EchoTheme.Color.ink(0.42))
   }
 }

@@ -5,7 +5,10 @@ export type {
 } from '../../echoMessagesDal';
 export {
   getEchoMessageById,
+  getEchoMessageByIdInChannel,
+  getEchoMessageByIdForAuthorInChannel,
   getEchoMessageCreatedAtById,
+  getEchoMessageCreatedAtByIdForAuthorInChannel,
   insertEchoMessage,
   listEchoMessages,
   searchEchoMessagesInChannels,

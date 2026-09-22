@@ -1,109 +1,12 @@
 import Foundation
 
-/// Normalizes Echo user IDs for equality checks across REST and realtime.
-public enum EchoUserIdentity {
-  public static func normalize(_ value: String?) -> String {
-    value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-  }
-
-  public static func matches(_ lhs: String?, _ rhs: String?) -> Bool {
-    let a = normalize(lhs)
-    let b = normalize(rhs)
-    return !a.isEmpty && a == b
-  }
-}
-
-/// Public profile data returned by the Echo social API.
-public struct EchoUserProfile: Codable, Equatable, Hashable, Sendable, Identifiable {
-  public let id: String
-  public let name: String
-  public let username: String?
-  public let avatarURL: String?
-  public let bio: String?
-  public let bannerURL: String?
-  public let bannerColor: String?
-  public let badges: [String]?
-  public let bannerPositionY: Double?
-  /// Ambient blurred banner glow behind profile chrome (web `bannerRefractionEnabled`).
-  public let bannerRefractionEnabled: Bool
-  /// Frosted softness over the banner image (web `bannerBlurEnabled`).
-  public let bannerBlurEnabled: Bool
-  /// Dark scrim over the banner for depth contrast (web `bannerBlackoutEnabled`).
-  public let bannerBlackoutEnabled: Bool
-
-  public init(
-    id: String,
-    name: String,
-    username: String? = nil,
-    avatarURL: String? = nil,
-    bio: String? = nil,
-    bannerURL: String? = nil,
-    bannerColor: String? = nil,
-    badges: [String]? = nil,
-    bannerPositionY: Double? = nil,
-    bannerRefractionEnabled: Bool = false,
-    bannerBlurEnabled: Bool = false,
-    bannerBlackoutEnabled: Bool = false
-  ) {
-    self.id = id
-    self.name = name
-    self.username = username
-    self.avatarURL = avatarURL
-    self.bio = bio
-    self.bannerURL = bannerURL
-    self.bannerColor = bannerColor
-    self.badges = badges
-    self.bannerPositionY = bannerPositionY
-    self.bannerRefractionEnabled = bannerRefractionEnabled
-    self.bannerBlurEnabled = bannerBlurEnabled
-    self.bannerBlackoutEnabled = bannerBlackoutEnabled
-  }
-
-  public init(from decoder: Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    id = try container.decode(String.self, forKey: .id)
-    name = try container.decode(String.self, forKey: .name)
-    username = try container.decodeIfPresent(String.self, forKey: .username)
-    avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
-    bio = try container.decodeIfPresent(String.self, forKey: .bio)
-    bannerURL = try container.decodeIfPresent(String.self, forKey: .bannerURL)
-    bannerColor = try container.decodeIfPresent(String.self, forKey: .bannerColor)
-    badges = try container.decodeIfPresent([String].self, forKey: .badges)
-    bannerPositionY = try container.decodeIfPresent(Double.self, forKey: .bannerPositionY)
-    bannerRefractionEnabled =
-      try container.decodeIfPresent(Bool.self, forKey: .bannerRefractionEnabled) ?? false
-    bannerBlurEnabled = try container.decodeIfPresent(Bool.self, forKey: .bannerBlurEnabled) ?? false
-    bannerBlackoutEnabled =
-      try container.decodeIfPresent(Bool.self, forKey: .bannerBlackoutEnabled) ?? false
-  }
-
-  /// Copy with selected banner-effect flags updated (settings toggles).
-  public func withBannerEffects(
-    refraction: Bool? = nil,
-    blur: Bool? = nil,
-    blackout: Bool? = nil
-  ) -> EchoUserProfile {
-    EchoUserProfile(
-      id: id,
-      name: name,
-      username: username,
-      avatarURL: avatarURL,
-      bio: bio,
-      bannerURL: bannerURL,
-      bannerColor: bannerColor,
-      badges: badges,
-      bannerPositionY: bannerPositionY,
-      bannerRefractionEnabled: refraction ?? bannerRefractionEnabled,
-      bannerBlurEnabled: blur ?? bannerBlurEnabled,
-      bannerBlackoutEnabled: blackout ?? bannerBlackoutEnabled)
-  }
-}
-
 /// A direct or group conversation row assembled from server-owned data.
 public struct EchoDirectMessage: Identifiable, Equatable, Sendable {
   public let id: String
   public let channelID: String
   public let peerUserID: String?
+  /// Group-DM member ids (including self when the API returns them). Empty for 1:1.
+  public let memberUserIDs: [String]
   public let displayName: String
   public let username: String?
   public let avatarURL: String?
@@ -112,10 +15,26 @@ public struct EchoDirectMessage: Identifiable, Equatable, Sendable {
   public let lastMessageAt: Date?
   public let presenceStatus: String?
 
+  public var isGroup: Bool { peerUserID == nil && !memberUserIDs.isEmpty }
+
+  /// MLS authorized roster for this conversation (peer or group members).
+  public func authorizedUserIDs(including viewerUserID: String) -> [String] {
+    var ids = memberUserIDs
+    if let peer = peerUserID { ids.append(peer) }
+    ids.append(viewerUserID)
+    var seen = Set<String>()
+    return ids.compactMap { raw in
+      let id = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !id.isEmpty, seen.insert(id).inserted else { return nil }
+      return id
+    }
+  }
+
   public init(
     id: String,
     channelID: String,
     peerUserID: String? = nil,
+    memberUserIDs: [String] = [],
     displayName: String,
     username: String? = nil,
     avatarURL: String? = nil,
@@ -127,6 +46,7 @@ public struct EchoDirectMessage: Identifiable, Equatable, Sendable {
     self.id = id
     self.channelID = channelID
     self.peerUserID = peerUserID
+    self.memberUserIDs = memberUserIDs
     self.displayName = displayName
     self.username = username
     self.avatarURL = avatarURL
@@ -141,6 +61,7 @@ public struct EchoDirectMessage: Identifiable, Equatable, Sendable {
       id: id,
       channelID: channelID,
       peerUserID: peerUserID,
+      memberUserIDs: memberUserIDs,
       displayName: displayName,
       username: username,
       avatarURL: avatarURL,
@@ -156,6 +77,7 @@ public struct EchoDirectMessage: Identifiable, Equatable, Sendable {
       id: id,
       channelID: channelID,
       peerUserID: peerUserID,
+      memberUserIDs: memberUserIDs,
       displayName: displayName,
       username: username,
       avatarURL: avatarURL,
@@ -281,6 +203,9 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
   }
 
   public var isImage: Bool {
+    // Video wins over a mislabeled `kind: image` (common on mobile uploads /
+    // imports) so clips never land in the image collage as broken filenames.
+    if isVideo { return false }
     let kind = kind.lowercased()
     let mime = mimeType?.lowercased() ?? ""
     // Document mime wins over a mislabeled `kind: image` (legacy/search parity).
@@ -289,11 +214,25 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
     }
     if kind == "image" || kind == "gif" || mime.hasPrefix("image/") { return true }
     let name = (filename ?? url).lowercased()
-    return name.hasSuffix(".jpg") || name.hasSuffix(".jpeg") || name.hasSuffix(".png")
+    if name.hasSuffix(".jpg") || name.hasSuffix(".jpeg") || name.hasSuffix(".png")
       || name.hasSuffix(".webp") || name.hasSuffix(".heic") || name.hasSuffix(".heif")
       || name.hasSuffix(".gif") || name.hasSuffix(".bmp") || name.hasSuffix(".tif")
       || name.hasSuffix(".tiff") || name.contains(".jpg?") || name.contains(".jpeg?")
       || name.contains(".png?") || name.contains(".webp?")
+    {
+      return true
+    }
+    // Tenor/Giphy CDN hosts (picker + embed passthrough) even without a .gif suffix.
+    if let host = URL(string: url)?.host?.lowercased() {
+      if host == "media.tenor.com" || host.hasSuffix(".media.tenor.com")
+        || host == "c.tenor.com" || host.hasSuffix(".c.tenor.com")
+        || host == "media.giphy.com" || host.hasSuffix(".media.giphy.com")
+        || host == "i.giphy.com" || host.hasSuffix(".i.giphy.com")
+      {
+        return true
+      }
+    }
+    return false
   }
 
   public var isVideo: Bool {
@@ -301,8 +240,9 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
       return true
     }
     let name = (filename ?? url).lowercased()
-    return name.hasSuffix(".mp4") || name.hasSuffix(".mov") || name.hasSuffix(".webm")
-      || name.contains(".mp4?") || name.contains(".mov?")
+    return name.hasSuffix(".mp4") || name.hasSuffix(".mov") || name.hasSuffix(".m4v")
+      || name.hasSuffix(".webm") || name.hasSuffix(".mkv")
+      || name.contains(".mp4?") || name.contains(".mov?") || name.contains(".m4v?")
   }
 
   public var isAudio: Bool {
@@ -478,6 +418,41 @@ public enum EchoMessageDelivery: Equatable, Sendable {
   case failed
 }
 
+/// Subset of wire `embeds[]` needed to render Tenor/Giphy inline GIFs on Apple.
+public struct EchoMessageEmbed: Codable, Equatable, Sendable {
+  public struct Media: Codable, Equatable, Sendable {
+    public let url: String
+    public let width: Int?
+    public let height: Int?
+
+    public init(url: String, width: Int? = nil, height: Int? = nil) {
+      self.url = url
+      self.width = width
+      self.height = height
+    }
+  }
+
+  public let url: String?
+  public let title: String?
+  public let provider: String?
+  public let image: Media?
+  public let thumbnail: Media?
+
+  public init(
+    url: String? = nil,
+    title: String? = nil,
+    provider: String? = nil,
+    image: Media? = nil,
+    thumbnail: Media? = nil
+  ) {
+    self.url = url
+    self.title = title
+    self.provider = provider
+    self.image = image
+    self.thumbnail = thumbnail
+  }
+}
+
 public struct EchoMessage: Identifiable, Equatable, Sendable {
   public let id: String
   public let channelID: String
@@ -490,6 +465,7 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
   public let isCurrentUser: Bool
   public let mentions: [EchoMessageMention]
   public let attachments: [EchoMessageAttachment]
+  public let embeds: [EchoMessageEmbed]
   public let poll: EchoPoll?
   public let replyTo: EchoMessageReplyTo?
   public let delivery: EchoMessageDelivery
@@ -506,6 +482,7 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     isCurrentUser: Bool = false,
     mentions: [EchoMessageMention] = [],
     attachments: [EchoMessageAttachment] = [],
+    embeds: [EchoMessageEmbed] = [],
     poll: EchoPoll? = nil,
     replyTo: EchoMessageReplyTo? = nil,
     delivery: EchoMessageDelivery = .sent
@@ -521,6 +498,7 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     self.isCurrentUser = isCurrentUser
     self.mentions = mentions
     self.attachments = attachments
+    self.embeds = embeds
     self.poll = poll
     self.replyTo = replyTo
     self.delivery = delivery
@@ -539,6 +517,7 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
       isCurrentUser: isCurrentUser,
       mentions: mentions,
       attachments: attachments,
+      embeds: embeds,
       poll: poll,
       replyTo: replyTo,
       delivery: delivery
@@ -558,6 +537,7 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
       isCurrentUser: isCurrentUser,
       mentions: mentions,
       attachments: attachments,
+      embeds: embeds,
       poll: poll,
       replyTo: replyTo,
       delivery: delivery
@@ -593,6 +573,9 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
         return name
       }
       return "Attachment"
+    }
+    if embeds.contains(where: { $0.image != nil || $0.thumbnail != nil }) {
+      return "GIF"
     }
     return ""
   }

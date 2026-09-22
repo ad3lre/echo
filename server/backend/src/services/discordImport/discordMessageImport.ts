@@ -19,6 +19,7 @@ import type {
   MessageAttachmentPayload,
   MessageStickerPayload,
 } from '../../../../../contracts/types';
+import { normalizeTenorAnimatedGifUrl } from '../../../../../contracts/gifHostLinks';
 import { sanitizePollForStorage } from '../../sockets/messageValidation';
 import { maybeEnqueueDiscordImportMediaMirror } from './discordImportMediaMirrorQueue';
 import { resolveDiscordSyncedContentMentions } from '../translateDiscordSyncedMentions';
@@ -127,20 +128,21 @@ export function mapDiscordApiEmbedToEcho(
     const im = image as Record<string, unknown>;
     const url = pickDiscordUrlOrProxy(im);
     if (url) {
-      out.image = { url };
+      out.image = { url: normalizeTenorAnimatedGifUrl(url) };
       if (typeof im.width === 'number') out.image.width = im.width;
       if (typeof im.height === 'number') out.image.height = im.height;
     }
   }
 
-  // Discord `type: "video"` embeds expose media on `video`, not `image`.
+  // Discord `type: "video"` / gifv embeds expose media on `video`, not `image`.
+  // Tenor gifv uses an mp4 here — rewrite to the animated GIF CDN variant.
   if (!out.image) {
     const video = raw.video;
     if (video && typeof video === 'object') {
       const v = video as Record<string, unknown>;
       const url = pickDiscordUrlOrProxy(v);
       if (url) {
-        out.image = { url };
+        out.image = { url: normalizeTenorAnimatedGifUrl(url) };
         if (typeof v.width === 'number') out.image.width = v.width;
         if (typeof v.height === 'number') out.image.height = v.height;
       }
@@ -152,7 +154,7 @@ export function mapDiscordApiEmbedToEcho(
     const th = thumbnail as Record<string, unknown>;
     const url = pickDiscordUrlOrProxy(th);
     if (url) {
-      out.thumbnail = { url };
+      out.thumbnail = { url: normalizeTenorAnimatedGifUrl(url) };
       if (typeof th.width === 'number') out.thumbnail.width = th.width;
       if (typeof th.height === 'number') out.thumbnail.height = th.height;
     }

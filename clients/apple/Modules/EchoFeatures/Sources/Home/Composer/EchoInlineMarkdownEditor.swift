@@ -70,12 +70,12 @@ enum EchoComposerEmojiImages {
       let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
       return renderer.image { ctx in
         let rect = CGRect(origin: .zero, size: CGSize(width: size, height: size))
-        UIColor.white.withAlphaComponent(0.12).setFill()
+        EchoTheme.platformLabelColor(opacity: 0.12).setFill()
         UIBezierPath(roundedRect: rect, cornerRadius: size * 0.22).fill()
         let label = String(name.prefix(1)).uppercased() as NSString
         let attrs: [NSAttributedString.Key: Any] = [
           .font: UIFont.systemFont(ofSize: size * 0.45, weight: .semibold),
-          .foregroundColor: UIColor.white.withAlphaComponent(0.55),
+          .foregroundColor: EchoTheme.platformLabelColor(opacity: 0.55),
         ]
         let textSize = label.size(withAttributes: attrs)
         label.draw(
@@ -85,7 +85,7 @@ enum EchoComposerEmojiImages {
     #else
       let image = NSImage(size: NSSize(width: size, height: size))
       image.lockFocus()
-      NSColor.white.withAlphaComponent(0.12).setFill()
+      EchoTheme.platformLabelColor(opacity: 0.12).setFill()
       NSBezierPath(
         roundedRect: NSRect(x: 0, y: 0, width: size, height: size), xRadius: size * 0.22,
         yRadius: size * 0.22
@@ -93,7 +93,7 @@ enum EchoComposerEmojiImages {
       let label = String(name.prefix(1)).uppercased() as NSString
       let attrs: [NSAttributedString.Key: Any] = [
         .font: NSFont.systemFont(ofSize: size * 0.45, weight: .semibold),
-        .foregroundColor: NSColor.white.withAlphaComponent(0.55),
+        .foregroundColor: EchoTheme.platformLabelColor(opacity: 0.55),
       ]
       let textSize = label.size(withAttributes: attrs)
       label.draw(
@@ -101,6 +101,29 @@ enum EchoComposerEmojiImages {
         withAttributes: attrs)
       image.unlockFocus()
       return image
+    #endif
+  }
+
+  /// Transparent horizontal inset so attachment advance doesn’t glue to neighboring glyphs.
+  static func horizontallyPadded(_ image: PlatformImage, pad: CGFloat) -> PlatformImage {
+    guard pad > 0 else { return image }
+    #if os(iOS)
+      let size = CGSize(width: image.size.width + pad * 2, height: image.size.height)
+      let renderer = UIGraphicsImageRenderer(size: size)
+      return renderer.image { _ in
+        image.draw(in: CGRect(x: pad, y: 0, width: image.size.width, height: image.size.height))
+      }
+    #else
+      let size = NSSize(width: image.size.width + pad * 2, height: image.size.height)
+      let padded = NSImage(size: size)
+      padded.lockFocus()
+      image.draw(
+        in: NSRect(x: pad, y: 0, width: image.size.width, height: image.size.height),
+        from: .zero,
+        operation: .sourceOver,
+        fraction: 1)
+      padded.unlockFocus()
+      return padded
     #endif
   }
 
@@ -123,6 +146,7 @@ extension Notification.Name {
     @Binding var text: String
     @Binding var height: CGFloat
     var apiBaseURL: URL = URL(string: "https://chat-echo.com")!
+    @Environment(\.colorScheme) private var colorScheme
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -137,6 +161,7 @@ extension Notification.Name {
       view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
       view.accessibilityLabel = "Message"
       context.coordinator.observeImageUpdates()
+      context.coordinator.lastColorScheme = colorScheme
       context.coordinator.render(text, in: view)
       return view
     }
@@ -144,6 +169,11 @@ extension Notification.Name {
     func updateUIView(_ view: UITextView, context: Context) {
       context.coordinator.parent = self
       context.coordinator.textView = view
+      if context.coordinator.lastColorScheme != colorScheme {
+        context.coordinator.lastColorScheme = colorScheme
+        context.coordinator.render(text, in: view)
+        return
+      }
       let current = EchoInlineMarkdownStyle.plainText(from: view.attributedText)
       if current != text {
         context.coordinator.render(text, in: view)
@@ -156,6 +186,7 @@ extension Notification.Name {
       var parent: EchoInlineMarkdownEditor
       weak var textView: UITextView?
       private var isRendering = false
+      var lastColorScheme: ColorScheme?
 
       init(_ parent: EchoInlineMarkdownEditor) { self.parent = parent }
 
@@ -216,6 +247,7 @@ extension Notification.Name {
     @Binding var text: String
     @Binding var height: CGFloat
     var apiBaseURL: URL = URL(string: "https://chat-echo.com")!
+    @Environment(\.colorScheme) private var colorScheme
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -234,6 +266,7 @@ extension Notification.Name {
       scroll.drawsBackground = false
       scroll.hasVerticalScroller = false
       context.coordinator.textView = view
+      context.coordinator.lastColorScheme = colorScheme
       context.coordinator.observeImageUpdates()
       context.coordinator.render(text, in: view)
       return scroll
@@ -243,6 +276,11 @@ extension Notification.Name {
       context.coordinator.parent = self
       guard let view = scroll.documentView as? NSTextView else { return }
       context.coordinator.textView = view
+      if context.coordinator.lastColorScheme != colorScheme {
+        context.coordinator.lastColorScheme = colorScheme
+        context.coordinator.render(text, in: view)
+        return
+      }
       let current = EchoInlineMarkdownStyle.plainText(
         from: view.attributedString())
       if current != text {
@@ -256,6 +294,7 @@ extension Notification.Name {
       var parent: EchoInlineMarkdownEditor
       weak var textView: NSTextView?
       private var isRendering = false
+      var lastColorScheme: ColorScheme?
 
       init(_ parent: EchoInlineMarkdownEditor) { self.parent = parent }
 
@@ -327,7 +366,7 @@ enum EchoInlineMarkdownStyle {
   static var baseAttributes: [NSAttributedString.Key: Any] {
     [
       .font: PlatformFont.systemFont(ofSize: EchoTheme.Typography.composer),
-      .foregroundColor: PlatformColor.white.withAlphaComponent(0.92),
+      .foregroundColor: EchoTheme.platformLabelColor(opacity: 0.92),
     ]
   }
 
@@ -362,7 +401,7 @@ enum EchoInlineMarkdownStyle {
       #"`([^`\n]+)`"#, group: 1,
       attributes: [
         .font: PlatformFont.monospacedSystemFont(ofSize: body - 1, weight: .regular),
-        .backgroundColor: PlatformColor.white.withAlphaComponent(0.10),
+        .backgroundColor: EchoTheme.platformLabelColor(opacity: 0.10),
       ], to: result)
     apply(
       #"~~(.+?)~~"#, group: 1, attributes: [.strikethroughStyle: NSUnderlineStyle.single.rawValue],
@@ -498,11 +537,14 @@ enum EchoInlineMarkdownStyle {
     -> EchoComposerEmojiAttachment
   {
     let attachment = EchoComposerEmojiAttachment(token: token, name: name)
-    attachment.image =
+    let glyph =
       EchoComposerEmojiImages.image(forToken: token)
       ?? EchoComposerEmojiImages.placeholder(named: name, size: pointSize)
-    // Keep the glyph emoji-sized regardless of source bitmap resolution.
-    attachment.bounds = CGRect(x: 0, y: -(pointSize * 0.2), width: pointSize, height: pointSize)
+    // Pad the advance so adjacent typed text / names don’t sit flush on the bitmap.
+    let sidePad: CGFloat = 2
+    attachment.image = EchoComposerEmojiImages.horizontallyPadded(glyph, pad: sidePad)
+    attachment.bounds = CGRect(
+      x: 0, y: -(pointSize * 0.2), width: pointSize + sidePad * 2, height: pointSize)
     return attachment
   }
 
@@ -525,14 +567,14 @@ enum EchoInlineMarkdownStyle {
     else { return }
     let fullRange = NSRange(location: 0, length: result.string.utf16.count)
     for match in regex.matches(in: result.string, range: fullRange).reversed() {
-      let markerColor = PlatformColor.white.withAlphaComponent(0.28)
+      let markerColor = EchoTheme.platformLabelColor(opacity: 0.28)
       result.addAttribute(.foregroundColor, value: markerColor, range: match.range)
       for group in groups {
         let range = match.range(at: group)
         if range.location != NSNotFound {
           var styled = attributes
           if styled[.foregroundColor] == nil {
-            styled[.foregroundColor] = PlatformColor.white.withAlphaComponent(0.92)
+            styled[.foregroundColor] = EchoTheme.platformLabelColor(opacity: 0.92)
           }
           result.addAttributes(styled, range: range)
         }

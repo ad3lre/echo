@@ -19,7 +19,8 @@ protocol EchoVoiceE2EEPreparing: Sendable {
     channelID: String,
     accessToken: String,
     viewerUserID: String,
-    peerUserID: String?
+    peerUserID: String?,
+    authorizedUserIDs: [String]
   ) async throws -> EchoVoiceE2EEPrepareResult
 }
 
@@ -32,9 +33,13 @@ struct EchoVoiceE2EEMlsPreparer: EchoVoiceE2EEPreparing {
     channelID: String,
     accessToken: String,
     viewerUserID: String,
-    peerUserID: String?
+    peerUserID: String?,
+    authorizedUserIDs: [String]
   ) async throws -> EchoVoiceE2EEPrepareResult {
     let deviceID = EchoMlsKeychain.deviceID(forUserID: viewerUserID)
+    var authorized = authorizedUserIDs
+    if let peer = peerUserID { authorized.append(peer) }
+    authorized.append(viewerUserID)
     do {
       return try await EchoMlsJsRuntime.shared.prepareDM(
         channelID: channelID,
@@ -42,6 +47,7 @@ struct EchoVoiceE2EEMlsPreparer: EchoVoiceE2EEPreparing {
         viewerUserID: viewerUserID,
         deviceID: deviceID,
         peerUserID: peerUserID,
+        authorizedUserIDs: authorized,
         baseURL: baseURL)
     } catch {
       // When the server disables voice E2EE, mlsGroupClient throws a disabled
@@ -61,7 +67,8 @@ struct EchoVoiceE2EEUnavailablePreparer: EchoVoiceE2EEPreparing {
     channelID: String,
     accessToken: String,
     viewerUserID: String,
-    peerUserID: String?
+    peerUserID: String?,
+    authorizedUserIDs: [String]
   ) async throws -> EchoVoiceE2EEPrepareResult {
     EchoVoiceE2EEPrepareResult(encryption: nil, deviceID: nil)
   }

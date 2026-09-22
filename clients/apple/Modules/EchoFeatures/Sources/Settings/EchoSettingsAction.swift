@@ -58,7 +58,7 @@ private struct EchoActionButtonStyle: ButtonStyle {
         RoundedRectangle(cornerRadius: 15, style: .continuous)
           .stroke(tint.opacity(configuration.isPressed ? 0.30 : 0), lineWidth: 1)
       }
-      .shadow(color: tint.opacity(configuration.isPressed ? 0.20 : 0), radius: 12)
+      .echoShadow(color: tint.opacity(configuration.isPressed ? 0.20 : 0), radius: 12)
       .scaleEffect(configuration.isPressed ? 0.985 : 1)
       .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
   }

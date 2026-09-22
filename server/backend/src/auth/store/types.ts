@@ -113,6 +113,7 @@ export interface SessionStore {
     client?: RefreshTokenClientContext,
   ): Promise<RefreshTokenRecord>;
   findActiveRefreshToken(tokenHash: string): Promise<RefreshTokenRecord | null>;
+  findRefreshTokenByHash(tokenHash: string): Promise<RefreshTokenRecord | null>;
   /** Whether a row exists for this hash and if it is still usable (not revoked / not past expires_at). */
   classifyRefreshTokenHash(tokenHash: string): Promise<RefreshTokenHashClass>;
   findRefreshTokenById(tokenId: string): Promise<RefreshTokenRecord | null>;

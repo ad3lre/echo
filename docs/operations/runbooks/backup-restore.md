@@ -8,12 +8,13 @@ Self-hosted Postgres dumps to offsite S3-compatible storage with write-only uplo
 
 This is **Option B** from the backup strategy: self-hosted `pg_dump` → object storage.
 
-| Feature       | Implementation                                              |
-| ------------- | ----------------------------------------------------------- |
-| **Easy put**  | Daily automated dumps with **write-only** S3 credentials    |
-| **Hard take** | Restore requires **sudo** and separate **read** credentials |
-| **Retention** | 7 days daily + 12+ weeks weekly via bucket lifecycle        |
-| **Media**     | Postgres only; upload media handled separately              |
+| Feature       | Implementation                                                          |
+| ------------- | ----------------------------------------------------------------------- |
+| **Easy put**  | Daily automated dumps with **write-only** S3 credentials                |
+| **Hard take** | Restore requires **sudo** and separate **read** credentials             |
+| **Retention** | 7 days daily + 12+ weeks weekly via bucket lifecycle                    |
+| **Integrity** | SHA-256 sidecar is uploaded with every dump and verified before restore |
+| **Media**     | Postgres only; upload media handled separately                          |
 
 ---
 
@@ -35,6 +36,7 @@ Example for Cloudflare R2:
 - Bucket name: `echo-backups`
 - Location: Same region as your VPS or geographically separated for DR
 - **Public access**: Disabled (this is internal backup data)
+- Enable provider server-side encryption and object-lock/versioning controls where available. Dumps contain account data and must be treated as confidential.
 
 ### 2. Configure lifecycle rules
 
@@ -205,6 +207,10 @@ sudo -E npm run backup:postgres:restore -- \
      --tier daily \
      --target-database-url postgres://echo:pass@localhost/echo_restore_test
    ```
+
+   The restore command downloads the matching `.sha256` sidecar and refuses a
+   missing or mismatched dump. It revokes all active refresh tokens after the
+   restore so credentials from an older snapshot cannot be resurrected.
 
 4. **Smoke test** (aligns with [postgres-incident.md](postgres-incident.md)):
 

@@ -46,18 +46,18 @@ struct EchoAccountFieldSheet: View {
             Text(title.uppercased())
               .font(.system(size: 11, weight: .bold, design: .rounded))
               .tracking(1.8)
-              .foregroundStyle(.white.opacity(0.42))
+              .foregroundStyle(EchoTheme.Color.ink(0.42))
             TextField(prompt, text: $value)
               .font(.system(size: 17, weight: .medium, design: .rounded))
-              .foregroundStyle(.white)
+              .foregroundStyle(EchoTheme.Color.fg)
               .padding(.horizontal, 16)
               .frame(minHeight: 54)
               .background(
-                .white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                EchoTheme.Color.ink(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous)
               )
               .overlay {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                  .stroke(.white.opacity(0.12), lineWidth: 1)
+                  .stroke(EchoTheme.Color.ink(0.12), lineWidth: 1)
               }
               #if os(iOS)
                 .textInputAutocapitalization(.never)
@@ -83,7 +83,7 @@ struct EchoAccountFieldSheet: View {
           Button(EchoCopy.string("Cancel")) { dismiss() }
         }
       }
-      .tint(.white)
+      .tint(EchoTheme.Color.fg)
     }
   }
 
@@ -136,7 +136,7 @@ struct EchoDeleteAccountSheet: View {
             "Enter your password if your account requires one, plus an authenticator code when 2FA is enabled, then confirm deletion."
           )
           .font(.system(size: 13, design: .rounded))
-          .foregroundStyle(.white.opacity(0.54))
+          .foregroundStyle(EchoTheme.Color.ink(0.54))
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -182,7 +182,7 @@ struct EchoSettingsErrorSheet: View {
       content: {
         Text(message)
           .font(.system(size: 14, design: .rounded))
-          .foregroundStyle(.white.opacity(0.68))
+          .foregroundStyle(EchoTheme.Color.ink(0.68))
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(16)
           .background(

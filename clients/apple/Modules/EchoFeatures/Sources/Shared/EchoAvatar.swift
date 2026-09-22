@@ -18,7 +18,7 @@ struct EchoGeneratedAvatar: View {
             // the 34pt DM header avatar) never collapse into SwiftUI's
             // truncation ellipsis.
             .font(.system(size: max(10, diameter * 0.40625), weight: .semibold, design: .default))
-            .foregroundStyle(.white)
+            .foregroundStyle(EchoTheme.Color.onAccent)
             .lineLimit(1)
             .minimumScaleFactor(0.72)
             .allowsTightening(true)

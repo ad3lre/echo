@@ -63,9 +63,9 @@ struct EchoAuthScreen: View {
             }) {
               Image(systemName: "chevron.left")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.82))
+                .foregroundStyle(EchoTheme.Color.ink(0.82))
                 .frame(width: 38, height: 38)
-                .background(.white.opacity(0.07), in: Circle())
+                .background(EchoTheme.Color.ink(0.07), in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
@@ -99,13 +99,13 @@ struct EchoAuthScreen: View {
       VStack(spacing: 0) {
         EchoCopy.text("Verify it’s you")
           .font(.system(size: 28, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.fg)
         Text(
           model.pendingMfaUsername.map { EchoCopy.format("Enter a code for %@.", $0) }
             ?? EchoCopy.string("Enter a code from your authenticator app, or a recovery code.")
         )
         .font(.system(size: 14, weight: .regular))
-        .foregroundStyle(.white.opacity(0.60))
+        .foregroundStyle(EchoTheme.Color.ink(0.60))
         .multilineTextAlignment(.center)
         .padding(.top, 8)
       }
@@ -121,7 +121,7 @@ struct EchoAuthScreen: View {
       } label: {
         EchoCopy.text("Verify")
           .font(.system(size: 16, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.onAccent)
           .frame(maxWidth: .infinity, minHeight: 52)
       }
       .buttonStyle(EchoPrimaryButtonStyle())
@@ -139,10 +139,10 @@ struct EchoAuthScreen: View {
       VStack(spacing: 0) {
         Text(mode.title)
           .font(.system(size: 28, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.fg)
         Text(mode.subtitle)
           .font(.system(size: 14, weight: .regular))
-          .foregroundStyle(.white.opacity(0.60))
+          .foregroundStyle(EchoTheme.Color.ink(0.60))
           .multilineTextAlignment(.center)
           .padding(.top, 8)
       }
@@ -155,10 +155,10 @@ struct EchoAuthScreen: View {
       .padding(.top, 30)
 
       HStack(spacing: 12) {
-        Rectangle().fill(.white.opacity(0.10)).frame(height: 1)
+        Rectangle().fill(EchoTheme.Color.ink(0.10)).frame(height: 1)
         EchoCopy.text("or").font(.system(size: 12, weight: .medium)).foregroundStyle(
-          .white.opacity(0.38))
-        Rectangle().fill(.white.opacity(0.10)).frame(height: 1)
+          EchoTheme.Color.ink(0.38))
+        Rectangle().fill(EchoTheme.Color.ink(0.10)).frame(height: 1)
       }
       .padding(.top, 24)
 
@@ -185,7 +185,7 @@ struct EchoAuthScreen: View {
       } label: {
         Text(isRegistration ? EchoCopy.string("Create account") : EchoCopy.string("Log in"))
           .font(.system(size: 16, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.onAccent)
           .frame(maxWidth: .infinity, minHeight: 52)
       }
       .buttonStyle(EchoPrimaryButtonStyle())
@@ -202,10 +202,10 @@ struct EchoAuthScreen: View {
         } label: {
           Label(EchoCopy.string("Sign in with Passkey"), systemImage: "person.badge.key.fill")
             .font(.system(size: 15, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.92))
+            .foregroundStyle(EchoTheme.Color.ink(0.92))
             .frame(maxWidth: .infinity, minHeight: 48)
             .background(
-              .white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+              EchoTheme.Color.ink(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(EchoCopy.string("Sign in with Passkey"))
@@ -233,12 +233,12 @@ private struct EchoPageTrack: View {
   let mode: EchoAuthMode
   var body: some View {
     HStack(spacing: 5) {
-      Capsule().fill(.white.opacity(0.20)).frame(width: 22, height: 3)
+      Capsule().fill(EchoTheme.Color.ink(0.20)).frame(width: 22, height: 3)
       Capsule().fill(
-        mode == .signIn ? EchoTheme.Color.signInBlue : .white.opacity(0.20)
+        mode == .signIn ? EchoTheme.Color.signInBlue : EchoTheme.Color.ink(0.20)
       ).frame(width: 22, height: 3)
       Capsule().fill(
-        mode == .register ? EchoTheme.Color.violetDeep : .white.opacity(0.20)
+        mode == .register ? EchoTheme.Color.violetDeep : EchoTheme.Color.ink(0.20)
       ).frame(width: 22, height: 3)
     }
     .accessibilityHidden(true)
@@ -258,15 +258,15 @@ private struct EchoAuthField: View {
         TextField(title, text: $text).echoAuthenticationTextEntry(isEmail: isEmail)
       }
     }
-    .font(.system(size: 15, weight: .regular)).foregroundStyle(.white).tint(.white).textFieldStyle(
+    .font(.system(size: 15, weight: .regular)).foregroundStyle(EchoTheme.Color.fg).tint(EchoTheme.Color.fg).textFieldStyle(
       .plain
     )
     .padding(.horizontal, 17).frame(maxWidth: .infinity, minHeight: 51)
-    .background(.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .background(EchoTheme.Color.ink(0.065), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     .overlay {
       RoundedRectangle(cornerRadius: 16, style: .continuous).fill(
         LinearGradient(
-          colors: [.white.opacity(0.05), .clear], startPoint: .topLeading, endPoint: .bottomTrailing
+          colors: [EchoTheme.Color.ink(0.05), .clear], startPoint: .topLeading, endPoint: .bottomTrailing
         )
       ).allowsHitTesting(false)
     }
@@ -288,12 +288,12 @@ private struct EchoQuickAuthButton: View {
         }
         Text(provider.rawValue).font(.system(size: 14, weight: .medium, design: .rounded))
       }
-      .foregroundStyle(.white.opacity(0.90)).frame(maxWidth: .infinity, minHeight: 48)
-      .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+      .foregroundStyle(EchoTheme.Color.ink(0.90)).frame(maxWidth: .infinity, minHeight: 48)
+      .echoGlassBackground(cornerRadius: 15)
       .overlay {
         RoundedRectangle(cornerRadius: 15, style: .continuous).fill(
           provider == .apple
-            ? .white.opacity(0.08) : EchoTheme.Color.authAccentBlueDeep.opacity(0.14))
+            ? EchoTheme.Color.ink(0.08) : EchoTheme.Color.authAccentBlueDeep.opacity(0.14))
       }
     }
     .buttonStyle(.plain)
@@ -303,7 +303,7 @@ private struct EchoQuickAuthButton: View {
 
 private struct EchoPrimaryButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label.font(.headline.weight(.semibold)).foregroundStyle(.white).frame(
+    configuration.label.font(.headline.weight(.semibold)).foregroundStyle(EchoTheme.Color.onAccent).frame(
       maxWidth: .infinity, minHeight: 54
     )
     .background(
@@ -314,8 +314,8 @@ private struct EchoPrimaryButtonStyle: ButtonStyle {
         ], startPoint: .leading, endPoint: .trailing),
       in: RoundedRectangle(cornerRadius: 18, style: .continuous)
     )
-    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.white.opacity(0.24)))
-    .shadow(color: .indigo.opacity(0.24), radius: 16, y: 8).opacity(
+    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(EchoTheme.Color.ink(0.24)))
+    .echoShadow(color: .indigo.opacity(0.24), radius: 16, y: 8).opacity(
       configuration.isPressed ? 0.78 : 1)
   }
 }

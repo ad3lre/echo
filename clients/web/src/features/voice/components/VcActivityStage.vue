@@ -1725,6 +1725,7 @@ function revealChannelListFromActivity() {
         :src="iframeEmbedActiveSrc"
         class="absolute inset-0 h-full w-full border-0"
         :title="iframeEmbedTitle"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-pointer-lock"
         allow="
           accelerometer;
           autoplay;

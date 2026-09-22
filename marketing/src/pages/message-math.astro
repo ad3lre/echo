@@ -1,0 +1,22 @@
+---
+import LegalMarkdownArticle from '../components/LegalMarkdownArticle.astro';
+import messageLatexMd from '../../terms/en-US/message-latex.md?raw';
+
+const title = 'Math & LaTeX | Echo';
+const description = 'How KaTeX math and LaTeX-like commands work in Echo messages.';
+const lastUpdated = '3 June 2026';
+---
+
+<LegalMarkdownArticle
+  title={title}
+  pageHeading="Math & LaTeX"
+  description={description}
+  canonicalPath="/message-math"
+  lastUpdated={lastUpdated}
+  markdown={messageLatexMd}
+  footerLinks={[
+    { href: '/message-formatting', label: 'Message formatting' },
+    { href: '/terms', label: 'Terms of Service' },
+    { href: '/support', label: 'Support' },
+  ]}
+/>

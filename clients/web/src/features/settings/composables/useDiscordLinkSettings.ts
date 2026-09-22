@@ -6,8 +6,6 @@ import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { messageForDiscordOAuthError } from '@/features/discord/integrationCopy';
 import { startOAuthFlow } from '@/platform/desktopBridge';
 
-const DISCORD_REDIRECT_HINT_KEY = 'echo_discord_oauth_redirect_hint';
-
 export function useDiscordLinkSettings() {
   const authSession = useAuthSessionStore();
 
@@ -17,21 +15,7 @@ export function useDiscordLinkSettings() {
   const connectBusy = ref(false);
   const lastOAuthRedirectUri = ref('');
 
-  function readDiscordRedirectHintFromStorage() {
-    try {
-      const u = sessionStorage.getItem(DISCORD_REDIRECT_HINT_KEY)?.trim();
-      lastOAuthRedirectUri.value = u ?? '';
-    } catch {
-      lastOAuthRedirectUri.value = '';
-    }
-  }
-
   function clearDiscordRedirectHint() {
-    try {
-      sessionStorage.removeItem(DISCORD_REDIRECT_HINT_KEY);
-    } catch {
-      /* ignore */
-    }
     lastOAuthRedirectUri.value = '';
   }
 
@@ -79,11 +63,6 @@ export function useDiscordLinkSettings() {
       const { authorizeUrl, redirectUri } = await authDiscordOAuthStart();
       const ru = redirectUri?.trim() ?? '';
       if (ru) {
-        try {
-          sessionStorage.setItem(DISCORD_REDIRECT_HINT_KEY, ru);
-        } catch {
-          /* ignore */
-        }
         lastOAuthRedirectUri.value = ru;
       }
       startOAuthFlow(authorizeUrl);
@@ -98,7 +77,6 @@ export function useDiscordLinkSettings() {
   }
 
   onMounted(() => {
-    readDiscordRedirectHintFromStorage();
     readOauthReturnError();
     void refresh();
   });

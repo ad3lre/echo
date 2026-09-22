@@ -12,6 +12,8 @@ struct EchoConversationView: View {
   let conversation: EchoDirectMessage
   let baseURL: URL
   let userID: String
+  /// Current user's avatar for optimistic send headers.
+  var selfAvatarURL: String? = nil
   let callModel: EchoCallModel?
 
   @Environment(\.dismiss) private var dismiss
@@ -30,11 +32,13 @@ struct EchoConversationView: View {
     conversation: EchoDirectMessage,
     baseURL: URL,
     userID: String,
+    selfAvatarURL: String? = nil,
     callModel: EchoCallModel? = nil
   ) {
     self.conversation = conversation
     self.baseURL = baseURL
     self.userID = userID
+    self.selfAvatarURL = selfAvatarURL
     self.callModel = callModel
   }
 
@@ -78,7 +82,7 @@ struct EchoConversationView: View {
         )
       } else {
         ProgressView("Loading messages")
-          .tint(.white.opacity(0.78))
+          .tint(EchoTheme.Color.ink(0.78))
           .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
 
@@ -99,13 +103,31 @@ struct EchoConversationView: View {
           try await model.send(submission)
         })
     }
+    .echoSwipeAction(
+      edge: .leading,
+      systemImage: "arrow.left",
+      tint: EchoTheme.Color.indigoSoft,
+      enabled: true,
+      // Edge-only so horizontal pans on media / polls inside the thread
+      // cannot dismiss the conversation.
+      leadingEdgeStartWidth: 36
+    ) {
+      dismiss()
+    }
     .task {
       let timeline =
         model
         ?? EchoMessageTimelineModel(
-          conversation: conversation, baseURL: baseURL, auth: auth, userID: userID)
+          conversation: conversation,
+          baseURL: baseURL,
+          auth: auth,
+          userID: userID,
+          selfAuthorAvatarURL: selfAvatarURL)
       model = timeline
       timeline.auth = auth
+      if let selfAvatarURL {
+        timeline.selfAuthorAvatarURL = selfAvatarURL
+      }
       composerAccessToken =
         (try? await auth.ensureAccessToken()) ?? auth.activeSession?.accessToken ?? ""
       await timeline.loadInitial()
@@ -185,8 +207,15 @@ struct EchoConversationView: View {
         peerProfileView
       }
     #endif
+    .background(alignment: .top) {
+      // Swipe chrome clips the header's own safe-area bleed; paint the notch
+      // band here (outside that clip) so it matches the header fill.
+      EchoTheme.Color.canvas
+        .frame(height: 96)
+        .frame(maxWidth: .infinity)
+        .ignoresSafeArea(edges: .top)
+    }
     .background(EchoConversationBackground().ignoresSafeArea())
-    .preferredColorScheme(.dark)
     // The conversation owns its exit affordance in the header. Hide the
     // NavigationStack back button when opened from Personal Notes so users do
     // not see two competing exits.
@@ -237,7 +266,13 @@ private struct EchoConversationTimeline: View {
   var onPeerProfileTap: (() -> Void)? = nil
   var onReply: ((EchoMessage) -> Void)? = nil
   var onJumpToReply: ((String) -> Void)? = nil
-  @State private var pendingScrollID: String?
+  /// Identity tracked by SwiftUI so prepended history keeps the visible row
+  /// stable without a post-layout `scrollTo` repair.
+  @State private var scrolledMessageID: String?
+  /// Follow the latest message only while the user is already pinned near bottom.
+  @State private var followLatest = true
+  /// Web-parity: leave the top trigger zone before another older-page load.
+  @State private var loadOlderArmed = true
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -245,8 +280,8 @@ private struct EchoConversationTimeline: View {
         LazyVStack(alignment: .leading, spacing: 0) {
           if model.isLoading && model.messages.isEmpty {
             ProgressView("Loading messages")
-              .tint(.white.opacity(0.78))
-              .foregroundStyle(.white.opacity(0.55))
+              .tint(EchoTheme.Color.ink(0.78))
+              .foregroundStyle(EchoTheme.Color.ink(0.55))
               .frame(maxWidth: .infinity)
               .padding(.top, 28)
           } else if let errorMessage = model.errorMessage, model.messages.isEmpty {
@@ -260,20 +295,12 @@ private struct EchoConversationTimeline: View {
               systemImage: "bubble.left.and.bubble.right",
               description: EchoCopy.text("Your conversation is ready when you are.")
             )
-            .foregroundStyle(.white.opacity(0.62))
+            .foregroundStyle(EchoTheme.Color.ink(0.62))
             .frame(maxWidth: .infinity)
             .padding(.top, 84)
           } else {
-            if model.isLoadingOlder {
-              ProgressView()
-                .tint(.white.opacity(0.62))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-            } else if let errorMessage = model.errorMessage, !model.messages.isEmpty {
-              EchoOlderMessagesErrorBanner(message: errorMessage) {
-                _ = await model.loadOlder()
-              }
-            }
+            olderHistoryChrome
+
             ForEach(Array(model.messages.enumerated()), id: \.element.id) { index, message in
               EchoMessageRow(
                 message: message,
@@ -300,43 +327,42 @@ private struct EchoConversationTimeline: View {
               )
               .id(message.id)
               .onAppear {
-                guard index == 0, model.hasMoreBefore else { return }
+                guard index == 0, model.hasMoreBefore, loadOlderArmed else { return }
+                loadOlderArmed = false
                 Task { @MainActor in
-                  if let anchor = await model.loadOlder() {
-                    await Task.yield()
-                    withTransaction(Transaction(animation: nil)) {
-                      proxy.scrollTo(anchor, anchor: .top)
-                    }
-                  }
+                  _ = await model.loadOlder()
                 }
               }
             }
           }
         }
+        .scrollTargetLayout()
         .padding(.horizontal, 18)
         .padding(.vertical, 18)
       }
-      .defaultScrollAnchor(.bottom)
+      // Identity position keeps the visible row stable when older pages are
+      // prepended — no post-layout `scrollTo` compensation. Bottom following
+      // is opt-in via `followLatest` rather than size-change re-anchoring.
+      .scrollPosition(id: $scrolledMessageID, anchor: .bottom)
       .scrollDismissesKeyboard(.interactively)
-      .onChange(of: model.messages.last?.id, initial: true) { _, lastID in
-        guard let lastID else { return }
-        pendingScrollID = lastID
-      }
-      .task(id: pendingScrollID) {
-        guard let lastID = pendingScrollID else { return }
-        // Coalesce rapid catch-up appends into a single bottom scroll.
-        await Task.yield()
-        await Task.yield()
-        guard pendingScrollID == lastID else { return }
-        withTransaction(Transaction(animation: nil)) {
-          proxy.scrollTo(lastID, anchor: .bottom)
+      .onChange(of: scrolledMessageID) { _, messageID in
+        let latestID = model.messages.last?.id
+        followLatest = messageID == nil || messageID == latestID
+        if messageID != model.messages.first?.id {
+          loadOlderArmed = true
         }
+      }
+      .onChange(of: model.messages.last?.id, initial: true) { _, lastID in
+        guard let lastID, followLatest else { return }
+        scrolledMessageID = lastID
       }
       .onChange(of: scrollTargetMessageID) { _, messageID in
         guard let messageID else { return }
+        followLatest = false
         Task {
           await model.reveal(messageID: messageID)
           await Task.yield()
+          scrolledMessageID = messageID
           withTransaction(Transaction(animation: .easeInOut(duration: 0.24))) {
             proxy.scrollTo(messageID, anchor: .center)
           }
@@ -350,6 +376,28 @@ private struct EchoConversationTimeline: View {
           #endif
         }
       )
+    }
+  }
+
+  /// Fixed-height slot while older history exists so the spinner appearing /
+  /// disappearing does not itself shift message rows.
+  @ViewBuilder
+  private var olderHistoryChrome: some View {
+    if model.hasMoreBefore || (model.errorMessage != nil && !model.messages.isEmpty) {
+      ZStack {
+        if model.isLoadingOlder {
+          ProgressView()
+            .tint(EchoTheme.Color.ink(0.62))
+        } else if let errorMessage = model.errorMessage, !model.messages.isEmpty {
+          EchoOlderMessagesErrorBanner(message: errorMessage) {
+            loadOlderArmed = false
+            _ = await model.loadOlder()
+          }
+        }
+      }
+      .frame(maxWidth: .infinity)
+      .frame(minHeight: 44)
+      .padding(.vertical, 4)
     }
   }
 
@@ -382,7 +430,7 @@ private struct EchoTypingIndicator: View {
     if let name, !name.isEmpty {
       Text(EchoCopy.format("%@ is typing…", name))
         .font(.system(size: 12, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.48))
+        .foregroundStyle(EchoTheme.Color.ink(0.48))
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 22)
         .padding(.bottom, 4)

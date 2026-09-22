@@ -3,7 +3,7 @@ import type { Server } from 'socket.io';
 import type pg from 'pg';
 import type { MentionEntity } from '../../../../contracts/types';
 import { fillEchoMessageImageSlot } from '../domain/imageSlotFillOps';
-import { getEchoMessageById } from '../domain/echoStore';
+import { getEchoMessageByIdInChannel } from '../domain/echoStore';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
 import { registerChatUploadRetentionFromMessageUrls } from './uploads/chatUploadRetention';
 
@@ -55,7 +55,7 @@ export async function fillEchoMessageImageSlotAndBroadcast(
     }
   }
 
-  const row = await getEchoMessageById(pool, messageId);
+  const row = await getEchoMessageByIdInChannel(pool, messageId, channelId);
   const editedAt = row?.editedAt ?? new Date().toISOString();
   const plain = row?.searchIndexText ?? row?.content ?? result.content;
   const mf = row?.messageFormatVersion ?? 2;

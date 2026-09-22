@@ -14,10 +14,7 @@ import {
   searchEchoMessagesInChannels,
   type EchoMessageSearchHasType,
 } from '../../../domain/echoStore';
-import {
-  getCachedSearchableChannelIds,
-  setCachedSearchableChannelIds,
-} from '../../../domain/echoSearchChannelCache';
+import { setCachedSearchableChannelIds } from '../../../domain/echoSearchChannelCache';
 import { batchGetEffectiveChannelPermissions } from '../../../domain/echoStore/roles/permissions';
 import {
   echoMessageSearchDurationSeconds,
@@ -53,9 +50,8 @@ async function listSearchableTextChannelIds(
   serverId: string,
   userId: string,
 ): Promise<string[]> {
-  const cached = getCachedSearchableChannelIds(serverId, userId);
-  if (cached) return cached;
-
+  // Recompute the ACL-derived allow-list for every search. A stale list is an
+  // authorization result, so a TTL cache cannot be used as the final guard.
   const chans = await listEchoChannels(pool, serverId);
   const textChannels = chans.filter((ch) => ch.type !== 'voice');
   if (textChannels.length === 0) return [];

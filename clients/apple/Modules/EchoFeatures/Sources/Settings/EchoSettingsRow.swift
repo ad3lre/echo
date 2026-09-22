@@ -76,15 +76,19 @@ struct EchoSettingsRowView: View {
             row.tint.opacity(0.13), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
         VStack(alignment: .leading, spacing: 3) {
           Text(row.title).font(.system(size: 15, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.92))
+            .foregroundStyle(EchoTheme.Color.ink(0.92))
           Text(row.subtitle).font(.system(size: 12, design: .rounded)).foregroundStyle(
-            .white.opacity(0.42)
+            EchoTheme.Color.ink(0.42)
           ).lineLimit(1)
         }
         Spacer(minLength: 8)
         Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(
-          .white.opacity(0.28))
-      }.padding(.horizontal, 14).padding(.vertical, 12)
+          EchoTheme.Color.ink(0.28))
+      }
+      .padding(.horizontal, 14)
+      .padding(.vertical, 12)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
   }

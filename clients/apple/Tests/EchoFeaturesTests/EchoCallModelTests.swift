@@ -166,7 +166,8 @@ private struct FixedE2EEPreparer: EchoVoiceE2EEPreparing {
     channelID: String,
     accessToken: String,
     viewerUserID: String,
-    peerUserID: String?
+    peerUserID: String?,
+    authorizedUserIDs: [String]
   ) async throws -> EchoVoiceE2EEPrepareResult {
     EchoVoiceE2EEPrepareResult(encryption: encryption, deviceID: deviceID)
   }
@@ -191,6 +192,8 @@ private final class FakeCallingClient: EchoCallingServing, @unchecked Sendable {
 private final class FakeCallTransport: EchoCallTransporting, @unchecked Sendable {
   var onStateChange: (@Sendable (EchoCallTransportState) -> Void)?
   var onParticipantCountChange: (@Sendable (Int) -> Void)?
+  var onRemoteParticipantConnected: (@Sendable (String) -> Void)?
+  var onRemoteParticipantDisconnected: (@Sendable (String) -> Void)?
   private(set) var connectCount = 0
   private(set) var lastEncryption: EchoCallMediaEncryption?
   private let autoConnect: Bool
@@ -218,6 +221,7 @@ private final class FakeCallTransport: EchoCallTransporting, @unchecked Sendable
   }
 
   func setMuted(_ muted: Bool) async throws {}
+  func setDeafened(_ deafened: Bool) throws {}
   func setSpeakerEnabled(_ enabled: Bool) throws {}
   func disconnect() async { onStateChange?(.disconnected) }
 }

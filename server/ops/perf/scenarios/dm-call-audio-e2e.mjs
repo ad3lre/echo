@@ -2,7 +2,7 @@
  * E2E DM call audio check: user A calls user B in a DM thread;
  * B accepts; both sides measure remote audio RMS from attached <audio> elements.
  * DM voice E2EE follows the `ECHO_DM_VOICE_E2EE_ENABLED` / `VITE_DM_VOICE_E2EE`
- * flags (off by default).
+ * flags (on by default).
  * Usage: node server/ops/perf/scenarios/dm-call-audio-e2e.mjs [baseUrl]
  */
 import { chromium } from '@playwright/test';
@@ -85,15 +85,31 @@ function wireConsole(page, label) {
       console.log(`[${label}][reqfail]`, r.url(), r.failure()?.errorText);
     }
   });
-  page.on('response', (r) => {
+  page.on('response', async (r) => {
     if (
-      /voice|livekit-session|e2ee|epoch|envelope/i.test(r.url()) &&
+      /voice|livekit-session|e2ee|epoch|envelope|\/mls\//i.test(r.url()) &&
       r.status() >= 400
     ) {
       console.log(`[${label}][http ${r.status()}]`, r.url());
       r.text()
         .then((t) => console.log(`[${label}][body]`, t.slice(0, 300)))
         .catch(() => {});
+    }
+    if (/\/voice\/mls\/init\b/i.test(r.url()) && r.ok()) {
+      console.log(`[${label}][mls-init ok]`, r.url());
+    }
+    if (/livekit-session/i.test(r.url()) && r.ok()) {
+      try {
+        const body = await r.json();
+        if (body?.voiceE2ee) {
+          console.log(
+            `[${label}][livekit-session e2ee]`,
+            JSON.stringify(body.voiceE2ee),
+          );
+        }
+      } catch {
+        /* ignore non-json */
+      }
     }
   });
 }
@@ -301,6 +317,9 @@ async function main() {
   const aHears = hears(resA);
   const bHears = hears(resB);
   console.log(`RESULT: A hears B: ${aHears} | B hears A: ${bHears}`);
+  console.log(
+    'E2EE: inspect [livekit-session e2ee] / [mls-init ok] lines above (DM E2EE defaults on)',
+  );
 
   await browserA.close();
   await browserB.close();

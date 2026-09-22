@@ -38,7 +38,7 @@ struct EchoInboxView: View {
             EchoCopy.text("YOUR SPACE")
               .font(.system(size: 11, weight: .semibold, design: .rounded))
               .tracking(2.2)
-              .foregroundStyle(.white.opacity(0.38))
+              .foregroundStyle(EchoTheme.Color.ink(0.38))
               .padding(.leading, 3)
 
             Group {
@@ -63,11 +63,11 @@ struct EchoInboxView: View {
               }
             }
             .background(
-              .white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+              EchoTheme.Color.ink(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous)
             )
             .overlay(
               RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(.white.opacity(0.075), lineWidth: 1)
+                .stroke(EchoTheme.Color.ink(0.075), lineWidth: 1)
             )
           }
 
@@ -80,7 +80,6 @@ struct EchoInboxView: View {
               requests: model.incomingFriendRequests,
               baseURL: baseURL,
               accessToken: accessToken,
-              isLoading: model.isLoadingFriendRequests,
               errorMessage: model.friendRequestError,
               respondingRequestIDs: model.respondingRequestIDs,
               onAccept: { model.respond(to: $0, accepting: true) },
@@ -119,7 +118,6 @@ struct EchoInboxView: View {
         }
       }
     }
-    .preferredColorScheme(.dark)
     .task {
       let inbox = model ?? EchoInboxModel(baseURL: baseURL, auth: auth)
       inbox.auth = auth

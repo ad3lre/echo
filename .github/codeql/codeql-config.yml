@@ -14,6 +14,18 @@ query-filters:
   - exclude:
       id: js/xss-through-dom
       problem.path: clients/web/src/features/layout/display/captureVideoFrame.ts
+  # Local blob: URLs from createObjectURL only; the detached video element is used for
+  # metadata/frame decoding and cannot interpret the blob as document markup.
+  - exclude:
+      id: js/xss-through-dom
+      problem.path: clients/web/src/features/chat/uploadFingerprint.ts
+  # ssrfSafeFetch is the single network sink for unfurl requests. It rejects
+  # non-HTTPS/credentialed/private targets, resolves every hostname, and uses
+  # safeFetchAgent to pin the checked public address at connection time. CodeQL
+  # cannot follow that asynchronous DNS + custom dispatcher proof at this sink.
+  - exclude:
+      id: js/request-forgery
+      problem.path: server/backend/src/services/linkUnfurl/linkUnfurlFetch.ts
 # Dev/operator scripts and tests are not production attack surface.
 paths-ignore:
   - '**/tests/**'

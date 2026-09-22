@@ -23,14 +23,14 @@ struct EchoSoundsMasterControls: View {
 
         if soundEffectsEnabled {
           Rectangle()
-            .fill(.white.opacity(0.08))
+            .fill(EchoTheme.Color.ink(0.08))
             .frame(height: 1)
             .padding(.vertical, 18)
 
           EchoSettingSlider(
             title: EchoCopy.string("Volume"),
             icon: "speaker.wave.2",
-            tint: Color.white.opacity(0.82),
+            tint: EchoTheme.Color.ink(0.82),
             value: $masterVolume,
             range: 0...100,
             showsIcon: false
@@ -110,14 +110,14 @@ struct EchoSoundWidget: View {
     }
     .padding(12)
     .background(
-      isEnabled ? tint.opacity(0.14) : Color.white.opacity(0.035),
+      isEnabled ? tint.opacity(0.14) : EchoTheme.Color.ink(0.035),
       in: RoundedRectangle(cornerRadius: 16, style: .continuous)
     )
     .overlay {
       RoundedRectangle(cornerRadius: 16, style: .continuous)
         .stroke(tint.opacity(isEnabled ? 0.30 : 0.07), lineWidth: 1)
     }
-    .shadow(color: tint.opacity(isEnabled ? 0.18 : 0), radius: 14)
+    .echoShadow(color: tint.opacity(isEnabled ? 0.18 : 0), radius: 14)
     .opacity(soundEffectsEnabled ? 1 : 0.56)
   }
 }

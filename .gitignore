@@ -219,5 +219,6 @@ echo.instance.json
 
 # Apple/SwiftPM local build (never commit)
 clients/apple/.build/
+clients/apple/build/
 clients/apple/.swiftpm/
 clients/apple/**/DerivedData/

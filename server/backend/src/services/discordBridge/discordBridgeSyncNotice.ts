@@ -18,6 +18,8 @@ import { echoMessagesPersistedTotal } from '../../observability/echoMetrics';
 import { broadcastToEchoChannel } from '../../sockets/channelBroadcast';
 import { echoRowToMessage } from '../echoPersistedMessageCreate';
 import { discordBotPostChannelMessage } from '../integrations/discordApiClient';
+import { ssrfSafeFetch } from '../linkUnfurl/linkUnfurlFetch';
+import { safeFetchAgent } from '../linkUnfurl/safeFetchAgent';
 
 const DISCORD_POST_TIMEOUT_MS = 12_000;
 
@@ -74,15 +76,16 @@ async function postDiscordBridgeSyncNoticeToDiscord(
   const text = content.slice(0, 2000);
   const url = webhookUrl ? normalizeDiscordWebhookUrl(webhookUrl) : null;
   if (url) {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-    if (host !== 'discord.com' && host !== 'canary.discord.com') return;
+    const endpoint = new URL(url);
+    endpoint.searchParams.set('wait', 'true');
     try {
-      const res = await fetch(`${url}?wait=true`, {
+      const res = await ssrfSafeFetch(endpoint.href, {
         method: 'POST',
+        redirect: 'manual',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ content: text, username: 'Echo' }),
         signal: AbortSignal.timeout(DISCORD_POST_TIMEOUT_MS),
+        dispatcher: safeFetchAgent,
       });
       if (!res.ok) {
         const body = await res.text().catch(() => '');

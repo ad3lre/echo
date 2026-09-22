@@ -54,13 +54,27 @@ struct EchoFullProfileView: View {
     #if os(iOS)
       .toolbar(.hidden, for: .navigationBar)
     #endif
-    .preferredColorScheme(.dark)
   }
 }
 
 private struct EchoFullProfilePage: View {
+  private enum MutualTab: String, CaseIterable, Identifiable {
+    case servers
+    case friends
+
+    var id: String { rawValue }
+
+    var title: String {
+      switch self {
+      case .servers: EchoCopy.string("Mutual servers")
+      case .friends: EchoCopy.string("Mutual friends")
+      }
+    }
+  }
+
   @State private var model: EchoFullProfileModel
   @State private var showingRemoveFriendConfirmation = false
+  @State private var mutualTab: MutualTab = .servers
 
   let baseURL: URL
   let accessToken: String
@@ -94,16 +108,27 @@ private struct EchoFullProfilePage: View {
   }
 
   var body: some View {
-    ZStack(alignment: .top) {
-      EchoConversationBackground().ignoresSafeArea()
-      ScrollView(showsIndicators: false) {
-        VStack(spacing: 0) {
-          profileHero
-          profileDetails
+    GeometryReader { proxy in
+      // Full-screen profile ignores the top safe area so the banner can bleed
+      // under the status bar; the reader then often reports 0. Fall back so
+      // chrome stays below the notch / Dynamic Island.
+      #if os(iOS)
+        let topInset = proxy.safeAreaInsets.top > 0 ? proxy.safeAreaInsets.top : 47
+      #else
+        let topInset = proxy.safeAreaInsets.top
+      #endif
+      ZStack(alignment: .top) {
+        EchoConversationBackground().ignoresSafeArea()
+        ScrollView(showsIndicators: false) {
+          VStack(spacing: 0) {
+            profileHero(topInset: topInset)
+            profileDetails
+          }
         }
+        chromeButtons(topInset: topInset)
       }
-      chromeButtons
     }
+    .ignoresSafeArea(edges: .top)
     // Hide the NavigationStack chrome on every hop — root and mutual-friend
     // destinations. Otherwise iOS adds a second back button + title bar on top
     // of our custom close/back controls.
@@ -134,16 +159,16 @@ private struct EchoFullProfilePage: View {
     }
   }
 
-  private var chromeButtons: some View {
+  private func chromeButtons(topInset: CGFloat) -> some View {
     HStack {
       if showsBackButton {
         Button(action: onBack) {
           Image(systemName: "chevron.left")
             .font(.system(size: 15, weight: .bold))
-            .foregroundStyle(.white.opacity(0.9))
+            .foregroundStyle(.white)
             .frame(width: 40, height: 40)
             .background(.black.opacity(0.38), in: Circle())
-            .overlay(Circle().stroke(.white.opacity(0.12)))
+            .overlay(Circle().stroke(Color.white.opacity(0.18)))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(EchoCopy.string("Back"))
@@ -152,25 +177,27 @@ private struct EchoFullProfilePage: View {
       Button(action: onClose) {
         Image(systemName: "xmark")
           .font(.system(size: 14, weight: .bold))
-          .foregroundStyle(.white.opacity(0.9))
+          .foregroundStyle(.white)
           .frame(width: 40, height: 40)
           .background(.black.opacity(0.38), in: Circle())
-          .overlay(Circle().stroke(.white.opacity(0.12)))
+          .overlay(Circle().stroke(Color.white.opacity(0.18)))
       }
       .buttonStyle(.plain)
       .accessibilityLabel(EchoCopy.string("Close profile"))
     }
-    .padding(.top, 12)
+    // Keep the exit control in the same place as before (below the notch),
+    // while the banner itself bleeds under the status bar.
+    .padding(.top, topInset + 12)
     .padding(.horizontal, 16)
   }
 
-  private var profileHero: some View {
+  private func profileHero(topInset: CGFloat) -> some View {
     ZStack(alignment: .bottomLeading) {
       EchoProfileBanner(
         profile: model.profile, baseURL: baseURL, accessToken: accessToken,
         showsRefractionBleed: true
       )
-      .frame(height: 228)
+      .frame(height: 228 + topInset)
 
       LinearGradient(
         colors: [.clear, EchoTheme.Color.canvas.opacity(0.96)],
@@ -199,7 +226,7 @@ private struct EchoFullProfilePage: View {
         HStack(alignment: .center, spacing: 9) {
           Text(model.profile.name)
             .font(.system(size: 27, weight: .bold, design: .rounded))
-            .foregroundStyle(.white)
+            .foregroundStyle(EchoTheme.Color.fg)
             .lineLimit(2)
           if !(model.profile.badges ?? []).isEmpty || model.friendship == .friend {
             HStack(spacing: 6) {
@@ -214,7 +241,7 @@ private struct EchoFullProfilePage: View {
         if let username = model.profile.username, !username.isEmpty {
           Text("@\(username)")
             .font(.system(size: 14, weight: .medium, design: .rounded))
-            .foregroundStyle(.white.opacity(0.5))
+            .foregroundStyle(EchoTheme.Color.ink(0.5))
         }
         Text(presenceLabel)
           .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -229,43 +256,117 @@ private struct EchoFullProfilePage: View {
         profileSection(title: EchoCopy.string("About me")) {
           Text(bio)
             .font(.system(size: 15, weight: .regular, design: .rounded))
-            .foregroundStyle(.white.opacity(0.78))
+            .foregroundStyle(EchoTheme.Color.ink(0.78))
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
       }
 
-      profileSection(title: EchoCopy.string("Mutual friends")) {
-        if model.isLoading && model.mutualFriends.isEmpty {
-          ProgressView()
-            .tint(.white.opacity(0.7))
-            .frame(maxWidth: .infinity, minHeight: 54)
-        } else if model.mutualFriends.isEmpty {
-          Text(EchoCopy.string("No mutual friends"))
-            .font(.system(size: 14, design: .rounded))
-            .foregroundStyle(.white.opacity(0.42))
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        } else {
-          VStack(spacing: 0) {
-            ForEach(model.mutualFriends) { friend in
-              Button {
-                guard !EchoUserIdentity.matches(friend.id, model.profile.id) else { return }
-                onOpenProfile(friend)
-              } label: {
-                mutualFriendRow(friend)
-              }
-              .buttonStyle(.plain)
-              .accessibilityLabel(EchoCopy.format("Open %@ profile", friend.name))
-              if friend.id != model.mutualFriends.last?.id {
-                Divider().overlay(.white.opacity(0.06)).padding(.leading, 48)
-              }
-            }
+      mutualTabsSection
+    }
+    .padding(.horizontal, 22)
+    .padding(.bottom, 42)
+  }
+
+  private var mutualTabsSection: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(spacing: 6) {
+        ForEach(MutualTab.allCases) { tab in
+          Button {
+            mutualTab = tab
+          } label: {
+            Text(tab.title)
+              .font(.system(size: 13, weight: .semibold, design: .rounded))
+              .foregroundStyle(
+                mutualTab == tab ? EchoTheme.Color.ink(0.94) : EchoTheme.Color.ink(0.42)
+              )
+              .padding(.horizontal, 12)
+              .padding(.vertical, 8)
+              .background(
+                mutualTab == tab
+                  ? EchoTheme.Color.ink(0.10)
+                  : Color.clear,
+                in: Capsule(style: .continuous)
+              )
+          }
+          .buttonStyle(.plain)
+          .accessibilityAddTraits(mutualTab == tab ? .isSelected : [])
+        }
+        Spacer(minLength: 0)
+      }
+
+      Group {
+        switch mutualTab {
+        case .servers:
+          mutualServersContent
+        case .friends:
+          mutualFriendsContent
+        }
+      }
+      .padding(16)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(
+        EchoTheme.Color.elevated.opacity(0.84),
+        in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+          .stroke(EchoTheme.Color.ink(0.075))
+      )
+    }
+  }
+
+  @ViewBuilder
+  private var mutualServersContent: some View {
+    if model.isLoading && model.mutualServers.isEmpty {
+      ProgressView()
+        .tint(EchoTheme.Color.ink(0.7))
+        .frame(maxWidth: .infinity, minHeight: 54)
+    } else if model.mutualServers.isEmpty {
+      Text(EchoCopy.string("No mutual servers"))
+        .font(.system(size: 14, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.42))
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+    } else {
+      VStack(spacing: 0) {
+        ForEach(model.mutualServers) { server in
+          mutualServerRow(server)
+          if server.id != model.mutualServers.last?.id {
+            Divider().overlay(EchoTheme.Color.ink(0.06)).padding(.leading, 48)
           }
         }
       }
     }
-    .padding(.horizontal, 22)
-    .padding(.bottom, 42)
+  }
+
+  @ViewBuilder
+  private var mutualFriendsContent: some View {
+    if model.isLoading && model.mutualFriends.isEmpty {
+      ProgressView()
+        .tint(EchoTheme.Color.ink(0.7))
+        .frame(maxWidth: .infinity, minHeight: 54)
+    } else if model.mutualFriends.isEmpty {
+      Text(EchoCopy.string("No mutual friends"))
+        .font(.system(size: 14, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.42))
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+    } else {
+      VStack(spacing: 0) {
+        ForEach(model.mutualFriends) { friend in
+          Button {
+            guard !EchoUserIdentity.matches(friend.id, model.profile.id) else { return }
+            onOpenProfile(friend)
+          } label: {
+            mutualFriendRow(friend)
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(EchoCopy.format("Open %@ profile", friend.name))
+          if friend.id != model.mutualFriends.last?.id {
+            Divider().overlay(EchoTheme.Color.ink(0.06)).padding(.leading, 48)
+          }
+        }
+      }
+    }
   }
 
   private var friendshipButton: some View {
@@ -278,7 +379,7 @@ private struct EchoFullProfilePage: View {
     } label: {
       HStack(spacing: 9) {
         if model.isUpdatingFriendship {
-          ProgressView().tint(.white)
+          ProgressView().tint(EchoTheme.Color.fg)
         } else {
           Image(systemName: friendshipIcon)
             .font(.system(size: 14, weight: .semibold))
@@ -286,13 +387,13 @@ private struct EchoFullProfilePage: View {
         Text(friendshipTitle)
           .font(.system(size: 14, weight: .semibold, design: .rounded))
       }
-      .foregroundStyle(.white.opacity(0.94))
+      .foregroundStyle(EchoTheme.Color.ink(0.94))
       .frame(maxWidth: .infinity)
       .frame(height: 48)
       .background(friendshipTint, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
       .overlay(
         RoundedRectangle(cornerRadius: 15, style: .continuous)
-          .stroke(.white.opacity(0.1))
+          .stroke(EchoTheme.Color.ink(0.1))
       )
     }
     .buttonStyle(.plain)
@@ -306,7 +407,7 @@ private struct EchoFullProfilePage: View {
     VStack(alignment: .leading, spacing: 10) {
       Text(title.uppercased())
         .font(.system(size: 11, weight: .bold, design: .rounded))
-        .foregroundStyle(.white.opacity(0.4))
+        .foregroundStyle(EchoTheme.Color.ink(0.4))
         .tracking(0.8)
       content()
         .padding(16)
@@ -316,7 +417,7 @@ private struct EchoFullProfilePage: View {
         )
         .overlay(
           RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .stroke(.white.opacity(0.075))
+            .stroke(EchoTheme.Color.ink(0.075))
         )
     }
   }
@@ -332,20 +433,49 @@ private struct EchoFullProfilePage: View {
       VStack(alignment: .leading, spacing: 2) {
         Text(friend.name)
           .font(.system(size: 14, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white.opacity(0.9))
+          .foregroundStyle(EchoTheme.Color.ink(0.9))
         if let username = friend.username, !username.isEmpty {
           Text("@\(username)")
             .font(.system(size: 11, design: .rounded))
-            .foregroundStyle(.white.opacity(0.42))
+            .foregroundStyle(EchoTheme.Color.ink(0.42))
         }
       }
       Spacer(minLength: 8)
       Image(systemName: "chevron.right")
         .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(.white.opacity(0.28))
+        .foregroundStyle(EchoTheme.Color.ink(0.28))
     }
     .padding(.vertical, 9)
     .contentShape(Rectangle())
+  }
+
+  private func mutualServerRow(_ server: EchoMutualServerSummary) -> some View {
+    HStack(spacing: 12) {
+      EchoMediaImage(source: server.iconURL, baseURL: baseURL, accessToken: accessToken) {
+        Text(serverInitial(server.name))
+          .font(.system(size: 15, weight: .bold, design: .rounded))
+          .foregroundStyle(.white)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .background(EchoTheme.Color.indigoDeep)
+      }
+      .frame(width: 38, height: 38)
+      .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+      Text(server.name)
+        .font(.system(size: 14, weight: .semibold, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.9))
+        .lineLimit(1)
+      Spacer(minLength: 8)
+    }
+    .padding(.vertical, 9)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(server.name)
+  }
+
+  private func serverInitial(_ name: String) -> String {
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let first = trimmed.first else { return "#" }
+    return String(first).uppercased()
   }
 
   private var friendshipTitle: String {
@@ -369,7 +499,7 @@ private struct EchoFullProfilePage: View {
   private var friendshipTint: Color {
     switch model.friendship {
     case .none, .incoming: EchoTheme.Color.indigoDeep
-    case .outgoing: .white.opacity(0.1)
+    case .outgoing: EchoTheme.Color.ink(0.1)
     case .friend: EchoTheme.Color.elevatedMid
     }
   }

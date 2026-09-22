@@ -81,6 +81,20 @@ function mapObjectVerifyFailure(reason: string): EchoUploadRegisterResult {
         code: 'INVALID_BODY',
         message: 'Uploaded object content type mismatch',
       };
+    case 'CONTENT_INVALID':
+      return {
+        ok: false,
+        httpStatus: 400,
+        code: 'INVALID_BODY',
+        message: 'Uploaded bytes do not match the declared image type',
+      };
+    case 'CONTENT_TOO_LARGE_TO_VERIFY':
+      return {
+        ok: false,
+        httpStatus: 400,
+        code: 'INVALID_BODY',
+        message: 'Image is too large for server-side content verification',
+      };
     case 'NOT_CONFIGURED':
       return {
         ok: false,

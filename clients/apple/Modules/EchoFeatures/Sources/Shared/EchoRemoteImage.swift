@@ -15,12 +15,20 @@ struct EchoRemoteImage<Placeholder: View>: View {
 
   var body: some View {
     Group {
-      if let image = loader.image {
-        image.resizable().aspectRatio(contentMode: contentMode)
+      if let bitmap = loader.bitmap {
+        #if os(iOS)
+          if bitmap.isAnimated {
+            EchoAnimatedUIImage(image: bitmap.uiImage, contentMode: contentMode)
+          } else {
+            bitmap.image.resizable().aspectRatio(contentMode: contentMode)
+          }
+        #else
+          bitmap.image.resizable().aspectRatio(contentMode: contentMode)
+        #endif
       } else {
         placeholder().overlay {
           if loader.isLoading {
-            ProgressView().tint(.white.opacity(0.55))
+            ProgressView().tint(EchoTheme.Color.ink(0.55))
           }
         }
       }
@@ -30,6 +38,37 @@ struct EchoRemoteImage<Placeholder: View>: View {
     }
   }
 }
+
+#if os(iOS)
+  /// SwiftUI `Image(uiImage:)` only shows the first frame of an animated UIImage.
+  private struct EchoAnimatedUIImage: UIViewRepresentable {
+    let image: UIImage
+    var contentMode: ContentMode = .fill
+
+    func makeUIView(context: Context) -> UIImageView {
+      let view = UIImageView()
+      view.clipsToBounds = true
+      view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+      view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+      view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+      view.setContentHuggingPriority(.defaultLow, for: .vertical)
+      apply(to: view)
+      return view
+    }
+
+    func updateUIView(_ uiView: UIImageView, context: Context) {
+      apply(to: uiView)
+    }
+
+    private func apply(to view: UIImageView) {
+      view.image = image
+      view.contentMode = contentMode == .fit ? .scaleAspectFit : .scaleAspectFill
+      if image.images != nil {
+        view.startAnimating()
+      }
+    }
+  }
+#endif
 
 struct EchoDataURL {
   let mimeType: String

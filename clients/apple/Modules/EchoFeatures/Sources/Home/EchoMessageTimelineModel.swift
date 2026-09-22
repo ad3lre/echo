@@ -11,6 +11,9 @@ final class EchoMessageTimelineModel {
   private let client: any EchoMessageTimelineLoading
   @ObservationIgnored var auth: EchoAuthenticationModel
   private let userID: String
+  /// Own avatar for optimistic bubbles — avoids a generated-avatar flash before
+  /// the server payload returns `authorAvatarURL`.
+  var selfAuthorAvatarURL: String?
 
   private(set) var messages: [EchoMessage] = []
   /// Newest pin first — server order from REST / `message:pins`.
@@ -39,12 +42,14 @@ final class EchoMessageTimelineModel {
     baseURL: URL,
     auth: EchoAuthenticationModel,
     userID: String,
+    selfAuthorAvatarURL: String? = nil,
     client: (any EchoMessageTimelineLoading)? = nil
   ) {
     self.conversation = conversation
     self.baseURL = baseURL
     self.auth = auth
     self.userID = userID
+    self.selfAuthorAvatarURL = Self.normalizedAvatarURL(selfAuthorAvatarURL)
     self.client = client ?? EchoHomeClient(baseURL: baseURL)
   }
 
@@ -55,7 +60,8 @@ final class EchoMessageTimelineModel {
     userID: String,
     client: any EchoMessageTimelineLoading,
     messages: [EchoMessage] = [],
-    hasStarted: Bool = false
+    hasStarted: Bool = false,
+    selfAuthorAvatarURL: String? = nil
   ) {
     self.conversation = conversation
     self.baseURL = URL(string: "https://example.com")!
@@ -65,6 +71,7 @@ final class EchoMessageTimelineModel {
     self.messages = messages
     self.hasStarted = hasStarted
     self.hasMoreBefore = true
+    self.selfAuthorAvatarURL = Self.normalizedAvatarURL(selfAuthorAvatarURL)
   }
 
   func loadInitial() async {
@@ -100,18 +107,19 @@ final class EchoMessageTimelineModel {
       messages = page.messages
       hasMoreBefore = page.hasMoreBefore
       pinnedMessageIDs = await pinsTask
+      hydrateSelfAuthorAvatarIfNeeded()
       scheduleMarkLatestRead()
     } catch {
       errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
   }
 
-  /// Prepends the page before the oldest loaded message. Returning the ID of
-  /// the previous first row lets the view restore that row at the same visual
-  /// location after SwiftUI lays out the newly inserted rows.
-  func loadOlder() async -> String? {
+  /// Prepends the page before the oldest loaded message.
+  /// Returns `true` when at least one older message was merged in.
+  @discardableResult
+  func loadOlder() async -> Bool {
     guard !isLoading, !isLoadingOlder, hasMoreBefore, let oldest = messages.first else {
-      return nil
+      return false
     }
     isLoadingOlder = true
     defer { isLoadingOlder = false }
@@ -131,10 +139,10 @@ final class EchoMessageTimelineModel {
       messages = Array((additions + messages).suffix(maximumWindowSize))
       hasMoreBefore = page.hasMoreBefore && !additions.isEmpty
       errorMessage = nil
-      return oldest.id
+      return !additions.isEmpty
     } catch {
       errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-      return nil
+      return false
     }
   }
 
@@ -145,7 +153,7 @@ final class EchoMessageTimelineModel {
     guard !messages.contains(where: { $0.id == messageID }) else { return }
     var pages = 0
     while hasMoreBefore, pages < 20, !messages.contains(where: { $0.id == messageID }) {
-      guard await loadOlder() != nil else { return }
+      guard await loadOlder() else { return }
       pages += 1
     }
   }
@@ -158,6 +166,7 @@ final class EchoMessageTimelineModel {
       channelID: conversation.channelID,
       authorID: userID,
       authorDisplayName: selfAuthorDisplayName,
+      authorAvatarURL: resolvedSelfAuthorAvatarURL,
       content: submission.text,
       timestamp: Date(),
       isCurrentUser: true,
@@ -499,6 +508,31 @@ final class EchoMessageTimelineModel {
       return name
     }
     return EchoCopy.string("You")
+  }
+
+  private var resolvedSelfAuthorAvatarURL: String? {
+    if let url = Self.normalizedAvatarURL(selfAuthorAvatarURL) { return url }
+    return messages.reversed().lazy
+      .first(where: { $0.isCurrentUser })
+      .flatMap { Self.normalizedAvatarURL($0.authorAvatarURL) }
+  }
+
+  private func hydrateSelfAuthorAvatarIfNeeded() {
+    guard Self.normalizedAvatarURL(selfAuthorAvatarURL) == nil else { return }
+    selfAuthorAvatarURL = messages.reversed().lazy
+      .compactMap { message -> String? in
+        guard message.isCurrentUser else { return nil }
+        return Self.normalizedAvatarURL(message.authorAvatarURL)
+      }
+      .first
+  }
+
+  private static func normalizedAvatarURL(_ raw: String?) -> String? {
+    guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty
+    else {
+      return nil
+    }
+    return trimmed
   }
 
   private func scheduleMarkLatestRead() {

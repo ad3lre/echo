@@ -4,25 +4,26 @@ import SwiftUI
 struct EchoSettingDetailView: View {
   @Environment(\.dismiss) var dismiss
   @Environment(\.openURL) var openURL
+  @Environment(\.colorScheme) private var colorScheme
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
   let route: EchoSettingsRoute
   let icon: String
   let tint: Color
   let baseURL: URL
   let accessToken: String
   let onSignOut: () -> Void
-  @AppStorage("echo.settings.appearance.reduceMotion") private var reduceMotion = false
-  @AppStorage("echo.settings.accessibility.largerText") private var largerText = false
+  @AppStorage(EchoDisplayPreferences.Keys.reduceMotion) private var reduceMotion = false
+  @AppStorage(EchoDisplayPreferences.Keys.largerText) private var largerText = false
   @AppStorage("echo.settings.time24Hour") private var uses24HourTime = false
-  @AppStorage("echo.settings.style.syncTheme") private var syncTheme = false
-  @AppStorage("echo.settings.style.saturateAccents") private var saturateAccents = false
-  @AppStorage("echo.settings.style.theme") private var theme = "dark"
-  @AppStorage("echo.settings.style.density") private var density = "comfortable"
-  @AppStorage("echo.settings.style.actionRail") private var actionRail = "left"
-  @AppStorage("echo.settings.style.fontScale") private var fontScale = 100.0
-  @AppStorage("echo.settings.accessibility.highContrast") private var highContrast = false
-  @AppStorage("echo.settings.accessibility.messageSpacing") private var showMessageSpacing = true
-  @AppStorage("echo.settings.accessibility.dyslexiaFont") private var dyslexiaFont = false
-  @AppStorage("echo.settings.accessibility.solidGlass") private var solidGlass = false
+  @AppStorage(EchoDisplayPreferences.Keys.syncTheme) private var syncTheme = false
+  @AppStorage(EchoDisplayPreferences.Keys.saturateAccents) private var saturateAccents = false
+  @AppStorage(EchoDisplayPreferences.Keys.theme) private var theme = "dark"
+  @AppStorage(EchoDisplayPreferences.Keys.density) private var density = "comfortable"
+  @AppStorage(EchoDisplayPreferences.Keys.fontScale) private var fontScale = 100.0
+  @AppStorage(EchoDisplayPreferences.Keys.highContrast) private var highContrast = false
+  @AppStorage(EchoDisplayPreferences.Keys.messageSpacing) private var showMessageSpacing = true
+  @AppStorage(EchoDisplayPreferences.Keys.dyslexiaFont) private var dyslexiaFont = false
+  @AppStorage(EchoDisplayPreferences.Keys.solidGlass) private var solidGlass = false
   @AppStorage("echo.settings.voice.echoCancellation") private var echoCancellation = true
   @AppStorage("echo.settings.voice.noiseSuppression") private var noiseSuppression = true
   @AppStorage("echo.settings.voice.automaticGainControl") private var automaticGainControl = true
@@ -79,7 +80,8 @@ struct EchoSettingDetailView: View {
 
   var body: some View {
     @Bindable var model = model
-    ScrollView(.vertical, showsIndicators: false) {
+    let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+    return ScrollView(.vertical, showsIndicators: false) {
       LazyVStack(alignment: .leading, spacing: 14) {
         EchoSettingDetailHeader(
           title: title, description: model.detailDescription, icon: icon, tint: tint,
@@ -150,12 +152,25 @@ struct EchoSettingDetailView: View {
             }
           }
         case .style:
-          EchoDetailSection(title: EchoCopy.string("Motion")) {
-            EchoSettingChoice(
-              title: EchoCopy.string("Theme"), subtitle: EchoCopy.string("Choose how Echo looks"),
-              icon: "circle.lefthalf.filled",
-              tint: .indigo, value: $theme,
-              options: [("dark", "Dark"), ("light", "Light"), ("system", "System")])
+          EchoDetailSection(title: EchoCopy.string("Appearance")) {
+            VStack(alignment: .leading, spacing: 10) {
+              Text(EchoCopy.string("Theme"))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+              Text(EchoCopy.string("Choose how Echo looks"))
+                .font(.system(size: 12, design: .rounded))
+                .foregroundStyle(.secondary)
+              EchoThemePicker(theme: $theme, syncTheme: $syncTheme)
+            }
+            .onChange(of: theme) { _, next in
+              // Picking a concrete swatch turns off OS sync (web behavior).
+              // Migrate legacy "system" id if still present in storage.
+              if next == "system" {
+                syncTheme = true
+                theme = "dark"
+              } else if syncTheme {
+                syncTheme = false
+              }
+            }
             EchoSettingChoice(
               title: EchoCopy.string("Density"),
               subtitle: EchoCopy.string("Control spacing across the app"),
@@ -164,34 +179,32 @@ struct EchoSettingDetailView: View {
               options: [
                 ("compact", "Compact"), ("comfortable", "Comfortable"), ("spacious", "Spacious"),
               ])
-            EchoSettingChoice(
-              title: EchoCopy.string("Action rail"),
-              subtitle: EchoCopy.string("Choose where actions appear"), icon: "sidebar.left",
-              tint: .purple, value: $actionRail,
-              options: [("left", "Left"), ("top", "Top")])
-            EchoSettingSlider(
-              title: EchoCopy.string("Text scale"), icon: "textformat.size", tint: .cyan,
-              value: $fontScale,
-              range: 85...130, valueScale: 1.0)
-            EchoSettingToggle(
-              title: EchoCopy.string("Reduce motion"),
-              subtitle: EchoCopy.string("Use gentler transitions across Echo"),
-              icon: "figure.walk.motion", tint: .green, isOn: $reduceMotion)
             EchoSettingToggle(
               title: EchoCopy.string("Sync with system appearance"),
               subtitle: EchoCopy.string("Follow iPhone Light and Dark Mode"),
               icon: "circle.lefthalf.filled", tint: .indigo, isOn: $syncTheme)
+            .onChange(of: syncTheme) { _, enabled in
+              // Keep Amoled/Sunny swatch while syncing — OS only swaps light↔dark
+              // (web resolveEffective*Variant). Migrate legacy "system" storage.
+              if enabled, theme == "system" {
+                theme = "dark"
+              }
+            }
             EchoSettingToggle(
               title: EchoCopy.string("Saturate accent colors"),
               subtitle: EchoCopy.string("Make Echo colors more vivid"),
               icon: "paintpalette.fill", tint: .purple, isOn: $saturateAccents)
             EchoCopy.text(
-              "Echo follows your system appearance and keeps its dark-first visual language."
+              "Dark, Light, Amoled, and Sunny adapt Echo’s surfaces; density and accents apply across the app."
             )
             .font(.footnote).foregroundStyle(.secondary)
           }
         case .accessibility:
           EchoDetailSection(title: EchoCopy.string("Readability")) {
+            EchoSettingSlider(
+              title: EchoCopy.string("Text scale"), icon: "textformat.size", tint: .cyan,
+              value: $fontScale,
+              range: 85...130, valueScale: 1.0)
             EchoSettingToggle(
               title: EchoCopy.string("Larger text"),
               subtitle: EchoCopy.string("Increase text size throughout Echo"),
@@ -212,8 +225,14 @@ struct EchoSettingDetailView: View {
               title: EchoCopy.string("Solid glass surfaces"),
               subtitle: EchoCopy.string("Reduce translucency for clearer panels"),
               icon: "square.fill", tint: .cyan, isOn: $solidGlass)
-            EchoCopy.text("Echo uses Dynamic Type throughout native settings.").font(.footnote)
-              .foregroundStyle(.secondary)
+            EchoSettingToggle(
+              title: EchoCopy.string("Reduce motion"),
+              subtitle: EchoCopy.string("Use gentler transitions across Echo"),
+              icon: "figure.walk.motion", tint: .green, isOn: $reduceMotion)
+            EchoCopy.text(
+              "Text scale, contrast, spacing, and motion apply live. Reduce motion also follows the system setting."
+            )
+            .font(.footnote).foregroundStyle(.secondary)
           }
         case .timeLanguage:
           EchoDetailSection(title: EchoCopy.string("Time format")) {
@@ -341,12 +360,12 @@ struct EchoSettingDetailView: View {
                 VStack(alignment: .leading, spacing: 4) {
                   EchoCopy.text("Download all my data")
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(EchoTheme.Color.fg)
                   EchoCopy.text(
                     "Exports your account, sessions, friends, blocks, and DM metadata as JSON."
                   )
                   .font(.system(size: 12, design: .rounded))
-                  .foregroundStyle(.white.opacity(0.48))
+                  .foregroundStyle(EchoTheme.Color.ink(0.48))
                   .multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 8)
@@ -355,7 +374,9 @@ struct EchoSettingDetailView: View {
                     ? EchoCopy.string("Preparing…") : EchoCopy.string("Export")
                 )
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(model.isExportingData ? 0.42 : 0.72))
+                .foregroundStyle(
+                  EchoTheme.Color.ink(model.isExportingData ? 0.42 : 0.72)
+                )
               }
               .padding(.vertical, 4)
               .contentShape(Rectangle())
@@ -366,7 +387,7 @@ struct EchoSettingDetailView: View {
 
             EchoCopy.text("Friend and DM request preferences are under Friends.")
               .font(.system(size: 12, design: .rounded))
-              .foregroundStyle(.white.opacity(0.42))
+              .foregroundStyle(EchoTheme.Color.ink(0.42))
               .padding(.top, 4)
           }
         case .advanced:

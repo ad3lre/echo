@@ -25,20 +25,25 @@ struct EchoMessageComposer: View {
   @State private var showingFileImporter = false
   @State private var showingPoll = false
   @State private var editorHeight: CGFloat = 20
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
 
   var body: some View {
     @Bindable var state = state
     VStack(spacing: 9) {
       if let error = state.errorMessage {
         Text(error)
-          .font(.system(size: 12, weight: .medium, design: .rounded))
+          .font(displayPrefs.uiFont(size: 12, weight: .medium))
           .foregroundStyle(.red.opacity(0.88))
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal, 6)
       }
 
       if let replyTo {
-        EchoComposerReplyBar(replyTo: replyTo) {
+        EchoComposerReplyBar(
+          replyTo: replyTo,
+          apiBaseURL: baseURL,
+          accessToken: accessToken
+        ) {
           self.replyTo = nil
           state.replyTo = nil
         }
@@ -71,8 +76,8 @@ struct EchoMessageComposer: View {
         ZStack(alignment: .leading) {
           if state.text.isEmpty {
             Text(placeholder)
-              .font(.system(size: EchoTheme.Typography.composer, design: .rounded))
-              .foregroundStyle(.white.opacity(0.34))
+              .font(displayPrefs.uiFont(size: EchoTheme.Typography.composer))
+              .foregroundStyle(displayPrefs.ink(0.34))
               .padding(.leading, 1)
               .lineLimit(1)
               .truncationMode(.tail)
@@ -95,16 +100,16 @@ struct EchoMessageComposer: View {
         } label: {
           Group {
             if state.isSending {
-              ProgressView().controlSize(.small).tint(.white)
+              ProgressView().controlSize(.small).tint(EchoTheme.Color.onAccent)
             } else {
               Image(systemName: "paperplane.fill")
                 .font(.system(size: 14, weight: .semibold))
                 .offset(x: -1, y: 1)
             }
           }
-          .foregroundStyle(state.canSend ? .white : .white.opacity(0.30))
+          .foregroundStyle(state.canSend ? EchoTheme.Color.onAccent : EchoTheme.Color.ink(0.30))
           .frame(width: 36, height: 36)
-          .background(state.canSend ? composerAccent : .white.opacity(0.045), in: Circle())
+          .background(state.canSend ? composerAccent : EchoTheme.Color.ink(0.045), in: Circle())
         }
         .buttonStyle(.plain)
         .disabled(!state.canSend)
@@ -117,9 +122,9 @@ struct EchoMessageComposer: View {
       .background(composerSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
       .overlay {
         RoundedRectangle(cornerRadius: 22, style: .continuous)
-          .stroke(.white.opacity(0.085), lineWidth: 1)
+          .stroke(EchoTheme.Color.ink(0.085), lineWidth: 1)
       }
-      .shadow(color: .black.opacity(0.42), radius: 18, y: 8)
+      .echoShadow(color: .black.opacity(0.42), radius: 18, y: 8)
     }
     .padding(.horizontal, 12)
     .padding(.top, 7)
@@ -206,7 +211,7 @@ struct EchoMessageComposer: View {
     case .attachment:
       Image(systemName: "plus")
         .font(.system(size: 17, weight: .semibold))
-        .foregroundStyle(selected ? .white : .white.opacity(0.58))
+        .foregroundStyle(selected ? EchoTheme.Color.onAccent : EchoTheme.Color.ink(0.58))
     case .emoji:
       EchoWebEmotesIcon()
     }
@@ -375,9 +380,9 @@ private struct EchoAttachmentPanel: View {
         panelChip("chart.bar", "Poll", action: onCreatePoll)
       }
       .padding(4)
-      .background(.white.opacity(0.045), in: Capsule())
+      .background(EchoTheme.Color.ink(0.045), in: Capsule())
       .overlay {
-        Capsule().stroke(.white.opacity(0.06), lineWidth: 1)
+        Capsule().stroke(EchoTheme.Color.ink(0.06), lineWidth: 1)
       }
       .padding(.bottom, 10)
 
@@ -391,7 +396,7 @@ private struct EchoAttachmentPanel: View {
       )
       .overlay {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .stroke(.white.opacity(0.05), lineWidth: 1)
+          .stroke(EchoTheme.Color.ink(0.05), lineWidth: 1)
       }
     }
     .padding(12)
@@ -401,9 +406,9 @@ private struct EchoAttachmentPanel: View {
     )
     .overlay {
       RoundedRectangle(cornerRadius: 20, style: .continuous)
-        .stroke(.white.opacity(0.08), lineWidth: 1)
+        .stroke(EchoTheme.Color.ink(0.08), lineWidth: 1)
     }
-    .shadow(color: .black.opacity(0.34), radius: 16, y: 7)
+    .echoShadow(color: .black.opacity(0.34), radius: 16, y: 7)
   }
 
   private func panelChip(
@@ -418,7 +423,7 @@ private struct EchoAttachmentPanel: View {
           .lineLimit(1)
           .minimumScaleFactor(0.85)
       }
-      .foregroundStyle(active ? .white : .white.opacity(0.58))
+      .foregroundStyle(active ? EchoTheme.Color.onAccent : EchoTheme.Color.ink(0.58))
       .frame(maxWidth: .infinity)
       .padding(.vertical, 8)
       .background(active ? accent : .clear, in: Capsule())

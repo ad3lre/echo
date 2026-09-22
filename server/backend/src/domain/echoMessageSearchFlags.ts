@@ -71,14 +71,17 @@ function mimeLooksDocument(mime: string): boolean {
 }
 
 function attachmentLooksImage(input: {
+  kind: string;
   mime: string;
   name: string;
   url: string;
 }): boolean {
-  // Prefer mime + extension evidence. Do not trust bare `kind: image` — legacy
-  // rows sometimes labeled PDFs as images, and client search tests encode that.
+  // Document mime wins over a mislabeled `kind: image` (legacy rows).
   if (mimeLooksDocument(input.mime)) return false;
+  // `kind: image` from native clients is trustworthy when mime isn't a document.
+  // Mime/extension still catch mis-tagged rows and extension-only evidence.
   return (
+    input.kind === 'image' ||
     input.mime.startsWith('image/') ||
     IMAGE_EXT_RE.test(input.name) ||
     IMAGE_EXT_RE.test(input.url)
@@ -116,7 +119,7 @@ function attachmentKindSignals(attachments: unknown): AttachmentKindSignals {
       continue;
     }
 
-    if (attachmentLooksImage({ mime, name, url })) {
+    if (attachmentLooksImage({ kind, mime, name, url })) {
       hasImage = true;
       continue;
     }

@@ -54,6 +54,7 @@ backend/prisma/migrations
 
 # Apple SwiftPM / Xcode local build checkouts
 clients/apple/.build/
+clients/apple/build/
 clients/apple/.swiftpm/
 clients/apple/**/DerivedData/
 

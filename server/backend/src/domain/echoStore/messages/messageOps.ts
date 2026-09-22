@@ -4,6 +4,12 @@ import type {
   MessageAttachmentPayload,
 } from '../../../../../../contracts/types';
 import { isEchoMessageAuthorOrLinkedTwin } from '../../discord/discordTwinMessageAuth';
+import { getEchoChannelServerId } from '../members/access';
+import { getEffectiveChannelPermissions } from '../roles/permissions';
+import {
+  forumCreatorCanModerateMessagesInOwnPost,
+  getForumPostCreatorAccess,
+} from '../community/forumCreatorAccess';
 import {
   selectEchoMessageAuthorDeleted,
   softDeleteEchoMessageSql,
@@ -91,17 +97,31 @@ export async function softDeleteEchoMessage(
   channelId: string,
   messageId: string,
   actorId: string,
-  asModerator: boolean,
 ): Promise<'ok' | 'not_found' | 'forbidden'> {
   const row = await selectEchoMessageAuthorDeleted(pool, channelId, messageId);
   if (!row) return 'not_found';
   if (row.deleted) return 'forbidden';
   if (
     row.authorId !== actorId &&
-    !asModerator &&
     !(await isEchoMessageAuthorOrLinkedTwin(pool, actorId, row.authorId))
   ) {
-    return 'forbidden';
+    const serverId = await getEchoChannelServerId(pool, channelId);
+    if (!serverId) return 'forbidden';
+    const perms = await getEffectiveChannelPermissions(
+      pool,
+      serverId,
+      actorId,
+      channelId,
+    );
+    const forumAccess = await getForumPostCreatorAccess(pool, channelId);
+    const canModerate =
+      perms.has('MANAGE_MESSAGES') ||
+      perms.has('MODERATE_MEMBERS') ||
+      (forumAccess?.serverId === serverId &&
+        forumCreatorCanModerateMessagesInOwnPost(forumAccess, actorId));
+    if (!canModerate) {
+      return 'forbidden';
+    }
   }
   await softDeleteEchoMessageSql(pool, channelId, messageId);
   return 'ok';

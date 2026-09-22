@@ -8,6 +8,21 @@ import SwiftUI
 public struct EchoRootView: View {
   @Environment(EchoAuthenticationModel.self) private var model
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.colorScheme) private var colorScheme
+
+  @AppStorage(EchoDisplayPreferences.Keys.theme) private var theme = "dark"
+  @AppStorage(EchoDisplayPreferences.Keys.syncTheme) private var syncTheme = false
+  @AppStorage(EchoDisplayPreferences.Keys.density) private var density = "comfortable"
+  @AppStorage(EchoDisplayPreferences.Keys.fontScale) private var fontScale = 100.0
+  @AppStorage(EchoDisplayPreferences.Keys.saturateAccents) private var saturateAccents = false
+  @AppStorage(EchoDisplayPreferences.Keys.reduceMotion) private var reduceMotion = false
+  @AppStorage(EchoDisplayPreferences.Keys.largerText) private var largerText = false
+  @AppStorage(EchoDisplayPreferences.Keys.highContrast) private var highContrast = false
+  @AppStorage(EchoDisplayPreferences.Keys.messageSpacing) private var messageSpacing = true
+  @AppStorage(EchoDisplayPreferences.Keys.dyslexiaFont) private var dyslexiaFont = false
+  @AppStorage(EchoDisplayPreferences.Keys.solidGlass) private var solidGlass = false
+
+  @State private var displayPrefs = EchoDisplayPreferences()
   @State private var showingEntryActions = false
   @State private var authPage: EchoAuthPage = .welcome
 
@@ -15,8 +30,24 @@ public struct EchoRootView: View {
 
   public var body: some View {
     @Bindable var model = model
+    let _ = displayPrefs.sync(
+      theme: theme,
+      syncTheme: syncTheme,
+      density: density,
+      fontScale: fontScale,
+      saturateAccents: saturateAccents,
+      reduceMotion: reduceMotion,
+      largerText: largerText,
+      highContrast: highContrast,
+      messageSpacing: messageSpacing,
+      dyslexiaFont: dyslexiaFont,
+      solidGlass: solidGlass
+    )
+    let scheme = displayPrefs.preferredColorScheme ?? colorScheme
+    let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+
     ZStack {
-      EchoTheme.Color.launch.ignoresSafeArea()
+      displayPrefs.launch(colorScheme: scheme).ignoresSafeArea()
       if model.isRestoringSession {
         EchoSessionRestoreView()
       } else if let session = model.activeSession {
@@ -45,15 +76,20 @@ public struct EchoRootView: View {
     // areas behind the status bar and home indicator. Each child adds its
     // own safe-area padding where interactive content needs it.
     .ignoresSafeArea(.container, edges: .all)
-    .preferredColorScheme(.dark)
+    .echoApplyLiveAppearance(displayPrefs, systemScheme: colorScheme)
+    .echoRespectReducedMotion()
+    // Environment must wrap modifiers that read `EchoDisplayPreferences`
+    // (glass / reduce-motion); applying it earlier crashes on launch.
+    .environment(displayPrefs)
+    .task {
+      EchoDisplayPreferences.registerBundledFontsIfNeeded()
+      EchoNetworkPath.startMonitoring()
+      await model.restoreStoredSessionIfNeeded()
+    }
     #if os(iOS)
       .statusBarHidden(true)
     #endif
     .persistentSystemOverlays(.hidden)
-    .task {
-      EchoNetworkPath.startMonitoring()
-      await model.restoreStoredSessionIfNeeded()
-    }
     .onChange(of: scenePhase) { _, phase in
       guard phase == .active else { return }
       EchoNetworkPath.startMonitoring()
@@ -91,7 +127,7 @@ public struct EchoRootView: View {
               Task { await model.restoreStoredSessionIfNeeded() }
             } : nil
         ) { page in
-          withAnimation(.easeInOut(duration: 0.28)) { authPage = page }
+          animateAuth { authPage = page }
         }
       case .signIn:
         EchoAuthScreen(mode: .signIn, model: model, onBack: returnToWelcome)
@@ -99,13 +135,24 @@ public struct EchoRootView: View {
         EchoAuthScreen(mode: .register, model: model, onBack: returnToWelcome)
       }
     }
-    .animation(.easeInOut(duration: 0.28), value: authPage)
+    .animation(
+      displayPrefs.prefersReducedMotion ? nil : .easeInOut(duration: 0.28),
+      value: authPage
+    )
   }
 
   private func returnToWelcome() {
-    withAnimation(.easeInOut(duration: 0.28)) {
+    animateAuth {
       showingEntryActions = false
       authPage = .welcome
+    }
+  }
+
+  private func animateAuth(_ updates: () -> Void) {
+    if displayPrefs.prefersReducedMotion {
+      updates()
+    } else {
+      withAnimation(.easeInOut(duration: 0.28), updates)
     }
   }
 
@@ -127,10 +174,13 @@ public struct EchoRootView: View {
 }
 
 private struct EchoSessionRestoreView: View {
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.colorScheme) private var colorScheme
+
   var body: some View {
     GeometryReader { proxy in
       ZStack {
-        EchoTheme.Color.launch
+        displayPrefs.launch(colorScheme: colorScheme)
 
         RadialGradient(
           colors: [
@@ -146,11 +196,11 @@ private struct EchoSessionRestoreView: View {
         VStack(spacing: 7) {
           EchoLaunchWordmark()
           EchoCopy.text("A better place to talk.")
-            .font(.system(size: 14, weight: .regular, design: .default))
-            .foregroundStyle(.white.opacity(0.68))
+            .font(displayPrefs.uiFont(size: 14))
+            .foregroundStyle(displayPrefs.ink(0.68))
         }
-        .foregroundStyle(.white.opacity(0.96))
-        .shadow(color: Color.purple.opacity(0.20), radius: 22)
+        .foregroundStyle(displayPrefs.ink(0.96))
+        .echoShadow(color: Color.purple.opacity(0.20), radius: 22)
       }
       .frame(width: proxy.size.width, height: proxy.size.height)
     }

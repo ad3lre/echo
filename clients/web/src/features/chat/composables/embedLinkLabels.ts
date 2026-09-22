@@ -1,3 +1,7 @@
+import {
+  contentWithoutInlineGifHostUrls,
+  isInlineGifHostEmbed,
+} from '@shared/gifHostLinks';
 import type { Embed } from '@shared/types';
 
 /** Markdown link label: avoid breaking `]` / `(` in titles. */
@@ -15,21 +19,30 @@ function sanitizeLinkTitle(title: string): string {
 /**
  * When link previews exist, show the embed title in the message body instead of the raw URL.
  * Operates on plain text before markdown — URLs must match `embed.url` exactly.
+ * Inline Tenor/Giphy GIFs are stripped entirely (shown as media, not links).
  */
 export function applyEmbedTitlesToMessageContent(
   content: string,
   embeds: Embed[] | undefined,
 ): string {
   if (!content || !embeds?.length) return content;
+  const withoutGifLinks = contentWithoutInlineGifHostUrls(content, embeds);
+  if (!withoutGifLinks) return '';
   const pairs = embeds
-    .filter((e) => e.url?.trim() && e.title?.trim() && !e.echoJump)
+    .filter(
+      (e) =>
+        e.url?.trim() &&
+        e.title?.trim() &&
+        !e.echoJump &&
+        !isInlineGifHostEmbed(e),
+    )
     .map((e) => ({
       url: e.url!.trim(),
       title: sanitizeLinkTitle(e.title!.trim()),
     }))
     .filter((p) => p.title.length > 0)
     .sort((a, b) => b.url.length - a.url.length);
-  let out = content;
+  let out = withoutGifLinks;
   for (const { url, title } of pairs) {
     const re = new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
     out = out.replace(re, `[${title}](${url})`);

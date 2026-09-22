@@ -5,6 +5,48 @@ const FALLBACK_IMAGE =
 /** Echo/API avatars are sometimes stored without a leading slash; allow only tight path chars. */
 const BARE_RELATIVE_PATH = /^[\w\-./%~]+$/;
 
+function isSafeDataImageUrl(value: string): boolean {
+  // Data URLs are restricted to raster image media types. In particular, do not
+  // pass SVG or HTML data to an image element where browser behavior varies.
+  return /^data:image\/(?:png|gif|jpe?g|webp|avif)(?:;[a-z0-9=._-]+)*,[\s\S]+$/i.test(
+    value,
+  );
+}
+
+type ImageSourceKind =
+  | 'absolute'
+  | 'protocol-relative'
+  | 'relative'
+  | 'invalid';
+
+function classifyImageSource(value: string): ImageSourceKind {
+  const isProtocolRelative = value[0] === '/' && value[1] === '/';
+  const isRootRelative = value[0] === '/';
+  let parsed: URL;
+  try {
+    parsed = new URL(value, 'https://echo.invalid');
+  } catch {
+    return 'invalid';
+  }
+  if (parsed.protocol === 'data:')
+    return isSafeDataImageUrl(value) ? 'absolute' : 'invalid';
+  if (
+    parsed.protocol === 'http:' ||
+    parsed.protocol === 'https:' ||
+    parsed.protocol === 'blob:'
+  ) {
+    if (isProtocolRelative) return 'protocol-relative';
+    if (isRootRelative || parsed.origin !== 'https://echo.invalid')
+      return 'absolute';
+    return isBareRelativePath(value) ? 'relative' : 'invalid';
+  }
+  return 'invalid';
+}
+
+function isSafeImageSource(value: string): boolean {
+  return classifyImageSource(value) !== 'invalid';
+}
+
 function isBareRelativePath(trimmed: string): boolean {
   return (
     trimmed.length > 0 &&
@@ -37,21 +79,7 @@ export function isTrustedMediaUrl(url: string | undefined | null): boolean {
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim();
   if (!trimmed) return false;
-  const lower = trimmed.slice(0, 12).toLowerCase();
-  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:')) {
-    return false;
-  }
-  if (trimmed.startsWith('//')) return true;
-  if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('data:') ||
-    trimmed.startsWith('blob:') ||
-    trimmed.startsWith('/')
-  ) {
-    return true;
-  }
-  return isBareRelativePath(trimmed);
+  return isSafeImageSource(trimmed);
 }
 
 /**
@@ -62,23 +90,14 @@ export function safeImageUrl(url: string | undefined | null): string {
   if (!url || typeof url !== 'string') return FALLBACK_IMAGE;
   const trimmed = url.trim();
   if (!trimmed) return FALLBACK_IMAGE;
-  const lower = trimmed.slice(0, 12).toLowerCase();
-  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:')) {
-    return FALLBACK_IMAGE;
-  }
-  if (trimmed.startsWith('//')) {
+  const kind = classifyImageSource(trimmed);
+  if (kind === 'protocol-relative') {
     return `https:${trimmed}`;
   }
-  if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('data:') ||
-    trimmed.startsWith('blob:') ||
-    trimmed.startsWith('/')
-  ) {
+  if (kind === 'absolute') {
     return trimmed;
   }
-  if (isBareRelativePath(trimmed)) {
+  if (kind === 'relative') {
     return `/${trimmed.replace(/^\/+/, '')}`;
   }
   return FALLBACK_IMAGE;

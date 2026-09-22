@@ -26,8 +26,13 @@ import {
 } from '../servers/serverEvents';
 import {
   batchGetEffectiveChannelPermissions,
+  getEffectiveChannelPermissions,
   getMergedRolePermissions,
 } from '../roles/permissions';
+import {
+  isUserBannedFromServer,
+  isUserCommunicationTimedOut,
+} from '../members/access';
 import { listEchoServersForUser } from '../servers/servers';
 import {
   applyForumCreatorManageChannelBoost,
@@ -1669,6 +1674,118 @@ export async function deleteEchoCategory(
   }
 }
 
+type CreateEchoChannelOptions = {
+  parentChannelId?: string | null;
+  forumAvailableTags?: unknown;
+  forumPostTagIds?: unknown;
+  forumPostPinned?: boolean;
+  forumPostLocked?: boolean;
+  forumPostArchivedAt?: Date | null;
+  forumPostCreatorUserId?: string | null;
+  discordVoiceMirrorOnly?: boolean;
+  /** Internal actor binding used by actor-aware wrappers at the INSERT boundary. */
+  actorIdForPersistence?: string;
+};
+
+/**
+ * Actor-aware boundary for privileged channel creation. Internal import,
+ * webhook, and ticket workflows use createEchoChannel directly because they
+ * have their own trust and authorization policy.
+ */
+export async function createEchoChannelForActor(
+  pool: pg.Pool,
+  serverId: string,
+  actorId: string,
+  name: string,
+  type: 'text' | 'voice' | 'forum' | 'stage' | 'paper' | 'selfRoles',
+  categoryId: string | null,
+  iconKey?: string,
+  opts?: CreateEchoChannelOptions,
+): Promise<
+  string | 'invalid_category' | 'forbidden_channel_type' | 'forbidden'
+> {
+  const member = await pool.query(
+    `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
+    [serverId, actorId],
+  );
+  if (member.rows.length === 0) return 'forbidden';
+  if (await isUserBannedFromServer(pool, serverId, actorId)) return 'forbidden';
+  if (await isUserCommunicationTimedOut(pool, serverId, actorId))
+    return 'forbidden';
+  const perms = await getMergedRolePermissions(pool, serverId, actorId);
+  if (!perms.has('MANAGE_CHANNELS')) return 'forbidden';
+  const created = await createEchoChannel(
+    pool,
+    serverId,
+    name,
+    type,
+    categoryId,
+    iconKey,
+    {
+      ...opts,
+      actorIdForPersistence: actorId,
+    },
+  );
+  if (created === 'forbidden_channel_type' && type !== 'selfRoles') {
+    return 'forbidden';
+  }
+  return created;
+}
+
+/**
+ * Actor-aware forum post channel creation. Forum posts are created by users
+ * with SEND_MESSAGES in the parent forum, so this is intentionally separate
+ * from the MANAGE_CHANNELS wrapper used for administrative channel creation.
+ */
+export async function createEchoForumPostChannel(
+  pool: pg.Pool,
+  serverId: string,
+  actorId: string,
+  forumChannelId: string,
+  name: string,
+  categoryId: string | null,
+  opts: CreateEchoChannelOptions,
+): Promise<string | 'invalid_category' | 'forbidden'> {
+  const parent = await pool.query(
+    `SELECT type, server_id, category_id
+     FROM echo_channels WHERE id = $1 AND server_id = $2`,
+    [forumChannelId, serverId],
+  );
+  const row = parent.rows[0];
+  if (!row || String(row.type) !== 'forum') return 'forbidden';
+  if (String(row.category_id ?? '') !== String(categoryId ?? '')) {
+    return 'forbidden';
+  }
+  if (opts.forumPostCreatorUserId !== actorId) return 'forbidden';
+  if (await isUserBannedFromServer(pool, serverId, actorId)) return 'forbidden';
+  if (await isUserCommunicationTimedOut(pool, serverId, actorId)) {
+    return 'forbidden';
+  }
+  const perms = await getEffectiveChannelPermissions(
+    pool,
+    serverId,
+    actorId,
+    forumChannelId,
+  );
+  if (!perms.has('VIEW_CHANNEL') || !perms.has('SEND_MESSAGES')) {
+    return 'forbidden';
+  }
+  const created = await createEchoChannel(
+    pool,
+    serverId,
+    name,
+    'text',
+    categoryId,
+    undefined,
+    {
+      ...opts,
+      parentChannelId: forumChannelId,
+      actorIdForPersistence: actorId,
+    },
+  );
+  return created === 'forbidden_channel_type' ? 'forbidden' : created;
+}
+
 export async function createEchoChannel(
   pool: pg.Pool,
   serverId: string,
@@ -1676,17 +1793,7 @@ export async function createEchoChannel(
   type: 'text' | 'voice' | 'forum' | 'stage' | 'paper' | 'selfRoles',
   categoryId: string | null,
   iconKey?: string,
-  opts?: {
-    parentChannelId?: string | null;
-    forumAvailableTags?: unknown;
-    forumPostTagIds?: unknown;
-    forumPostPinned?: boolean;
-    forumPostLocked?: boolean;
-    forumPostArchivedAt?: Date | null;
-    forumPostCreatorUserId?: string | null;
-    /** Display-only Discord VC roster mirror; CONNECT denied for @everyone. */
-    discordVoiceMirrorOnly?: boolean;
-  },
+  opts?: CreateEchoChannelOptions,
 ): Promise<string | 'invalid_category' | 'forbidden_channel_type'> {
   if (type === 'selfRoles') return 'forbidden_channel_type';
   const cid = categoryId != null ? String(categoryId).trim() : '';
@@ -1727,27 +1834,58 @@ export async function createEchoChannel(
   const mirrorOnly = opts?.discordVoiceMirrorOnly === true;
   const resolvedIconKey =
     type === 'stage' && (ik == null || ik === '') ? 'sofa' : ik;
-  await pool.query(
-    `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, parent_channel_id, forum_available_tags, forum_post_tag_ids, forum_post_pinned, forum_post_locked, forum_post_archived_at, forum_post_creator_user_id, discord_voice_mirror_only)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15)`,
-    [
-      id,
-      serverId,
-      channelDisplayName,
-      type,
-      cid || null,
-      pos,
-      resolvedIconKey,
-      parent,
-      forumTagsJson,
-      postTagIdsJson,
-      postPinned,
-      postLocked,
-      postArchivedAt,
-      postCreator,
-      mirrorOnly,
-    ],
-  );
+  const actorId = opts?.actorIdForPersistence?.trim() || '';
+  const insert = actorId
+    ? await pool.query(
+        `WITH authorized_member AS (
+           SELECT 1 FROM echo_server_members
+           WHERE server_id = $2 AND user_id = $16
+           FOR KEY SHARE
+         )
+         INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, parent_channel_id, forum_available_tags, forum_post_tag_ids, forum_post_pinned, forum_post_locked, forum_post_archived_at, forum_post_creator_user_id, discord_voice_mirror_only)
+         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15
+         FROM authorized_member`,
+        [
+          id,
+          serverId,
+          channelDisplayName,
+          type,
+          cid || null,
+          pos,
+          resolvedIconKey,
+          parent,
+          forumTagsJson,
+          postTagIdsJson,
+          postPinned,
+          postLocked,
+          postArchivedAt,
+          postCreator,
+          mirrorOnly,
+          actorId,
+        ],
+      )
+    : await pool.query(
+        `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, parent_channel_id, forum_available_tags, forum_post_tag_ids, forum_post_pinned, forum_post_locked, forum_post_archived_at, forum_post_creator_user_id, discord_voice_mirror_only)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15)`,
+        [
+          id,
+          serverId,
+          channelDisplayName,
+          type,
+          cid || null,
+          pos,
+          resolvedIconKey,
+          parent,
+          forumTagsJson,
+          postTagIdsJson,
+          postPinned,
+          postLocked,
+          postArchivedAt,
+          postCreator,
+          mirrorOnly,
+        ],
+      );
+  if (actorId && (insert.rowCount ?? 0) === 0) return 'forbidden_channel_type';
   if (type === 'stage') {
     await pool.query(
       `INSERT INTO echo_channel_permission_overwrite_rows (id, server_id, channel_id, target_type, target_id, partial)

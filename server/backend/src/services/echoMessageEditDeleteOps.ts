@@ -115,18 +115,11 @@ export async function deleteEchoMessageAndBroadcast(
   channelId: string,
   messageId: string,
   actorId: string,
-  asModerator: boolean,
 ): Promise<'ok' | 'not_found' | 'forbidden'> {
   const before = await selectEchoMessageChannelRef(pool, messageId, channelId);
   if (!before || before.deleted) return 'not_found';
 
-  const r = await softDeleteEchoMessage(
-    pool,
-    channelId,
-    messageId,
-    actorId,
-    asModerator,
-  );
+  const r = await softDeleteEchoMessage(pool, channelId, messageId, actorId);
   if (r !== 'ok') return r;
 
   const sid = await getEchoChannelServerId(pool, channelId);
@@ -141,7 +134,6 @@ export async function deleteEchoMessageAndBroadcast(
       {
         channelId,
         authorId: before.authorId,
-        asModerator,
       },
     );
     botEventBus.emitBotEvent({

@@ -14,7 +14,7 @@ import {
   patchEchoForumPost,
   validateEchoForumPostCreateFirstMessagePoll,
   copyEchoChannelPermissionOverwrites,
-  createEchoChannel,
+  createEchoForumPostChannel,
   forumCreatorCanManagePostFlags,
   getForumPostCreatorAccess,
   type PatchEchoChannelInput,
@@ -191,15 +191,14 @@ export default async function echoChannelsRoutes(
       }
       const title = deriveForumPostTitle(content);
 
-      const postChannelId = await createEchoChannel(
+      const postChannelId = await createEchoForumPostChannel(
         pool,
         forum.serverId,
+        getAuthUser(req).id,
+        forumChannelId,
         title,
-        'text',
         forum.categoryId,
-        undefined,
         {
-          parentChannelId: forumChannelId,
           forumPostTagIds: tagIds,
           forumPostPinned: false,
           forumPostLocked: false,
@@ -207,6 +206,15 @@ export default async function echoChannelsRoutes(
           forumPostCreatorUserId: getAuthUser(req).id,
         },
       );
+      if (postChannelId === 'forbidden') {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'You do not have permission to create posts in this forum.',
+          'NO_SEND',
+        );
+      }
       if (postChannelId === 'invalid_category') {
         return sendError(reply, 409, 'CONFLICT', 'Invalid category');
       }

@@ -144,6 +144,11 @@ async function main() {
   await run('rejects plain http unfurl targets', () => {
     assert.equal(isUrlSafeForOutboundFetch('http://example.com/path'), false);
     assert.equal(isUrlSafeForOutboundFetch('https://example.com/path'), true);
+    assert.equal(
+      isUrlSafeForOutboundFetch('https://user:pass@example.com/path'),
+      false,
+    );
+    assert.equal(isUrlSafeForOutboundFetch('httpsx://example.com/path'), false);
   });
 
   await run('rejects loopback and private IPv6 unfurl targets', () => {

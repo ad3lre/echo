@@ -319,6 +319,7 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
                   : 'Embedded video player'
               "
               :allow="iframeAllow"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
               allowfullscreen
               loading="lazy"
               referrerpolicy="strict-origin-when-cross-origin"

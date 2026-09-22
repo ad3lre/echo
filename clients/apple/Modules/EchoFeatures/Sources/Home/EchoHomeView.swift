@@ -7,7 +7,9 @@ import SwiftUI
 public struct EchoHomeView: View {
   @Environment(\.openURL) private var openURL
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.colorScheme) private var colorScheme
   @Environment(EchoAuthenticationModel.self) private var auth
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
   let baseURL: URL
   let userID: String
   let onSignOut: () -> Void
@@ -37,7 +39,8 @@ public struct EchoHomeView: View {
   }
 
   public var body: some View {
-    VStack(spacing: 0) {
+    let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+    return VStack(spacing: 0) {
       if let homeModel {
         if showingProfileEdit, let profile = homeModel.snapshot?.profile {
           EchoProfileEditView(
@@ -229,6 +232,8 @@ public struct EchoHomeView: View {
         onSignOut: onSignOut
       )
       .environment(auth)
+      .environment(displayPrefs)
+      .echoApplyLiveAppearance(displayPrefs, systemScheme: colorScheme)
     }
     #if os(iOS)
       .fullScreenCover(
@@ -265,6 +270,7 @@ public struct EchoHomeView: View {
           conversation: conversation,
           baseURL: baseURL,
           userID: userID,
+          selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
           callModel: callModel
         )
         .environment(auth)
@@ -276,6 +282,7 @@ public struct EchoHomeView: View {
           conversation: conversation,
           baseURL: baseURL,
           userID: userID,
+          selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
           callModel: callModel
         )
         .environment(auth)

@@ -2,6 +2,10 @@ import EchoDomain
 import EchoNetworking
 import SwiftUI
 
+#if canImport(UIKit)
+  import UIKit
+#endif
+
 /// Full-screen, conversation-scoped message search for iOS and macOS.
 struct EchoConversationSearchView: View {
   let conversation: EchoDirectMessage
@@ -21,17 +25,23 @@ struct EchoConversationSearchView: View {
   var body: some View {
     VStack(spacing: 0) {
       searchChrome
-      if let model {
-        EchoConversationSearchFilters(model: model) {
-          filterEpoch &+= 1
+      Group {
+        if let model {
+          EchoConversationSearchFilters(model: model) {
+            filterEpoch &+= 1
+          }
+          .padding(.top, 10)
+          .padding(.bottom, 8)
         }
-        .padding(.top, 10)
-        .padding(.bottom, 8)
+        searchContent
       }
-      searchContent
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .contentShape(Rectangle())
+      .simultaneousGesture(
+        TapGesture().onEnded { dismissSearchKeyboard() }
+      )
     }
     .background(EchoConversationBackground().ignoresSafeArea())
-    .preferredColorScheme(.dark)
     .task {
       let searchModel =
         model
@@ -65,10 +75,10 @@ struct EchoConversationSearchView: View {
       HStack(spacing: 10) {
         Image(systemName: "magnifyingglass")
           .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.44))
+          .foregroundStyle(EchoTheme.Color.ink(0.44))
         TextField(EchoCopy.string("Search"), text: $query)
           .font(.system(size: 16, weight: .regular, design: .rounded))
-          .foregroundStyle(.white)
+          .foregroundStyle(EchoTheme.Color.fg)
           .focused($searchFocused)
           .submitLabel(.search)
           #if os(iOS)
@@ -76,6 +86,15 @@ struct EchoConversationSearchView: View {
           #endif
           .autocorrectionDisabled()
           .accessibilityLabel(EchoCopy.string("Search messages"))
+          // While focused, the first tap on the field only dismisses the keyboard —
+          // it must not reposition the caret. After blur, taps focus/move normally.
+          .overlay {
+            if searchFocused {
+              Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { dismissSearchKeyboard() }
+            }
+          }
         if !query.isEmpty {
           Button {
             query = ""
@@ -83,7 +102,7 @@ struct EchoConversationSearchView: View {
           } label: {
             Image(systemName: "xmark.circle.fill")
               .font(.system(size: 15))
-              .foregroundStyle(.white.opacity(0.36))
+              .foregroundStyle(EchoTheme.Color.ink(0.36))
           }
           .buttonStyle(.plain)
           .accessibilityLabel(EchoCopy.string("Clear search"))
@@ -97,7 +116,7 @@ struct EchoConversationSearchView: View {
       .overlay {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
           .stroke(
-            searchFocused ? EchoTheme.Color.indigo.opacity(0.85) : .white.opacity(0.09),
+            searchFocused ? EchoTheme.Color.indigo.opacity(0.85) : EchoTheme.Color.ink(0.09),
             lineWidth: 1)
       }
 
@@ -106,14 +125,14 @@ struct EchoConversationSearchView: View {
       } label: {
         Image(systemName: "chevron.right")
           .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.78))
+          .foregroundStyle(EchoTheme.Color.ink(0.78))
           .frame(width: 40, height: 44)
           .background(
             EchoTheme.Color.elevatedMid, in: RoundedRectangle(cornerRadius: 14, style: .continuous)
           )
           .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-              .stroke(.white.opacity(0.09), lineWidth: 1)
+              .stroke(EchoTheme.Color.ink(0.09), lineWidth: 1)
           }
           .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
       }
@@ -123,6 +142,15 @@ struct EchoConversationSearchView: View {
     .padding(.horizontal, 16)
     .padding(.top, 12)
     .animation(.easeOut(duration: 0.18), value: searchFocused)
+  }
+
+  private func dismissSearchKeyboard() {
+    guard searchFocused else { return }
+    searchFocused = false
+    #if canImport(UIKit)
+      UIApplication.shared.sendAction(
+        #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    #endif
   }
 
   @ViewBuilder
@@ -153,7 +181,7 @@ struct EchoConversationSearchView: View {
           if !model.results.isEmpty {
             Text(EchoCopy.format("%lld results", model.results.count))
               .font(.system(size: 11, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.38))
+              .foregroundStyle(EchoTheme.Color.ink(0.38))
               .frame(maxWidth: .infinity, alignment: .leading)
               .padding(.bottom, 2)
           }
@@ -173,7 +201,7 @@ struct EchoConversationSearchView: View {
           }
           if model.isLoadingMore {
             ProgressView()
-              .tint(.white.opacity(0.62))
+              .tint(EchoTheme.Color.ink(0.62))
               .padding(.vertical, 14)
           }
         }
@@ -200,10 +228,10 @@ private struct EchoSearchEmptyState: View {
         .background(EchoTheme.Color.indigo.opacity(0.14), in: Circle())
       Text(title)
         .font(.system(size: 17, weight: .semibold, design: .rounded))
-        .foregroundStyle(.white.opacity(0.92))
+        .foregroundStyle(EchoTheme.Color.ink(0.92))
       Text(message)
         .font(.system(size: 13, weight: .regular, design: .rounded))
-        .foregroundStyle(.white.opacity(0.46))
+        .foregroundStyle(EchoTheme.Color.ink(0.46))
         .multilineTextAlignment(.center)
         .frame(maxWidth: 260)
     }
@@ -215,10 +243,10 @@ private struct EchoSearchEmptyState: View {
 private struct EchoSearchLoadingState: View {
   var body: some View {
     VStack(spacing: 14) {
-      ProgressView().tint(.white.opacity(0.75)).scaleEffect(1.1)
+      ProgressView().tint(EchoTheme.Color.ink(0.75)).scaleEffect(1.1)
       Text(EchoCopy.string("Loading messages"))
         .font(.system(size: 14, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.52))
+        .foregroundStyle(EchoTheme.Color.ink(0.52))
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
@@ -235,7 +263,7 @@ private struct EchoSearchFailureState: View {
         .foregroundStyle(.orange.opacity(0.86))
       Text(message)
         .font(.system(size: 14, weight: .regular, design: .rounded))
-        .foregroundStyle(.white.opacity(0.58))
+        .foregroundStyle(EchoTheme.Color.ink(0.58))
         .multilineTextAlignment(.center)
         .frame(maxWidth: 280)
       Button(EchoCopy.string("Try again")) {
@@ -255,13 +283,28 @@ private struct EchoConversationSearchResult: View {
   let onSelect: () -> Void
   @Environment(EchoAuthenticationModel.self) private var auth
 
-  private var previewAttachment: EchoMessageAttachment? {
-    message.attachments.first(where: \.isImage)
-      ?? message.attachments.first(where: \.isVideo)
-      ?? message.attachments.first
+  private var imageAttachments: [EchoMessageAttachment] {
+    let fromEmbeds = EchoGifHostLinks.inlineGifAttachments(from: message.embeds)
+    return message.attachments.filter(\.isImage) + fromEmbeds
+  }
+
+  private var videoAttachments: [EchoMessageAttachment] {
+    message.attachments.filter(\.isVideo)
+  }
+
+  private var otherAttachments: [EchoMessageAttachment] {
+    message.attachments.filter { !$0.isImage && !$0.isVideo }
+  }
+
+  private var displayContent: String {
+    EchoGifHostLinks.contentWithoutInlineGifHostURLs(message.content, embeds: message.embeds)
   }
 
   private var accessToken: String? { auth.activeSession?.accessToken }
+
+  private var hasVisualMedia: Bool {
+    !imageAttachments.isEmpty || !videoAttachments.isEmpty
+  }
 
   var body: some View {
     Button(action: onSelect) {
@@ -279,58 +322,70 @@ private struct EchoConversationSearchResult: View {
         .clipShape(Circle())
         .frame(width: 34, height: 34)
 
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
           HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(message.authorDisplayName ?? conversation.displayName)
               .font(.system(size: 14, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.94))
+              .foregroundStyle(EchoTheme.Color.ink(0.94))
               .lineLimit(1)
             if let timestamp = message.timestamp {
               Text(EchoMessageTimestampFormatter.string(from: timestamp))
                 .font(.system(size: 11, design: .rounded))
-                .foregroundStyle(.white.opacity(0.36))
+                .foregroundStyle(EchoTheme.Color.ink(0.36))
                 .lineLimit(1)
             }
             Spacer(minLength: 0)
             Image(systemName: "arrow.up.right")
               .font(.system(size: 11, weight: .semibold))
-              .foregroundStyle(.white.opacity(0.28))
+              .foregroundStyle(EchoTheme.Color.ink(0.28))
           }
 
-          HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 6) {
-              if !message.content.isEmpty {
-                EchoMarkdownView(
-                  markdown: message.content,
-                  mentions: message.mentions,
-                  apiBaseURL: baseURL,
-                  accessToken: accessToken
-                )
-                .lineLimit(3)
-              } else if let pollQuestion = message.poll?.question,
-                !pollQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-              {
-                Label(pollQuestion, systemImage: "chart.bar.fill")
-                  .font(.system(size: 13, weight: .medium, design: .rounded))
-                  .foregroundStyle(.white.opacity(0.62))
-                  .lineLimit(2)
-              } else if previewAttachment == nil {
-                Text(EchoCopy.string("Empty message"))
-                  .font(.system(size: 13, weight: .medium, design: .rounded))
-                  .foregroundStyle(.white.opacity(0.42))
-              }
+          if !displayContent.isEmpty {
+            EchoMarkdownView(
+              markdown: displayContent,
+              mentions: message.mentions,
+              apiBaseURL: baseURL,
+              accessToken: accessToken
+            )
+            .lineLimit(3)
+          } else if let pollQuestion = message.poll?.question,
+            !pollQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+          {
+            Label(pollQuestion, systemImage: "chart.bar.fill")
+              .font(.system(size: 13, weight: .medium, design: .rounded))
+              .foregroundStyle(EchoTheme.Color.ink(0.62))
+              .lineLimit(2)
+          } else if !hasVisualMedia && otherAttachments.isEmpty {
+            Text(EchoCopy.string("Empty message"))
+              .font(.system(size: 13, weight: .medium, design: .rounded))
+              .foregroundStyle(EchoTheme.Color.ink(0.42))
+          }
 
-              if !message.attachments.isEmpty {
-                mediaBadges
-              }
-            }
+          if !imageAttachments.isEmpty {
+            EchoMessageMediaCollage(
+              images: imageAttachments,
+              baseURL: baseURL,
+              accessToken: accessToken,
+              maxWidth: .infinity
+            )
             .frame(maxWidth: .infinity, alignment: .leading)
+            .allowsHitTesting(false)
+          }
 
-            if let attachment = previewAttachment {
-              searchMediaThumb(attachment)
-            }
+          ForEach(Array(videoAttachments.prefix(2).enumerated()), id: \.offset) { _, attachment in
+            EchoVideoAttachmentPreview(
+              attachment: attachment,
+              baseURL: baseURL,
+              accessToken: auth.activeSession?.accessToken
+            ) {}
+            .allowsHitTesting(false)
+          }
+
+          if !otherAttachments.isEmpty {
+            mediaBadges(for: otherAttachments)
           }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
       .padding(14)
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -340,7 +395,7 @@ private struct EchoConversationSearchResult: View {
       )
       .overlay {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-          .stroke(.white.opacity(0.07), lineWidth: 1)
+          .stroke(EchoTheme.Color.ink(0.07), lineWidth: 1)
       }
     }
     .buttonStyle(.plain)
@@ -350,30 +405,17 @@ private struct EchoConversationSearchResult: View {
   }
 
   @ViewBuilder
-  private var mediaBadges: some View {
-    let images = message.attachments.filter(\.isImage).count
-    let videos = message.attachments.filter(\.isVideo).count
-    let audio = message.attachments.filter(\.isAudio).count
-    let docs = message.attachments.filter(\.isDocument).count
+  private func mediaBadges(for attachments: [EchoMessageAttachment]) -> some View {
+    let audio = attachments.filter(\.isAudio).count
+    let docs = attachments.filter(\.isDocument).count
     HStack(spacing: 6) {
-      if images > 0 {
-        mediaBadge(
-          images == 1 ? EchoCopy.string("Image") : EchoCopy.format("%lld images", images),
-          systemImage: "photo")
-      }
-      if videos > 0 {
-        mediaBadge(
-          videos == 1 ? EchoCopy.string("Video") : EchoCopy.format("%lld videos", videos),
-          systemImage: "film")
-      }
       if audio > 0 {
         mediaBadge(EchoCopy.string("Audio"), systemImage: "waveform")
       }
       if docs > 0 {
         mediaBadge(
           docs == 1
-            ? (message.attachments.first(where: \.isDocument)?.filename
-              ?? EchoCopy.string("File"))
+            ? (attachments.first(where: \.isDocument)?.filename ?? EchoCopy.string("File"))
             : EchoCopy.format("%lld files", docs),
           systemImage: "doc.fill")
       }
@@ -383,56 +425,10 @@ private struct EchoConversationSearchResult: View {
   private func mediaBadge(_ title: String, systemImage: String) -> some View {
     Label(title, systemImage: systemImage)
       .font(.system(size: 11, weight: .semibold, design: .rounded))
-      .foregroundStyle(.white.opacity(0.58))
+      .foregroundStyle(EchoTheme.Color.ink(0.58))
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
-      .background(.white.opacity(0.06), in: Capsule())
+      .background(EchoTheme.Color.ink(0.06), in: Capsule())
       .lineLimit(1)
-  }
-
-  @ViewBuilder
-  private func searchMediaThumb(_ attachment: EchoMessageAttachment) -> some View {
-    ZStack {
-      if attachment.isImage {
-        EchoMediaImage(
-          source: attachment.url,
-          baseURL: baseURL,
-          accessToken: accessToken,
-          storageKey: attachment.storageKey,
-          contentMode: .fill
-        ) {
-          Color.white.opacity(0.06)
-            .overlay(ProgressView().controlSize(.mini).tint(.white.opacity(0.45)))
-        }
-      } else if attachment.isVideo {
-        Color.black.opacity(0.35)
-          .overlay {
-            Image(systemName: "play.fill")
-              .font(.system(size: 16, weight: .semibold))
-              .foregroundStyle(.white.opacity(0.9))
-          }
-      } else if attachment.isAudio {
-        Color.white.opacity(0.06)
-          .overlay {
-            Image(systemName: "waveform")
-              .font(.system(size: 16, weight: .semibold))
-              .foregroundStyle(.white.opacity(0.7))
-          }
-      } else {
-        Color.white.opacity(0.06)
-          .overlay {
-            Image(systemName: "doc.fill")
-              .font(.system(size: 16, weight: .semibold))
-              .foregroundStyle(.white.opacity(0.7))
-          }
-      }
-    }
-    .frame(width: 52, height: 52)
-    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-    .overlay {
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .stroke(.white.opacity(0.1), lineWidth: 1)
-    }
-    .accessibilityHidden(true)
   }
 }

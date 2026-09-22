@@ -18,7 +18,7 @@ struct EchoConversationHeader: View {
       Button(action: onExit) {
         Image(systemName: "arrow.left")
           .font(.system(size: 17, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.88))
+          .foregroundStyle(EchoTheme.Color.ink(0.88))
           .frame(width: 38, height: 38)
           .contentShape(Rectangle())
       }
@@ -43,19 +43,19 @@ struct EchoConversationHeader: View {
           VStack(alignment: .leading, spacing: 1) {
             Text(conversation.displayName)
               .font(.system(size: 15, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.94))
+              .foregroundStyle(EchoTheme.Color.ink(0.94))
               .lineLimit(1)
             if let username = conversation.username, !username.isEmpty {
               Text("@\(username)")
                 .font(.system(size: 11, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.42))
+                .foregroundStyle(EchoTheme.Color.ink(0.42))
                 .lineLimit(1)
             }
           }
 
           Image(systemName: "chevron.right")
             .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.34))
+            .foregroundStyle(EchoTheme.Color.ink(0.34))
             .padding(.leading, 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -82,10 +82,8 @@ struct EchoConversationHeader: View {
     .padding(.horizontal, 14)
     .padding(.top, 14)
     .padding(.bottom, 14)
-    .background {
-      EchoTheme.Color.canvas
-        .ignoresSafeArea(edges: .top)
-    }
+    .frame(maxWidth: .infinity)
+    .background(EchoTheme.Color.canvas)
   }
 
   private func conversationAction(
@@ -99,7 +97,7 @@ struct EchoConversationHeader: View {
       Image(systemName: systemName)
         .font(.system(size: size, weight: .medium))
         .foregroundStyle(
-          emphasized ? EchoTheme.Color.indigoSoft : .white.opacity(0.68)
+          emphasized ? EchoTheme.Color.indigoSoft : EchoTheme.Color.ink(0.68)
         )
         .frame(width: 31, height: 34)
         .contentShape(Rectangle())
@@ -120,19 +118,19 @@ struct EchoOlderMessagesErrorBanner: View {
         .foregroundStyle(.orange.opacity(0.9))
       Text(message)
         .font(.system(size: 12, weight: .regular, design: .rounded))
-        .foregroundStyle(.white.opacity(0.62))
+        .foregroundStyle(EchoTheme.Color.ink(0.62))
         .lineLimit(2)
       Spacer(minLength: 4)
       Button(EchoCopy.string("Retry")) {
         Task { await retry() }
       }
       .font(.system(size: 12, weight: .semibold, design: .rounded))
-      .foregroundStyle(.white.opacity(0.88))
+      .foregroundStyle(EchoTheme.Color.ink(0.88))
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity)
-    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .background(EchoTheme.Color.ink(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     .padding(.bottom, 8)
   }
 }
@@ -145,10 +143,10 @@ struct EchoConversationErrorView: View {
     VStack(spacing: 12) {
       Image(systemName: "wifi.exclamationmark")
         .font(.system(size: 22, weight: .medium))
-        .foregroundStyle(.white.opacity(0.55))
+        .foregroundStyle(EchoTheme.Color.ink(0.55))
       Text(message)
         .font(.system(size: 14, weight: .regular, design: .rounded))
-        .foregroundStyle(.white.opacity(0.58))
+        .foregroundStyle(EchoTheme.Color.ink(0.58))
         .multilineTextAlignment(.center)
       Button(EchoCopy.string("Try again")) {
         Task { await retry() }

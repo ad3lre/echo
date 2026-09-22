@@ -7,7 +7,7 @@ import {
 } from '../../../auth/stepUpAuth';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
-  createEchoChannel,
+  createEchoChannelForActor,
   deleteEchoServerByOwner,
   getEchoServerCapabilitiesForUser,
   insertEchoAudit,
@@ -25,11 +25,9 @@ import {
   setEchoServerEventRsvp,
   listEchoServerEventsForManagement,
 } from '../../../domain/echoStore';
-import {
-  canUserCreateEchoChannel,
-  isMemberOfServer,
-} from '../../../domain/permissions/echoPermissions';
+import { isMemberOfServer } from '../../../domain/permissions/echoPermissions';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
+import { evictUserFromEchoServerRealtimeScopes } from '../../../platform/echoRealtimeMembership';
 import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
 import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './mutationRateLimits';
 import { echoPool, requireEchoStore, trimEchoPathParam } from './routeUtils';
@@ -460,18 +458,6 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const allowed = await canUserCreateEchoChannel(
-        pool,
-        sid,
-        getAuthUser(req).id,
-      );
-      if (!allowed)
-        return sendError(
-          reply,
-          403,
-          'FORBIDDEN',
-          'Not allowed to create channels',
-        );
       const name =
         clampEchoChannelName(
           typeof req.body?.name === 'string' ? req.body.name : 'channel',
@@ -499,9 +485,10 @@ export default async function echoServerScopedRoutes(
         return sendError(reply, 400, 'INVALID_BODY', 'No category on server');
       const iconKey =
         typeof req.body?.iconKey === 'string' ? req.body.iconKey : undefined;
-      const channelId = await createEchoChannel(
+      const channelId = await createEchoChannelForActor(
         pool,
         sid,
+        getAuthUser(req).id,
         name,
         type,
         categoryId,
@@ -516,6 +503,14 @@ export default async function echoServerScopedRoutes(
           400,
           'INVALID_BODY',
           'Channel type cannot be created manually',
+        );
+      }
+      if (channelId === 'forbidden') {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Not allowed to create channels',
         );
       }
       const auditId = await insertEchoAudit(
@@ -595,6 +590,12 @@ export default async function echoServerScopedRoutes(
           'Cannot transfer ownership to a banned user',
         );
       }
+      // Ownership changes can remove the former owner's implicit all-channel
+      // permission. Evict their channel rooms before the next event loop turn.
+      await evictUserFromEchoServerRealtimeScopes(fastify, pool, {
+        serverId: sid,
+        userId: getAuthUser(req).id,
+      });
       const auditId = await insertEchoAudit(
         pool,
         sid,

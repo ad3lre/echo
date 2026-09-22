@@ -1,30 +1,22 @@
-import { createHmac, scryptSync, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const OAUTH_COOKIE_MAC_SALT = 'echo-oauth-cookie-mac-v1';
 
 /**
- * Domain-separated MAC key derivation. This is NOT password storage — passwords
- * use bcrypt in the auth store. scrypt here derives a fixed HMAC signing key from
- * the server master secret with N=2^14 / r=8 / p=1 (sufficient for key derivation).
- */
-function resolveOAuthCookieMacKey(masterSecret: string): Buffer {
-  return scryptSync(masterSecret, OAUTH_COOKIE_MAC_SALT, 32, {
-    N: 16384,
-    r: 8,
-    p: 1,
-  });
-}
-
-/**
  * HMAC-SHA256 integrity tag for short-lived OAuth state cookies.
- * Not used for password or credential storage.
+ * The server secret is already a high-entropy key; use HMAC directly with a
+ * domain-separated prefix instead of a password KDF. Passwords use bcrypt in
+ * the auth store.
  */
 export function oauthCookieIntegrityTag(
   masterSecret: string,
   payload: string,
 ): string {
-  const key = resolveOAuthCookieMacKey(masterSecret);
-  return createHmac('sha256', key).update(payload).digest('hex');
+  return createHmac('sha256', masterSecret)
+    .update(OAUTH_COOKIE_MAC_SALT)
+    .update('\0')
+    .update(payload)
+    .digest('hex');
 }
 
 export function oauthCookieIntegrityTagsEqual(

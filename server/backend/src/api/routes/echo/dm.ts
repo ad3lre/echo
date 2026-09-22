@@ -37,10 +37,7 @@ import {
   echoMessageSearchResultCount,
 } from '../../../observability/echoMetrics';
 import { echoPool, requireEchoStore, trimEchoPathParam } from './routeUtils';
-import {
-  getCachedDmThreadChannelIds,
-  setCachedDmThreadChannelIds,
-} from '../../../domain/echoSearchChannelCache';
+import { setCachedDmThreadChannelIds } from '../../../domain/echoSearchChannelCache';
 
 function peerUserIdLogPrefix(peerUserId: string): string {
   const t = peerUserId.trim();
@@ -80,12 +77,11 @@ export default async function echoDmRoutes(
           ? req.query.before.trim()
           : undefined;
 
-      let channelIds = getCachedDmThreadChannelIds(userId);
-      if (!channelIds) {
-        const threads = await listEchoDmThreadsForUser(pool, userId);
-        channelIds = threads.map((t) => t.channelId);
-        setCachedDmThreadChannelIds(userId, channelIds);
-      }
+      // Do not use a TTL-only channel list as the authorization decision. A
+      // removed DM participant must lose search access on the next request.
+      const threads = await listEchoDmThreadsForUser(pool, userId);
+      const channelIds = threads.map((t) => t.channelId);
+      setCachedDmThreadChannelIds(userId, channelIds);
       if (channelIds.length === 0)
         return reply.code(200).send({ messages: [] });
 

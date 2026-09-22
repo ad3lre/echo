@@ -16,7 +16,7 @@ struct EchoWelcomeView: View {
           EchoLaunchWordmark()
           EchoCopy.text("A better place to talk.")
             .font(.system(size: 14, weight: .regular, design: .default))
-            .foregroundStyle(.white.opacity(0.72))
+            .foregroundStyle(EchoTheme.Color.ink(0.72))
             .padding(.top, 7)
         }
         .position(x: proxy.size.width * 0.50, y: proxy.size.height * 0.60)
@@ -80,9 +80,9 @@ private struct EchoEntryAction: View {
     Button(action: action) {
       Text(title)
         .font(.system(size: 15, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.94))
+        .foregroundStyle(EchoTheme.Color.ink(0.94))
         .frame(width: 176, height: 44)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .echoGlassBackground(cornerRadius: 16)
         .overlay {
           RoundedRectangle(cornerRadius: 16, style: .continuous)
             .fill(
@@ -94,7 +94,7 @@ private struct EchoEntryAction: View {
             )
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: tint.opacity(0.20), radius: 16, y: 6)
+        .echoShadow(color: tint.opacity(0.20), radius: 16, y: 6)
     }
     .buttonStyle(.plain)
   }

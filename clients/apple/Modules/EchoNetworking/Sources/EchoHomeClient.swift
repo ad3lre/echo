@@ -420,6 +420,7 @@ public struct EchoHomeClient: Sendable {
         id: thread.channelID,
         channelID: thread.channelID,
         peerUserID: thread.peerUserID,
+        memberUserIDs: thread.memberUserIDs,
         displayName: profile?.name ?? thread.name ?? "Conversation",
         username: profile?.username,
         avatarURL: profile?.avatarURL ?? thread.avatarURL,

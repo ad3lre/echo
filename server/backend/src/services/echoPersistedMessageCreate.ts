@@ -29,7 +29,7 @@ import {
   bumpEchoDmThreadActivity,
   getEchoChannelServerId,
   ECHO_DM_REALM_SERVER_ID,
-  getEchoMessageCreatedAtById,
+  getEchoMessageCreatedAtByIdForAuthorInChannel,
   incrementEchoEmojiUsage,
   insertEchoMessage,
   getEchoDmRealtimeThreadForUser,
@@ -39,6 +39,7 @@ import {
 import {
   echoMessagesTableHasE2eeColumns,
   getEchoMessageById,
+  getEchoMessageByIdForAuthorInChannel,
   selectEchoMessageReplyPreviewRow,
 } from '../domain/echoMessagesDal';
 import { filterMentionsForChannelContext } from '../domain/echoStore/messages/mentionContext';
@@ -214,6 +215,7 @@ export type EchoPersistedMessageCreateResult =
         | 'FORBIDDEN'
         | 'PERSIST_FAILED'
         | 'IDEMPOTENCY_EXPIRED'
+        | 'IDEMPOTENCY_CONFLICT'
         | 'E2EE_STORAGE_UNAVAILABLE'
         | 'INVALID_ATTACHMENT'
         | 'VALIDATION';
@@ -450,6 +452,19 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
       ...(derivedComponents ? { components: derivedComponents } : {}),
     });
   } catch (e) {
+    if (
+      e instanceof Error &&
+      /message author is not a server member|message author is banned|message author is timed out/i.test(
+        e.message,
+      )
+    ) {
+      return {
+        ok: false,
+        code: 'FORBIDDEN',
+        clientMessageId,
+        detail: 'Message send denied by the persistence authorization boundary',
+      };
+    }
     if (e instanceof Error && e.message === 'E2EE_STORAGE_UNAVAILABLE') {
       return {
         ok: false,
@@ -473,7 +488,26 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
   }
 
   if (persistResult === 'duplicate') {
-    const createdAt = await getEchoMessageCreatedAtById(pool, message.id);
+    const createdAt = await getEchoMessageCreatedAtByIdForAuthorInChannel(
+      pool,
+      message.id,
+      userId,
+      channelId,
+    );
+    const scopedExisting = await getEchoMessageByIdForAuthorInChannel(
+      pool,
+      message.id,
+      userId,
+      channelId,
+    );
+    if (!scopedExisting) {
+      return {
+        ok: false,
+        code: 'IDEMPOTENCY_CONFLICT',
+        clientMessageId,
+        detail: 'Message id is already used outside this author/channel scope',
+      };
+    }
     const windowMs = config.echoMessageIdempotencyMinutes * 60_000;
     if (createdAt && Date.now() - createdAt.getTime() > windowMs) {
       log.warn({
@@ -490,20 +524,16 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
       };
     }
     echoMessagesPersistedTotal.inc({ result: 'duplicate' });
-    const existing = await getEchoMessageById(pool, message.id);
-    if (existing) {
-      const duplicateMessage = redactPollOnMessage(
-        echoRowToMessage(existing),
-        userId,
-      );
-      ackSender(duplicateMessage);
-      return {
-        ok: true,
-        kind: 'duplicate_ack',
-        message: duplicateMessage,
-      };
-    }
-    return { ok: false, code: 'PERSIST_FAILED', clientMessageId };
+    const duplicateMessage = redactPollOnMessage(
+      echoRowToMessage(scopedExisting),
+      userId,
+    );
+    ackSender(duplicateMessage);
+    return {
+      ok: true,
+      kind: 'duplicate_ack',
+      message: duplicateMessage,
+    };
   }
 
   echoMessagesPersistedTotal.inc({ result: 'inserted' });

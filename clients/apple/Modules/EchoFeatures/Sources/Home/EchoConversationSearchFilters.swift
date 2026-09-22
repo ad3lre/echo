@@ -33,7 +33,7 @@ struct EchoConversationSearchFilters: View {
           } label: {
             Text(EchoCopy.string("Clear filters"))
               .font(.system(size: 12, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.55))
+              .foregroundStyle(EchoTheme.Color.ink(0.55))
               .padding(.horizontal, 10)
               .frame(height: 32)
           }
@@ -100,7 +100,7 @@ struct EchoConversationSearchFilters: View {
 
   private var filterDivider: some View {
     Capsule()
-      .fill(.white.opacity(0.12))
+      .fill(EchoTheme.Color.ink(0.12))
       .frame(width: 1, height: 18)
       .padding(.horizontal, 2)
   }
@@ -123,16 +123,16 @@ struct EchoSearchFilterChip: View {
           .font(.system(size: 12, weight: .semibold, design: .rounded))
           .lineLimit(1)
       }
-      .foregroundStyle(selected ? .white : .white.opacity(0.72))
+      .foregroundStyle(selected ? EchoTheme.Color.onAccent : EchoTheme.Color.ink(0.72))
       .padding(.horizontal, 11)
       .frame(height: 32)
       .background(
-        selected ? EchoTheme.Color.indigo.opacity(0.92) : .white.opacity(0.06),
+        selected ? EchoTheme.Color.indigo.opacity(0.92) : EchoTheme.Color.ink(0.06),
         in: Capsule()
       )
       .overlay {
         Capsule().stroke(
-          selected ? EchoTheme.Color.indigoBright.opacity(0.55) : .white.opacity(0.08),
+          selected ? EchoTheme.Color.indigoBright.opacity(0.55) : EchoTheme.Color.ink(0.08),
           lineWidth: 1)
       }
     }

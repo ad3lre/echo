@@ -8,9 +8,10 @@ struct EchoMessageMediaCollage: View {
   var accessToken: String? = nil
   var isUploading = false
   var onOpen: ((Int) -> Void)? = nil
+  /// Caps collage width (web message bubble ~300; search results can go wider).
+  var maxWidth: CGFloat = 300
 
   private let gap: CGFloat = 3
-  private let maxWidth: CGFloat = 300
 
   var body: some View {
     if let plan = EchoMediaCollagePlan.plan(itemCount: images.count) {
@@ -24,7 +25,7 @@ struct EchoMessageMediaCollage: View {
             } label: {
               cellView(cell)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.echoScrollFriendly)
             .disabled(isUploading || onOpen == nil)
             .frame(
               width: cellWidth(cell, canvas: size, plan: plan),
@@ -41,7 +42,7 @@ struct EchoMessageMediaCollage: View {
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .background(
-          Color.black.opacity(0.28),
+          EchoTheme.Color.ink(0.04),
           in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay { uploadingChrome }
       }
@@ -54,15 +55,25 @@ struct EchoMessageMediaCollage: View {
 
   private func cellView(_ cell: EchoMediaCollageCellPlan) -> some View {
     let attachment = images[cell.sourceIndex]
+    let letterbox = cell.fit == .contain
     return ZStack {
+      if letterbox {
+        EchoLetterboxMatteLayer(
+          source: attachment.url,
+          baseURL: baseURL,
+          accessToken: accessToken,
+          storageKey: attachment.storageKey
+        )
+      }
+
       EchoMediaImage(
         source: attachment.url,
         baseURL: baseURL,
         accessToken: accessToken,
         storageKey: attachment.storageKey,
-        contentMode: cell.fit == .contain ? .fit : .fill
+        contentMode: letterbox ? .fit : .fill
       ) {
-        Rectangle().fill(.white.opacity(0.06))
+        Rectangle().fill(EchoTheme.Color.ink(0.06))
       }
       .clipped()
 
@@ -72,7 +83,7 @@ struct EchoMessageMediaCollage: View {
           .overlay {
             Label(EchoCopy.string("Spoiler"), systemImage: "eye.slash.fill")
               .font(.system(size: 11, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.9))
+              .foregroundStyle(EchoTheme.Color.onAccent)
           }
       }
 
@@ -83,7 +94,7 @@ struct EchoMessageMediaCollage: View {
             let overflowLabel = "+" + String(cell.overflowCount)
             Text(overflowLabel)
               .font(.system(size: 28, weight: .bold, design: .rounded))
-              .foregroundStyle(.white)
+              .foregroundStyle(EchoTheme.Color.onAccent)
           }
           .accessibilityLabel(EchoCopy.format("%lld more images", cell.overflowCount))
       }
@@ -99,10 +110,10 @@ struct EchoMessageMediaCollage: View {
           VStack(spacing: 8) {
             ProgressView()
               .controlSize(.regular)
-              .tint(.white)
+              .tint(EchoTheme.Color.onAccent)
             EchoCopy.text("Uploading")
               .font(.system(size: 12, weight: .semibold, design: .rounded))
-              .foregroundStyle(.white.opacity(0.92))
+              .foregroundStyle(EchoTheme.Color.onAccent)
           }
         }
         .allowsHitTesting(false)

@@ -3,7 +3,10 @@ import type pg from 'pg';
 import type { PollData, PollVoteFailedCode } from '../../../../contracts/types';
 import { redactPollForViewer } from '../../../../contracts/types';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
-import { canUserPostMessage, getEchoMessageById } from '../domain/echoStore';
+import {
+  canUserPostMessage,
+  getEchoMessageByIdInChannel,
+} from '../domain/echoStore';
 import { upsertEchoPollVote } from '../domain/echoPollVotesDal';
 
 export type EchoPollVoteResult =
@@ -52,8 +55,8 @@ export async function castEchoPollVoteAndBroadcast(
   messageId: string,
   optionId: string,
 ): Promise<EchoPollVoteResult> {
-  const row = await getEchoMessageById(pool, messageId);
-  if (!row || row.channelId !== channelId) {
+  const row = await getEchoMessageByIdInChannel(pool, messageId, channelId);
+  if (!row) {
     return { ok: false, code: 'NOT_FOUND' };
   }
   if (!row.poll) {
@@ -83,7 +86,11 @@ export async function castEchoPollVoteAndBroadcast(
     return { ok: false, code: 'NOT_FOUND', detail: 'Persist failed' };
   }
 
-  const refreshed = await getEchoMessageById(pool, messageId);
+  const refreshed = await getEchoMessageByIdInChannel(
+    pool,
+    messageId,
+    channelId,
+  );
   if (!refreshed?.poll) {
     return { ok: false, code: 'NOT_FOUND', detail: 'Not a poll message' };
   }

@@ -41,7 +41,7 @@ struct EchoMediaImage<Placeholder: View>: View {
         EchoRemoteImage(url: url, contentMode: contentMode, placeholder: placeholder)
       } else if resolvedURL(source, baseURL: baseURL) != nil {
         placeholder().overlay {
-          ProgressView().tint(.white.opacity(0.55))
+          ProgressView().tint(EchoTheme.Color.ink(0.55))
         }
       } else {
         placeholder()

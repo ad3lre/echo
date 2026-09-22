@@ -25,7 +25,16 @@
  */
 
 import { spawn } from 'child_process';
-import { mkdtemp, writeFile, chmod, unlink, rmdir } from 'fs/promises';
+import {
+  mkdtemp,
+  writeFile,
+  readFile,
+  chmod,
+  unlink,
+  rmdir,
+} from 'fs/promises';
+import { createHash } from 'crypto';
+import { createReadStream } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 
@@ -169,6 +178,33 @@ async function downloadFromS3(remoteKey, localPath) {
   }
 }
 
+async function verifyChecksum(remoteKey, localPath, tempDir) {
+  const checksumPath = join(tempDir, 'echo-restore.dump.sha256');
+  await downloadFromS3(`${remoteKey}.sha256`, checksumPath);
+  const expected = (await readFile(checksumPath, 'utf8'))
+    .trim()
+    .split(/\s+/)[0];
+  if (!/^[a-f0-9]{64}$/i.test(expected)) {
+    throw new Error('Backup checksum sidecar is malformed');
+  }
+  const actual = await sha256File(localPath);
+  if (actual.toLowerCase() !== expected.toLowerCase()) {
+    throw new Error('Backup checksum verification failed');
+  }
+  log('info', 'Backup checksum verified', { key: remoteKey });
+  await unlink(checksumPath);
+}
+
+function sha256File(path) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = createReadStream(path);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
 async function runPgRestore(dumpPath, targetDbUrl) {
   log('info', 'Starting pg_restore', {
     source: dumpPath,
@@ -223,6 +259,24 @@ async function runPgRestore(dumpPath, targetDbUrl) {
   }
 }
 
+async function invalidateRestoredCredentials(targetDbUrl) {
+  // A database restore can contain refresh rows that were revoked after the
+  // backup was taken. Never let a restored snapshot resurrect credentials.
+  await execPromise(
+    'psql',
+    [
+      '--dbname',
+      targetDbUrl,
+      '--set',
+      'ON_ERROR_STOP=1',
+      '--command',
+      'UPDATE auth_refresh_tokens SET revoked_at = COALESCE(revoked_at, NOW()) WHERE revoked_at IS NULL;',
+    ],
+    process.env,
+  );
+  log('info', 'Invalidated refresh credentials after restore');
+}
+
 const parsedArgs = parseArgs();
 
 async function main() {
@@ -273,9 +327,11 @@ async function main() {
 
     // Download backup
     await downloadFromS3(remoteKey, dumpPath);
+    await verifyChecksum(remoteKey, dumpPath, tempDir);
 
     // Run restore
     await runPgRestore(dumpPath, targetDbUrl);
+    await invalidateRestoredCredentials(targetDbUrl);
 
     log('info', 'Restore completed successfully', {
       date: parsedArgs.date,
@@ -289,6 +345,7 @@ async function main() {
     // Cleanup
     try {
       if (dumpPath) await unlink(dumpPath);
+      if (tempDir) await unlink(join(tempDir, 'echo-restore.dump.sha256'));
       if (tempDir) await rmdir(tempDir);
     } catch (cleanupErr) {
       log('warn', 'Cleanup warning (non-fatal)', { error: cleanupErr.message });

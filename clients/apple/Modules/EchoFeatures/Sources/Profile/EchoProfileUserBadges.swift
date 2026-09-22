@@ -56,7 +56,7 @@ private struct EchoProfileBadgePill: View {
         .tracking(badge == .og ? size.tracking + 0.8 : size.tracking)
         .textCase(badge == .og ? .uppercase : nil)
         .foregroundStyle(style.labelColor)
-        .shadow(color: style.labelShadow, radius: 3, y: 1)
+        .echoShadow(color: style.labelShadow, radius: 3, y: 1)
     }
     .padding(.horizontal, size.hPadding)
     .padding(.vertical, size.vPadding)
@@ -80,7 +80,7 @@ private struct EchoProfileBadgePill: View {
             .opacity(0.85)
             .allowsHitTesting(false)
         }
-        .shadow(color: style.glow, radius: 6, y: 1)
+        .echoShadow(color: style.glow, radius: 6, y: 1)
     }
     .accessibilityLabel(badge.title)
   }
@@ -351,7 +351,8 @@ struct EchoProfileFriendHeartBadge: View {
     Image(systemName: "heart.fill")
       .font(.system(size: size.icon, weight: .bold))
       .foregroundStyle(Color(red: 1, green: 0.96, blue: 0.97))
-      .shadow(color: Color(red: 0.16, green: 0.02, blue: 0.04).opacity(0.55), radius: 1, y: 1)
+      .echoShadow(
+        color: Color(red: 0.16, green: 0.02, blue: 0.04).opacity(0.55), radius: 1, y: 1)
       .frame(minWidth: size.minWidth, minHeight: size.minHeight)
       .background {
         Capsule()
@@ -382,7 +383,8 @@ struct EchoProfileFriendHeartBadge: View {
               .padding(1)
               .allowsHitTesting(false)
           }
-          .shadow(color: Color(red: 0.96, green: 0.25, blue: 0.37).opacity(0.28), radius: 5, y: 1)
+          .echoShadow(
+            color: Color(red: 0.96, green: 0.25, blue: 0.37).opacity(0.28), radius: 5, y: 1)
       }
       .accessibilityLabel(EchoCopy.string("Friends"))
   }

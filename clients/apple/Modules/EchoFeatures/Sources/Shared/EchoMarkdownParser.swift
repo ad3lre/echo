@@ -393,7 +393,7 @@ enum EchoMarkdownParser {
       case .spoiler:
         if !revealSpoilers {
           value[run.range].foregroundColor = .clear
-          value[run.range].backgroundColor = .white.opacity(0.78)
+          value[run.range].backgroundColor = EchoTheme.Color.ink(0.78)
         }
       }
     }

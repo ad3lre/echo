@@ -221,7 +221,31 @@ export function createVoiceService({
           channelId,
           code: e.body.code,
         });
-        prepared = normalizeVoiceE2eePrepare(await e2eePrepare(channelId));
+        // Prefer an in-place MLS sync when a session is already live for this
+        // DM — avoids stopVoiceMlsSession() leave/rejoin churn on every 409.
+        let reused = false;
+        try {
+          const { activeVoiceMlsChannelKey, syncVoiceMlsSession } =
+            await import('@/services/voice/mls/voiceMlsSession');
+          const key = activeVoiceMlsChannelKey();
+          if (key === `dm:${channelId}`) {
+            const synced = await syncVoiceMlsSession(key);
+            if (synced?.raw) {
+              prepared = {
+                mediaKey: synced.raw,
+                senderDeviceId: prepared.senderDeviceId,
+                keyIndex: synced.keyIndex,
+                senderKeys: synced.senderKeys,
+              };
+              reused = true;
+            }
+          }
+        } catch {
+          /* fall through to full prepare */
+        }
+        if (!reused) {
+          prepared = normalizeVoiceE2eePrepare(await e2eePrepare(channelId));
+        }
         const retryOpts = prepared.senderDeviceId
           ? { e2eeDeviceId: prepared.senderDeviceId }
           : undefined;

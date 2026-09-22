@@ -3,6 +3,8 @@ import SwiftUI
 
 struct EchoSettingsView: View {
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.colorScheme) private var colorScheme
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
   let baseURL: URL
   let accessToken: String
   let profile: EchoUserProfile?
@@ -107,7 +109,8 @@ struct EchoSettingsView: View {
   ]
 
   var body: some View {
-    NavigationStack {
+    let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+    return NavigationStack {
       ScrollView(showsIndicators: false) {
         VStack(spacing: 0) {
           EchoSettingsHeader(
@@ -130,7 +133,7 @@ struct EchoSettingsView: View {
                 VStack(alignment: .leading, spacing: 9) {
                   Text(section.title.uppercased()).font(
                     .system(size: 11, weight: .medium, design: .rounded)
-                  ).tracking(1.6).foregroundStyle(.white.opacity(0.38)).padding(.horizontal, 24)
+                  ).tracking(1.6).foregroundStyle(EchoTheme.Color.ink(0.38)).padding(.horizontal, 24)
                   VStack(spacing: 1) {
                     ForEach(section.rows) { row in
                       EchoSettingsRowView(
@@ -140,13 +143,10 @@ struct EchoSettingsView: View {
                   }
                   .padding(.vertical, 5)
                   .padding(.horizontal, 6)
-                  .background(
-                    .ultraThinMaterial.opacity(0.72),
-                    in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-                  )
+                  .echoGlassBackground(cornerRadius: 22, opacity: 0.72)
                   .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(
-                      .white.opacity(0.075))
+                      EchoTheme.Color.ink(0.075))
                   )
                   .padding(.horizontal, 12)
                 }
@@ -168,7 +168,6 @@ struct EchoSettingsView: View {
         .toolbar(.hidden, for: .navigationBar)
       #endif
     }
-    .preferredColorScheme(.dark)
   }
 
   private var filteredSections: [EchoSettingsSection] {
@@ -200,11 +199,11 @@ private struct EchoSettingsHeader: View {
       HStack(spacing: 10) {
         Image(systemName: "magnifyingglass")
           .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.42))
+          .foregroundStyle(EchoTheme.Color.ink(0.42))
         TextField(EchoCopy.string("Search settings"), text: $searchText)
           .font(.system(size: 15, design: .rounded))
-          .foregroundStyle(.white)
-          .tint(.white)
+          .foregroundStyle(EchoTheme.Color.fg)
+          .tint(EchoTheme.Color.fg)
           .textFieldStyle(.plain)
           .focused($searchFocused)
           .submitLabel(.search)
@@ -216,7 +215,7 @@ private struct EchoSettingsHeader: View {
           } label: {
             Image(systemName: "xmark.circle.fill")
               .font(.system(size: 16, weight: .semibold))
-              .foregroundStyle(.white.opacity(0.42))
+              .foregroundStyle(EchoTheme.Color.ink(0.42))
           }
           .buttonStyle(.plain)
           .accessibilityLabel(EchoCopy.string("Clear settings search"))
@@ -224,10 +223,10 @@ private struct EchoSettingsHeader: View {
       }
       .padding(.horizontal, 15)
       .frame(height: 48)
-      .background(.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .background(EchoTheme.Color.ink(0.075), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
       .overlay {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-          .stroke(.white.opacity(0.10))
+          .stroke(EchoTheme.Color.ink(0.10))
       }
       .padding(.horizontal, 18)
     }
@@ -259,7 +258,7 @@ private struct EchoSettingsEmptyState: View {
         .font(.system(size: 17, weight: .bold, design: .rounded))
       Text(EchoCopy.format("Echo couldn’t find anything matching “%@”", query))
         .font(.system(size: 13, design: .rounded))
-        .foregroundStyle(.white.opacity(0.48))
+        .foregroundStyle(EchoTheme.Color.ink(0.48))
         .multilineTextAlignment(.center)
       Button(EchoCopy.string("Clear search"), action: onClear)
         .font(.system(size: 13, weight: .semibold, design: .rounded))
@@ -272,10 +271,10 @@ private struct EchoSettingsEmptyState: View {
     .frame(maxWidth: .infinity)
     .padding(.vertical, 34)
     .padding(.horizontal, 20)
-    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    .echoGlassBackground(cornerRadius: 22)
     .overlay {
       RoundedRectangle(cornerRadius: 22, style: .continuous)
-        .stroke(.white.opacity(0.09), lineWidth: 1)
+        .stroke(EchoTheme.Color.ink(0.09), lineWidth: 1)
     }
     .padding(.horizontal, 18)
   }
@@ -300,9 +299,9 @@ private struct EchoSettingsHero: View {
       } else {
         Image(systemName: "gearshape.fill")
           .font(.system(size: 21, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.9))
+          .foregroundStyle(EchoTheme.Color.ink(0.9))
           .frame(width: 52, height: 52)
-          .background(.white.opacity(0.10), in: Circle())
+          .background(EchoTheme.Color.ink(0.10), in: Circle())
       }
       VStack(alignment: .leading, spacing: 4) {
         EchoCopy.text("Settings")
@@ -312,17 +311,17 @@ private struct EchoSettingsHero: View {
             ?? EchoCopy.string("Make Echo feel like yours.")
         )
         .font(.system(size: 14, design: .rounded))
-        .foregroundStyle(.white.opacity(0.48))
+        .foregroundStyle(EchoTheme.Color.ink(0.48))
       }
       Spacer(minLength: 0)
       Button(EchoCopy.string("Done"), action: onDone)
         .font(.system(size: 16, weight: .medium, design: .rounded))
-        .foregroundStyle(.white.opacity(0.88))
+        .foregroundStyle(EchoTheme.Color.ink(0.88))
         .padding(.horizontal, 18)
         .frame(height: 42)
-        .background(.white.opacity(0.075), in: Capsule())
+        .background(EchoTheme.Color.ink(0.075), in: Capsule())
         .overlay {
-          Capsule().stroke(.white.opacity(0.10), lineWidth: 1)
+          Capsule().stroke(EchoTheme.Color.ink(0.10), lineWidth: 1)
         }
     }
     .padding(.horizontal, 22)
@@ -330,9 +329,13 @@ private struct EchoSettingsHero: View {
 }
 
 struct EchoSettingsBackdrop: View {
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.colorScheme) private var colorScheme
+
   var body: some View {
-    ZStack {
-      EchoTheme.Color.canvas
+    let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+    return ZStack {
+      displayPrefs.canvas(colorScheme: colorScheme)
       RadialGradient(
         colors: [Color.indigo.opacity(0.20), .clear],
         center: .topTrailing,

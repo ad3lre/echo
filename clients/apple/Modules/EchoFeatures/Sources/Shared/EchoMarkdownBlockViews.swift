@@ -47,7 +47,7 @@ struct EchoMarkdownBlockView: View {
       ScrollView(.horizontal, showsIndicators: false) {
         Text(text)
           .font(.system(size: EchoTheme.Typography.messageCode, design: .monospaced))
-          .foregroundStyle(.white.opacity(0.86))
+          .foregroundStyle(EchoTheme.Color.ink(0.86))
           .textSelection(.enabled)
           .padding(12)
       }
@@ -56,7 +56,7 @@ struct EchoMarkdownBlockView: View {
         if let language, !language.isEmpty {
           Text(language)
             .font(.system(size: 10, weight: .medium, design: .monospaced))
-            .foregroundStyle(.white.opacity(0.42))
+            .foregroundStyle(EchoTheme.Color.ink(0.42))
             .padding(8)
         }
       }
@@ -75,7 +75,7 @@ struct EchoMarkdownBlockView: View {
       HStack(alignment: .top, spacing: 6) {
         Text("[\(label)]")
           .font(.system(size: 11, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white.opacity(0.5))
+          .foregroundStyle(EchoTheme.Color.ink(0.5))
         EchoMarkdownInlineText(
           text: text, mentions: mentions, apiBaseURL: apiBaseURL, accessToken: accessToken)
       }
@@ -85,7 +85,7 @@ struct EchoMarkdownBlockView: View {
     case .image(let alt, let url):
       EchoMarkdownImage(alt: alt, url: url, apiBaseURL: apiBaseURL)
     case .rule:
-      Divider().overlay(.white.opacity(0.18))
+      Divider().overlay(EchoTheme.Color.ink(0.18))
     }
   }
 
@@ -115,9 +115,9 @@ private struct EchoMarkdownImage: View {
           image.resizable().scaledToFit()
         } else if phase.error != nil {
           Text(alt.isEmpty ? EchoCopy.string("Image unavailable") : alt)
-            .foregroundStyle(.white.opacity(0.48))
+            .foregroundStyle(EchoTheme.Color.ink(0.48))
         } else {
-          ProgressView().tint(.white.opacity(0.55))
+          ProgressView().tint(EchoTheme.Color.ink(0.55))
         }
       }
       .frame(maxHeight: 240)
@@ -136,16 +136,16 @@ private struct EchoMarkdownImage: View {
           Image(systemName: "arrow.up.right")
             .font(.system(size: 11, weight: .semibold))
         }
-        .foregroundStyle(.white.opacity(0.72))
+        .foregroundStyle(EchoTheme.Color.ink(0.72))
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .background(EchoTheme.Color.ink(0.08), in: RoundedRectangle(cornerRadius: 12))
       }
       .buttonStyle(.plain)
       .accessibilityHint(EchoCopy.string("Opens in browser without loading inside Echo"))
     } else {
       Text(alt.isEmpty ? EchoCopy.string("Image unavailable") : alt)
-        .foregroundStyle(.white.opacity(0.48))
+        .foregroundStyle(EchoTheme.Color.ink(0.48))
     }
   }
 
@@ -157,167 +157,41 @@ private struct EchoMarkdownImage: View {
   }
 }
 
-private struct EchoMarkdownInlineText: View {
-  let text: String
-  let mentions: [EchoMessageMention]
-  var apiBaseURL: URL = EchoAPIConfiguration.defaultBaseURL
-  var accessToken: String? = nil
-  var size: CGFloat = EchoTheme.Typography.messageBody
-  var weight: Font.Weight = .regular
-  var opacity: Double = 0.90
-  var emojiOnly: Bool = false
-  @State private var spoilersRevealed = false
-  private var emojiCatalog: EchoCustomEmojiCatalog { .shared }
-
-  private var customEmojiPointSize: CGFloat {
-    if emojiOnly { return EchoEmojiOnlySizing.glyphPointSize }
-    return max(18, size + 4)
-  }
-
-  var body: some View {
-    let shortcodes = Set(emojiCatalog.byName.keys)
-    let segments = EchoMarkdownParser.inlineSegments(
-      text,
-      mentions: mentions,
-      revealSpoilers: spoilersRevealed,
-      knownShortcodes: shortcodes)
-    Group {
-      if segments.count == 1, case .text(let value) = segments[0] {
-        Text(
-          EchoMarkdownDisplayStyle.attributed(
-            value, size: size, weight: weight, opacity: opacity))
-      } else if emojiOnly {
-        EchoEmojiFlowLayout(spacing: 4) {
-          ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-            segmentView(segment)
-          }
-        }
-      } else if segments.contains(where: {
-        if case .math = $0 { return true }
-        return false
-      }) {
-        // Wide formulas must sit in the message column (scroll horizontally),
-        // not stretch an HStack past the viewport.
-        VStack(alignment: .leading, spacing: 4) {
-          ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-            segmentView(segment)
-              .frame(maxWidth: .infinity, alignment: .leading)
-          }
-        }
-      } else {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-          ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-            segmentView(segment)
-          }
-        }
-      }
-    }
-    .textSelection(.enabled)
-    .fixedSize(horizontal: false, vertical: true)
-    .contentShape(Rectangle())
-    .onTapGesture {
-      guard text.contains("||") else { return }
-      spoilersRevealed.toggle()
-    }
-    .accessibilityHint(text.contains("||") ? EchoCopy.string("Tap to reveal spoiler") : "")
-  }
-
-  @ViewBuilder
-  private func segmentView(_ segment: EchoMarkdownParser.InlineSegment) -> some View {
-    switch segment {
-    case .text(let value):
-      Text(
-        EchoMarkdownDisplayStyle.attributed(
-          value, size: size, weight: weight, opacity: opacity))
-    case .math(let source, let display):
-      EchoNativeMathView(source: source, display: display)
-        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-    case .customEmoji(let ref):
-      EchoInlineCustomEmoji(
-        ref: ref,
-        apiBaseURL: apiBaseURL,
-        accessToken: accessToken,
-        pointSize: customEmojiPointSize)
-    }
-  }
-}
-
-/// Simple left-to-right wrapping layout for jumbo emoji-only messages.
-private struct EchoEmojiFlowLayout: Layout {
-  var spacing: CGFloat = 4
-
-  func sizeThatFits(
-    proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
-  ) -> CGSize {
-    let maxWidth = proposal.width ?? .infinity
-    var x: CGFloat = 0
-    var y: CGFloat = 0
-    var rowHeight: CGFloat = 0
-    var width: CGFloat = 0
-    for subview in subviews {
-      let size = subview.sizeThatFits(.unspecified)
-      if x > 0, x + size.width > maxWidth {
-        x = 0
-        y += rowHeight + spacing
-        rowHeight = 0
-      }
-      rowHeight = max(rowHeight, size.height)
-      x += size.width + spacing
-      width = max(width, x - spacing)
-    }
-    return CGSize(width: width, height: y + rowHeight)
-  }
-
-  func placeSubviews(
-    in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
-  ) {
-    var x = bounds.minX
-    var y = bounds.minY
-    var rowHeight: CGFloat = 0
-    for subview in subviews {
-      let size = subview.sizeThatFits(.unspecified)
-      if x > bounds.minX, x + size.width > bounds.maxX {
-        x = bounds.minX
-        y += rowHeight + spacing
-        rowHeight = 0
-      }
-      subview.place(
-        at: CGPoint(x: x, y: y),
-        proposal: ProposedViewSize(size))
-      rowHeight = max(rowHeight, size.height)
-      x += size.width + spacing
-    }
-  }
-}
-
-private struct EchoInlineCustomEmoji: View {
+struct EchoInlineCustomEmoji: View {
   let ref: EchoCustomEmojiRef
   let apiBaseURL: URL
   var accessToken: String? = nil
   var pointSize: CGFloat = 22
+  /// Leading/trailing advance so custom emoji don’t collide with neighboring text.
+  var sidePadding: CGFloat = 2
 
   private var catalog: EchoCustomEmojiCatalog { .shared }
 
   var body: some View {
     let resolved = resolvedRef
-    if let source = catalog.imageSource(
-      name: resolved.name,
-      id: resolved.id,
-      animated: resolved.animated,
-      apiBaseURL: apiBaseURL)
-    {
-      EchoMediaImage(source: source, baseURL: apiBaseURL, accessToken: accessToken) {
-        Text(":\(resolved.name):")
+    Group {
+      if let source = catalog.imageSource(
+        name: resolved.name,
+        id: resolved.id,
+        animated: resolved.animated,
+        apiBaseURL: apiBaseURL)
+      {
+        EchoMediaImage(source: source, baseURL: apiBaseURL, accessToken: accessToken) {
+          Text(":\(resolved.name):")
+            .font(.system(size: pointSize * 0.55, design: .rounded))
+            .foregroundStyle(EchoTheme.Color.ink(0.45))
+        }
+        .frame(width: pointSize, height: pointSize)
+        .accessibilityLabel(resolved.name)
+      } else {
+        Text(ref.fallbackLabel)
           .font(.system(size: pointSize * 0.55, design: .rounded))
-          .foregroundStyle(.white.opacity(0.45))
+          .foregroundStyle(EchoTheme.Color.ink(0.55))
       }
-      .frame(width: pointSize, height: pointSize)
-      .accessibilityLabel(resolved.name)
-    } else {
-      Text(ref.fallbackLabel)
-        .font(.system(size: pointSize * 0.55, design: .rounded))
-        .foregroundStyle(.white.opacity(0.55))
     }
+    // Edge-to-edge emoji bitmaps sit flush against adjacent glyphs (author
+    // names, mentions, prose) unless we keep a hair of advance width.
+    .padding(.horizontal, sidePadding)
   }
 
   private var resolvedRef: EchoCustomEmojiRef {
@@ -331,23 +205,31 @@ private struct EchoInlineCustomEmoji: View {
   }
 }
 
-private struct EchoNativeMathView: View {
+struct EchoNativeMathView: View {
   let source: String
   let display: Bool
+  /// Overrides SwiftMath point size; defaults match message body / display math.
+  var fontSize: CGFloat? = nil
+  /// When false, hug formula width (reply snippets) instead of filling the column.
+  var fillsWidth: Bool = true
+
+  private var resolvedFontSize: CGFloat {
+    fontSize ?? (display ? 21 : 16)
+  }
 
   #if os(iOS)
     var body: some View {
       // Width is owned by the message column; tall empty gaps came from
       // MTMathUILabel centering inside an unconstrained SwiftUI height.
-      MathView(source: source, display: display)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, display ? 6 : 2)
+      MathView(source: source, display: display, fontSize: resolvedFontSize)
+        .frame(maxWidth: fillsWidth ? .infinity : nil, alignment: .leading)
+        .padding(.vertical, fillsWidth ? (display ? 6 : 2) : 0)
     }
   #else
     var body: some View {
-      MacMathView(source: source, display: display)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, display ? 6 : 2)
+      MacMathView(source: source, display: display, fontSize: resolvedFontSize)
+        .frame(maxWidth: fillsWidth ? .infinity : nil, alignment: .leading)
+        .padding(.vertical, fillsWidth ? (display ? 6 : 2) : 0)
     }
   #endif
 }
@@ -363,7 +245,7 @@ private struct EchoHTMLText: View {
       } else {
         Text(AttributedString(text))
           .font(.system(size: EchoTheme.Typography.messageBody, design: .rounded))
-          .foregroundStyle(.white.opacity(0.90))
+          .foregroundStyle(EchoTheme.Color.ink(0.90))
       }
     }
   }
@@ -397,12 +279,12 @@ private struct EchoHTMLText: View {
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
 
-    func apply(source: String, display: Bool) {
+    func apply(source: String, display: Bool, fontSize: CGFloat) {
       mathLabel.latex = EchoMarkdownMath.normalizedSource(source, display: display)
       mathLabel.labelMode = display ? .display : .text
       mathLabel.textAlignment = .left
-      mathLabel.font = MTFontManager().latinModernFont(withSize: display ? 21 : 16)
-      mathLabel.textColor = .white.withAlphaComponent(0.88)
+      mathLabel.font = MTFontManager().latinModernFont(withSize: fontSize)
+      mathLabel.textColor = EchoTheme.platformLabelColor(opacity: 0.88)
       mathLabel.displayErrorInline = false
       invalidateIntrinsicContentSize()
       setNeedsLayout()
@@ -442,13 +324,14 @@ private struct EchoHTMLText: View {
   private struct MathView: UIViewRepresentable {
     let source: String
     let display: Bool
+    let fontSize: CGFloat
 
     func makeUIView(context: Context) -> EchoMathContainerView {
       EchoMathContainerView(frame: .zero)
     }
 
     func updateUIView(_ view: EchoMathContainerView, context: Context) {
-      view.apply(source: source, display: display)
+      view.apply(source: source, display: display, fontSize: fontSize)
     }
 
     func sizeThatFits(
@@ -479,12 +362,12 @@ private struct EchoHTMLText: View {
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
 
-    func apply(source: String, display: Bool) {
+    func apply(source: String, display: Bool, fontSize: CGFloat) {
       mathLabel.latex = EchoMarkdownMath.normalizedSource(source, display: display)
       mathLabel.labelMode = display ? .display : .text
       mathLabel.textAlignment = .left
-      mathLabel.font = MTFontManager().latinModernFont(withSize: display ? 21 : 16)
-      mathLabel.textColor = .white.withAlphaComponent(0.88)
+      mathLabel.font = MTFontManager().latinModernFont(withSize: fontSize)
+      mathLabel.textColor = EchoTheme.platformLabelColor(opacity: 0.88)
       mathLabel.displayErrorInline = false
       needsLayout = true
     }
@@ -510,13 +393,14 @@ private struct EchoHTMLText: View {
   private struct MacMathView: NSViewRepresentable {
     let source: String
     let display: Bool
+    let fontSize: CGFloat
 
     func makeNSView(context: Context) -> EchoMacMathContainerView {
       EchoMacMathContainerView(frame: .zero)
     }
 
     func updateNSView(_ view: EchoMacMathContainerView, context: Context) {
-      view.apply(source: source, display: display)
+      view.apply(source: source, display: display, fontSize: fontSize)
     }
 
     func sizeThatFits(
@@ -542,7 +426,7 @@ private struct EchoMarkdownQuote: View {
   var body: some View {
     HStack(alignment: .top, spacing: 9) {
       RoundedRectangle(cornerRadius: 2)
-        .fill((alert?.tint ?? .white).opacity(0.70))
+        .fill((alert?.tint ?? EchoTheme.Color.fg).opacity(0.70))
         .frame(width: 3)
       VStack(alignment: .leading, spacing: 5) {
         if let alert {
@@ -576,11 +460,11 @@ private struct EchoMarkdownList: View {
           .font(
             .system(size: EchoTheme.Typography.messageBody, weight: .semibold, design: .rounded)
           )
-          .foregroundStyle(.white.opacity(0.54))
+          .foregroundStyle(EchoTheme.Color.ink(0.54))
           if item.hasPrefix("☐  ") || item.hasPrefix("☑  ") {
             Image(systemName: item.hasPrefix("☑  ") ? "checkmark.square.fill" : "square")
               .font(.system(size: 15, weight: .medium))
-              .foregroundStyle(.white.opacity(0.54))
+              .foregroundStyle(EchoTheme.Color.ink(0.54))
             EchoMarkdownInlineText(
               text: String(item.dropFirst(3)), mentions: mentions, apiBaseURL: apiBaseURL,
               accessToken: accessToken)
@@ -614,7 +498,7 @@ private struct EchoMarkdownTable: View {
         }
       }
       .clipShape(RoundedRectangle(cornerRadius: 10))
-      .overlay(RoundedRectangle(cornerRadius: 10).stroke(.white.opacity(0.12)))
+      .overlay(RoundedRectangle(cornerRadius: 10).stroke(EchoTheme.Color.ink(0.12)))
     }
   }
 }
@@ -640,10 +524,12 @@ private struct EchoMarkdownTableRow: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(minWidth: 90, alignment: .leading)
-        .background(emphasized ? .white.opacity(0.08) : .clear)
-        .overlay(alignment: .trailing) { Rectangle().fill(.white.opacity(0.08)).frame(width: 1) }
+        .background(emphasized ? EchoTheme.Color.ink(0.08) : .clear)
+        .overlay(alignment: .trailing) {
+          Rectangle().fill(EchoTheme.Color.ink(0.08)).frame(width: 1)
+        }
       }
     }
-    .overlay(alignment: .bottom) { Rectangle().fill(.white.opacity(0.08)).frame(height: 1) }
+    .overlay(alignment: .bottom) { Rectangle().fill(EchoTheme.Color.ink(0.08)).frame(height: 1) }
   }
 }

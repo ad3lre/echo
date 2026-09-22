@@ -10,7 +10,7 @@ import {
   type EchoJumpEmbedErrorCode,
 } from '../../../../contracts/echoJumpEmbedErrors';
 import { parseEchoMessageJumpPath } from '../../../../contracts/echoMessageJumpPath';
-import { canUserAccessChannel, getEchoMessageById } from './echoStore';
+import { canUserAccessChannel, getEchoMessageByIdInChannel } from './echoStore';
 
 export { parseEchoMessageJumpPath } from '../../../../contracts/echoMessageJumpPath';
 export {
@@ -40,8 +40,12 @@ export async function buildEchoJumpEmbedFromUrl(
   const parsed = parseEchoMessageJumpPath(originalUrl);
   if (!parsed) return null;
 
-  const msg = await getEchoMessageById(pool, parsed.messageId);
-  if (!msg || msg.channelId !== parsed.channelId) {
+  const msg = await getEchoMessageByIdInChannel(
+    pool,
+    parsed.messageId,
+    parsed.channelId,
+  );
+  if (!msg) {
     return buildEchoJumpErrorEmbed(originalUrl, parsed, 'not_found');
   }
 

@@ -76,10 +76,10 @@ struct EchoAddFriendView: View {
             VStack(alignment: .leading, spacing: 6) {
               EchoCopy.text("Find your people")
                 .font(.system(size: 27, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.96))
+                .foregroundStyle(EchoTheme.Color.ink(0.96))
               EchoCopy.text("Search Echo or start with a few people you might know.")
                 .font(.system(size: 14, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.52))
+                .foregroundStyle(EchoTheme.Color.ink(0.52))
                 .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -88,10 +88,10 @@ struct EchoAddFriendView: View {
             Button(action: { dismiss() }) {
               Image(systemName: "arrow.left")
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.88))
+                .foregroundStyle(EchoTheme.Color.ink(0.88))
                 .frame(width: 40, height: 40)
-                .background(.white.opacity(0.08), in: Circle())
-                .overlay(Circle().stroke(.white.opacity(0.12), lineWidth: 1))
+                .background(EchoTheme.Color.ink(0.08), in: Circle())
+                .overlay(Circle().stroke(EchoTheme.Color.ink(0.12), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(EchoCopy.string("Close add friend"))
@@ -99,11 +99,11 @@ struct EchoAddFriendView: View {
 
           HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-              .foregroundStyle(.white.opacity(0.45))
+              .foregroundStyle(EchoTheme.Color.ink(0.45))
             TextField(EchoCopy.string("Search by name or username"), text: $searchText)
               .font(.system(size: 15, weight: .regular, design: .rounded))
-              .foregroundStyle(.white)
-              .tint(.white)
+              .foregroundStyle(EchoTheme.Color.fg)
+              .tint(EchoTheme.Color.fg)
               .textFieldStyle(.plain)
               #if os(iOS)
                 .textInputAutocapitalization(.never)
@@ -112,8 +112,8 @@ struct EchoAddFriendView: View {
           }
           .padding(.horizontal, 15)
           .frame(height: 50)
-          .background(.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 17))
-          .overlay(RoundedRectangle(cornerRadius: 17).stroke(.white.opacity(0.09)))
+          .background(EchoTheme.Color.ink(0.065), in: RoundedRectangle(cornerRadius: 17))
+          .overlay(RoundedRectangle(cornerRadius: 17).stroke(EchoTheme.Color.ink(0.09)))
 
           VStack(alignment: .leading, spacing: 9) {
             Text(
@@ -121,18 +121,18 @@ struct EchoAddFriendView: View {
             )
             .font(.system(size: 11, weight: .semibold, design: .rounded))
             .tracking(2.2)
-            .foregroundStyle(.white.opacity(0.38))
+            .foregroundStyle(EchoTheme.Color.ink(0.38))
 
             if model.isLoading && model.candidates.isEmpty {
               ProgressView()
-                .tint(.white.opacity(0.68))
+                .tint(EchoTheme.Color.ink(0.68))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 26)
             } else if let errorMessage = model.errorMessage, model.candidates.isEmpty {
               VStack(alignment: .leading, spacing: 12) {
                 Label(errorMessage, systemImage: "person.2.slash")
                   .font(.system(size: 14, design: .rounded))
-                  .foregroundStyle(.white.opacity(0.58))
+                  .foregroundStyle(EchoTheme.Color.ink(0.58))
                 Button(EchoCopy.string("Try again")) {
                   Task { await model.search(searchText) }
                 }
@@ -147,7 +147,7 @@ struct EchoAddFriendView: View {
                   ? EchoCopy.string("No suggestions yet.") : EchoCopy.string("No people found.")
               )
               .font(.system(size: 14, design: .rounded))
-              .foregroundStyle(.white.opacity(0.48))
+              .foregroundStyle(EchoTheme.Color.ink(0.48))
               .padding(.vertical, 20)
             } else {
               VStack(spacing: 1) {
@@ -162,8 +162,8 @@ struct EchoAddFriendView: View {
                   )
                 }
               }
-              .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20))
-              .overlay(RoundedRectangle(cornerRadius: 20).stroke(.white.opacity(0.075)))
+              .background(EchoTheme.Color.ink(0.055), in: RoundedRectangle(cornerRadius: 20))
+              .overlay(RoundedRectangle(cornerRadius: 20).stroke(EchoTheme.Color.ink(0.075)))
             }
           }
         }
@@ -177,7 +177,6 @@ struct EchoAddFriendView: View {
         .toolbar(.hidden, for: .navigationBar)
       #endif
     }
-    .preferredColorScheme(.dark)
     .task(id: searchText) {
       do {
         try await Task.sleep(for: .milliseconds(searchText.isEmpty ? 0 : 300))
@@ -211,18 +210,18 @@ private struct EchoFriendCandidateRow: View {
       VStack(alignment: .leading, spacing: 3) {
         Text(candidate.name)
           .font(.system(size: 15, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white.opacity(0.92))
+          .foregroundStyle(EchoTheme.Color.ink(0.92))
           .lineLimit(1)
         Text("@\(candidate.username)")
           .font(.system(size: 13, weight: .regular, design: .rounded))
-          .foregroundStyle(.white.opacity(0.44))
+          .foregroundStyle(EchoTheme.Color.ink(0.44))
           .lineLimit(1)
       }
       Spacer(minLength: 0)
       Button(action: onAdd) {
         Group {
           if isSending {
-            ProgressView().tint(.white.opacity(0.85))
+            ProgressView().tint(EchoTheme.Color.ink(0.85))
           } else if didSend {
             Image(systemName: "checkmark")
           } else {
@@ -230,7 +229,7 @@ private struct EchoFriendCandidateRow: View {
           }
         }
         .font(.system(size: 14, weight: .semibold))
-        .foregroundStyle(.white.opacity(0.92))
+        .foregroundStyle(EchoTheme.Color.ink(0.92))
         .frame(width: 36, height: 34)
         .background(
           didSend ? Color.green.opacity(0.22) : Color.indigo.opacity(0.55),

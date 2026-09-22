@@ -25,6 +25,7 @@ final class EchoSoundPlayer {
 
   func startRingtoneLoop(_ entry: EchoRingtoneEntry, volume: Double) {
     guard let url = Self.resourceURL(for: entry) else { return }
+    stopRingtone()
     do {
       prepareSession(forRingtone: true)
       let player = try AVAudioPlayer(contentsOf: url)
@@ -32,9 +33,15 @@ final class EchoSoundPlayer {
       player.volume = Float(max(0, min(1, volume)))
       player.prepareToPlay()
       ringtonePlayer = player
-      player.play()
+      guard player.play() else {
+        // CallKit may have flipped the session mid-start; retry once on the
+        // active route without changing category.
+        prepareSession(forRingtone: true)
+        _ = player.play()
+        return
+      }
     } catch {
-      // Incoming ringtone is best-effort; CallKit still surfaces the call.
+      // Ringtone is best-effort; CallKit still surfaces the call.
     }
   }
 
@@ -60,8 +67,15 @@ final class EchoSoundPlayer {
       do {
         let session = AVAudioSession.sharedInstance()
         if forRingtone {
+          // Never steal CallKit / LiveKit's `.playAndRecord` session by
+          // flipping to `.playback` — that silences ringback and can break
+          // the in-call path. Play on the owned session instead.
+          if session.category == .playAndRecord {
+            try session.setActive(true)
+            return
+          }
           try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-        } else {
+        } else if session.category != .playAndRecord {
           try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
         }
         try session.setActive(true)

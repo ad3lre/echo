@@ -1984,6 +1984,8 @@ export function useAppLayoutDmCalls(deps: {
         callOverlay.value.type,
         dmVoiceJoinTargetId.value,
         voiceBinding.value?.currentVoiceChannelId.value ?? '',
+        // Rejoin after LiveKit drop (MLS epoch supersede, SFU blip) while call UI stays up.
+        voiceBinding.value?.liveKitState.value ?? 'idle',
         dmCallSignal.value?.direction ?? '',
         dmCallSignal.value?.status ?? '',
         dmCallLobbyAfterSelfLeave.value,
@@ -1993,6 +1995,7 @@ export function useAppLayoutDmCalls(deps: {
       overlay,
       joinId,
       _voiceChannelId,
+      _liveKitState,
       direction,
       signalStatus,
       lobbyAfterLeave,

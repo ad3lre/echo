@@ -79,4 +79,18 @@ describe('computeEchoMessageSearchFlags', () => {
     assert.equal(flags.hasImage, false);
     assert.equal(flags.hasDocs, true);
   });
+
+  it('counts bare kind:image with empty mime as hasImage (native photo uploads)', () => {
+    const flags = computeEchoMessageSearchFlags({
+      attachments: [
+        {
+          url: 'https://cdn.example/media/abc123',
+          kind: 'image',
+        },
+      ],
+    });
+    assert.equal(flags.hasImage, true);
+    assert.equal(flags.hasGif, false);
+    assert.equal(flags.hasAttachment, true);
+  });
 });

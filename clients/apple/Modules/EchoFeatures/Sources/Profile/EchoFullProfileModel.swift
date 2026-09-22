@@ -20,6 +20,7 @@ final class EchoFullProfileModel {
   var profile: EchoUserProfile
   var presenceStatus: String?
   var mutualFriends: [EchoUserProfile] = []
+  var mutualServers: [EchoMutualServerSummary] = []
   var friendship: EchoProfileFriendship = .none
   var isLoading = false
   var isUpdatingFriendship = false
@@ -50,10 +51,13 @@ final class EchoFullProfileModel {
       async let loadedRequests = try? client.loadFriendRequests(accessToken: accessToken)
       async let loadedMutualIDs = try? client.loadMutualFriendIDs(
         peerID: userID, accessToken: accessToken)
+      async let loadedMutualServers = try? client.loadMutualServers(
+        peerID: userID, accessToken: accessToken)
 
       profile = try await loadedProfile
       presenceStatus = await loadedPresence ?? presenceStatus
       applyFriendship(friends: await loadedFriends, requests: await loadedRequests)
+      mutualServers = await loadedMutualServers ?? []
 
       if let ids = await loadedMutualIDs, !ids.isEmpty {
         mutualFriends =

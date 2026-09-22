@@ -51,16 +51,16 @@ struct EchoPinnedMessagesView: View {
     HStack(spacing: 12) {
       Text(EchoCopy.string("Pinned messages"))
         .font(.system(size: 18, weight: .bold, design: .rounded))
-        .foregroundStyle(.white.opacity(0.96))
+        .foregroundStyle(EchoTheme.Color.ink(0.96))
       Spacer(minLength: 0)
       Button {
         dismiss()
       } label: {
         Image(systemName: "xmark")
           .font(.system(size: 14, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.72))
+          .foregroundStyle(EchoTheme.Color.ink(0.72))
           .frame(width: 34, height: 34)
-          .background(.white.opacity(0.08), in: Circle())
+          .background(EchoTheme.Color.ink(0.08), in: Circle())
       }
       .buttonStyle(.plain)
       .accessibilityLabel(EchoCopy.string("Close"))
@@ -79,10 +79,10 @@ struct EchoPinnedMessagesView: View {
         .background(EchoTheme.Color.indigo.opacity(0.14), in: Circle())
       Text(EchoCopy.string("No pinned messages"))
         .font(.system(size: 16, weight: .semibold, design: .rounded))
-        .foregroundStyle(.white.opacity(0.9))
+        .foregroundStyle(EchoTheme.Color.ink(0.9))
       Text(EchoCopy.string("Long-press a message to pin it."))
         .font(.system(size: 13, weight: .regular, design: .rounded))
-        .foregroundStyle(.white.opacity(0.46))
+        .foregroundStyle(EchoTheme.Color.ink(0.46))
         .multilineTextAlignment(.center)
         .frame(maxWidth: 260)
     }
@@ -109,7 +109,7 @@ struct EchoPinnedMessagesView: View {
         HStack(spacing: 6) {
           Text(pinAuthorName(message))
             .font(.system(size: 13, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.88))
+            .foregroundStyle(EchoTheme.Color.ink(0.88))
             .lineLimit(1)
           Spacer(minLength: 0)
           Image(systemName: "pin.fill")
@@ -118,7 +118,7 @@ struct EchoPinnedMessagesView: View {
         }
         Text(pinPreview(message))
           .font(.system(size: 14, weight: .regular, design: .rounded))
-          .foregroundStyle(.white.opacity(0.72))
+          .foregroundStyle(EchoTheme.Color.ink(0.72))
           .lineLimit(3)
           .multilineTextAlignment(.leading)
           .frame(maxWidth: .infinity, alignment: .leading)

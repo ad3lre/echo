@@ -18,17 +18,17 @@ struct EchoSettingSlider: View {
         }
         Text(title)
           .font(.system(size: 14, weight: .medium, design: .rounded))
-          .foregroundStyle(.white.opacity(0.58))
+          .foregroundStyle(EchoTheme.Color.ink(0.58))
         Spacer()
         Text("\(Int(value * valueScale))%")
           .font(.system(size: 13, weight: .semibold, design: .rounded))
-          .foregroundStyle(.white.opacity(0.78))
+          .foregroundStyle(EchoTheme.Color.ink(0.78))
           .monospacedDigit()
       }
       GeometryReader { geometry in
         let progress = normalizedValue
         ZStack(alignment: .leading) {
-          Capsule(style: .continuous).fill(.white.opacity(0.10))
+          Capsule(style: .continuous).fill(EchoTheme.Color.ink(0.10))
           Capsule(style: .continuous)
             .fill(
               LinearGradient(
@@ -37,9 +37,9 @@ struct EchoSettingSlider: View {
             )
             .frame(width: max(14, geometry.size.width * progress))
           Circle()
-            .fill(.white).frame(width: 22, height: 22)
-            .overlay { Circle().stroke(.white.opacity(0.22), lineWidth: 1) }
-            .shadow(color: .black.opacity(0.28), radius: 6, y: 1)
+            .fill(EchoTheme.Color.fg).frame(width: 22, height: 22)
+            .overlay { Circle().stroke(EchoTheme.Color.ink(0.22), lineWidth: 1) }
+            .echoShadow(color: .black.opacity(0.28), radius: 6, y: 1)
             .offset(x: max(0, min(geometry.size.width - 22, geometry.size.width * progress - 11)))
         }
         .frame(height: 22)

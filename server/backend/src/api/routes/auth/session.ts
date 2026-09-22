@@ -110,6 +110,19 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
             const classification =
               await store.classifyRefreshTokenHash(tokenHash);
             if (classification === 'revoked') {
+              // A replay is a theft signal. Kill every refresh token and server
+              // session for the account so a stolen successor cannot remain a
+              // valid branch of the rotated family.
+              const replayed = await store.findRefreshTokenByHash(tokenHash);
+              if (replayed) {
+                await store.revokeUserRefreshTokens(replayed.userId);
+                await deleteAllServerSessionsForUser(replayed.userId);
+                await disconnectAllSocketsForAuthUser(
+                  fastify,
+                  replayed.userId,
+                  'refresh_token_replay',
+                );
+              }
               return sendError(
                 reply,
                 401,
@@ -146,6 +159,16 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
           });
           if (!rotation.ok) {
             if (rotation.reason === 'already_redeemed') {
+              const replayed = await store.findRefreshTokenByHash(tokenHash);
+              if (replayed) {
+                await store.revokeUserRefreshTokens(replayed.userId);
+                await deleteAllServerSessionsForUser(replayed.userId);
+                await disconnectAllSocketsForAuthUser(
+                  fastify,
+                  replayed.userId,
+                  'refresh_token_replay',
+                );
+              }
               return sendError(
                 reply,
                 401,

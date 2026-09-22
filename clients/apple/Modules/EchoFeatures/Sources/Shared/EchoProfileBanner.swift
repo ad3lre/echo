@@ -23,10 +23,11 @@ struct EchoProfileBanner: View {
   let profile: EchoUserProfile
   let baseURL: URL
   var accessToken: String? = nil
-  /// Blur / blackout / refraction. Home DM chrome keeps this off so bloom cannot
-  /// paint a hard light seam into the conversation search row.
+  /// Blur / blackout / refraction. Keep on for web-parity; home chrome still
+  /// clips refraction bloom via `showsRefractionBleed: false` + compositing.
   var appliesEffects: Bool = true
-  /// Ambient refraction that extends past the banner box (full profile / edit only).
+  /// Ambient refraction that extends past the banner box (full profile / edit).
+  /// Home DM chrome leaves this off so bloom cannot paint a seam into search.
   var showsRefractionBleed: Bool = true
 
   var body: some View {
@@ -34,8 +35,8 @@ struct EchoProfileBanner: View {
       let size = geo.size
       let effects = appliesEffects
       ZStack {
-        if effects, showsRefractionBleed, profile.bannerRefractionEnabled {
-          refractionLayer(in: size)
+        if effects, profile.bannerRefractionEnabled {
+          refractionLayer(in: size, allowBleed: showsRefractionBleed)
         }
 
         ZStack {
@@ -68,7 +69,7 @@ struct EchoProfileBanner: View {
   private var bannerArtwork: some View {
     if hasBannerImage {
       EchoMediaImage(source: profile.bannerURL, baseURL: baseURL, accessToken: accessToken) {
-        fallbackColor.overlay(ProgressView().tint(.white.opacity(0.55)))
+        fallbackColor.overlay(ProgressView().tint(EchoTheme.Color.ink(0.55)))
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .offset(y: (0.5 - bannerFocusY) * 48)
@@ -80,8 +81,8 @@ struct EchoProfileBanner: View {
 
   /// Soft ambient copy of the banner (or solid color). GIFs fall back to color like web.
   @ViewBuilder
-  private func refractionLayer(in size: CGSize) -> some View {
-    let bleed = EchoBannerEffectStyle.refractionBleed
+  private func refractionLayer(in size: CGSize, allowBleed: Bool) -> some View {
+    let bleed = allowBleed ? EchoBannerEffectStyle.refractionBleed : 0
     Group {
       if hasBannerImage, !bannerLooksAnimated {
         EchoMediaImage(source: profile.bannerURL, baseURL: baseURL, accessToken: accessToken) {
@@ -121,6 +122,6 @@ struct EchoProfileBanner: View {
   }
 
   private var fallbackColor: some View {
-    Color(hex: profile.bannerColor) ?? Color.white.opacity(0.08)
+    Color(hex: profile.bannerColor) ?? EchoTheme.Color.ink(0.08)
   }
 }
