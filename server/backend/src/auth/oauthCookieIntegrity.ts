@@ -12,10 +12,9 @@ export function oauthCookieIntegrityTag(
   masterSecret: string,
   payload: string,
 ): string {
+  const message = `${OAUTH_COOKIE_MAC_SALT}\0${payload}`;
   return createHmac('sha256', masterSecret)
-    .update(OAUTH_COOKIE_MAC_SALT)
-    .update('\0')
-    .update(payload)
+    .update(message)
     .digest('hex');
 }
 
