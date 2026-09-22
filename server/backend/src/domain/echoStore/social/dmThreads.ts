@@ -12,6 +12,7 @@ import {
 import { nextEchoSnowflakeId } from '../../echoSnowflake';
 import { getEchoEntitlements } from '../../echoPlanEntitlements';
 import { isEchoPairBlocked } from '../members/blocks';
+import { ensureEchoDmRealm } from './dmRealmPersistence';
 import { areEchoAcceptedFriends, echoUsersShareAnyServer } from './social';
 
 type SqlExecutor = Pick<pg.Pool, 'query'> | Pick<pg.PoolClient, 'query'>;
@@ -565,16 +566,6 @@ async function ensureEchoDmCategoryId(pool: pg.Pool): Promise<string> {
   return categoryId;
 }
 
-export async function ensureEchoDmRealm(
-  pool: pg.Pool,
-  actorUserId: string,
-): Promise<void> {
-  await pool.query(
-    `INSERT INTO echo_servers (id, name, icon_url, owner_id) VALUES ($1, $2, '', $3) ON CONFLICT (id) DO NOTHING`,
-    [ECHO_DM_REALM_SERVER_ID, 'Direct messages', actorUserId],
-  );
-}
-
 export async function listEchoDmThreadsForUser(
   pool: pg.Pool,
   userId: string,
@@ -681,7 +672,7 @@ export async function getOrCreateEchoDmThread(
       self,
     ]);
     if (peerRow.rows.length === 0) return { ok: false, reason: 'unknown_peer' };
-    await ensureEchoDmRealm(pool, self);
+    await ensureEchoDmRealm(pool, ECHO_DM_REALM_SERVER_ID, self);
     const categoryId = await ensureEchoDmCategoryId(pool);
     const channelId = nextEchoSnowflakeId();
     const maxPos = await pool.query(
@@ -768,7 +759,7 @@ export async function getOrCreateEchoDmThread(
     return { ok: true, channelId: existing.channelId };
   }
 
-  await ensureEchoDmRealm(pool, userId);
+  await ensureEchoDmRealm(pool, ECHO_DM_REALM_SERVER_ID, userId);
   const categoryId = await ensureEchoDmCategoryId(pool);
   const channelId = nextEchoSnowflakeId();
   const maxPos = await pool.query(
@@ -872,7 +863,7 @@ export async function createEchoGroupDmThread(
     return { ok: false, reason: pairPolicy };
   }
 
-  await ensureEchoDmRealm(pool, initiatorUserId);
+  await ensureEchoDmRealm(pool, ECHO_DM_REALM_SERVER_ID, initiatorUserId);
   const categoryId = await ensureEchoDmCategoryId(pool);
   const channelId = nextEchoSnowflakeId();
   const maxPos = await pool.query(
