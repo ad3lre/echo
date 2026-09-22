@@ -203,7 +203,7 @@ export async function canSafelyResolveUrlForOutboundFetch(
  */
 export async function ssrfSafeFetch(
   url: string,
-  init: RequestInit & { dispatcher?: unknown },
+  init: Omit<RequestInit, 'dispatcher'> & { dispatcher?: unknown },
 ): Promise<Response> {
   if (!(await canSafelyResolveUrlForOutboundFetch(url))) {
     throw new Error('SSRF: URL failed safety validation');
@@ -212,7 +212,7 @@ export async function ssrfSafeFetch(
   // object also prevents callers from smuggling a different request target via
   // string coercion or an alternate URL-like value.
   const validatedUrl = new URL(url);
-  return fetch(validatedUrl, init);
+  return fetch(validatedUrl, init as RequestInit);
 }
 
 export async function fetchJsonWithTimeout(

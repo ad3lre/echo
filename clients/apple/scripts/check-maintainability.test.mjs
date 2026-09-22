@@ -52,7 +52,7 @@ test('god-file ceiling catches oversized module sources', () => {
   assert.ok(result.violations.some((v) => v.kind === 'god-file'));
 });
 
-test('color literal allowlist is limited to theme and welcome art', () => {
+test('color literal allowlist is limited to theme and brand art', () => {
   assert.ok(
     COLOR_LITERAL_ALLOWLIST.has(
       'Modules/EchoFeatures/Sources/Shared/EchoTheme.swift',
@@ -63,7 +63,12 @@ test('color literal allowlist is limited to theme and welcome art', () => {
       'Modules/EchoFeatures/Sources/Shared/EchoWelcomeScene.swift',
     ),
   );
-  assert.equal(COLOR_LITERAL_ALLOWLIST.size, 2);
+  assert.ok(
+    COLOR_LITERAL_ALLOWLIST.has(
+      'Modules/EchoFeatures/Sources/Profile/EchoProfileUserBadges.swift',
+    ),
+  );
+  assert.equal(COLOR_LITERAL_ALLOWLIST.size, 3);
 });
 
 test('color literal and import boundary violations are detected', () => {

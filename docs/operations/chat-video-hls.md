@@ -19,7 +19,7 @@ Multiple standalone workers are safe: jobs use `FOR UPDATE SKIP LOCKED`.
 
 **Local dev:** leave `embedded` (default) so `npm run dev` does not need a second process.
 
-**Production:** `ECHO_VIDEO_HLS_WORKER=standalone` is required (startup gate) unless `ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true` for deliberate single-process smoke. From repo root, `pm2 start ecosystem.config.cjs` loads [`.env`](../../.env) into both `echo-backend` and `echo-video-hls-worker` via `env_file`. The worker process is **required** (install **ffmpeg** on that host). On shutdown, the worker waits for the current transcode to finish (up to `ECHO_VIDEO_HLS_TIMEOUT_MS` + 30s) before exit.
+**Production:** `ECHO_VIDEO_HLS_WORKER=standalone` is required (startup gate) unless `ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true` for deliberate single-process smoke. From repo root, `pm2 start ecosystem.config.cjs` loads `.env` into both `echo-backend` and `echo-video-hls-worker` via `env_file`. The worker process is **required** (install **ffmpeg** on that host). On shutdown, the worker waits for the current transcode to finish (up to `ECHO_VIDEO_HLS_TIMEOUT_MS` + 30s) before exit.
 
 ## Environment
 
