@@ -2,9 +2,9 @@ import { Server } from 'socket.io';
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config';
 import { registerSocketHandlers } from '../sockets/handlers';
+import { subscribeToEchoChannelFanout } from '../sockets/channelFanoutTransport';
 import { connectNats } from '../db/nats';
 import { createAdapter } from '@mickl/socket.io-nats-adapter';
-
 function resolveSocketIoCorsOrigin():
   | string
   | string[]
@@ -96,11 +96,11 @@ export async function attachSocketAdapterIfConfigured(
     fastify.log.info('NATS not configured, using default Socket.IO adapter');
     return;
   }
-
   try {
     const nc = await connectNats();
     if (!nc) return;
     io.adapter(createAdapter(nc));
+    subscribeToEchoChannelFanout(io, nc);
     fastify.log.info('NATS connected, Socket.IO adapter attached');
   } catch (err) {
     fastify.log.warn(
