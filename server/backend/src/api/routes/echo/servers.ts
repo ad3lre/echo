@@ -174,24 +174,24 @@ export default async function echoServersRoutes(
         iconUrl = v.value;
       }
       const userId = getAuthUser(req).id;
-      const admission = await pool.connect();
+      // Slot lock must release before createEchoServer's own pool.connect();
+      // nesting both holds starves the pool and hangs the request (CI UND_ERR_HEADERS_TIMEOUT).
       let slot: Awaited<
         ReturnType<typeof assertEchoUserHasServerMembershipSlot>
       >;
-      let created: { serverId: string; defaultChannelId: string } | null = null;
-      try {
-        await admission.query('BEGIN');
-        await lockEchoServerMembershipEntitlement(admission, userId);
-        slot = await assertEchoUserHasServerMembershipSlot(admission, userId);
-        if (slot.ok) {
-          created = await createEchoServer(pool, userId, name, iconUrl);
+      {
+        const admission = await pool.connect();
+        try {
+          await admission.query('BEGIN');
+          await lockEchoServerMembershipEntitlement(admission, userId);
+          slot = await assertEchoUserHasServerMembershipSlot(admission, userId);
+          await admission.query(slot.ok ? 'COMMIT' : 'ROLLBACK');
+        } catch (error) {
+          await admission.query('ROLLBACK').catch(() => undefined);
+          throw error;
+        } finally {
+          admission.release();
         }
-        await admission.query('COMMIT');
-      } catch (error) {
-        await admission.query('ROLLBACK').catch(() => undefined);
-        throw error;
-      } finally {
-        admission.release();
       }
       if (!slot.ok) {
         return sendError(
@@ -202,7 +202,7 @@ export default async function echoServersRoutes(
           `current=${slot.current}`,
         );
       }
-      if (!created) throw new Error('Server creation did not complete');
+      const created = await createEchoServer(pool, userId, name, iconUrl);
       const { serverId, defaultChannelId } = created;
       const auditId = await insertEchoAudit(
         pool,
