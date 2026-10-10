@@ -190,7 +190,8 @@ describe('KaTeX complex runtime — stacked scripts, clipping, tall math', () =>
       expect(out).toMatch(/style="/i);
 
       const root = mount(out);
-      const struts = root.querySelectorAll('.strut');
+      // KaTeX 0.19+ emits `.katex-strut` (previously `.strut`).
+      const struts = root.querySelectorAll('.strut, .katex-strut');
       expect(struts.length).toBeGreaterThan(0);
       const vlist = root.querySelector('.vlist-t, .vlist');
       if (vlist) {

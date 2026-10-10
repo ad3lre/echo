@@ -169,7 +169,7 @@
     "jsdom": "^29.1.1",
     "kill-port": "^2.0.1",
     "prettier": "3.8.3",
-    "sharp": "^0.35.4",
+    "sharp": "0.35.5",
     "tree-kill": "^1.2.2",
     "typescript": "6.0.3",
     "wait-on": "^9.0.10"
@@ -182,12 +182,21 @@
   },
   "overrides": {
     "discord.js": {
-      "undici": "6.28.0"
+      "undici": "6.28.1"
+    },
+    "@discordjs/rest": {
+      "undici": "6.28.1"
     },
     "jsdom": {
-      "undici": "7.29.0"
+      "undici": "7.29.1"
     },
-    "@grpc/grpc-js": "1.14.4",
+    "node-gyp": {
+      "undici": "8.10.2"
+    },
+    "unifont": {
+      "undici": "8.10.2"
+    },
+    "@grpc/grpc-js": "1.14.6",
     "esbuild": "0.28.1",
     "prosemirror-model": "1.25.7",
     "typescript": "6.0.3",
@@ -199,9 +208,10 @@
     "browserslist": "4.29.0",
     "joi": "18.2.9",
     "qs": "6.16.0",
-    "devalue": "5.9.1",
+    "devalue": "5.9.3",
     "uuid": "^14.0.0",
     "@fastify/websocket": "11.2.0",
+    "@fastify/busboy": "3.2.3",
     "lodash": "4.18.1",
     "@parcel/watcher": {
       "picomatch": "4.0.4"
@@ -210,16 +220,17 @@
       "immutable": "5.1.9"
     },
     "immutable": "5.1.9",
-    "brace-expansion": "5.0.9",
-    "fast-uri": "3.1.7",
+    "brace-expansion": "5.0.12",
+    "fast-uri": "3.1.8",
     "js-yaml": "4.3.2",
     "nanoid": "3.3.18",
     "socket.io-parser": "4.2.7",
+    "engine.io": "6.6.11",
     "find-my-way": "9.7.0",
     "postcss": "8.5.23",
     "protobufjs": "8.7.1",
     "svgo": "4.1.0",
-    "smol-toml": "1.8.0",
+    "smol-toml": "1.9.1",
     "tar": "7.5.22",
     "tinyglobby": {
       "picomatch": "4.0.4"
@@ -233,11 +244,32 @@
     },
     "astro": {
       "esbuild": "0.28.1",
-      "sharp": "0.35.4"
+      "sharp": "0.35.5"
     },
     "tmp": "0.2.7",
-    "shell-quote": "1.10.0",
-    "@opentelemetry/propagator-jaeger": "2.10.0"
+    "shell-quote": "1.12.0",
+    "axios": "1.20.0",
+    "source-map-js": "1.2.2",
+    "http-cache-semantics": "4.3.0",
+    "vue": "3.5.43",
+    "@vue/server-renderer": "3.5.43",
+    "@vue/compiler-sfc": "3.5.43",
+    "@vue/runtime-dom": "3.5.43",
+    "@vue/runtime-core": "3.5.43",
+    "@vue/reactivity": "3.5.43",
+    "@vue/shared": "3.5.43",
+    "@vue/compiler-core": "3.5.43",
+    "@vue/compiler-dom": "3.5.43",
+    "@vue/compiler-ssr": "3.5.43",
+    "@opentelemetry/propagator-jaeger": "2.10.0",
+    "@opentelemetry/instrumentation-cassandra-driver": "0.66.0",
+    "@opentelemetry/instrumentation-knex": "0.65.0",
+    "@opentelemetry/instrumentation-mongoose": "0.67.0",
+    "@opentelemetry/instrumentation-mysql": "0.67.0",
+    "@opentelemetry/instrumentation-mysql2": "0.67.0",
+    "@opentelemetry/instrumentation-oracledb": "0.46.0",
+    "@opentelemetry/instrumentation-pg": "0.73.0",
+    "@opentelemetry/instrumentation-tedious": "0.40.0"
   },
   "volta": {
     "node": "22.13.0"
