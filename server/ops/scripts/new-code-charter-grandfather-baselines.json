@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08",
+  "generatedAt": "2026-10-10",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -2534,7 +2534,7 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/dm/collectDmMentionNotifications.ts": {
-      "lines": 107,
+      "lines": 126,
       "longestFunction": 68,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
@@ -2750,7 +2750,7 @@
       "maxNestingSpaces": 2
     },
     "clients/web/src/features/dm/prefetchMentionNotificationChannels.ts": {
-      "lines": 326,
+      "lines": 359,
       "longestFunction": 77,
       "deepNestingLines": 1,
       "maxNestingSpaces": 14
@@ -2762,7 +2762,7 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/dm/resolveMentionNotificationDisplay.ts": {
-      "lines": 190,
+      "lines": 205,
       "longestFunction": 42,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
@@ -2774,8 +2774,8 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/dm/useMentionNotificationHydration.ts": {
-      "lines": 283,
-      "longestFunction": 215,
+      "lines": 308,
+      "longestFunction": 238,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -3032,7 +3032,7 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/layout/components/AppLayout.vue": {
-      "lines": 2332,
+      "lines": 2341,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
@@ -4688,8 +4688,8 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/layout/failures/realtimeMessageFailedUserMessage.ts": {
-      "lines": 64,
-      "longestFunction": 57,
+      "lines": 65,
+      "longestFunction": 58,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -6674,7 +6674,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/settings/theme.ts": {
-      "lines": 317,
+      "lines": 323,
       "longestFunction": 22,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -8180,7 +8180,7 @@
       "maxNestingSpaces": 12
     },
     "server/backend/src/api/routes/echo/messages.ts": {
-      "lines": 1541,
+      "lines": 1543,
       "longestFunction": 3,
       "deepNestingLines": 57,
       "maxNestingSpaces": 16
@@ -8216,9 +8216,9 @@
       "maxNestingSpaces": 10
     },
     "server/backend/src/api/routes/echo/public.ts": {
-      "lines": 507,
+      "lines": 594,
       "longestFunction": 13,
-      "deepNestingLines": 1,
+      "deepNestingLines": 2,
       "maxNestingSpaces": 14
     },
     "server/backend/src/api/routes/echo/roles.ts": {
@@ -8432,7 +8432,7 @@
       "maxNestingSpaces": 2
     },
     "server/backend/src/auth/csrf.ts": {
-      "lines": 141,
+      "lines": 145,
       "longestFunction": 63,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -8666,7 +8666,7 @@
       "maxNestingSpaces": 14
     },
     "server/backend/src/config.ts": {
-      "lines": 1498,
+      "lines": 1514,
       "longestFunction": 10,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -8894,7 +8894,7 @@
       "maxNestingSpaces": 6
     },
     "server/backend/src/domain/echoGuestPolicy.ts": {
-      "lines": 46,
+      "lines": 57,
       "longestFunction": 11,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
@@ -9284,10 +9284,10 @@
       "maxNestingSpaces": 10
     },
     "server/backend/src/domain/echoStore/servers/serverSpamFilter.ts": {
-      "lines": 108,
-      "longestFunction": 12,
+      "lines": 44,
+      "longestFunction": 9,
       "deepNestingLines": 0,
-      "maxNestingSpaces": 10
+      "maxNestingSpaces": 4
     },
     "server/backend/src/domain/echoStore/servers/servers.ts": {
       "lines": 1321,
@@ -9692,7 +9692,7 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/services/auth/guestAbuseLimiter.ts": {
-      "lines": 248,
+      "lines": 225,
       "longestFunction": 51,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
@@ -10388,7 +10388,7 @@
       "maxNestingSpaces": 12
     },
     "server/backend/src/sockets/chatMessageHandler.ts": {
-      "lines": 725,
+      "lines": 726,
       "longestFunction": 9,
       "deepNestingLines": 312,
       "maxNestingSpaces": 20

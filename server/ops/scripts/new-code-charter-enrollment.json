@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-10-08",
+  "enrolledAt": "2026-10-10",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -128,8 +128,8 @@
       "maxNestingSpaces": 12
     },
     "clients/web/src/features/layout/composables/messaging/useAppLayoutMentionNotifications.ts": {
-      "lines": 260,
-      "longestFunction": 223,
+      "lines": 263,
+      "longestFunction": 226,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },

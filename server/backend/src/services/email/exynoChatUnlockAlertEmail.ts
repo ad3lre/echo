@@ -88,6 +88,64 @@ function clientStr(
   return typeof v === 'string' && v.trim() ? v.trim() : null;
 }
 
+function unlockDetailRows(
+  device: string,
+  browser: string,
+  when: string,
+  where: string,
+): string {
+  const row = (label: string, value: string): string =>
+    `<tr><td style="padding:6px 16px 6px 0;color:#5f6368;vertical-align:top">${escapeHtml(label)}</td>` +
+    `<td style="padding:6px 0;color:#202124;font-weight:500">${escapeHtml(value)}</td></tr>`;
+  return (
+    row('Device', device) +
+    row('Browser', browser) +
+    row('When', when) +
+    row('IP', where)
+  );
+}
+
+function buildUnlockTextBody(
+  device: string,
+  browser: string,
+  when: string,
+  where: string,
+): string {
+  return [
+    `New sign-in to chat.exyno.de`,
+    ``,
+    `Someone just unlocked Exyno chat with the shared password.`,
+    ``,
+    `Device:  ${device}`,
+    `Browser: ${browser}`,
+    `When:    ${when}`,
+    `IP:      ${where}`,
+    ``,
+    `If this was you, you can ignore this email.`,
+    `If it wasn’t, change the chat password.`,
+  ].join('\n');
+}
+
+function buildUnlockHtmlBody(
+  device: string,
+  browser: string,
+  when: string,
+  where: string,
+): string {
+  return (
+    `<div style="font-family:Google Sans,Roboto,Helvetica,Arial,sans-serif;max-width:520px;color:#202124;line-height:1.45">` +
+    `<h1 style="font-size:22px;font-weight:400;margin:0 0 12px">New sign-in to chat.exyno.de</h1>` +
+    `<p style="margin:0 0 18px;color:#3c4043">Someone just unlocked Exyno chat with the shared password.</p>` +
+    `<table style="border-collapse:collapse;margin:0 0 18px"><tbody>` +
+    unlockDetailRows(device, browser, when, where) +
+    `</tbody></table>` +
+    `<p style="margin:0;color:#5f6368;font-size:13px">` +
+    `If this was you, you can ignore this email. If it wasn’t, change the chat password.` +
+    `</p>` +
+    `</div>`
+  );
+}
+
 export function buildExynoChatUnlockMail(
   payload: ExynoChatUnlockAlertPayload,
 ): {
@@ -108,40 +166,8 @@ export function buildExynoChatUnlockMail(
 
   // Google-style: lead with device, not HWID / raw UA.
   const subject = `New sign-in to chat.exyno.de · ${device}`;
-
-  const lines = [
-    `New sign-in to chat.exyno.de`,
-    ``,
-    `Someone just unlocked Exyno chat with the shared password.`,
-    ``,
-    `Device:  ${device}`,
-    `Browser: ${browser}`,
-    `When:    ${when}`,
-    `IP:      ${where}`,
-    ``,
-    `If this was you, you can ignore this email.`,
-    `If it wasn’t, change the chat password.`,
-  ];
-  const text = lines.join('\n');
-
-  const row = (label: string, value: string): string =>
-    `<tr><td style="padding:6px 16px 6px 0;color:#5f6368;vertical-align:top">${escapeHtml(label)}</td>` +
-    `<td style="padding:6px 0;color:#202124;font-weight:500">${escapeHtml(value)}</td></tr>`;
-
-  const html =
-    `<div style="font-family:Google Sans,Roboto,Helvetica,Arial,sans-serif;max-width:520px;color:#202124;line-height:1.45">` +
-    `<h1 style="font-size:22px;font-weight:400;margin:0 0 12px">New sign-in to chat.exyno.de</h1>` +
-    `<p style="margin:0 0 18px;color:#3c4043">Someone just unlocked Exyno chat with the shared password.</p>` +
-    `<table style="border-collapse:collapse;margin:0 0 18px"><tbody>` +
-    row('Device', device) +
-    row('Browser', browser) +
-    row('When', when) +
-    row('IP', where) +
-    `</tbody></table>` +
-    `<p style="margin:0;color:#5f6368;font-size:13px">` +
-    `If this was you, you can ignore this email. If it wasn’t, change the chat password.` +
-    `</p>` +
-    `</div>`;
+  const text = buildUnlockTextBody(device, browser, when, where);
+  const html = buildUnlockHtmlBody(device, browser, when, where);
 
   const meta = {
     unlockedAt: payload.unlockedAt,
