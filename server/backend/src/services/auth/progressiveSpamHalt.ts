@@ -44,10 +44,7 @@ function ipKey(ip: string): string {
 }
 
 function haltDurationForStrike(strikeCount: number): number {
-  const idx = Math.min(
-    Math.max(strikeCount, 1),
-    HALT_DURATIONS_MS.length,
-  ) - 1;
+  const idx = Math.min(Math.max(strikeCount, 1), HALT_DURATIONS_MS.length) - 1;
   return HALT_DURATIONS_MS[idx]!;
 }
 
@@ -185,7 +182,10 @@ async function resolveStrikeCount(key: string, now: number): Promise<number> {
   return memGetStrike(key, now);
 }
 
-async function resolveHaltUntil(key: string, now: number): Promise<number | null> {
+async function resolveHaltUntil(
+  key: string,
+  now: number,
+): Promise<number | null> {
   const fromRedis = await redisGetHaltUntil(key);
   if (fromRedis != null) {
     return fromRedis > now ? fromRedis : null;
@@ -219,10 +219,7 @@ export async function getActiveSpamHalt(
     const ipUntil = await resolveHaltUntil(iKey, now);
     if (ipUntil != null && (bestUntil == null || ipUntil > bestUntil)) {
       bestUntil = ipUntil;
-      bestStrikes = Math.max(
-        bestStrikes,
-        await resolveStrikeCount(iKey, now),
-      );
+      bestStrikes = Math.max(bestStrikes, await resolveStrikeCount(iKey, now));
     }
   }
 

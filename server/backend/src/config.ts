@@ -1225,8 +1225,7 @@ export const config: AppConfig = {
    * Default: reachbypass@gmail.com.
    */
   echoExynoChatUnlockEmail:
-    process.env.ECHO_EXYNO_CHAT_UNLOCK_EMAIL?.trim() ||
-    'reachbypass@gmail.com',
+    process.env.ECHO_EXYNO_CHAT_UNLOCK_EMAIL?.trim() || 'reachbypass@gmail.com',
   /**
    * Shared secret for POST /api/v1/echo/public/client-alerts/exyno-chat-unlock.
    * Empty = endpoint rejects all callers (safe default).

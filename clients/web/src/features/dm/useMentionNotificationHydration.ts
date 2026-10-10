@@ -123,7 +123,10 @@ export function useMentionNotificationHydration(input: {
       if (!channelId || !anchor) continue;
       // Discord-bridged channels often anchor on latestUnread (not the @mention).
       // Treat the channel as hydrated when any self-pinging mention is local.
-      if (hasChannelMessageInBucket(channelId, anchor) || channelHasSelfPing(channelId)) {
+      if (
+        hasChannelMessageInBucket(channelId, anchor) ||
+        channelHasSelfPing(channelId)
+      ) {
         next.delete(channelId);
       } else {
         next.add(channelId);

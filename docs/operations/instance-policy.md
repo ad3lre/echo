@@ -65,15 +65,15 @@ for split CDN/API builds).
 
 ## Schema sections
 
-| Section           | Purpose                                                                              |
-| ----------------- | ------------------------------------------------------------------------------------ |
-| `general`         | Instance name/description; default public URLs (overridden by `ECHO_*_PUBLIC_URL`)   |
-| `registration`    | Disable registration, email verification, username/password bounds, HWID account cap |
+| Section           | Purpose                                                                                                                                                           |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `general`         | Instance name/description; default public URLs (overridden by `ECHO_*_PUBLIC_URL`)                                                                                |
+| `registration`    | Disable registration, email verification, username/password bounds, HWID account cap                                                                              |
 | `guest`           | Guest mint, directory pool, Turnstile site key (secret stays in env). `maxTotalMessages: 0` locks channel messaging to registered accounts (guests still browse). |
-| `limits.socket`   | Socket message burst + per-minute caps, idempotency window                           |
-| `limits.http`     | Global REST, Echo API scope, per-route buckets, optional instance-wide absolute caps |
-| `limits.upstream` | Serper, Honcho, Discord import daily caps                                            |
-| `regions.voice`   | Advertised voice region labels (LiveKit routing is configured separately)            |
+| `limits.socket`   | Socket message burst + per-minute caps, idempotency window                                                                                                        |
+| `limits.http`     | Global REST, Echo API scope, per-route buckets, optional instance-wide absolute caps                                                                              |
+| `limits.upstream` | Serper, Honcho, Discord import daily caps                                                                                                                         |
+| `regions.voice`   | Advertised voice region labels (LiveKit routing is configured separately)                                                                                         |
 
 Typed defaults live in [`contracts/instancePolicy.ts`](../../contracts/instancePolicy.ts).
 JSON Schema: [`contracts/instancePolicySchema.json`](../../contracts/instancePolicySchema.json).

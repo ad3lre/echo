@@ -32,7 +32,7 @@
   "clients/web/src/features/dm/components/DMPanel.vue": 2062,
   "clients/web/src/features/dm/components/DMProfilePanel.vue": 713,
   "clients/web/src/features/layout/appLayoutChatSurfaceProps.ts": 785,
-  "clients/web/src/features/layout/components/AppLayout.vue": 2332,
+  "clients/web/src/features/layout/components/AppLayout.vue": 2341,
   "clients/web/src/features/layout/components/AppLayoutChatHeader.vue": 2476,
   "clients/web/src/features/layout/components/AppLayoutChatSurface.vue": 1031,
   "clients/web/src/features/layout/components/AppLayoutDmSection.vue": 728,
@@ -102,7 +102,7 @@
   "server/backend/src/api/routes/echo/voice.ts": 1361,
   "server/backend/src/auth/store/memory/MemoryAuthStore.ts": 1026,
   "server/backend/src/auth/store/postgres/PostgresAuthStore.ts": 1940,
-  "server/backend/src/config.ts": 1498,
+  "server/backend/src/config.ts": 1514,
   "server/backend/src/db/echoTables.ts": 3715,
   "server/backend/src/domain/echoMessagesDal.ts": 3168,
   "server/backend/src/domain/echoStore/channels/categoriesWorkspace.ts": 1965,
@@ -116,6 +116,6 @@
   "server/backend/src/services/discordImport/discordImport.ts": 2492,
   "server/backend/src/services/echoPersistedMessageCreate.ts": 897,
   "server/backend/src/services/stage/stageYoutubeStream.ts": 744,
-  "server/backend/src/sockets/chatMessageHandler.ts": 725,
+  "server/backend/src/sockets/chatMessageHandler.ts": 726,
   "server/backend/src/sockets/messageValidation.ts": 1151
 }

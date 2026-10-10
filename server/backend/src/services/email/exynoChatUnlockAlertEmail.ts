@@ -33,20 +33,31 @@ export function summarizeUnlockClient(
 
   let device = 'Unknown device';
   if (/iphone|ipod/.test(ua)) device = 'iPhone';
-  else if (/ipad/.test(ua) || (plat === 'macintel' && /mobile/.test(ua))) device = 'iPad';
-  else if (/android/.test(ua)) device = /mobile/.test(ua) ? 'Android phone' : 'Android tablet';
+  else if (/ipad/.test(ua) || (plat === 'macintel' && /mobile/.test(ua)))
+    device = 'iPad';
+  else if (/android/.test(ua))
+    device = /mobile/.test(ua) ? 'Android phone' : 'Android tablet';
   else if (/windows phone/.test(ua)) device = 'Windows phone';
-  else if (/windows nt|win64|win32/.test(ua) || plat.startsWith('win')) device = 'Windows';
+  else if (/windows nt|win64|win32/.test(ua) || plat.startsWith('win'))
+    device = 'Windows';
   else if (/cros/.test(ua)) device = 'Chromebook';
-  else if (/macintosh|mac os x/.test(ua) || plat === 'macintel' || plat === 'macppc') device = 'Mac';
+  else if (
+    /macintosh|mac os x/.test(ua) ||
+    plat === 'macintel' ||
+    plat === 'macppc'
+  )
+    device = 'Mac';
   else if (/linux/.test(ua)) device = 'Linux';
 
   let browser = 'Unknown browser';
-  if (/edg\//.test(ua) || /edga\//.test(ua) || /edgios\//.test(ua)) browser = 'Edge';
+  if (/edg\//.test(ua) || /edga\//.test(ua) || /edgios\//.test(ua))
+    browser = 'Edge';
   else if (/opr\/|opera/.test(ua)) browser = 'Opera';
   else if (/firefox|fxios/.test(ua)) browser = 'Firefox';
-  else if (/crios|chrome|chromium/.test(ua) && !/edg\//.test(ua)) browser = 'Chrome';
-  else if (/safari/.test(ua) && !/chrome|crios|chromium|android/.test(ua)) browser = 'Safari';
+  else if (/crios|chrome|chromium/.test(ua) && !/edg\//.test(ua))
+    browser = 'Chrome';
+  else if (/safari/.test(ua) && !/chrome|crios|chromium|android/.test(ua))
+    browser = 'Safari';
 
   return { device, browser };
 }
@@ -55,7 +66,9 @@ function formatWhen(iso: string, timeZone?: string | null): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const tz =
-    typeof timeZone === 'string' && timeZone.trim() ? timeZone.trim() : 'Europe/Berlin';
+    typeof timeZone === 'string' && timeZone.trim()
+      ? timeZone.trim()
+      : 'Europe/Berlin';
   try {
     return new Intl.DateTimeFormat('en-GB', {
       timeZone: tz,
@@ -67,12 +80,17 @@ function formatWhen(iso: string, timeZone?: string | null): string {
   }
 }
 
-function clientStr(client: Record<string, unknown>, key: string): string | null {
+function clientStr(
+  client: Record<string, unknown>,
+  key: string,
+): string | null {
   const v = client[key];
   return typeof v === 'string' && v.trim() ? v.trim() : null;
 }
 
-export function buildExynoChatUnlockMail(payload: ExynoChatUnlockAlertPayload): {
+export function buildExynoChatUnlockMail(
+  payload: ExynoChatUnlockAlertPayload,
+): {
   subject: string;
   text: string;
   html: string;
@@ -81,7 +99,10 @@ export function buildExynoChatUnlockMail(payload: ExynoChatUnlockAlertPayload): 
   const hwid = clientStr(payload.client, 'hwid') ?? '(missing)';
   const platform = clientStr(payload.client, 'platform');
   const timezone = clientStr(payload.client, 'timezone');
-  const { device, browser } = summarizeUnlockClient(payload.userAgent, platform);
+  const { device, browser } = summarizeUnlockClient(
+    payload.userAgent,
+    platform,
+  );
   const when = formatWhen(payload.unlockedAt, timezone);
   const where = payload.requestIp.trim() || 'Unknown IP';
 
@@ -173,7 +194,10 @@ export async function sendExynoChatUnlockAlertEmail(
       {
         msg: 'exyno_chat_unlock_alert_email_sent',
         to,
-        hwid: typeof payload.client.hwid === 'string' ? payload.client.hwid : undefined,
+        hwid:
+          typeof payload.client.hwid === 'string'
+            ? payload.client.hwid
+            : undefined,
         requestIp: payload.requestIp,
       },
       'Exyno chat unlock alert email sent',

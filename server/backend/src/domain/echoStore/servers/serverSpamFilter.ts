@@ -35,10 +35,7 @@ export async function checkEchoServerSpamFilter(
     return { ok: true };
   }
 
-  const applied = await recordSpamStrikeAndHalt(
-    input.userId,
-    input.clientIp,
-  );
+  const applied = await recordSpamStrikeAndHalt(input.userId, input.clientIp);
   return {
     ok: false,
     detail: `${detected.detail} Sending paused for ${formatSpamHaltDuration(applied.haltDurationMs)}.`,

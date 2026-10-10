@@ -260,7 +260,10 @@ export async function prefetchMentionNotificationChannelBackground(
     if (mentionResolved()) return true;
     // Without a self user id, fall back to the legacy anchor-only success rule.
     if (!selfUserId) {
-      return !anchorMessageId || hasChannelMessageInBucket(channelId, anchorMessageId);
+      return (
+        !anchorMessageId ||
+        hasChannelMessageInBucket(channelId, anchorMessageId)
+      );
     }
     return false;
   };
@@ -273,7 +276,10 @@ export async function prefetchMentionNotificationChannelBackground(
 
   if (done()) return;
 
-  if (anchorMessageId && !hasChannelMessageInBucket(channelId, anchorMessageId)) {
+  if (
+    anchorMessageId &&
+    !hasChannelMessageInBucket(channelId, anchorMessageId)
+  ) {
     try {
       const { message } = await fetchEchoChannelMessage(
         token,

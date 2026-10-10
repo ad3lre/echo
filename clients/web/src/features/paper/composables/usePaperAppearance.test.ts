@@ -120,11 +120,11 @@ describe('usePaperAppearance', () => {
     });
     expect(result.appearance.value).toBe('sunny');
     result.toggleAppearance();
-    expect(result.appearance.value).toBe('light');
+    expect(result.appearance.value).toBe('amoled');
     result.toggleAppearance();
     expect(result.appearance.value).toBe('dark');
     result.toggleAppearance();
-    expect(result.appearance.value).toBe('amoled');
+    expect(result.appearance.value).toBe('light');
     result.toggleAppearance();
     expect(result.appearance.value).toBe('sunny');
   });

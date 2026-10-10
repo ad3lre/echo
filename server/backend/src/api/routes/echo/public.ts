@@ -380,9 +380,7 @@ export default async function echoPublicRoutes(
         const acceptLanguage = String(
           req.headers['accept-language'] ?? '(none)',
         );
-        const forwardedFor = String(
-          req.headers['x-forwarded-for'] ?? '(none)',
-        );
+        const forwardedFor = String(req.headers['x-forwarded-for'] ?? '(none)');
 
         req.log.warn(
           {
