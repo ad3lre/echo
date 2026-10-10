@@ -13,14 +13,23 @@ enum EchoPendingPushCleanup {
     let baseURL: URL
     let deviceToken: String
   }
-  private static let key = "echo.notifications.pendingRemoval.v1"
+  /// UserDefaults name for queued APNs removal records (not a secret / API credential).
+  private static let pendingRemovalPrefsName =
+    "echo.notifications.pendingRemoval.v1"
   private static var isRetrying = false
   private static var records: [Record] {
     get {
-      guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
+      guard
+        let data = UserDefaults.standard.data(forKey: pendingRemovalPrefsName)
+      else { return [] }
       return (try? JSONDecoder().decode([Record].self, from: data)) ?? []
     }
-    set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: key) }
+    set {
+      UserDefaults.standard.set(
+        try? JSONEncoder().encode(newValue),
+        forKey: pendingRemovalPrefsName
+      )
+    }
   }
 
   private static func identifier(baseURL: URL, token: String, userID: String?) -> String {

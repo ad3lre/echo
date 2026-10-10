@@ -209,11 +209,13 @@ export async function ssrfSafeFetch(
     throw new Error('SSRF: URL failed safety validation');
   }
   // Pass the validated URL object, never an alternate coercion of the input.
+  // Cast via unknown: Node's RequestInit and undici's Agent dispatcher types
+  // disagree across @types/node / undici versions (CI sees TS2352 on a direct cast).
   return fetch(new URL(url), {
     ...init,
     redirect: 'manual',
     dispatcher: safeFetchAgent,
-  } as RequestInit);
+  } as unknown as RequestInit);
 }
 
 export async function fetchJsonWithTimeout(
