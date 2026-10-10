@@ -193,7 +193,7 @@ export async function applyEchoChannelPlacement(
     if (mode !== 'sync' && mode !== 'keep') return 'invalid_body';
   }
 
-  let siblingIndex = input.siblingIndex;
+  const siblingIndex = input.siblingIndex;
   if (siblingIndex === undefined) {
     if (!categoryChanging) return 'invalid_body';
   }

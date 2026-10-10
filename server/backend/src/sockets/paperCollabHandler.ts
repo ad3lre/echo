@@ -77,10 +77,10 @@ function validCollabKey(value: string): boolean {
   return (
     value.length > 0 &&
     value.length <= MAX_COLLAB_KEY_LENGTH &&
+    // eslint-disable-next-line no-control-regex -- reject ASCII controls / DEL
     !/[\u0000-\u001f\u007f]/.test(value)
   );
 }
-
 function locksForChannel(channelId: string): Map<string, LockEntry> {
   let map = channelLocks.get(channelId);
   if (!map) {

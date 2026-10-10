@@ -11,7 +11,13 @@ export type HonchoPeerConfigInput = {
 export function echoHonchoSessionId(userId: string, sessionId: string): string {
   const uid = userId.trim();
   const sid = sessionId.trim();
-  if (!uid || !sid || sid.length > 128 || /[\u0000-\u001f\u007f]/u.test(sid)) {
+  if (
+    !uid ||
+    !sid ||
+    sid.length > 128 ||
+    // eslint-disable-next-line no-control-regex -- reject ASCII controls / DEL
+    /[\u0000-\u001f\u007f]/u.test(sid)
+  ) {
     throw new Error('Invalid Honcho session id');
   }
   return `echo:${uid}:${sid}`;
