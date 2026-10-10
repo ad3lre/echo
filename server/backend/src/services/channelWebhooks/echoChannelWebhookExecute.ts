@@ -425,7 +425,7 @@ export async function executeEchoChannelWebhook(
     (row.avatarUrl && row.avatarUrl.trim()) ||
     null;
 
-  let ins: 'inserted' | 'duplicate';
+  let ins: 'inserted' | 'duplicate' | 'slowmode';
   try {
     ins = await insertEchoMessage(pool, {
       id: messageId,

@@ -14,14 +14,15 @@ export class Sha256BlocklistStore {
   private entries = new Set<string>();
   private lastFileMtimeMs = -1;
   private lastReadWallClockMs = 0;
+  private initialized = false;
 
   constructor(
     private readonly path: string | null,
     private readonly periodicReloadMs: number,
   ) {}
 
-  async refreshIfNeeded(): Promise<void> {
-    if (!this.path) return;
+  async refreshIfNeeded(): Promise<boolean> {
+    if (!this.path) return true;
     const now = Date.now();
     const periodicDue =
       this.periodicReloadMs > 0 &&
@@ -30,7 +31,7 @@ export class Sha256BlocklistStore {
       const st = await fs.stat(this.path);
       const mtimeChanged = st.mtimeMs !== this.lastFileMtimeMs;
       const needsRead = this.lastFileMtimeMs < 0 || mtimeChanged || periodicDue;
-      if (!needsRead) return;
+      if (!needsRead) return this.initialized;
 
       const raw = await fs.readFile(this.path, 'utf8');
       const next = new Set<string>();
@@ -38,14 +39,17 @@ export class Sha256BlocklistStore {
         const u = line.split('#')[0]?.trim() ?? '';
         if (!u) continue;
         const h = normalizeSha256Line(u);
-        if (h) next.add(h);
+        if (!h) throw new Error('INVALID_SHA256_BLOCKLIST_ENTRY');
+        next.add(h);
       }
       this.entries = next;
       this.lastFileMtimeMs = st.mtimeMs;
       this.lastReadWallClockMs = now;
+      this.initialized = true;
     } catch {
       /* keep previous snapshot on transient read errors */
     }
+    return this.initialized;
   }
 
   has(hexLower: string): boolean {

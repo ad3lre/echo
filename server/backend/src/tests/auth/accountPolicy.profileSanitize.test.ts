@@ -16,6 +16,18 @@ function run(): void {
     'away',
   );
   assert.equal(sanitizeProfileBio('<b>bio</b> text'), 'bio text');
+  const controls = 'a\u0000b\u0000c\u001fd\u007fe';
+  assert.equal(sanitizeProfileCustomStatus(controls), 'abcde');
+  assert.equal(sanitizeProfileBio(controls), 'abcde');
+  assert.deepEqual(validateDisplayName(controls, 'fallback'), {
+    ok: true,
+    displayName: 'abcde',
+  });
+  assert.equal(
+    sanitizeProfileCustomStatus(controls),
+    'abcde',
+    'repeat calls stay stateless',
+  );
   assert.equal(stripProfileHtmlMarkup('<<script>alert(1)</script>>x'), '<>x');
 
   const display = validateDisplayName('<i>Alice</i>', 'fallback');

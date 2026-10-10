@@ -437,27 +437,11 @@ export default async function echoPublicRoutes(
           return reply.code(400).send({ error: 'invalid_name' });
         }
 
-        const scoreRaw =
-          typeof body.score === 'number'
-            ? body.score
-            : typeof body.score === 'string'
-              ? Number(body.score)
-              : NaN;
-        if (
-          !Number.isFinite(scoreRaw) ||
-          !Number.isInteger(scoreRaw) ||
-          scoreRaw < 0 ||
-          scoreRaw > 100
-        ) {
-          return reply.code(400).send({ error: 'invalid_score' });
-        }
-
         const answers = normalizeMarketingPollAnswers(body.answers);
         if (!answers) {
           return reply.code(400).send({ error: 'invalid_answers' });
         }
 
-        const categoryScores = normalizeCategoryScores(body.categories);
         const clientIp = clientIpFromFastifyRequest(req);
         if (!clientIp || clientIp === 'unknown') {
           return reply.code(400).send({ error: 'invalid_client' });
@@ -467,8 +451,6 @@ export default async function echoPublicRoutes(
         const result = await submitMarketingPollEntry(pool, {
           pollId: ADEL_APPROVAL_POLL_ID,
           displayName: name,
-          score: scoreRaw,
-          categoryScores,
           answers,
           clientIp,
           countryCode: countryCodeFromRequest(req),
@@ -510,6 +492,9 @@ function headerOne(
 
 /** ISO 3166-1 alpha-2 from common CDN headers (Cloudflare / Vercel / App Engine). */
 function countryCodeFromRequest(req: FastifyRequest): string {
+  // CDN country headers are trustworthy only when requests arrive through the
+  // configured proxy chain, whose edge must strip client-supplied copies.
+  if (!config.trustProxy) return '';
   const raw =
     headerOne(req.headers, 'cf-ipcountry') ||
     headerOne(req.headers, 'x-vercel-ip-country') ||
@@ -518,40 +503,4 @@ function countryCodeFromRequest(req: FastifyRequest): string {
   // CF uses XX (unknown) and T1 (Tor); skip those for flags.
   if (!/^[A-Z]{2}$/.test(code) || code === 'XX' || code === 'T1') return '';
   return code;
-}
-
-function normalizeCategoryScores(raw: unknown): Record<string, number> {
-  if (!raw || typeof raw !== 'object') return {};
-  const out: Record<string, number> = {};
-  if (Array.isArray(raw)) {
-    for (const item of raw) {
-      if (!item || typeof item !== 'object') continue;
-      const name =
-        typeof (item as { name?: unknown }).name === 'string'
-          ? (item as { name: string }).name.trim().slice(0, 40)
-          : '';
-      const scoreRaw = (item as { score?: unknown }).score;
-      const score =
-        typeof scoreRaw === 'number'
-          ? scoreRaw
-          : typeof scoreRaw === 'string'
-            ? Number(scoreRaw)
-            : NaN;
-      if (!name || !Number.isFinite(score)) continue;
-      out[name] = Math.max(0, Math.min(100, Math.round(score)));
-    }
-    return out;
-  }
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    const name = key.trim().slice(0, 40);
-    const score =
-      typeof value === 'number'
-        ? value
-        : typeof value === 'string'
-          ? Number(value)
-          : NaN;
-    if (!name || !Number.isFinite(score)) continue;
-    out[name] = Math.max(0, Math.min(100, Math.round(score)));
-  }
-  return out;
 }

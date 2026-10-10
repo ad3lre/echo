@@ -53,7 +53,11 @@ export function applyPresenceSignal(
       nextStatus = 'offline';
       break;
     case 'http':
-      nextStatus = normalizePresenceStatus(signal.status) ?? 'online';
+      if (typeof signal.status === 'string' && signal.status.trim()) {
+        nextStatus = normalizePresenceStatus(signal.status);
+      } else {
+        nextStatus = 'online';
+      }
       break;
     case 'socket:set':
     case 'socket:heartbeat':

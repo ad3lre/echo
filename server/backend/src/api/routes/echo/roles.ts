@@ -28,6 +28,8 @@ import {
   withoutEchoAuthorityAssignments,
 } from '../../../domain/echoStore';
 import { isMemberOfServer } from '../../../domain/permissions/echoPermissions';
+import { invalidateEchoPermissionCacheForServer } from '../../../domain/permissions/echoPermissionCache';
+import { insertEchoWorkspaceEventOutboxProcessing } from '../../../domain/echoStore/platform/workspaceEventOutbox';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
 import {
   evictAllUsersFromEchoServerChannelRealtimeScopes,
@@ -709,13 +711,100 @@ export default async function echoRolesRoutes(
         patch.syncWithCategoryDefaults = b.syncWithCategoryDefaults;
       }
 
-      const r = await updateEchoRole(
-        pool,
-        sid,
-        getAuthUser(req).id,
-        roleId,
-        patch,
-      );
+      const mutationClient = await pool.connect();
+      let r: Awaited<ReturnType<typeof updateEchoRole>>;
+      let auditId: string | null = null;
+      try {
+        await mutationClient.query('BEGIN');
+        r = await updateEchoRole(
+          pool,
+          sid,
+          getAuthUser(req).id,
+          roleId,
+          patch,
+          mutationClient,
+        );
+        if (r === 'ok') {
+          if (hasPerms || hasRoleType) {
+            const permsCol = await getEchoRolePermissionsColumn(
+              mutationClient as unknown as typeof pool,
+              sid,
+              roleId,
+            );
+            const newPerms: string[] = Array.isArray(permsCol)
+              ? (permsCol as string[])
+              : [];
+            const prevSet = new Set(prevPerms);
+            const added = newPerms.filter((p) => !prevSet.has(p));
+            const removed = prevPerms.filter((p) => !newPerms.includes(p));
+            auditId = await insertEchoAudit(
+              mutationClient as unknown as typeof pool,
+              sid,
+              getAuthUser(req).id,
+              'role.permissions_update',
+              'role',
+              roleId,
+              {
+                permissionDiff: { added, removed },
+                roleType: hasRoleType ? b.roleType : undefined,
+              },
+            );
+            await insertEchoWorkspaceEventOutboxProcessing(mutationClient, {
+              id: auditId,
+              payload: {
+                kind: 'permission_invalidated',
+                version: auditId,
+                serverId: sid,
+              },
+              targets: { serverId: sid },
+            });
+          }
+
+          if (hasName || hasColor || hasHoist || hasDefaultOnJoin) {
+            const after = await getEchoRoleMetadataDisplay(
+              mutationClient as unknown as typeof pool,
+              sid,
+              roleId,
+            );
+            if (after) {
+              await insertEchoAudit(
+                mutationClient as unknown as typeof pool,
+                sid,
+                getAuthUser(req).id,
+                'role.metadata_update',
+                'role',
+                roleId,
+                {
+                  before: {
+                    name: prevRow.name,
+                    color: prevRow.color,
+                    hoist: Boolean(prevRow.hoist),
+                    defaultOnJoin: Boolean(prevRow.default_on_join),
+                  },
+                  after: {
+                    name: after.name,
+                    color: after.color,
+                    hoist: Boolean(after.hoist),
+                    defaultOnJoin: Boolean(after.default_on_join),
+                  },
+                },
+              );
+            }
+          }
+          await mutationClient.query('COMMIT');
+        } else {
+          await mutationClient.query('ROLLBACK');
+        }
+      } catch (err) {
+        try {
+          await mutationClient.query('ROLLBACK');
+        } catch {
+          /* preserve original error */
+        }
+        throw err;
+      } finally {
+        mutationClient.release();
+      }
       if (r === 'forbidden')
         return sendError(
           reply,
@@ -729,68 +818,24 @@ export default async function echoRolesRoutes(
         return sendError(reply, 400, 'INVALID_BODY', 'Invalid role patch');
 
       if (hasPerms || hasRoleType) {
+        invalidateEchoPermissionCacheForServer(sid);
         await evictAllUsersFromEchoServerChannelRealtimeScopes(
           fastify,
           pool,
           sid,
         );
-      }
-      if (hasPerms || hasRoleType) {
-        const permsCol = await getEchoRolePermissionsColumn(pool, sid, roleId);
-        const newPerms: string[] = Array.isArray(permsCol)
-          ? (permsCol as string[])
-          : [];
-        const prevSet = new Set(prevPerms);
-        const added = newPerms.filter((p) => !prevSet.has(p));
-        const removed = prevPerms.filter((p) => !newPerms.includes(p));
-        const auditId = await insertEchoAudit(
-          pool,
-          sid,
-          getAuthUser(req).id,
-          'role.permissions_update',
-          'role',
-          roleId,
-          {
-            permissionDiff: { added, removed },
-            roleType: hasRoleType ? b.roleType : undefined,
-          },
-        );
+        if (!auditId)
+          throw new Error('role permission update committed without audit');
         publishEchoWorkspaceEvent(
           fastify,
           { kind: 'permission_invalidated', version: auditId, serverId: sid },
           { serverId: sid },
+          auditId,
         );
         await enforceAndPublishEchoVoiceAccess(fastify, pool, {
           serverId: sid,
           version: auditId,
         });
-      }
-
-      if (hasName || hasColor || hasHoist || hasDefaultOnJoin) {
-        const after = await getEchoRoleMetadataDisplay(pool, sid, roleId);
-        if (!after) return reply.code(204).send();
-        await insertEchoAudit(
-          pool,
-          sid,
-          getAuthUser(req).id,
-          'role.metadata_update',
-          'role',
-          roleId,
-          {
-            before: {
-              name: prevRow.name,
-              color: prevRow.color,
-              hoist: Boolean(prevRow.hoist),
-              defaultOnJoin: Boolean(prevRow.default_on_join),
-            },
-            after: {
-              name: after.name,
-              color: after.color,
-              hoist: Boolean(after.hoist),
-              defaultOnJoin: Boolean(after.default_on_join),
-            },
-          },
-        );
       }
 
       return reply.code(204).send();
@@ -806,7 +851,51 @@ export default async function echoRolesRoutes(
       const roleId = trimEchoPathParam(req.params.roleId);
       const prevRow = await getEchoRoleAuditMeta(pool, sid, roleId);
       if (!prevRow) return sendError(reply, 404, 'NOT_FOUND', 'Role not found');
-      const r = await deleteEchoRole(pool, sid, getAuthUser(req).id, roleId);
+      const mutationClient = await pool.connect();
+      let r: Awaited<ReturnType<typeof deleteEchoRole>>;
+      let auditId: string | null = null;
+      try {
+        await mutationClient.query('BEGIN');
+        r = await deleteEchoRole(
+          pool,
+          sid,
+          getAuthUser(req).id,
+          roleId,
+          mutationClient,
+        );
+        if (r === 'ok') {
+          auditId = await insertEchoAudit(
+            mutationClient as unknown as typeof pool,
+            sid,
+            getAuthUser(req).id,
+            'role.delete',
+            'role',
+            roleId,
+            { name: prevRow.name },
+          );
+          await insertEchoWorkspaceEventOutboxProcessing(mutationClient, {
+            id: auditId,
+            payload: {
+              kind: 'role_graph_changed',
+              version: auditId,
+              serverId: sid,
+            },
+            targets: { serverId: sid },
+          });
+          await mutationClient.query('COMMIT');
+        } else {
+          await mutationClient.query('ROLLBACK');
+        }
+      } catch (err) {
+        try {
+          await mutationClient.query('ROLLBACK');
+        } catch {
+          /* preserve original error */
+        }
+        throw err;
+      } finally {
+        mutationClient.release();
+      }
       if (r === 'forbidden')
         return sendError(
           reply,
@@ -818,24 +907,18 @@ export default async function echoRolesRoutes(
         return sendError(reply, 400, 'INVALID_BODY', 'Cannot delete @members');
       if (r === 'not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'Role not found');
+      invalidateEchoPermissionCacheForServer(sid);
+      if (!auditId) throw new Error('role deletion committed without audit');
       await evictAllUsersFromEchoServerChannelRealtimeScopes(
         fastify,
         pool,
         sid,
       );
-      const auditId = await insertEchoAudit(
-        pool,
-        sid,
-        getAuthUser(req).id,
-        'role.delete',
-        'role',
-        roleId,
-        { name: prevRow.name },
-      );
       publishEchoWorkspaceEvent(
         fastify,
         { kind: 'role_graph_changed', version: auditId, serverId: sid },
         { serverId: sid },
+        auditId,
       );
       await enforceAndPublishEchoVoiceAccess(fastify, pool, {
         serverId: sid,
@@ -880,13 +963,52 @@ export default async function echoRolesRoutes(
         }
         links.push({ linkedRoleId, twoWay: o.twoWay });
       }
-      const r = await replaceEchoRoleLinksFromAnchor(
-        pool,
-        sid,
-        getAuthUser(req).id,
-        roleId,
-        links,
-      );
+      const mutationClient = await pool.connect();
+      let r: Awaited<ReturnType<typeof replaceEchoRoleLinksFromAnchor>>;
+      let auditId: string | null = null;
+      try {
+        await mutationClient.query('BEGIN');
+        r = await replaceEchoRoleLinksFromAnchor(
+          pool,
+          sid,
+          getAuthUser(req).id,
+          roleId,
+          links,
+          mutationClient,
+        );
+        if (r === 'ok') {
+          auditId = await insertEchoAudit(
+            mutationClient as unknown as typeof pool,
+            sid,
+            getAuthUser(req).id,
+            'role.links_update',
+            'role',
+            roleId,
+            { links },
+          );
+          await insertEchoWorkspaceEventOutboxProcessing(mutationClient, {
+            id: auditId,
+            payload: {
+              kind: 'role_graph_changed',
+              version: auditId,
+              serverId: sid,
+            },
+            targets: { serverId: sid },
+          });
+          await mutationClient.query('COMMIT');
+        } else {
+          await mutationClient.query('ROLLBACK');
+        }
+      } catch (err) {
+        try {
+          await mutationClient.query('ROLLBACK');
+        } catch {
+          /* preserve original error */
+        }
+        throw err;
+      } finally {
+        mutationClient.release();
+      }
       if (r === 'forbidden')
         return sendError(
           reply,
@@ -898,19 +1020,13 @@ export default async function echoRolesRoutes(
         return sendError(reply, 404, 'NOT_FOUND', 'Role not found');
       if (r === 'invalid_body')
         return sendError(reply, 400, 'INVALID_BODY', 'Invalid role links');
-      const auditId = await insertEchoAudit(
-        pool,
-        sid,
-        getAuthUser(req).id,
-        'role.links_update',
-        'role',
-        roleId,
-        { links },
-      );
+      if (!auditId) throw new Error('role link update committed without audit');
+      invalidateEchoPermissionCacheForServer(sid);
       publishEchoWorkspaceEvent(
         fastify,
         { kind: 'role_graph_changed', version: auditId, serverId: sid },
         { serverId: sid },
+        auditId,
       );
       await enforceAndPublishEchoVoiceAccess(fastify, pool, {
         serverId: sid,
@@ -1002,13 +1118,53 @@ export default async function echoRolesRoutes(
         typeof req.body?.roleId === 'string' ? req.body.roleId.trim() : '';
       if (!roleId)
         return sendError(reply, 400, 'INVALID_BODY', 'roleId required');
-      const r = await assignEchoMemberRole(
-        pool,
-        sid,
-        getAuthUser(req).id,
-        targetUserId,
-        roleId,
-      );
+      const mutationClient = await pool.connect();
+      let r: Awaited<ReturnType<typeof assignEchoMemberRole>>;
+      let auditId: string | null = null;
+      try {
+        await mutationClient.query('BEGIN');
+        r = await assignEchoMemberRole(
+          pool,
+          sid,
+          getAuthUser(req).id,
+          targetUserId,
+          roleId,
+          mutationClient,
+        );
+        if (r === 'ok') {
+          auditId = await insertEchoAudit(
+            mutationClient as unknown as typeof pool,
+            sid,
+            getAuthUser(req).id,
+            'member.role_add',
+            'user',
+            targetUserId,
+            { roleId },
+          );
+          await insertEchoWorkspaceEventOutboxProcessing(mutationClient, {
+            id: auditId,
+            payload: {
+              kind: 'role_graph_changed',
+              version: auditId,
+              serverId: sid,
+              userId: targetUserId,
+            },
+            targets: { serverId: sid, userId: targetUserId },
+          });
+          await mutationClient.query('COMMIT');
+        } else {
+          await mutationClient.query('ROLLBACK');
+        }
+      } catch (err) {
+        try {
+          await mutationClient.query('ROLLBACK');
+        } catch {
+          /* preserve original error */
+        }
+        throw err;
+      } finally {
+        mutationClient.release();
+      }
       if (r === 'forbidden')
         return sendError(
           reply,
@@ -1026,19 +1182,13 @@ export default async function echoRolesRoutes(
       if (r === 'invalid_role')
         return sendError(reply, 400, 'INVALID_BODY', 'Unknown role');
       if (r === 'unchanged') return reply.code(204).send();
+      invalidateEchoPermissionCacheForServer(sid);
       await evictUserFromEchoServerRealtimeScopes(fastify, pool, {
         serverId: sid,
         userId: targetUserId,
       });
-      const auditId = await insertEchoAudit(
-        pool,
-        sid,
-        getAuthUser(req).id,
-        'member.role_add',
-        'user',
-        targetUserId,
-        { roleId },
-      );
+      if (!auditId)
+        throw new Error('member role grant committed without audit');
       publishEchoWorkspaceEvent(
         fastify,
         {
@@ -1048,6 +1198,7 @@ export default async function echoRolesRoutes(
           userId: targetUserId,
         },
         { serverId: sid, userId: targetUserId },
+        auditId,
       );
       await enforceAndPublishEchoVoiceAccess(fastify, pool, {
         serverId: sid,
@@ -1068,13 +1219,53 @@ export default async function echoRolesRoutes(
       const sid = trimEchoPathParam(req.params.serverId);
       const targetUserId = trimEchoPathParam(req.params.userId);
       const roleId = trimEchoPathParam(req.params.roleId);
-      const r = await removeEchoMemberRole(
-        pool,
-        sid,
-        getAuthUser(req).id,
-        targetUserId,
-        roleId,
-      );
+      const mutationClient = await pool.connect();
+      let r: Awaited<ReturnType<typeof removeEchoMemberRole>>;
+      let auditId: string | null = null;
+      try {
+        await mutationClient.query('BEGIN');
+        r = await removeEchoMemberRole(
+          pool,
+          sid,
+          getAuthUser(req).id,
+          targetUserId,
+          roleId,
+          mutationClient,
+        );
+        if (r === 'ok') {
+          auditId = await insertEchoAudit(
+            mutationClient as unknown as typeof pool,
+            sid,
+            getAuthUser(req).id,
+            'member.role_remove',
+            'user',
+            targetUserId,
+            { roleId },
+          );
+          await insertEchoWorkspaceEventOutboxProcessing(mutationClient, {
+            id: auditId,
+            payload: {
+              kind: 'role_graph_changed',
+              version: auditId,
+              serverId: sid,
+              userId: targetUserId,
+            },
+            targets: { serverId: sid, userId: targetUserId },
+          });
+          await mutationClient.query('COMMIT');
+        } else {
+          await mutationClient.query('ROLLBACK');
+        }
+      } catch (err) {
+        try {
+          await mutationClient.query('ROLLBACK');
+        } catch {
+          /* preserve original error */
+        }
+        throw err;
+      } finally {
+        mutationClient.release();
+      }
       if (r === 'forbidden')
         return sendError(
           reply,
@@ -1100,21 +1291,13 @@ export default async function echoRolesRoutes(
         );
       }
       if (r === 'unchanged') return reply.code(204).send();
+      invalidateEchoPermissionCacheForServer(sid);
       await evictUserFromEchoServerRealtimeScopes(fastify, pool, {
         serverId: sid,
         userId: targetUserId,
       });
-      const auditId = await insertEchoAudit(
-        pool,
-        sid,
-        getAuthUser(req).id,
-        'member.role_remove',
-        'user',
-        targetUserId,
-        {
-          roleId,
-        },
-      );
+      if (!auditId)
+        throw new Error('member role removal committed without audit');
       publishEchoWorkspaceEvent(
         fastify,
         {
@@ -1124,6 +1307,7 @@ export default async function echoRolesRoutes(
           userId: targetUserId,
         },
         { serverId: sid, userId: targetUserId },
+        auditId,
       );
       await enforceAndPublishEchoVoiceAccess(fastify, pool, {
         serverId: sid,

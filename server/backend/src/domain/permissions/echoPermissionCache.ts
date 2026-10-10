@@ -227,8 +227,13 @@ export function getCachedMergedPermissions(
   }
   recordHotCacheAccess('permission_fold', 'miss');
 
-  async function computeConsistent(): Promise<Set<string>> {
+  async function computeConsistent(): Promise<{
+    set: Set<string>;
+    generation: number;
+    consistent: boolean;
+  }> {
     let last: Set<string> = new Set();
+    let lastGeneration = getEchoPermissionCacheGeneration(serverId);
     for (
       let attempt = 0;
       attempt < PERMISSION_CACHE_COMPUTE_MAX_RETRIES;
@@ -236,20 +241,26 @@ export function getCachedMergedPermissions(
     ) {
       const startGen = getEchoPermissionCacheGeneration(serverId);
       last = await compute();
-      if (getEchoPermissionCacheGeneration(serverId) === startGen) {
-        return last;
+      lastGeneration = getEchoPermissionCacheGeneration(serverId);
+      if (lastGeneration === startGen) {
+        return { set: last, generation: startGen, consistent: true };
       }
     }
-    return last;
+    return { set: last, generation: lastGeneration, consistent: false };
   }
 
-  return timePermissionFold('single', computeConsistent).then((set) => {
+  return timePermissionFold('single', computeConsistent).then((result) => {
     pruneCache();
-    cache.set(key, {
-      value: new Set(set),
-      expiresAt: Date.now() + CACHE_TTL_MS,
-    });
-    pruneCache();
-    return new Set(set);
+    if (
+      result.consistent &&
+      getEchoPermissionCacheGeneration(serverId) === result.generation
+    ) {
+      cache.set(key, {
+        value: new Set(result.set),
+        expiresAt: Date.now() + CACHE_TTL_MS,
+      });
+      pruneCache();
+    }
+    return new Set(result.set);
   });
 }

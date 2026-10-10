@@ -1,0 +1,72 @@
+.paper-chrome-menu-btn {
+  display: inline-flex;
+  height: 2rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 8px;
+  padding: 0 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text);
+  transition: background 0.15s ease;
+}
+
+.paper-chrome-menu-btn__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+}
+
+.paper-chrome-menu-btn__icon:empty {
+  display: none;
+}
+
+.paper-chrome-menu-btn__label {
+  max-width: 5.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paper-chrome-menu-btn:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.paper-chrome-menu-btn:focus {
+  outline: none;
+}
+
+.paper-chrome-menu-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.paper-chrome-menu-chevron {
+  width: 0.875rem;
+  height: 0.875rem;
+  opacity: 0.65;
+}
+
+.paper-chrome-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  z-index: 50;
+  min-width: 14rem;
+  max-width: min(20rem, calc(100vw - 2rem));
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated, var(--bg));
+  padding: 0.35rem 0;
+  box-shadow: 0 12px 40px var(--echo-palette-rgba-0-0-0-0p22-f826);
+}
+
+.paper-chrome-menu-panel--right {
+  right: 0;
+}
+
+.paper-chrome-menu-panel--left {
+  left: 0;
+}

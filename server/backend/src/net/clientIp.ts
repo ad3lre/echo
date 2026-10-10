@@ -25,21 +25,9 @@ function isPlausibleIp(raw: string): boolean {
   return false;
 }
 
-/**
- * Cloudflare sets `CF-Connecting-IP` to the client address; it cannot be spoofed through
- * Cloudflare when the origin accepts traffic only from Cloudflare. Prefer this over
- * leftmost `X-Forwarded-For`, which attackers can prepend when proxy trust is misconfigured.
- */
-function cloudflareConnectingIp(
+function forwardedForClientIp(
   headers: Record<string, string | string[] | undefined> | undefined,
-): string | null {
-  const raw = headerOne(headers, 'cf-connecting-ip');
-  if (!raw || !isPlausibleIp(raw)) return null;
-  return raw;
-}
-
-function rightmostForwardedForIp(
-  headers: Record<string, string | string[] | undefined> | undefined,
+  trustedProxyHops: number,
 ): string | null {
   const xf = headerOne(headers, 'x-forwarded-for');
   if (!xf) return null;
@@ -48,25 +36,24 @@ function rightmostForwardedForIp(
     .map((p) => p.trim())
     .filter(Boolean);
   if (parts.length === 0) return null;
-  const candidate = parts[parts.length - 1] ?? null;
+  const candidate = parts[Math.max(0, parts.length - trustedProxyHops)] ?? null;
   if (!candidate || !isPlausibleIp(candidate)) return null;
   return candidate;
 }
 
 /**
  * Resolve the trusted client IP from proxy headers and a socket / Fastify fallback.
- * When `trustProxy` is enabled, prefers `CF-Connecting-IP`, then the rightmost
- * `X-Forwarded-For` hop (the address appended by the nearest trusted proxy).
+ * Socket callers lack Fastify's parsed `req.ip`, so apply the configured proxy
+ * hop count to X-Forwarded-For. Provider-specific headers are never trusted here.
  */
 export function resolveTrustedClientIp(
   headers: Record<string, string | string[] | undefined> | undefined,
   fallbackIp: string | null | undefined,
   trustProxy = config.trustProxy,
+  trustedProxyHops = config.trustProxyHops,
 ): string {
   if (trustProxy) {
-    const cf = cloudflareConnectingIp(headers);
-    if (cf) return cf;
-    const forwarded = rightmostForwardedForIp(headers);
+    const forwarded = forwardedForClientIp(headers, trustedProxyHops);
     if (forwarded) return forwarded;
   }
   if (
@@ -80,15 +67,21 @@ export function resolveTrustedClientIp(
 }
 
 export function clientIpFromFastifyRequest(req: FastifyRequest): string {
-  return resolveTrustedClientIp(req.headers, req.ip, config.trustProxy);
+  return isPlausibleIp(req.ip) ? req.ip : 'unknown';
 }
 
 export function clientIpFromSocketHandshake(
   headers: Record<string, string | string[] | undefined> | undefined,
   fallbackAddress: string | undefined,
   trustProxy = config.trustProxy,
+  trustedProxyHops = config.trustProxyHops,
 ): string {
-  return resolveTrustedClientIp(headers, fallbackAddress, trustProxy);
+  return resolveTrustedClientIp(
+    headers,
+    fallbackAddress,
+    trustProxy,
+    trustedProxyHops,
+  );
 }
 
 export function clientIpFromSocket(socket: {

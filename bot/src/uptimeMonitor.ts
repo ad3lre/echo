@@ -313,6 +313,7 @@ export function startUptimeMonitor(client: Client, flags: CliFlags): void {
    * Healthy = HTTP 2xx and no transport error (availability). Slow/degraded latency still counts healthy.
    * Unhealthy ↔ healthy: post a **new** message. Same bucket: **edit** the last status message.
    */
+  let lastProbeHealthy: boolean | undefined;
   async function deliverUptimeUpdate(
     channel: TextChannel,
     mapKey: string,
@@ -321,6 +322,10 @@ export function startUptimeMonitor(client: Client, flags: CliFlags): void {
     const result = await probe();
     const healthy =
       !result.error && result.httpStatus >= 200 && result.httpStatus < 300;
+    if (lastProbeHealthy === true && !healthy) {
+      triggerRecoveryWatchdog('discord-uptime');
+    }
+    lastProbeHealthy = healthy;
 
     sub.uptimeProbeCount = (sub.uptimeProbeCount ?? 0) + 1;
     if (healthy) sub.uptimeSuccessCount = (sub.uptimeSuccessCount ?? 0) + 1;
@@ -351,9 +356,6 @@ export function startUptimeMonitor(client: Client, flags: CliFlags): void {
 
       const msg = await channel.send({ embeds: [embed] });
       sub.lastStatusMessageId = msg.id;
-      if (prevHealthy === true && !healthy) {
-        triggerRecoveryWatchdog('discord-uptime');
-      }
       sub.lastHealthHealthy = healthy;
       persistSub();
       await saveState();
@@ -362,9 +364,6 @@ export function startUptimeMonitor(client: Client, flags: CliFlags): void {
         try {
           const msg = await channel.send({ embeds: [embed] });
           sub.lastStatusMessageId = msg.id;
-          if (prevHealthy === true && !healthy) {
-            triggerRecoveryWatchdog('discord-uptime');
-          }
           sub.lastHealthHealthy = healthy;
           persistSub();
           await saveState();

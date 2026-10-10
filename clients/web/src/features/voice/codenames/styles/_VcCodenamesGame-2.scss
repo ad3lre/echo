@@ -1,0 +1,13 @@
+.en-input--clue {
+  flex: 1;
+  min-width: 6rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.en-input--num {
+  width: 3.25rem;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

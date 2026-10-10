@@ -1,5 +1,4 @@
 ﻿import type { AppLayoutControllerContext } from './appLayoutControllerTypes';
-
 export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
   const exposed: Record<string, unknown> = {
     appActionRegistry: ctx.appActionRegistry,
@@ -203,6 +202,7 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     echoRoleCatalog: ctx.echoRoleCatalog,
     echoWorkspaceError: ctx.echoWorkspaceError,
     editMessage: ctx.editMessage,
+    fillImageSlot: ctx.fillImageSlot,
     effectiveActiveChannel: ctx.effectiveActiveChannel,
     endDmCall: ctx.endDmCall,
     leaveDmCallVoice: ctx.leaveDmCallVoice,
@@ -704,7 +704,6 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
   };
 
   // Back-compat: `AppLayout.vue` still destructures a number of legacy `_foo` names.
-  // Mirror every public key as `_key` without breaking the canonical names.
   for (const [key, value] of Object.entries(exposed)) {
     if (key.startsWith('_')) continue;
     exposed[`_${key}`] = value;

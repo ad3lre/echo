@@ -27,6 +27,7 @@ function mockPool(
     messageFormatVersion?: number;
     contentJson?: unknown;
     contentSchemaVersion?: number;
+    updateRowCount?: number;
   } = {},
 ): pg.Pool {
   const authorId = rows.authorId ?? 'author-1';
@@ -34,6 +35,7 @@ function mockPool(
   const messageFormatVersion = rows.messageFormatVersion ?? 2;
   const contentJson = rows.contentJson ?? emptySlotDoc;
   const contentSchemaVersion = rows.contentSchemaVersion ?? 2;
+  const updateRowCount = rows.updateRowCount ?? 1;
 
   return {
     query: async (sql: string) => {
@@ -50,6 +52,9 @@ function mockPool(
               ],
         };
       }
+      if (sql.includes('UPDATE echo_messages')) {
+        return { rows: [], rowCount: updateRowCount };
+      }
       if (sql.includes('content_json')) {
         return {
           rows: [
@@ -59,9 +64,6 @@ function mockPool(
             },
           ],
         };
-      }
-      if (sql.includes('UPDATE echo_messages')) {
-        return { rows: [] };
       }
       if (sql.includes('SELECT gif')) {
         return {
@@ -163,5 +165,18 @@ describe('fillEchoMessageImageSlot', () => {
       expect(slot?.attrs?.width).toBe(640);
       expect(slot?.attrs?.height).toBe(360);
     }
+  });
+
+  it('reports a conflict when another fill changed the document first', async () => {
+    const pool = mockPool({ updateRowCount: 0 });
+    const result = await fillEchoMessageImageSlot(
+      pool,
+      'ch1',
+      'msg1',
+      'author-1',
+      'slot-1',
+      { imageUrl: 'https://example.com/a.png' },
+    );
+    expect(result).toEqual({ ok: false, code: 'slot_already_filled' });
   });
 });

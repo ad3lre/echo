@@ -60,8 +60,15 @@ export async function upsertEchoE2eeDevice(
   userId: string,
   input: EchoE2eeDeviceUpsertInput,
 ): Promise<void> {
-  await pool.query(
-    `
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext('echo_e2ee_device_protocol_id'), hashtext($1))`,
+      [userId],
+    );
+    await client.query(
+      `
     INSERT INTO echo_e2ee_devices (
       user_id,
       device_id,
@@ -94,15 +101,26 @@ export async function upsertEchoE2eeDevice(
       one_time_prekeys = EXCLUDED.one_time_prekeys,
       registration_id = COALESCE(EXCLUDED.registration_id, echo_e2ee_devices.registration_id)
     `,
-    [
-      userId,
-      input.deviceId,
-      input.identityKey,
-      input.signedPrekey ?? null,
-      input.oneTimePrekeys ?? null,
-      input.registrationId ?? null,
-    ],
-  );
+      [
+        userId,
+        input.deviceId,
+        input.identityKey,
+        input.signedPrekey ?? null,
+        input.oneTimePrekeys ?? null,
+        input.registrationId ?? null,
+      ],
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* preserve original error */
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export type EchoE2eeDeviceOwnership =
@@ -250,6 +268,7 @@ export async function listEchoE2eePeerDeviceBundles(
       FROM echo_e2ee_devices
       WHERE user_id = $1 AND revoked_at IS NULL
       ORDER BY protocol_device_id ASC
+      FOR UPDATE
       `,
       [uid],
     );
@@ -328,6 +347,20 @@ export async function getEchoE2eePairingStateForUser(
   const id = pairingId.trim();
   if (!id) return { status: 'not_found' };
   try {
+    const claimed = await pool.query(
+      `UPDATE echo_e2ee_pairing_sessions
+       SET status = 'consumed'
+       WHERE id = $1 AND user_id = $2 AND status = 'ready'
+         AND expires_at > NOW()
+       RETURNING ciphertext`,
+      [id, userId],
+    );
+    if (claimed.rows[0]?.ciphertext) {
+      return {
+        status: 'ready',
+        ciphertext: String(claimed.rows[0].ciphertext),
+      };
+    }
     const r = await pool.query(
       `
       SELECT user_id, ciphertext, status, expires_at
@@ -346,17 +379,7 @@ export async function getEchoE2eePairingStateForUser(
     }
     const st = String(row.status);
     if (st === 'consumed') return { status: 'consumed' };
-    if (st === 'ready' && row.ciphertext) {
-      await pool.query(
-        `
-        UPDATE echo_e2ee_pairing_sessions
-        SET status = 'consumed'
-        WHERE id = $1 AND user_id = $2 AND status = 'ready'
-        `,
-        [id, userId],
-      );
-      return { status: 'ready', ciphertext: String(row.ciphertext) };
-    }
+    if (st === 'ready') return { status: 'consumed' };
     return { status: 'pending' };
   } catch (e) {
     if (isPostgresUndefinedRelationError(e)) return { status: 'not_found' };

@@ -1,0 +1,193 @@
+.inline-auth__input {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.7rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  background: color-mix(in srgb, var(--surface) 72%, var(--bg));
+  color: var(--text);
+  font-size: 1rem;
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--text) 38%, transparent);
+  }
+
+  &:focus {
+    border-color: color-mix(in srgb, var(--accent) 65%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+  }
+}
+.inline-auth__row-end {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.3rem;
+}
+.inline-auth__center-text {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text);
+  margin: 0;
+}
+.inline-auth__muted {
+  color: var(--muted);
+  margin-right: 0.3rem;
+}
+.inline-auth__blurb {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--text) 66%, transparent);
+}
+.inline-auth__error {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--vue-auto-082) 38%, transparent);
+  background: color-mix(in srgb, var(--vue-auto-082) 12%, transparent);
+  color: var(--vue-auto-082);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.inline-auth__success {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.75rem;
+  background: color-mix(
+    in srgb,
+    var(--echo-palette-10b981-115e) 18%,
+    transparent
+  );
+  color: color-mix(in srgb, white 95%, var(--echo-palette-10b981-115e));
+  font-size: 0.85rem;
+}
+/* ── Strength meter ────────────────────────────────────────────────────── */
+.inline-auth__strength {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+.inline-auth__strength-track {
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  overflow: hidden;
+}
+.inline-auth__strength-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition:
+    width 0.28s ease,
+    background 0.28s ease;
+}
+.strength-fill--weak {
+  background: linear-gradient(
+    90deg,
+    var(--echo-palette-f43f5e-70c6),
+    var(--echo-palette-fb7185-2bd9)
+  );
+}
+.strength-fill--fair {
+  background: linear-gradient(
+    90deg,
+    var(--echo-palette-f59e0b-251a),
+    var(--echo-palette-fbbf24-f8e1)
+  );
+}
+.strength-fill--good {
+  background: linear-gradient(
+    90deg,
+    var(--echo-palette-10b981-115e),
+    var(--echo-palette-34d399-0f17)
+  );
+}
+.strength-fill--strong {
+  background: linear-gradient(
+    90deg,
+    var(--echo-palette-10b981-115e),
+    var(--echo-palette-14b8a6-29a6)
+  );
+}
+.inline-auth__strength-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--text) 60%, transparent);
+}
+/* ── MFA segmented ─────────────────────────────────────────────────────── */
+.inline-auth__seg {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.25rem;
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--surface) 65%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+.inline-auth__seg-btn {
+  flex: 1 1 0;
+  padding: 0.55rem 0.8rem;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 0.7rem;
+  color: color-mix(in srgb, var(--text) 64%, transparent);
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+
+  &.is-active {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: var(--text);
+  }
+}
+/* ── Slide transitions ─────────────────────────────────────────────────── */
+.iauth-forward-enter-active,
+.iauth-forward-leave-active,
+.iauth-back-enter-active,
+.iauth-back-leave-active {
+  transition:
+    transform 0.28s cubic-bezier(0.32, 0.72, 0.27, 1),
+    opacity 0.22s ease;
+}
+.iauth-forward-enter-from {
+  transform: translateX(28px);
+  opacity: 0;
+}
+.iauth-forward-leave-to {
+  transform: translateX(-14px);
+  opacity: 0;
+}
+.iauth-back-enter-from {
+  transform: translateX(-28px);
+  opacity: 0;
+}
+.iauth-back-leave-to {
+  transform: translateX(14px);
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .iauth-forward-enter-active,
+  .iauth-forward-leave-active,
+  .iauth-back-enter-active,
+  .iauth-back-leave-active {
+    transition-duration: 0.05s;
+  }
+
+  .iauth-forward-enter-from,
+  .iauth-forward-leave-to,
+  .iauth-back-enter-from,
+  .iauth-back-leave-to {
+    transform: none;
+  }
+}

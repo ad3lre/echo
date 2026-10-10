@@ -1,0 +1,340 @@
+@use './VcActivityStage-shared' as *;
+:global(html[data-theme='light'])
+  .vc-act-widget--gooberdash
+  .vc-act-widget__media {
+  background: linear-gradient(
+    152deg,
+    var(--echo-palette-faf5ff-7c08) 0%,
+    var(--echo-palette-ecfeff-a860) 48%,
+    var(--echo-palette-fdf2f8-2ed4) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--echoed-names {
+  background:
+    radial-gradient(
+      100% 100% at 0% 0%,
+      color-mix(in srgb, var(--echo-palette-fecaca-2202) 55%, transparent) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      100% 100% at 100% 100%,
+      color-mix(in srgb, var(--echo-palette-bfdbfe-b966) 50%, transparent) 0%,
+      transparent 46%
+    ),
+    linear-gradient(
+      175deg,
+      var(--elevated) 0%,
+      color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-fafaf9-deeb))
+        100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--echoed-names
+  .vc-act-widget__media {
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-fef2f2-bba7) 0%,
+    var(--echo-palette-f8fafc-4646) 50%,
+    var(--echo-palette-eff6ff-61ea) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--richup {
+  background:
+    radial-gradient(
+      110% 95% at 12% 0%,
+      color-mix(in srgb, var(--echo-palette-6ee7b7-1b43) 30%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      100% 90% at 100% 100%,
+      color-mix(in srgb, var(--echo-palette-fde68a-3fd4) 40%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-ecfdf5-86e7))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light']) .vc-act-widget--richup .vc-act-widget__media {
+  background: linear-gradient(
+    155deg,
+    var(--echo-palette-ecfdf5-86e7) 0%,
+    var(--echo-palette-fffbeb-762e) 50%,
+    var(--echo-palette-f0fdf4-1167) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--smashkarts {
+  background:
+    radial-gradient(
+      105% 100% at 92% 0%,
+      color-mix(in srgb, var(--echo-palette-fb923c-bfc4) 38%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      95% 95% at 8% 100%,
+      color-mix(in srgb, var(--echo-palette-7dd3fc-cf4d) 32%, transparent) 0%,
+      transparent 52%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 95%, var(--echo-palette-fff7ed-3727))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--smashkarts
+  .vc-act-widget__media {
+  background: linear-gradient(
+    150deg,
+    var(--echo-palette-fff7ed-3727) 0%,
+    var(--echo-palette-e0f2fe-e758) 52%,
+    var(--echo-palette-ffedd5-9726) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--clusterrush {
+  background:
+    radial-gradient(
+      100% 90% at 14% 12%,
+      color-mix(in srgb, var(--echo-palette-fca5a5-4270) 36%, transparent) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      95% 90% at 90% 88%,
+      color-mix(in srgb, var(--echo-palette-93c5fd-928e) 34%, transparent) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-fef2f2-bba7))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--clusterrush
+  .vc-act-widget__media {
+  background: linear-gradient(
+    152deg,
+    var(--echo-palette-fef2f2-bba7) 0%,
+    var(--echo-palette-eff6ff-61ea) 45%,
+    var(--echo-palette-f8fafc-4646) 100%
+  );
+}
+/* Sunny light variant: warm each game's hover border with an amber (#d97706)
+ * wash. Per-variant accent + mix ratios only — shared structure via @each. */
+@each $key, $accent in $vc-act-sunny-hover-accents {
+  :global(html[data-theme='light'][data-echo-light-variant='sunny'])
+    .vc-act-widget.vc-act-widget--#{$key}:hover {
+    border-color: color-mix(in srgb, #{$accent}, var(--border));
+  }
+}
+.vc-act-widget__media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg) 42%, var(--surface) 58%);
+}
+.vc-act-widget__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1.02);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.vc-act-widget:hover .vc-act-widget__img {
+  transform: scale(1.05);
+}
+.vc-act-widget__media-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 42%,
+    color-mix(in srgb, var(--bg) 55%, black 45%) 100%
+  );
+  opacity: 0.55;
+  pointer-events: none;
+}
+:global(html[data-theme='light']) .vc-act-widget__media-scrim {
+  background: linear-gradient(
+    180deg,
+    transparent 42%,
+    color-mix(in srgb, var(--surface) 40%, var(--text) 60%) 100%
+  );
+  opacity: 0.28;
+}
+.vc-act-widget__body {
+  padding: 0.7rem 0.85rem 0.85rem;
+}
+.vc-act-widget__title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.vc-act-widget__title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--foreground);
+}
+.vc-act-widget__cta {
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: color-mix(
+    in srgb,
+    var(--fg-soft) 92%,
+    var(--echo-palette-7dd3fc-cf4d) 8%
+  );
+  opacity: 0;
+  transform: translateX(4px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+.vc-act-widget:hover .vc-act-widget__cta,
+.vc-act-widget:focus-visible .vc-act-widget__cta {
+  opacity: 1;
+  transform: translateX(0);
+}
+.vc-act-widget__desc {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--fg-subtle);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-act-widget,
+  .vc-act-widget__img {
+    transition: none;
+  }
+  .vc-act-widget:hover {
+    transform: none;
+  }
+  .vc-act-widget:hover .vc-act-widget__img {
+    transform: none;
+  }
+  .vc-act-yt-row:hover {
+    transform: none;
+  }
+}
+.vc-act-msg-err {
+  color: var(--vc-status-error-fg);
+}
+.vc-act-msg-hint {
+  color: var(--vc-status-warn-fg);
+}
+/* —— YouTube watch-together: premium panel chrome —— */
+.vc-act-youtube-stage {
+  --vc-yt-brand: var(--echo-palette-ff0033-652b);
+  --vc-yt-brand-dim: var(--echo-palette-9f1028-0218);
+  background:
+    radial-gradient(
+      120% 70% at 50% -15%,
+      color-mix(in srgb, var(--vc-yt-brand) 16%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      90% 55% at 100% 100%,
+      color-mix(in srgb, var(--vc-yt-brand) 7%, transparent) 0%,
+      transparent 50%
+    ),
+    var(--bg);
+}
+.vc-act-header--youtube {
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--vc-yt-brand) 28%,
+    var(--border)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 88%, var(--echo-palette-0c0406-a09d)) 0%,
+    var(--elevated) 100%
+  );
+}
+.vc-act-header--echoed-names {
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--echo-palette-b91c1c-59db) 22%,
+    var(--border)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 88%, var(--echo-palette-140a0c-c575)) 0%,
+    var(--elevated) 100%
+  );
+}
+/* —— Wordline: green puzzle chrome —— */
+.vc-act-wordline-stage {
+  --vc-wordline-brand: var(--echo-palette-6aaa64-a9c8);
+  --vc-wordline-brand-dim: var(--echo-palette-2f4d2c-0011);
+  background:
+    radial-gradient(
+      120% 70% at 50% -15%,
+      color-mix(in srgb, var(--vc-wordline-brand) 14%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      90% 55% at 100% 100%,
+      color-mix(in srgb, var(--vc-wordline-brand-dim) 10%, transparent) 0%,
+      transparent 50%
+    ),
+    var(--bg);
+}
+.vc-act-header--wordline {
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--vc-wordline-brand) 26%,
+    var(--border)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 88%, var(--echo-palette-060806-4e0a)) 0%,
+    var(--elevated) 100%
+  );
+}
+.vc-act-browse-drawer {
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+}
+.vc-act-yt-segment {
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--fg) 3.5%, var(--elevated));
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 5%, transparent) inset,
+    0 6px 20px color-mix(in srgb, black 12%, transparent);
+}
+.vc-act-yt-segment__tab--active {
+  background: color-mix(in srgb, var(--elevated) 94%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--vc-yt-brand) 22%, var(--border));
+  color: var(--fg);
+}
+.vc-act-yt-row {
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  background: color-mix(in srgb, var(--elevated) 52%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, white 4%, transparent) inset;
+}
+.vc-act-yt-row:hover {
+  border-color: color-mix(in srgb, var(--vc-yt-brand) 26%, var(--border));
+  background: color-mix(in srgb, var(--elevated) 68%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 5%, transparent) inset,
+    0 10px 28px color-mix(in srgb, black 18%, transparent);
+  transform: translateY(-1px);
+}

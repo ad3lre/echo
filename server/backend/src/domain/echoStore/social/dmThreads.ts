@@ -974,6 +974,14 @@ export async function addEchoGroupDmMembers(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const groupLock = await client.query(
+      `SELECT id FROM echo_channels WHERE id = $1 AND server_id = $2 FOR UPDATE`,
+      [cid, ECHO_DM_REALM_SERVER_ID],
+    );
+    if (!groupLock.rowCount) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'not_found' };
+    }
     const lockRows = await client.query<{ user_id: string }>(
       `SELECT user_id FROM echo_group_dm_members WHERE channel_id = $1 FOR UPDATE`,
       [cid],

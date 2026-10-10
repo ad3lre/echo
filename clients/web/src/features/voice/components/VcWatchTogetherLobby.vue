@@ -872,12 +872,4 @@ function removeRow(index: number) {
   </div>
 </template>
 
-<style scoped lang="scss">
-.vc-wt-lobby {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--bg) 92%, #1a2744) 0%,
-    var(--bg) 100%
-  );
-}
-</style>
+<style scoped lang="scss" src="./styles/VcWatchTogetherLobby.scss"></style>

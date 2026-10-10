@@ -12,18 +12,30 @@ async function run(): Promise<void> {
   }
   const pool = new pg.Pool({ connectionString: databaseUrl });
   const client = await pool.connect();
+  let cleanupServerId = '';
+  const cleanupUserIds: string[] = [];
   try {
     await client.query('BEGIN');
 
-    const serverId = 'itest_s1';
-    const userId = 'itest_u1';
-    const channelId = 'itest_ch1';
-    const categoryId = 'itest_cat_a';
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const serverId = (cleanupServerId = `itest_s_${suffix}`);
+    const userId = `itest_u_${suffix}`;
+    const channelId = `itest_ch_${suffix}`;
+    const categoryId = `itest_cat_${suffix}`;
+    const ownerId = `itest_owner_${suffix}`;
+    const everyoneRoleId = `itest_r_everyone_${suffix}`;
+    const modRoleId = `itest_r_mod_${suffix}`;
+    cleanupUserIds.push(ownerId, userId);
+
+    await client.query(
+      `INSERT INTO auth_users (id, username) VALUES ($1, $2), ($3, $4)`,
+      [ownerId, `${ownerId}_name`, userId, `${userId}_name`],
+    );
 
     // Minimal server + roles + member assignment + category + channel
     await client.query(
       `INSERT INTO echo_servers (id, owner_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [serverId, 'owner_x'],
+      [serverId, ownerId],
     );
 
     await client.query(
@@ -31,12 +43,12 @@ async function run(): Promise<void> {
       ($1, $2, $3, $4, $5), ($6, $2, $7, $8, $9)
       ON CONFLICT DO NOTHING`,
       [
-        'itest_r_everyone',
+        everyoneRoleId,
         serverId,
         '@everyone',
         0,
         JSON.stringify(['VIEW_CHANNEL', 'SEND_MESSAGE']),
-        'itest_r_mod',
+        modRoleId,
         'moderator',
         1,
         JSON.stringify(['MODERATE_MEMBERS']),
@@ -45,7 +57,7 @@ async function run(): Promise<void> {
 
     await client.query(
       `INSERT INTO echo_member_roles (server_id, user_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-      [serverId, userId, 'itest_r_mod'],
+      [serverId, userId, modRoleId],
     );
 
     await client.query(
@@ -72,6 +84,10 @@ async function run(): Promise<void> {
       [serverId, categoryId, JSON.stringify({ VIEW_CHANNEL: false })],
     );
 
+    // Permission evaluation uses the pool, so the fixture must be committed
+    // before those reads can observe it. The unique test server is removed below.
+    await client.query('COMMIT');
+
     const res = await evaluatePermissionSet(pool, serverId, userId, channelId, {
       traceMode: 'compressed',
     });
@@ -91,7 +107,7 @@ async function run(): Promise<void> {
     const ownerRes = await evaluatePermissionSet(
       pool,
       serverId,
-      'owner_x',
+      ownerId,
       channelId,
     );
     assert.ok(ownerRes.ownerBypass, 'owner should bypass');
@@ -101,11 +117,16 @@ async function run(): Promise<void> {
     );
 
     // Test administrator bypass of layers
-    const adminUserId = 'itest_u_admin';
+    const adminUserId = `itest_u_admin_${suffix}`;
+    cleanupUserIds.push(adminUserId);
+    await client.query(
+      `INSERT INTO auth_users (id, username) VALUES ($1, $2)`,
+      [adminUserId, `${adminUserId}_name`],
+    );
     await client.query(
       `INSERT INTO echo_roles (id, server_id, name, position, permissions) VALUES ($1, $2, $3, $4, $5)`,
       [
-        'itest_r_admin',
+        `itest_r_admin_${suffix}`,
         serverId,
         'admin',
         2,
@@ -114,7 +135,7 @@ async function run(): Promise<void> {
     );
     await client.query(
       `INSERT INTO echo_member_roles (server_id, user_id, role_id) VALUES ($1, $2, $3)`,
-      [serverId, adminUserId, 'itest_r_admin'],
+      [serverId, adminUserId, `itest_r_admin_${suffix}`],
     );
     const adminRes = await evaluatePermissionSet(
       pool,
@@ -128,12 +149,20 @@ async function run(): Promise<void> {
     );
 
     console.log('echo.rbac.integration: ok');
-    await client.query('ROLLBACK');
   } catch (e) {
-    await client.query('ROLLBACK');
     console.error(e);
     process.exitCode = 1;
   } finally {
+    if (cleanupServerId)
+      await pool
+        .query(`DELETE FROM echo_servers WHERE id = $1`, [cleanupServerId])
+        .catch(() => undefined);
+    if (cleanupUserIds.length > 0)
+      await pool
+        .query(`DELETE FROM auth_users WHERE id = ANY($1::text[])`, [
+          cleanupUserIds,
+        ])
+        .catch(() => undefined);
     client.release();
     await pool.end();
   }

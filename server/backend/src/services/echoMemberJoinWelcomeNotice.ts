@@ -61,7 +61,7 @@ async function resolveMemberJoinDisplayLabel(
  * Posts a Discord-style centered system message when a user joins, if the server
  * has a configured welcome channel.
  */
-export async function postEchoMemberJoinWelcomeNotice(
+async function postEchoMemberJoinWelcomeNoticeImpl(
   pool: pg.Pool,
   io: Server | undefined,
   log: FastifyBaseLogger,
@@ -158,5 +158,26 @@ export async function postEchoMemberJoinWelcomeNotice(
 
   if (io) {
     broadcastToEchoChannel(io, welcomeChannelId, 'message', messageForClients);
+  }
+}
+
+export async function postEchoMemberJoinWelcomeNotice(
+  pool: pg.Pool,
+  io: Server | undefined,
+  log: FastifyBaseLogger,
+  input: { serverId: string; userId: string },
+): Promise<void> {
+  try {
+    await postEchoMemberJoinWelcomeNoticeImpl(pool, io, log, input);
+  } catch (err) {
+    log.warn(
+      {
+        err,
+        serverId: input.serverId,
+        userId: input.userId,
+        msg: 'member_join_welcome.delivery_failed',
+      },
+      'Member join welcome: failed to finish delivery',
+    );
   }
 }

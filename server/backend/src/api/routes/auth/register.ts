@@ -93,16 +93,13 @@ export default async function registerRoutes(fastify: FastifyInstance) {
    * Legacy email links hit the API with `?token=` (logged by proxies). Redirect to the SPA
    * fragment handoff without consuming the token; verification happens via POST.
    */
-  fastify.get<{ Querystring: { token?: string; format?: string } }>(
+  fastify.get<{ Querystring: { token?: string } }>(
     '/verify-email',
     {
       schema: {
         querystring: {
           type: 'object',
-          properties: {
-            token: { type: 'string' },
-            format: { type: 'string', enum: ['json'] },
-          },
+          properties: { token: { type: 'string' } },
         },
       },
     },
@@ -116,19 +113,6 @@ export default async function registerRoutes(fastify: FastifyInstance) {
           'INVALID_TOKEN',
           'Missing verification token',
         );
-      }
-      if (req.query.format === 'json') {
-        try {
-          return await finishEmailVerification(reply, token, { json: true });
-        } catch (err) {
-          fastify.log.error(err, 'verify_email_failed');
-          return sendError(
-            reply,
-            500,
-            'INTERNAL_ERROR',
-            'Internal Server Error',
-          );
-        }
       }
       const appBase = config.echoAppPublicUrl.replace(/\/$/, '');
       return reply

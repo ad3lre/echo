@@ -9,6 +9,19 @@ import {
 import { DISCORD_BUTTON_STYLE } from './discordMessageComponents';
 
 describe('buttonRow tokens', () => {
+  it('round-trips separators in multi-button labels and targets', () => {
+    const buttons = [
+      {
+        label: 'A|B; "close"]',
+        style: 5 as const,
+        url: 'https://example.com/a;b?q=x|y',
+      },
+      { label: 'Cancel; now', style: 2 as const, customId: 'id|with;parts%20' },
+    ];
+    expect(
+      parseButtonRowShortcut(formatButtonRowComposerShortcut(buttons))?.buttons,
+    ).toEqual(buttons);
+  });
   it('formats composer shortcuts from button attrs', () => {
     expect(
       formatButtonRowComposerShortcut([
@@ -33,7 +46,7 @@ describe('buttonRow tokens', () => {
         },
       ]),
     ).toBe(
-      '![buttonrow: buttons="Confirm|primary|ok;Cancel|secondary|cancel"]',
+      '![buttonrow: buttons="v1:Confirm|primary|ok;Cancel|secondary|cancel"]',
     );
   });
 

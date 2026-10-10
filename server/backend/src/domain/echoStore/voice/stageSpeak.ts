@@ -34,18 +34,14 @@ export async function requestEchoStageSpeak(
   if (!vp.rows[0] || String(vp.rows[0].channel_id) !== channelId)
     return 'not_found';
   if (vp.rows[0].stage_speaker) return 'already_speaker';
-  const existing = await pool.query(
-    `SELECT 1 FROM echo_stage_speak_requests
-     WHERE server_id = $1 AND channel_id = $2 AND user_id = $3`,
-    [serverId, channelId, userId],
-  );
-  if (existing.rows.length > 0) return 'already_requested';
-  await pool.query(
+  const inserted = await pool.query(
     `INSERT INTO echo_stage_speak_requests (server_id, channel_id, user_id)
-     VALUES ($1, $2, $3)`,
+     VALUES ($1, $2, $3)
+     ON CONFLICT (server_id, channel_id, user_id) DO NOTHING
+     RETURNING user_id`,
     [serverId, channelId, userId],
   );
-  return 'ok';
+  return inserted.rows.length > 0 ? 'ok' : 'already_requested';
 }
 
 export async function cancelEchoStageSpeakRequest(
@@ -86,26 +82,47 @@ export async function resolveEchoStageSpeakRequest(
 ): Promise<StageSpeakRequestResult> {
   if ((await getEchoChannelType(pool, serverId, channelId)) !== 'stage')
     return 'not_found';
-  const pending = await pool.query(
-    `SELECT 1 FROM echo_stage_speak_requests
-     WHERE server_id = $1 AND channel_id = $2 AND user_id = $3`,
-    [serverId, channelId, targetUserId],
-  );
-  if (pending.rows.length === 0) return 'not_found';
-  if (approve) {
-    const mod = await applyEchoVoiceModerationAction(
-      pool,
-      serverId,
-      actorId,
-      'invite_to_speak',
-      targetUserId,
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const pending = await client.query(
+      `SELECT 1 FROM echo_stage_speak_requests
+       WHERE server_id = $1 AND channel_id = $2 AND user_id = $3
+       FOR UPDATE`,
+      [serverId, channelId, targetUserId],
     );
-    if (mod !== 'ok') return mod === 'forbidden' ? 'forbidden' : 'not_found';
+    if (pending.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return 'not_found';
+    }
+    if (approve) {
+      // Keep the pending row locked until promotion succeeds. A concurrent
+      // reject/approve waits, then observes the committed deletion.
+      const mod = await applyEchoVoiceModerationAction(
+        pool,
+        serverId,
+        actorId,
+        'invite_to_speak',
+        targetUserId,
+        undefined,
+        client,
+      );
+      if (mod !== 'ok') {
+        await client.query('ROLLBACK');
+        return mod === 'forbidden' ? 'forbidden' : 'not_found';
+      }
+    }
+    await client.query(
+      `DELETE FROM echo_stage_speak_requests
+       WHERE server_id = $1 AND channel_id = $2 AND user_id = $3`,
+      [serverId, channelId, targetUserId],
+    );
+    await client.query('COMMIT');
+    return 'ok';
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
   }
-  await pool.query(
-    `DELETE FROM echo_stage_speak_requests
-     WHERE server_id = $1 AND channel_id = $2 AND user_id = $3`,
-    [serverId, channelId, targetUserId],
-  );
-  return 'ok';
 }

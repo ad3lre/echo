@@ -120,6 +120,16 @@ export async function countEchoJoinedServersForUser(
   return Number(r.rows[0]?.c ?? 0);
 }
 
+/** Serialize finite server-slot admission across joins to different servers. */
+export async function lockEchoServerMembershipEntitlement(
+  client: Queryable,
+  userId: string,
+): Promise<void> {
+  await client.query(`SELECT id FROM auth_users WHERE id = $1 FOR UPDATE`, [
+    userId,
+  ]);
+}
+
 export async function assertEchoUserHasServerMembershipSlot(
   pool: Queryable,
   userId: string,
@@ -189,7 +199,7 @@ export async function buildEchoPlanLimitsPublic(
     themeTier: ECHO_PLAN_THEME_TIER[ent.plan],
     features: ECHO_PLAN_FEATURE_FLAGS[ent.plan],
     imageSearchesPerDay,
-    imageSearchesUsedToday: imageUsage.used,
+    imageSearchesUsedToday: imageUsage?.used ?? imageSearchesPerDay,
     watchTogetherMaxVideoBytes: ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES,
     watchTogetherMaxSessionBytes: ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES,
   };

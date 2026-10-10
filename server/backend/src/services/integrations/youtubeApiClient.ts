@@ -21,6 +21,20 @@ function youtubeFetchInit(init?: RequestInit): RequestInit {
   };
 }
 
+async function cleanupYoutubeLivePair(
+  accessToken: string,
+  broadcastId: string,
+  streamId: string,
+  fetchImpl: FetchLike,
+): Promise<void> {
+  // Cleanup attempts are independent: a failed stream deletion must not prevent
+  // the broadcast deletion from freeing the user's YouTube resource.
+  await Promise.allSettled([
+    deleteYoutubeLiveStream(accessToken, streamId, fetchImpl),
+    deleteYoutubeLiveBroadcast(accessToken, broadcastId, fetchImpl),
+  ]);
+}
+
 export type YoutubeChannelSummary = {
   channelId: string;
   title: string;
@@ -294,12 +308,7 @@ export async function createYoutubeLiveSession(
   const ingestionAddress = stream.cdn?.ingestionInfo?.ingestionAddress?.trim();
   const streamName = stream.cdn?.ingestionInfo?.streamName?.trim();
   if (!ingestionAddress || !streamName) {
-    try {
-      await deleteYoutubeLiveStream(accessToken, streamId, fetchImpl);
-      await deleteYoutubeLiveBroadcast(accessToken, broadcastId, fetchImpl);
-    } catch {
-      /* best effort */
-    }
+    await cleanupYoutubeLivePair(accessToken, broadcastId, streamId, fetchImpl);
     throw new Error('youtube_stream_ingestion_missing');
   }
 
@@ -316,12 +325,7 @@ export async function createYoutubeLiveSession(
   );
   if (!bindRes.ok) {
     const bindErr = (await bindRes.json()) as { error?: { message?: string } };
-    try {
-      await deleteYoutubeLiveStream(accessToken, streamId, fetchImpl);
-      await deleteYoutubeLiveBroadcast(accessToken, broadcastId, fetchImpl);
-    } catch {
-      /* best effort */
-    }
+    await cleanupYoutubeLivePair(accessToken, broadcastId, streamId, fetchImpl);
     throw new Error(
       `youtube_broadcast_bind_failed:${bindErr?.error?.message ?? bindRes.status}`,
     );

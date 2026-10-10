@@ -5,6 +5,8 @@ import * as path from 'path';
 import {
   initInstancePolicy,
   setInstancePolicyForTests,
+  getInstancePolicy,
+  startInstancePolicyWatcher,
   stopInstancePolicyWatcher,
 } from '../../config/instancePolicy/hotReload';
 import { loadInstancePolicy } from '../../config/instancePolicy/loadInstancePolicy';
@@ -46,7 +48,41 @@ const stillGood = loadInstancePolicy({
 });
 assert.equal(stillGood.guest.enabled, false);
 
-stopInstancePolicyWatcher();
-fs.rmSync(dir, { recursive: true, force: true });
+// Watching the containing directory survives atomic file replacement.
+process.env.ECHO_INSTANCE_POLICY_WATCH = '1';
+fs.writeFileSync(
+  policyPath,
+  JSON.stringify({ guest: { enabled: true } }),
+  'utf8',
+);
+setInstancePolicyForTests(loadInstancePolicy({ filePath: policyPath }));
+startInstancePolicyWatcher();
+const replacementPath = `${policyPath}.tmp`;
+fs.writeFileSync(
+  replacementPath,
+  JSON.stringify({ guest: { enabled: false } }),
+  'utf8',
+);
+fs.renameSync(replacementPath, policyPath);
 
-console.info('instancePolicy.hotReload.test.ts OK');
+async function waitForPolicy(enabled: boolean): Promise<void> {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    if (getInstancePolicy().guest.enabled === enabled) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.equal(getInstancePolicy().guest.enabled, enabled);
+}
+
+void waitForPolicy(false)
+  .then(() => {
+    stopInstancePolicyWatcher();
+    fs.rmSync(dir, { recursive: true, force: true });
+    console.info('instancePolicy.hotReload.test.ts OK');
+  })
+  .catch((error: unknown) => {
+    stopInstancePolicyWatcher();
+    fs.rmSync(dir, { recursive: true, force: true });
+    console.error(error);
+    process.exitCode = 1;
+  });

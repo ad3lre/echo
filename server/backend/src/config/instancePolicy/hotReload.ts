@@ -49,27 +49,26 @@ export function initInstancePolicy(): InstancePolicySnapshot {
   return snapshot;
 }
 
-function startInstancePolicyWatcher(): void {
+export function startInstancePolicyWatcher(): void {
   if (watcher) return;
   const filePath = resolveDefaultInstancePolicyPath();
-  const watchTarget = filePath;
+  const directory = path.dirname(filePath);
+  const basename = path.basename(filePath);
 
   try {
-    if (fs.existsSync(watchTarget)) {
-      watcher = fs.watch(watchTarget, () => scheduleReload());
-    } else {
-      watcher = fs.watch(path.dirname(watchTarget), (_event, name) => {
-        if (name === path.basename(watchTarget)) scheduleReload();
-      });
-    }
+    // Watch the containing directory so editors that write-and-rename a temp
+    // file over the policy do not detach the watcher from the replaced inode.
+    watcher = fs.watch(directory, (_event, name) => {
+      if (name?.toString() === basename) scheduleReload();
+    });
   } catch (err) {
     console.error(
-      `[instance-policy] hot reload disabled: cannot watch ${watchTarget}: ${err instanceof Error ? err.message : err}`,
+      `[instance-policy] hot reload disabled: cannot watch ${directory}: ${err instanceof Error ? err.message : err}`,
     );
     return;
   }
 
-  console.warn(`[instance-policy] watching ${watchTarget} for hot reload`);
+  console.warn(`[instance-policy] watching ${filePath} for hot reload`);
 }
 
 function scheduleReload(): void {

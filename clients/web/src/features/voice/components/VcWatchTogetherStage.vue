@@ -351,11 +351,4 @@ async function retryCurrentTranscode() {
   </div>
 </template>
 
-<style scoped lang="scss">
-.vc-wt-stage {
-  --vc-wt-brand: #6d9fff;
-}
-.vc-wt-transport {
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 40%, transparent);
-}
-</style>
+<style scoped lang="scss" src="./styles/VcWatchTogetherStage.scss"></style>

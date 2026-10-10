@@ -14,7 +14,6 @@ import {
 } from '@/features/layout/layoutInjectionKeys';
 import type { AppLayoutChatSurfaceVoiceActivitySlice } from '@/features/layout/composables/voice/appLayoutChatSurfaceVoiceActivitySlice';
 import { assembleAppLayoutChatSurfaceContext } from '@/features/layout/composables/controller/assembleAppLayoutChatSurfaceContext';
-
 type RV<T> = Ref<T> | ComputedRef<T>;
 type Ctx = LayoutChatSurfaceContext;
 
@@ -188,6 +187,7 @@ export type AppLayoutChatSurfaceProvideDeps = {
   handleVcModerate: Ctx['handleVcModerate'];
   handlePollVote: Ctx['handlePollVote'];
   editMessage: Ctx['editMessage'];
+  fillImageSlot: Ctx['fillImageSlot'];
   deleteMessage: Ctx['deleteMessage'];
   handleReact: Ctx['handleReact'];
   topReactions: Ctx['topReactions'];

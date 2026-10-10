@@ -21,6 +21,22 @@ function run(): void {
     }),
     { status: 'online', updatedAtMs: 100 },
   );
+  assert.equal(
+    applyPresenceSignal(undefined, {
+      source: 'http',
+      status: 'away',
+      occurredAtMs: 101,
+    }),
+    undefined,
+  );
+  assert.deepEqual(
+    applyPresenceSignal(undefined, {
+      source: 'http',
+      status: ' DND ',
+      occurredAtMs: 102,
+    }),
+    { status: 'do_not_disturb', updatedAtMs: 102 },
+  );
 
   assert.deepEqual(
     applyPresenceSignal(undefined, {

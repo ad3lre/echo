@@ -132,13 +132,15 @@ private final class EchoExpressionPickerModel {
   }
 
   func loadLibrary() async {
-    guard !loadedLibrary else { return }
-    loadedLibrary = true
+    guard !loadedLibrary, !isLoadingLibrary else { return }
     isLoadingLibrary = true
     defer { isLoadingLibrary = false }
     do {
       packs = try await client.loadEmojiLibrary(accessToken: accessToken)
+      guard !Task.isCancelled else { return }
       EchoCustomEmojiCatalog.shared.ingest(packs)
+      loadedLibrary = true
+      errorMessage = nil
     } catch {
       errorMessage = "Custom emoji couldn’t be loaded."
     }
@@ -149,7 +151,9 @@ private final class EchoExpressionPickerModel {
     defer { isLoadingGIFs = false }
     do {
       try await Task.sleep(for: .milliseconds(query.isEmpty ? 0 : 280))
-      gifs = try await client.loadGIFs(query: query)
+      let results = try await client.loadGIFs(query: query)
+      guard !Task.isCancelled else { return }
+      gifs = results
       errorMessage = nil
     } catch is CancellationError {
       return
@@ -252,7 +256,7 @@ struct EchoExpressionPicker: View {
     .echoShadow(color: .black.opacity(0.34), radius: 16, y: 7)
     .task { await model.loadLibrary() }
     .task(id: model.tab) { if model.tab == .images { await photos.load() } }
-    .task(id: model.tab == .gifs ? model.query : "") {
+    .task(id: "\(model.tab)|\(model.query)") {
       if model.tab == .gifs { await model.loadGIFs() }
     }
   }
@@ -263,6 +267,9 @@ struct EchoExpressionPicker: View {
         categoryRail(proxy: proxy)
         ScrollView(showsIndicators: false) {
           LazyVStack(alignment: .leading, spacing: 12) {
+            if model.errorMessage != nil {
+              Button(EchoCopy.string("Try again")) { Task { await model.loadLibrary() } }
+            }
             if model.query.isEmpty, !model.recents.isEmpty {
               recentSection
             }

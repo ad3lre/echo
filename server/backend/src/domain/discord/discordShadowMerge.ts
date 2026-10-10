@@ -46,14 +46,17 @@ export async function mergeDiscordShadows(
     );
 
     // 3. Re-attribute reactions if any (though shadows usually won't have them)
-    await pool
-      .query(
-        `UPDATE echo_message_reactions SET user_id = $1 WHERE user_id = $2`,
-        [canonicalUserId, shadowId],
-      )
-      .catch(() => {
-        /* ignore duplicates if user reacted with same emoji as shadow */
-      });
+    await pool.query(
+      `INSERT INTO echo_message_reactions (message_id, user_id, emoji, created_at)
+       SELECT message_id, $1, emoji, created_at
+       FROM echo_message_reactions
+       WHERE user_id = $2
+       ON CONFLICT (message_id, user_id, emoji) DO NOTHING`,
+      [canonicalUserId, shadowId],
+    );
+    await pool.query(`DELETE FROM echo_message_reactions WHERE user_id = $1`, [
+      shadowId,
+    ]);
 
     // 4. Ensure canonical membership and move Discord-managed roles/overwrites.
     await pool.query(

@@ -30,19 +30,22 @@ async function postGameServer<T>(
 
   const rawBody = JSON.stringify(body);
   const signed = signEchoWebhookBody(secret, rawBody);
-  const res = await fetch(`${base}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-echo-signature-ts': signed['x-echo-signature-ts'],
-      'x-echo-signature': signed['x-echo-signature'],
-    },
-    body: rawBody,
-  });
-  if (!res.ok) return null;
   try {
+    const res = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-echo-signature-ts': signed['x-echo-signature-ts'],
+        'x-echo-signature': signed['x-echo-signature'],
+      },
+      body: rawBody,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
+    // A game service outage is reported as an unavailable response to the
+    // socket handler; transport failures never escape as rejected promises.
     return null;
   }
 }

@@ -67,6 +67,7 @@ import { scheduleHonchoMessageSync } from './honcho/memory';
 import { isDiscordSyncedBridgeSource } from '../../../../contracts/discordBridgeSources';
 import { deriveMessageComponentsFromContentJson } from '../../../../contracts/buttonRowContentJson';
 import { evaluateEchoPostMessageAccess } from '../domain/permissions/echoPermissions';
+import { getEchoChannelMeta } from '../domain/echoStore/channels/channelMeta';
 
 async function resolveSafeReplyTo(
   pool: pg.Pool,
@@ -216,6 +217,7 @@ export type EchoPersistedMessageCreateResult =
         | 'PERSIST_FAILED'
         | 'IDEMPOTENCY_EXPIRED'
         | 'IDEMPOTENCY_CONFLICT'
+        | 'SLOWMODE'
         | 'E2EE_STORAGE_UNAVAILABLE'
         | 'INVALID_ATTACHMENT'
         | 'VALIDATION';
@@ -346,6 +348,10 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
       detail: `Message send denied: ${postAccess.reason}`,
     };
   }
+  const guildChannelMeta =
+    postAccess.ctx.realm === 'guild'
+      ? await getEchoChannelMeta(pool, channelId)
+      : null;
 
   const attachmentOwnership = await validateEchoUploadAttachmentOwnership({
     pool,
@@ -428,7 +434,7 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
     ...(derivedComponents ? { components: derivedComponents } : {}),
   };
 
-  let persistResult: 'inserted' | 'duplicate';
+  let persistResult: 'inserted' | 'duplicate' | 'slowmode';
   try {
     persistResult = await insertEchoMessage(pool, {
       id: message.id,
@@ -450,6 +456,18 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
       contentSchemaVersion,
       ...(forwardedFrom ? { forwardedFrom } : {}),
       ...(derivedComponents ? { components: derivedComponents } : {}),
+      ...(guildChannelMeta?.type === 'text'
+        ? {
+            slowmodeSeconds: guildChannelMeta.slowmodeSeconds,
+            slowmodeBypass: [
+              'BYPASS_SLOWMODE',
+              'MANAGE_MESSAGES',
+              'MANAGE_CHANNELS',
+            ].some((permission) =>
+              postAccess.ctx.effectiveChannelPermissions.has(permission),
+            ),
+          }
+        : {}),
     });
   } catch (e) {
     if (
@@ -485,6 +503,15 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
       'Failed to persist message',
     );
     return { ok: false, code: 'PERSIST_FAILED', clientMessageId };
+  }
+
+  if (persistResult === 'slowmode') {
+    return {
+      ok: false,
+      code: 'SLOWMODE',
+      clientMessageId,
+      detail: 'Slowmode is active in this channel',
+    };
   }
 
   if (persistResult === 'duplicate') {
@@ -528,6 +555,14 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
       echoRowToMessage(scopedExisting),
       userId,
     );
+    const duplicateAuthor = await authorSnapshotForBroadcast(userId);
+    const duplicateForFanout = { ...duplicateMessage, ...duplicateAuthor };
+    const duplicateFanout = config.echoSocketMessageSlim
+      ? toMessageCreateFanoutPayload(duplicateForFanout)
+      : duplicateForFanout;
+    // A retry can be the recovery path when persistence succeeded but the first
+    // attempt failed before emitting the channel event. Clients reconcile by ID.
+    broadcastToEchoChannel(io, channelId, 'message', duplicateFanout);
     ackSender(duplicateMessage);
     return {
       ok: true,
@@ -537,8 +572,6 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
   }
 
   echoMessagesPersistedTotal.inc({ result: 'inserted' });
-
-  ackSender(message);
 
   if (isHonchoActive()) {
     scheduleHonchoMessageSync(log, {
@@ -593,6 +626,10 @@ async function echoPersistedMessageCreateAndBroadcastImpl(
     'Broadcasting persisted message to channel room',
   );
   broadcastToEchoChannel(io, channelId, 'message', messageForFanout);
+  // Acknowledge only after the authoritative channel event has been emitted.
+  // If an earlier lookup failed, the client retries and the duplicate path above
+  // safely replays this event under the same message ID.
+  ackSender(message);
   if (dmRecipients.length > 0) {
     // Bump the authoritative inbox sort key BEFORE selecting the thread payload so the
     // resulting `lastActivityAt` reflects this message (and not a stale older value).

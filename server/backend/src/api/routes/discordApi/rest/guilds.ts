@@ -372,7 +372,19 @@ export default async function discordGuildsRoutes(
       if (!enabled || !pool)
         return discordError(reply, 503, '503: Service Unavailable');
 
-      const body = req.body as { nick?: string | null; roles?: string[] };
+      const body = req.body as {
+        nick?: string | null;
+        roles?: string[];
+        mute?: boolean;
+        deaf?: boolean;
+      };
+      if (body.mute !== undefined || body.deaf !== undefined) {
+        return discordError(
+          reply,
+          400,
+          '400: mute and deaf member updates are not supported',
+        );
+      }
 
       if (body.nick !== undefined) {
         const actorId = await assertBotActionAllowed(

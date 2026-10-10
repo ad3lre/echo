@@ -22,7 +22,7 @@ import {
   honchoEnsureSession,
   honchoQueryPeer,
   honchoRecordMessage,
-  type HonchoPeerConfigInput,
+  echoHonchoSessionId,
 } from '../../services/honcho/memory';
 import { sendError } from '../errors';
 
@@ -51,31 +51,6 @@ function honchoUnavailable(reply: Parameters<typeof sendError>[0]) {
   );
 }
 
-function parsePeerConfig(
-  raw: unknown,
-): Record<string, HonchoPeerConfigInput> | undefined {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
-  const out: Record<string, HonchoPeerConfigInput> = {};
-  for (const [peerId, value] of Object.entries(raw)) {
-    const id = peerId.trim();
-    if (!id) continue;
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      out[id] = {};
-      continue;
-    }
-    const cfg = value as Record<string, unknown>;
-    out[id] = {
-      ...(typeof cfg.observeMe === 'boolean'
-        ? { observeMe: cfg.observeMe }
-        : {}),
-      ...(typeof cfg.observeOthers === 'boolean'
-        ? { observeOthers: cfg.observeOthers }
-        : {}),
-    };
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
 export default async function honchoMemoryRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
@@ -100,7 +75,7 @@ export default async function honchoMemoryRoutes(
       });
     });
 
-    scope.post<{ Body: { sessionId?: string; peers?: unknown } }>(
+    scope.post<{ Body: { sessionId?: string } }>(
       '/honcho/sessions',
       { preHandler: [requireHonchoActive, requireAuth] },
       async (request, reply) => {
@@ -108,10 +83,11 @@ export default async function honchoMemoryRoutes(
         if (!sessionId) {
           return sendError(reply, 400, 'INVALID_BODY', 'sessionId is required');
         }
+        const userId = request.authUser!.id;
         try {
           const result = await honchoEnsureSession(
-            sessionId,
-            parsePeerConfig(request.body?.peers),
+            echoHonchoSessionId(userId, sessionId),
+            { [userId]: {} },
           );
           return reply.send(result);
         } catch (err) {
@@ -144,7 +120,7 @@ export default async function honchoMemoryRoutes(
         const userId = request.authUser!.id;
         try {
           const result = await honchoRecordMessage({
-            sessionId,
+            sessionId: echoHonchoSessionId(userId, sessionId),
             peerId: userId,
             content,
             metadata: {
@@ -184,12 +160,24 @@ export default async function honchoMemoryRoutes(
           return sendError(reply, 400, 'INVALID_BODY', 'query is required');
         }
         const userId = request.authUser!.id;
+        const rawSessionId = request.body?.sessionId?.trim();
+        const requestedTargetPeerId = request.body?.targetPeerId?.trim();
+        if (requestedTargetPeerId && requestedTargetPeerId !== userId) {
+          return sendError(
+            reply,
+            403,
+            'FORBIDDEN',
+            'Honcho peer queries are limited to the authenticated user',
+          );
+        }
         try {
           const result = await honchoQueryPeer({
             peerId: userId,
             query,
-            sessionId: request.body?.sessionId?.trim() || undefined,
-            targetPeerId: request.body?.targetPeerId?.trim() || undefined,
+            sessionId: rawSessionId
+              ? echoHonchoSessionId(userId, rawSessionId)
+              : undefined,
+            targetPeerId: userId,
             reasoningLevel: request.body?.reasoningLevel?.trim() || undefined,
           });
           return reply.send(result);

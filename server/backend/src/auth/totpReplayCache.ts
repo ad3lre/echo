@@ -51,7 +51,9 @@ export async function checkAndMarkTotpUsed(
       );
       return ok === null;
     } catch {
-      /* fall through to in-memory */
+      // A configured shared replay store must not silently degrade to a
+      // replica-local decision for an authentication factor.
+      throw new Error('TOTP_REPLAY_STORAGE_UNAVAILABLE');
     }
   }
   if (usedCodes.has(key)) return true;

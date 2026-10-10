@@ -178,12 +178,12 @@ export function extractStorageKeyFromEchoMediaUrl(
 
   if (t.startsWith(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX)) {
     return decodeStorageKeyPath(
-      t.slice(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX.length),
+      t.split(/[?#]/, 1)[0]!.slice(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX.length),
     );
   }
   if (t.startsWith(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX)) {
     return decodeStorageKeyPath(
-      t.slice(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX.length),
+      t.split(/[?#]/, 1)[0]!.slice(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX.length),
     );
   }
 

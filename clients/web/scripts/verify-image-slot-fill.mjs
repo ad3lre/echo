@@ -5,7 +5,8 @@
  *     node clients/web/scripts/verify-image-slot-fill.mjs
  */
 import { chromium } from 'playwright';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { deflateSync } from 'node:zlib';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,11 +22,38 @@ function loadHarnessEnv() {
   return JSON.parse(raw);
 }
 
-/** 1×1 PNG */
-const PNG_BYTES = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64',
-);
+/** Fresh noise avoids reusing an upload owned by an earlier verifier account. */
+function pngChunk(type, data) {
+  const bytes = Buffer.concat([Buffer.from(type), data]);
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
+  return Buffer.concat([length, bytes, checksum]);
+}
+const ihdr = Buffer.alloc(13);
+ihdr.writeUInt32BE(16, 0);
+ihdr.writeUInt32BE(16, 4);
+ihdr[8] = 8;
+ihdr[9] = 6;
+const rows = Array.from({ length: 16 }, () => {
+  const pixels = randomBytes(64);
+  for (let offset = 3; offset < 64; offset += 4) pixels[offset] = 255;
+  return Buffer.concat([Buffer.from([0]), pixels]);
+});
+const PNG_BYTES = Buffer.concat([
+  Buffer.from('89504e470d0a1a0a', 'hex'),
+  pngChunk('IHDR', ihdr),
+  pngChunk('IDAT', deflateSync(Buffer.concat(rows))),
+  pngChunk('IEND', Buffer.alloc(0)),
+]);
 
 function parseCookies(setCookie) {
   if (!setCookie) return { sid: null, csrfCookie: null };
@@ -302,10 +330,6 @@ async function verifyUiFlow(session, messageId, pngPath) {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
   });
-  await context.addInitScript(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
   await context.addCookies([
     { name: 'echo_sid', value: session.sid, url: FRONTEND_URL },
     { name: 'echo_csrf', value: session.csrfValue, url: FRONTEND_URL },
@@ -314,19 +338,6 @@ async function verifyUiFlow(session, messageId, pngPath) {
   const channelUrl = `${FRONTEND_URL}/channels/${encodeURIComponent(session.serverId)}/${encodeURIComponent(session.channelId)}`;
   await page.goto(channelUrl, { waitUntil: 'domcontentloaded' });
   await waitForAppShell(page);
-
-  if (session.serverName) {
-    const icons = page.locator('[data-cy="server-rail-icon"]');
-    const count = await icons.count();
-    for (let i = 0; i < count; i++) {
-      const title = (await icons.nth(i).getAttribute('title')) ?? '';
-      if (title.includes(session.serverName)) {
-        await icons.nth(i).click({ noWaitAfter: true });
-        await page.waitForTimeout(1200);
-        break;
-      }
-    }
-  }
 
   await page.waitForSelector('[data-cy="message-list"]', { timeout: 60_000 });
 
@@ -344,11 +355,11 @@ async function verifyUiFlow(session, messageId, pngPath) {
     emptySlot.first().click(),
   ]);
   await chooser.setFiles(pngPath);
-  await page.waitForTimeout(3500);
 
   const filled = page
     .locator(`#message-${messageId}`)
     .locator('.message-image-slot__filled');
+  await filled.first().waitFor({ state: 'visible', timeout: 30_000 });
   const filledCount = await filled.count();
   if (filledCount < 1) {
     const slotHtml = await page
@@ -418,11 +429,13 @@ async function run() {
         `  ✓ UI filled slot (count=${ui.filledCount}, img=${Math.round(ui.imgBox.width)}×${Math.round(ui.imgBox.height)}px)`,
       );
 
-      if (harness) {
+      {
         const listed = await fetch(
-          `${BACKEND_URL}/api/v1/echo/channels/${encodeURIComponent(harness.channelId)}/messages?limit=10`,
-          { headers: { cookie: `echo_sid=${harness.sid}` } },
+          `${BACKEND_URL}/api/v1/echo/channels/${encodeURIComponent(session.channelId)}/messages?limit=10`,
+          { headers: { cookie: `echo_sid=${session.sid}` } },
         );
+        if (!listed.ok)
+          throw new Error(`UI persistence fetch failed: ${listed.status}`);
         const listedJson = await listed.json();
         const row = (listedJson?.messages ?? []).find(
           (m) => m.id === messageId,

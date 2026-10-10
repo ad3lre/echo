@@ -213,7 +213,7 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
       return false
     }
     if kind == "image" || kind == "gif" || mime.hasPrefix("image/") { return true }
-    let name = (filename ?? url).lowercased()
+    let name = (filename ?? URL(string: url)?.path ?? url).lowercased()
     if name.hasSuffix(".jpg") || name.hasSuffix(".jpeg") || name.hasSuffix(".png")
       || name.hasSuffix(".webp") || name.hasSuffix(".heic") || name.hasSuffix(".heif")
       || name.hasSuffix(".gif") || name.hasSuffix(".bmp") || name.hasSuffix(".tif")
@@ -239,7 +239,7 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
     if kind.lowercased() == "video" || (mimeType?.lowercased().hasPrefix("video/") ?? false) {
       return true
     }
-    let name = (filename ?? url).lowercased()
+    let name = (filename ?? URL(string: url)?.path ?? url).lowercased()
     return name.hasSuffix(".mp4") || name.hasSuffix(".mov") || name.hasSuffix(".m4v")
       || name.hasSuffix(".webm") || name.hasSuffix(".mkv")
       || name.contains(".mp4?") || name.contains(".mov?") || name.contains(".m4v?")
@@ -249,7 +249,7 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
     if kind.lowercased() == "audio" || (mimeType?.lowercased().hasPrefix("audio/") ?? false) {
       return true
     }
-    let name = (filename ?? url).lowercased()
+    let name = (filename ?? URL(string: url)?.path ?? url).lowercased()
     return name.hasSuffix(".mp3") || name.hasSuffix(".m4a") || name.hasSuffix(".aac")
       || name.hasSuffix(".wav") || name.hasSuffix(".ogg") || name.hasSuffix(".flac")
   }
@@ -261,7 +261,7 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
     if kind == "document" || mime.hasPrefix("application/") || mime.contains("pdf") {
       return true
     }
-    let name = (filename ?? url).lowercased()
+    let name = (filename ?? URL(string: url)?.path ?? url).lowercased()
     return name.hasSuffix(".pdf") || name.hasSuffix(".doc") || name.hasSuffix(".docx")
   }
 

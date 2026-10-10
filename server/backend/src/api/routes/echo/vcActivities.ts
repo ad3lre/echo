@@ -38,7 +38,10 @@ export default async function echoVcActivitiesRoutes(
 
   fastify.post<{ Params: { activityKey: string } }>(
     '/vc-activities/:activityKey/open',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: { max: 60, timeWindow: '1 hour' } },
+    },
     async (req, reply) => {
       const raw = trimEchoPathParam(req.params.activityKey);
       if (!isEchoVcActivityKey(raw)) {
@@ -51,7 +54,7 @@ export default async function echoVcActivitiesRoutes(
         );
       }
       const pool = echoPool(req);
-      await incrementEchoVcActivityOpen(pool, raw);
+      await incrementEchoVcActivityOpen(pool, req.authUser!.id, raw);
       return reply.code(204).send();
     },
   );
@@ -102,6 +105,14 @@ export default async function echoVcActivitiesRoutes(
       }
       const r = await tryConsumeYoutubeWatchTogetherSeconds(userId, elapsed);
       if (!r.ok) {
+        if (r.reason === 'unavailable') {
+          return sendError(
+            reply,
+            503,
+            'NOT_AVAILABLE',
+            'YouTube Watch Together usage budgets are temporarily unavailable.',
+          );
+        }
         const msg =
           r.reason === 'global'
             ? 'This Echo instance has reached its daily YouTube watch together budget. Try again tomorrow (UTC).'
@@ -115,7 +126,7 @@ export default async function echoVcActivitiesRoutes(
         );
       }
       return reply.send({
-        redisAvailable: !!config.redisUrl?.trim(),
+        redisAvailable: true,
         utcDay: youtubeWatchTogetherUtcDayKey(),
         userUsedSec: r.userUsedSec,
         globalUsedSec: r.globalUsedSec,

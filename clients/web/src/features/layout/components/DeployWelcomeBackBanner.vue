@@ -65,33 +65,4 @@ function dismiss() {
   </Teleport>
 </template>
 
-<style scoped>
-.deploy-welcome-back-card {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--elevated) 96%, rgb(34 197 94) 4%) 0%,
-    color-mix(in srgb, var(--surface) 94%, var(--bg) 6%) 100%
-  );
-  backdrop-filter: blur(16px) saturate(1.15);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
-}
-
-.deploy-welcome-back-icon {
-  background: color-mix(in srgb, rgb(34 197 94) 18%, var(--elevated) 82%);
-  color: color-mix(in srgb, rgb(21 128 61) 90%, var(--text) 10%);
-}
-
-:global(html[data-theme='dark']) .deploy-welcome-back-card {
-  background: linear-gradient(
-    180deg,
-    rgba(16, 24, 18, 0.94) 0%,
-    rgba(10, 14, 12, 0.98) 100%
-  );
-  border-color: rgba(74, 222, 128, 0.22);
-}
-
-:global(html[data-theme='dark']) .deploy-welcome-back-icon {
-  background: rgba(34, 197, 94, 0.18);
-  color: rgb(134 239 172);
-}
-</style>
+<style scoped src="./styles/DeployWelcomeBackBanner.scss"></style>

@@ -1,0 +1,113 @@
+@use './VcActivityStage-shared' as *;
+.vc-act-yt-row--current {
+  background: color-mix(in srgb, var(--vc-yt-brand) 9%, var(--elevated));
+  border-color: color-mix(in srgb, var(--vc-yt-brand) 34%, var(--border));
+}
+.vc-act-yt-search__go,
+.vc-act-yt-add {
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--vc-yt-brand) 92%, white) 0%,
+    color-mix(in srgb, var(--vc-yt-brand-dim) 88%, black) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--vc-yt-brand) 55%, transparent);
+}
+.vc-act-yt-pill-btn {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--elevated) 70%, transparent);
+}
+.vc-act-yt-pill-btn:hover {
+  border-color: color-mix(in srgb, var(--vc-yt-brand) 35%, var(--border));
+  background: color-mix(in srgb, var(--vc-yt-brand) 8%, var(--elevated));
+}
+.vc-act-yt-fab-search {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--vc-yt-brand) 95%, white) 0%,
+    var(--vc-yt-brand-dim) 100%
+  );
+  border: 1px solid color-mix(in srgb, white 22%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, black 35%, transparent),
+    0 12px 28px color-mix(in srgb, var(--vc-yt-brand) 35%, black);
+}
+.vc-act-yt-player-pane {
+  min-height: 0;
+}
+.vc-act-yt-player-frame {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 6%, transparent) inset,
+    0 22px 50px color-mix(in srgb, black 38%, transparent);
+}
+.vc-act-yt-transport {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--elevated) 78%, transparent);
+}
+[data-theme='light'] .vc-act-youtube-stage {
+  background:
+    radial-gradient(
+      120% 65% at 50% -12%,
+      color-mix(in srgb, var(--vc-yt-brand) 10%, transparent) 0%,
+      transparent 52%
+    ),
+    var(--bg);
+}
+[data-theme='light'] .vc-act-header--youtube {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-fff5f5-5811)) 0%,
+    var(--elevated) 100%
+  );
+}
+[data-theme='light'] .vc-act-header--echoed-names {
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--echo-palette-dc2626-3871) 18%,
+    var(--border)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-fef2f2-bba7)) 0%,
+    var(--elevated) 100%
+  );
+}
+[data-theme='light'] .vc-act-wordline-stage {
+  background:
+    radial-gradient(
+      120% 65% at 50% -12%,
+      color-mix(in srgb, var(--vc-wordline-brand) 10%, transparent) 0%,
+      transparent 52%
+    ),
+    var(--bg);
+}
+[data-theme='light'] .vc-act-header--wordline {
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--vc-wordline-brand) 22%,
+    var(--border)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-f4faf4-6cfe)) 0%,
+    var(--elevated) 100%
+  );
+}
+[data-theme='light'] .vc-act-browse-drawer {
+  background: color-mix(in srgb, var(--surface) 90%, white);
+}
+[data-theme='light'] .vc-act-header {
+  background: color-mix(in srgb, var(--elevated) 94%, var(--bg));
+}
+@media (min-width: 1024px) {
+  .vc-act-youtube-stage .vc-act-browse-drawer {
+    align-self: stretch;
+    margin: 0.5rem 0 0.5rem 0.5rem;
+    max-height: calc(100% - 1rem);
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--vc-yt-brand) 14%, var(--border));
+    box-shadow:
+      0 1px 0 color-mix(in srgb, white 7%, transparent) inset,
+      0 18px 46px color-mix(in srgb, black 28%, transparent);
+  }
+}

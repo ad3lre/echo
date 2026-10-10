@@ -320,15 +320,29 @@ public final class EchoAuthenticationModel {
     errorMessage = nil
   }
 
-  func signOut() async {
+  func signOut(pushDeviceToken: String? = nil) async {
     isWorking = true
     defer { isWorking = false }
     refreshTask?.cancel()
     refreshTask = nil
     if let currentSession {
-      try? await authenticationClient.logout(
-        accessToken: currentSession.accessToken, refreshToken: currentSession.refreshToken)
+      if let pushDeviceToken {
+        do {
+          try EchoPendingPushCleanup.retain(
+            baseURL: apiBaseURL, deviceToken: pushDeviceToken, session: currentSession)
+        } catch { errorMessage = error.localizedDescription; return }
+      }
+      do {
+        try await authenticationClient.logout(
+          accessToken: currentSession.accessToken, refreshToken: currentSession.refreshToken,
+          pushDeviceToken: pushDeviceToken)
+        if let pushDeviceToken {
+          EchoPendingPushCleanup.complete(
+            baseURL: apiBaseURL, deviceToken: pushDeviceToken, userID: currentSession.userID)
+        }
+      } catch { /* The secure cleanup record survives offline sign-out. */ }
     }
+    EchoPushRegistration.shared.completeLocalSignOut()
     try? sessionStore.clearSession()
     currentSession = nil
     pendingMfaToken = nil

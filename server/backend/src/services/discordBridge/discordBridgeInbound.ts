@@ -163,17 +163,8 @@ export async function ingestDiscordBridgeMessage(
     return { ok: false, reason: 'webhook_loop_skip' };
   }
 
-  const claimed = await tryInsertBridgeIngested(pool, dChannelId, dMsgId);
-  if (!claimed) {
-    return { ok: false, reason: 'duplicate' };
-  }
-
   const author = payload.author;
   if (!author || typeof author !== 'object') {
-    await pool.query(
-      `DELETE FROM echo_discord_bridge_ingested WHERE discord_channel_id = $1 AND discord_message_id = $2`,
-      [dChannelId, dMsgId],
-    );
     return { ok: false, reason: 'missing_author', statusCode: 400 };
   }
 
@@ -213,9 +204,16 @@ export async function ingestDiscordBridgeMessage(
         )
       : undefined;
 
+  // Claim only after all fallible preparation; failed user/profile/mention/reply
+  // lookups must remain retryable. The message insert below consumes this claim.
+  const claimed = await tryInsertBridgeIngested(pool, dChannelId, dMsgId);
+  if (!claimed) {
+    return { ok: false, reason: 'duplicate' };
+  }
+
   // Same id as Discord import (`discordMessageId`) so bulk import + live bridge never duplicate.
   const messageId = dMsgId;
-  let ins: 'inserted' | 'duplicate';
+  let ins: 'inserted' | 'duplicate' | 'slowmode';
   try {
     ins = await insertEchoMessage(pool, {
       id: messageId,

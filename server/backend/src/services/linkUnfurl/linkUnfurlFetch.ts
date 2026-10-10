@@ -4,6 +4,7 @@
 
 import { lookup } from 'dns/promises';
 import { safeFetchAgent } from './safeFetchAgent';
+import { readBoundedResponseBody } from './readBoundedResponseBody';
 
 const FETCH_TIMEOUT_MS = 8000;
 const MAX_REDIRECTS = 4;
@@ -198,8 +199,7 @@ export async function canSafelyResolveUrlForOutboundFetch(
 }
 
 /**
- * SSRF-safe fetch: single entry point for unfurl/oEmbed HTTP. Validates scheme,
- * hostname, and DNS (via `canSafelyResolveUrlForOutboundFetch`) before `fetch`.
+ * Validate each URL and pin connections to public IPs; callers handle redirects.
  */
 export async function ssrfSafeFetch(
   url: string,
@@ -208,11 +208,12 @@ export async function ssrfSafeFetch(
   if (!(await canSafelyResolveUrlForOutboundFetch(url))) {
     throw new Error('SSRF: URL failed safety validation');
   }
-  // Parse only after the full scheme/host/DNS check. Passing the validated URL
-  // object also prevents callers from smuggling a different request target via
-  // string coercion or an alternate URL-like value.
-  const validatedUrl = new URL(url);
-  return fetch(validatedUrl, init as RequestInit);
+  // Pass the validated URL object, never an alternate coercion of the input.
+  return fetch(new URL(url), {
+    ...init,
+    redirect: 'manual',
+    dispatcher: safeFetchAgent,
+  } as RequestInit);
 }
 
 export async function fetchJsonWithTimeout(
@@ -220,27 +221,22 @@ export async function fetchJsonWithTimeout(
 ): Promise<Record<string, unknown> | null> {
   let current = url;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
     let res: Response;
     try {
       res = await ssrfSafeFetch(current, {
         method: 'GET',
         redirect: 'manual',
-        signal: ac.signal,
-        dispatcher: safeFetchAgent,
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: {
           Accept: 'application/json',
           'User-Agent': 'EchoLinkEmbed/1.0 (+https://echo.local)',
         },
-      } as RequestInit & { dispatcher: typeof safeFetchAgent });
+      });
     } catch {
-      clearTimeout(t);
       return null;
-    } finally {
-      clearTimeout(t);
     }
     if (res.status >= 300 && res.status < 400) {
+      await res.body?.cancel();
       const loc = res.headers.get('location');
       if (!loc) return null;
       try {
@@ -250,9 +246,13 @@ export async function fetchJsonWithTimeout(
       }
       continue;
     }
-    if (!res.ok) return null;
+    if (!res.ok) {
+      await res.body?.cancel();
+      return null;
+    }
     try {
-      const data = (await res.json()) as unknown;
+      const body = await readBoundedResponseBody(res, 512 * 1024);
+      const data: unknown = JSON.parse(body.toString('utf8'));
       return data != null && typeof data === 'object' && !Array.isArray(data)
         ? (data as Record<string, unknown>)
         : null;

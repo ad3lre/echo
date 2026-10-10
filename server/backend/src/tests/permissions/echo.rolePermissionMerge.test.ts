@@ -4,9 +4,36 @@ import {
   echoPartialToChannelOverrides,
   mergeRoleUiPermissionsWithStoredEcho,
   roleUiPermissionsToEchoStrings,
+  roleUiPermissionsFromEchoStrings,
 } from '../../../../../contracts/rolePermissionBridge';
 
 async function run(): Promise<void> {
+  for (const stored of [
+    ['MUTE_MEMBERS'],
+    ['DEAFEN_MEMBERS'],
+    ['USE_EXTERNAL_EMOJIS'],
+    ['USE_EXTERNAL_STICKERS'],
+  ]) {
+    const ui = roleUiPermissionsFromEchoStrings(stored);
+    const saved = mergeRoleUiPermissionsWithStoredEcho(
+      { ...ui, sendMessages: true },
+      stored,
+    );
+    assert.deepEqual(
+      saved.filter((p) => p !== 'SEND_MESSAGES'),
+      stored,
+    );
+  }
+  assert.deepEqual(
+    mergeRoleUiPermissionsWithStoredEcho({ muteDeafenMembers: false }, [
+      'MUTE_MEMBERS',
+    ]),
+    [],
+  );
+  assert.deepEqual(
+    mergeRoleUiPermissionsWithStoredEcho({ muteDeafenMembers: true }, []),
+    ['MUTE_MEMBERS', 'DEAFEN_MEMBERS'],
+  );
   const uiBase = {
     viewChannels: true,
     sendMessages: true,

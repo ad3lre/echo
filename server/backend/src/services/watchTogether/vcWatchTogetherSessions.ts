@@ -92,23 +92,29 @@ export async function addVcWatchTogetherSessionBytes(
     channelId: string;
     byteLength: number;
   },
-): Promise<void> {
+): Promise<boolean> {
   const sessionId = opts.sessionId.trim();
   const byteLength = Math.floor(opts.byteLength);
-  if (!sessionId || byteLength < 1) return;
+  if (!sessionId || byteLength < 1) return false;
   await ensureVcWatchTogetherSessionRow(pool, {
     sessionId,
     hostUserId: opts.hostUserId,
     channelId: opts.channelId,
   });
-  const row = await getVcWatchTogetherSessionRow(pool, sessionId);
-  if (row && row.hostUserId !== opts.hostUserId.trim()) return;
-  await pool.query(
+  const updated = await pool.query(
     `UPDATE echo_vc_watch_together_sessions
      SET bytes_used = bytes_used + $2, updated_at = NOW()
-     WHERE session_id = $1`,
-    [sessionId, byteLength],
+     WHERE session_id = $1 AND host_user_id = $3
+       AND bytes_used + $2 <= $4
+     RETURNING session_id`,
+    [
+      sessionId,
+      byteLength,
+      opts.hostUserId.trim(),
+      ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES,
+    ],
   );
+  return (updated.rowCount ?? 0) > 0;
 }
 
 export async function subtractVcWatchTogetherSessionBytes(

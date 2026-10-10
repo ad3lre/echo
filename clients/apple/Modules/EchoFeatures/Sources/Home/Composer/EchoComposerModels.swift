@@ -113,11 +113,14 @@ enum EchoComposerPanel: Equatable {
 @MainActor
 @Observable
 final class EchoComposerState {
-  var text = ""
-  var assets: [EchoComposerAsset] = []
-  var selectedGIF: EchoGIF?
-  var poll: EchoComposerPollDraft?
-  var replyTo: EchoMessageReplyTo?
+  var text = "" { didSet { revision &+= 1 } }
+  var assets: [EchoComposerAsset] = [] { didSet { revision &+= 1 } }
+  var selectedGIF: EchoGIF? { didSet { revision &+= 1 } }
+  var poll: EchoComposerPollDraft? { didSet { revision &+= 1 } }
+  var replyTo: EchoMessageReplyTo? { didSet { revision &+= 1 } }
+  private(set) var revision = 0
+  private(set) var pendingPhotos: [String: UUID] = [:]
+  var remainingCapacity: Int { max(0, 10 - assets.count - pendingPhotos.count) }
   var panel: EchoComposerPanel?
   var isSending = false
   var errorMessage: String?
@@ -151,10 +154,30 @@ final class EchoComposerState {
   }
 
   var selectedPhotoIDs: [String] {
-    assets.compactMap(\.sourcePhotoID)
+    assets.compactMap(\.sourcePhotoID) + pendingPhotos.keys.sorted()
+  }
+
+  func reservePhoto(_ id: String) -> UUID? {
+    if pendingPhotos.removeValue(forKey: id) != nil { revision &+= 1; return nil }
+    guard remainingCapacity > 0 else { return nil }
+    let request = UUID()
+    pendingPhotos[id] = request
+    revision &+= 1
+    return request
+  }
+
+  func finishPhoto(_ id: String, request: UUID, asset: EchoComposerAsset?) {
+    guard pendingPhotos[id] == request else { return }
+    pendingPhotos[id] = nil
+    if let asset, assets.count < 10 {
+      poll = nil
+      selectedGIF = nil
+      assets.append(asset)
+    }
   }
 
   func reset(clearReply: Bool = true) {
+    pendingPhotos = [:]
     text = ""
     assets = []
     selectedGIF = nil

@@ -1,0 +1,112 @@
+.auth-submit {
+  background: linear-gradient(
+    180deg,
+    var(--vue-auto-179) 0%,
+    var(--vue-auto-180) 100%
+  );
+  box-shadow: 0 4px 16px var(--vue-auto-181);
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0.5px);
+  }
+}
+@keyframes auth-social-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes auth-sso-ambient-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+
+  50% {
+    filter: drop-shadow(
+      0 0 26px color-mix(in srgb, var(--accent) 16%, transparent)
+    );
+  }
+}
+.auth-social-stack > .auth-sso-segmented {
+  animation:
+    auth-social-rise-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both,
+    auth-sso-ambient-glow 9s ease-in-out 0.58s infinite;
+}
+.auth-social-stack > div[role='alert'] {
+  animation: auth-social-rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+.auth-social-stack > button.auth-submit,
+.auth-social-stack > button.auth-create-account-btn,
+.auth-social-stack > button.auth-continue-guest-btn {
+  animation: auth-social-rise-in 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.22s ease,
+    background-color 0.2s ease,
+    box-shadow 0.22s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+.auth-social-stack > button.auth-submit {
+  animation-delay: 0.14s;
+}
+.auth-social-stack > button.auth-create-account-btn {
+  animation-delay: 0.2s;
+}
+.auth-social-stack > button.auth-continue-guest-btn {
+  animation-delay: 0.26s;
+}
+.auth-social-stack .auth-sso-segmented__btn {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-social-stack > .auth-sso-segmented {
+    animation: none;
+    filter: none;
+  }
+
+  .auth-social-stack > div[role='alert'],
+  .auth-social-stack > button.auth-submit,
+  .auth-social-stack > button.auth-create-account-btn,
+  .auth-social-stack > button.auth-continue-guest-btn {
+    animation: none;
+  }
+
+  .auth-social-stack > button.auth-submit,
+  .auth-social-stack > button.auth-create-account-btn,
+  .auth-social-stack > button.auth-continue-guest-btn,
+  .auth-social-stack .auth-sso-segmented__btn {
+    transition-duration: 0.05s;
+
+    &:hover:not(:disabled),
+    &:active:not(:disabled) {
+      transform: none;
+    }
+  }
+}

@@ -436,6 +436,7 @@ export default async function discordOAuthRoutes(
     let targetUserId: string;
     /** True when this callback created a new guest via Discord login (finish signup in-app). */
     let provisionedNewGuestViaDiscordLogin = false;
+    let newlyProvisionedGuestId: string | null = null;
     if (payload.flow === 'login') {
       const echoUserId = await getUserIdByDiscordUserId(
         pool,
@@ -468,17 +469,24 @@ export default async function discordOAuthRoutes(
               discordOAuthAppRedirect(false, 'persist_failed', redirectOpts),
             );
         }
-        await recordGuestMintSuccess(mintIp);
-        const emailHint = me.email?.trim();
-        if (emailHint && isValidEmailFormat(emailHint)) {
-          await store.setGuestPendingEmail(guest.id, emailHint);
+        newlyProvisionedGuestId = guest.id;
+        try {
+          await recordGuestMintSuccess(mintIp);
+          const emailHint = me.email?.trim();
+          if (emailHint && isValidEmailFormat(emailHint)) {
+            await store.setGuestPendingEmail(guest.id, emailHint);
+          }
+        } catch (err) {
+          await store.deleteUserAccount(guest.id);
+          fastify.log.error(err, 'discord_oauth_guest_setup_failed');
+          return reply
+            .code(302)
+            .redirect(
+              discordOAuthAppRedirect(false, 'persist_failed', redirectOpts),
+            );
         }
         targetUserId = guest.id;
         provisionedNewGuestViaDiscordLogin = true;
-        void tryJoinOfficialEchoServerOnSignup(fastify.log, targetUserId, {
-          joinClientIp: mintIp,
-          io: fastify.io,
-        });
       } else {
         targetUserId = echoUserId;
       }
@@ -492,6 +500,8 @@ export default async function discordOAuthRoutes(
       targetUserId,
     );
     if (otherUser) {
+      if (newlyProvisionedGuestId)
+        await store.deleteUserAccount(newlyProvisionedGuestId);
       return reply
         .code(302)
         .redirect(
@@ -505,12 +515,16 @@ export default async function discordOAuthRoutes(
 
     const user = await store.getUserById(targetUserId);
     if (!user) {
+      if (newlyProvisionedGuestId)
+        await store.deleteUserAccount(newlyProvisionedGuestId);
       return reply
         .code(302)
         .redirect(discordOAuthAppRedirect(false, 'user_gone', redirectOpts));
     }
 
     if (payload.flow === 'login' && !user.isGuest && user.totpEnabled) {
+      if (newlyProvisionedGuestId)
+        await store.deleteUserAccount(newlyProvisionedGuestId);
       return reply
         .code(302)
         .redirect(
@@ -542,6 +556,8 @@ export default async function discordOAuthRoutes(
       });
     } catch (err) {
       fastify.log.error(err, 'discord_oauth_merge_failed');
+      if (newlyProvisionedGuestId)
+        await store.deleteUserAccount(newlyProvisionedGuestId);
       return reply
         .code(302)
         .redirect(discordOAuthAppRedirect(false, 'merge_failed', redirectOpts));
@@ -562,6 +578,8 @@ export default async function discordOAuthRoutes(
       }
     } catch (err) {
       fastify.log.error(err, 'discord_oauth_encrypt_failed');
+      if (newlyProvisionedGuestId)
+        await store.deleteUserAccount(newlyProvisionedGuestId);
       return reply
         .code(302)
         .redirect(
@@ -622,6 +640,8 @@ export default async function discordOAuthRoutes(
       }
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
+      if (newlyProvisionedGuestId)
+        await store.deleteUserAccount(newlyProvisionedGuestId);
       if (code === '23505') {
         return reply
           .code(302)
@@ -641,6 +661,21 @@ export default async function discordOAuthRoutes(
         );
     }
 
+    if (newlyProvisionedGuestId) {
+      const mintIp = clientIpFromFastifyRequest(req);
+      void tryJoinOfficialEchoServerOnSignup(
+        fastify.log,
+        newlyProvisionedGuestId,
+        {
+          joinClientIp: mintIp,
+          io: fastify.io,
+        },
+      ).catch((err: unknown) =>
+        fastify.log.warn(err, 'discord_oauth_official_server_join_failed'),
+      );
+      newlyProvisionedGuestId = null;
+    }
+
     if (payload.flow === 'login') {
       clearGuestBindingCookie(reply);
       const audit = loginAuditDigests(req);
@@ -651,12 +686,16 @@ export default async function discordOAuthRoutes(
           reply,
           req,
         );
-        void store.recordLoginEvent({
-          userId: sessionUser.id,
-          eventType: 'login_success',
-          ipDigest: audit.ipDigest,
-          uaDigest: audit.uaDigest,
-        });
+        await store
+          .recordLoginEvent({
+            userId: sessionUser.id,
+            eventType: 'login_success',
+            ipDigest: audit.ipDigest,
+            uaDigest: audit.uaDigest,
+          })
+          .catch((err: unknown) =>
+            fastify.log.error(err, 'discord_oauth_login_audit_failed'),
+          );
         return reply.code(302).redirect(
           discordOAuthAppRedirect(true, undefined, {
             kind: 'login',

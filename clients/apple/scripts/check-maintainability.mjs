@@ -53,27 +53,8 @@ export const RAW_UI_COPY_ALLOWLIST = new Set([
   'Modules/EchoFeatures/Sources/Shared/EchoMarkdownModels.swift',
 ]);
 
-/** Raw user-facing SwiftUI copy that should go through EchoCopy. */
-const RAW_UI_COPY_RE =
-  /\b(?:Text|Button|Label|TextField|SecureField|ContentUnavailableView)\(\s*"((?:\\.|[^"\\])*)"/g;
-
-/**
- * Count raw English SwiftUI string literals (allows Text("\(…)") interpolations).
- * @param {string} text
- * @returns {number}
- */
-export function countRawUiCopy(text) {
-  let count = 0;
-  RAW_UI_COPY_RE.lastIndex = 0;
-  let match;
-  while ((match = RAW_UI_COPY_RE.exec(text)) !== null) {
-    const body = match[1];
-    // Pure interpolation like Text("\(value)") / Text("@\(user)") is not copy.
-    if (body.startsWith('\\(') || body.startsWith('@\\(')) continue;
-    count += 1;
-  }
-  return count;
-}
+export { countRawUiCopy } from './swiftUiCopy.mjs';
+import { countRawUiCopy } from './swiftUiCopy.mjs';
 
 const FORBIDDEN_IMPORTS = [
   {

@@ -73,7 +73,7 @@ export async function editEchoMessageAndBroadcast(
     });
   }
 
-  io.to(channelId).emit('message:updated', {
+  broadcastToEchoChannel(io, channelId, 'message:updated', {
     channelId,
     messageId,
     content: plain,

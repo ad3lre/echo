@@ -1,6 +1,5 @@
 import type pg from 'pg';
 import { normalizePermissionOverwritePartial } from '../domain/permissions/echoPermissionPrimitives';
-import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 
 export const ECHO_VOICE_CHANNELS_CATEGORY_NAME = 'Voice Channels';
 export const ECHO_TEXT_CHANNELS_CATEGORY_NAME = 'Text Channels';
@@ -25,13 +24,10 @@ export function isDiscordMirrorOnlyEveryonePartial(partial: unknown): boolean {
 }
 
 /**
- * Idempotent data repair for legacy category + permission overwrite migrations:
- *
- * 1. Voice/stage channels stranded in the default "Text Channels" bucket (legacy
- *    `category_name` migration treated empty names as text-only).
- * 2. Erroneous @everyone CONNECT deny rows on joinable server/voice/stage channels
- *    (mirror-only signature applied outside mirror flows).
- * 3. `discord_voice_mirror_only` stuck true without mirror configuration.
+ * Repair mirror flags and overwrites. Category names cannot establish migration
+ * provenance: preserve user placement, including mixed "Text Channels" buckets.
+ * Legacy category_name defaults are handled by migrateEchoCategorySchema while
+ * the original column is still present.
  */
 export async function repairEchoVoiceChannelMigrationDamage(
   pool: pg.Pool,
@@ -42,63 +38,6 @@ export async function repairEchoVoiceChannelMigrationDamage(
     connectDenyOverwritesRemoved: 0,
     mirrorOnlyFlagsCleared: 0,
   };
-
-  const misplaced = await pool.query(
-    `
-    SELECT DISTINCT ch.server_id
-    FROM echo_channels ch
-    INNER JOIN echo_categories cat
-      ON cat.id = ch.category_id AND cat.server_id = ch.server_id
-    WHERE ch.type IN ('voice', 'stage')
-      AND LOWER(TRIM(cat.name)) = LOWER($1)
-  `,
-    [ECHO_TEXT_CHANNELS_CATEGORY_NAME],
-  );
-
-  for (const row of misplaced.rows) {
-    const serverId = String(row.server_id);
-    const voiceCatId = await ensureVoiceChannelsCategoryForServer(
-      pool,
-      serverId,
-      stats,
-    );
-    const channels = await pool.query(
-      `
-      SELECT ch.id, ch.position
-      FROM echo_channels ch
-      INNER JOIN echo_categories cat
-        ON cat.id = ch.category_id AND cat.server_id = ch.server_id
-      WHERE ch.server_id = $1
-        AND ch.type IN ('voice', 'stage')
-        AND LOWER(TRIM(cat.name)) = LOWER($2)
-      ORDER BY ch.position ASC, ch.id ASC
-      `,
-      [serverId, ECHO_TEXT_CHANNELS_CATEGORY_NAME],
-    );
-    if (channels.rows.length === 0) continue;
-
-    const maxPosRow = await pool.query(
-      `
-      SELECT COALESCE(MAX(position), -1) AS mx
-      FROM echo_channels
-      WHERE server_id = $1 AND category_id = $2
-      `,
-      [serverId, voiceCatId],
-    );
-    let nextPos = Number(maxPosRow.rows[0]?.mx ?? -1) + 1;
-    for (const ch of channels.rows) {
-      await pool.query(
-        `
-        UPDATE echo_channels
-        SET category_id = $1, position = $2
-        WHERE id = $3 AND server_id = $4
-        `,
-        [voiceCatId, nextPos, String(ch.id), serverId],
-      );
-      nextPos += 1;
-      stats.voiceChannelsRecategorized += 1;
-    }
-  }
 
   const stuckMirrorOnly = await pool.query(`
     UPDATE echo_channels ch
@@ -140,49 +79,4 @@ export async function repairEchoVoiceChannelMigrationDamage(
   }
 
   return stats;
-}
-
-async function ensureVoiceChannelsCategoryForServer(
-  pool: pg.Pool,
-  serverId: string,
-  stats: EchoVoiceChannelMigrationRepairStats,
-): Promise<string> {
-  const existing = await pool.query(
-    `
-    SELECT id FROM echo_categories
-    WHERE server_id = $1 AND LOWER(TRIM(name)) = LOWER($2)
-    LIMIT 1
-    `,
-    [serverId, ECHO_VOICE_CHANNELS_CATEGORY_NAME],
-  );
-  if (existing.rows.length > 0) {
-    return String(existing.rows[0]!.id);
-  }
-
-  const textCat = await pool.query(
-    `
-    SELECT position FROM echo_categories
-    WHERE server_id = $1 AND LOWER(TRIM(name)) = LOWER($2)
-    LIMIT 1
-    `,
-    [serverId, ECHO_TEXT_CHANNELS_CATEGORY_NAME],
-  );
-  let position: number;
-  if (textCat.rows.length > 0) {
-    position = Number(textCat.rows[0]!.position ?? 0) + 1;
-  } else {
-    const maxRow = await pool.query(
-      `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_categories WHERE server_id = $1`,
-      [serverId],
-    );
-    position = Number(maxRow.rows[0]?.p ?? 0);
-  }
-
-  const catId = nextEchoSnowflakeId();
-  await pool.query(
-    `INSERT INTO echo_categories (id, server_id, name, position) VALUES ($1, $2, $3, $4)`,
-    [catId, serverId, ECHO_VOICE_CHANNELS_CATEGORY_NAME, position],
-  );
-  stats.voiceCategoriesCreated += 1;
-  return catId;
 }

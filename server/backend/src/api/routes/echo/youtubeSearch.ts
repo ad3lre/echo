@@ -24,6 +24,19 @@ export type YoutubeSearchItem = {
   thumbnailUrl: string | null;
 };
 
+export async function runYoutubeSearchWithFallback(
+  official: () => Promise<YoutubeSearchItem[]>,
+  fallback: () => Promise<YoutubeSearchItem[]>,
+): Promise<{ items: YoutubeSearchItem[]; source: 'youtube' | 'invidious' }> {
+  try {
+    const items = await official();
+    if (items.length > 0) return { items, source: 'youtube' };
+  } catch {
+    // Official provider transport or decoding failures must not suppress mirrors.
+  }
+  return { items: await fallback(), source: 'invidious' };
+}
+
 function rateKey(req: FastifyRequest): string {
   return req.authUser?.id
     ? `ytsearch:${req.authUser.id}`
@@ -66,11 +79,7 @@ async function searchYoutubeOfficial(q: string): Promise<YoutubeSearchItem[]> {
   url.searchParams.set('maxResults', '24');
   url.searchParams.set('q', q);
   url.searchParams.set('key', key);
-  const res = await fetch(url.toString(), {
-    signal: AbortSignal.timeout(YOUTUBE_SEARCH_FETCH_MS),
-  });
-  if (!res.ok) return [];
-  const json = (await res.json()) as {
+  let json: {
     items?: Array<{
       id?: { videoId?: string };
       snippet?: {
@@ -80,6 +89,15 @@ async function searchYoutubeOfficial(q: string): Promise<YoutubeSearchItem[]> {
       };
     }>;
   };
+  try {
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(YOUTUBE_SEARCH_FETCH_MS),
+    });
+    if (!res.ok) return [];
+    json = (await res.json()) as typeof json;
+  } catch {
+    return [];
+  }
   const out: YoutubeSearchItem[] = [];
   for (const it of json.items ?? []) {
     const id = it.id?.videoId?.trim();
@@ -189,19 +207,19 @@ async function relatedYoutubeOfficial(
   vUrl.searchParams.set('part', 'snippet');
   vUrl.searchParams.set('id', seedVideoId);
   vUrl.searchParams.set('key', key);
-  let vRes: Response;
+  let title = '';
   try {
-    vRes = await fetch(vUrl.toString(), {
+    const vRes = await fetch(vUrl.toString(), {
       signal: AbortSignal.timeout(YOUTUBE_SEARCH_FETCH_MS),
     });
+    if (!vRes.ok) return [];
+    const vJson = (await vRes.json()) as {
+      items?: Array<{ snippet?: { title?: string } }>;
+    };
+    title = vJson.items?.[0]?.snippet?.title?.trim() ?? '';
   } catch {
     return [];
   }
-  if (!vRes.ok) return [];
-  const vJson = (await vRes.json()) as {
-    items?: Array<{ snippet?: { title?: string } }>;
-  };
-  const title = vJson.items?.[0]?.snippet?.title?.trim() ?? '';
   const q = relatedSearchQueryFromTitle(title);
   if (q.length < 2) return [];
   const raw = await searchYoutubeOfficial(q);
@@ -339,16 +357,7 @@ async function popularYoutubeOfficial(
   url.searchParams.set('regionCode', region);
   url.searchParams.set('maxResults', '24');
   url.searchParams.set('key', key);
-  let res: Response;
-  try {
-    res = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(YOUTUBE_SEARCH_FETCH_MS),
-    });
-  } catch {
-    return [];
-  }
-  if (!res.ok) return [];
-  const json = (await res.json()) as {
+  let json: {
     items?: Array<{
       id?: string;
       snippet?: {
@@ -358,6 +367,15 @@ async function popularYoutubeOfficial(
       };
     }>;
   };
+  try {
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(YOUTUBE_SEARCH_FETCH_MS),
+    });
+    if (!res.ok) return [];
+    json = (await res.json()) as typeof json;
+  } catch {
+    return [];
+  }
   const out: YoutubeSearchItem[] = [];
   for (const it of json.items ?? []) {
     const id = typeof it.id === 'string' ? it.id.trim() : '';
@@ -408,15 +426,14 @@ export default async function echoYoutubeSearchRoutes(
         const cached = youtubeSearchCache.get(cacheKey);
         if (cached) return reply.send(cached);
 
-        let items = await searchYoutubeOfficial(q);
-        if (!items.length) {
-          items = await searchInvidious(q, fastify.log);
-        }
+        const { items, source } = await runYoutubeSearchWithFallback(
+          () => searchYoutubeOfficial(q),
+          () => searchInvidious(q, fastify.log),
+        );
         if (!items.length) {
           const empty = {
             items: [] as YoutubeSearchItem[],
-            source:
-              config.youtubeDataApiKey.trim() !== '' ? 'youtube' : 'invidious',
+            source,
             hint:
               config.youtubeDataApiKey.trim() === ''
                 ? 'No results from Invidious mirrors; set YOUTUBE_DATA_API_KEY for official search.'
@@ -427,8 +444,7 @@ export default async function echoYoutubeSearchRoutes(
         }
         const payload = {
           items,
-          source:
-            config.youtubeDataApiKey.trim() !== '' ? 'youtube' : 'invidious',
+          source,
         };
         youtubeSearchCache.set(cacheKey, payload);
         return reply.send(payload);
@@ -442,15 +458,14 @@ export default async function echoYoutubeSearchRoutes(
         const regionCode = /^[A-Za-z]{2}$/.test(raw) ? raw.toUpperCase() : 'US';
         if (!(await consumeYoutubeBrowseBudget(request, reply))) return;
 
-        let items = await popularYoutubeOfficial(regionCode);
-        if (!items.length) {
-          items = await popularInvidious(regionCode, fastify.log);
-        }
+        const { items, source } = await runYoutubeSearchWithFallback(
+          () => popularYoutubeOfficial(regionCode),
+          () => popularInvidious(regionCode, fastify.log),
+        );
         if (!items.length) {
           return reply.send({
             items: [] as YoutubeSearchItem[],
-            source:
-              config.youtubeDataApiKey.trim() !== '' ? 'youtube' : 'invidious',
+            source,
             hint:
               config.youtubeDataApiKey.trim() === ''
                 ? 'No trending videos from Invidious mirrors; set YOUTUBE_DATA_API_KEY for official results.'
@@ -459,8 +474,7 @@ export default async function echoYoutubeSearchRoutes(
         }
         return reply.send({
           items,
-          source:
-            config.youtubeDataApiKey.trim() !== '' ? 'youtube' : 'invidious',
+          source,
         });
       },
     );
@@ -480,15 +494,14 @@ export default async function echoYoutubeSearchRoutes(
 
         if (!(await consumeYoutubeBrowseBudget(request, reply))) return;
 
-        let items = await relatedYoutubeOfficial(raw);
-        if (!items.length) {
-          items = await relatedInvidious(raw, fastify.log);
-        }
+        const { items, source } = await runYoutubeSearchWithFallback(
+          () => relatedYoutubeOfficial(raw),
+          () => relatedInvidious(raw, fastify.log),
+        );
         if (!items.length) {
           return reply.send({
             items: [] as YoutubeSearchItem[],
-            source:
-              config.youtubeDataApiKey.trim() !== '' ? 'youtube' : 'invidious',
+            source,
             hint:
               config.youtubeDataApiKey.trim() === ''
                 ? 'No related videos from Invidious; set YOUTUBE_DATA_API_KEY for smarter matches.'
@@ -497,8 +510,7 @@ export default async function echoYoutubeSearchRoutes(
         }
         return reply.send({
           items,
-          source:
-            config.youtubeDataApiKey.trim() !== '' ? 'youtube' : 'invidious',
+          source,
         });
       },
     );

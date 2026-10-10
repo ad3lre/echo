@@ -8,7 +8,10 @@ export function createAppLayoutActionsFromRegistry(
     message: { goToMessage: registry.message.goToMessage },
     navigation: {
       openDm: (uid: string) => {
-        void registry.navigation.openDm(uid);
+        void Promise.resolve(registry.navigation.openDm(uid)).catch(() => {
+          // Navigation is fire-and-forget; failures are handled by the caller's
+          // normal route and realtime recovery paths.
+        });
       },
     },
   };

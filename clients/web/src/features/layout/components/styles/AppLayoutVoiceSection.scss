@@ -1,0 +1,104 @@
+.voice-side-chat-header {
+  /* Match `.chat-header-glass`: glass tint + blur only — drop shadows read as a mis-sized
+     strip and clip badly against the voice column edge. */
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  background-color: var(
+    --chat-glass-header-bg-fallback,
+    var(--chat-glass-header-bg)
+  );
+  isolation: isolate;
+  border-bottom: none;
+  box-shadow: none;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .voice-side-chat-header {
+    backdrop-filter: var(--chat-glass-header-backdrop);
+    -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  }
+}
+
+.voice-side-chat-header--mobile {
+  min-height: 2.75rem;
+}
+
+.voice-chat-reopen-action {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-elevated) 90%, white 2%) 0%,
+    color-mix(in srgb, var(--bg-elevated) 96%, black 4%) 100%
+  );
+  box-shadow:
+    0 12px 26px color-mix(in srgb, black 36%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.voice-chat-reopen-action:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-elevated) 86%, white 5%) 0%,
+    color-mix(in srgb, var(--bg-elevated) 94%, black 6%) 100%
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--echo-palette-7dd3fc-cf4d) 32%,
+    var(--border)
+  );
+}
+
+.voice-chat-reopen-action:focus-visible {
+  outline: 2px solid
+    color-mix(in srgb, var(--echo-palette-7dd3fc-cf4d) 60%, white 12%);
+  outline-offset: 2px;
+}
+
+:global(html[data-theme='light'][data-echo-light-variant='sunny'])
+  .voice-chat-reopen-action {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 91%, white 4%) 0%,
+    color-mix(in srgb, var(--surface) 93%, var(--border) 7%) 100%
+  );
+  box-shadow:
+    0 12px 26px var(--echo-palette-rgba-120-80-30-0p11-1821),
+    inset 0 1px 0 color-mix(in srgb, white 50%, transparent);
+}
+
+:global(html[data-theme='light'][data-echo-light-variant='sunny'])
+  .voice-chat-reopen-action:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 87%, white 6%) 0%,
+    color-mix(in srgb, var(--surface) 90%, var(--border) 10%) 100%
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--echo-palette-rgb-217-119-6-b371) 32%,
+    var(--border)
+  );
+}
+
+:global(html[data-theme='light'][data-echo-light-variant='sunny'])
+  .voice-chat-reopen-action:focus-visible {
+  outline: 2px solid
+    color-mix(in srgb, var(--echo-palette-rgb-217-119-6-b371) 52%, white 14%);
+}
+
+.voice-chat-reopen-action--desktop {
+  bottom: 1rem;
+}
+
+.voice-chat-reopen-action--mobile {
+  bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 639px) {
+  .voice-chat-reopen-action {
+    font-size: 0.8125rem;
+    padding: 0.45rem 0.8rem;
+  }
+}

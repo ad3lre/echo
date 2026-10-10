@@ -1,0 +1,6 @@
+:global(
+  [data-theme='light'] .dm-filter-widget--active .dm-filter-widget__count
+) {
+  background: color-mix(in srgb, var(--accent-contrast-fg) 22%, transparent);
+  color: var(--accent-contrast-fg);
+}

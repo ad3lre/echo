@@ -72,16 +72,13 @@ export function registerInternalGameRoutes(
     },
   );
 
-  async function verify(req: import('fastify').FastifyRequest, raw: string) {
-    return verifyEchoForwardSignature(req, raw, secret);
-  }
-
   app.post(
     '/internal/v1/game/join',
     { config: { rateLimit: GAME_INTERNAL_ROUTE_RATE } },
     async (req, reply) => {
       const raw = typeof req.body === 'string' ? req.body : '';
-      if (!verify(req, raw)) return reply.status(401).send({ ok: false });
+      if (!verifyEchoForwardSignature(req, raw, secret))
+        return reply.status(401).send({ ok: false });
       let body: JoinBody;
       try {
         body = JSON.parse(raw) as JoinBody;
@@ -111,7 +108,8 @@ export function registerInternalGameRoutes(
     { config: { rateLimit: GAME_INTERNAL_ROUTE_RATE } },
     async (req, reply) => {
       const raw = typeof req.body === 'string' ? req.body : '';
-      if (!verify(req, raw)) return reply.status(401).send({ ok: false });
+      if (!verifyEchoForwardSignature(req, raw, secret))
+        return reply.status(401).send({ ok: false });
       let body: ActionBody;
       try {
         body = JSON.parse(raw) as ActionBody;
@@ -140,7 +138,8 @@ export function registerInternalGameRoutes(
     { config: { rateLimit: GAME_INTERNAL_ROUTE_RATE } },
     async (req, reply) => {
       const raw = typeof req.body === 'string' ? req.body : '';
-      if (!verify(req, raw)) return reply.status(401).send({ ok: false });
+      if (!verifyEchoForwardSignature(req, raw, secret))
+        return reply.status(401).send({ ok: false });
       let body: LeaveBody;
       try {
         body = JSON.parse(raw) as LeaveBody;

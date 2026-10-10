@@ -8,6 +8,48 @@ import Testing
 
 @MainActor
 struct EchoMessageTimelineModelTests {
+  @Test func olderPageAdvancesAFullWindow() async {
+    let dm = EchoDirectMessage(id: "dm", channelID: "channel-1", displayName: "Peer")
+    let rows = (100..<500).map { EchoMessage(id: "m\($0)", channelID: "channel-1", authorID: "peer", content: "row") }
+    let older = EchoMessage(id: "m99", channelID: "channel-1", authorID: "peer", content: "older")
+    let client = StubTimelineLoading(pages: [EchoMessagePage(messages: [older], hasMoreBefore: true)])
+    let model = makeModel(conversation: dm, client: client, messages: rows, hasStarted: true)
+    #expect(await model.loadOlder())
+    #expect(model.messages.first?.id == "m99")
+    #expect(model.messages.count == 400)
+    #expect(!model.messages.contains(where: { $0.id == "m499" }))
+  }
+
+  @Test func reconnectUsesServerCursorBesideOptimisticRows() async {
+    let dm = EchoDirectMessage(id: "dm", channelID: "channel-1", displayName: "Peer")
+    let sent = EchoMessage(id: "server", channelID: "channel-1", authorID: "peer", content: "sent")
+    let local = EchoMessage(id: "local-one", channelID: "channel-1", authorID: "user-me", content: "pending", delivery: .uploading)
+    let client = StubTimelineLoading()
+    let model = makeModel(conversation: dm, client: client, messages: [sent, local], hasStarted: true)
+    await model.catchUp()
+    #expect(client.afterCursors == ["server"])
+    let onlyPending = makeModel(conversation: dm, client: client, messages: [local], hasStarted: true)
+    await onlyPending.catchUp()
+    #expect(client.afterCursors.last! == nil)
+  }
+
+  @Test func identicalSendsReconcileOnePlaceholderOnceAndKeepFailures() async {
+    let dm = EchoDirectMessage(id: "dm", channelID: "channel-1", displayName: "Peer")
+    let make = { (id: String, delivery: EchoMessageDelivery) in
+      EchoMessage(id: id, channelID: "channel-1", authorID: "user-me", content: "same", isCurrentUser: true, delivery: delivery)
+    }
+    let client = StubTimelineLoading()
+    let model = makeModel(conversation: dm, client: client,
+      messages: [make("local-one", .uploading), make("local-two", .uploading), make("local-failed", .failed)], hasStarted: true)
+    let server = make("server", .sent)
+    model.applyRealtime(.message(server))
+    model.applyRealtime(.message(server))
+    #expect(model.messages.map(\.id) == ["local-two", "local-failed", "server"])
+    do { try await model.send(EchoComposerSubmission(text: "same", assets: [], gif: nil, poll: nil)) }
+    catch { Issue.record(error) }
+    #expect(model.messages.contains(where: { $0.id == "local-two" }))
+  }
+
   @Test func loadInitialHydratesMessagesAndMarksStarted() async {
     let conversation = EchoDirectMessage(
       id: "dm-1", channelID: "channel-1", displayName: "Maya", username: "maya")
@@ -288,6 +330,7 @@ private final class StubTimelineLoading: EchoMessageTimelineLoading, @unchecked 
   var uploadDelayNanoseconds: UInt64 = 0
   var shouldFailUpload = false
   private(set) var loadCount = 0
+  private(set) var afterCursors: [String?] = []
   private(set) var markReadCount = 0
   private(set) var voteCount = 0
   private(set) var uploadCount = 0
@@ -317,10 +360,11 @@ private final class StubTimelineLoading: EchoMessageTimelineLoading, @unchecked 
     channelID _: String,
     currentUserID _: String?,
     before _: String?,
-    after _: String?,
+    after: String?,
     limit _: Int
   ) async throws -> EchoMessagePage {
     loadCount += 1
+    afterCursors.append(after)
     if loadDelayNanoseconds > 0 {
       try await Task.sleep(nanoseconds: loadDelayNanoseconds)
     }

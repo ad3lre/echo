@@ -274,6 +274,10 @@ async function applyFreshQuotaHeaders(
   dailyLimit: number,
 ): Promise<void> {
   const usage = await readUserImageSearchUsage(userId, dailyLimit);
+  if (!usage) {
+    reply.header('X-Echo-Image-Search-Quota-Available', 'false');
+    return;
+  }
   setQuotaHeaders(reply, usage.limit, usage.remaining);
 }
 
@@ -327,57 +331,25 @@ async function scheduleStaleRefresh(
 async function coldFetchUpstream(
   cacheKey: string,
   queryText: string,
-  normalizedQuery: string,
   imageNum: number,
   page: number,
-  userId: string,
-  payerIp: string,
   log: FastifyBaseLogger,
 ): Promise<SerperFetchOk | SerperFetchFail> {
-  const pool = getPgPool();
-  const ent = pool
-    ? await getEchoEntitlements(pool, userId)
-    : { plan: 'free' as const };
-  const dailyLimit = imageSearchDailyLimitForPlan(ent.plan);
-  const qHash = imageSearchQueryHash(normalizedQuery);
-
-  const credit = await reserveUserImageSearchCredit(userId, qHash, dailyLimit);
-  if (!credit.ok) {
-    return {
-      ok: false,
-      status: 429,
-      diag: `PLAN_LIMIT:${ent.plan}`,
-    };
-  }
-  const creditConsumed = !credit.alreadyCounted;
-
   const global = await tryReserveGlobalSerperUnit();
   if (!global.ok) {
-    if (creditConsumed) {
-      await refundUserImageSearchCredit(userId, qHash);
-    }
     return {
       ok: false,
-      status: 429,
-      diag: `GLOBAL_CAP:${global.reason}`,
+      status: global.reason === 'redis_unavailable' ? 503 : 429,
+      diag:
+        global.reason === 'redis_unavailable'
+          ? 'QUOTA_UNAVAILABLE'
+          : `GLOBAL_CAP:${global.reason}`,
     };
-  }
-
-  if (!tryReserveIpBudget(payerIp, 1)) {
-    await refundGlobalSerperUnit();
-    if (creditConsumed) {
-      await refundUserImageSearchCredit(userId, qHash);
-    }
-    return { ok: false, status: 429, diag: 'IP_CAP' };
   }
 
   const fetched = await callSerper(queryText, page, log);
   if (!fetched.ok) {
     await refundGlobalSerperUnit();
-    refundIpBudget(payerIp, 1);
-    if (creditConsumed) {
-      await refundUserImageSearchCredit(userId, qHash);
-    }
     return fetched;
   }
 
@@ -480,16 +452,47 @@ export default async function serperImageSearchRoutes(
           return reply.send(buildPagePayload(l2.results, page));
         }
 
+        const qHash = imageSearchQueryHash(normalizedQuery);
+        const credit = await reserveUserImageSearchCredit(
+          userId,
+          qHash,
+          dailyLimit,
+        );
+        if (!credit.ok) {
+          if (credit.unavailable) {
+            return sendError(
+              reply,
+              503,
+              'QUOTA_UNAVAILABLE',
+              'Image search quota is temporarily unavailable.',
+            );
+          }
+          await applyFreshQuotaHeaders(reply, userId, dailyLimit);
+          return sendError(
+            reply,
+            429,
+            'PLAN_LIMIT',
+            planLimitExceededMessage(ent.plan),
+          );
+        }
+        const creditConsumed = !credit.alreadyCounted;
+        if (!tryReserveIpBudget(request.ip, 1)) {
+          if (creditConsumed) await refundUserImageSearchCredit(userId, qHash);
+          return sendError(
+            reply,
+            429,
+            'RATE_LIMITED',
+            'Daily image search quota exceeded for this network. Try again tomorrow.',
+          );
+        }
+
         let inflight = inFlightFetch.get(cacheKey);
         if (!inflight) {
           inflight = coldFetchUpstream(
             cacheKey,
             queryText,
-            normalizedQuery,
             imageNum,
             page,
-            userId,
-            request.ip,
             fastify.log,
           ).finally(() => {
             inFlightFetch.delete(cacheKey);
@@ -499,6 +502,8 @@ export default async function serperImageSearchRoutes(
 
         const fetched = await inflight;
         if (!fetched.ok) {
+          refundIpBudget(request.ip, 1);
+          if (creditConsumed) await refundUserImageSearchCredit(userId, qHash);
           const diag = fetched.diag ?? '';
           if (diag.startsWith('PLAN_LIMIT:')) {
             const plan = ent.plan;

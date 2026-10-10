@@ -84,9 +84,8 @@ export function createEchoS3UploadClient(): S3Client | null {
     credentials: { accessKeyId, secretAccessKey },
     forcePathStyle: !!endpoint,
     /**
-     * Default `WHEN_SUPPORTED` injects checksum query params (`x-amz-checksum-*`) into presigned
-     * PutObject URLs. Browser PUTs then hit stricter CORS / preflight requirements on R2/S3; SPA
-     * uploads surface as XHR “network” errors. PutObject only needs a checksum when required.
+     * Only send checksums when required; automatic checksum query parameters
+     * cause stricter CORS requirements for browser uploads.
      */
     requestChecksumCalculation: 'WHEN_REQUIRED',
   });
@@ -313,16 +312,15 @@ export async function presignEchoUpload(opts: {
   }
 
   const client = createEchoS3UploadClient();
-  if (!client) {
-    return { ok: false, reason: 'NOT_CONFIGURED' };
-  }
+  if (!client) return { ok: false, reason: 'NOT_CONFIGURED' };
 
-  /** Bind declared size in the signature so clients cannot PUT a mismatched Content-Length. */
+  /** Bind size and create-only condition; verified objects cannot be replaced. */
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: key,
     ContentType: contentType,
     ContentLength: Math.floor(opts.contentLength),
+    IfNoneMatch: '*',
   });
 
   const uploadUrl = await getSignedUrl(client, command, { expiresIn: 900 });
@@ -337,6 +335,7 @@ export async function presignEchoUpload(opts: {
     key,
     headers: {
       'Content-Type': contentType,
+      'If-None-Match': '*',
     },
   };
 }

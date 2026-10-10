@@ -7,6 +7,22 @@ import {
 } from './richBlockToken';
 
 describe('richBlockToken', () => {
+  it.each(['A]B', 'say "hi", then go', 'C:\\path\\"name", next', ''])(
+    'round-trips quoted value %s',
+    (label) => {
+      const raw = formatRichBlockToken('button', { label });
+      expect(parseRichBlockToken(raw)?.attrs).toEqual({ label });
+      expect(findAllRichBlockTokens(`before ${raw} after`)[0]?.attrs).toEqual({
+        label,
+      });
+    },
+  );
+
+  it('round-trips an empty attribute list', () => {
+    expect(
+      parseRichBlockToken(formatRichBlockToken('image', {}))?.attrs,
+    ).toEqual({});
+  });
   it('formats and parses attribute pairs', () => {
     const raw = formatRichBlockToken('image', {
       ratio: '16:9',

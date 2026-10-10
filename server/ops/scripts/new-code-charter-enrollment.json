@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-09-20",
+  "enrolledAt": "2026-10-08",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -20,7 +20,7 @@
       "maxNestingSpaces": 14
     },
     "clients/web/src/features/auth/InlineAuthPanel.vue": {
-      "lines": 1153,
+      "lines": 581,
       "longestFunction": 4,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -38,8 +38,8 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/channel-panel/useChannelPanelVoiceState.ts": {
-      "lines": 226,
-      "longestFunction": 158,
+      "lines": 225,
+      "longestFunction": 157,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },
@@ -50,7 +50,7 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/chat/chatSlashCommands.ts": {
-      "lines": 544,
+      "lines": 542,
       "longestFunction": 166,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -94,12 +94,6 @@
     "clients/web/src/features/layout/components/MoreServersCardStack.vue": {
       "lines": 529,
       "longestFunction": 7,
-      "deepNestingLines": 0,
-      "maxNestingSpaces": 4
-    },
-    "clients/web/src/features/layout/components/MoreServersCompactList.vue": {
-      "lines": 589,
-      "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
     },
@@ -272,13 +266,13 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/voice/CallView.vue": {
-      "lines": 1176,
+      "lines": 713,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 2
     },
     "clients/web/src/features/voice/components/VcWatchTogetherLobby.vue": {
-      "lines": 884,
+      "lines": 876,
       "longestFunction": 68,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
@@ -295,20 +289,8 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
-    "clients/web/src/features/voice/hangman/components/HangmanKeyboard.vue": {
-      "lines": 534,
-      "longestFunction": 24,
-      "deepNestingLines": 0,
-      "maxNestingSpaces": 6
-    },
-    "clients/web/src/features/voice/hangman/components/HangmanPuzzle.vue": {
-      "lines": 490,
-      "longestFunction": 0,
-      "deepNestingLines": 0,
-      "maxNestingSpaces": 2
-    },
     "clients/web/src/features/voice/hangman/components/HangmanScene.vue": {
-      "lines": 542,
+      "lines": 415,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 2
@@ -392,15 +374,15 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/api/routes/appleOAuth.ts": {
-      "lines": 246,
+      "lines": 245,
       "longestFunction": 4,
       "deepNestingLines": 13,
       "maxNestingSpaces": 16
     },
     "server/backend/src/api/routes/honchoMemory.ts": {
-      "lines": 209,
-      "longestFunction": 24,
-      "deepNestingLines": 2,
+      "lines": 197,
+      "longestFunction": 16,
+      "deepNestingLines": 4,
       "maxNestingSpaces": 14
     },
     "server/backend/src/config/instancePolicy/envOverrides.ts": {
@@ -421,14 +403,32 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
+    "server/backend/src/domain/echoStore/messages/discordImportMediaMirrorQueue.ts": {
+      "lines": 67,
+      "longestFunction": 59,
+      "deepNestingLines": 1,
+      "maxNestingSpaces": 14
+    },
+    "server/backend/src/domain/echoStore/safety/instanceBans.ts": {
+      "lines": 408,
+      "longestFunction": 78,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 6
+    },
+    "server/backend/src/scripts/cleanupTestServers.ts": {
+      "lines": 200,
+      "longestFunction": 133,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 12
+    },
     "server/backend/src/services/echoAttentionSnapshotScheduler.ts": {
-      "lines": 155,
-      "longestFunction": 52,
+      "lines": 165,
+      "longestFunction": 54,
       "deepNestingLines": 5,
       "maxNestingSpaces": 14
     },
     "server/backend/src/services/uploads/chatRemoteImageImport.ts": {
-      "lines": 299,
+      "lines": 298,
       "longestFunction": 147,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10

@@ -21,20 +21,25 @@ enum EchoMarkdownMath {
       ("\\(", "\\)", false),
     ]
     return tokens.compactMap { token -> InlineSpan? in
-      let opening = token.open
-      guard let open = source.range(of: opening)?.lowerBound, !isEscaped(source, at: open),
-        !isInsideInlineCode(source, at: open)
-      else { return nil }
-      let after = source.index(open, offsetBy: opening.count)
-      guard let close = source.range(of: token.close, range: after..<source.endIndex),
-        close.lowerBound > after, !isEscaped(source, at: close.lowerBound)
-      else { return nil }
-      let body = String(source[after..<close.lowerBound])
-      guard !body.isEmpty, !body.contains("\n"), token.display || !body.hasSuffix(" ") else {
-        return nil
+      var cursor = source.startIndex
+      while cursor < source.endIndex, let opening = source.range(of: token.open, range: cursor..<source.endIndex) {
+        let open = opening.lowerBound
+        cursor = opening.upperBound
+        guard !isEscaped(source, at: open), !isInsideInlineCode(source, at: open) else { continue }
+        if token.open == "$", (cursor < source.endIndex && source[cursor] == "$") { continue }
+        var closingCursor = cursor
+        while closingCursor < source.endIndex,
+          let close = source.range(of: token.close, range: closingCursor..<source.endIndex) {
+          closingCursor = close.upperBound
+          guard close.lowerBound > cursor, !isEscaped(source, at: close.lowerBound),
+            !isInsideInlineCode(source, at: close.lowerBound) else { continue }
+          let body = String(source[cursor..<close.lowerBound])
+          guard !body.isEmpty, !body.contains("\n"), token.display || !body.hasSuffix(" "),
+            token.open != "$" || !body.hasPrefix("$") else { break }
+          return InlineSpan(open: open, source: body, close: close, display: token.display)
+        }
       }
-      if opening == "$", body.hasPrefix("$") { return nil }
-      return InlineSpan(open: open, source: body, close: close, display: token.display)
+      return nil
     }.sorted { $0.open < $1.open }.first
   }
 

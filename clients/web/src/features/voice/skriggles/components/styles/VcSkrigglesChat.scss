@@ -1,0 +1,117 @@
+.sk-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 0;
+  flex: 1;
+}
+
+.sk-chat__title {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sk-text-muted);
+}
+
+.sk-chat__log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  flex: 1;
+  min-height: 5rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 1px solid var(--sk-border);
+  border-radius: var(--sk-radius);
+  background: var(--sk-surface);
+  padding: 0.55rem;
+}
+
+.sk-chat__row {
+  font-size: 0.76rem;
+  line-height: 1.4;
+  padding: 0.35rem 0.45rem;
+  border-radius: 7px;
+  background: var(--echo-palette-rgba-255-255-255-0p03-1492);
+  border: 1px solid var(--sk-border);
+  color: var(--sk-text-soft);
+}
+
+.sk-chat__row--correct {
+  border-color: var(--echo-palette-rgba-16-185-129-0p35-56e7);
+  background: var(--echo-palette-rgba-16-185-129-0p08-806b);
+  color: var(--sk-hit);
+}
+
+.sk-chat__row--close {
+  border-color: var(--echo-palette-rgba-245-158-11-0p35-138f);
+  background: var(--echo-palette-rgba-245-158-11-0p08-4489);
+  color: var(--sk-accent);
+}
+
+.sk-chat__row--system {
+  border-style: dashed;
+  font-style: italic;
+  color: var(--sk-text-muted);
+}
+
+.sk-chat__empty {
+  font-size: 0.74rem;
+  color: var(--sk-text-muted);
+  font-style: italic;
+  padding: 0.25rem;
+}
+
+.sk-chat__form {
+  display: flex;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.sk-chat__input {
+  flex: 1;
+  min-width: 0;
+  border-radius: 8px;
+  border: 1px solid var(--sk-border-mid);
+  background: var(--echo-palette-rgba-255-255-255-0p04-3c64);
+  color: var(--sk-text);
+  font-size: 0.82rem;
+  padding: 0.5rem 0.65rem;
+  outline: none;
+
+  &:focus {
+    border-color: var(--echo-palette-rgba-124-58-237-0p55-a386);
+    box-shadow: 0 0 0 2px var(--echo-palette-rgba-124-58-237-0p12-e7e9);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.sk-chat__send {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(
+    135deg,
+    var(--echo-palette-7c3aed-bb74) 0%,
+    var(--echo-palette-5b21b6-17dc) 100%
+  );
+  color: white;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}

@@ -150,6 +150,8 @@ final class EchoHomeModel {
 
   private func refreshPeerPresence() async {
     guard let snapshot else { return }
+    let generation = lightRefreshGeneration
+    let load = loadGeneration
     var peerIDs = snapshot.conversations.compactMap(\.peerUserID)
     if let notesPeer = snapshot.personalNotes?.peerUserID {
       peerIDs.append(notesPeer)
@@ -160,7 +162,8 @@ final class EchoHomeModel {
         try await client.loadPresenceMap(accessToken: token, userIDs: peerIDs)
       })
     else { return }
-    var next = snapshot
+    guard generation == lightRefreshGeneration, load == loadGeneration,
+      var next = self.snapshot, !Task.isCancelled else { return }
     for (peerUserID, status) in presence {
       next = next.applyingPresence(peerUserID: peerUserID, status: status)
     }

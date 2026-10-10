@@ -1,0 +1,89 @@
+.ticket-controls {
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;
+    background: var(--color-bg-tertiary, var(--color-bg));
+    border: 1px solid var(--color-border);
+  }
+
+  &__status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  &__subject {
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  &__category {
+    font-size: 0.8rem;
+    color: var(--color-fg-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  &__btn {
+    padding: 0.35rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border: none;
+    font-weight: 500;
+    transition: opacity 0.15s ease;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled) {
+      opacity: 0.85;
+    }
+
+    &--progress {
+      background: var(--echo-palette-faa61a-312f);
+      color: var(--echo-palette-1a1a1a-b326);
+    }
+
+    &--resolve {
+      background: var(--echo-palette-5865f2-c240);
+      color: white;
+    }
+
+    &--close {
+      background: var(--echo-palette-747f8d-43c9);
+      color: white;
+    }
+  }
+
+  &__closed-msg {
+    font-size: 0.8rem;
+    color: var(--color-fg-muted);
+    font-style: italic;
+    margin-top: 0.25rem;
+  }
+}

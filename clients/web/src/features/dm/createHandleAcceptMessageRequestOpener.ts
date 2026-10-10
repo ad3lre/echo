@@ -6,11 +6,12 @@ export function createHandleAcceptMessageRequestOpener(deps: {
     requestId: string,
   ) => Promise<{ fromUserId: string } | null>;
   selectDmUser: (userId: string) => Promise<string | null>;
+  onError?: (error: unknown) => void;
 }) {
   return function handleAcceptMessageRequest(rid: string): void {
     void (async () => {
       const req = await deps.acceptMessageRequest(rid);
       if (req) await deps.selectDmUser(req.fromUserId);
-    })();
+    })().catch((error: unknown) => deps.onError?.(error));
   };
 }

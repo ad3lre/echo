@@ -9,7 +9,7 @@ import {
   bumpEchoDmThreadActivity,
   declineEchoPendingFriendRequest,
   cancelEchoPendingFriendRequest,
-  filterVisibleEchoUserIds,
+  filterEchoViewersWhoCanSeeSubject,
   getEchoDmChannelIdForPair,
   getEchoDmRealtimeThreadForUser,
   removeEchoAcceptedFriendship,
@@ -47,23 +47,16 @@ export async function updateEchoPresenceAndBroadcast(
   if (!next) return;
   await upsertEchoPresence(pool, userId, next.status, activeClient);
   const viewerIds = getAllConnectedUserIds();
-  for (const viewerId of viewerIds) {
-    if (viewerId === userId) {
-      fastify.io.to(`echo:user:${viewerId}`).emit('presence:update', {
-        userId,
-        status: next.status,
-        activeClient,
-      });
-      continue;
-    }
-    const visible = await filterVisibleEchoUserIds(pool, viewerId, [userId]);
-    if (visible.includes(userId)) {
-      fastify.io.to(`echo:user:${viewerId}`).emit('presence:update', {
-        userId,
-        status: next.status,
-        activeClient,
-      });
-    }
+  const visibleViewerIds = new Set(
+    await filterEchoViewersWhoCanSeeSubject(pool, userId, [...viewerIds]),
+  );
+  visibleViewerIds.add(userId);
+  for (const viewerId of visibleViewerIds) {
+    fastify.io.to(`echo:user:${viewerId}`).emit('presence:update', {
+      userId,
+      status: next.status,
+      activeClient,
+    });
   }
 }
 

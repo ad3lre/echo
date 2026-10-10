@@ -4,11 +4,43 @@
  */
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { buildEchoTestApp } from './echoTestApp';
 
+const PRIVATE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'echo-image-slot-'));
 const OUT =
   process.env.IMAGE_SLOT_VERIFY_OUT?.trim() ||
-  '/tmp/echo-image-slot-verify.json';
+  path.join(PRIVATE_DIR, 'credentials.json');
+
+function writeCredentials(payload: unknown): void {
+  if (fs.existsSync(OUT) || fs.lstatSync(path.dirname(OUT)).isSymbolicLink()) {
+    throw new Error('Credential output must be a new file in a real directory');
+  }
+  const dir = fs.statSync(path.dirname(OUT));
+  if (!dir.isDirectory() || (dir.mode & 0o077) !== 0) {
+    throw new Error('Credential output directory must have mode 0700');
+  }
+  fs.writeFileSync(OUT, JSON.stringify(payload, null, 2), {
+    mode: 0o600,
+    flag: 'wx',
+  });
+}
+
+function cleanupCredentials(): void {
+  try {
+    fs.unlinkSync(OUT);
+  } catch {
+    /* already removed */
+  }
+  if (path.dirname(OUT) === PRIVATE_DIR) {
+    try {
+      fs.rmdirSync(PRIVATE_DIR);
+    } catch {
+      /* already removed */
+    }
+  }
+}
 
 function parseCookies(setCookie: string[] | undefined) {
   let sid: string | null = null;
@@ -131,15 +163,22 @@ async function main(): Promise<void> {
       sid,
       csrf: csrfCookie.split('=')[1],
     };
-    fs.writeFileSync(OUT, JSON.stringify(payload, null, 2));
+    writeCredentials(payload);
     console.log(`imageSlotFillHarness: ready ${OUT}`);
-    console.log(JSON.stringify(payload));
 
-    await new Promise<void>(() => {
-      /* keep alive for Playwright */
+    await new Promise<void>((resolve) => {
+      const stop = () => {
+        void close().finally(() => {
+          cleanupCredentials();
+          resolve();
+        });
+      };
+      process.once('SIGINT', stop);
+      process.once('SIGTERM', stop);
     });
   } catch (err) {
     await close();
+    cleanupCredentials();
     throw err;
   }
 }

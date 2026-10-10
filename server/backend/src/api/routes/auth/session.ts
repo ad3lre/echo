@@ -5,6 +5,7 @@ import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { sendError } from '../../errors';
 import { createRefreshToken, hashRefreshToken } from '../../../auth/token';
 import { getAuthStore } from '../../../auth/store';
+import { nativePush } from '../../../auth/revokeNativePushToken';
 import { requireAuth } from '../../../auth/middleware';
 import {
   createSessionId,
@@ -398,6 +399,7 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
           properties: {
             refreshToken: { type: 'string' },
             allSessions: { type: 'boolean' },
+            pushDeviceToken: nativePush.schema,
           },
           additionalProperties: false,
         },
@@ -407,6 +409,7 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
       if (!req.authUser)
         return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
       const { store } = await getAuthStore();
+      await nativePush.revoke(req.authUser.id, req.body?.pushDeviceToken);
       const allSessions = req.body?.allSessions === true;
       if (allSessions) {
         await store.revokeUserRefreshTokens(req.authUser.id);
@@ -426,7 +429,6 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
         cookies?.[LEGACY_REFRESH_COOKIE];
       const sid = req.authSessionId?.trim();
       const sess = sid ? await getServerSession(sid) : null;
-
       let revokedRefresh = false;
       if (refreshTokenFromReq) {
         const rec = await store.findActiveRefreshToken(
@@ -442,8 +444,7 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
         sess?.userId === req.authUser.id &&
         sess.refreshTokenId
       ) {
-        /* `echo_rt` may be missing or stale on POST (cross-site, rotation races). Session always
-         * carries the bound refresh token id — revoke so logout clears server-side session. */
+        // Revoke the bound token when the refresh cookie is absent or stale.
         await store.revokeRefreshToken(sess.refreshTokenId);
         revokedRefresh = true;
       }
@@ -455,7 +456,6 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
           'refreshToken is required unless allSessions=true',
         );
       }
-
       if (sid && sess?.userId === req.authUser.id) {
         await deleteServerSession(sid, req.authUser.id);
         await disconnectSocketsForAuthSession(

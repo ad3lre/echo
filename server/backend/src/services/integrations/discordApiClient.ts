@@ -2,6 +2,14 @@ import { OAUTH_UPSTREAM_FETCH_MS } from '../../constants/outboundHttp';
 import { config } from '../../config';
 
 const DISCORD_API = 'https://discord.com/api/v10';
+const DISCORD_API_FETCH_MS = 20_000;
+
+function discordApiFetchInit(init?: RequestInit): RequestInit {
+  return {
+    ...init,
+    signal: init?.signal ?? AbortSignal.timeout(DISCORD_API_FETCH_MS),
+  };
+}
 
 /**
  * True if the bot token can access this guild (bot is a member). False on 404 or error.
@@ -16,9 +24,9 @@ export async function discordBotIsMemberOfGuild(
   if (!token || !guildId.trim()) return false;
   const res = await fetchImpl(
     `${DISCORD_API}/guilds/${encodeURIComponent(guildId.trim())}`,
-    {
+    discordApiFetchInit({
       headers: { Authorization: `Bot ${token}` },
-    },
+    }),
   );
   return res.status === 200;
 }
@@ -33,7 +41,7 @@ export async function discordBotFetchGuildName(
   if (!token || !guildId.trim()) return null;
   const res = await fetchImpl(
     `${DISCORD_API}/guilds/${encodeURIComponent(guildId.trim())}?with_counts=false`,
-    { headers: { Authorization: `Bot ${token}` } },
+    discordApiFetchInit({ headers: { Authorization: `Bot ${token}` } }),
   );
   if (!res.ok) return null;
   const j = (await res.json()) as { name?: string };
@@ -60,7 +68,7 @@ export async function discordBotFetchGuildChannels(
   if (!token || !guildId.trim()) return [];
   const res = await fetchImpl(
     `${DISCORD_API}/guilds/${encodeURIComponent(guildId.trim())}/channels`,
-    { headers: { Authorization: `Bot ${token}` } },
+    discordApiFetchInit({ headers: { Authorization: `Bot ${token}` } }),
   );
   if (!res.ok) return [];
   const arr = (await res.json()) as unknown;
@@ -85,7 +93,7 @@ export async function discordBotListChannelWebhooks(
   if (!token || !channelId.trim()) return [];
   const res = await fetchImpl(
     `${DISCORD_API}/channels/${encodeURIComponent(channelId.trim())}/webhooks`,
-    { headers: { Authorization: `Bot ${token}` } },
+    discordApiFetchInit({ headers: { Authorization: `Bot ${token}` } }),
   );
   if (!res.ok) return [];
   const arr = (await res.json()) as unknown;
@@ -106,14 +114,14 @@ export async function discordBotCreateWebhook(
   const safeName = name.trim().slice(0, 80) || 'Echo bridge';
   const res = await fetchImpl(
     `${DISCORD_API}/channels/${encodeURIComponent(channelId.trim())}/webhooks`,
-    {
+    discordApiFetchInit({
       method: 'POST',
       headers: {
         Authorization: `Bot ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ name: safeName }),
-    },
+    }),
   );
   if (!res.ok) return null;
   const j = (await res.json()) as { id?: string; url?: string };
@@ -137,14 +145,14 @@ export async function discordBotPostChannelMessage(
   if (!token || !channelId.trim() || !text) return false;
   const res = await fetchImpl(
     `${DISCORD_API}/channels/${encodeURIComponent(channelId.trim())}/messages`,
-    {
+    discordApiFetchInit({
       method: 'POST',
       headers: {
         Authorization: `Bot ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ content: text }),
-    },
+    }),
   );
   return res.ok;
 }
@@ -228,9 +236,12 @@ export async function fetchDiscordGuildCount(
   fetchImpl: FetchLike = fetch,
 ): Promise<number | null> {
   try {
-    const res = await fetchImpl(`${DISCORD_API}/users/@me/guilds`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const res = await fetchImpl(
+      `${DISCORD_API}/users/@me/guilds`,
+      discordApiFetchInit({
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }),
+    );
     if (!res.ok) return null;
     const arr = (await res.json()) as unknown;
     return Array.isArray(arr) ? arr.length : null;
@@ -252,9 +263,12 @@ export async function fetchDiscordBotGuildIdsAll(
     const u = new URL(`${DISCORD_API}/users/@me/guilds`);
     u.searchParams.set('limit', '200');
     if (after) u.searchParams.set('after', after);
-    const res = await fetchImpl(u.toString(), {
-      headers: { Authorization: `Bot ${token}` },
-    });
+    const res = await fetchImpl(
+      u.toString(),
+      discordApiFetchInit({
+        headers: { Authorization: `Bot ${token}` },
+      }),
+    );
     if (!res.ok) break;
     const batch = (await res.json()) as { id?: string }[];
     if (!Array.isArray(batch) || batch.length === 0) break;
@@ -278,9 +292,12 @@ export async function fetchDiscordUserGuildsAll(
     const u = new URL(`${DISCORD_API}/users/@me/guilds`);
     u.searchParams.set('limit', '200');
     if (after) u.searchParams.set('after', after);
-    const res = await fetchImpl(u.toString(), {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const res = await fetchImpl(
+      u.toString(),
+      discordApiFetchInit({
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }),
+    );
     if (!res.ok) {
       const err = new Error(`discord_guilds_failed:${res.status}`);
       (err as Error & { status?: number }).status = res.status;
@@ -326,9 +343,12 @@ export async function fetchDiscordConnectionsCount(
   fetchImpl: FetchLike = fetch,
 ): Promise<number | null> {
   try {
-    const res = await fetchImpl(`${DISCORD_API}/users/@me/connections`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const res = await fetchImpl(
+      `${DISCORD_API}/users/@me/connections`,
+      discordApiFetchInit({
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }),
+    );
     if (!res.ok) return null;
     const arr = (await res.json()) as unknown;
     return Array.isArray(arr) ? arr.length : null;

@@ -150,7 +150,6 @@ struct EchoAuthScreen: View {
 
       HStack(spacing: 12) {
         EchoQuickAuthButton(provider: .apple) { Task { await model.continueWith(.apple) } }
-        EchoQuickAuthButton(provider: .google) { Task { await model.continueWith(.google) } }
       }
       .padding(.top, 30)
 

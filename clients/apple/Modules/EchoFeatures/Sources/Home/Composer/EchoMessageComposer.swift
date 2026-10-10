@@ -230,20 +230,22 @@ struct EchoMessageComposer: View {
       #endif
       return
     }
-    guard state.assets.count < 10 else {
+    let wasPending = state.pendingPhotos[item.id] != nil
+    guard let request = state.reservePhoto(item.id) else {
+      if wasPending { return }
       state.errorMessage = EchoCopy.string("You can attach up to 10 files.")
       return
     }
     Task {
       do {
         let asset = try await photos.composerAsset(for: item)
-        state.poll = nil
-        state.selectedGIF = nil
-        state.assets.append(asset)
+        state.finishPhoto(item.id, request: request, asset: asset)
         #if os(iOS)
           UISelectionFeedbackGenerator().selectionChanged()
         #endif
       } catch {
+        guard state.pendingPhotos[item.id] == request else { return }
+        state.finishPhoto(item.id, request: request, asset: nil)
         state.errorMessage = EchoCopy.string("That photo couldn’t be opened.")
       }
     }
@@ -252,7 +254,9 @@ struct EchoMessageComposer: View {
   private func importFiles(_ result: Result<[URL], Error>) {
     do {
       let urls = try result.get()
-      for url in urls.prefix(10) {
+      let capacity = state.remainingCapacity
+      if urls.count > capacity { state.errorMessage = EchoCopy.string("You can attach up to 10 files.") }
+      for url in urls.prefix(capacity) {
         let hasAccess = url.startAccessingSecurityScopedResource()
         defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
@@ -301,14 +305,24 @@ struct EchoMessageComposer: View {
       gif: state.selectedGIF,
       poll: state.poll?.outgoingPoll,
       replyTo: replyTo)
-    // Clear the composer immediately so image sends feel instant; upload
-    // progress lives on the optimistic timeline bubble instead.
+    let draftText = state.text
+    let draftPoll = state.poll
     state.reset()
     replyTo = nil
     onComposerTextChange?("")
+    let clearedRevision = state.revision
     do {
       try await onSend(submission)
     } catch {
+      if state.revision == clearedRevision, replyTo == nil {
+        state.text = draftText
+        state.assets = submission.assets
+        state.selectedGIF = submission.gif
+        state.poll = draftPoll
+        replyTo = submission.replyTo
+        state.replyTo = submission.replyTo
+        onComposerTextChange?(draftText)
+      }
       state.errorMessage =
         (error as? LocalizedError)?.errorDescription ?? EchoCopy.string("Message failed to send.")
     }

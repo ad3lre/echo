@@ -16,11 +16,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-fuser -k "${HARNESS_PORT}/tcp" 2>/dev/null || true
-sleep 1
 rm -f "${OUT}"
 
 cd "${ROOT}/server/backend"
+CORS_ORIGIN="http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT},http://127.0.0.1:${HARNESS_PORT}" \
+ECHO_APP_PUBLIC_URL="http://localhost:${FRONTEND_PORT}" \
+ECHO_MARKETING_PUBLIC_URL="http://localhost:${FRONTEND_PORT}" \
+ECHO_API_PUBLIC_URL="http://127.0.0.1:${HARNESS_PORT}" \
+ECHO_SOCKET_MSG_PER_MINUTE=1000 ECHO_SOCKET_BURST_MAX=200 \
 PORT="${HARNESS_PORT}" LAYOUT_VERIFY_OUT="${OUT}" SCROLL_FIXTURE="${FIXTURE}" \
   node --import tsx src/tests/helpers/messageListLayoutHarness.ts > /tmp/echo-scroll-harness.log 2>&1 &
 HARNESS_PID=$!
@@ -37,7 +40,7 @@ fi
 
 BACKEND_URL="$(node -e "console.log(JSON.parse(require('fs').readFileSync('${OUT}','utf8')).backendUrl)")"
 cd "${ROOT}/clients/web"
-VITE_API_URL= env VITE_API_URL= npx vite --port "${FRONTEND_PORT}" --strictPort > /tmp/echo-scroll-vite.log 2>&1 &
+ECHO_DEV_BACKEND_URL="${BACKEND_URL}" VITE_SOCKET_IO_URL="http://localhost:${HARNESS_PORT}" VITE_API_URL= node "${ROOT}/node_modules/vite/bin/vite.js" --port "${FRONTEND_PORT}" --strictPort > /tmp/echo-scroll-vite.log 2>&1 &
 VITE_PID=$!
 
 for _ in $(seq 1 30); do

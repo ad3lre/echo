@@ -123,6 +123,7 @@ export function attachGameSocketServer(
 
   io.on('connection', (socket) => {
     const { userId, roomId, gameKey } = socket.data as GameSocketData;
+    let joined = true;
     gameServerConnectionsTotal.inc({ outcome: 'accepted' });
 
     void socket.join(roomChannel(roomId));
@@ -134,7 +135,7 @@ export function attachGameSocketServer(
     if (joinErr) socket.emit(GAME_S2C.error, { reason: joinErr });
 
     socket.on(GAME_C2S.action, (msg: GameActionMsg) => {
-      if (!msg || msg.roomId !== roomId) {
+      if (!joined || !msg || msg.roomId !== roomId) {
         socket.emit(GAME_S2C.error, { reason: 'room_mismatch' });
         return;
       }
@@ -155,17 +156,17 @@ export function attachGameSocketServer(
       })();
     });
 
-    socket.on(GAME_C2S.leave, () => {
+    const leave = () => {
+      if (!joined) return;
+      joined = false;
+      void socket.leave(roomChannel(roomId));
+      void socket.leave(userChannel(roomId, userId));
       if (membership.remove(roomId, userId)) {
         manager.leave(roomId, userId, Date.now());
       }
-    });
-
-    socket.on('disconnect', () => {
-      if (membership.remove(roomId, userId)) {
-        manager.leave(roomId, userId, Date.now());
-      }
-    });
+    };
+    socket.on(GAME_C2S.leave, leave);
+    socket.on('disconnect', leave);
   });
 
   return { io, manager, tunneled };

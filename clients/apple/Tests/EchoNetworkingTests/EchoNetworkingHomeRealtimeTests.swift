@@ -3,6 +3,7 @@ import EchoNetworking
 import Foundation
 import Testing
 
+extension EchoNetworkingSerializedTests {
 @Suite(.serialized)
 struct EchoNetworkingHomeRealtimeTests {
   @Test func realtimeDecoderMapsSocketMessagePollPresenceTypingAndActivity() throws {
@@ -277,4 +278,6 @@ struct EchoNetworkingHomeRealtimeTests {
       baseURL: URL(string: "https://example.com")!, session: session
     ).updatePresence("online", accessToken: "token")
   }
+}
+
 }

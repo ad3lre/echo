@@ -100,6 +100,8 @@ export function registerMessageReactionHandler(
           ...(correlationId ? { correlationId } : {}),
         });
       }
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'message reaction handler failed');
+    });
   });
 }

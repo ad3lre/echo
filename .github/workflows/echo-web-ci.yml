@@ -81,7 +81,7 @@ jobs:
 
       - name: Assert no source maps in dist
         run: |
-          if compgen -G "clients/web/dist/**/*.map" > /dev/null; then
+          if [ -n "$(find clients/web/dist -type f -name '*.map' -print -quit)" ]; then
             echo "ERROR: source map files found under clients/web/dist/"
             find clients/web/dist -name '*.map' -print
             exit 1

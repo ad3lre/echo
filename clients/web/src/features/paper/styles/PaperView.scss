@@ -1,0 +1,83 @@
+.paper-root {
+  background: var(--paper-workspace-bg);
+}
+
+.paper-scroll-root {
+  background: var(--paper-workspace-bg);
+}
+
+.paper-chrome-stack {
+  background: var(--paper-chrome-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 20px var(--echo-palette-rgba-0-0-0-0p08-66c6);
+  overflow: visible;
+}
+
+.paper-connection-banner-wrap {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
+  background: var(--paper-chrome-bg);
+}
+
+.paper-gutter-overlay {
+  width: 3rem;
+  transform: translateX(-100%);
+  margin-left: 0;
+}
+
+:deep(.paper-editor-image) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+  margin: 0.75rem 0;
+}
+
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math-source) {
+  /* Keep source in the doc for editing/caret, but never paint over KaTeX scripts. */
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  opacity: 0;
+  -webkit-text-fill-color: transparent;
+}
+
+.paper-root[data-paper-source-view='inline']
+  :deep(.paper-math-source :is(span, em, strong, mark, a)) {
+  color: transparent;
+  opacity: 0;
+  font-size: 0;
+  line-height: 0;
+  -webkit-text-fill-color: transparent;
+}
+
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math) {
+  max-width: 100%;
+  line-height: normal;
+  white-space: normal;
+}
+
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math .katex-display) {
+  margin: 0;
+}
+
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math--display) {
+  display: block;
+  margin: 0.75rem 0;
+  overflow: visible;
+}
+
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math--inline) {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 0.1em;
+  overflow: visible;
+}
+
+:deep(.paper-collab-cursor) {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  border-left: 2px solid;
+  margin-left: -1px;
+  pointer-events: none;
+}

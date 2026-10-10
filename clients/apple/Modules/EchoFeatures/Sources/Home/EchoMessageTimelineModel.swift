@@ -136,7 +136,9 @@ final class EchoMessageTimelineModel {
       }
       let existingIDs = Set(messages.map(\.id))
       let additions = page.messages.filter { !existingIDs.contains($0.id) }
-      messages = Array((additions + messages).suffix(maximumWindowSize))
+      let pending = messages.filter { $0.delivery != .sent }
+      let history = (additions + messages).filter { $0.delivery == .sent }
+      messages = Array(history.prefix(max(0, maximumWindowSize - pending.count))) + pending
       hasMoreBefore = page.hasMoreBefore && !additions.isEmpty
       errorMessage = nil
       return !additions.isEmpty
@@ -209,7 +211,7 @@ final class EchoMessageTimelineModel {
           replyTo: submission.replyTo)
       }
       removeOptimistic(id: clientID)
-      upsert(message)
+      upsertMany([message], reconcile: false)
     } catch {
       if let index = messages.firstIndex(where: { $0.id == clientID }) {
         messages[index] = messages[index].withDelivery(.failed)
@@ -377,9 +379,9 @@ final class EchoMessageTimelineModel {
       }
     }
     do {
-      var after = messages.last?.id
+      var after = messages.last(where: { $0.delivery == .sent && !$0.id.hasPrefix("local-") })?.id
       var collected: [EchoMessage] = []
-      while let cursor = after {
+      repeat {
         guard generation == catchUpGeneration else { return }
         let page = try await auth.withAccessTokenRetry { token in
           try await client.loadMessages(
@@ -387,7 +389,7 @@ final class EchoMessageTimelineModel {
             channelID: conversation.channelID,
             currentUserID: userID,
             before: nil,
-            after: cursor,
+            after: after,
             limit: pageSize
           )
         }
@@ -396,7 +398,7 @@ final class EchoMessageTimelineModel {
         collected.append(contentsOf: page.messages)
         after = page.messages.last?.id
         if page.messages.count < pageSize { break }
-      }
+      } while after != nil
       guard generation == catchUpGeneration else { return }
       upsertMany(collected)
       errorMessage = nil
@@ -421,14 +423,13 @@ final class EchoMessageTimelineModel {
   }
 
   private func upsert(_ message: EchoMessage) {
-    reconcileOptimistic(matching: message)
     upsertMany([message])
   }
 
-  private func upsertMany(_ newMessages: [EchoMessage]) {
+  private func upsertMany(_ newMessages: [EchoMessage], reconcile: Bool = true) {
     guard !newMessages.isEmpty else { return }
-    for message in newMessages {
-      reconcileOptimistic(matching: message)
+    if reconcile {
+      for message in newMessages { reconcileOptimistic(matching: message) }
     }
     var byID = Dictionary(uniqueKeysWithValues: messages.map { ($0.id, $0) })
     var order = messages.map(\.id)
@@ -454,13 +455,14 @@ final class EchoMessageTimelineModel {
   /// When the server (or realtime) copy arrives first, drop the matching local
   /// placeholder so the timeline never shows a duplicate bubble.
   private func reconcileOptimistic(matching server: EchoMessage) {
-    guard server.delivery == .sent, server.isCurrentUser else { return }
-    messages.removeAll {
-      $0.delivery != .sent
+    guard server.delivery == .sent, server.isCurrentUser,
+      !messages.contains(where: { $0.id == server.id }) else { return }
+    if let index = messages.firstIndex(where: {
+      $0.delivery == .uploading
         && $0.authorID == server.authorID
         && $0.content == server.content
         && $0.attachments.count == server.attachments.count
-    }
+    }) { messages.remove(at: index) }
   }
 
   private static func optimisticAttachments(from submission: EchoComposerSubmission)

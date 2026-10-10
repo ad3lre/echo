@@ -1,5 +1,4 @@
 import type pg from 'pg';
-import { shouldMarkOffline } from '../../echoPresenceAuthority';
 
 /** Hard cap for `GET /presence?ids=` — keeps `ANY($1::text[])` bounded (abuse / accidental megachunks). */
 export const ECHO_PRESENCE_BATCH_MAX_USER_IDS = 200;
@@ -8,32 +7,20 @@ export async function markStaleEchoPresenceOffline(
   pool: pg.Pool,
   staleAfterMinutes: number,
 ): Promise<string[]> {
-  const nowMs = Date.now();
-  const r = await pool.query(
-    `
-    SELECT user_id, EXTRACT(EPOCH FROM updated_at) * 1000 AS updated_at_ms
-    FROM echo_presence
-    WHERE status <> 'offline'
-    `,
-  );
-  const userIds = r.rows
-    .filter((row: { updated_at_ms: string | number }) =>
-      shouldMarkOffline(Number(row.updated_at_ms), nowMs, staleAfterMinutes),
-    )
-    .map((row: { user_id: string }) => String(row.user_id));
-  if (userIds.length === 0) return [];
-  await pool.query(
+  const r = await pool.query<{ user_id: string }>(
     `
     UPDATE echo_presence
     SET status = 'offline',
         active_client = 'web',
-        updated_at = TO_TIMESTAMP($2::double precision / 1000.0),
-        last_online_at = TO_TIMESTAMP($2::double precision / 1000.0)
-    WHERE user_id = ANY($1::text[])
+        updated_at = NOW(),
+        last_online_at = NOW()
+    WHERE status <> 'offline'
+      AND updated_at < NOW() - ($1::int * interval '1 minute')
+    RETURNING user_id
     `,
-    [userIds, nowMs],
+    [Math.max(0, Math.floor(staleAfterMinutes))],
   );
-  return userIds;
+  return r.rows.map((row) => String(row.user_id));
 }
 
 export async function upsertEchoPresence(
@@ -89,14 +76,18 @@ export async function getEchoPresenceState(
 export async function touchEchoPresence(
   pool: pg.Pool,
   userId: string,
+  activeStatus = 'online',
 ): Promise<boolean> {
   const r = await pool.query(
     `
     UPDATE echo_presence
-    SET updated_at = NOW()
+    SET status = CASE WHEN status = 'offline' THEN $2 ELSE status END,
+        active_client = CASE WHEN status = 'offline' THEN 'web' ELSE active_client END,
+        last_online_at = CASE WHEN status = 'offline' THEN NOW() ELSE last_online_at END,
+        updated_at = NOW()
     WHERE user_id = $1
     `,
-    [userId],
+    [userId, activeStatus],
   );
   return Number(r.rowCount ?? 0) > 0;
 }

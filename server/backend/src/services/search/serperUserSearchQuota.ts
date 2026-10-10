@@ -66,7 +66,8 @@ return {1, redis.call('SCARD', key)}
 
 export type SerperUserSearchConsumeResult =
   | { ok: true; used: number; limit: number; alreadyCounted: boolean }
-  | { ok: false; used: number; limit: number };
+  | { ok: false; used: number; limit: number; unavailable?: false }
+  | { ok: false; used: 0; limit: number; unavailable: true };
 
 export function imageSearchDailyLimitForPlan(plan: EchoPlanId): number {
   return ECHO_PLAN_IMAGE_SEARCHES_PER_DAY[normalizeEchoPlanId(plan)];
@@ -125,16 +126,25 @@ export async function reserveUserImageSearchCredit(
       String(KEY_TTL_SEC),
     )) as unknown;
     if (!Array.isArray(raw) || raw.length < 2) {
-      return { ok: true, used: 0, limit: lim, alreadyCounted: false };
+      throw new Error('Malformed image search quota response');
     }
-    const ok = Number(raw[0]) === 1;
+    const status = Number(raw[0]);
+    const ok = status === 1;
     const used = Number(raw[1]);
+    if (
+      !Number.isFinite(used) ||
+      used < 0 ||
+      !Number.isInteger(status) ||
+      (status !== 0 && status !== 1)
+    ) {
+      throw new Error('Invalid image search quota count');
+    }
     if (!ok) {
       return { ok: false, used, limit: lim };
     }
     return { ok: true, used, limit: lim, alreadyCounted: false };
   } catch {
-    return { ok: true, used: 0, limit: lim, alreadyCounted: false };
+    return { ok: false, used: 0, limit: lim, unavailable: true };
   }
 }
 
@@ -158,7 +168,7 @@ export async function refundUserImageSearchCredit(
 export async function readUserImageSearchUsage(
   userId: string,
   limit: number,
-): Promise<{ used: number; limit: number; remaining: number }> {
+): Promise<{ used: number; limit: number; remaining: number } | null> {
   const lim = Math.max(0, Math.floor(limit));
   const day = serperUserSearchUtcDayKey();
   const redis = getRedis();
@@ -172,13 +182,14 @@ export async function readUserImageSearchUsage(
   }
   try {
     const used = Number(await redis.scard(redisKey(userId, day)));
+    if (!Number.isFinite(used) || used < 0) return null;
     return {
-      used: Number.isFinite(used) ? used : 0,
+      used,
       limit: lim,
-      remaining: Math.max(0, lim - (Number.isFinite(used) ? used : 0)),
+      remaining: Math.max(0, lim - used),
     };
   } catch {
-    return { used: 0, limit: lim, remaining: lim };
+    return null;
   }
 }
 

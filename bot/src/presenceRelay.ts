@@ -173,7 +173,7 @@ export function startDiscordPresenceRelay(client: Client): void {
     console.log(`[presence-relay] Watching ${ids.size} guild(s) for presence`);
   });
 
-  const watchlistInterval = setInterval(() => {
+  setInterval(() => {
     void refreshWatchlist(client).then((ids) => {
       if (ids.size !== cachedGuildIds.size) {
         console.log(`[presence-relay] Watchlist updated: ${ids.size} guild(s)`);
@@ -182,7 +182,7 @@ export function startDiscordPresenceRelay(client: Client): void {
     });
   }, 120_000);
 
-  const pollInterval = setInterval(() => {
+  setInterval(() => {
     if (cachedGuildIds.size === 0) return;
 
     const guildList = [...cachedGuildIds];
@@ -213,13 +213,5 @@ export function startDiscordPresenceRelay(client: Client): void {
       snapshotAt: now,
       presences: [buildPresenceSnapshot(member)],
     });
-  });
-
-  client.on('shardDisconnect', () => {
-    clearInterval(pollInterval);
-    clearInterval(watchlistInterval);
-    lastUserCheck.clear();
-    guildCheckQueues.clear();
-    guildBatchIndices.clear();
   });
 }

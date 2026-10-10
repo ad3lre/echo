@@ -11,6 +11,7 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
     var accessToken = ""
     var connectTask: Task<Void, Error>?
     var connected = false
+    var generation = 0
   }
 
   private let baseURL: URL
@@ -38,25 +39,37 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
     }
     if alreadyConnected { return }
 
-    state.withLock { $0.connectTask?.cancel() }
+    let generation = state.withLock { value in
+      value.generation &+= 1
+      value.connectTask?.cancel()
+      return value.generation
+    }
     let task = Task {
       try await withTaskCancellationHandler {
-        try await self.open(accessToken: accessToken, currentUserID: currentUserID)
+        try await self.open(accessToken: accessToken, currentUserID: currentUserID, generation: generation)
       } onCancel: {
-        Task {
-          await self.disconnect()
+        self.handleQueue.async {
+          guard self.state.withLock({ $0.generation == generation }) else { return }
+          self.teardown(resumeError: CancellationError())
         }
       }
     }
-    state.withLock { $0.connectTask = task }
+    state.withLock {
+      if $0.generation == generation { $0.connectTask = task } else { task.cancel() }
+    }
     try await task.value
   }
 
   public func disconnect() async {
-    state.withLock { $0.connectTask?.cancel() }
+    let generation = state.withLock { value in
+      value.generation &+= 1
+      value.connectTask?.cancel()
+      value.connectTask = nil
+      return value.generation
+    }
     await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
       handleQueue.async {
-        self.teardown()
+        if self.state.withLock({ $0.generation == generation }) { self.teardown() }
         continuation.resume()
       }
     }
@@ -125,11 +138,15 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
     }
   }
 
-  private func open(accessToken: String, currentUserID: String) async throws {
+  private func open(accessToken: String, currentUserID: String, generation: Int) async throws {
     try Task.checkCancellation()
     try await withCheckedThrowingContinuation {
       (continuation: CheckedContinuation<Void, Error>) in
       self.handleQueue.async {
+        guard self.state.withLock({ $0.generation == generation }) else {
+          continuation.resume(throwing: CancellationError())
+          return
+        }
         self.teardown(resumeError: EchoRealtimeClientError.connectFailed)
         self.state.withLock {
           $0.accessToken = accessToken
@@ -158,7 +175,7 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
         let socket = manager.defaultSocket
         self.manager = manager
         self.socket = socket
-        self.bind(socket)
+        self.bind(socket, generation: generation)
 
         var resumed = false
         func resumeOnce(_ result: Result<Void, Error>) {
@@ -172,6 +189,7 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
         }
 
         socket.once(clientEvent: .connect) { _, _ in
+          guard self.state.withLock({ $0.generation == generation }) else { return }
           self.state.withLock { $0.connected = true }
           resumeOnce(.success(()))
         }
@@ -190,14 +208,16 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
     if !isConnected { throw EchoRealtimeClientError.connectFailed }
   }
 
-  private func bind(_ socket: SocketIOClient) {
+  private func bind(_ socket: SocketIOClient, generation: Int) {
     socket.on(clientEvent: .connect) { [weak self] _, _ in
-      self?.state.withLock { $0.connected = true }
-      self?.publish(.connected)
+      guard let self, self.state.withLock({ $0.generation == generation }) else { return }
+      self.state.withLock { $0.connected = true }
+      self.publish(.connected)
     }
     socket.on(clientEvent: .disconnect) { [weak self] _, _ in
-      self?.state.withLock { $0.connected = false }
-      self?.publish(.disconnected)
+      guard let self, self.state.withLock({ $0.generation == generation }) else { return }
+      self.state.withLock { $0.connected = false }
+      self.publish(.disconnected)
     }
 
     let names = [
@@ -207,7 +227,8 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
     ]
     for name in names {
       socket.on(name) { [weak self] data, _ in
-        self?.handle(name: name, data: data)
+        guard let self, self.state.withLock({ $0.generation == generation }) else { return }
+        self.handle(name: name, data: data)
       }
     }
   }

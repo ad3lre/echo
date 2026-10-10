@@ -4,6 +4,7 @@ import {
   applyHintIfEligible,
   applySettingsChange,
   applyWordChoice,
+  beginWordPickRound,
   buildInitialSkrigglesLobby,
   computeSkrigglesGuessOutcome,
   expirePhaseIfNeeded,
@@ -34,13 +35,19 @@ function syncRoster(
   state: SkrigglesState,
   roster: readonly string[],
 ): SkrigglesState {
-  const merged = mergeSkrigglesPresenceRoster(state.rosterUserIds, roster);
+  const merged = mergeSkrigglesPresenceRoster([], roster);
   if (merged.join(',') === state.rosterUserIds.join(',')) return state;
-  const scores = { ...state.scores };
-  for (const uid of merged) {
-    if (scores[uid] == null) scores[uid] = 0;
-  }
-  return { ...state, rosterUserIds: merged, scores };
+  const scores = Object.fromEntries(
+    merged.map((uid) => [uid, state.scores[uid] ?? 0]),
+  );
+  return {
+    ...state,
+    rosterUserIds: merged,
+    scores,
+    correctGuessersThisRound: state.correctGuessersThisRound.filter((uid) =>
+      merged.includes(uid),
+    ),
+  };
 }
 
 function snapshotFromState(state: SkrigglesState): SkrigglesSnapshot {
@@ -86,15 +93,29 @@ export const skrigglesModule: GameModule<SkrigglesState, SkrigglesView> = {
     return syncRoster(state, roster);
   },
 
-  onLeave: (state, userId) => {
+  onLeave: (state, userId, now) => {
     const roster = state.rosterUserIds.filter((id) => id !== userId);
-    if (!roster.length) {
+    if (roster.length < 2) {
       return {
-        ...buildInitialSkrigglesLobby({ rosterUserIds: [] }),
+        ...buildInitialSkrigglesLobby({
+          rosterUserIds: roster,
+          settings: state.settings,
+        }),
         roundSecret: null,
       };
     }
-    return syncRoster(state, roster);
+    const next = syncRoster(state, roster);
+    if (
+      userId === state.drawerUserId &&
+      (state.phase === 'drawing' || state.phase === 'word_pick')
+    ) {
+      return {
+        ...next,
+        ...beginWordPickRound(next, state.roundSeq, now),
+        roundSecret: null,
+      };
+    }
+    return next;
   },
 
   reduce: (state, payload, ctx) => {

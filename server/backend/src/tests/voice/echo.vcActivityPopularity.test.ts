@@ -22,20 +22,27 @@ async function run(): Promise<void> {
     await pool.query(
       `DELETE FROM echo_vc_activity_opens WHERE activity_key IN ('wordle', 'youtube', 'krunker')`,
     );
+    await pool.query(
+      `DELETE FROM echo_vc_activity_user_opens WHERE activity_key IN ('wordle', 'youtube', 'krunker')`,
+    );
+    const user = await pool.query<{ id: string }>(
+      `SELECT id FROM auth_users ORDER BY id LIMIT 1`,
+    );
+    assert.ok(user.rows[0], 'test database needs at least one auth user');
+    const userId = user.rows[0].id;
 
-    await incrementEchoVcActivityOpen(pool, 'wordle');
-    await incrementEchoVcActivityOpen(pool, 'wordle');
-    await incrementEchoVcActivityOpen(pool, 'youtube');
-    await incrementEchoVcActivityOpen(pool, 'krunker');
+    await incrementEchoVcActivityOpen(pool, userId, 'wordle');
+    await incrementEchoVcActivityOpen(pool, userId, 'wordle');
+    await incrementEchoVcActivityOpen(pool, userId, 'youtube');
+    await incrementEchoVcActivityOpen(pool, userId, 'krunker');
 
     const rows = await listEchoVcActivityPopularityOrdered(pool);
     assert.equal(rows.length, ECHO_VC_ACTIVITY_KEYS.length);
-    assert.equal(rows[0]!.activityKey, 'wordle');
-    assert.equal(rows[0]!.openCount, 2);
-    assert.equal(rows[1]!.activityKey, 'krunker');
+    assert.equal(rows[0]!.activityKey, 'krunker');
     assert.equal(rows[1]!.openCount, 1);
-    assert.equal(rows[2]!.activityKey, 'youtube');
+    assert.equal(rows[1]!.activityKey, 'wordle');
     assert.equal(rows[2]!.openCount, 1);
+    assert.equal(rows[2]!.activityKey, 'youtube');
 
     const tieStart = 3;
     for (let i = tieStart + 1; i < rows.length; i++) {
@@ -52,6 +59,9 @@ async function run(): Promise<void> {
 
     await pool.query(
       `DELETE FROM echo_vc_activity_opens WHERE activity_key IN ('wordle', 'youtube', 'krunker')`,
+    );
+    await pool.query(
+      `DELETE FROM echo_vc_activity_user_opens WHERE activity_key IN ('wordle', 'youtube', 'krunker')`,
     );
 
     console.log('echo.vcActivityPopularity: ok');

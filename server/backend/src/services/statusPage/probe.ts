@@ -125,7 +125,26 @@ export async function probeStatusRealtime(): Promise<StatusProbeResult> {
   }
   const t0 = Date.now();
   const nc = getNatsConnection();
-  const ok = Boolean(nc && !nc.isClosed());
+  let ok = false;
+  if (nc && !nc.isClosed()) {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        nc.flush(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error('NATS probe timed out')),
+            2_000,
+          );
+        }),
+      ]);
+      ok = !nc.isClosed();
+    } catch {
+      ok = false;
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+  }
   const latencyMs = Date.now() - t0;
   return {
     componentId: 'realtime',

@@ -37,6 +37,7 @@ interface GatewaySession {
   seq: number;
   alive: boolean;
   heartbeatTimer?: ReturnType<typeof setInterval>;
+  awaitingHeartbeatAck?: boolean;
 }
 
 export type InstalledGuildAccess = {
@@ -257,6 +258,8 @@ export default async function discordGatewayRoutes(
     { websocket: true },
     (ws: WebSocket, _req: FastifyRequest) => {
       let session: GatewaySession | null = null;
+      let identifyAttempted = false;
+      let cleanedUp = false;
 
       // Send HELLO immediately
       send(ws, GatewayOpcodes.HELLO, {
@@ -419,8 +422,13 @@ export default async function discordGatewayRoutes(
           );
         }
       };
+      const onBotEventSafe = (event: BotEvent) => {
+        void onBotEvent(event).catch((error: unknown) => {
+          fastify.log.error(error, 'discord gateway event dispatch failed');
+        });
+      };
 
-      ws.on('message', async (rawMsg: Buffer | string) => {
+      const onMessage = async (rawMsg: Buffer | string) => {
         let parsed: { op: number; d?: unknown; s?: number; t?: string };
         try {
           parsed = JSON.parse(
@@ -437,7 +445,18 @@ export default async function discordGatewayRoutes(
           return;
         }
 
+        if (op === GatewayOpcodes.HEARTBEAT_ACK) {
+          if (session) session.awaitingHeartbeatAck = false;
+          return;
+        }
+
         if (op === GatewayOpcodes.IDENTIFY) {
+          if (identifyAttempted) {
+            send(ws, GatewayOpcodes.INVALID_SESSION, false);
+            ws.close(4009, 'Already identified');
+            return;
+          }
+          identifyAttempted = true;
           const identify = d as { token?: string; intents?: number };
           if (!identify?.token) {
             send(ws, GatewayOpcodes.INVALID_SESSION, false);
@@ -475,13 +494,17 @@ export default async function discordGatewayRoutes(
           // Start heartbeat ack timer (detect dead connections)
           session.heartbeatTimer = setInterval(() => {
             if (!session?.alive) return;
-            if (ws.readyState !== 1) {
+            if (ws.readyState !== 1 || session.awaitingHeartbeatAck) {
               cleanup();
+              if (ws.readyState === 1) ws.close(4000, 'Heartbeat timeout');
+              return;
             }
-          }, HEARTBEAT_INTERVAL_MS * 2);
+            session.awaitingHeartbeatAck = true;
+            send(ws, GatewayOpcodes.HEARTBEAT, session.seq);
+          }, HEARTBEAT_INTERVAL_MS);
 
           // Subscribe to bot event bus
-          botEventBus.on('event', onBotEvent);
+          botEventBus.on('event', onBotEventSafe);
 
           // Build and send GUILD_CREATE for each installed guild
           for (const { guildId, installerId } of installedAccess) {
@@ -538,9 +561,21 @@ export default async function discordGatewayRoutes(
           send(ws, GatewayOpcodes.DISPATCH, null, 'RESUMED', session.seq);
           return;
         }
+      };
+      ws.on('message', (rawMsg: Buffer | string) => {
+        void onMessage(rawMsg).catch((error: unknown) => {
+          fastify.log.error(error, 'discord gateway message handler failed');
+          if (ws.readyState === 1) {
+            send(ws, GatewayOpcodes.INVALID_SESSION, false);
+            ws.close(1011, 'Gateway request failed');
+          }
+          cleanup();
+        });
       });
 
       function cleanup() {
+        if (cleanedUp) return;
+        cleanedUp = true;
         if (session) {
           session.alive = false;
           if (session.heartbeatTimer) {
@@ -549,7 +584,7 @@ export default async function discordGatewayRoutes(
           }
           session = null;
         }
-        botEventBus.off('event', onBotEvent);
+        botEventBus.off('event', onBotEventSafe);
       }
 
       ws.on('close', () => {

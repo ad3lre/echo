@@ -89,19 +89,17 @@ public final class EchoPushRegistration {
     #endif
   }
 
-  public func stop() async {
-    if let baseURL, let accessToken, let deviceToken {
-      try? await EchoSettingsClient(baseURL: baseURL).unregisterPushToken(
-        deviceToken, accessToken: accessToken)
-    }
+  /// The logout request removes this token before session revocation. Retain
+  /// the token until the caller has saved a secure retry record.
+  public func stop() async -> String? {
+    let token = deviceToken
     unregisterForRemoteNotifications()
-    // Always drop the local token after an unregister attempt so a later
-    // account on this device cannot reuse a stale APNs registration.
-    deviceToken = nil
-    UserDefaults.standard.removeObject(forKey: Self.storedTokenKey)
     baseURL = nil
     accessToken = nil
+    return token
   }
+
+  func completeLocalSignOut() { deviceToken = nil }
 
   private func installTokenObserverIfNeeded() {
     guard observer == nil else { return }
@@ -121,6 +119,8 @@ public final class EchoPushRegistration {
     if let prefs = try? await EchoSettingsClient(baseURL: baseURL)
       .loadNotificationPreferences(accessToken: accessToken)
     {
+      guard self.accessToken == accessToken else { return }
+      EchoSoundPlayback.cache(prefs)
       EchoAppBadge.unreadBadgesEnabled = prefs.unreadBadge
       EchoForegroundNotifications.alertsEnabled = prefs.desktopAlerts
     }

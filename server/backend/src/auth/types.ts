@@ -113,10 +113,10 @@ export interface AuthRefreshBody {
 }
 
 export interface AuthLogoutBody {
+  pushDeviceToken?: string;
   refreshToken?: string;
   allSessions?: boolean;
 }
-
 export interface AuthProfileUpdateBody {
   /** Required for sensitive profile changes when the account has a password and/or TOTP. */
   currentPassword?: string;

@@ -1,6 +1,4 @@
-/**
- * Single module allowed to contain `echo_messages` table SQL (see repo check:echo-messages-dal).
- */
+/** Owns `echo_messages` SQL (see repo check:echo-messages-dal). */
 import type pg from 'pg';
 import type {
   Embed,
@@ -33,6 +31,7 @@ import {
   echoMessageSearchFlagsSqlValues,
 } from './echoMessageSearchFlags';
 import { loadEchoMessageAuthorLabelMap } from './echoMessageAuthorLabels';
+import { neutralizeSharedJumpEmbeds } from './echoMessageLinkEmbed';
 
 export { CHAT_E2EE_REMOVED_DETAIL };
 
@@ -285,7 +284,7 @@ function mapMsgRowsDraft(rows: { [k: string]: unknown }[]): MsgRowDraft[] {
       content: String(row.content),
       mentions: row.mentions ?? undefined,
       replyTo: row.reply_to ?? undefined,
-      embeds: row.embeds ?? undefined,
+      embeds: neutralizeSharedJumpEmbeds(row.embeds) ?? undefined,
       timestamp: new Date(row.created_at as string | Date).toISOString(),
       ...(row.content_json != null ? { contentJson: row.content_json } : {}),
       ...(sit ? { searchIndexText: sit } : {}),
@@ -689,8 +688,11 @@ export async function insertEchoMessage(
     tts?: boolean;
     messageFlags?: number | null;
     components?: unknown;
+    /** Guild text slowmode settings, checked under a channel/user advisory lock. */
+    slowmodeSeconds?: number;
+    slowmodeBypass?: boolean;
   },
-): Promise<'inserted' | 'duplicate'> {
+): Promise<'inserted' | 'duplicate' | 'slowmode'> {
   const m = row.mentions !== undefined ? JSON.stringify(row.mentions) : null;
   const r = row.replyTo !== undefined ? JSON.stringify(row.replyTo) : null;
   const fwd =
@@ -791,9 +793,45 @@ export async function insertEchoMessage(
     embedsJson,
   ];
 
-  const ins = hasE2eeCols
-    ? await pool.query(
-        `
+  const slowmodeSeconds = Number.isInteger(row.slowmodeSeconds)
+    ? Math.max(0, Number(row.slowmodeSeconds))
+    : 0;
+  const slowmodeClient = slowmodeSeconds > 0 ? await pool.connect() : undefined;
+  let slowmodeLockAcquired = false;
+  const queryable = slowmodeClient ?? pool;
+  try {
+    if (slowmodeClient) {
+      const lockKey = `${row.channelId.length}:${row.channelId}${row.authorId}`;
+      await slowmodeClient.query(
+        `SELECT pg_advisory_lock(hashtextextended($1, 0))`,
+        [lockKey],
+      );
+      slowmodeLockAcquired = true;
+
+      if (!row.slowmodeBypass) {
+        const duplicate = await slowmodeClient.query(
+          `SELECT 1 FROM echo_messages
+           WHERE id = $1 AND channel_id = $2 AND author_id = $3 LIMIT 1`,
+          [row.id, row.channelId, row.authorId],
+        );
+        if (duplicate.rows.length > 0) {
+          // Preserve normal idempotent retry behavior inside an active window.
+        } else {
+          const recent = await slowmodeClient.query(
+            `SELECT 1 FROM echo_messages
+           WHERE channel_id = $1 AND author_id = $2 AND deleted_at IS NULL
+             AND created_at > NOW() - ($3::int * INTERVAL '1 second')
+           LIMIT 1`,
+            [row.channelId, row.authorId, slowmodeSeconds],
+          );
+          if (recent.rows.length > 0) return 'slowmode';
+        }
+      }
+    }
+
+    const ins = hasE2eeCols
+      ? await queryable.query(
+          `
     INSERT INTO echo_messages (
       id, channel_id, author_id, content, mentions, reply_to, forward_of,
       image_url, video_url, audio_url, gif, image_spoiler, poll, attachments, stickers,
@@ -815,28 +853,28 @@ export async function insertEchoMessage(
     ON CONFLICT (id) DO NOTHING
     RETURNING id
     `,
-        [
-          ...baseParams,
-          hasGif,
-          hasImage,
-          hasLink,
-          hasDocs,
-          hasAttachment,
-          e2eeEnvelopeJson,
-          e2eeCiphertext,
-          e2eeSenderDeviceId,
-          sourceWebhookId,
-          webhookUsername,
-          webhookAvatarUrl,
-          tts,
-          messageFlags,
-          componentsJson,
-          bridgeSrc,
-          systemMessage,
-        ],
-      )
-    : await pool.query(
-        `
+          [
+            ...baseParams,
+            hasGif,
+            hasImage,
+            hasLink,
+            hasDocs,
+            hasAttachment,
+            e2eeEnvelopeJson,
+            e2eeCiphertext,
+            e2eeSenderDeviceId,
+            sourceWebhookId,
+            webhookUsername,
+            webhookAvatarUrl,
+            tts,
+            messageFlags,
+            componentsJson,
+            bridgeSrc,
+            systemMessage,
+          ],
+        )
+      : await queryable.query(
+          `
     INSERT INTO echo_messages (
       id, channel_id, author_id, content, mentions, reply_to, forward_of,
       image_url, video_url, audio_url, gif, image_spoiler, poll, attachments, stickers,
@@ -856,24 +894,42 @@ export async function insertEchoMessage(
     ON CONFLICT (id) DO NOTHING
     RETURNING id
     `,
-        [
-          ...baseParams,
-          hasGif,
-          hasImage,
-          hasLink,
-          hasDocs,
-          hasAttachment,
-          sourceWebhookId,
-          webhookUsername,
-          webhookAvatarUrl,
-          tts,
-          messageFlags,
-          componentsJson,
-          bridgeSrc,
-          systemMessage,
-        ],
-      );
-  return ins.rows.length > 0 ? 'inserted' : 'duplicate';
+          [
+            ...baseParams,
+            hasGif,
+            hasImage,
+            hasLink,
+            hasDocs,
+            hasAttachment,
+            sourceWebhookId,
+            webhookUsername,
+            webhookAvatarUrl,
+            tts,
+            messageFlags,
+            componentsJson,
+            bridgeSrc,
+            systemMessage,
+          ],
+        );
+    return ins.rows.length > 0 ? 'inserted' : 'duplicate';
+  } finally {
+    if (slowmodeClient) {
+      let destroyClient = false;
+      if (slowmodeLockAcquired) {
+        try {
+          const lockKey = `${row.channelId.length}:${row.channelId}${row.authorId}`;
+          await slowmodeClient.query(
+            `SELECT pg_advisory_unlock(hashtextextended($1, 0))`,
+            [lockKey],
+          );
+        } catch {
+          // A connection with an uncertain session lock state must not be pooled.
+          destroyClient = true;
+        }
+      }
+      slowmodeClient.release(destroyClient);
+    }
+  }
 }
 
 /** Fields for `message:updated` socket emit without full enrichment. */
@@ -1516,24 +1572,27 @@ export async function updateEchoMessageContentSql(
   messageId: string,
   content: string,
   attachments?: MessageAttachmentPayload[] | null,
-): Promise<void> {
+): Promise<boolean> {
   if (attachments !== undefined) {
-    await pool.query(
+    const result = await pool.query(
       `UPDATE echo_messages SET content = $3, search_index_text = $3, edited_at = NOW(), embeds = NULL,
        attachments = $4::jsonb,
        image_url = NULL, video_url = NULL, audio_url = NULL, gif = FALSE, image_spoiler = FALSE
-       WHERE id = $1 AND channel_id = $2`,
+       WHERE id = $1 AND channel_id = $2 AND deleted_at IS NULL`,
       [messageId, channelId, content, JSON.stringify(attachments)],
     );
-    await patchEchoMessageSearchFlags(pool, channelId, messageId);
-    return;
+    if ((result.rowCount ?? 0) > 0)
+      await patchEchoMessageSearchFlags(pool, channelId, messageId);
+    return (result.rowCount ?? 0) > 0;
   }
-  await pool.query(
+  const result = await pool.query(
     `UPDATE echo_messages SET content = $3, search_index_text = $3, edited_at = NOW(), embeds = NULL
-     WHERE id = $1 AND channel_id = $2`,
+     WHERE id = $1 AND channel_id = $2 AND deleted_at IS NULL`,
     [messageId, channelId, content],
   );
-  await patchEchoMessageSearchFlags(pool, channelId, messageId);
+  if ((result.rowCount ?? 0) > 0)
+    await patchEchoMessageSearchFlags(pool, channelId, messageId);
+  return (result.rowCount ?? 0) > 0;
 }
 
 /** Full body update for JSON messages (v2). */
@@ -1551,9 +1610,9 @@ export async function updateEchoMessageBodyJsonSql(
     attachments?: MessageAttachmentPayload[] | null;
     components?: unknown;
   },
-): Promise<void> {
+): Promise<boolean> {
   if (args.attachments !== undefined) {
-    await pool.query(
+    const result = await pool.query(
       `UPDATE echo_messages SET
       content = $3,
       content_json = $4::jsonb,
@@ -1566,7 +1625,7 @@ export async function updateEchoMessageBodyJsonSql(
       attachments = $9::jsonb,
       components = $10::jsonb,
       image_url = NULL, video_url = NULL, audio_url = NULL, gif = FALSE, image_spoiler = FALSE
-     WHERE id = $1 AND channel_id = $2`,
+     WHERE id = $1 AND channel_id = $2 AND deleted_at IS NULL`,
       [
         messageId,
         channelId,
@@ -1580,10 +1639,11 @@ export async function updateEchoMessageBodyJsonSql(
         JSON.stringify(args.components ?? null),
       ],
     );
-    await patchEchoMessageSearchFlags(pool, channelId, messageId);
-    return;
+    if ((result.rowCount ?? 0) > 0)
+      await patchEchoMessageSearchFlags(pool, channelId, messageId);
+    return (result.rowCount ?? 0) > 0;
   }
-  await pool.query(
+  const result = await pool.query(
     `UPDATE echo_messages SET
       content = $3,
       content_json = $4::jsonb,
@@ -1594,7 +1654,7 @@ export async function updateEchoMessageBodyJsonSql(
       edited_at = NOW(),
       embeds = NULL,
       components = $9::jsonb
-     WHERE id = $1 AND channel_id = $2`,
+     WHERE id = $1 AND channel_id = $2 AND deleted_at IS NULL`,
     [
       messageId,
       channelId,
@@ -1607,7 +1667,54 @@ export async function updateEchoMessageBodyJsonSql(
       JSON.stringify(args.components ?? null),
     ],
   );
+  if ((result.rowCount ?? 0) > 0)
+    await patchEchoMessageSearchFlags(pool, channelId, messageId);
+  return (result.rowCount ?? 0) > 0;
+}
+
+/** Compare-and-set JSON message body update used by single-slot edits. */
+export async function compareAndSetEchoMessageBodyJsonSql(
+  pool: pg.Pool,
+  channelId: string,
+  messageId: string,
+  expectedContentJson: unknown,
+  args: {
+    content: string;
+    contentJson: unknown;
+    searchIndexText: string;
+    mentions: unknown;
+    messageFormatVersion: number;
+    contentSchemaVersion: number;
+  },
+): Promise<boolean> {
+  const result = await pool.query(
+    `UPDATE echo_messages SET
+       content = $3,
+       content_json = $4::jsonb,
+       search_index_text = $5,
+       mentions = $6::jsonb,
+       message_format_version = $7,
+       content_schema_version = $8,
+       edited_at = NOW(),
+       embeds = NULL,
+       components = NULL
+     WHERE id = $1 AND channel_id = $2
+       AND content_json IS NOT DISTINCT FROM $9::jsonb`,
+    [
+      messageId,
+      channelId,
+      args.content,
+      JSON.stringify(args.contentJson),
+      args.searchIndexText,
+      JSON.stringify(args.mentions),
+      args.messageFormatVersion,
+      args.contentSchemaVersion,
+      JSON.stringify(expectedContentJson),
+    ],
+  );
+  if ((result.rowCount ?? 0) === 0) return false;
   await patchEchoMessageSearchFlags(pool, channelId, messageId);
+  return true;
 }
 
 export async function updateEchoMessageEmbeds(
@@ -2487,6 +2594,102 @@ export async function selectUnreadReplyToSelfRowsForAttention(
   return r.rows.map((row: Record<string, unknown>) => ({
     channel_id: String(row.channel_id),
   }));
+}
+
+/** Batched fan-out form of the bounded mention scan, capped per viewer. */
+export async function selectUnreadMentionRowsForUsersOnChannel(
+  pool: pg.Pool,
+  channelId: string,
+  userIds: string[],
+): Promise<{ user_id: string; mentions: unknown }[]> {
+  const ch = channelId.trim();
+  const ids = [...new Set(userIds.map((id) => id.trim()).filter(Boolean))];
+  if (!ch || ids.length === 0) return [];
+  const mIdAfterReadTieBreak = echoMessageIdPgGreaterThan(
+    'm.id',
+    'rs.last_read_message_id',
+  );
+  const r = await pool.query(
+    `
+    WITH viewers AS (SELECT UNNEST($2::text[]) AS user_id)
+    SELECT v.user_id, unread.mentions
+    FROM viewers v
+    CROSS JOIN LATERAL (
+      SELECT m.mentions
+      FROM echo_messages m
+      LEFT JOIN echo_channel_read_state rs
+        ON rs.user_id = v.user_id AND rs.channel_id = m.channel_id
+      LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
+      WHERE m.channel_id = $1
+        AND m.deleted_at IS NULL
+        AND m.author_id <> v.user_id
+        AND m.mentions IS NOT NULL
+        AND m.mentions <> '[]'::jsonb
+        AND m.created_at >= COALESCE(lr.created_at, '-infinity'::timestamptz)
+        AND (
+          rs.last_read_message_id IS NULL OR lr.id IS NULL
+          OR m.created_at > lr.created_at
+          OR (m.created_at = lr.created_at AND ${mIdAfterReadTieBreak})
+        )
+      ORDER BY m.id DESC
+      LIMIT ${MENTION_SCAN_LIMIT}
+    ) unread
+    `,
+    [ch, ids],
+  );
+  return r.rows.map((row: Record<string, unknown>) => ({
+    user_id: String(row.user_id),
+    mentions: row.mentions,
+  }));
+}
+
+/** Batched per-viewer existence check for unread replies to that viewer. */
+export async function selectUnreadReplyingUsersOnChannel(
+  pool: pg.Pool,
+  channelId: string,
+  userIds: string[],
+): Promise<string[]> {
+  const ch = channelId.trim();
+  const ids = [...new Set(userIds.map((id) => id.trim()).filter(Boolean))];
+  if (!ch || ids.length === 0) return [];
+  const mIdAfterReadTieBreak = echoMessageIdPgGreaterThan(
+    'm.id',
+    'rs.last_read_message_id',
+  );
+  const r = await pool.query<{ user_id: string }>(
+    `
+    WITH viewers AS (SELECT UNNEST($2::text[]) AS user_id)
+    SELECT v.user_id
+    FROM viewers v
+    WHERE EXISTS (
+      SELECT 1
+      FROM echo_messages m
+      LEFT JOIN echo_channel_read_state rs
+        ON rs.user_id = v.user_id AND rs.channel_id = m.channel_id
+      LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
+      LEFT JOIN echo_messages parent
+        ON parent.id = NULLIF(m.reply_to->>'messageId', '')
+       AND parent.deleted_at IS NULL
+      WHERE m.channel_id = $1
+        AND m.deleted_at IS NULL
+        AND m.author_id <> v.user_id
+        AND m.reply_to IS NOT NULL
+        AND m.reply_to <> 'null'::jsonb
+        AND (
+          NULLIF(m.reply_to->>'authorId', '') = v.user_id
+          OR parent.author_id = v.user_id
+        )
+        AND m.created_at >= COALESCE(lr.created_at, '-infinity'::timestamptz)
+        AND (
+          rs.last_read_message_id IS NULL OR lr.id IS NULL
+          OR m.created_at > lr.created_at
+          OR (m.created_at = lr.created_at AND ${mIdAfterReadTieBreak})
+        )
+    )
+    `,
+    [ch, ids],
+  );
+  return r.rows.map((row) => String(row.user_id));
 }
 
 /** One hydrated unread mention/reply row for the server-side mention inbox feed. */

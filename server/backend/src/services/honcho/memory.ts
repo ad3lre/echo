@@ -7,6 +7,16 @@ export type HonchoPeerConfigInput = {
   observeOthers?: boolean;
 };
 
+/** User-scoped namespace prevents caller-selected IDs from addressing another user's session. */
+export function echoHonchoSessionId(userId: string, sessionId: string): string {
+  const uid = userId.trim();
+  const sid = sessionId.trim();
+  if (!uid || !sid || sid.length > 128 || /[\u0000-\u001f\u007f]/u.test(sid)) {
+    throw new Error('Invalid Honcho session id');
+  }
+  return `echo:${uid}:${sid}`;
+}
+
 function peerAdditionFromConfig(
   peers?: Record<string, HonchoPeerConfigInput>,
 ): PeerAddition | undefined {
@@ -111,7 +121,7 @@ export function scheduleHonchoMessageSync(
   void (async () => {
     try {
       await honchoRecordMessage({
-        sessionId: opts.channelId,
+        sessionId: echoHonchoSessionId(opts.userId, opts.channelId),
         peerId: opts.userId,
         content,
         metadata: {

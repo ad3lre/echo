@@ -412,7 +412,7 @@ async function run() {
     [SCROLL_FIXTURE, SCROLL_MODALITY],
   );
 
-  async function runScrollBurst(bursts, deltaFn) {
+  async function runScrollBurst(bursts) {
     for (let burst = 0; burst < bursts; burst++) {
       if (SCROLL_MODALITY === 'keyboard') {
         await page.keyboard.press(burst % 2 === 0 ? 'PageUp' : 'PageDown');
@@ -421,9 +421,8 @@ async function run() {
           el.scrollTop += burstIdx % 2 === 0 ? -900 : 700;
         }, burst);
       } else {
-        await scroll.evaluate((el, burstIdx) => {
-          el.scrollTop += burstIdx % 2 === 0 ? -900 : 700;
-        }, burst);
+        await scroll.hover();
+        await page.mouse.wheel(0, burst % 2 === 0 ? -900 : 700);
       }
       await page.waitForTimeout(40);
       const snap = await measureLayout(page);

@@ -1,0 +1,187 @@
+/*
+ * Light-first: default rules use semantic tokens so default/light reads correctly
+ * without extra selectors; dark theme is layered with :global(html[data-theme='dark']).
+ */
+
+/* --- Modal backdrop ----------------------------------------------------- */
+.server-down-overlay {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+}
+
+:global(html[data-theme='dark']) .server-down-overlay {
+  background: var(--echo-palette-rgba-7-5-14-0p78-73b8);
+}
+
+/* --- Compact (mobile/tablet) full-viewport panel ------------------------ */
+.server-down-card--compact {
+  box-sizing: border-box;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 1rem)
+    max(1rem, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 1rem)
+    max(1rem, env(safe-area-inset-left, 0px));
+}
+
+/* --- Card --------------------------------------------------------------- */
+.server-down-card {
+  background:
+    radial-gradient(
+      circle at 62% -6%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 58%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--elevated) 98%, var(--accent) 2%) 0%,
+      color-mix(in srgb, var(--surface) 95%, var(--bg) 5%) 100%
+    );
+  border-color: color-mix(in srgb, var(--border) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 85%, var(--border) 15%) inset,
+    0 18px 44px
+      color-mix(in srgb, var(--echo-palette-rgb-15-23-42-9aa8) 8%, transparent),
+    0 6px 14px
+      color-mix(in srgb, var(--echo-palette-rgb-15-23-42-9aa8) 5%, transparent);
+}
+
+:global(html[data-theme='dark']) .server-down-card {
+  background:
+    radial-gradient(
+      circle at 60% 0%,
+      var(--echo-palette-rgba-96-165-250-0p1-b3f4),
+      transparent 54%
+    ),
+    linear-gradient(
+      180deg,
+      var(--echo-palette-rgba-18-14-32-0p94-3ca7) 0%,
+      var(--echo-palette-rgba-11-9-22-0p98-be24) 100%
+    );
+  border-color: color-mix(in srgb, white 10%, transparent);
+  backdrop-filter: blur(20px) saturate(1.25);
+  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  box-shadow:
+    0 -1px 0 var(--echo-palette-rgba-255-255-255-0p08-350e),
+    0 24px 64px var(--echo-palette-rgba-0-0-0-0p55-c182);
+}
+
+/* Recovery progress ------------------------------------------------------ */
+.server-down-recovery-track {
+  background: color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.server-down-recovery-bar {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 88%, white 12%),
+    color-mix(
+      in srgb,
+      var(--accent) 55%,
+      var(--echo-palette-rgb-244-63-94-84c0) 45%
+    )
+  );
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+:global(html[data-theme='dark']) .server-down-recovery-track {
+  background: var(--echo-palette-rgba-255-255-255-0p08-350e);
+}
+
+:global(html[data-theme='dark']) .server-down-recovery-bar {
+  background: linear-gradient(
+    90deg,
+    var(--echo-palette-rgb-167-139-250-8357),
+    var(--echo-palette-rgb-244-114-182-de59)
+  );
+  box-shadow: 0 0 16px var(--echo-palette-rgba-167-139-250-0p35-6d73);
+}
+
+/* Error icon chip -------------------------------------------------------- */
+.server-down-icon-wrap {
+  background: color-mix(
+    in srgb,
+    var(--echo-palette-rgb-244-63-94-84c0) 14%,
+    var(--elevated) 86%
+  );
+  color: color-mix(
+    in srgb,
+    var(--echo-palette-rgb-190-18-60-d6a0) 92%,
+    var(--text) 8%
+  );
+  box-shadow:
+    0 0 0 1px
+      color-mix(
+        in srgb,
+        var(--echo-palette-rgb-244-63-94-84c0) 22%,
+        transparent
+      )
+      inset,
+    0 1px 2px
+      color-mix(in srgb, var(--echo-palette-rgb-15-23-42-9aa8) 6%, transparent);
+}
+
+:global(html[data-theme='dark']) .server-down-icon-wrap {
+  background: var(--echo-palette-rgba-244-63-94-0p2-96ec);
+  color: var(--echo-palette-rgb-254-205-211-5bc4);
+  box-shadow: none;
+}
+
+:global(html[data-theme='light'][data-echo-light-variant='sunny'])
+  .server-down-icon-wrap {
+  background: color-mix(
+    in srgb,
+    var(--echo-palette-rgb-234-88-12-aef2) 14%,
+    var(--elevated) 86%
+  );
+  color: var(--echo-palette-rgb-194-65-12-074f);
+  box-shadow:
+    0 0 0 1px
+      color-mix(
+        in srgb,
+        var(--echo-palette-rgb-234-88-12-aef2) 24%,
+        transparent
+      )
+      inset,
+    0 1px 2px
+      color-mix(in srgb, var(--echo-palette-rgb-120-53-15-2eee) 8%, transparent);
+}
+
+/* Technical detail ------------------------------------------------------- */
+.server-down-detail {
+  font-family:
+    ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  word-break: break-word;
+  color: color-mix(in srgb, var(--muted) 94%, var(--text) 6%);
+  background: color-mix(in srgb, var(--surface) 90%, var(--bg) 10%);
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
+}
+
+:global(html[data-theme='dark']) .server-down-detail {
+  color: var(--echo-palette-rgba-226-232-240-0p88-1199);
+  background: var(--echo-palette-rgba-0-0-0-0p28-9dbc);
+  border-color: var(--echo-palette-rgba-255-255-255-0p1-d371);
+}
+
+/* Status dots ------------------------------------------------------------ */
+.server-down-status-dot--checking {
+  background: var(--echo-palette-rgb-217-119-6-cf33);
+}
+
+.server-down-status-dot--waiting {
+  background: var(--echo-palette-rgb-225-29-72-7234);
+}
+
+:global(html[data-theme='dark']) .server-down-status-dot--checking {
+  background: var(--echo-palette-rgb-252-211-77-2686);
+}
+
+:global(html[data-theme='dark']) .server-down-status-dot--waiting {
+  background: var(--echo-palette-rgb-251-113-133-53d2);
+}

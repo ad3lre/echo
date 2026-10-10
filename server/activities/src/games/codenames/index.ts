@@ -34,9 +34,15 @@ function syncRoster(
   state: CodenamesState,
   roster: readonly string[],
 ): CodenamesState {
-  const merged = mergeCodenamesPresenceRoster(state.rosterUserIds, roster);
+  const merged = mergeCodenamesPresenceRoster([], roster);
   if (merged.join(',') === state.rosterUserIds.join(',')) return state;
-  return { ...state, rosterUserIds: merged };
+  return {
+    ...state,
+    rosterUserIds: merged,
+    roleAssignments: state.roleAssignments.filter((role) =>
+      merged.includes(role.userId),
+    ),
+  };
 }
 
 function snapshotFromState(state: CodenamesState): CodenamesSnapshot {
@@ -95,7 +101,11 @@ export const codenamesModule: GameModule<CodenamesState, CodenamesView> = {
         key: null,
       };
     }
-    if (state.phase === 'playing' && roster.length < 2) {
+    if (
+      state.phase === 'playing' &&
+      (roster.length < 2 ||
+        state.roleAssignments.some((role) => role.userId === userId))
+    ) {
       return {
         ...syncRoster(state, roster),
         phase: 'paused_requires_new_game',

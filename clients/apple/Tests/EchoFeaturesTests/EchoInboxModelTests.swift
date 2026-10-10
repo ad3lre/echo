@@ -32,8 +32,7 @@ struct EchoInboxModelTests {
     let model = EchoInboxModel(
       auth: makeAuth(), client: client, incomingFriendRequests: [request])
 
-    model.respond(to: request, accepting: true)
-    try? await Task.sleep(for: .milliseconds(50))
+    await model.respond(to: request, accepting: true)?.value
 
     #expect(model.incomingFriendRequests.isEmpty)
     #expect(client.acceptCount == 1)

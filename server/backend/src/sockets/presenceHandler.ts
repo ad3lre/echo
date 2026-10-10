@@ -77,7 +77,11 @@ export function registerPresenceHandler(
       if (!authenticated || isAnonymousSocketUser(userId)) return;
       try {
         if (source === 'presence:heartbeat') {
-          const touched = await touchEchoPresence(pool, userId);
+          const touched = await touchEchoPresence(
+            pool,
+            userId,
+            profileStatus ?? 'online',
+          );
           if (touched) return;
           // No `echo_presence` row yet (e.g. client missed initial `presence:set`) — bootstrap like `presence:set`.
           const occurredAtMsHb = Date.now();
@@ -131,7 +135,9 @@ export function registerPresenceHandler(
       } catch (e) {
         log.error(e, `${source} failed`);
       }
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, `${source} handler failed`);
+    });
   };
 
   socket.on('presence:set', (p) => persistPresence(p, 'presence:set'));

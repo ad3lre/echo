@@ -527,6 +527,14 @@ export default async function meRoutes(fastify: FastifyInstance) {
       const { store, mode } = await getAuthStore();
 
       if (requestedEmail) {
+        if (Object.keys(patch).length > 0) {
+          return sendError(
+            reply,
+            400,
+            'INVALID_BODY',
+            'Email changes must be submitted separately from profile updates.',
+          );
+        }
         const userRecord = await store.getUserByUsername(req.authUser.username);
         if (!userRecord) {
           return sendError(reply, 404, 'NOT_FOUND', 'User not found');

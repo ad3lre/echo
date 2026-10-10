@@ -1,0 +1,338 @@
+@use './VcActivityStage-shared' as *;
+.vc-act-widget--echoed-names {
+  --vc-act-a1: var(--echo-palette-b91c1c-59db);
+  --vc-act-a2: var(--echo-palette-1d4ed8-d139);
+  background:
+    radial-gradient(
+      100% 100% at 0% 0%,
+      color-mix(in srgb, var(--vc-act-a1) 30%, transparent) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      100% 100% at 100% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 28%, transparent) 0%,
+      transparent 46%
+    ),
+    linear-gradient(
+      168deg,
+      color-mix(in srgb, var(--elevated) 90%, var(--echo-palette-061016-b239))
+        0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 22%, var(--border));
+}
+.vc-act-widget--echoed-names .vc-act-widget__media {
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-1a1410-6d26) 0%,
+    var(--echo-palette-14110e-564c) 45%,
+    var(--echo-palette-0f172a-0e68) 100%
+  );
+}
+.vc-act-widget--echoed-names:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 36%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 52px color-mix(in srgb, var(--vc-act-a2) 12%, black 26%);
+}
+.vc-act-widget--echoed-names:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 44%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 32%, transparent),
+    0 20px 44px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--echoed-names .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 78%, var(--vc-act-a1) 22%);
+}
+.vc-act-widget--richup {
+  --vc-act-a1: var(--echo-palette-059669-63a3);
+  --vc-act-a2: var(--echo-palette-ca8a04-1af2);
+  background:
+    radial-gradient(
+      115% 100% at 15% -10%,
+      color-mix(in srgb, var(--vc-act-a1) 32%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      100% 90% at 100% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 26%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--elevated) 90%, var(--echo-palette-06120e-d954))
+        0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 24%, var(--border));
+}
+.vc-act-widget--richup .vc-act-widget__media {
+  background: linear-gradient(
+    155deg,
+    var(--echo-palette-051210-d4cd) 0%,
+    var(--echo-palette-0c1812-9631) 45%,
+    var(--echo-palette-141006-dc88) 100%
+  );
+}
+.vc-act-widget--richup:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 40%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 52px color-mix(in srgb, var(--vc-act-a2) 12%, black 25%);
+}
+.vc-act-widget--richup:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 48%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 32%, transparent),
+    0 20px 44px color-mix(in srgb, black 27%, transparent);
+}
+.vc-act-widget--richup .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 74%, var(--vc-act-a1) 26%);
+}
+/* Light theme: softer washes so cards stay readable */
+:global(html[data-theme='light']) .vc-act-widget--youtube {
+  background:
+    radial-gradient(
+      115% 90% at 100% 0%,
+      color-mix(in srgb, var(--echo-palette-ff5c7a-6d47) 22%, transparent) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      90% 85% at 0% 100%,
+      color-mix(in srgb, var(--echo-palette-fecdd3-80dc) 45%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-fff5f6-01b1))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--youtube
+  .vc-act-widget__media {
+  background: linear-gradient(
+    150deg,
+    var(--echo-palette-fff1f3-ec88) 0%,
+    var(--echo-palette-ffe8ec-7e41) 40%,
+    var(--echo-palette-f0f4ff-c072) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--wordline {
+  background:
+    radial-gradient(
+      110% 95% at 10% 0%,
+      color-mix(in srgb, var(--echo-palette-86c97f-5856) 28%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 97%, var(--echo-palette-ecfdf3-ff13))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--wordline
+  .vc-act-widget__media {
+  background: linear-gradient(
+    155deg,
+    var(--echo-palette-ecfdf3-ff13) 0%,
+    var(--echo-palette-e7f6ec-9b52) 55%,
+    var(--echo-palette-f0fdf4-1167) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--hangman {
+  background:
+    radial-gradient(
+      110% 95% at 10% 0%,
+      color-mix(in srgb, var(--echo-palette-fcd34d-2539) 38%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      100% 90% at 100% 100%,
+      color-mix(in srgb, var(--echo-palette-c4b5fd-2d79) 34%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-fffbeb-762e))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--hangman
+  .vc-act-widget__media {
+  background: linear-gradient(
+    150deg,
+    var(--echo-palette-fffbeb-762e) 0%,
+    var(--echo-palette-faf5ff-7c08) 50%,
+    var(--echo-palette-f8fafc-4646) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--tictactoe {
+  background:
+    radial-gradient(
+      110% 95% at 8% 0%,
+      color-mix(in srgb, var(--echo-palette-a5b4fc-7fc7) 42%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      100% 90% at 100% 100%,
+      color-mix(in srgb, var(--echo-palette-fbcfe8-5f2d) 38%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-eef2ff-3b57))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--tictactoe
+  .vc-act-widget__media {
+  background: linear-gradient(
+    150deg,
+    var(--echo-palette-eef2ff-3b57) 0%,
+    var(--echo-palette-fae8ff-df97) 50%,
+    var(--echo-palette-ecfeff-a860) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--openguessr {
+  background:
+    radial-gradient(
+      110% 95% at 0% 0%,
+      color-mix(in srgb, var(--echo-palette-5eead4-bb0a) 22%, transparent) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      100% 90% at 100% 100%,
+      color-mix(in srgb, var(--echo-palette-93c5fd-928e) 28%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-ecfeff-a860))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--openguessr
+  .vc-act-widget__media {
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-ecfeff-a860) 0%,
+    var(--echo-palette-e0f2fe-e758) 50%,
+    var(--echo-palette-f0fdf9-b6b0) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--skribblio {
+  background:
+    radial-gradient(
+      110% 95% at 10% 0%,
+      color-mix(in srgb, var(--echo-palette-67e8f9-03b9) 30%, transparent) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      100% 90% at 100% 100%,
+      color-mix(in srgb, var(--echo-palette-5eead4-bb0a) 26%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 96%, var(--echo-palette-ecfeff-a860))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--skribblio
+  .vc-act-widget__media {
+  background: linear-gradient(
+    148deg,
+    var(--echo-palette-ecfeff-a860) 0%,
+    var(--echo-palette-cffafe-c55b) 50%,
+    var(--echo-palette-f0fdfa-d27e) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--garticphone {
+  background:
+    radial-gradient(
+      115% 100% at 100% 0%,
+      color-mix(in srgb, var(--echo-palette-e9d5ff-0c6a) 55%, transparent) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      95% 90% at 0% 100%,
+      color-mix(in srgb, var(--echo-palette-fce7f3-c5e1) 50%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 95%, var(--echo-palette-fdf4ff-378d))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--garticphone
+  .vc-act-widget__media {
+  background: linear-gradient(
+    160deg,
+    var(--echo-palette-faf5ff-7c08) 0%,
+    var(--echo-palette-fdf2f8-2ed4) 45%,
+    var(--echo-palette-f5f3ff-04fd) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--krunker {
+  background:
+    radial-gradient(
+      110% 95% at 90% 0%,
+      color-mix(in srgb, var(--echo-palette-fdba74-cfd5) 35%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      95% 90% at 0% 100%,
+      color-mix(in srgb, var(--echo-palette-6ee7b7-1b43) 22%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 95%, var(--echo-palette-fffbeb-762e))
+        0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--krunker
+  .vc-act-widget__media {
+  background: linear-gradient(
+    150deg,
+    var(--echo-palette-fffbeb-762e) 0%,
+    var(--echo-palette-ecfdf5-86e7) 50%,
+    var(--echo-palette-fff7ed-3727) 100%
+  );
+}
+:global(html[data-theme='light']) .vc-act-widget--gooberdash {
+  background:
+    radial-gradient(
+      100% 100% at 8% 0%,
+      color-mix(in srgb, var(--echo-palette-f0abfc-2343) 42%, transparent) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      100% 95% at 100% 100%,
+      color-mix(in srgb, var(--echo-palette-67e8f9-03b9) 32%, transparent) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 95%, var(--echo-palette-fdf4ff-378d))
+        0%,
+      var(--elevated) 100%
+    );
+}

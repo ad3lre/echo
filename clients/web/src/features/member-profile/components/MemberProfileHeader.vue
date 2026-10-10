@@ -96,15 +96,7 @@ defineEmits<{
   </div>
 </template>
 
-<style lang="scss">
-@use '../expandedProfileShared.scss';
-
-/* WebKit: rounded avatar + layered GIF can show square fringes in quick profile. */
-.member-popout__avatar img {
-  clip-path: inset(0 round 9999px);
-  -webkit-clip-path: inset(0 round 9999px);
-}
-</style>
+<style lang="scss" src="./styles/MemberProfileHeader.scss"></style>
 
 <style scoped lang="scss">
 .member-profile-header {
@@ -212,8 +204,8 @@ defineEmits<{
   z-index: 3;
   /* Elevation on the circular button — WebKit paints square shadows on `<img>` even with `border-radius`. */
   box-shadow:
-    0 20px 25px -5px rgba(0, 0, 0, 0.45),
-    0 8px 10px -6px rgba(0, 0, 0, 0.35);
+    0 20px 25px -5px var(--echo-palette-rgba-0-0-0-0p45-7ddc),
+    0 8px 10px -6px var(--echo-palette-rgba-0-0-0-0p35-20d4);
 }
 
 :global([data-theme='light'] .member-popout__avatar) {

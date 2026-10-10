@@ -186,8 +186,9 @@ async function roleIconEmojiBelongsToServer(
  * Idempotent; no-ops when already satisfied.
  */
 export async function reconcileMembersRoleHierarchyPosition(
-  pool: pg.Pool,
+  pool: pg.Pool | pg.PoolClient,
   serverId: string,
+  mutationClient?: pg.PoolClient,
 ): Promise<void> {
   const result = await pool.query(
     `
@@ -218,7 +219,7 @@ export async function reconcileMembersRoleHierarchyPosition(
     `,
     [serverId],
   );
-  if ((result.rowCount ?? 0) > 0) {
+  if ((result.rowCount ?? 0) > 0 && !mutationClient) {
     invalidateEchoPermissionCacheForServer(serverId);
   }
 }
@@ -540,7 +541,9 @@ export async function updateEchoRole(
     roleType?: unknown;
     syncWithCategoryDefaults?: boolean;
   },
+  mutationClient?: pg.PoolClient,
 ): Promise<UpdateEchoRoleResult> {
+  const queryable = mutationClient ?? pool;
   const touched =
     patch.name !== undefined ||
     patch.color !== undefined ||
@@ -558,10 +561,14 @@ export async function updateEchoRole(
     patch.syncWithCategoryDefaults !== undefined;
   if (!touched) return 'invalid_body';
 
-  const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
+  const actorPerms = await getMergedRolePermissions(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!canManageEchoRolesCatalog(actorPerms)) return 'forbidden';
 
-  const rowQ = await pool.query(
+  const rowQ = await queryable.query(
     `SELECT name, position, role_type, color, dark_color, light_color, separate_theme_colors, hoist, default_on_join, role_category_id, permissions, role_scope, sync_with_category_defaults FROM echo_roles WHERE server_id = $1 AND id = $2 LIMIT 1`,
     [serverId, roleId],
   );
@@ -599,10 +606,14 @@ export async function updateEchoRole(
     return 'invalid_body';
   }
 
-  const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
+  const actorIsOwner = await isEchoServerOwner(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!actorIsOwner) {
     const ok = await actorMayMutateTargetRoleById(
-      pool,
+      queryable as pg.Pool,
       serverId,
       actorId,
       roleId,
@@ -658,7 +669,11 @@ export async function updateEchoRole(
     } else if (typeof patch.roleCategoryId === 'string') {
       const cid = patch.roleCategoryId.trim();
       if (!cid) return 'invalid_body';
-      const ok = await echoRoleCategoryExistsForServer(pool, serverId, cid);
+      const ok = await echoRoleCategoryExistsForServer(
+        queryable as pg.Pool,
+        serverId,
+        cid,
+      );
       if (!ok) return 'invalid_body';
     } else {
       return 'invalid_body';
@@ -679,7 +694,11 @@ export async function updateEchoRole(
     const emoji = normalizeRoleIconEmojiId(patch.roleIconEmojiId);
     if (patch.roleIconEmojiId != null && emoji == null) return 'invalid_body';
     if (emoji != null) {
-      const ok = await roleIconEmojiBelongsToServer(pool, serverId, emoji);
+      const ok = await roleIconEmojiBelongsToServer(
+        queryable as pg.Pool,
+        serverId,
+        emoji,
+      );
       if (!ok) return 'invalid_body';
     }
   }
@@ -693,7 +712,7 @@ export async function updateEchoRole(
     let targetCategoryId: string | null = null;
     if (patch.roleCategoryId !== undefined) {
       targetCategoryId = await resolveRoleCategoryIdForAssignment(
-        pool,
+        queryable as pg.Pool,
         serverId,
         patch.roleCategoryId,
       );
@@ -704,7 +723,7 @@ export async function updateEchoRole(
     }
     if (targetCategoryId) {
       const catDefaults = await loadEchoRoleCategoryDefaults(
-        pool,
+        queryable as pg.Pool,
         serverId,
         targetCategoryId,
       );
@@ -801,8 +820,20 @@ export async function updateEchoRole(
     vals.push(JSON.stringify([]));
   }
   if (patch.roleCategoryId !== undefined) {
+    if (
+      patch.roleCategoryId !== null &&
+      (typeof patch.roleCategoryId !== 'string' ||
+        (patch.roleCategoryId.trim() !== '' &&
+          !(await echoRoleCategoryExistsForServer(
+            queryable as pg.Pool,
+            serverId,
+            patch.roleCategoryId.trim(),
+          ))))
+    ) {
+      return 'invalid_body';
+    }
     const resolved = await resolveRoleCategoryIdForAssignment(
-      pool,
+      queryable as pg.Pool,
       serverId,
       patch.roleCategoryId,
     );
@@ -859,12 +890,12 @@ export async function updateEchoRole(
   const sidPlaceholder = vals.length + 1;
   const ridPlaceholder = vals.length + 2;
   vals.push(serverId, roleId);
-  await pool.query(
+  await queryable.query(
     `UPDATE echo_roles SET ${sets.join(', ')} WHERE server_id = $${sidPlaceholder} AND id = $${ridPlaceholder}`,
     vals,
   );
   if (patch.roleType !== undefined || patch.permissions !== undefined) {
-    invalidateEchoPermissionCacheForServer(serverId);
+    if (!mutationClient) invalidateEchoPermissionCacheForServer(serverId);
   }
   return 'ok';
 }
@@ -987,21 +1018,38 @@ export async function assignEchoMemberRole(
   actorId: string,
   targetUserId: string,
   roleId: string,
+  mutationClient?: pg.PoolClient,
 ): Promise<EchoMemberRoleMutationResult> {
-  const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
+  const queryable = mutationClient ?? pool;
+  const actorPerms = await getMergedRolePermissions(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!canAssignEchoMemberRoles(actorPerms)) return 'forbidden';
 
-  const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
-  const targetIsOwner = await isEchoServerOwner(pool, serverId, targetUserId);
+  const actorIsOwner = await isEchoServerOwner(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
+  const targetIsOwner = await isEchoServerOwner(
+    queryable as pg.Pool,
+    serverId,
+    targetUserId,
+  );
   if (!actorIsOwner && targetIsOwner) return 'forbidden';
 
-  const tmem = await pool.query(
+  const tmem = await queryable.query(
     `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
     [serverId, targetUserId],
   );
   if (tmem.rows.length === 0) return 'not_member';
 
-  const roleRow = await pool.query<{ position: unknown; permissions: unknown }>(
+  const roleRow = await queryable.query<{
+    position: unknown;
+    permissions: unknown;
+  }>(
     `SELECT position, permissions FROM echo_roles WHERE server_id = $1 AND id = $2 LIMIT 1`,
     [serverId, roleId],
   );
@@ -1010,7 +1058,7 @@ export async function assignEchoMemberRole(
 
   if (!actorIsOwner) {
     const ok = await actorMayMutateTargetRoleById(
-      pool,
+      queryable as pg.Pool,
       serverId,
       actorId,
       roleId,
@@ -1028,13 +1076,18 @@ export async function assignEchoMemberRole(
     }
   }
 
-  const ins = await pool.query(
+  const ins = await queryable.query(
     `INSERT INTO echo_member_roles (server_id, user_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING server_id`,
     [serverId, targetUserId, roleId],
   );
   if ((ins.rowCount ?? 0) < 1) return 'unchanged';
-  await applyEchoRoleLinksAfterAssignment(pool, serverId, targetUserId, roleId);
-  invalidateEchoPermissionCacheForServer(serverId);
+  await applyEchoRoleLinksAfterAssignment(
+    queryable,
+    serverId,
+    targetUserId,
+    roleId,
+  );
+  if (!mutationClient) invalidateEchoPermissionCacheForServer(serverId);
   return 'ok';
 }
 
@@ -1044,24 +1097,41 @@ export async function removeEchoMemberRole(
   actorId: string,
   targetUserId: string,
   roleId: string,
+  mutationClient?: pg.PoolClient,
 ): Promise<EchoMemberRoleMutationResult> {
-  const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
+  const queryable = mutationClient ?? pool;
+  const actorPerms = await getMergedRolePermissions(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!canAssignEchoMemberRoles(actorPerms)) return 'forbidden';
 
-  const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
-  const targetIsOwner = await isEchoServerOwner(pool, serverId, targetUserId);
+  const actorIsOwner = await isEchoServerOwner(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
+  const targetIsOwner = await isEchoServerOwner(
+    queryable as pg.Pool,
+    serverId,
+    targetUserId,
+  );
   if (!actorIsOwner && targetIsOwner) return 'forbidden';
 
-  const everyoneId = await getEveryoneRoleIdForServer(pool, serverId);
+  const everyoneId = await getEveryoneRoleIdForServer(
+    queryable as pg.Pool,
+    serverId,
+  );
   if (everyoneId && roleId === everyoneId) return 'cannot_remove_members';
 
-  const tmem = await pool.query(
+  const tmem = await queryable.query(
     `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
     [serverId, targetUserId],
   );
   if (tmem.rows.length === 0) return 'not_member';
 
-  const roleRow = await pool.query(
+  const roleRow = await queryable.query(
     `SELECT 1 FROM echo_roles WHERE server_id = $1 AND id = $2 LIMIT 1`,
     [serverId, roleId],
   );
@@ -1069,7 +1139,7 @@ export async function removeEchoMemberRole(
 
   if (!actorIsOwner) {
     const ok = await actorMayMutateTargetRoleById(
-      pool,
+      queryable as pg.Pool,
       serverId,
       actorId,
       roleId,
@@ -1079,12 +1149,12 @@ export async function removeEchoMemberRole(
     if (!ok) return 'forbidden';
   }
 
-  const del = await pool.query(
+  const del = await queryable.query(
     `DELETE FROM echo_member_roles WHERE server_id = $1 AND user_id = $2 AND role_id = $3 RETURNING server_id`,
     [serverId, targetUserId, roleId],
   );
   if ((del.rowCount ?? 0) < 1) return 'unchanged';
-  invalidateEchoPermissionCacheForServer(serverId);
+  if (!mutationClient) invalidateEchoPermissionCacheForServer(serverId);
   return 'ok';
 }
 
@@ -1237,13 +1307,6 @@ export async function createEchoRole(
     if (!ok) return 'invalid_body';
   }
 
-  const r = await pool.query(
-    `SELECT COUNT(*)::int AS role_count FROM echo_roles WHERE server_id = $1`,
-    [serverId],
-  );
-  const roleCount = Number(r.rows[0]?.role_count ?? 0);
-  if (roleCount >= ECHO_SERVER_ROLE_LIMIT) return 'limit_reached';
-
   const catRoles = await pool.query<{
     id: string;
     position: unknown;
@@ -1295,35 +1358,63 @@ export async function createEchoRole(
   ) {
     return 'forbidden';
   }
-  await pool.query(
-    `
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext('echo_role_create_cap'), hashtext($1))`,
+      [serverId],
+    );
+    const countResult = await client.query(
+      `SELECT COUNT(*)::int AS role_count FROM echo_roles WHERE server_id = $1`,
+      [serverId],
+    );
+    if (
+      Number(countResult.rows[0]?.role_count ?? 0) >= ECHO_SERVER_ROLE_LIMIT
+    ) {
+      await client.query('ROLLBACK');
+      return 'limit_reached';
+    }
+    await client.query(
+      `
     INSERT INTO echo_roles (
       id, server_id, name, color, dark_color, light_color, separate_theme_colors,
       position, permissions, hoist, default_on_join, role_category_id, rank_in_category,
       role_scope, role_icon_url, role_icon_emoji_id, role_type, sync_with_category_defaults
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17, $18)
     `,
-    [
-      id,
-      serverId,
-      name,
-      color,
-      effDark,
-      effLight,
-      separateThemeColors,
-      pos,
-      JSON.stringify(normalized),
-      hoist,
-      defaultOnJoin,
-      roleCategoryId,
-      rankInCategory,
-      effectiveRoleScope,
-      roleIconUrl,
-      roleIconEmojiId,
-      effectiveRoleType,
-      syncWithCategoryDefaults,
-    ],
-  );
+      [
+        id,
+        serverId,
+        name,
+        color,
+        effDark,
+        effLight,
+        separateThemeColors,
+        pos,
+        JSON.stringify(normalized),
+        hoist,
+        defaultOnJoin,
+        roleCategoryId,
+        rankInCategory,
+        effectiveRoleScope,
+        roleIconUrl,
+        roleIconEmojiId,
+        effectiveRoleType,
+        syncWithCategoryDefaults,
+      ],
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* preserve original error */
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
   const map = await buildCategoryRoleOrderMap(pool, serverId);
   if (roleCategoryId) {
     const list = map.get(roleCategoryId) ?? [];
@@ -1354,10 +1445,16 @@ export async function deleteEchoRole(
   serverId: string,
   actorId: string,
   roleId: string,
+  mutationClient?: pg.PoolClient,
 ): Promise<DeleteEchoRoleResult> {
-  const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
+  const queryable = mutationClient ?? pool;
+  const actorPerms = await getMergedRolePermissions(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!canManageEchoRolesCatalog(actorPerms)) return 'forbidden';
-  const rowQ = await pool.query(
+  const rowQ = await queryable.query(
     `SELECT name, position FROM echo_roles WHERE server_id = $1 AND id = $2 LIMIT 1`,
     [serverId, roleId],
   );
@@ -1366,10 +1463,14 @@ export async function deleteEchoRole(
   const name = String(row0.name);
   if (name === '@members' || name === '@global') return 'cannot_delete_members';
 
-  const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
+  const actorIsOwner = await isEchoServerOwner(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!actorIsOwner) {
     const ok = await actorMayMutateTargetRoleById(
-      pool,
+      queryable as pg.Pool,
       serverId,
       actorId,
       roleId,
@@ -1378,21 +1479,25 @@ export async function deleteEchoRole(
     if (!ok) return 'forbidden';
   }
 
-  await pool.query(
+  await queryable.query(
     `DELETE FROM echo_channel_permission_overwrite_rows WHERE server_id = $1 AND target_type = 'role' AND target_id = $2`,
     [serverId, roleId],
   );
-  await pool.query(
+  await queryable.query(
     `DELETE FROM echo_category_permission_overwrite_rows WHERE server_id = $1 AND target_type = 'role' AND target_id = $2`,
     [serverId, roleId],
   );
 
-  const del = await pool.query(
+  const del = await queryable.query(
     `DELETE FROM echo_roles WHERE server_id = $1 AND id = $2`,
     [serverId, roleId],
   );
   if ((del.rowCount ?? 0) < 1) return 'not_found';
-  invalidateEchoPermissionCacheForServer(serverId);
-  await reconcileMembersRoleHierarchyPosition(pool, serverId);
+  await reconcileMembersRoleHierarchyPosition(
+    queryable,
+    serverId,
+    mutationClient,
+  );
+  if (!mutationClient) invalidateEchoPermissionCacheForServer(serverId);
   return 'ok';
 }

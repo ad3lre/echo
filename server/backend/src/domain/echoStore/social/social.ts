@@ -253,17 +253,35 @@ export async function addEchoFriendRequest(
 ): Promise<AddEchoFriendRequestResult> {
   if (fromUserId === toUserId) return 'already_related';
   if (await isEchoPairBlocked(pool, fromUserId, toUserId)) return 'blocked';
-  const dup = await pool.query(
-    `SELECT 1 FROM echo_friendships WHERE (user_id = $1 AND peer_id = $2) OR (user_id = $2 AND peer_id = $1)`,
-    [fromUserId, toUserId],
-  );
-  if (dup.rows.length > 0) return 'already_related';
-  const id = nextEchoSnowflakeId();
-  await pool.query(
-    `INSERT INTO echo_friendships (id, user_id, peer_id, status) VALUES ($1, $2, $3, 'pending')`,
-    [id, fromUserId, toUserId],
-  );
-  return 'created';
+  const [lowId, highId] = [fromUserId, toUserId].sort();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext('echo_friend_pair'), hashtext($1 || ':' || $2))`,
+      [lowId, highId],
+    );
+    const dup = await client.query(
+      `SELECT 1 FROM echo_friendships WHERE (user_id = $1 AND peer_id = $2) OR (user_id = $2 AND peer_id = $1)`,
+      [fromUserId, toUserId],
+    );
+    if (dup.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return 'already_related';
+    }
+    const id = nextEchoSnowflakeId();
+    await client.query(
+      `INSERT INTO echo_friendships (id, user_id, peer_id, status) VALUES ($1, $2, $3, 'pending')`,
+      [id, fromUserId, toUserId],
+    );
+    await client.query('COMMIT');
+    return 'created';
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function acceptEchoFriendship(

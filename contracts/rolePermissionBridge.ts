@@ -1,9 +1,6 @@
-/**
- * Maps Echo API permission strings (`echo_roles.permissions`, channel `permission_overrides`)
- * ↔ UI role matrix and channel permission keys.
- *
- * Stored strings follow [Discord API permission names](https://discord.com/developers/docs/topics/permissions).
- */
+import { preserveUnchangedPermissionPairs } from './rolePermissionPairs';
+/** Maps stored Echo API permission strings to role and channel UI keys.
+ * Stored names follow Discord's API permission names. */
 
 import type { ChannelPermissionKey } from './types/channel';
 import {
@@ -111,16 +108,20 @@ export function roleUiPermissionsToEchoStrings(
   );
 }
 
-/**
- * Merge UI-edited role permissions with stored Echo strings, preserving bits
- * that are not exposed in the server settings role editor (e.g. EMBED_LINKS).
- */
+/** Merge UI edits while preserving stored bits absent from the role editor. */
 export function mergeRoleUiPermissionsWithStoredEcho(
   uiPerms: Record<string, boolean>,
   storedEcho: readonly string[],
 ): string[] {
   const uiManaged = echoPermissionsManagedByRoleUi();
   const fromUi = new Set(roleUiPermissionsToEchoStrings(uiPerms));
+  preserveUnchangedPermissionPairs(
+    fromUi,
+    UI_TO_ECHO,
+    uiPerms,
+    roleUiPermissionsFromEchoStrings([...storedEcho]),
+    storedEcho,
+  );
   const preserved = storedEcho.filter((p) => !uiManaged.has(p));
   const merged = new Set([...preserved, ...fromUi]);
   return [...ECHO_API_PERMISSIONS].filter(
@@ -184,10 +185,8 @@ export function roleUiPermissionsFromEchoStrings(
   };
 }
 
-/**
- * Every `ChannelPermissionKey` maps to the same Echo/Discord string names the RBAC evaluator uses.
- * (`video` and `stream` both use `STREAM`; `echoPartialToChannelOverrides` picks the first registered key.)
- */
+/** Channel keys map to evaluated RBAC names; video and stream share STREAM.
+ * Reverse mapping picks the first registered key. */
 const CH_TO_ECHO: Record<
   ChannelPermissionKey,
   EchoApiPermission | EchoApiPermission[]

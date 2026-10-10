@@ -1,13 +1,17 @@
 import { ChannelType, type Client, type VoiceState } from 'discord.js';
 import { getEchoWebhookJson, postEchoWebhookJson } from './echoApi.js';
 import { parseMinInteger } from './util/numberParsing.js';
+import { createVoiceSnapshotScheduler } from './voiceSnapshotScheduler.js';
 
 let cachedWatchGuildIds = new Set<string>();
 
-/** Previous non-empty voice channel ids per guild — used to emit empty snapshots when the last user leaves. */
+// Retain delivered channel IDs until their empty snapshots are acknowledged.
 const prevVoiceChannelIdsByGuild = new Map<string, Set<string>>();
 
-const flushTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const scheduleGuildFlush = createVoiceSnapshotScheduler(
+  postVoiceSnapshot,
+  (id) => cachedWatchGuildIds.has(id),
+);
 
 async function refreshWatchlist(client: Client): Promise<void> {
   const body = await getEchoWebhookJson<{ guildIds?: unknown }>(
@@ -23,13 +27,9 @@ async function refreshWatchlist(client: Client): Promise<void> {
       next.add(id.trim());
     }
   }
-  const previous = cachedWatchGuildIds;
   cachedWatchGuildIds = next;
-  const bootstrapAll = previous.size === 0 && next.size > 0;
   for (const guildId of next) {
-    if (bootstrapAll || !previous.has(guildId)) {
-      scheduleGuildFlush(client, guildId);
-    }
+    scheduleGuildFlush(client, guildId);
   }
 }
 
@@ -101,30 +101,16 @@ async function postVoiceSnapshot(
     });
   }
 
-  prevVoiceChannelIdsByGuild.set(guildId, currentActive);
-
-  await postEchoWebhookJson(
+  const response = await postEchoWebhookJson(
     '/api/v1/hooks/discord-voice-mirror/snapshot',
     { discordGuildId: guildId, channels },
     'voice-mirror',
   );
+  if (!response?.ok) throw new Error('Voice snapshot was not accepted');
+  prevVoiceChannelIdsByGuild.set(guildId, currentActive);
 }
 
-function scheduleGuildFlush(client: Client, guildId: string): void {
-  const existing = flushTimers.get(guildId);
-  if (existing) clearTimeout(existing);
-  const t = setTimeout(() => {
-    flushTimers.delete(guildId);
-    void postVoiceSnapshot(client, guildId).catch((e) =>
-      console.warn('[voice-mirror] snapshot failed', e),
-    );
-  }, 450);
-  flushTimers.set(guildId, t);
-}
-
-/**
- * Poll Echo for guilds with voice mirror enabled; debounce-post voice snapshots on updates.
- */
+/** Reconcile watched guilds periodically and debounce voice updates. */
 export function startDiscordVoiceMirrorRelay(client: Client): void {
   const pollMs = parseMinInteger(
     process.env.ECHO_DISCORD_VOICE_MIRROR_POLL_MS,

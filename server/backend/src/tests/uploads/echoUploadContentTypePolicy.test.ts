@@ -11,6 +11,10 @@ function run(): void {
   );
   assert.equal(sanitizeEchoUploadContentType('text/html').coerced, true);
   assert.equal(
+    sanitizeEchoUploadContentType('image/svg+xml;charset=utf-8').contentType,
+    'application/octet-stream',
+  );
+  assert.equal(
     sanitizeEchoUploadContentType('image/svg+xml').contentType,
     'application/octet-stream',
   );

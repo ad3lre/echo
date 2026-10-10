@@ -1,6 +1,6 @@
 import rateLimit from '@fastify/rate-limit';
 import formbody from '@fastify/formbody';
-import websocket from '@fastify/websocket';
+import { registerGatewayWebsocket } from '../../bootstrap/gatewayWebsocket';
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import healthRoutes from './health';
 import statusPageRoutes from './statusPage';
@@ -56,7 +56,7 @@ import {
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   // Register WebSocket plugin once at the top level so both gateway and any
   // future WS routes share the same plugin instance.
-  await fastify.register(websocket);
+  await registerGatewayWebsocket(fastify);
   // Lets `/auth/*` and `/auth/discord/*` accept `application/x-www-form-urlencoded`
   // (CORS-simple POSTs; see `clients/web/src/api/authClient.ts`).
   await fastify.register(formbody);

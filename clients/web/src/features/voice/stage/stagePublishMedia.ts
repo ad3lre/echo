@@ -8,7 +8,8 @@ export function canPublishStageMedia(
     | undefined,
   userId: string | undefined,
 ): boolean {
-  if (!channel || channel.type !== 'stage') return true;
+  if (!channel) return false;
+  if (channel.type !== 'stage') return true;
   const uid = userId?.trim();
   if (!uid) return false;
   return !!channel.voiceStageSpeakerByUserId?.[uid];

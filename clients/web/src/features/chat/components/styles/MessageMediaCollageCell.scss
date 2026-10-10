@@ -1,0 +1,120 @@
+@use '@/assets/echoSkeletonShimmer' as skel;
+
+.collage-cell {
+  position: relative;
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  cursor: zoom-in;
+  background: color-mix(in srgb, var(--bg) 70%, black);
+}
+
+.collage-cell--letterbox {
+  /* Fallback only until the image-derived matte paints. */
+  background: color-mix(in srgb, var(--bg) 55%, black);
+}
+
+.collage-cell__skeleton {
+  position: absolute;
+  inset: 0;
+  @include skel.fill;
+  @include skel.reduced-motion;
+}
+
+.collage-cell__matte,
+.collage-cell__matte-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.collage-cell__matte-img {
+  object-fit: cover;
+  transform: scale(1.18);
+  filter: blur(28px) saturate(1.15);
+  opacity: 0.92;
+}
+
+.collage-cell__matte {
+  overflow: hidden;
+  transform: scale(1.18);
+  filter: blur(28px) saturate(1.15);
+  opacity: 0.92;
+}
+
+.collage-cell__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+}
+.collage-cell__img--cover {
+  object-fit: cover;
+}
+.collage-cell__img--contain {
+  object-fit: contain;
+}
+.collage-cell__img--hidden {
+  opacity: 0;
+}
+.collage-cell__img--dim {
+  filter: brightness(0.4);
+}
+.collage-cell__img--spoiler {
+  filter: blur(28px);
+  transform: scale(1.08);
+}
+
+/* GIF cells fill the same box via LimitedGifImg; dim/spoiler/hidden apply to the wrapper. */
+.collage-cell__media {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.collage-cell__media--hidden {
+  opacity: 0;
+}
+.collage-cell__media--dim {
+  filter: brightness(0.4);
+}
+.collage-cell__media--spoiler {
+  filter: blur(28px);
+  transform: scale(1.08);
+}
+
+.collage-cell__more {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--echo-palette-fff-e08d);
+  text-shadow: 0 1px 4px var(--echo-palette-rgba-0-0-0-0p65-2985);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.collage-cell__spoiler {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--echo-palette-rgba-255-255-255-0p9-0e88);
+  text-shadow: 0 1px 3px var(--echo-palette-rgba-0-0-0-0p7-d0e4);
+  pointer-events: none;
+  z-index: 2;
+}

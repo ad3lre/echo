@@ -45,6 +45,7 @@ final class EchoCallModel {
   private var callID: UUID?
   private var correlationID: String?
   private var connectTask: Task<Void, Never>?
+  private var teardownTask: Task<Void, Never>?
   private var ringTimeoutTask: Task<Void, Never>?
   private var dismissTask: Task<Void, Never>?
   private var transportIsConnected = false
@@ -117,6 +118,8 @@ final class EchoCallModel {
 
   func startCall(to conversation: EchoDirectMessage) async {
     guard phase == .idle else { return }
+    await teardownTask?.value
+    guard phase == .idle else { return }
     let id = UUID()
     let correlation = id.uuidString.lowercased()
     begin(conversation: conversation, callID: id, correlationID: correlation, phase: .dialing)
@@ -125,6 +128,7 @@ final class EchoCallModel {
       try await ensureMicrophoneAccess()
       try systemCalls.prepare()
       try await systemCalls.startOutgoing(id: id, handle: conversation.displayName)
+      guard callID == id, phase == .dialing else { return }
       systemCalls.reportConnecting(id: id)
       // CallKit may have taken the audio session — restart ringback on it.
       syncCallRingtone()
@@ -138,7 +142,7 @@ final class EchoCallModel {
   func receive(signal: EchoDmCallSignal, conversation: EchoDirectMessage) {
     switch signal.kind {
     case .incoming:
-      guard phase == .idle else { return }
+      guard phase == .idle, teardownTask == nil else { return }
       let id = UUID(uuidString: signal.correlationID ?? "") ?? UUID()
       begin(
         conversation: conversation,
@@ -365,11 +369,13 @@ final class EchoCallModel {
   }
 
   private func connect() {
-    guard connectTask == nil, let conversation else { return }
+    guard connectTask == nil, let conversation, let expectedID = callID else { return }
     if phase != .dialing { phase = .connecting }
     connectTask = Task { @MainActor in
-      defer { connectTask = nil }
-      guard let token = await tokenProvider(), !token.isEmpty else {
+      defer { if callID == expectedID { connectTask = nil } }
+      let token = await tokenProvider()
+      guard !Task.isCancelled, callID == expectedID, phase != .ending else { return }
+      guard let token, !token.isEmpty else {
         fail(
           EchoHomeClientError.server(
             statusCode: 401,
@@ -386,13 +392,18 @@ final class EchoCallModel {
           viewerUserID: currentUserID,
           peerUserID: conversation.peerUserID,
           authorizedUserIDs: conversation.authorizedUserIDs(including: currentUserID))
+        try Task.checkCancellation()
+        guard callID == expectedID, phase != .ending else { return }
         isEncrypted = prepared.hasMaterial
         publishAuthorizedRoster()
         let session = try await client.createDMSession(
           channelID: conversation.channelID,
           accessToken: token,
           e2eeDeviceID: prepared.deviceID)
+        try Task.checkCancellation()
+        guard callID == expectedID, phase != .ending else { return }
         try await transport.connect(session: session, encryption: prepared.encryption)
+        try Task.checkCancellation()
         if isMuted {
           try? await transport.setMuted(true)
         }
@@ -402,12 +413,14 @@ final class EchoCallModel {
       } catch is CancellationError {
         return
       } catch {
+        guard !Task.isCancelled, callID == expectedID, phase != .ending else { return }
         fail(error)
       }
     }
   }
 
   private func applyTransportState(_ state: EchoCallTransportState) {
+    guard phase != .idle, phase != .ending, phase != .failed else { return }
     switch state {
     case .connected:
       transportIsConnected = true
@@ -424,7 +437,7 @@ final class EchoCallModel {
   }
 
   private func activateIfReady() {
-    guard transportIsConnected, remoteAccepted else { return }
+    guard phase != .idle, phase != .ending, phase != .failed, transportIsConnected, remoteAccepted else { return }
     ringTimeoutTask?.cancel()
     ringTimeoutTask = nil
     EchoCallRingtoneStore.shared.stopIncomingLoop()
@@ -445,21 +458,23 @@ final class EchoCallModel {
     reason: EchoDmCallEndReason,
     terminalMessage: String? = nil
   ) async {
-    guard phase != .idle else { return }
+    guard phase != .idle, phase != .ending else { return }
     ringTimeoutTask?.cancel()
     ringTimeoutTask = nil
     dismissTask?.cancel()
     dismissTask = nil
     EchoCallRingtoneStore.shared.stopIncomingLoop()
     phase = .ending
-    connectTask?.cancel()
-    connectTask = nil
+    let pendingConnect = connectTask
+    pendingConnect?.cancel()
     if emitSignal, let conversation {
       realtime.endCall(
         channelID: conversation.channelID,
         correlationID: correlationID,
         reason: reason)
     }
+    await pendingConnect?.value
+    connectTask = nil
     await transport.disconnect()
     await EchoMlsJsRuntime.shared.stopActive()
     if reportSystemEnd, let callID {
@@ -483,7 +498,8 @@ final class EchoCallModel {
     ringTimeoutTask?.cancel()
     ringTimeoutTask = nil
     EchoCallRingtoneStore.shared.stopIncomingLoop()
-    connectTask?.cancel()
+    let pendingConnect = connectTask
+    pendingConnect?.cancel()
     connectTask = nil
     errorMessage = error.localizedDescription
     phase = .failed
@@ -494,9 +510,11 @@ final class EchoCallModel {
         reason: .ended)
     }
     if let callID { systemCalls.reportEnded(id: callID) }
-    Task {
+    teardownTask = Task {
+      await pendingConnect?.value
       await transport.disconnect()
       await EchoMlsJsRuntime.shared.stopActive()
+      teardownTask = nil
     }
   }
 

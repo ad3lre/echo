@@ -133,7 +133,7 @@ export async function registerEchoUploadDedupe(
     `INSERT INTO echo_upload_dedupe (
        sha256_hex, kind, phash_hex, byte_length, public_url, storage_key, uploader_id
      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-     ON CONFLICT (sha256_hex) DO NOTHING`,
+     ON CONFLICT (sha256_hex, uploader_id) DO NOTHING`,
     [sha, opts.kind, ph, Math.floor(opts.byteLength), url, key, uploader],
   );
 }

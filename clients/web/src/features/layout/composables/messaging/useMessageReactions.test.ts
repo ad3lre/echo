@@ -74,6 +74,24 @@ describe('useMessageReactions', () => {
     await toggleReaction('c1', 'nope', '👍', 'u1');
     expect(messages.value.c1).toEqual([]);
   });
+  it('retains other reactions when only the viewer ID is disclosed', async () => {
+    const messages = ref<Record<string, RawMessage[]>>({
+      c1: [
+        {
+          id: 'm1',
+          authorId: 'a',
+          timestamp: 't',
+          content: '',
+          reactions: [{ emoji: '🔥', count: 3, userIds: ['u1'] }],
+        },
+      ],
+    });
+    bindChannelMessageBuckets(messages);
+    await useMessageReactions(messages).toggleReaction('c1', 'm1', '🔥', 'u1');
+    expect(messages.value.c1![0]!.reactions).toEqual([
+      { emoji: '🔥', count: 2, userIds: [] },
+    ]);
+  });
 
   it('does not mutate when realtime is not ready but emit is configured', async () => {
     const messages = ref<Record<string, RawMessage[]>>({

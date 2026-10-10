@@ -1,4 +1,5 @@
 import path from 'path';
+import { createHash } from 'node:crypto';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Server } from 'socket.io';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
@@ -35,8 +36,12 @@ import {
   isAllowedChatUploadContentType,
 } from '../uploads/s3UploadPresign';
 import { writeLocalEchoUploadFile } from '../uploads/localUploadDisk';
-import { registerChatUploadRetention } from '../uploads/chatUploadRetention';
+import {
+  getChatUploadRetentionByStorageKey,
+  registerChatUploadRetention,
+} from '../uploads/chatUploadRetention';
 import { prepareRasterForEchoStorage } from '../uploads/rasterImageTranscode';
+import { deleteEchoUploadObjectKey } from '../../../../media/src/hls/objectStore';
 import { isRasterImageContentType } from '../../../../../contracts/mediaCdnVariants';
 import type {
   Embed,
@@ -188,7 +193,18 @@ async function mirrorDiscordUrlToEcho(opts: {
   buf = prepared.buf;
   const storedCt = prepared.contentType;
   const ext = prepared.ext || '.bin';
-  const objectKey = `discord-import-media-${nextEchoSnowflakeId()}${ext}`;
+  let stableMediaKey = discordUrl;
+  try {
+    const parsedUrl = new URL(discordUrl);
+    stableMediaKey = `${parsedUrl.origin}${parsedUrl.pathname}`;
+  } catch {
+    // The source was validated above; retain the full input if parsing changes.
+  }
+  const mediaHash = createHash('sha256')
+    .update(stableMediaKey)
+    .digest('hex')
+    .slice(0, 32);
+  const objectKey = `discord-import-media-${mediaHash}${ext}`;
   const dest = await resolveEchoUploadStorageKey(pool, actorId, {
     channelId,
     contentType: storedCt,
@@ -205,10 +221,16 @@ async function mirrorDiscordUrlToEcho(opts: {
       reason: 'Could not resolve an upload destination',
     };
   }
+  const existingRetention = await getChatUploadRetentionByStorageKey(
+    pool,
+    dest.storageKey,
+  );
 
+  let stored = false;
   try {
     if (config.echoLocalUploadDir) {
       await writeLocalEchoUploadFile(dest.storageKey, buf);
+      stored = true;
       await pool.query(
         `INSERT INTO echo_upload_served_content_type (storage_key, content_type)
          VALUES ($1, $2)
@@ -233,8 +255,19 @@ async function mirrorDiscordUrlToEcho(opts: {
           ContentType: storedCt,
         }),
       );
+      stored = true;
     }
   } catch (e) {
+    if (!existingRetention) {
+      if (stored)
+        await deleteEchoUploadObjectKey(dest.storageKey).catch(() => {});
+      await pool
+        .query(
+          `DELETE FROM echo_upload_served_content_type WHERE storage_key = $1`,
+          [dest.storageKey],
+        )
+        .catch(() => {});
+    }
     log.warn(
       {
         err: e instanceof Error ? e.message : String(e),
@@ -249,22 +282,40 @@ async function mirrorDiscordUrlToEcho(opts: {
     };
   }
 
-  await registerChatUploadRetention(pool, {
-    storageKey: dest.storageKey,
-    byteLength: buf.length,
-    sourceType: 'import',
-    uploaderId: actorId,
-  });
+  try {
+    await registerChatUploadRetention(pool, {
+      storageKey: dest.storageKey,
+      byteLength: buf.length,
+      sourceType: 'import',
+      uploaderId: actorId,
+    });
 
-  const echoUrl = buildEchoUploadPublicUrlForStorageKey(dest.storageKey);
-  if (!echoUrl) {
+    const echoUrl = buildEchoUploadPublicUrlForStorageKey(dest.storageKey);
+    if (echoUrl) return { ok: true, echoUrl };
+    throw new Error('Could not build mirrored media URL');
+  } catch (e) {
+    if (!existingRetention) {
+      await pool
+        .query(
+          `DELETE FROM echo_chat_upload_retention WHERE storage_key = $1`,
+          [dest.storageKey],
+        )
+        .catch(() => {});
+      await pool
+        .query(
+          `DELETE FROM echo_upload_served_content_type WHERE storage_key = $1`,
+          [dest.storageKey],
+        )
+        .catch(() => {});
+      if (stored)
+        await deleteEchoUploadObjectKey(dest.storageKey).catch(() => {});
+    }
     return {
       ok: false,
       failureClass: 'transient',
-      reason: 'Could not build mirrored media URL',
+      reason: e instanceof Error ? e.message : String(e),
     };
   }
-  return { ok: true, echoUrl };
 }
 
 type UrlWork = { url: string; hint?: string };
@@ -594,7 +645,7 @@ async function runDiscordImportMediaMirrorJobBody(
   }
 
   if (refreshed && echoMessageRowNeedsDiscordMediaMirror(refreshed)) {
-    if (permanentFailures > 0) {
+    if (permanentFailures > 0 && transientFailures === 0) {
       await markDiscordImportMediaMirrorFailed(
         pool,
         messageId,

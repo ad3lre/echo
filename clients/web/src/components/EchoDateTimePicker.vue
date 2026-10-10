@@ -17,14 +17,11 @@ const props = withDefaults(
     modelValue: string;
     /** Earliest selectable moment; `'now'` blocks past dates/times. */
     minDateTime?: Date | 'now';
-    /** Shown when a selection is before `minDateTime`. */
     minErrorMessage?: string;
     surface?: 'default' | 'server';
     disabled?: boolean;
-    /** External invalid state (e.g. form validation). */
     invalid?: boolean;
     id?: string;
-    /** Teleport popover to body (recommended inside modals). */
     teleportMenu?: boolean;
   }>(),
   {
@@ -265,7 +262,7 @@ function onInvalidSelect() {
 .echo-dtp--invalid .echo-dtp-trigger {
   box-shadow:
     inset 0 0 0 1px var(--srv-input-ring),
-    0 0 0 1px rgb(248 113 113 / 0.6);
+    0 0 0 1px var(--echo-palette-rgb-248-113-113-0p6-346d);
 }
 
 .echo-dtp-trigger-text {
@@ -298,7 +295,10 @@ function onInvalidSelect() {
     transparent
   );
   --dp-text-color: var(--echo-control-fg, var(--fg));
-  --dp-hover-color: var(--glass-hover, rgb(255 255 255 / 0.08));
+  --dp-hover-color: var(
+    --glass-hover,
+    var(--echo-palette-rgb-255-255-255-0p08-c261)
+  );
   --dp-hover-text-color: var(--echo-control-fg, var(--fg));
   --dp-hover-icon-color: var(--echo-control-chevron, var(--muted));
   --dp-primary-color: var(--accent);
@@ -319,7 +319,7 @@ function onInvalidSelect() {
   --dp-disabled-color: transparent;
   --dp-disabled-color-text: var(--fg-soft, var(--muted));
   --dp-icon-color: var(--echo-control-chevron, var(--muted));
-  --dp-danger-color: rgb(248 113 113);
+  --dp-danger-color: var(--echo-palette-rgb-248-113-113-b8be);
   --dp-success-color: var(--accent);
   --dp-scroll-bar-background: transparent;
   --dp-scroll-bar-color: var(--border);

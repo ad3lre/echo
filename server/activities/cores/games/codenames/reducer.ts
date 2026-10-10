@@ -136,6 +136,16 @@ export function applyReveal(
     turnStage = 'await_clue';
     nextGuessesRemaining = 0;
   } else if (aff !== prev.currentTeam) {
+    if (countRemainingTeamCells(nextCells, key, aff) === 0) {
+      return {
+        ...prev,
+        cells: nextCells,
+        phase: 'game_over',
+        turnStage: 'na',
+        winner: aff,
+        guessesRemaining: 0,
+      };
+    }
     currentTeam = prev.currentTeam === 'red' ? 'blue' : 'red';
     turnStage = 'await_clue';
     nextGuessesRemaining = 0;

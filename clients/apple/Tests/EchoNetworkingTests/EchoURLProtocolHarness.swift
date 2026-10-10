@@ -1,4 +1,7 @@
 import Foundation
+import Testing
+
+@Suite(.serialized) enum EchoNetworkingSerializedTests {}
 
 /// Shared URLProtocol stub for Echo networking tests.
 ///

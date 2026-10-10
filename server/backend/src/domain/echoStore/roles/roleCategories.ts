@@ -111,24 +111,40 @@ export async function createEchoRoleCategory(
   const name = normalizeCategoryName(nameRaw);
   if (!name) return 'invalid_body';
 
-  const cnt = await pool.query(
-    `SELECT COUNT(*)::int AS c FROM echo_role_categories WHERE server_id = $1`,
-    [serverId],
-  );
-  const n = Number((cnt.rows[0] as { c: number } | undefined)?.c ?? 0);
-  if (n >= MAX_ROLE_CATEGORIES_PER_SERVER) return 'invalid_body';
-
-  const posR = await pool.query(
-    `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_role_categories WHERE server_id = $1`,
-    [serverId],
-  );
-  const position = Number(posR.rows[0]?.p ?? 0);
-  const id = nextEchoSnowflakeId();
-  await pool.query(
-    `INSERT INTO echo_role_categories (id, server_id, name, position, is_system) VALUES ($1, $2, $3, $4, false)`,
-    [id, serverId, name, position],
-  );
-  return { ok: true, id };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext('echo_role_category_create'), hashtext($1))`,
+      [serverId],
+    );
+    const cnt = await client.query(
+      `SELECT COUNT(*)::int AS c FROM echo_role_categories WHERE server_id = $1`,
+      [serverId],
+    );
+    const n = Number((cnt.rows[0] as { c: number } | undefined)?.c ?? 0);
+    if (n >= MAX_ROLE_CATEGORIES_PER_SERVER) {
+      await client.query('ROLLBACK');
+      return 'invalid_body';
+    }
+    const posR = await client.query(
+      `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_role_categories WHERE server_id = $1`,
+      [serverId],
+    );
+    const position = Number(posR.rows[0]?.p ?? 0);
+    const id = nextEchoSnowflakeId();
+    await client.query(
+      `INSERT INTO echo_role_categories (id, server_id, name, position, is_system) VALUES ($1, $2, $3, $4, false)`,
+      [id, serverId, name, position],
+    );
+    await client.query('COMMIT');
+    return { ok: true, id };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export type UpdateEchoRoleCategoryResult =
@@ -203,28 +219,45 @@ export async function updateEchoRoleCategory(
     vals.push(patch.selfAssignableDefaults);
   }
 
-  if (patch.defaultOnJoin === true) {
+  if (sets.length === 0) return 'invalid_body';
+
+  const defaultsPatchProvided =
+    patch.defaultPermissions !== undefined ||
+    patch.defaultHoist !== undefined ||
+    patch.defaultOnJoin !== undefined ||
+    patch.defaultRoleScope !== undefined ||
+    patch.defaultRoleType !== undefined;
+  if (defaultsPatchProvided) {
     const existingDefaults = await loadEchoRoleCategoryDefaults(
       pool,
       serverId,
       categoryId,
     );
-    const permsForJoinCheck =
+    if (!existingDefaults) return 'not_found';
+    const proposedPermissions =
       patch.defaultPermissions !== undefined
         ? normalizePermissionListForStorage(
             patch.defaultPermissions,
             ALLOWED_PERMS_SET,
           )
-        : (existingDefaults?.permissions ?? []);
+        : existingDefaults.permissions;
+    const proposedDefaultOnJoin =
+      patch.defaultOnJoin !== undefined
+        ? patch.defaultOnJoin === true
+        : existingDefaults.defaultOnJoin;
     if (
-      elevatedPermissionsBlockDefaultOnJoin(permsForJoinCheck) &&
-      !actorIsOwner
+      !actorMayGrantPermissionSet(
+        actorPerms,
+        new Set(proposedPermissions),
+        actorIsOwner,
+      ) ||
+      (proposedDefaultOnJoin &&
+        elevatedPermissionsBlockDefaultOnJoin(proposedPermissions) &&
+        !actorIsOwner)
     ) {
       return 'forbidden';
     }
   }
-
-  if (sets.length === 0) return 'invalid_body';
 
   vals.push(serverId, categoryId);
   const sidPh = vals.length - 1;
@@ -235,12 +268,6 @@ export async function updateEchoRoleCategory(
   );
   if ((r.rowCount ?? 0) < 1) return 'not_found';
 
-  const defaultsPatchProvided =
-    patch.defaultPermissions !== undefined ||
-    patch.defaultHoist !== undefined ||
-    patch.defaultOnJoin !== undefined ||
-    patch.defaultRoleScope !== undefined ||
-    patch.defaultRoleType !== undefined;
   if (defaultsPatchProvided) {
     nextDefaults = await loadEchoRoleCategoryDefaults(
       pool,

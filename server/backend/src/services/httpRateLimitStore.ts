@@ -19,7 +19,8 @@ export function getHttpRateLimitRedis(): Redis | null {
   }
   client = new Redis(url, {
     ...echoIoredisClientOptions,
-    // Fail fast on blips; skipOnError keeps requests flowing.
+    // Fail fast on blips. The plugin must reject requests when the shared
+    // limiter is unavailable rather than admitting unlimited traffic.
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
   });
@@ -37,6 +38,6 @@ export function httpRateLimitStoreOpts(nameSpace: string): {
   return {
     redis,
     nameSpace,
-    skipOnError: true,
+    skipOnError: false,
   };
 }

@@ -1,10 +1,9 @@
-/**
- * In-app message jump URLs: `{origin}/channels/:channelId/:messageId`.
- * Path shape matches guild channel URLs; callers must validate via API when ambiguous.
- */
+import { isAllowedJumpUrl } from './echoMessageJumpOrigin';
+/** In-app message jump URLs; API authorization resolves ambiguous channel routes. */
 
 export function parseEchoMessageJumpPath(
   urlString: string,
+  origins?: readonly string[],
 ): { channelId: string; messageId: string } | null {
   let u: URL;
   try {
@@ -12,12 +11,11 @@ export function parseEchoMessageJumpPath(
   } catch {
     return null;
   }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  if (!isAllowedJumpUrl(u, origins)) return null;
   if (!isEchoMessageJumpPathname(u.pathname)) return null;
   const m = u.pathname.match(/^\/channels\/([^/]+)\/([^/?#]+)\/?$/);
   if (!m) return null;
-  const channelId = m[1];
-  const messageId = m[2];
+  const [, channelId, messageId] = m;
   if (!channelId?.trim() || !messageId?.trim()) return null;
   return { channelId, messageId };
 }

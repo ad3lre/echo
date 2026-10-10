@@ -1,3 +1,4 @@
+import { assertHlsSourceSize } from './boundedObjectDownload';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rm, stat } from 'node:fs/promises';
@@ -398,6 +399,8 @@ export async function processEchoVideoHlsJob(
     const playbackRow = await getEchoVideoPlaybackBySourceKey(pool, storageKey);
     const liveMeta = await readEchoUploadSourceMetadata(storageKey);
     if (!liveMeta) throw new Error('Source object not found');
+    const maxInputBytes = config.echoVideoHlsMaxInputBytes;
+    assertHlsSourceSize(liveMeta.size, maxInputBytes);
 
     if (
       playbackRow?.source_etag &&
@@ -412,12 +415,9 @@ export async function processEchoVideoHlsJob(
     await mkdir(tmpRoot, { recursive: true });
     await mkdir(outDir, { recursive: true });
 
-    await downloadEchoUploadObjectToFile(storageKey, inPath);
+    await downloadEchoUploadObjectToFile(storageKey, inPath, maxInputBytes);
     const inStat = await stat(inPath);
-    if (inStat.size < 1) throw new Error('Empty source file');
-    if (inStat.size > config.echoVideoHlsMaxInputBytes) {
-      throw new Error('Source exceeds max input bytes');
-    }
+    assertHlsSourceSize(inStat.size, maxInputBytes);
 
     const probe = await probeInput(inPath);
     if (probe.durationSec > config.echoVideoHlsMaxDurationS) {

@@ -117,15 +117,6 @@ export default async function echoUserRingtonesRoutes(
         const userId = getAuthUser(req).id;
         const ent = await getEchoEntitlements(pool, userId);
         const maxCustom = maxCustomRingtonesForPlan(ent.plan);
-        const count = await countEchoUserRingtones(pool, userId);
-        if (count >= maxCustom) {
-          return sendError(
-            reply,
-            403,
-            'FORBIDDEN',
-            `Custom ringtone limit reached (${maxCustom}).`,
-          );
-        }
 
         const storageKey =
           typeof req.body?.storageKey === 'string'
@@ -187,13 +178,38 @@ export default async function echoUserRingtonesRoutes(
           typeof req.body?.label === 'string' ? req.body.label.trim() : '';
         const label = labelRaw ? extlessLabel(labelRaw) : 'Custom ringtone';
 
-        const row = await insertEchoUserRingtone(pool, userId, {
-          label,
-          storageKey,
-          publicUrl,
-          mimeType,
-          sizeBytes,
-        });
+        const admission = await pool.connect();
+        let row;
+        try {
+          await admission.query('BEGIN');
+          await admission.query(
+            `SELECT id FROM auth_users WHERE id = $1 FOR UPDATE`,
+            [userId],
+          );
+          const count = await countEchoUserRingtones(admission, userId);
+          if (count >= maxCustom) {
+            await admission.query('ROLLBACK');
+            return sendError(
+              reply,
+              403,
+              'FORBIDDEN',
+              `Custom ringtone limit reached (${maxCustom}).`,
+            );
+          }
+          row = await insertEchoUserRingtone(admission, userId, {
+            label,
+            storageKey,
+            publicUrl,
+            mimeType,
+            sizeBytes,
+          });
+          await admission.query('COMMIT');
+        } catch (error) {
+          await admission.query('ROLLBACK').catch(() => undefined);
+          throw error;
+        } finally {
+          admission.release();
+        }
 
         return reply.code(201).send({
           id: row.id,

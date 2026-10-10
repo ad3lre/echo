@@ -3,6 +3,7 @@ import EchoNetworking
 import Foundation
 import Testing
 
+extension EchoNetworkingSerializedTests {
 @Suite(.serialized)
 struct EchoNetworkingModelTests {
   @Test func sendsMessagePollAndAttachmentsUsingTheEchoContract() async throws {
@@ -465,4 +466,6 @@ struct EchoNetworkingModelTests {
     ).markChannelRead(
       accessToken: "token", channelID: "ch-1", lastReadMessageID: "m-last")
   }
+}
+
 }

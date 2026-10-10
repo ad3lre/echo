@@ -68,6 +68,7 @@ actor EchoSignedURLCache {
 enum EchoMediaCaches {
   @MainActor
   static func clear() async {
+    await EchoVideoPosterCache.shared.clear()
     await EchoSignedURLCache.shared.clear()
     await EchoImageDataCache.shared.clear()
     EchoDecodedImageCache.shared.clear()

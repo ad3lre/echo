@@ -187,7 +187,10 @@ export function registerGameTunnelHandler(
       if (result.snapshot) {
         socket.emit(GAME_S2C.snapshot, result.snapshot);
       }
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'game:join handler failed');
+      if (socket.connected) socket.emit(GAME_S2C.error, { reason: 'rejected' });
+    });
   });
 
   socket.on(GAME_C2S.action, (msg) => {
@@ -223,7 +226,10 @@ export function registerGameTunnelHandler(
       if (result.snapshot) {
         socket.emit(GAME_S2C.snapshot, result.snapshot);
       }
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'game:action handler failed');
+      if (socket.connected) socket.emit(GAME_S2C.error, { reason: 'rejected' });
+    });
   });
 
   socket.on(GAME_C2S.leave, (msg) => {
@@ -233,13 +239,16 @@ export function registerGameTunnelHandler(
       trackRoomLeave(socket.id, parsed.roomId, userId);
       if (!config.gameServerEnabled) return;
       await forwardGameLeave({ roomId: parsed.roomId, userId });
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'game:leave handler failed');
+    });
   });
 }
 
 export function cleanupGameTunnelOnDisconnect(
   socketId: string,
   userId: string,
+  log?: FastifyBaseLogger,
 ): void {
   const rooms = socketGameRooms.get(socketId);
   if (!rooms?.size) {
@@ -249,7 +258,10 @@ export function cleanupGameTunnelOnDisconnect(
   for (const roomId of rooms) {
     trackRoomLeave(socketId, roomId, userId);
     if (config.gameServerEnabled) {
-      void forwardGameLeave({ roomId, userId });
+      void forwardGameLeave({ roomId, userId }).catch((error: unknown) => {
+        // Disconnect cleanup is best-effort, but must never leak a rejection.
+        log?.error(error, 'game:disconnect leave forward failed');
+      });
     }
   }
   socketGameRooms.delete(socketId);

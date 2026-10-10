@@ -4,7 +4,7 @@ import type { Handshake } from 'socket.io/dist/socket-types';
 import { config } from '../config';
 import { getAuthStore } from '../auth/store';
 import type { AuthUser } from '../auth/types';
-import { verifyAccessToken } from '../auth/token';
+import { verifyLegacyAccessToken } from '../auth/legacyBearer';
 import { verifySessionBoundAccessToken } from '../auth/nativeBearer';
 import {
   LEGACY_SESSION_COOKIE,
@@ -174,7 +174,7 @@ export async function resolveSocketIdentity(
 
   if (token && config.authLegacyBearer) {
     try {
-      const payload = verifyAccessToken(token);
+      const payload = verifyLegacyAccessToken(token);
       const { store } = await getAuthStore();
       const user = await store.getUserById(payload.sub);
       if (user) {

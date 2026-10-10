@@ -1,0 +1,123 @@
+.friends-view-root,
+.friends-view {
+  background: var(--echo-chat-view-bg);
+}
+
+.friends-view-root--embedded,
+.friends-view--embedded {
+  background: transparent;
+}
+
+.friend-row {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.friends-header {
+  position: relative;
+  isolation: isolate;
+  background: var(--echo-chat-view-bg);
+}
+
+.friends-view--embedded .friends-header,
+.friends-view--embedded .friends-add-panel {
+  background: transparent;
+}
+
+.friends-add-panel {
+  position: relative;
+  isolation: isolate;
+  background: var(--echo-chat-view-bg);
+}
+
+.friends-tab--active {
+  color: var(--vue-auto-025);
+  background: var(--vue-auto-003);
+}
+
+.friends-tab--inactive {
+  color: var(--vue-auto-033);
+  background: transparent;
+}
+
+.friends-tab-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  opacity: 0.78;
+  color: currentColor;
+}
+
+.friends-tab-icon--wifi {
+  width: 1.0625rem;
+  height: 1.0625rem;
+}
+
+.friends-tab-icon--img {
+  opacity: 0.78;
+}
+
+.friends-tab--active .friends-tab-icon,
+.friends-tab--active .friends-tab-icon--img {
+  opacity: 1;
+}
+
+@media (min-width: 800px) {
+  .friends-tab-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .friends-tab-icon--wifi {
+    width: 0.9375rem;
+    height: 0.9375rem;
+  }
+}
+
+.friend-add-icon--blue {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  filter: invert(35%) sepia(92%) saturate(1450%) hue-rotate(195deg)
+    brightness(95%) contrast(95%);
+}
+
+@media (min-width: 800px) {
+  .friend-add-icon--blue {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+.friends-tab--inactive:hover {
+  color: var(--vue-auto-009);
+  background: var(--vue-auto-002);
+}
+
+.friends-tab--add-idle {
+  color: color-mix(
+    in srgb,
+    var(--vue-auto-009) 88%,
+    var(--echo-palette-60a5fa-8940)
+  );
+}
+
+.friends-tab--add-active {
+  color: var(--echo-palette-bfdbfe-b966);
+  background: color-mix(
+    in srgb,
+    var(--echo-palette-3b82f6-b51d) 22%,
+    transparent
+  );
+}
+
+:global([data-theme='light']) .friends-tab--add-active {
+  color: var(--echo-palette-1d4ed8-d139);
+  background: color-mix(
+    in srgb,
+    var(--echo-palette-3b82f6-b51d) 12%,
+    var(--vue-auto-003)
+  );
+}

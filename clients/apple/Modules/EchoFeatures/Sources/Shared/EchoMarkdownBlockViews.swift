@@ -65,12 +65,12 @@ struct EchoMarkdownBlockView: View {
         headers: headers, rows: rows, mentions: mentions, apiBaseURL: apiBaseURL,
         accessToken: accessToken)
     case .math(let source, let display):
-      EchoNativeMathView(source: source, display: display)
+      EchoNativeMathView(source: EchoMarkdownMentions.restore(source), display: display)
     case .footnoteReference(let label, let number):
       Text("[\(number)]")
         .font(.system(size: 11, weight: .semibold, design: .rounded))
         .foregroundStyle(.blue)
-        .accessibilityLabel("Footnote \(label)")
+        .accessibilityLabel(EchoCopy.format("Footnote %@", label))
     case .footnoteDefinition(let label, let text):
       HStack(alignment: .top, spacing: 6) {
         Text("[\(label)]")
@@ -81,7 +81,7 @@ struct EchoMarkdownBlockView: View {
       }
       .padding(.top, 2)
     case .rawHTML(let html):
-      EchoHTMLText(html: html)
+      EchoHTMLText(html: EchoMarkdownMentions.restore(html))
     case .image(let alt, let url):
       EchoMarkdownImage(alt: alt, url: url, apiBaseURL: apiBaseURL)
     case .rule:

@@ -95,20 +95,22 @@ export function matchBannedWords(
 
   for (const [word, meta] of wordSet) {
     if (seen.has(word)) continue;
-    const idx = normalised.indexOf(word);
-    if (idx === -1) continue;
-
-    const before = idx > 0 ? normalised[idx - 1] : ' ';
-    const after =
-      idx + word.length < normalised.length
-        ? normalised[idx + word.length]
-        : ' ';
-    const wordBoundaryBefore = /\W/.test(before);
-    const wordBoundaryAfter = /\W/.test(after);
-
-    if (wordBoundaryBefore && wordBoundaryAfter) {
-      seen.add(word);
-      matches.push({ word, category: meta.category, action: meta.action });
+    let from = 0;
+    while (from <= normalised.length - word.length) {
+      const idx = normalised.indexOf(word, from);
+      if (idx === -1) break;
+      const before = idx > 0 ? normalised[idx - 1] : ' ';
+      const after =
+        idx + word.length < normalised.length
+          ? normalised[idx + word.length]
+          : ' ';
+      const isWordChar = (char: string) => /[\p{L}\p{N}_]/u.test(char);
+      if (!isWordChar(before) && !isWordChar(after)) {
+        seen.add(word);
+        matches.push({ word, category: meta.category, action: meta.action });
+        break;
+      }
+      from = idx + 1;
     }
   }
 

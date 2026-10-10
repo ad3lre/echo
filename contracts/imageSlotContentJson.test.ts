@@ -35,6 +35,58 @@ describe('imageSlotContentJson', () => {
     expect(countImageSlots(docWithSlot)).toBe(1);
     expect(walkImageSlots(docWithSlot)[0].slotId).toBe('slot-1');
   });
+  it('rejects ambiguous duplicate slot IDs', () => {
+    const duplicate = {
+      type: 'doc',
+      content: [docWithSlot.content[1], docWithSlot.content[1]],
+    };
+    expect(
+      patchImageSlotFill(duplicate, 'slot-1', {
+        imageUrl: 'https://example.com/a.png',
+      }),
+    ).toEqual({ ok: false, error: 'invalid_doc' });
+  });
+
+  it.each([false, true])(
+    'reserves canonical IDs before assigning shortcuts (canonical last: %s)',
+    (last) => {
+      const original = {
+        type: 'doc',
+        content: [
+          {
+            type: 'imageSlot',
+            attrs: {
+              ...docWithSlot.content[1].attrs,
+              imageUrl: 'https://example.com/1.png',
+            },
+          },
+          {
+            type: 'imageSlot',
+            attrs: {
+              ...docWithSlot.content[1].attrs,
+              slotId: 'slot-2',
+              imageUrl: 'https://example.com/2.png',
+            },
+          },
+        ],
+      };
+      const lines = [
+        '![image: ratio=16:9, slotId=slot-1]',
+        '![image: ratio=16:9]',
+      ];
+      const rebuilt = rebuildContentJsonPreservingRichBlocks(
+        original,
+        (last ? lines.reverse() : lines).join('\n'),
+      );
+      const slots = walkImageSlots(rebuilt);
+      expect(slots.map((s) => s.slotId)).toEqual(
+        last ? ['slot-2', 'slot-1'] : ['slot-1', 'slot-2'],
+      );
+      expect(slots.find((s) => s.slotId === 'slot-2')?.imageUrl).toBe(
+        'https://example.com/2.png',
+      );
+    },
+  );
 
   it('patches empty slot fill', () => {
     const res = patchImageSlotFill(docWithSlot, 'slot-1', {

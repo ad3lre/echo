@@ -1,0 +1,31 @@
+.dm-incoming-rail__item {
+  background: transparent;
+}
+
+.dm-incoming-rail__item:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, white 6%, transparent);
+}
+
+.dm-incoming-rail__item--more {
+  background: color-mix(in srgb, white 4%, transparent);
+}
+
+.dm-avatar-call {
+  background: var(--server-vc-active, var(--echo-palette-22c55e-8b8f));
+}
+
+.dm-avatar-call img {
+  filter: brightness(0) invert(1);
+}
+
+[data-theme='light'] .dm-avatar-call img {
+  filter: none;
+  opacity: 0.92;
+}
+
+.dm-incoming-rail__initials {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
+}

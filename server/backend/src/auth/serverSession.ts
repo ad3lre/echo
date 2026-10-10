@@ -35,6 +35,7 @@ type ServerSessionRuntime = {
     { payload: ServerSessionPayload; expiresAt: number }
   >;
   memUserIndex: Map<string, Set<string>>;
+  cleanupTimer: ReturnType<typeof setInterval> | null;
 };
 
 const SERVER_SESSION_RUNTIME_KEY = Symbol.for('echo.serverSession.runtime');
@@ -45,11 +46,26 @@ function sessionRuntime(): ServerSessionRuntime {
     [SERVER_SESSION_RUNTIME_KEY]?: ServerSessionRuntime;
   };
   if (!g[SERVER_SESSION_RUNTIME_KEY]) {
-    g[SERVER_SESSION_RUNTIME_KEY] = {
+    const runtime: ServerSessionRuntime = {
       redisClient: null,
       memSessions: new Map(),
       memUserIndex: new Map(),
+      cleanupTimer: null,
     };
+    runtime.cleanupTimer = setInterval(() => {
+      const now = Date.now();
+      for (const [sessionId, row] of runtime.memSessions) {
+        if (row.expiresAt > now) continue;
+        runtime.memSessions.delete(sessionId);
+        const sessions = runtime.memUserIndex.get(row.payload.userId);
+        sessions?.delete(sessionId);
+        if (sessions?.size === 0) {
+          runtime.memUserIndex.delete(row.payload.userId);
+        }
+      }
+    }, 60_000);
+    runtime.cleanupTimer.unref();
+    g[SERVER_SESSION_RUNTIME_KEY] = runtime;
   }
   return g[SERVER_SESSION_RUNTIME_KEY];
 }
@@ -83,33 +99,46 @@ async function updateRedisSessionWithCas(
   sessionId: string,
   mutate: (current: ServerSessionPayload) => ServerSessionPayload | null,
 ): Promise<void> {
+  // WATCH state belongs to a Redis connection. Never share it through the
+  // process-wide session client, since concurrent CAS updates would overwrite
+  // one another's watched-key set.
+  const client = r.duplicate();
+  client.on('error', () => {});
   const key = REDIS_KEY(sessionId);
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    await r.watch(key);
-    const raw = await r.get(key);
-    if (!raw) {
-      await r.unwatch();
-      return;
+  try {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await client.watch(key);
+      const raw = await client.get(key);
+      if (!raw) {
+        await client.unwatch();
+        return;
+      }
+      let cur: ServerSessionPayload;
+      try {
+        cur = JSON.parse(raw) as ServerSessionPayload;
+      } catch {
+        await client.unwatch();
+        return;
+      }
+      const next = mutate(cur);
+      if (!next) {
+        await client.unwatch();
+        return;
+      }
+      const ttl = await client.ttl(key);
+      const ttlSec = ttl > 0 ? ttl : sessionTtlSeconds();
+      const tx = client.multi();
+      tx.set(key, JSON.stringify(next), 'EX', ttlSec);
+      tx.expire(REDIS_USER_INDEX(next.userId), ttlSec);
+      const out = await tx.exec();
+      if (out !== null) return;
     }
-    let cur: ServerSessionPayload;
+  } finally {
     try {
-      cur = JSON.parse(raw) as ServerSessionPayload;
+      await client.quit();
     } catch {
-      await r.unwatch();
-      return;
+      client.disconnect();
     }
-    const next = mutate(cur);
-    if (!next) {
-      await r.unwatch();
-      return;
-    }
-    const ttl = await r.ttl(key);
-    const ttlSec = ttl > 0 ? ttl : sessionTtlSeconds();
-    const tx = r.multi();
-    tx.set(key, JSON.stringify(next), 'EX', ttlSec);
-    tx.expire(REDIS_USER_INDEX(next.userId), ttlSec);
-    const out = await tx.exec();
-    if (out !== null) return;
   }
 }
 
@@ -192,6 +221,9 @@ export async function getServerSession(
   if (!row) return null;
   if (row.expiresAt <= Date.now()) {
     rt.memSessions.delete(sessionId);
+    const sessions = rt.memUserIndex.get(row.payload.userId);
+    sessions?.delete(sessionId);
+    if (sessions?.size === 0) rt.memUserIndex.delete(row.payload.userId);
     return null;
   }
   return row.payload;
@@ -251,6 +283,29 @@ export async function deleteAllServerSessionsForUser(
     for (const sid of set) rt.memSessions.delete(sid);
     rt.memUserIndex.delete(userId);
   }
+}
+
+/** True when the user has any unexpired server session in the shared store. */
+export async function hasActiveServerSessionsForUser(
+  userId: string,
+): Promise<boolean> {
+  const r = getRedis();
+  if (r) {
+    const ids = await r.smembers(REDIS_USER_INDEX(userId));
+    for (const sessionId of ids) {
+      const session = await getServerSession(sessionId);
+      if (session?.userId === userId) return true;
+      await r.srem(REDIS_USER_INDEX(userId), sessionId);
+    }
+    return false;
+  }
+  const rt = sessionRuntime();
+  const ids = rt.memUserIndex.get(userId);
+  if (!ids) return false;
+  for (const sessionId of ids) {
+    if (await getServerSession(sessionId)) return true;
+  }
+  return false;
 }
 
 export async function updateSessionRefreshBinding(

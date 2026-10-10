@@ -73,6 +73,9 @@ async function readState(
   if (redisFailures !== null && redisLock !== null) {
     return { failures: redisFailures, lockedUntil: redisLock };
   }
+  if (getRedis()) {
+    throw new Error('LOGIN_PROTECTION_UNAVAILABLE');
+  }
   return {
     failures: failureCountByKey.get(key) ?? 0,
     lockedUntil: lockedUntilByKey.get(key) ?? 0,
@@ -132,7 +135,7 @@ export async function recordPasswordLoginFailure(
       }
       return;
     } catch {
-      /* mem fallback */
+      throw new Error('LOGIN_PROTECTION_UNAVAILABLE');
     }
   }
 
@@ -160,7 +163,7 @@ export async function recordPasswordLoginSuccess(
       await redis.del(`${REDIS_PREFIX}lock:${redisKey}`);
       return;
     } catch {
-      /* mem fallback */
+      throw new Error('LOGIN_PROTECTION_UNAVAILABLE');
     }
   }
   failureCountByKey.delete(redisKey);
@@ -202,7 +205,7 @@ export async function recordMfaLoginFailure(
       }
       return;
     } catch {
-      /* mem fallback */
+      throw new Error('LOGIN_PROTECTION_UNAVAILABLE');
     }
   }
 
@@ -228,7 +231,7 @@ export async function recordMfaLoginSuccess(userId: string): Promise<void> {
       await redis.del(`${REDIS_PREFIX}lock:${redisKey}`);
       return;
     } catch {
-      /* mem fallback */
+      throw new Error('LOGIN_PROTECTION_UNAVAILABLE');
     }
   }
   failureCountByKey.delete(redisKey);

@@ -277,6 +277,41 @@ async function run(): Promise<void> {
     assert.equal(fillOk.value.slotId, 'slot-1');
   }
 
+  const mention = {
+    id: 'u1',
+    kind: 'user',
+    label: '@u',
+    userId: 'u1',
+    start: 0,
+    end: 2,
+  };
+  const tooManyMentions = validateMessagePayload({
+    channelId: 'ch1',
+    content: '@u'.repeat(101),
+    mentions: Array.from({ length: 101 }, (_, i) => ({
+      ...mention,
+      start: i * 2,
+      end: i * 2 + 2,
+    })),
+  });
+  assert.equal(
+    tooManyMentions.ok,
+    false,
+    'more than 100 mentions are rejected',
+  );
+  const overlappingMentions = validateMessagePayload({
+    channelId: 'ch1',
+    content: '@user',
+    mentions: [
+      { ...mention, label: '@u', end: 2 },
+      { ...mention, label: '@user', end: 5 },
+    ],
+  });
+  assert.equal(overlappingMentions.ok, true);
+  if (overlappingMentions.ok) {
+    assert.equal(overlappingMentions.value.mentions?.length, 1);
+  }
+
   console.log('echo.messageValidation: ok');
 }
 

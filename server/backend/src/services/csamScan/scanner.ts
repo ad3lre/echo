@@ -13,7 +13,14 @@ export async function runEchoConfiguredCsamScanners(
   bytes: Buffer,
   log: CsamScanLog,
 ): Promise<'pass' | 'match' | 'scanner_error'> {
-  await blocklistStore.refreshIfNeeded();
+  const blocklistReady = await blocklistStore.refreshIfNeeded();
+  if (config.echoCsamSha256BlocklistPath && !blocklistReady) {
+    log.warn(
+      { echo_csam: 'blocklist_unavailable' },
+      'echo.csam.blocklist_error',
+    );
+    return 'scanner_error';
+  }
   const sha = createHash('sha256').update(bytes).digest('hex');
   if (blocklistStore.has(sha)) {
     log.warn({ echo_csam: 'sha256_list' }, 'echo.csam.blocklist_hit');

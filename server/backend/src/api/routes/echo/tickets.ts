@@ -15,6 +15,7 @@ import {
   updateEchoTicketStatus,
 } from '../../../domain/echoStore';
 import { isMemberOfServer } from '../../../domain/permissions/echoPermissions';
+import { canUserReadEchoTicket } from '../../../domain/permissions/echoTicketAccess';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
 import { getEchoWorkspaceVersionForServers } from '../../../domain/echoStore';
 import { echoPool, requireEchoStore, trimEchoPathParam } from './routeUtils';
@@ -251,9 +252,7 @@ export default async function echoTicketRoutes(
         return sendError(reply, 404, 'NOT_FOUND', 'Ticket not found');
       }
 
-      const isAuthor = ticket.authorId === uid;
-      const handler = await isTicketHandler(pool, sid, uid);
-      if (!isAuthor && !handler) {
+      if (!(await canUserReadEchoTicket(pool, sid, uid, ticket))) {
         return sendError(reply, 403, 'FORBIDDEN', 'Access denied');
       }
 
@@ -271,14 +270,12 @@ export default async function echoTicketRoutes(
       const cid = trimEchoPathParam(req.params.channelId);
       const uid = getAuthUser(req).id;
 
-      const okMem = await isMemberOfServer(pool, sid, uid);
-      if (!okMem) {
-        return sendError(reply, 403, 'FORBIDDEN', 'Not a server member');
-      }
-
       const ticket = await getEchoTicketByChannelId(pool, cid);
       if (!ticket || ticket.serverId !== sid) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not a ticket channel');
+      }
+      if (!(await canUserReadEchoTicket(pool, sid, uid, ticket))) {
+        return sendError(reply, 403, 'FORBIDDEN', 'Access denied');
       }
 
       return reply.send(ticket);

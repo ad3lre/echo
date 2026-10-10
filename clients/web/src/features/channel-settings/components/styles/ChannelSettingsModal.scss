@@ -1,0 +1,216 @@
+@use '@/features/server-settings/styles/serverSettingsModal.scss';
+
+.channel-settings-sidebar-kicker {
+  color: var(--srv-label-fg);
+}
+
+.channel-settings-type-chip {
+  background: var(--srv-input-bg);
+  color: var(--srv-subtitle-fg);
+  box-shadow: inset 0 0 0 1px var(--srv-input-ring);
+}
+
+.channel-settings-nav--danger {
+  color: var(--srv-role-danger-fg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .channel-settings-nav--danger:hover {
+    background: var(--srv-role-danger-hover-bg);
+    color: var(--srv-role-danger-hover-fg);
+  }
+}
+
+.channel-settings-close-btn {
+  color: var(--muted);
+}
+
+.channel-settings-close-btn:hover {
+  background: var(--srv-row-hover);
+  color: var(--text);
+}
+
+.channel-settings-name-input {
+  color: var(--srv-input-fg);
+}
+
+.channel-settings-name-input::placeholder {
+  color: var(--srv-toolbar-placeholder);
+}
+
+.channel-settings-slider-value {
+  color: var(--srv-subtitle-fg);
+}
+
+.channel-settings-section-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--srv-label-fg);
+}
+
+.channel-settings-section-label--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.channel-settings-label-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.channel-settings-row-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.channel-settings-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.channel-settings-option-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.channel-settings-option-row__text {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: min(100%, 80%);
+}
+
+@media (max-width: 520px) {
+  .channel-settings-option-row__text {
+    max-width: 100%;
+  }
+}
+
+.channel-settings-perm-sync-row {
+  align-items: flex-start;
+}
+
+.channel-settings-overview-discord {
+  .server-toggle-row.items-start {
+    align-items: flex-start;
+  }
+}
+
+.channel-settings-glass-row {
+  background: var(--srv-input-bg);
+  box-shadow: inset 0 0 0 1px var(--srv-input-ring);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+
+.channel-settings-dropdowns {
+  :deep(.echo-dropdown-container) {
+    width: 100%;
+  }
+  :deep(.echo-dropdown-trigger) {
+    background: var(--srv-input-bg);
+    box-shadow: inset 0 0 0 1px var(--srv-input-ring);
+    color: var(--srv-input-fg);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    border: none;
+  }
+  :deep(.echo-dropdown-trigger:hover) {
+    background: var(--srv-row-hover);
+  }
+  :deep(.echo-dropdown-trigger--open) {
+    background: var(--srv-row-active);
+  }
+  :deep(.echo-dropdown-menu) {
+    background: var(--srv-role-menu-bg);
+    box-shadow: var(--srv-role-menu-shadow);
+  }
+  :deep(.echo-dropdown-menu::before) {
+    background: none;
+  }
+  :deep(.echo-dropdown-menu button) {
+    color: var(--srv-input-fg);
+  }
+  :deep(.echo-dropdown-menu button:hover) {
+    background: var(--srv-row-hover);
+  }
+  :deep(.echo-dropdown-menu button.text-indigo-300) {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    font-weight: 700;
+  }
+  :deep(.echo-dropdown-trigger svg) {
+    color: var(--muted);
+  }
+}
+
+.channel-user-limit-slider {
+  --slider-track: var(--vc-slider-track);
+  --slider-fill: var(--vc-slider-fill);
+  accent-color: var(--slider-fill);
+  background: transparent;
+}
+
+.channel-user-limit-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--slider-fill) 0%,
+    var(--slider-fill) var(--slider-fill-pct, 0%),
+    var(--slider-track) var(--slider-fill-pct, 0%),
+    var(--slider-track) 100%
+  );
+}
+
+.channel-user-limit-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--slider-track);
+}
+
+.channel-user-limit-slider::-moz-range-progress {
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--slider-fill);
+}
+
+.channel-user-limit-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 32% 28%,
+    var(--echo-palette-fff-e08d),
+    var(--vue-auto-059)
+  );
+  box-shadow: 0 2px 8px var(--vue-auto-018);
+  cursor: grab;
+}
+
+.channel-user-limit-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 32% 28%,
+    var(--echo-palette-fff-e08d),
+    var(--vue-auto-059)
+  );
+  box-shadow: 0 2px 8px var(--vue-auto-018);
+  cursor: grab;
+}

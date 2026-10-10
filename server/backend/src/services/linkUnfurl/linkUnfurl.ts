@@ -24,15 +24,11 @@ import {
 } from './linkUnfurlFetch';
 import { tryOembedEmbed } from './linkUnfurlOembed';
 import { unfurlWithCoalescedCache } from './unfurlCache';
-import { safeFetchAgent } from './safeFetchAgent';
 import {
   shouldSkipHttpUnfurlForUrl,
   stubEmbedFromUrlWhenUnfurlFails,
 } from './linkUnfurlUrlStubs';
-import {
-  collectLinkEmbedCandidateUrls,
-  extractHttpUrlsFromPlainText,
-} from '../../../../../contracts/linkEmbedCandidates';
+import { collectLinkEmbedCandidateUrls } from '../../../../../contracts/linkEmbedCandidates';
 
 export { extractHttpUrlsFromPlainText } from '../../../../../contracts/linkEmbedCandidates';
 
@@ -236,27 +232,22 @@ async function fetchHtmlWithRedirects(
 ): Promise<{ finalUrl: string; html: string; contentType: string } | null> {
   let current = startUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
     let res: Response;
     try {
       res = await ssrfSafeFetch(current, {
         method: 'GET',
         redirect: 'manual',
-        signal: ac.signal,
-        dispatcher: safeFetchAgent,
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: {
           Accept: 'text/html, application/xhtml+xml, */*;q=0.8',
           'User-Agent': 'EchoLinkEmbed/1.0 (+https://echo.local)',
         },
-      } as RequestInit & { dispatcher: typeof safeFetchAgent });
+      });
     } catch {
-      clearTimeout(t);
       return null;
-    } finally {
-      clearTimeout(t);
     }
     if (res.status >= 300 && res.status < 400) {
+      await res.body?.cancel();
       const loc = res.headers.get('location');
       if (!loc) return null;
       try {
@@ -268,7 +259,8 @@ async function fetchHtmlWithRedirects(
     }
     if (!res.ok) return null;
     const ct = res.headers.get('content-type') ?? '';
-    const html = await readResponseBodyLimited(res);
+    const html = await readResponseBodyLimited(res).catch(() => null);
+    if (html === null) return null;
     return { finalUrl: current, html, contentType: ct };
   }
   return null;

@@ -456,7 +456,7 @@ struct EchoSettingDetailView: View {
       model.saveNotifications()
     }
     .onDisappear {
-      model.cancelPendingNotificationSave()
+      // The pending save retains its captured account credential until completion.
     }
     .sheet(isPresented: $showDeleteConfirmation) {
       EchoDeleteAccountSheet(password: $model.deletePassword, totpCode: $model.deleteTotpCode) {

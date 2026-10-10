@@ -701,29 +701,37 @@ export async function importEchoMarketEmojiPack(
   const catalog = await getEchoEmojiMarketPackById(pool, marketPackId);
   if (!catalog) return 'not_found';
 
-  const cnt = await pool.query<{ n: string }>(
-    `SELECT COUNT(*)::text AS n FROM echo_server_emoji_packs WHERE server_id = $1`,
-    [serverId],
-  );
-  if (Number(cnt.rows[0]?.n ?? 0) >= MAX_SERVER_EMOJI_PACKS) return 'limit';
-
-  const dup = await pool.query(
-    `SELECT 1 FROM echo_server_emoji_packs WHERE server_id = $1 AND market_pack_id = $2`,
-    [serverId, catalog.id],
-  );
-  if (dup.rows.length) return 'duplicate';
-
   const packId = nextEchoSnowflakeId();
-  const posRow = await pool.query<{ p: number }>(
-    `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_server_emoji_packs WHERE server_id = $1`,
-    [serverId],
-  );
-  const position = Number(posRow.rows[0]?.p ?? 0);
 
   const client = await pool.connect();
   try {
     await client.query(`BEGIN`);
     try {
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtext('echo_emoji_pack_cap'), hashtext($1))`,
+        [serverId],
+      );
+      const cnt = await client.query<{ n: string }>(
+        `SELECT COUNT(*)::text AS n FROM echo_server_emoji_packs WHERE server_id = $1`,
+        [serverId],
+      );
+      if (Number(cnt.rows[0]?.n ?? 0) >= MAX_SERVER_EMOJI_PACKS) {
+        await client.query('ROLLBACK');
+        return 'limit';
+      }
+      const dup = await client.query(
+        `SELECT 1 FROM echo_server_emoji_packs WHERE server_id = $1 AND market_pack_id = $2`,
+        [serverId, catalog.id],
+      );
+      if (dup.rows.length) {
+        await client.query('ROLLBACK');
+        return 'duplicate';
+      }
+      const posRow = await client.query<{ p: number }>(
+        `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_server_emoji_packs WHERE server_id = $1`,
+        [serverId],
+      );
+      const position = Number(posRow.rows[0]?.p ?? 0);
       const bulkPublish: { id: string; imageUrl: string }[] = [];
       await client.query(
         `INSERT INTO echo_server_emoji_packs (id, server_id, name, source, market_pack_id, position, description, listed_in_market, market_settings)
@@ -802,29 +810,48 @@ export async function createEchoCustomEmojiPack(
   const ms = normalizeMarketSettingsInput(marketSettingsInput);
   if (!ms.ok) return { ok: false, reason: 'bad_settings' };
 
-  const cnt = await pool.query<{ n: string }>(
-    `SELECT COUNT(*)::text AS n FROM echo_server_emoji_packs WHERE server_id = $1`,
-    [serverId],
-  );
-  if (Number(cnt.rows[0]?.n ?? 0) >= MAX_SERVER_EMOJI_PACKS)
-    return { ok: false, reason: 'limit' };
-
   const packId = nextEchoSnowflakeId();
-  const posRow = await pool.query<{ p: number }>(
-    `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_server_emoji_packs WHERE server_id = $1`,
-    [serverId],
-  );
-  const position = Number(posRow.rows[0]?.p ?? 0);
   const name = displayName.trim() || 'My Emoji Pack';
   const list =
     listedInMarket && desc.length >= MIN_EMOJI_PACK_DESCRIPTION_LEN
       ? true
       : false;
-  await pool.query(
-    `INSERT INTO echo_server_emoji_packs (id, server_id, name, source, market_pack_id, position, description, listed_in_market, market_settings)
-     VALUES ($1, $2, $3, 'custom', NULL, $4, $5, $6, $7::jsonb)`,
-    [packId, serverId, name, position, desc, list, JSON.stringify(ms.value)],
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext('echo_emoji_pack_cap'), hashtext($1))`,
+      [serverId],
+    );
+    const cnt = await client.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM echo_server_emoji_packs WHERE server_id = $1`,
+      [serverId],
+    );
+    if (Number(cnt.rows[0]?.n ?? 0) >= MAX_SERVER_EMOJI_PACKS) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'limit' };
+    }
+    const posRow = await client.query<{ p: number }>(
+      `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_server_emoji_packs WHERE server_id = $1`,
+      [serverId],
+    );
+    const position = Number(posRow.rows[0]?.p ?? 0);
+    await client.query(
+      `INSERT INTO echo_server_emoji_packs (id, server_id, name, source, market_pack_id, position, description, listed_in_market, market_settings)
+       VALUES ($1, $2, $3, 'custom', NULL, $4, $5, $6, $7::jsonb)`,
+      [packId, serverId, name, position, desc, list, JSON.stringify(ms.value)],
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* preserve original error */
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
   return { ok: true, packId };
 }
 
@@ -1283,21 +1310,6 @@ export async function addEchoServerCustomEmoji(
   const url = imageUrl.trim();
   if (!isSafeCustomEmojiImageUrl(url)) return { ok: false, reason: 'invalid' };
 
-  const pack = await pool.query<{ source: string }>(
-    `SELECT source FROM echo_server_emoji_packs WHERE id = $1 AND server_id = $2`,
-    [packId, serverId],
-  );
-  if (!pack.rows[0]) return { ok: false, reason: 'not_found' };
-  if (pack.rows[0].source !== 'custom')
-    return { ok: false, reason: 'not_custom_pack' };
-
-  const emojiCount = await pool.query<{ n: string }>(
-    `SELECT COUNT(*)::text AS n FROM echo_server_custom_emojis WHERE pack_id = $1`,
-    [packId],
-  );
-  if (Number(emojiCount.rows[0]?.n ?? 0) >= MAX_EMOJIS_PER_PACK)
-    return { ok: false, reason: 'limit' };
-
   const name =
     nameRaw.trim().replace(/\s+/g, '_').replace(/:/g, '_') || 'emoji';
   if (!/^[\w.-]{1,64}$/.test(name)) return { ok: false, reason: 'invalid' };
@@ -1309,8 +1321,30 @@ export async function addEchoServerCustomEmoji(
     expressionKind === 'sticker'
       ? normalizeImportedStickerFormat(options?.stickerFormat)
       : null;
+  const client = await pool.connect();
   try {
-    await pool.query(
+    await client.query('BEGIN');
+    const pack = await client.query<{ source: string }>(
+      `SELECT source FROM echo_server_emoji_packs WHERE id = $1 AND server_id = $2 FOR UPDATE`,
+      [packId, serverId],
+    );
+    if (!pack.rows[0]) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'not_found' };
+    }
+    if (pack.rows[0].source !== 'custom') {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'not_custom_pack' };
+    }
+    const emojiCount = await client.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM echo_server_custom_emojis WHERE pack_id = $1`,
+      [packId],
+    );
+    if (Number(emojiCount.rows[0]?.n ?? 0) >= MAX_EMOJIS_PER_PACK) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'limit' };
+    }
+    await client.query(
       `INSERT INTO echo_server_custom_emojis (
          id, server_id, pack_id, name, animated, image_url, expression_kind, sticker_format
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -1325,9 +1359,17 @@ export async function addEchoServerCustomEmoji(
         stickerFormat,
       ],
     );
+    await client.query('COMMIT');
   } catch (e: unknown) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* preserve original error */
+    }
     if (isPgUniqueViolation(e)) return { ok: false, reason: 'duplicate_name' };
     throw e;
+  } finally {
+    client.release();
   }
   await tryPublishEchoCustomEmojiAfterInsert(pool, eid, url, expressionKind);
   return { ok: true, emojiId: eid };

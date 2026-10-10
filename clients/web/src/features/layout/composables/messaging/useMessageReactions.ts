@@ -41,19 +41,19 @@ export function useMessageReactions(
     const reactions = [...(msg.reactions ?? [])];
     const existing = reactions.find((r) => r.emoji === emoji);
 
-    const nowIso = new Date().toISOString();
     let nextReactions: MessageReaction[];
 
     if (existing) {
       const hasReacted = existing.userIds.includes(userId);
       if (hasReacted) {
         const nextUserIds = existing.userIds.filter((id) => id !== userId);
-        if (nextUserIds.length === 0) {
+        const nextCount = Math.max(0, existing.count - 1);
+        if (nextCount === 0) {
           nextReactions = reactions.filter((r) => r.emoji !== emoji);
         } else {
           nextReactions = reactions.map((r) =>
             r.emoji === emoji
-              ? { ...r, userIds: nextUserIds, count: nextUserIds.length }
+              ? { ...r, userIds: nextUserIds, count: nextCount }
               : r,
           );
         }
@@ -69,6 +69,7 @@ export function useMessageReactions(
         );
       }
     } else {
+      const nowIso = new Date().toISOString();
       nextReactions = [
         ...reactions,
         { emoji, count: 1, userIds: [userId], firstReactionAt: nowIso },
@@ -78,11 +79,8 @@ export function useMessageReactions(
     const ordered =
       sortMessageReactionsForDisplay(nextReactions) ?? nextReactions;
 
-    /**
-     * Must go through `ChannelMessageIndex.update` so `byId` and the materialized
-     * bucket stay aligned. MessageList fingerprints read `entitiesById` (from `byId`);
-     * swapping only `messages[channelId][i]` left stale entities and skipped row refresh.
-     */
+    // Update the index and materialized bucket together; MessageList fingerprints
+    // read byId entities and would otherwise miss the optimistic row refresh.
     const { updated } = updateChannelMessageInBucket(channelId, messageId, {
       reactions: ordered.length > 0 ? ordered : undefined,
     });

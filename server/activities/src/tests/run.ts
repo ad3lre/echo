@@ -6,9 +6,11 @@ import { runHolyCTicTacToeContractTests } from './holycTicTacToeContract.test';
 import { runHolyCEngineTests } from './holycEngine.test';
 
 import { runProductionConfigGateTests } from './productionConfigGates.test';
+import { runLedgerGameRulesTests } from './ledgerGameRules.test';
 
 async function main(): Promise<void> {
   runProductionConfigGateTests();
+  await runLedgerGameRulesTests();
   await runRoomLifecycleTests();
   runHolyCTicTacToeContractTests();
   await runHolyCEngineTests();

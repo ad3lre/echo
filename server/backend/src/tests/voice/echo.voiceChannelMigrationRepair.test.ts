@@ -4,7 +4,6 @@ import pg from 'pg';
 import { ensureEchoTables } from '../../db/echoTables';
 import {
   ECHO_TEXT_CHANNELS_CATEGORY_NAME,
-  ECHO_VOICE_CHANNELS_CATEGORY_NAME,
   isDiscordMirrorOnlyEveryonePartial,
   repairEchoVoiceChannelMigrationDamage,
 } from '../../db/repairEchoVoiceChannelMigration';
@@ -63,10 +62,24 @@ async function runIntegration(): Promise<void> {
     await ensureEchoTables(pool);
     await insertAuthUser(pool, ownerId);
 
-    await pool.query(
-      `INSERT INTO echo_servers (id, name, icon_url, owner_id) VALUES ($1, $2, '', $3)`,
-      [serverId, 'vc-migration-repair', ownerId],
-    );
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO echo_servers (id, name, icon_url, owner_id) VALUES ($1, $2, '', $3)`,
+        [serverId, 'vc-migration-repair', ownerId],
+      );
+      await client.query(
+        `INSERT INTO echo_server_members (server_id, user_id) VALUES ($1, $2)`,
+        [serverId, ownerId],
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
     await pool.query(
       `INSERT INTO echo_categories (id, server_id, name, position) VALUES ($1, $2, $3, 0)`,
       [textCatId, serverId, ECHO_TEXT_CHANNELS_CATEGORY_NAME],
@@ -110,7 +123,7 @@ async function runIntegration(): Promise<void> {
     );
     assert.equal(
       String(voiceRow.rows[0]?.category_name ?? ''),
-      ECHO_VOICE_CHANNELS_CATEGORY_NAME,
+      ECHO_TEXT_CHANNELS_CATEGORY_NAME,
     );
     assert.equal(voiceRow.rows[0]?.discord_voice_mirror_only, false);
 
@@ -132,11 +145,12 @@ async function runIntegration(): Promise<void> {
     );
     assert.equal(
       String(voiceRowAgain.rows[0]?.category_name ?? ''),
-      ECHO_VOICE_CHANNELS_CATEGORY_NAME,
-      'second repair pass is idempotent',
+      ECHO_TEXT_CHANNELS_CATEGORY_NAME,
+      'repeated repair preserves intentional mixed-category placement',
     );
   } finally {
     await pool.query(`DELETE FROM echo_servers WHERE id = $1`, [serverId]);
+    await pool.query(`DELETE FROM auth_users WHERE id = $1`, [ownerId]);
     await pool.end();
   }
 }

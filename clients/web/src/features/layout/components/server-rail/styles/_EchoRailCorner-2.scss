@@ -1,0 +1,111 @@
+@use './EchoRailCorner-shared' as *;
+.echo-logo-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: -8%;
+  background: linear-gradient(
+    128deg,
+    var(--vue-auto-021) 18%,
+    var(--vue-auto-004) 34%,
+    var(--vue-auto-274) 44%,
+    var(--vue-auto-003) 54%,
+    var(--vue-auto-021) 68%
+  );
+  mix-blend-mode: screen;
+  opacity: var(--echo-logo-sheen-opacity);
+  transform: translate3d(
+      calc(var(--echo-logo-shift-x) * 0.75),
+      calc(
+        (var(--echo-logo-shift-y) * 0.75) + var(--echo-logo-press-sheen-shift)
+      ),
+      0
+    )
+    rotate(8deg);
+  transition:
+    opacity 180ms ease-out,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.echo-logo {
+  display: block;
+  /**
+   * Per WebKit guidance: NEVER transform a child of a rounded `overflow: hidden`
+   * wrapper. Safari promotes the child to its own compositing layer and the
+   * parent's rounded clip is not applied at the layer level — square corners
+   * leak through. The wrapper does the clipping (clip-path + border-radius +
+   * mask-image fallback). This element must stay transform-free.
+   */
+  transform: none;
+  background: transparent;
+  outline: none;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.echo-logo.echo-logo--compact-top {
+  /* No clip-path / border-radius needed — the wrapper handles all clipping. */
+}
+@keyframes echo-fluid-drift {
+  0% {
+    transform: translate3d(var(--echo-shift-x), var(--echo-shift-y), 0) scale(1);
+  }
+  100% {
+    transform: translate3d(
+        calc(var(--echo-shift-x) + 2px),
+        calc(var(--echo-shift-y) + 1px),
+        0
+      )
+      scale(1.01);
+  }
+}
+@keyframes echo-fluid-breathe {
+  0% {
+    opacity: 0.72;
+  }
+  100% {
+    opacity: 0.82;
+  }
+}
+@keyframes echo-particles-twinkle {
+  0% {
+    opacity: 0.42;
+    transform: translate3d(
+      calc(var(--echo-shift-x) * 0.35),
+      calc(var(--echo-shift-y) * 0.35),
+      0
+    );
+  }
+  100% {
+    opacity: 0.62;
+    transform: translate3d(
+      calc((var(--echo-shift-x) * 0.35) + 1px),
+      calc((var(--echo-shift-y) * 0.35) - 1px),
+      0
+    );
+  }
+}
+/* Light mode: flat logo — no liquid glow or sheen behind the Echo mark */
+[data-theme='light'] .echo-corner__fluid {
+  display: none;
+}
+[data-theme='light'] .echo-logo-wrapper {
+  box-shadow: none;
+}
+[data-theme='light'] .echo-logo-wrapper::after {
+  display: none;
+}
+/**
+ * Safari-only fallback: if clip-path + border-radius + overflow:hidden still
+ * fails to clip (older WebKit / specific compositing paths), force the rounded
+ * shape via a mask. The opaque mask is a no-op visually but switches Safari to
+ * the mask compositor pipeline, which honors the parent shape correctly.
+ */
+@supports (-webkit-hyphens: none) {
+  .echo-logo-wrapper {
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+    mask-image: radial-gradient(white, black);
+  }
+
+  .echo-logo,
+  .echo-logo-wrapper > img {
+    transform: none !important;
+  }
+}

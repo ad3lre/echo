@@ -2,7 +2,6 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 import { getAuthUser } from '../../../auth/middleware';
 import {
-  countInstanceOperators,
   createInstanceBan,
   setUserInstanceOperator,
 } from '../../../domain/echoStore/safety/instanceBans';
@@ -93,17 +92,6 @@ export async function deleteInstanceOperatorHandler(
     return sendError(reply, 400, 'INVALID_BODY', 'userId required');
   }
   const actor = getAuthUser(req);
-  if (userId === actor.id) {
-    const operatorCount = await countInstanceOperators(pool);
-    if (operatorCount <= 1) {
-      return sendError(
-        reply,
-        400,
-        'INVALID_BODY',
-        'Cannot demote the last instance operator',
-      );
-    }
-  }
   const target = await pool.query(
     `SELECT is_instance_operator FROM auth_users WHERE id = $1`,
     [userId],
@@ -114,7 +102,20 @@ export async function deleteInstanceOperatorHandler(
   if (!target.rows[0].is_instance_operator) {
     return reply.code(204).send();
   }
-  const ok = await setUserInstanceOperator(pool, userId, false, actor.id);
+  let ok: boolean;
+  try {
+    ok = await setUserInstanceOperator(pool, userId, false, actor.id);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'LAST_INSTANCE_OPERATOR') {
+      return sendError(
+        reply,
+        400,
+        'INVALID_BODY',
+        'Cannot demote the last instance operator',
+      );
+    }
+    throw error;
+  }
   if (!ok) {
     return sendError(reply, 404, 'NOT_FOUND', 'User not found');
   }

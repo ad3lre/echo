@@ -208,9 +208,10 @@ async function run(): Promise<void> {
         },
         '127.0.0.1',
         true,
+        2,
       ),
-      '198.51.100.20',
-      'CF-Connecting-IP must win over spoofable leftmost XFF',
+      '203.0.113.10',
+      'proxy hop count must determine the client; CF-Connecting-IP is untrusted',
     );
     assert.equal(
       clientIpFromSocketHandshake(
@@ -219,7 +220,7 @@ async function run(): Promise<void> {
         true,
       ),
       '198.51.100.20',
-      'trusted proxy must use rightmost XFF hop, not attacker-controlled leftmost',
+      'trusted one-hop proxy must use the configured hop rather than an arbitrary header',
     );
 
     const untrustedProxyRestore = setEnv({

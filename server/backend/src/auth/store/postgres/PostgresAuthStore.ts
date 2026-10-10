@@ -1223,54 +1223,65 @@ export class PostgresAuthStore implements AuthStore {
     userId: string,
     options?: { enforceResendCooldown?: boolean },
   ): Promise<{ plainCode: string; targetPhoneE164: string }> {
-    const row = await this.pool.query(
-      `SELECT pending_phone_e164 FROM auth_users WHERE id = $1`,
-      [userId],
-    );
-    const pending = row?.rows?.[0]?.pending_phone_e164;
-    const target =
-      pending != null && String(pending).trim() !== ''
-        ? String(pending).trim()
-        : '';
-    if (!target) throw new Error('NO_PENDING_PHONE');
-
-    const cooldownMs = config.echoSmsOtpResendCooldownSeconds * 1000;
-    if (options?.enforceResendCooldown) {
-      const last = await this.pool.query(
-        `SELECT created_at FROM auth_phone_otp_challenges WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const row = await client.query(
+        `SELECT pending_phone_e164 FROM auth_users WHERE id = $1 FOR UPDATE`,
         [userId],
       );
-      const cr = last?.rows?.[0]?.created_at;
-      if (cr && Date.now() - new Date(cr).getTime() < cooldownMs) {
-        throw new Error('SMS_OTP_COOLDOWN');
-      }
-    }
+      const pending = row.rows[0]?.pending_phone_e164;
+      const target = pending != null ? String(pending).trim() : '';
+      if (!target) throw new Error('NO_PENDING_PHONE');
 
-    await this.pool.query(
-      `
+      const cooldownMs = config.echoSmsOtpResendCooldownSeconds * 1000;
+      if (options?.enforceResendCooldown) {
+        const last = await client.query(
+          `SELECT created_at FROM auth_phone_otp_challenges WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+          [userId],
+        );
+        const cr = last.rows[0]?.created_at;
+        if (cr && Date.now() - new Date(cr).getTime() < cooldownMs) {
+          throw new Error('SMS_OTP_COOLDOWN');
+        }
+      }
+
+      await client.query(
+        `
       UPDATE auth_phone_otp_challenges
       SET invalidated_at = NOW(), invalidation_reason = 'superseded'
       WHERE user_id = $1 AND consumed_at IS NULL AND invalidated_at IS NULL
       `,
-      [userId],
-    );
+        [userId],
+      );
 
-    const len = config.echoSmsOtpLength;
-    let plainCode = '';
-    for (let i = 0; i < len; i++) plainCode += String(randomInt(0, 10));
-    const codeHmac = smsOtpHmacHex(userId, target, plainCode);
-    const ttlMs = config.echoSmsOtpTtlMinutes * 60 * 1000;
-    const challengeId = nextEchoSnowflakeId();
-    const expiresAt = new Date(Date.now() + ttlMs).toISOString();
-    const maxAttempts = config.echoSmsOtpMaxAttempts;
-    await this.pool.query(
-      `
+      const len = config.echoSmsOtpLength;
+      let plainCode = '';
+      for (let i = 0; i < len; i++) plainCode += String(randomInt(0, 10));
+      const codeHmac = smsOtpHmacHex(userId, target, plainCode);
+      const ttlMs = config.echoSmsOtpTtlMinutes * 60 * 1000;
+      const challengeId = nextEchoSnowflakeId();
+      const expiresAt = new Date(Date.now() + ttlMs).toISOString();
+      const maxAttempts = config.echoSmsOtpMaxAttempts;
+      await client.query(
+        `
       INSERT INTO auth_phone_otp_challenges (id, user_id, phone_e164, code_hmac, expires_at, max_attempts)
       VALUES ($1, $2, $3, $4, $5, $6)
       `,
-      [challengeId, userId, target, codeHmac, expiresAt, maxAttempts],
-    );
-    return { plainCode, targetPhoneE164: target };
+        [challengeId, userId, target, codeHmac, expiresAt, maxAttempts],
+      );
+      await client.query('COMMIT');
+      return { plainCode, targetPhoneE164: target };
+    } catch (error) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* ignore rollback failures */
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async verifyPhoneOtpAndConsume(
@@ -1896,7 +1907,9 @@ export class PostgresAuthStore implements AuthStore {
     counter: number,
   ): Promise<void> {
     await this.pool.query(
-      `UPDATE auth_webauthn_credentials SET counter = $2 WHERE credential_id_b64 = $1`,
+      `UPDATE auth_webauthn_credentials
+       SET counter = GREATEST(counter, $2)
+       WHERE credential_id_b64 = $1`,
       [credentialIdB64, counter],
     );
   }

@@ -6,10 +6,10 @@ import {
   ListObjectsV2Command,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
-import { createReadStream, createWriteStream } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import { mkdir, readdir, rm, stat, copyFile } from 'node:fs/promises';
 import path from 'node:path';
-import { pipeline } from 'node:stream/promises';
+import { writeBoundedObjectToFile } from './boundedObjectDownload';
 import {
   createEchoS3UploadClient,
   getEchoS3UploadBucket,
@@ -39,22 +39,10 @@ function cacheControlForHlsObjectKey(key: string): string {
   return 'public, max-age=31536000, immutable';
 }
 
-async function writeS3BodyToFile(
-  body: unknown,
-  destPath: string,
-): Promise<void> {
-  if (!body || typeof body !== 'object' || !('pipe' in body)) {
-    throw new Error('invalid S3 object stream');
-  }
-  await pipeline(
-    body as NodeJS.ReadableStream,
-    createWriteStream(destPath, { flags: 'w' }),
-  );
-}
-
 export async function downloadEchoUploadObjectToFile(
   storageKey: string,
   destPath: string,
+  maxBytes: number,
 ): Promise<void> {
   if (echoUploadPrefersS3ObjectStore(storageKey)) {
     const client = createEchoS3UploadClient();
@@ -63,12 +51,12 @@ export async function downloadEchoUploadObjectToFile(
     const obj = await client.send(
       new GetObjectCommand({ Bucket: bucket, Key: storageKey }),
     );
-    await writeS3BodyToFile(obj.Body, destPath);
+    await writeBoundedObjectToFile(obj.Body, destPath, maxBytes);
     return;
   }
   const abs = resolveLocalUploadFilePath(storageKey);
   if (!abs) throw new Error('invalid local storage key');
-  await copyFile(abs, destPath);
+  await writeBoundedObjectToFile(createReadStream(abs), destPath, maxBytes);
 }
 
 export async function uploadLocalFileToEchoUploadKey(

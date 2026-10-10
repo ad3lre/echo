@@ -140,6 +140,8 @@ final class EchoSettingDetailModel {
     pendingNotificationSave?.cancel()
     guard notificationPreferencesLoaded else { return }
     let settings = notificationSettings
+    let token = accessToken
+    let account = EchoSoundPlayback.accountID
     guard settings != lastPersistedNotificationSettings else { return }
     pendingNotificationSave = Task {
       do {
@@ -155,7 +157,7 @@ final class EchoSettingDetailModel {
         for attempt in 0..<2 {
           do {
             try await client.saveNotificationPreferences(
-              settings, accessToken: accessToken)
+              settings, accessToken: token)
             lastError = nil
             break
           } catch {
@@ -164,6 +166,7 @@ final class EchoSettingDetailModel {
           }
         }
         if let lastError { throw lastError }
+        guard account == EchoSoundPlayback.accountID else { return }
         lastPersistedNotificationSettings = settings
         EchoSoundPlayback.cache(settings)
         EchoAppBadge.unreadBadgesEnabled = settings.unreadBadge
@@ -190,7 +193,7 @@ final class EchoSettingDetailModel {
   }
 
   func updateLocaleAndTimeZone(locale: String, timeZone: String?) {
-    guard ["en-US", "en-GB"].contains(locale) else { return }
+    guard ["en-US", "en-GB", "es"].contains(locale) else { return }
     Task {
       do {
         try await client.updateLocaleAndTimeZone(
@@ -221,12 +224,12 @@ final class EchoSettingDetailModel {
       do {
         notificationSettings = try await client.loadNotificationPreferences(
           accessToken: accessToken)
+        notificationPreferencesLoaded = true
         lastPersistedNotificationSettings = notificationSettings
         EchoSoundPlayback.cache(notificationSettings)
       } catch {
         presentFailure(error)
       }
-      notificationPreferencesLoaded = true
       await refreshSystemNotificationAuthorization()
     }
     if route == .friends {
@@ -246,7 +249,7 @@ final class EchoSettingDetailModel {
         let identity = try await client.loadAccountIdentity(accessToken: accessToken)
         accountState.apply(identity)
         if route == .timeLanguage {
-          if let value = identity.locale, ["en-US", "en-GB"].contains(value) {
+          if let value = identity.locale, ["en-US", "en-GB", "es"].contains(value) {
             syncLocale?(value)
           }
           if let value = identity.timeZone, TimeZone(identifier: value) != nil {

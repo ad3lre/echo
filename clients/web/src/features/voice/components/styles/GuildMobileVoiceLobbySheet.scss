@@ -1,0 +1,145 @@
+/* Sheet surface — glass + subtle border at top edge only */
+.vc-lobby-sheet {
+  background:
+    radial-gradient(
+      circle at 60% 0%,
+      var(--echo-palette-rgba-100-80-180-0p12-d448) 0%,
+      transparent 55%
+    ),
+    linear-gradient(
+      180deg,
+      var(--echo-palette-rgba-22-16-36-0p97-fb85) 0%,
+      var(--echo-palette-rgba-13-10-22-0p99-3bf9) 100%
+    );
+  backdrop-filter: blur(32px) saturate(1.4);
+  -webkit-backdrop-filter: blur(32px) saturate(1.4);
+  box-shadow:
+    0 -1px 0 0 var(--echo-palette-rgba-255-255-255-0p08-350e),
+    0 -24px 80px var(--echo-palette-rgba-0-0-0-0p7-d0e4);
+}
+
+:global([data-theme='light'] .vc-lobby-sheet) {
+  background:
+    radial-gradient(
+      circle at 56% 0%,
+      var(--echo-palette-rgba-99-102-241-0p09-1f45) 0%,
+      transparent 58%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--elevated) 96%, white 4%) 0%,
+      color-mix(in srgb, var(--elevated) 98%, transparent) 100%
+    );
+  box-shadow:
+    0 -1px 0 0 color-mix(in srgb, var(--border) 72%, transparent),
+    0 -20px 58px color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+:global([data-theme='dark'] .vc-lobby-glyph) {
+  filter: brightness(0) invert(1);
+}
+
+:global([data-theme='light'] .vc-lobby-glyph) {
+  filter: none;
+  opacity: 0.78;
+}
+
+/* Join button — vivid green glow pill */
+.vc-lobby-join-btn {
+  background: linear-gradient(
+    135deg,
+    var(--echo-palette-22c55e-8b8f) 0%,
+    var(--echo-palette-16a34a-3c5c) 100%
+  );
+  box-shadow:
+    0 0 0 1px var(--echo-palette-rgba-34-197-94-0p25-6c64),
+    0 6px 28px var(--echo-palette-rgba-34-197-94-0p3-1253),
+    inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p18-ff34);
+}
+.vc-lobby-join-btn:not(:disabled):hover {
+  background: linear-gradient(
+    135deg,
+    var(--echo-palette-4ade80-5f1c) 0%,
+    var(--echo-palette-22c55e-8b8f) 100%
+  );
+  box-shadow:
+    0 0 0 1px var(--echo-palette-rgba-74-222-128-0p35-da4d),
+    0 8px 32px var(--echo-palette-rgba-34-197-94-0p4-fbdc),
+    inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p22-b452);
+}
+.vc-lobby-join-btn:not(:disabled):active {
+  transform: scale(0.985);
+}
+
+.vc-lobby-mini-btn {
+  background: color-mix(in srgb, white 8%, transparent);
+  box-shadow: inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p1-d371);
+}
+.vc-lobby-mini-btn:hover {
+  background: color-mix(in srgb, white 13%, transparent);
+}
+.vc-lobby-mini-btn--active {
+  background: color-mix(
+    in srgb,
+    var(--echo-palette-rgb-244-63-94-84c0) 18%,
+    transparent
+  );
+  color: var(--echo-palette-rgb-254-205-211-0p95-83ee);
+}
+
+.vc-lobby-secondary-btn {
+  background: color-mix(in srgb, white 8%, transparent);
+  color: var(--muted);
+  box-shadow: inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p08-350e);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.vc-lobby-secondary-btn:hover {
+  background: color-mix(in srgb, white 14%, transparent);
+  color: var(--text);
+}
+
+.vc-lobby-secondary-btn:active {
+  transform: scale(0.99);
+}
+
+.vc-lobby-secondary-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+:global([data-theme='light'] .vc-lobby-secondary-btn) {
+  background: color-mix(in srgb, var(--elevated) 82%, white 18%);
+  color: var(--fg-soft);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 68%, transparent),
+    0 1px 0 color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+:global([data-theme='light'] .vc-lobby-secondary-btn:hover) {
+  background: color-mix(in srgb, var(--elevated) 74%, white 26%);
+  color: var(--fg);
+}
+
+/* Enter / leave */
+.guild-vc-lobby-enter-active {
+  transition: opacity 0.2s ease;
+}
+.guild-vc-lobby-leave-active {
+  transition: opacity 0.18s ease;
+}
+.guild-vc-lobby-enter-active .vc-lobby-sheet,
+.guild-vc-lobby-leave-active .vc-lobby-sheet {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.guild-vc-lobby-enter-from,
+.guild-vc-lobby-leave-to {
+  opacity: 0;
+}
+.guild-vc-lobby-enter-from .vc-lobby-sheet,
+.guild-vc-lobby-leave-to .vc-lobby-sheet {
+  transform: translateY(100%);
+}

@@ -146,7 +146,9 @@ export function patchImageSlotFill(
   const targetId = slotId.trim();
   if (!targetId) return { ok: false, error: 'slot_not_found' };
 
-  const prior = walkImageSlots(doc).find((s) => s.slotId === targetId);
+  const matches = walkImageSlots(doc).filter((s) => s.slotId === targetId);
+  if (matches.length > 1) return { ok: false, error: 'invalid_doc' };
+  const prior = matches[0];
   if (!prior) return { ok: false, error: 'slot_not_found' };
   if (isImageSlotFilled(prior)) {
     return { ok: false, error: 'slot_already_filled' };

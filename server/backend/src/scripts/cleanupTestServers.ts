@@ -1,178 +1,199 @@
 /**
- * List and delete E2E / integration-test guild servers and orphaned test accounts.
+ * Carefully delete explicitly selected old E2E / integration fixtures.
  *
- * Dry-run:  node --import tsx server/backend/src/scripts/cleanupTestServers.ts
- * Delete:   node --import tsx server/backend/src/scripts/cleanupTestServers.ts --apply
+ * Preview: export ECHO_TEST_CLEANUP_SERVER_IDS=... and/or
+ *         ECHO_TEST_CLEANUP_USER_IDS=..., then run this script.
+ * Apply:  repeat with --apply --confirm-plan=<hash printed by the preview>.
  */
-import type pg from 'pg';
-import { getPgPool } from '../db/pg';
+import { createHash } from 'node:crypto';
+import { config } from '../config';
+import { closePgPool, getPgPool } from '../db/pg';
 
 const APPLY = process.argv.includes('--apply');
+const confirmation = process.argv
+  .find((arg) => arg.startsWith('--confirm-plan='))
+  ?.slice('--confirm-plan='.length);
+const protectedServerIds = new Set(['1499816749103710208']);
 
-/** Official Echo server — never delete. */
-const PROTECTED_SERVER_IDS = new Set([
-  '1499816749103710208', // Echo official
-]);
-
-function writeln(line: string): void {
-  process.stdout.write(`${line}\n`);
+function readIds(name: string): string[] {
+  return [
+    ...new Set(
+      (process.env[name] ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
-function isTestServerName(name: string): boolean {
-  const n = name.trim();
-  if (!n || n === 'Echo') return false;
-  return (
-    /^E2EE\b/i.test(n) ||
-    /^Voice (MLS|E2EE)/i.test(n) ||
-    /^live race/i.test(n) ||
-    /^dbg\d*$/i.test(n) ||
-    /^LayoutDbg$/i.test(n) ||
-    /^Layout\b/i.test(n) ||
-    /^Slot\b/i.test(n) ||
-    /^mls-srv$/i.test(n) ||
-    /^ve2mls-stale$/i.test(n) ||
-    /^rff$/i.test(n) ||
-    /race server/i.test(n) ||
-    /^e2e/i.test(n) ||
-    /E2EE/i.test(n) ||
-    /^encrypted-vc/i.test(n)
-  );
+function planHash(serverIds: string[], userIds: string[]): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        serverIds: [...serverIds].sort(),
+        userIds: [...userIds].sort(),
+      }),
+    )
+    .digest('hex');
 }
 
-function isTestUsername(username: string): boolean {
-  const u = username.trim();
-  return (
-    /^(e2e|e2evc|e2eui|e2ecl|dbg|liverace|ve2mls|ve2race|rff_|layout_|slot_|mls_|csrf_)/i.test(
-      u,
-    ) ||
-    /^ve2mls_(owner|peer|ve2mls_)/i.test(u) ||
-    /^rff_rff_owner_/i.test(u)
-  );
-}
-
-type TestServerRow = {
-  id: string;
-  name: string;
-  owner_id: string;
-  owner_username: string | null;
-};
-
-async function listTestServers(pool: pg.Pool): Promise<TestServerRow[]> {
-  const servers = await pool.query<TestServerRow>(`
-    SELECT s.id, s.name, s.owner_id, u.username AS owner_username
-    FROM echo_servers s
-    LEFT JOIN auth_users u ON u.id = s.owner_id
-    ORDER BY s.created_at DESC
-  `);
-  return servers.rows.filter((s) => {
-    if (PROTECTED_SERVER_IDS.has(s.id)) return false;
-    if (isTestServerName(s.name)) return true;
-    return s.owner_username != null && isTestUsername(s.owner_username);
-  });
-}
-
-async function listTestUsers(
-  pool: pg.Pool,
-): Promise<Array<{ id: string; username: string }>> {
-  const users = await pool.query<{ id: string; username: string }>(`
-    SELECT id, username FROM auth_users
-    WHERE username ~* '^(e2e|e2evc|e2eui|e2ecl|dbg|liverace|ve2mls|ve2race|rff_|layout_|slot_|mls_|csrf_)'
-       OR username ~* '^ve2mls_(owner|peer|ve2mls_)'
-       OR username ~* '^rff_rff_owner_'
-    ORDER BY created_at DESC
-  `);
-  return users.rows;
-}
-
-async function deleteTestServers(
-  pool: pg.Pool,
-  toDelete: TestServerRow[],
-): Promise<number> {
-  let deleted = 0;
-  for (const s of toDelete) {
-    const del = await pool.query(`DELETE FROM echo_servers WHERE id = $1`, [
-      s.id,
-    ]);
-    if (del.rowCount) {
-      deleted += 1;
-      writeln(`deleted server ${s.id} ("${s.name}")`);
-    }
+function refuseProductionDatabase(): void {
+  const raw = process.env.DATABASE_URL ?? '';
+  let databaseName = '';
+  let host = '';
+  try {
+    const parsed = new URL(raw);
+    databaseName = parsed.pathname.toLowerCase();
+    host = parsed.hostname.toLowerCase();
+  } catch {
+    throw new Error('DATABASE_URL must be a valid URL');
   }
-  return deleted;
-}
-
-async function deleteTestUsers(
-  pool: pg.Pool,
-  users: Array<{ id: string; username: string }>,
-): Promise<number> {
-  let deleted = 0;
-  for (const u of users) {
-    if (!isTestUsername(u.username)) continue;
-    const owned = await pool.query<{ id: string }>(
-      `SELECT id FROM echo_servers WHERE owner_id = $1`,
-      [u.id],
-    );
-    const blocking = owned.rows.filter((r) => !PROTECTED_SERVER_IDS.has(r.id));
-    if (blocking.length > 0) {
-      writeln(
-        `skip user ${u.username} — still owns ${blocking.length} server(s)`,
-      );
-      continue;
-    }
-    await pool.query(`DELETE FROM echo_server_members WHERE user_id = $1`, [
-      u.id,
-    ]);
-    await pool.query(`DELETE FROM echo_voice_participants WHERE user_id = $1`, [
-      u.id,
-    ]);
-    const del = await pool.query(`DELETE FROM auth_users WHERE id = $1`, [
-      u.id,
-    ]);
-    if (del.rowCount) {
-      deleted += 1;
-      writeln(`deleted user ${u.id} (${u.username})`);
-    }
+  if (
+    config.isProduction ||
+    process.env.NODE_ENV === 'production' ||
+    /(^|[-_.])(prod|production)([-_.]|$)/.test(`${host}${databaseName}`)
+  ) {
+    throw new Error('Refusing cleanup against a production-shaped database');
   }
-  return deleted;
 }
 
 async function main(): Promise<void> {
-  const pool = getPgPool();
-  if (!pool) {
-    console.error('DATABASE_URL not configured — cannot connect.');
-    process.exit(1);
-  }
-
-  const toDelete = await listTestServers(pool);
-  const users = await listTestUsers(pool);
-
-  writeln(APPLY ? 'DELETE mode' : 'DRY RUN (pass --apply to delete)');
-  writeln(`test servers to remove: ${toDelete.length}`);
-  for (const s of toDelete) {
-    writeln(
-      `  - ${s.id}  "${s.name}"  owner=${s.owner_username ?? s.owner_id}`,
+  refuseProductionDatabase();
+  const serverIds = readIds('ECHO_TEST_CLEANUP_SERVER_IDS');
+  const userIds = readIds('ECHO_TEST_CLEANUP_USER_IDS');
+  if (serverIds.length + userIds.length === 0) {
+    throw new Error(
+      'Supply exact server/user IDs through the cleanup manifest environment variables',
     );
   }
-  writeln(`test users to consider: ${users.length}`);
-
-  if (!APPLY) {
-    for (const u of users) {
-      writeln(`  - ${u.id}  ${u.username}`);
-    }
-    await pool.end();
-    process.exit(0);
+  if (serverIds.some((id) => protectedServerIds.has(id))) {
+    throw new Error('Cleanup manifest contains a protected server ID');
   }
 
-  const deletedServers = await deleteTestServers(pool, toDelete);
-  const deletedUsers = await deleteTestUsers(pool, users);
-  writeln(
-    `\nDone: ${deletedServers} servers, ${deletedUsers} test users removed.`,
-  );
-  await pool.end();
-  process.exit(0);
+  const pool = getPgPool();
+  if (!pool) throw new Error('DATABASE_URL is not configured');
+  const expectedHash = planHash(serverIds, userIds);
+  const [servers, users] = await Promise.all([
+    serverIds.length
+      ? pool.query<{
+          id: string;
+          name: string;
+          owner_id: string;
+          created_at: Date;
+        }>(
+          `SELECT id, name, owner_id, created_at FROM echo_servers
+           WHERE id = ANY($1::text[]) AND created_at < NOW() - INTERVAL '1 day'
+           ORDER BY id`,
+          [serverIds],
+        )
+      : Promise.resolve({
+          rows: [] as {
+            id: string;
+            name: string;
+            owner_id: string;
+            created_at: Date;
+          }[],
+        }),
+    userIds.length
+      ? pool.query<{ id: string; username: string; created_at: Date }>(
+          `SELECT id, username, created_at FROM auth_users
+           WHERE id = ANY($1::text[]) AND created_at < NOW() - INTERVAL '1 day'
+           ORDER BY id`,
+          [userIds],
+        )
+      : Promise.resolve({
+          rows: [] as { id: string; username: string; created_at: Date }[],
+        }),
+  ]);
+  if (
+    servers.rows.length !== serverIds.length ||
+    users.rows.length !== userIds.length
+  ) {
+    throw new Error('Every manifest ID must exist and be at least one day old');
+  }
+
+  process.stdout.write(`${APPLY ? 'DELETE PLAN' : 'DRY RUN'}\n`);
+  for (const server of servers.rows) {
+    process.stdout.write(
+      `server ${server.id} ${JSON.stringify(server.name)} owner=${server.owner_id}\n`,
+    );
+  }
+  for (const user of users.rows) {
+    process.stdout.write(`user ${user.id} ${JSON.stringify(user.username)}\n`);
+  }
+  process.stdout.write(`plan hash: ${expectedHash}\n`);
+  if (!APPLY) {
+    await pool.end();
+    return;
+  }
+  if (confirmation !== expectedHash) {
+    throw new Error(
+      'Apply requires --confirm-plan with the hash from the reviewed dry run',
+    );
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const locked = await client.query(
+      `SELECT id FROM echo_servers
+       WHERE id = ANY($1::text[]) AND created_at < NOW() - INTERVAL '1 day'
+       FOR UPDATE`,
+      [serverIds],
+    );
+    if (locked.rows.length !== serverIds.length)
+      throw new Error('Server manifest changed after preview');
+    const lockedUsers = await client.query(
+      `SELECT id FROM auth_users
+       WHERE id = ANY($1::text[]) AND created_at < NOW() - INTERVAL '1 day'
+       FOR UPDATE`,
+      [userIds],
+    );
+    if (lockedUsers.rows.length !== userIds.length)
+      throw new Error('User manifest changed after preview');
+    if (userIds.length) {
+      const stillOwned = await client.query(
+        `SELECT id FROM echo_servers
+         WHERE owner_id = ANY($1::text[]) AND NOT (id = ANY($2::text[]))
+         FOR UPDATE`,
+        [userIds, serverIds],
+      );
+      if (stillOwned.rows.length)
+        throw new Error(
+          'A selected user still owns a server outside this manifest',
+        );
+    }
+    if (serverIds.length)
+      await client.query(
+        `DELETE FROM echo_servers WHERE id = ANY($1::text[])`,
+        [serverIds],
+      );
+    if (userIds.length) {
+      await client.query(
+        `DELETE FROM echo_server_members WHERE user_id = ANY($1::text[])`,
+        [userIds],
+      );
+      await client.query(
+        `DELETE FROM echo_voice_participants WHERE user_id = ANY($1::text[])`,
+        [userIds],
+      );
+      await client.query(`DELETE FROM auth_users WHERE id = ANY($1::text[])`, [
+        userIds,
+      ]);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  void closePgPool().finally(() => {
+    process.exitCode = 1;
+  });
 });

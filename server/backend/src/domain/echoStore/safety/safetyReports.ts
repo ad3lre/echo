@@ -41,38 +41,23 @@ function normalizeCategory(category?: string): EchoReportCategory {
   return normalizeEchoReportCategory(category);
 }
 
-async function hasRecentUserReport(
-  pool: pg.Pool,
+async function reserveReportCooldown(
+  client: pg.PoolClient,
+  reportKind: 'user' | 'message',
   reporterId: string,
-  targetId: string,
+  targetKey: string,
 ): Promise<boolean> {
-  const r = await pool.query(
-    `
-    SELECT 1 FROM echo_user_reports
-    WHERE reporter_id = $1 AND target_id = $2
-      AND created_at > NOW() - INTERVAL '24 hours'
-    LIMIT 1
-    `,
-    [reporterId, targetId],
+  const r = await client.query(
+    `INSERT INTO echo_safety_report_cooldowns
+       (report_kind, reporter_id, target_key, last_reported_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (report_kind, reporter_id, target_key) DO UPDATE
+       SET last_reported_at = NOW()
+       WHERE echo_safety_report_cooldowns.last_reported_at <= NOW() - INTERVAL '24 hours'
+     RETURNING target_key`,
+    [reportKind, reporterId, targetKey],
   );
-  return r.rows.length > 0;
-}
-
-async function hasRecentMessageReport(
-  pool: pg.Pool,
-  reporterId: string,
-  messageId: string,
-): Promise<boolean> {
-  const r = await pool.query(
-    `
-    SELECT 1 FROM echo_message_reports
-    WHERE reporter_id = $1 AND message_id = $2
-      AND created_at > NOW() - INTERVAL '24 hours'
-    LIMIT 1
-    `,
-    [reporterId, messageId],
-  );
-  return r.rows.length > 0;
+  return (r.rowCount ?? 0) > 0;
 }
 
 function buildContentSnapshot(row: {
@@ -119,9 +104,6 @@ export async function insertEchoUserReport(
   if (!targetId || reporterId === targetId) {
     return { inserted: false, duplicate: true };
   }
-  if (await hasRecentUserReport(pool, reporterId, targetId)) {
-    return { inserted: false, duplicate: true };
-  }
   const id = nextEchoSnowflakeId();
   const category = normalizeCategory(input.category);
   const reason = trimReason(input.reason);
@@ -140,24 +122,38 @@ export async function insertEchoUserReport(
         ? input.serverId.trim()
         : null;
 
-  await pool.query(
-    `
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (!(await reserveReportCooldown(client, 'user', reporterId, targetId))) {
+      await client.query('ROLLBACK');
+      return { inserted: false, duplicate: true };
+    }
+    await client.query(
+      `
     INSERT INTO echo_user_reports (
       id, reporter_id, target_id, reason, category, message_id, channel_id, server_id
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `,
-    [
-      id,
-      reporterId,
-      targetId,
-      reason,
-      category,
-      messageId,
-      channelId,
-      serverId,
-    ],
-  );
-  return { inserted: true, id };
+      `,
+      [
+        id,
+        reporterId,
+        targetId,
+        reason,
+        category,
+        messageId,
+        channelId,
+        serverId,
+      ],
+    );
+    await client.query('COMMIT');
+    return { inserted: true, id };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export type InsertEchoMessageReportResult =
@@ -189,10 +185,6 @@ export async function insertEchoMessageReport(
   if (authorId === reporterId) {
     return { inserted: false, error: 'self_report' };
   }
-  if (await hasRecentMessageReport(pool, reporterId, messageId)) {
-    return { inserted: false, duplicate: true };
-  }
-
   const serverId = await getEchoChannelServerId(pool, channelId);
   const id = nextEchoSnowflakeId();
   const category = normalizeCategory(input.category);
@@ -200,25 +192,41 @@ export async function insertEchoMessageReport(
   const contentSnapshot = buildContentSnapshot(row);
   const attachmentsSnapshot = buildAttachmentsSnapshot(row.attachments);
 
-  await pool.query(
-    `
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (
+      !(await reserveReportCooldown(client, 'message', reporterId, messageId))
+    ) {
+      await client.query('ROLLBACK');
+      return { inserted: false, duplicate: true };
+    }
+    await client.query(
+      `
     INSERT INTO echo_message_reports (
       id, reporter_id, message_id, channel_id, server_id, author_id,
       category, reason, content_snapshot, attachments_snapshot
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
-    `,
-    [
-      id,
-      reporterId,
-      messageId,
-      channelId,
-      serverId,
-      authorId,
-      category,
-      reason,
-      contentSnapshot,
-      JSON.stringify(attachmentsSnapshot),
-    ],
-  );
-  return { inserted: true, id };
+      `,
+      [
+        id,
+        reporterId,
+        messageId,
+        channelId,
+        serverId,
+        authorId,
+        category,
+        reason,
+        contentSnapshot,
+        JSON.stringify(attachmentsSnapshot),
+      ],
+    );
+    await client.query('COMMIT');
+    return { inserted: true, id };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }

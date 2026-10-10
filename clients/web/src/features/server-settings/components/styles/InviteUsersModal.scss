@@ -1,0 +1,51 @@
+.modal-overlay-bg {
+  background-color: var(--vue-auto-011);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+}
+
+.real-glass-modal {
+  background: var(--echo-modal-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-3);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+}
+
+.invite-section-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.invite-friend-btn--default {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.invite-friend-btn--default:hover:not(:disabled) {
+  background: var(--elevated);
+}
+
+.invite-friend-btn--invited {
+  color: color-mix(
+    in srgb,
+    var(--echo-palette-rgb-110-231-183-ab53) 90%,
+    var(--text)
+  );
+  background: color-mix(
+    in srgb,
+    var(--echo-palette-rgb-16-185-129-eeb0) 24%,
+    transparent
+  );
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--echo-palette-rgb-16-185-129-eeb0) 36%,
+      var(--border)
+    );
+}

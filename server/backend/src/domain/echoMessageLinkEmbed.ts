@@ -5,14 +5,24 @@
 
 import type pg from 'pg';
 import type { Embed } from '../../../../contracts/types';
-import {
-  buildEchoJumpErrorEmbed,
-  type EchoJumpEmbedErrorCode,
-} from '../../../../contracts/echoJumpEmbedErrors';
-import { parseEchoMessageJumpPath } from '../../../../contracts/echoMessageJumpPath';
-import { canUserAccessChannel, getEchoMessageByIdInChannel } from './echoStore';
+import { parseEchoMessageJumpPath as parseJumpPath } from '../../../../contracts/echoMessageJumpPath';
+import { getInstancePolicy } from '../config/instancePolicy';
 
-export { parseEchoMessageJumpPath } from '../../../../contracts/echoMessageJumpPath';
+/** Remove content from historical shared previews as they leave persistence. */
+export function neutralizeSharedJumpEmbeds(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map((embed: unknown) => {
+    if (!embed || typeof embed !== 'object' || !('echoJump' in embed))
+      return embed;
+    const { echoJump, url } = embed as { echoJump: unknown; url?: unknown };
+    return { url, echoJump, provider: 'Echo', title: 'Message link' };
+  });
+}
+
+export function parseEchoMessageJumpPath(url: string) {
+  const { app, api } = getInstancePolicy().general.publicUrls;
+  return parseJumpPath(url, [app, api]);
+}
 export {
   buildEchoJumpErrorEmbed,
   buildEchoJumpErrorEmbedFromUrl,
@@ -22,65 +32,18 @@ export {
   type EchoJumpEmbedErrorCode,
 } from '../../../../contracts/echoJumpEmbedErrors';
 
-function truncatePlain(text: string, max: number): string {
-  const t = text.replace(/\s+/g, ' ').trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
-}
-
-/**
- * When the pathname matches `/channels/:a/:b`, treat as a message jump link only if
- * a message with id `b` exists and belongs to channel `a`.
- */
+/** Shared cards contain only IDs from the URL; viewers fetch authorized previews. */
 export async function buildEchoJumpEmbedFromUrl(
-  pool: pg.Pool,
-  viewerUserId: string,
+  _pool: pg.Pool,
+  _viewerUserId: string,
   originalUrl: string,
 ): Promise<Embed | null> {
   const parsed = parseEchoMessageJumpPath(originalUrl);
   if (!parsed) return null;
-
-  const msg = await getEchoMessageByIdInChannel(
-    pool,
-    parsed.messageId,
-    parsed.channelId,
-  );
-  if (!msg) {
-    return buildEchoJumpErrorEmbed(originalUrl, parsed, 'not_found');
-  }
-
-  const ok = await canUserAccessChannel(pool, viewerUserId, msg.channelId);
-  if (!ok) {
-    return buildEchoJumpErrorEmbed(originalUrl, parsed, 'forbidden');
-  }
-
-  const [chRow, authorRow] = await Promise.all([
-    pool.query<{ name: string }>(
-      `SELECT name FROM echo_channels WHERE id = $1 LIMIT 1`,
-      [msg.channelId],
-    ),
-    pool.query<{ n: string }>(
-      `
-      SELECT COALESCE(NULLIF(TRIM(display_name), ''), NULLIF(TRIM(username), ''), 'Unknown') AS n
-      FROM auth_users WHERE id = $1 LIMIT 1
-      `,
-      [msg.authorId],
-    ),
-  ]);
-
-  const channelName = chRow.rows[0]?.name?.trim() || 'channel';
-  const authorName = authorRow.rows[0]?.n?.trim() || 'Unknown';
-  const desc = msg.content?.trim() ? truncatePlain(msg.content, 200) : '—';
-
-  const embed: Embed = {
+  return {
     url: originalUrl,
     provider: 'Echo',
-    title: `#${channelName}`,
-    description: desc,
-    author: { name: authorName },
-    timestamp: msg.timestamp,
-    color: 0x5865f2,
-    echoJump: { channelId: msg.channelId, messageId: msg.id },
+    title: 'Message link',
+    echoJump: parsed,
   };
-  return embed;
 }

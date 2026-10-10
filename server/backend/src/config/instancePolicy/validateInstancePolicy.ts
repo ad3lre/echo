@@ -7,6 +7,7 @@ import {
   MAX_REGISTER_USERNAME_LENGTH,
   MIN_REGISTER_USERNAME_LENGTH,
 } from '../../../../../contracts/usernamePolicy';
+import { instancePolicySchemaIssues } from './instancePolicySchema';
 
 const RATE_WINDOWS = new Set<RateLimitTimeWindow>([
   '1 minute',
@@ -111,7 +112,8 @@ export function validateInstancePolicy(
     turnstileSecretConfigured: false,
   },
 ): void {
-  const issues: string[] = [];
+  const issues = instancePolicySchemaIssues(policy);
+  if (issues.length) throw new InstancePolicyValidationError(issues);
 
   pushIf(
     !policy.general.instanceName.trim(),

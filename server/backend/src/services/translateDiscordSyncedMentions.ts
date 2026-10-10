@@ -1,7 +1,6 @@
 import type pg from 'pg';
 import type { MentionEntity } from '../../../../contracts/types';
 import { findAllIdTokenMatches } from '../../../../contracts/idTokens';
-import { addEchoServerMember } from '../domain/echoStore/servers/servers';
 
 export type DiscordSyncedMentionMaps = {
   discordToEchoUser: ReadonlyMap<string, string>;
@@ -354,8 +353,8 @@ function discordUserIdsInContent(content: string): string[] {
 }
 
 /**
- * Load Discord→Echo maps, rewrite mention tokens, and ensure mentioned users are
- * server members so mention entities survive channel-context filtering.
+ * Load Discord→Echo maps and rewrite mention tokens. Resolving presentation
+ * content must never create server membership as a side effect.
  */
 export async function resolveDiscordSyncedContentMentions(
   pool: pg.Pool,
@@ -393,17 +392,6 @@ export async function resolveDiscordSyncedContentMentions(
     echoChannelName,
     echoRoleName,
   });
-
-  const userMentionIds = [
-    ...new Set(
-      (translated.mentions ?? [])
-        .filter((m) => m.kind === 'user' && m.userId)
-        .map((m) => String(m.userId)),
-    ),
-  ];
-  await Promise.all(
-    userMentionIds.map((uid) => addEchoServerMember(pool, serverId, uid)),
-  );
 
   return translated;
 }

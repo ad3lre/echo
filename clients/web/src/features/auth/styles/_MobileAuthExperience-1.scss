@@ -1,0 +1,333 @@
+.mobile-auth {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 100dvh;
+  /**
+   * Subtle nested gradient (works in both light and dark themes via mix).
+   * The hero glow + logo are layered above this.
+   */
+  background:
+    radial-gradient(
+      120% 75% at 50% 0%,
+      color-mix(in srgb, var(--accent) 22%, var(--bg)) 0%,
+      var(--bg) 55%
+    ),
+    var(--bg);
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.mobile-auth__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.mobile-auth__bg-logo {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: clamp(34rem, 172vw, 74rem);
+  max-width: none;
+  height: auto;
+  transform: translate(-50%, -50%) rotate(-7deg);
+  opacity: 0.2;
+  filter: blur(20px) saturate(1.24);
+  mix-blend-mode: screen;
+}
+.mobile-auth__bg-tint {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 50% 8%,
+      color-mix(in srgb, var(--accent) 38%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      color-mix(in srgb, var(--echo-palette-4c1d95-4853) 32%, transparent) 0%,
+      transparent 60%
+    );
+  opacity: 0.7;
+}
+.mobile-auth__bg-shadow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg) 8%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 42%, transparent) 48%,
+    color-mix(in srgb, var(--bg) 92%, transparent) 92%,
+    var(--bg) 100%
+  );
+}
+.mobile-auth__page {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: min(100%, 27rem);
+  min-height: 0;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+.mobile-auth__page--welcome {
+  justify-content: center;
+  gap: 1.25rem;
+}
+.mobile-auth__page--form {
+  justify-content: flex-start;
+  gap: 0;
+}
+/* ── Brand head ─────────────────────────────────────────────────────────── */
+/* ── Hero ───────────────────────────────────────────────────────────────── */
+.mobile-auth__hero {
+  text-align: center;
+}
+.mobile-auth__title {
+  margin: 0;
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--text);
+  text-shadow: 0 6px 36px color-mix(in srgb, var(--bg) 55%, transparent);
+}
+.mobile-auth__subtitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  margin: 0.5rem 0 0 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--text) 64%, transparent);
+}
+.mobile-auth__subtitle-logo {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 0.42rem;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 36%, transparent);
+}
+/* ── Centre stack ───────────────────────────────────────────────────────── */
+.mobile-auth__center {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+/* OAuth chips */
+.mobile-auth__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.mobile-auth__chip {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 3.1rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 1rem;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+  backdrop-filter: blur(14px);
+
+  &:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+}
+.mobile-auth__chip--discord {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--echo-palette-5865f2-c240) 34%, white 4%) 0%,
+      color-mix(in srgb, var(--echo-palette-5865f2-c240) 18%, transparent) 56%,
+      color-mix(in srgb, var(--echo-palette-2b2149-f100) 54%, transparent) 100%
+    ),
+    color-mix(in srgb, var(--echo-palette-5865f2-c240) 18%, transparent);
+  color: color-mix(in srgb, white 92%, var(--echo-palette-5865f2-c240));
+  box-shadow:
+    0 12px 30px
+      color-mix(in srgb, var(--echo-palette-5865f2-c240) 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
+    inset 0 -16px 34px color-mix(in srgb, black 18%, transparent);
+}
+.mobile-auth__chip--google {
+  background:
+    linear-gradient(
+      135deg,
+      white 0%,
+      color-mix(in srgb, white 94%, var(--echo-palette-fbbc05-4641) 6%) 42%,
+      color-mix(in srgb, white 90%, var(--echo-palette-4285f4-ae17) 10%) 100%
+    ),
+    color-mix(in srgb, white 94%, var(--bg) 6%);
+  color: var(--echo-palette-202124-b3fd);
+  box-shadow:
+    0 12px 28px color-mix(in srgb, black 20%, transparent),
+    inset 0 1px 0 white,
+    inset 0 -14px 30px
+      color-mix(in srgb, var(--echo-palette-dfe4ea-bc7f) 42%, transparent);
+}
+.mobile-auth__chip--apple {
+  background: linear-gradient(
+    135deg,
+    var(--echo-palette-1c1c1e-95b1) 0%,
+    var(--echo-palette-000-81ef) 100%
+  );
+  color: var(--echo-palette-fff-e08d);
+  box-shadow:
+    0 12px 28px color-mix(in srgb, black 30%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 14%, transparent);
+}
+.mobile-auth__chip-icon {
+  flex-shrink: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.mobile-auth__chip-icon--discord {
+  color: var(--echo-palette-5865f2-c240);
+}
+.mobile-auth__chip-icon--apple {
+  color: var(--echo-palette-fff-e08d);
+}
+.mobile-auth__chip-text {
+  flex: 1 1 auto;
+  text-align: left;
+}
+/* Primary + ghost actions */
+.mobile-auth__primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 3.1rem;
+  margin-top: 0.35rem;
+  padding: 0.85rem 1.2rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  background: color-mix(in srgb, var(--surface) 75%, var(--bg));
+  color: var(--text);
+  font-size: 0.98rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+.mobile-auth__primary--echo {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--surface) 82%, var(--accent) 10%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
+}
+.mobile-auth__primary-logo {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.38rem;
+}
+.mobile-auth__primary--filled {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--accent);
+  color: var(--accent-contrast-fg);
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 35%, transparent);
+
+  &:active:not(:disabled) {
+    filter: brightness(0.96);
+  }
+}
+.mobile-auth__ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--text) 76%, transparent);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:active:not(:disabled) {
+    color: var(--text);
+  }
+}
+/* Footer */
+.mobile-auth__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-top: 0.25rem;
+}
+.mobile-auth__legal,
+.mobile-auth__support {
+  margin: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--text) 52%, transparent);
+}
+.mobile-auth__legal-link,
+.mobile-auth__support-link,
+.mobile-auth__inline-link {
+  border: none;
+  background: none;
+  padding: 0 0.15rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* ── Form pages ─────────────────────────────────────────────────────────── */
+.mobile-auth__top-nav {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr 2.5rem;
+  align-items: center;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+.mobile-auth__top-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0;
+  color: var(--text);
+}

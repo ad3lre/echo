@@ -198,6 +198,7 @@ export const MAX_DATA_URL_BYTES = 10 * 1024 * 1024;
 /** Max length for normal https(s) media URLs (object storage + external GIF CDNs). */
 export const MAX_HTTPS_MEDIA_URL_LENGTH = 8192;
 const MAX_ATTACHMENTS_PER_MESSAGE = 10;
+export const MAX_MENTIONS_PER_MESSAGE = 100;
 const ALLOWED_DATA_URL_MIME_TYPES = new Set([
   'image/png',
   'image/jpeg',
@@ -220,7 +221,8 @@ export function sanitizeMentions(
   mentions: unknown,
   content: string,
 ): MentionEntity[] | undefined {
-  if (!Array.isArray(mentions)) return undefined;
+  if (!Array.isArray(mentions) || mentions.length > MAX_MENTIONS_PER_MESSAGE)
+    return undefined;
 
   const sanitized = mentions
     .filter((mention): mention is IncomingMention => {
@@ -273,7 +275,14 @@ export function sanitizeMentions(
       ...(mention.roleId ? { roleId: mention.roleId.trim() } : {}),
     }));
 
-  return sanitized.length ? sanitized : undefined;
+  sanitized.sort((a, b) => a.start - b.start || a.end - b.end);
+  const nonOverlapping: MentionEntity[] = [];
+  for (const mention of sanitized) {
+    const previous = nonOverlapping[nonOverlapping.length - 1];
+    if (previous && mention.start < previous.end) continue;
+    nonOverlapping.push(mention);
+  }
+  return nonOverlapping.length ? nonOverlapping : undefined;
 }
 
 /** Returns definition suitable for JSONB storage (no vote tallies). */
@@ -525,6 +534,14 @@ export function validateMessagePayload(payload: unknown):
     forwardMessageId?: unknown;
     encryption?: unknown;
   };
+  if (mentions !== undefined && mentions !== null) {
+    if (
+      !Array.isArray(mentions) ||
+      mentions.length > MAX_MENTIONS_PER_MESSAGE
+    ) {
+      return { ok: false, error: 'Invalid message: too many mentions' };
+    }
+  }
 
   let correlationId: string | undefined;
   if (typeof rawCorr === 'string') {

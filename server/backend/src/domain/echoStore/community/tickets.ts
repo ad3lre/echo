@@ -2,7 +2,6 @@ import type pg from 'pg';
 import { nextEchoSnowflakeId } from '../../echoSnowflake';
 import { invalidateEchoPermissionCacheForServer } from '../../permissions/echoPermissionCache';
 import { invalidateChannelServerId } from '../../echoChannelServerCache';
-import { createEchoChannel } from '../channels/categoriesWorkspace';
 import { getMergedRolePermissions } from '../roles/permissions';
 import { isEchoServerOwner } from '../members/access';
 import type {
@@ -163,51 +162,85 @@ export async function createEchoTicket(
     return { ok: false, reason: 'no_ticket_category' };
   }
 
-  const openCount = await pool.query(
-    `SELECT COUNT(*)::int AS cnt FROM echo_tickets
-     WHERE server_id = $1 AND author_id = $2 AND status IN ('open', 'in_progress')`,
-    [serverId, authorId],
-  );
-  if ((openCount.rows[0]?.cnt ?? 0) >= config.maxOpenPerUser) {
-    return { ok: false, reason: 'max_open_reached' };
-  }
-
+  const client = await pool.connect();
   const ticketId = nextEchoSnowflakeId();
-  const ticketNumber = await getNextTicketNumber(pool, serverId);
-  const channelName = buildTicketChannelName(ticketNumber, input.subject);
+  const channelId = nextEchoSnowflakeId();
+  try {
+    await client.query('BEGIN');
+    // Ticket numbering is server-wide; this lock also serializes each author's
+    // open-ticket count check until their ticket row commits.
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext('echo_ticket_create'), hashtext($1))`,
+      [serverId],
+    );
+    const category = await client.query(
+      `SELECT 1 FROM echo_categories WHERE id = $1 AND server_id = $2`,
+      [config.ticketCategoryId, serverId],
+    );
+    if (category.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'channel_create_failed' };
+    }
+    const openCount = await client.query(
+      `SELECT COUNT(*)::int AS cnt FROM echo_tickets
+       WHERE server_id = $1 AND author_id = $2 AND status IN ('open', 'in_progress')`,
+      [serverId, authorId],
+    );
+    if (Number(openCount.rows[0]?.cnt ?? 0) >= config.maxOpenPerUser) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'max_open_reached' };
+    }
 
-  const channelId = await createEchoChannel(
-    pool,
-    serverId,
-    channelName,
-    'text',
-    config.ticketCategoryId,
-  );
-  if (channelId === 'invalid_category') {
-    return { ok: false, reason: 'channel_create_failed' };
-  }
-
-  await setupTicketChannelPermissions(
-    pool,
-    serverId,
-    channelId,
-    authorId,
-    config.handlerRoleIds,
-  );
-
-  await pool.query(
-    `INSERT INTO echo_tickets
-       (id, server_id, channel_id, author_id, subject, category, status)
-     VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
-    [
-      ticketId,
+    const ticketNumber = await getNextTicketNumber(client, serverId);
+    const channelName = buildTicketChannelName(ticketNumber, input.subject);
+    const position = await client.query(
+      `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_channels WHERE server_id = $1 AND category_id = $2`,
+      [serverId, config.ticketCategoryId],
+    );
+    await client.query(
+      `INSERT INTO echo_channels (
+         id, server_id, name, type, category_id, position, icon_key,
+         parent_channel_id, forum_available_tags, forum_post_tag_ids,
+         forum_post_pinned, forum_post_locked, forum_post_archived_at,
+         forum_post_creator_user_id, discord_voice_mirror_only
+       ) VALUES ($1, $2, $3, 'text', $4, $5, NULL, NULL, NULL, NULL, false, false, NULL, NULL, false)`,
+      [
+        channelId,
+        serverId,
+        channelName,
+        config.ticketCategoryId,
+        Number(position.rows[0]?.p ?? 0),
+      ],
+    );
+    await setupTicketChannelPermissions(
+      client,
       serverId,
       channelId,
       authorId,
-      input.subject,
-      input.category ?? null,
-    ],
-  );
+      config.handlerRoleIds,
+    );
+    await client.query(
+      `INSERT INTO echo_tickets
+         (id, server_id, channel_id, author_id, subject, category, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
+      [
+        ticketId,
+        serverId,
+        channelId,
+        authorId,
+        input.subject,
+        input.category ?? null,
+      ],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  invalidateEchoPermissionCacheForServer(serverId);
+  invalidateChannelServerId(channelId);
 
   const ticket: EchoTicket = {
     id: ticketId,
@@ -286,38 +319,69 @@ export async function updateEchoTicketStatus(
   actorId: string,
   newStatus: EchoTicketStatus,
 ): Promise<UpdateEchoTicketResult> {
-  const ticket = await getEchoTicketById(pool, ticketId);
-  if (!ticket || ticket.serverId !== serverId)
-    return { ok: false, reason: 'not_found' };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query(
+      `SELECT * FROM echo_tickets WHERE id = $1 AND server_id = $2 FOR UPDATE`,
+      [ticketId, serverId],
+    );
+    const row = current.rows[0] as Record<string, unknown> | undefined;
+    if (!row) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'not_found' };
+    }
+    const ticket = rowToTicket(row);
+    const validTransitions: Record<EchoTicketStatus, EchoTicketStatus[]> = {
+      open: ['in_progress', 'resolved', 'closed'],
+      in_progress: ['open', 'resolved', 'closed'],
+      resolved: ['open', 'closed'],
+      closed: ['open'],
+    };
+    if (!validTransitions[ticket.status]?.includes(newStatus)) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'invalid_status' };
+    }
 
-  const validTransitions: Record<EchoTicketStatus, EchoTicketStatus[]> = {
-    open: ['in_progress', 'resolved', 'closed'],
-    in_progress: ['open', 'resolved', 'closed'],
-    resolved: ['open', 'closed'],
-    closed: ['open'],
-  };
-
-  if (!validTransitions[ticket.status]?.includes(newStatus)) {
-    return { ok: false, reason: 'invalid_status' };
+    const isClosing = newStatus === 'closed';
+    await client.query(
+      `UPDATE echo_tickets SET
+         status = $1,
+         updated_at = NOW(),
+         closed_at = CASE WHEN $2 THEN NOW() ELSE NULL END,
+         closed_by = CASE WHEN $2 THEN $3 ELSE NULL END
+       WHERE id = $4 AND server_id = $5`,
+      [newStatus, isClosing, isClosing ? actorId : null, ticketId, serverId],
+    );
+    if (isClosing) {
+      await lockTicketChannel(
+        client,
+        serverId,
+        ticket.channelId,
+        ticket.authorId,
+      );
+    } else if (ticket.status === 'closed' && newStatus === 'open') {
+      await client.query(
+        `UPDATE echo_channel_permission_overwrite_rows
+         SET partial = partial || '{"SEND_MESSAGES": true}'::jsonb
+         WHERE server_id = $1 AND channel_id = $2
+           AND target_type = 'member' AND target_id = $3`,
+        [serverId, ticket.channelId, ticket.authorId],
+      );
+    }
+    const updated = await client.query(
+      `SELECT * FROM echo_tickets WHERE id = $1 AND server_id = $2`,
+      [ticketId, serverId],
+    );
+    await client.query('COMMIT');
+    invalidateEchoPermissionCacheForServer(serverId);
+    return { ok: true, ticket: rowToTicket(updated.rows[0]) };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
-
-  const isClosing = newStatus === 'closed';
-  await pool.query(
-    `UPDATE echo_tickets SET
-       status = $1,
-       updated_at = NOW(),
-       closed_at = CASE WHEN $2 THEN NOW() ELSE closed_at END,
-       closed_by = CASE WHEN $2 THEN $3 ELSE closed_by END
-     WHERE id = $4`,
-    [newStatus, isClosing, isClosing ? actorId : null, ticketId],
-  );
-
-  if (isClosing) {
-    await lockTicketChannel(pool, serverId, ticket.channelId);
-  }
-
-  const updated = await getEchoTicketById(pool, ticketId);
-  return { ok: true, ticket: updated! };
 }
 
 export async function assignEchoTicket(
@@ -391,7 +455,7 @@ export async function isTicketHandler(
 // ─── Internals ───────────────────────────────────────────────────────────────
 
 async function setupTicketChannelPermissions(
-  pool: pg.Pool,
+  pool: Pick<pg.Pool, 'query'>,
   serverId: string,
   channelId: string,
   authorId: string,
@@ -458,27 +522,25 @@ async function setupTicketChannelPermissions(
       ],
     );
   }
-
-  invalidateEchoPermissionCacheForServer(serverId);
 }
 
 async function lockTicketChannel(
-  pool: pg.Pool,
+  pool: Pick<pg.Pool, 'query'>,
   serverId: string,
   channelId: string,
+  authorId: string,
 ): Promise<void> {
   // Revoke SEND_MESSAGES for the author member overwrite
   await pool.query(
     `UPDATE echo_channel_permission_overwrite_rows
      SET partial = partial || '{"SEND_MESSAGES": false}'::jsonb
-     WHERE server_id = $1 AND channel_id = $2 AND target_type = 'member'`,
-    [serverId, channelId],
+     WHERE server_id = $1 AND channel_id = $2 AND target_type = 'member' AND target_id = $3`,
+    [serverId, channelId, authorId],
   );
-  invalidateEchoPermissionCacheForServer(serverId);
 }
 
 async function getNextTicketNumber(
-  pool: pg.Pool,
+  pool: Pick<pg.Pool, 'query'>,
   serverId: string,
 ): Promise<number> {
   const r = await pool.query(

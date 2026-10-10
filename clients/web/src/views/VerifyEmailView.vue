@@ -70,38 +70,4 @@ const homeHref =
   </div>
 </template>
 
-<style scoped>
-.verify-page {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  background: var(--echo-bg-base, #0d0812);
-  color: var(--echo-text-primary, #f5f0fa);
-}
-.verify-card {
-  width: min(100%, 28rem);
-  padding: 1.75rem;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--echo-bg-elevated, #1a1224) 92%, #000);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 35%);
-}
-.verify-title {
-  margin: 0 0 0.75rem;
-  font-size: 1.35rem;
-  font-weight: 600;
-}
-.verify-lead {
-  margin: 0;
-  line-height: 1.5;
-  opacity: 0.9;
-}
-.verify-error {
-  margin: 0 0 1rem;
-  color: #ffb4b4;
-  line-height: 1.5;
-}
-.verify-lead a {
-  color: var(--echo-accent, #c084fc);
-}
-</style>
+<style scoped src="./styles/VerifyEmailView.scss"></style>

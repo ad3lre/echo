@@ -177,7 +177,7 @@ export async function applyDiscordBridgeClear(
  * Same behavior as PUT `/servers/:serverId/channels/:channelId/discord-bridge`
  * (minus HTTP mapping). Used by the route and category bulk sync.
  */
-export async function applyDiscordBridgePut(
+async function applyDiscordBridgePutLockedWork(
   pool: Pool,
   serverId: string,
   channelId: string,
@@ -382,4 +382,43 @@ export async function applyDiscordBridgePut(
   }
 
   return { ok: true, result };
+}
+
+export async function applyDiscordBridgePut(
+  pool: Pool,
+  serverId: string,
+  channelId: string,
+  userId: string,
+  body: DiscordBridgeApplyPayload,
+  ctx?: DiscordBridgeApplyContext,
+): Promise<DiscordBridgeApplyResult> {
+  const client = await pool.connect();
+  const lockKey = `echo_discord_bridge_put:${serverId}:${channelId}`;
+  let lockHeld = false;
+  try {
+    await client.query(`SELECT pg_advisory_lock(hashtext($1))`, [lockKey]);
+    lockHeld = true;
+    // The worker re-reads persisted bridge state after acquiring the lock, so
+    // concurrent puts reuse the webhook created by the winning request.
+    return await applyDiscordBridgePutLockedWork(
+      pool,
+      serverId,
+      channelId,
+      userId,
+      body,
+      ctx,
+    );
+  } finally {
+    let releaseError: Error | undefined;
+    if (lockHeld) {
+      try {
+        await client.query(`SELECT pg_advisory_unlock(hashtext($1))`, [
+          lockKey,
+        ]);
+      } catch {
+        releaseError = new Error('Failed to release Discord bridge setup lock');
+      }
+    }
+    client.release(releaseError);
+  }
 }

@@ -44,6 +44,15 @@ export async function applyEchoRoleLinksAfterAssignment(
   userId: string,
   seedRoleId: string,
 ): Promise<void> {
+  const seed = await pool.query<{ position: unknown; permissions: unknown }>(
+    `SELECT position, permissions FROM echo_roles WHERE server_id = $1 AND id = $2`,
+    [serverId, seedRoleId],
+  );
+  if (!seed.rows[0]) return;
+  const seedPosition = Number(seed.rows[0].position ?? 0);
+  const seedPermissions = expandStoredRolePermissionsToCanonSet(
+    seed.rows[0].permissions,
+  );
   let frontier = [seedRoleId];
   for (
     let round = 0;
@@ -58,6 +67,25 @@ export async function applyEchoRoleLinksAfterAssignment(
         roleId,
       );
       for (const rid of implied) {
+        const linked = await pool.query<{
+          position: unknown;
+          permissions: unknown;
+        }>(
+          `SELECT position, permissions FROM echo_roles WHERE server_id = $1 AND id = $2`,
+          [serverId, rid],
+        );
+        const linkedRole = linked.rows[0];
+        if (!linkedRole || Number(linkedRole.position ?? 0) > seedPosition)
+          continue;
+        const linkedPermissions = expandStoredRolePermissionsToCanonSet(
+          linkedRole.permissions,
+        );
+        if (
+          [...linkedPermissions].some(
+            (permission) => !seedPermissions.has(permission),
+          )
+        )
+          continue;
         const ins = await pool.query(
           `INSERT INTO echo_member_roles (server_id, user_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING role_id`,
           [serverId, userId, rid],
@@ -113,16 +141,26 @@ export async function replaceEchoRoleLinksFromAnchor(
   actorId: string,
   anchorRoleId: string,
   links: { linkedRoleId: string; twoWay: boolean }[],
+  mutationClient?: pg.PoolClient,
 ): Promise<ReplaceEchoRoleLinksResult> {
-  const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
+  const queryable = mutationClient ?? pool;
+  const actorPerms = await getMergedRolePermissions(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!canManageEchoRolesCatalog(actorPerms)) return 'forbidden';
 
-  const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
+  const actorIsOwner = await isEchoServerOwner(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   const actorTop = actorIsOwner
     ? Infinity
-    : await getMemberTopRolePosition(pool, serverId, actorId);
+    : await getMemberTopRolePosition(queryable as pg.Pool, serverId, actorId);
 
-  const anchorOk = await pool.query(
+  const anchorOk = await queryable.query(
     `SELECT position, permissions FROM echo_roles WHERE server_id = $1 AND id = $2`,
     [serverId, anchorRoleId],
   );
@@ -133,7 +171,8 @@ export async function replaceEchoRoleLinksFromAnchor(
     if (!(actorTop > anchorPosition)) return 'forbidden';
   }
 
-  if (await roleIsEveryone(pool, serverId, anchorRoleId)) return 'invalid_body';
+  if (await roleIsEveryone(queryable as pg.Pool, serverId, anchorRoleId))
+    return 'invalid_body';
 
   const seen = new Set<string>();
   for (const row of links) {
@@ -143,12 +182,13 @@ export async function replaceEchoRoleLinksFromAnchor(
     if (seen.has(lid)) return 'invalid_body';
     seen.add(lid);
     if (typeof row.twoWay !== 'boolean') return 'invalid_body';
-    const ok = await pool.query(
+    const ok = await queryable.query(
       `SELECT position, permissions FROM echo_roles WHERE server_id = $1 AND id = $2`,
       [serverId, lid],
     );
     if (ok.rows.length === 0) return 'invalid_body';
-    if (await roleIsEveryone(pool, serverId, lid)) return 'invalid_body';
+    if (await roleIsEveryone(queryable as pg.Pool, serverId, lid))
+      return 'invalid_body';
 
     const lidPosition = Number(ok.rows[0].position ?? 0);
 
@@ -173,9 +213,10 @@ export async function replaceEchoRoleLinksFromAnchor(
     }
   }
 
-  const client = await pool.connect();
+  const client = mutationClient ?? (await pool.connect());
+  const ownsTransaction = mutationClient === undefined;
   try {
-    await client.query('BEGIN');
+    if (ownsTransaction) await client.query('BEGIN');
     await client.query(
       `DELETE FROM echo_role_links WHERE server_id = $1 AND anchor_role_id = $2`,
       [serverId, anchorRoleId],
@@ -186,13 +227,13 @@ export async function replaceEchoRoleLinksFromAnchor(
         [serverId, anchorRoleId, row.linkedRoleId, row.twoWay],
       );
     }
-    await client.query('COMMIT');
+    if (ownsTransaction) await client.query('COMMIT');
   } catch (e) {
-    await client.query('ROLLBACK');
+    if (ownsTransaction) await client.query('ROLLBACK');
     throw e;
   } finally {
-    client.release();
+    if (ownsTransaction) client.release();
   }
-  invalidateEchoPermissionCacheForServer(serverId);
+  if (!mutationClient) invalidateEchoPermissionCacheForServer(serverId);
   return 'ok';
 }

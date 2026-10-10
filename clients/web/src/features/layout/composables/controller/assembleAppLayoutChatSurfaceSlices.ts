@@ -3,7 +3,6 @@ import type { ChannelSummary } from '@shared/types';
 import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import type { AppLayoutChatSurfaceProvideDeps } from '@/features/layout/composables/messaging/useAppLayoutChatSurfaceProvide';
 import type { LayoutChatSurfaceContext } from '@/features/layout/layoutInjectionKeys';
-
 export function assembleChatSurfaceShell(
   deps: AppLayoutChatSurfaceProvideDeps,
   derived: {
@@ -191,6 +190,7 @@ export function assembleChatSurfaceMessages(
     handleVcModerate: deps.handleVcModerate,
     handlePollVote: deps.handlePollVote,
     editMessage: deps.editMessage,
+    fillImageSlot: deps.fillImageSlot,
     deleteMessage: deps.deleteMessage,
     handleReact: deps.handleReact,
     topReactions: deps.topReactions,

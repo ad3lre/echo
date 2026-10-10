@@ -19,7 +19,7 @@ enum EchoMarkdownParser {
       if let fence = fenceOpening(line) {
         var body: [String] = []
         index += 1
-        while index < lines.count, !isFenceClosing(lines[index], character: fence.character) {
+        while index < lines.count, !isFenceClosing(lines[index], character: fence.character, minimumLength: fence.length) {
           body.append(lines[index])
           index += 1
         }
@@ -27,7 +27,7 @@ enum EchoMarkdownParser {
         if fence.isEscaped {
           result.append(contentsOf: blocks(body.joined(separator: "\n")))
         } else {
-          result.append(.code(language: fence.language, text: body.joined(separator: "\n")))
+          result.append(.code(language: fence.language, text: EchoMarkdownMentions.restore(body.joined(separator: "\n"))))
         }
         continue
       }
@@ -154,6 +154,9 @@ enum EchoMarkdownParser {
     revealSpoilers: Bool = false
   ) -> AttributedString {
     guard !source.isEmpty else { return AttributedString() }
+    if !mentions.isEmpty {
+      return inline(EchoMarkdownMentions.mark(source, mentions: mentions), revealSpoilers: revealSpoilers)
+    }
     if source.contains("\n") {
       var output = AttributedString()
       let lines = source.split(separator: "\n", omittingEmptySubsequences: false)
@@ -198,6 +201,10 @@ enum EchoMarkdownParser {
     revealSpoilers: Bool = false,
     knownShortcodes: Set<String> = []
   ) -> [InlineSegment] {
+    if !mentions.isEmpty {
+      return inlineSegments(EchoMarkdownMentions.mark(source, mentions: mentions),
+        revealSpoilers: revealSpoilers, knownShortcodes: knownShortcodes)
+    }
     if let token = EchoMarkdownCustomEmoji.firstToken(in: source) {
       return splitSegments(
         source: source,
@@ -269,22 +276,7 @@ enum EchoMarkdownParser {
     mentions: [EchoMessageMention],
     source: String
   ) -> AttributedString {
-    guard !mentions.isEmpty else { return value }
-    var output = value
-    for mention in mentions {
-      guard mention.start >= 0, mention.end > mention.start,
-        let start = source.index(
-          source.startIndex, offsetBy: mention.start, limitedBy: source.endIndex),
-        let end = source.index(
-          source.startIndex, offsetBy: mention.end, limitedBy: source.endIndex),
-        start < end
-      else { continue }
-      let label = String(source[start..<end])
-      guard let range = output.range(of: label) else { continue }
-      output[range].foregroundColor = .blue
-      output[range].backgroundColor = .blue.opacity(0.16)
-    }
-    return output
+    EchoMarkdownMentions.style(value)
   }
 
   private enum CustomKind {
@@ -469,7 +461,7 @@ enum EchoMarkdownParser {
   }
 
   private static func fenceOpening(_ line: String) -> (
-    character: Character, language: String?, isEscaped: Bool
+    character: Character, length: Int, language: String?, isEscaped: Bool
   )? {
     let trimmed = line.trimmingCharacters(in: .whitespaces)
     let escaped = trimmed.hasPrefix("!")
@@ -477,14 +469,15 @@ enum EchoMarkdownParser {
     guard let character = candidate.first, character == "`" || character == "~" else {
       return nil
     }
-    guard candidate.prefix(3).allSatisfy({ $0 == character }) else { return nil }
-    let rest = candidate.dropFirst(3).trimmingCharacters(in: .whitespaces)
-    return (character, rest.isEmpty ? nil : rest, escaped)
+    let length = candidate.prefix(while: { $0 == character }).count
+    guard length >= 3 else { return nil }
+    let rest = candidate.dropFirst(length).trimmingCharacters(in: .whitespaces)
+    return (character, length, rest.isEmpty ? nil : rest, escaped)
   }
 
-  private static func isFenceClosing(_ line: String, character: Character) -> Bool {
+  private static func isFenceClosing(_ line: String, character: Character, minimumLength: Int) -> Bool {
     let trimmed = line.trimmingCharacters(in: .whitespaces)
-    guard trimmed.count >= 3 else { return false }
+    guard trimmed.count >= minimumLength else { return false }
     return trimmed.allSatisfy { $0 == character }
   }
 

@@ -58,11 +58,16 @@ export async function ensurePaperShareToken(
   const existing = await getPaperShareRow(pool, channelId);
   if (existing?.shareToken) return existing.shareToken;
   const token = newShareToken();
-  await pool.query(
-    `UPDATE echo_channels SET paper_share_token = $2 WHERE id = $1`,
+  const updated = await pool.query(
+    `UPDATE echo_channels SET paper_share_token = $2
+     WHERE id = $1 AND type = 'paper' AND paper_share_token IS NULL
+     RETURNING paper_share_token`,
     [channelId, token],
   );
-  return token;
+  if ((updated.rowCount ?? 0) > 0) return token;
+  const winner = await getPaperShareRow(pool, channelId);
+  if (winner?.shareToken) return winner.shareToken;
+  throw new Error('Paper share token could not be established');
 }
 
 export function buildPaperShareAudience(visibility: PaperShareVisibility): {

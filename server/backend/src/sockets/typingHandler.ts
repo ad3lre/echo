@@ -126,6 +126,8 @@ export function registerTypingHandler(
         displayName,
         avatarUrl,
       });
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'typing handler failed');
+    });
   });
 }

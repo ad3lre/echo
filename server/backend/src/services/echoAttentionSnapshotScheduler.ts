@@ -4,7 +4,7 @@ import type { Server } from 'socket.io';
 import {
   buildEchoAttentionSnapshot,
   buildEchoChannelAttentionFanoutDeltas,
-} from '../domain/echoStore';
+} from '../domain/echoStore/social/attention';
 import { runWithPgQueryContext } from '../db/pgQueryContext';
 import { emitEchoReadStateUpdate } from './echoAttentionRealtime';
 import { boundedInteger } from '../shared/numberParsing';
@@ -30,6 +30,14 @@ type PendingFlush = {
 };
 
 const pendingByKey = new Map<string, PendingFlush>();
+/** Test override only — resolve lazily so barrel/circular imports cannot capture undefined. */
+let buildSnapshotForFlush: typeof buildEchoAttentionSnapshot | null = null;
+
+export function __setAttentionSnapshotBuilderForTests(
+  builder: typeof buildEchoAttentionSnapshot | null,
+): void {
+  buildSnapshotForFlush = builder;
+}
 
 function pendingKey(pool: pg.Pool, scope: EchoAttentionFanoutScope): string {
   const base =
@@ -82,7 +90,9 @@ async function flushPending(entry: PendingFlush): Promise<void> {
     async () => {
       for (const userId of userIds) {
         try {
-          const snapshot = await buildEchoAttentionSnapshot(entry.pool, userId);
+          const snapshot = await (
+            buildSnapshotForFlush ?? buildEchoAttentionSnapshot
+          )(entry.pool, userId);
           entry.io.to(`echo:user:${userId}`).emit('attention:update', snapshot);
         } catch (err) {
           entry.log?.error({ err, userId }, 'emit attention snapshot failed');

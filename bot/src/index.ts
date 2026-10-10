@@ -10,7 +10,7 @@ import {
 } from './config.js';
 import { ExportStrictViolationError } from './exportCompleteness.js';
 import { formatExportPermissionReport } from './exportPermissions.js';
-import { runFullExport } from './exporter/runFullExport.js';
+import { runFullExport } from './exporter/serializedExport.js';
 import { startBotInternalServer } from './server.js';
 import { ensureDir } from './util/fs.js';
 import {
@@ -230,7 +230,7 @@ Environment:
   ECHO_UPTIME_POLL_MS             Uptime probe interval in --serve mode (default 300000); embed reports rolling + recorded uptime %
   ECHO_UPTIME_STATE_PATH          Override JSON path for uptime channel subscriptions
   ECHO_UPTIME_AUTO_CHANNEL_IDS    Comma-separated channel IDs to auto-subscribe on startup (same as e!cho uptime)
-  ECHO_RECOVERY_WATCHDOG_ENABLED  Set to 1 on VPS: spawn scripts/echo-recovery-watchdog.mjs on uptime healthy→down
+  ECHO_RECOVERY_WATCHDOG_ENABLED  Set to 1 on VPS: spawn server/ops/scripts/echo-recovery-watchdog.mjs on uptime healthy→down
   ECHO_REPO_ROOT                  Repo root for recovery script (default: process.cwd())
   ECHO_WATCHDOG_NOTIFY_EMAIL      Recovery report inbox (default support@chat-echo.com)
 
@@ -259,6 +259,7 @@ async function runServeMode(token: string, flags: CliFlags): Promise<void> {
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.GuildPresences,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent,
       GatewayIntentBits.GuildVoiceStates,
@@ -279,7 +280,6 @@ async function runServeMode(token: string, flags: CliFlags): Promise<void> {
     startDiscordVoiceMirrorRelay(client);
     startDiscordPresenceRelay(client);
     startUptimeMonitor(client, flags);
-
     const hookUrl = process.env.ECHO_DISCORD_BOT_WEBHOOK_URL?.trim();
     const hookSecret = process.env.ECHO_DISCORD_BOT_WEBHOOK_SECRET?.trim();
     if (!hookUrl || !hookSecret) {

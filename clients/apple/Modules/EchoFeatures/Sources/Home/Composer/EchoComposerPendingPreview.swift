@@ -176,10 +176,11 @@ private struct EchoComposerLocalThumb: View {
         }
       }
     }
-    .task(id: data.count) {
+    .task(id: data) {
       let made = await Task.detached(priority: .userInitiated) {
         EchoComposerThumbnailMaker.make(from: data, maxPixel: 256)
       }.value
+      guard !Task.isCancelled else { return }
       image = made
       didFail = made == nil
     }

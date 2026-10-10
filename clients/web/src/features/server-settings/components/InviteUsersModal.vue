@@ -435,51 +435,20 @@ const showDirectInviteSection = computed(
   </div>
 </template>
 
-<style scoped lang="scss">
-.modal-overlay-bg {
-  background-color: var(--vue-auto-011);
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
-}
-
-.real-glass-modal {
-  background: var(--echo-modal-bg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-3);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-}
-
-.invite-section-label {
-  display: block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.invite-friend-btn--default {
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-
-.invite-friend-btn--default:hover:not(:disabled) {
-  background: var(--elevated);
-}
-
-.invite-friend-btn--invited {
-  color: color-mix(in srgb, rgb(110 231 183) 90%, var(--text));
-  background: color-mix(in srgb, rgb(16 185 129) 24%, transparent);
-  border: 1px solid color-mix(in srgb, rgb(16 185 129) 36%, var(--border));
-}
-</style>
+<style scoped lang="scss" src="./styles/InviteUsersModal.scss"></style>
 
 <style>
 html[data-theme='light'] .invite-friend-btn--invited {
-  color: rgb(5 150 105);
-  background: color-mix(in srgb, rgb(16 185 129) 12%, var(--elevated));
-  border-color: color-mix(in srgb, rgb(16 185 129) 28%, var(--border));
+  color: var(--echo-palette-rgb-5-150-105-c06a);
+  background: color-mix(
+    in srgb,
+    var(--echo-palette-rgb-16-185-129-eeb0) 12%,
+    var(--elevated)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--echo-palette-rgb-16-185-129-eeb0) 28%,
+    var(--border)
+  );
 }
 </style>

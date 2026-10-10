@@ -1,0 +1,94 @@
+.profile-friend-heart {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  border-radius: 999px;
+  padding: 0.125rem 0.45rem 0.14rem;
+  min-height: 1.28rem;
+  min-width: 1.85rem;
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-2a0608-cabd) 0%,
+    var(--echo-palette-6b0f16-2c8a) 22%,
+    var(--echo-palette-b91c2c-2ebf) 48%,
+    var(--echo-palette-f43f5e-70c6) 56%,
+    var(--echo-palette-c81e2d-f566) 74%,
+    var(--echo-palette-3f0609-c09d) 100%
+  );
+  color: var(--echo-palette-fff5f7-9971);
+  box-shadow: none;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.profile-friend-heart:hover {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: none;
+}
+
+.profile-friend-heart:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.profile-friend-heart--md {
+  min-height: 1.48rem;
+  min-width: 2.05rem;
+  padding: 0.14rem 0.5rem 0.16rem;
+}
+
+.profile-friend-heart__glint {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    var(--echo-palette-rgba-255-236-240-0p52-eef4) 0%,
+    var(--echo-palette-rgba-255-182-193-0p18-1b4a) 40%,
+    var(--echo-palette-rgba-255-255-255-0-ba98) 58%
+  );
+  opacity: 0.85;
+}
+
+.profile-friend-heart__rim {
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px var(--echo-palette-rgba-255-210-218-0p22-c36f),
+    inset 0 -1px 2px var(--echo-palette-rgba-24-4-8-0p48-5fca);
+}
+
+[data-theme='light'] .profile-friend-heart__rim {
+  box-shadow: none;
+}
+
+.profile-friend-heart__icon {
+  position: relative;
+  z-index: 1;
+  width: 0.72rem;
+  height: 0.72rem;
+  display: block;
+  filter: drop-shadow(0 1px 0 var(--echo-palette-rgba-40-4-10-0p55-2380))
+    drop-shadow(0 0 8px var(--echo-palette-rgba-255-182-198-0p45-6a77));
+}
+
+.profile-friend-heart--md .profile-friend-heart__icon {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-friend-heart {
+    transition: none;
+  }
+  .profile-friend-heart:hover {
+    transform: none;
+  }
+}

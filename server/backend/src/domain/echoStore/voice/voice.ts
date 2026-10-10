@@ -18,8 +18,18 @@ async function canActorEchoVoiceMuteOrDeafenOnChannel(
   perm: 'MUTE_MEMBERS' | 'DEAFEN_MEMBERS',
 ): Promise<boolean> {
   if (actorId === targetUserId) return false;
+  if (
+    !(await canActorModerateTargetMember(
+      pool,
+      serverId,
+      actorId,
+      targetUserId,
+      perm,
+    ))
+  ) {
+    return false;
+  }
   if (await isEchoServerOwner(pool, serverId, actorId)) return true;
-  if (await isEchoServerOwner(pool, serverId, targetUserId)) return false;
   const p = await getEffectiveChannelPermissions(
     pool,
     serverId,
@@ -315,6 +325,7 @@ async function applyStageSpeakerModeration(
   actorId: string,
   targetUserId: string,
   stageSpeaker: boolean,
+  mutationClient?: pg.PoolClient,
 ): Promise<EchoVoiceModerationResult> {
   const vp = await pool.query(
     `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
@@ -336,7 +347,7 @@ async function applyStageSpeakerModeration(
   ) {
     return 'forbidden';
   }
-  await pool.query(
+  await (mutationClient ?? pool).query(
     `UPDATE echo_voice_participants SET stage_speaker = $1 WHERE server_id = $2 AND user_id = $3`,
     [stageSpeaker, serverId, targetUserId],
   );
@@ -350,6 +361,7 @@ export async function applyEchoVoiceModerationAction(
   action: EchoVoiceModerationAction,
   targetUserId: string,
   targetChannelId?: string,
+  mutationClient?: pg.PoolClient,
 ): Promise<EchoVoiceModerationResult> {
   if (action === 'invite_to_speak') {
     return applyStageSpeakerModeration(
@@ -358,6 +370,7 @@ export async function applyEchoVoiceModerationAction(
       actorId,
       targetUserId,
       true,
+      mutationClient,
     );
   }
   if (action === 'move_to_audience') {
@@ -367,6 +380,7 @@ export async function applyEchoVoiceModerationAction(
       actorId,
       targetUserId,
       false,
+      mutationClient,
     );
   }
 
@@ -514,6 +528,25 @@ export async function applyEchoVoiceModerationAction(
     [serverId, targetUserId],
   );
   if (!vp.rows[0]) return 'not_found';
+  if (await isUserBannedFromServer(pool, serverId, targetUserId))
+    return 'forbidden';
+  const timeoutState = await getUserCommunicationTimeoutState(
+    pool,
+    serverId,
+    targetUserId,
+  );
+  if (timeoutState.active) return 'forbidden';
+  const targetDestinationPerms = await getEffectiveChannelPermissions(
+    pool,
+    serverId,
+    targetUserId,
+    targetChannelId,
+  );
+  if (
+    !targetDestinationPerms.has('VIEW_CHANNEL') ||
+    !targetDestinationPerms.has('CONNECT')
+  )
+    return 'forbidden';
   const actorTargetPerms = await getEffectiveChannelPermissions(
     pool,
     serverId,
@@ -535,12 +568,54 @@ export async function applyEchoVoiceModerationAction(
         targetUserId,
       )
     : false;
-  const upd = await pool.query(
-    `UPDATE echo_voice_participants
-     SET channel_id = $1, joined_at = NOW(), stage_speaker = $4
-     WHERE server_id = $2 AND user_id = $3`,
-    [targetChannelId, serverId, targetUserId, stageSpeaker],
-  );
-  if (upd.rowCount === 0) return 'not_found';
-  return 'ok';
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const locked = await client.query(
+      `SELECT user_limit FROM echo_channels WHERE id = $1 AND server_id = $2 FOR UPDATE`,
+      [targetChannelId, serverId],
+    );
+    if (!locked.rows[0]) {
+      await client.query('ROLLBACK');
+      return 'not_found';
+    }
+    const current = await client.query(
+      `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2 FOR UPDATE`,
+      [serverId, targetUserId],
+    );
+    if (!current.rows[0]) {
+      await client.query('ROLLBACK');
+      return 'not_found';
+    }
+    const userLimit = Number(locked.rows[0].user_limit ?? 0);
+    const alreadyHere = String(current.rows[0].channel_id) === targetChannelId;
+    const limitBypass =
+      targetDestinationPerms.has('MANAGE_ROLES') ||
+      targetDestinationPerms.has('MANAGE_GUILD');
+    if (userLimit > 0 && !alreadyHere && !limitBypass) {
+      const count = await client.query(
+        `SELECT COUNT(*)::int AS c FROM echo_voice_participants WHERE server_id = $1 AND channel_id = $2`,
+        [serverId, targetChannelId],
+      );
+      if (Number(count.rows[0]?.c ?? 0) >= userLimit) {
+        await client.query('ROLLBACK');
+        return 'forbidden';
+      }
+    }
+    await client.query(
+      `UPDATE echo_voice_participants SET channel_id = $1, joined_at = NOW(), stage_speaker = $4 WHERE server_id = $2 AND user_id = $3`,
+      [targetChannelId, serverId, targetUserId, stageSpeaker],
+    );
+    await client.query('COMMIT');
+    return 'ok';
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* preserve original error */
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 }

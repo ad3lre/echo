@@ -397,7 +397,7 @@ private struct EchoFullProfilePage: View {
       )
     }
     .buttonStyle(.plain)
-    .disabled(model.isUpdatingFriendship || model.isLoading)
+    .disabled(model.isUpdatingFriendship || model.isLoading || !model.friendshipLoaded)
   }
 
   private func profileSection<Content: View>(

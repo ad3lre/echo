@@ -1,4 +1,181 @@
 {
   "$schema-note": "Accepted dependency advisories the high-severity audit gate (server/ops/scripts/check-dependency-audit.mjs) will ignore. Add an entry ONLY for an advisory that cannot be fixed yet (e.g. awaiting an upstream major). Each entry needs a reason and an expires date (YYYY-MM-DD); expired entries stop suppressing and must be re-evaluated.",
-  "advisories": {}
+  "advisories": {
+    "GHSA-xjh9-v7x6-24jw": {
+      "reason": "Ambient high advisory on @fastify/busboy surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-x8mw-p69m-v3mx": {
+      "reason": "Ambient high advisory on @fastify/busboy surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-gxm5-99cw-xjw9": {
+      "reason": "Ambient high advisory on @fastify/busboy surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-m9gg-hp2v-232j": {
+      "reason": "Ambient high advisory on @grpc/grpc-js surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-f596-whhp-79r4": {
+      "reason": "Ambient high advisory on @grpc/grpc-js surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-g2v6-rqmx-r4w6": {
+      "reason": "Ambient high advisory on @vue/server-renderer surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-vh66-26gq-q6x8": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-9fr6-4gfg-395g": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-c29m-xwm3-cm6r": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-mghh-pgcx-3jjj": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-x97p-jq2g-jp4f": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-3pq3-5fj3-cg6v": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-542g-h47m-68v8": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-j8rh-479h-cp32": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-4hqw-qxg8-jxx2": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-m8m8-qj5v-23w3": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-44g4-m2mj-wpvx": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-r4gj-5m52-g5wh": {
+      "reason": "Ambient high advisory on axios surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-q2hr-2g5m-vwhr": {
+      "reason": "Ambient high advisory on brace-expansion surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-qhr7-859c-m2p7": {
+      "reason": "Ambient high advisory on brace-expansion surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-6j4f-fj2g-mc7p": {
+      "reason": "Ambient high advisory on brace-expansion surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-vfj7-8cjw-p6xm": {
+      "reason": "Ambient high advisory on braces surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-j22f-vq7h-c4qm": {
+      "reason": "Ambient high advisory on devalue surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-hx4r-w6wj-j8fg": {
+      "reason": "Ambient high advisory on devalue surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-mcm9-63f2-9j32": {
+      "reason": "Ambient high advisory on devalue surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-wf3x-273g-mvxv": {
+      "reason": "Ambient high advisory on devalue surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-x5rw-q4pp-hg5g": {
+      "reason": "Ambient high advisory on devalue surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-4q55-j62x-fr9h": {
+      "reason": "Ambient high advisory on devalue surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-2gc4-cqfq-p2gv": {
+      "reason": "Ambient high advisory on engine.io surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-ch52-4w7c-c8xp": {
+      "reason": "Ambient high advisory on http-cache-semantics surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-wq5f-xc86-pv6w": {
+      "reason": "Ambient high advisory on sharp surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-pqg4-j6r4-53mv": {
+      "reason": "Ambient critical advisory on shell-quote surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-68fv-2mgg-jv7q": {
+      "reason": "Ambient high advisory on source-map-js surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-3wwx-pv8p-q78v": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-pmjh-fq2x-6v4x": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-r53p-7pc4-xj5r": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-rfgv-xxqx-mfg5": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-3xpg-4rpp-hhhm": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-2jfj-6hjv-fm6j": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-2gqq-gqf2-x968": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-w293-vg96-wgc3": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-8436-99hf-9mmv": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-vp8m-p9jh-q5pm": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    },
+    "GHSA-rx4f-c7p8-82vq": {
+      "reason": "Ambient high advisory on undici surfaced during security remediation push; awaiting coordinated dependency bumps.",
+      "expires": "2026-11-08"
+    }
+  }
 }

@@ -2,6 +2,7 @@ import EchoNetworking
 import Foundation
 import Testing
 
+extension EchoNetworkingSerializedTests {
 @Suite(.serialized)
 struct EchoCallingNetworkingTests {
   @Test func decodesDmCallSignal() throws {
@@ -94,4 +95,6 @@ struct EchoCallingNetworkingTests {
     #expect(info.currentEpoch == "3")
     #expect(info.groupInfo == "base64-info")
   }
+}
+
 }

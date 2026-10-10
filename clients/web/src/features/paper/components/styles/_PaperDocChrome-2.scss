@@ -1,0 +1,60 @@
+.paper-chrome-btn__badge {
+  position: absolute;
+  right: -0.2rem;
+  top: -0.2rem;
+  z-index: 2;
+  display: flex;
+  height: 1rem;
+  min-width: 1rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--accent);
+  padding: 0 0.2rem;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--echo-palette-fff-e08d);
+  pointer-events: none;
+}
+.paper-status-dot {
+  display: inline-block;
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 9999px;
+  background: var(--muted);
+}
+.paper-status-dot--synced {
+  background: var(--paper-status-synced);
+}
+.paper-status-dot--syncing {
+  background: var(--paper-status-synced);
+  animation: paper-status-pulse 1s ease-in-out infinite;
+}
+.paper-status-dot--pending {
+  background: var(--paper-status-pending);
+  animation: paper-status-pulse 1.2s ease-in-out infinite;
+}
+.paper-status-dot--offline {
+  background: var(--paper-status-offline);
+}
+.paper-status-dot--error {
+  background: var(--paper-status-error);
+}
+@keyframes paper-status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .paper-status-dot--syncing,
+  .paper-status-dot--pending {
+    animation: none;
+  }
+}

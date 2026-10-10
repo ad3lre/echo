@@ -320,9 +320,11 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
   `);
   /* Legacy timeline index; safe to drop after snowflake cutover is stable (see ADR 002 / runbook). */
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS echo_messages_channel_created ON echo_messages(channel_id, created_at DESC);
-  `);
+  if (!config.echoDropLegacyMessageTimelineIndexes) {
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS echo_messages_channel_created ON echo_messages(channel_id, created_at DESC);
+    `);
+  }
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_messages_channel_id_idx ON echo_messages (channel_id, id);
   `);
@@ -568,6 +570,33 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS echo_message_reports_created_idx ON echo_message_reports(created_at DESC);`,
   );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_safety_report_cooldowns (
+      report_kind TEXT NOT NULL CHECK (report_kind IN ('user', 'message')),
+      reporter_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      target_key TEXT NOT NULL,
+      last_reported_at TIMESTAMPTZ NOT NULL,
+      PRIMARY KEY (report_kind, reporter_id, target_key)
+    );
+  `);
+  await pool.query(`
+    INSERT INTO echo_safety_report_cooldowns
+      (report_kind, reporter_id, target_key, last_reported_at)
+    SELECT 'user', reporter_id, target_id, MAX(created_at)
+    FROM echo_user_reports
+    WHERE created_at > NOW() - INTERVAL '24 hours'
+    GROUP BY reporter_id, target_id
+    ON CONFLICT DO NOTHING;
+  `);
+  await pool.query(`
+    INSERT INTO echo_safety_report_cooldowns
+      (report_kind, reporter_id, target_key, last_reported_at)
+    SELECT 'message', reporter_id, message_id, MAX(created_at)
+    FROM echo_message_reports
+    WHERE created_at > NOW() - INTERVAL '24 hours'
+    GROUP BY reporter_id, message_id
+    ON CONFLICT DO NOTHING;
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_bug_reports (
       id TEXT PRIMARY KEY,
@@ -1365,6 +1394,23 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     ON echo_messages (channel_id, id)
     WHERE deleted_at IS NULL AND has_attachment = true;
   `);
+  // The optional trigram indexes below are attempted during this same schema
+  // pass, so ensure their table and indexed columns exist before creating them.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_server_emoji_packs (
+      id TEXT PRIMARY KEY,
+      server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      source TEXT NOT NULL CHECK (source IN ('market', 'custom')),
+      market_pack_id TEXT NULL,
+      position INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    ALTER TABLE echo_server_emoji_packs
+      ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+    ALTER TABLE echo_server_emoji_packs
+      ADD COLUMN IF NOT EXISTS listed_in_market BOOLEAN NOT NULL DEFAULT false;
+  `);
   try {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS echo_emoji_packs_market_name_trgm_idx
@@ -1560,6 +1606,19 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_vc_activity_opens_popularity_idx
     ON echo_vc_activity_opens (open_count DESC, activity_key ASC);
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_vc_activity_user_opens (
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      activity_key TEXT NOT NULL,
+      utc_day DATE NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, activity_key, utc_day)
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_vc_activity_user_opens_ranking_idx
+    ON echo_vc_activity_user_opens (activity_key, utc_day);
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_server_emoji_packs (
@@ -2044,7 +2103,9 @@ async function migrateEchoPermissionOverwriteRows(
     WHERE ch.permission_overrides IS NOT NULL
       AND jsonb_typeof(ch.permission_overrides) = 'object'
       AND NOT EXISTS (
-        SELECT 1 FROM echo_channel_permission_overwrite_rows x WHERE x.channel_id = ch.id
+        SELECT 1 FROM echo_channel_permission_overwrite_rows x
+        WHERE x.channel_id = ch.id
+          AND x.target_type = 'members' AND x.target_id IS NULL
       )
   `);
   for (const row of chRows.rows) {
@@ -2067,7 +2128,9 @@ async function migrateEchoPermissionOverwriteRows(
     UPDATE echo_channels SET permission_overrides = NULL
     WHERE permission_overrides IS NOT NULL
       AND EXISTS (
-        SELECT 1 FROM echo_channel_permission_overwrite_rows x WHERE x.channel_id = echo_channels.id
+        SELECT 1 FROM echo_channel_permission_overwrite_rows x
+        WHERE x.channel_id = echo_channels.id
+          AND x.target_type = 'members' AND x.target_id IS NULL
       )
   `);
 
@@ -2077,7 +2140,9 @@ async function migrateEchoPermissionOverwriteRows(
     WHERE o.permission_overrides IS NOT NULL
       AND jsonb_typeof(o.permission_overrides) = 'object'
       AND NOT EXISTS (
-        SELECT 1 FROM echo_category_permission_overwrite_rows x WHERE x.category_id = o.category_id
+        SELECT 1 FROM echo_category_permission_overwrite_rows x
+        WHERE x.category_id = o.category_id
+          AND x.target_type = 'members' AND x.target_id IS NULL
       )
   `);
   for (const row of catRows.rows) {
@@ -2100,7 +2165,9 @@ async function migrateEchoPermissionOverwriteRows(
     UPDATE echo_category_permission_overrides o SET permission_overrides = NULL
     WHERE o.permission_overrides IS NOT NULL
       AND EXISTS (
-        SELECT 1 FROM echo_category_permission_overwrite_rows x WHERE x.category_id = o.category_id
+        SELECT 1 FROM echo_category_permission_overwrite_rows x
+        WHERE x.category_id = o.category_id
+          AND x.target_type = 'members' AND x.target_id IS NULL
       )
   `);
 }
@@ -2138,17 +2205,28 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
       ORDER BY server_id, MIN(created_at) ASC
       `,
     );
-    const nextPos = new Map<string, number>();
     for (const row of groups.rows) {
       const serverId = String(row.server_id);
       const normName = String(row.norm_name);
-      const p = nextPos.get(serverId) ?? 0;
-      nextPos.set(serverId, p + 1);
-      const catId = nextEchoSnowflakeId();
-      await pool.query(
-        `INSERT INTO echo_categories (id, server_id, name, position) VALUES ($1, $2, $3, $4)`,
-        [catId, serverId, normName, p],
+      const existingCategory = await pool.query<{ id: string }>(
+        `SELECT id FROM echo_categories
+         WHERE server_id = $1 AND LOWER(name) = LOWER($2)
+         ORDER BY position, id LIMIT 1`,
+        [serverId, normName],
       );
+      let catId = existingCategory.rows[0]?.id;
+      if (!catId) {
+        const position = await pool.query<{ p: number }>(
+          `SELECT COALESCE(MAX(position), -1) + 1 AS p
+           FROM echo_categories WHERE server_id = $1`,
+          [serverId],
+        );
+        catId = nextEchoSnowflakeId();
+        await pool.query(
+          `INSERT INTO echo_categories (id, server_id, name, position) VALUES ($1, $2, $3, $4)`,
+          [catId, serverId, normName, Number(position.rows[0]?.p ?? 0)],
+        );
+      }
       await pool.query(
         `UPDATE echo_channels SET category_id = $1
          WHERE server_id = $2 AND category_id IS NULL
@@ -2325,20 +2403,45 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_upload_dedupe (
-      sha256_hex CHAR(64) PRIMARY KEY,
+      sha256_hex CHAR(64) NOT NULL,
       kind TEXT NOT NULL CHECK (kind IN ('image', 'video')),
       phash_hex CHAR(16) NOT NULL,
       byte_length BIGINT NOT NULL,
       public_url TEXT NOT NULL,
       storage_key TEXT NOT NULL,
       uploader_id TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (sha256_hex, uploader_id)
     );
   `);
   await pool.query(`
     DO $$ BEGIN
       ALTER TABLE echo_upload_dedupe ADD COLUMN uploader_id TEXT NOT NULL DEFAULT '';
     EXCEPTION WHEN duplicate_column THEN NULL; END $$
+  `);
+  await pool.query(`
+    DO $$
+    DECLARE current_pk TEXT;
+    BEGIN
+      SELECT conname INTO current_pk
+      FROM pg_constraint
+      WHERE conrelid = 'echo_upload_dedupe'::regclass
+        AND contype = 'p'
+        AND pg_get_constraintdef(oid) <> 'PRIMARY KEY (sha256_hex, uploader_id)'
+      LIMIT 1;
+      IF current_pk IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE echo_upload_dedupe DROP CONSTRAINT %I', current_pk);
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'echo_upload_dedupe'::regclass
+          AND contype = 'p'
+          AND pg_get_constraintdef(oid) = 'PRIMARY KEY (sha256_hex, uploader_id)'
+      ) THEN
+        ALTER TABLE echo_upload_dedupe
+        ADD CONSTRAINT echo_upload_dedupe_pkey PRIMARY KEY (sha256_hex, uploader_id);
+      END IF;
+    END $$
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_upload_dedupe_kind_created

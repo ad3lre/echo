@@ -8,6 +8,23 @@ import Testing
 
 @MainActor
 struct EchoMessageSearchModelTests {
+  @Test func staleOlderPageCannotAppendToANewerSearch() async {
+    let auth = EchoAuthenticationModel(baseURL: URL(string: "https://example.com")!,
+      sessionStore: InMemorySessionStore(), activeSession: EchoSession(
+        accessToken: "token", refreshToken: "refresh", expiresInSec: 3600, userID: "me"))
+    let client = ControlledSearchClient()
+    let model = EchoMessageSearchModel(conversation: EchoDirectMessage(id: "dm", channelID: "dm", displayName: "Peer"),
+      baseURL: URL(string: "https://example.com")!, auth: auth, userID: "me", client: client)
+    await model.search("old")
+    let pagination = Task { await model.loadMore() }
+    await client.waitUntilPaging()
+    await model.search("new")
+    client.releasePaging()
+    await pagination.value
+    #expect(model.results.map(\.id) == ["new"])
+    #expect(!model.isLoadingMore)
+  }
+
   @Test func criteriaReflectAuthorMentionsAndHasType() {
     let auth = EchoAuthenticationModel(
       baseURL: URL(string: "https://example.com")!,
@@ -61,5 +78,29 @@ private final class FakeSearchClient: EchoMessageSearchLoading, @unchecked Senda
     criteria: EchoMessageSearchCriteria
   ) async throws -> EchoMessageSearchPage {
     EchoMessageSearchPage(messages: [], hasMoreBefore: false)
+  }
+}
+
+@MainActor private final class ControlledSearchClient: EchoMessageSearchLoading {
+  private var pending: CheckedContinuation<EchoMessageSearchPage, Error>?
+  private var started: CheckedContinuation<Void, Never>?
+  func searchMessages(accessToken: String, channelID: String, currentUserID: String?,
+    query: String, before: String?, limit: Int, criteria: EchoMessageSearchCriteria) async throws -> EchoMessageSearchPage {
+    if before != nil {
+      return try await withCheckedThrowingContinuation { continuation in
+        pending = continuation
+        started?.resume()
+        started = nil
+      }
+    }
+    return EchoMessageSearchPage(messages: [EchoMessage(id: query, channelID: channelID, authorID: "peer", content: query)], hasMoreBefore: true)
+  }
+  func waitUntilPaging() async {
+    if pending != nil { return }
+    await withCheckedContinuation { started = $0 }
+  }
+  func releasePaging() {
+    pending?.resume(returning: EchoMessageSearchPage(messages: [EchoMessage(id: "stale", channelID: "dm", authorID: "peer", content: "stale")], hasMoreBefore: false))
+    pending = nil
   }
 }

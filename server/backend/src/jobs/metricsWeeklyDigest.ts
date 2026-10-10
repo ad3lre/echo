@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type pg from 'pg';
 import { config } from '../config';
 import { getPgPool } from '../db/pg';
 import { ensureEchoTables } from '../db/echoTables';
@@ -42,18 +43,18 @@ export function startMetricsWeeklyDigestJob(
       running = false;
       return;
     }
+    let lockClient: pg.PoolClient | null = null;
     let lockHeld = false;
+    let unlockFailed = false;
     try {
       await ensureEchoTables(pool);
-      const lockRes = await pool.query<{ locked: boolean }>(
+      lockClient = await pool.connect();
+      const lockRes = await lockClient.query<{ locked: boolean }>(
         `SELECT pg_try_advisory_lock($1) AS locked`,
         [METRICS_DIGEST_ADVISORY_LOCK],
       );
       lockHeld = lockRes.rows[0]?.locked === true;
-      if (!lockHeld) {
-        running = false;
-        return;
-      }
+      if (!lockHeld) return;
 
       const dueRes = await pool.query<{ last_sent_at: Date | null }>(
         `SELECT last_sent_at FROM echo_metrics_digest_state WHERE id = 1`,
@@ -74,15 +75,20 @@ export function startMetricsWeeklyDigestJob(
     } catch (e) {
       fastify.log.error(e, 'echo.metrics.digest_tick_failed');
     } finally {
-      if (pool && lockHeld) {
+      if (lockClient && lockHeld) {
         try {
-          await pool.query(`SELECT pg_advisory_unlock($1)`, [
+          await lockClient.query(`SELECT pg_advisory_unlock($1)`, [
             METRICS_DIGEST_ADVISORY_LOCK,
           ]);
         } catch {
-          /* connection may be closing */
+          unlockFailed = true;
         }
       }
+      lockClient?.release(
+        unlockFailed
+          ? new Error('Failed to release metrics digest job lock')
+          : undefined,
+      );
       running = false;
     }
   };

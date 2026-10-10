@@ -1,0 +1,349 @@
+.chat-input-bar--compact-shell {
+  width: 100%;
+  border-radius: 0;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+.composer-right-rail {
+  gap: 0.25rem;
+  contain: layout style;
+}
+.composer-toolbar-actions :deep(.chat-focus-ring) {
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.composer-toolbar-actions :deep(.chat-focus-ring:hover) {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-toolbar-actions :deep(.chat-focus-ring) {
+    transition: none;
+  }
+}
+.chat-input-bar--tall {
+  .composer-right-rail {
+    flex-direction: column;
+    align-items: flex-end;
+    align-self: flex-end;
+    justify-content: flex-end;
+  }
+
+  .composer-toolbar-actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  .composer-send-slot {
+    margin-left: 0;
+  }
+
+  .chat-mobile-send-btn,
+  .forum-send-btn {
+    margin-left: 0;
+  }
+}
+.chat-input-bar--compact-stacked {
+  flex-wrap: wrap;
+  row-gap: 0.375rem;
+  align-items: flex-end;
+
+  .composer-right-rail {
+    order: -1;
+    flex: 0 0 100%;
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    align-self: auto;
+    padding-bottom: 0.375rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  }
+
+  .composer-toolbar-actions {
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .chat-input-editor {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+.chat-mobile-send-btn,
+.forum-send-btn {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent-contrast-fg);
+}
+.chat-mobile-send-btn:hover:not(:disabled),
+.forum-send-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.chat-mobile-send-btn:disabled,
+.forum-send-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.chat-toolbar-icon {
+  filter: var(--chat-composer-toolbar-icon-filter, none);
+  opacity: var(--chat-composer-toolbar-icon-opacity, 1);
+  isolation: isolate;
+  transform: translateZ(0);
+}
+.chat-md-menu {
+  border: 1px solid var(--border);
+  background: var(--elevated);
+}
+.chat-md-menu__item {
+  color: var(--text);
+
+  &:hover {
+    background: var(--vue-auto-003);
+  }
+}
+.chat-md-menu__check {
+  color: var(--muted);
+}
+.chat-md-menu__hint {
+  color: var(--muted);
+  opacity: 0.85;
+}
+/* Match message bubble “emoji-only” feel in the composer (unicode + custom <img class="emoji">). */
+.chat-input-editor--emoji-only .chat-input-surface :deep(.emoji) {
+  height: 2.5em;
+  width: 2.5em;
+  max-width: 100%;
+  max-height: 2.5em;
+  min-width: 0;
+  min-height: 0;
+  vertical-align: -0.25em;
+  object-fit: contain;
+}
+.chat-input-editor--emoji-only
+  .chat-input-surface
+  :deep(.tiptap .composer-custom-emoji),
+.chat-input-editor--emoji-only
+  .chat-input-surface
+  :deep(.tiptap .composer-app-icon) {
+  vertical-align: -0.25em;
+}
+.chat-input-surface-wrap--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+/*
+ * Empty TipTap docs still expose a focusable <br> in the DOM. After select-all + delete,
+ * Ctrl+A can highlight that "invisible" node while our placeholder overlay is shown.
+ */
+.chat-input-surface-wrap--empty .chat-input-surface :deep(.tiptap) {
+  user-select: none;
+}
+.chat-input-surface-wrap--empty .chat-input-surface :deep(.tiptap::selection),
+.chat-input-surface-wrap--empty
+  .chat-input-surface
+  :deep(.tiptap *::selection) {
+  background: transparent;
+  color: inherit;
+}
+.chat-input-surface {
+  min-height: 24px;
+}
+.chat-input-surface :deep(.tiptap) {
+  min-height: 24px;
+  color: var(--text);
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  letter-spacing: normal;
+}
+/* iOS Safari auto-zooms focused editable fields below 16px, which manifests as horizontal overflow. */
+@supports (-webkit-touch-callout: none) {
+  @media (hover: none) and (pointer: coarse) {
+    .chat-input-surface :deep(.tiptap) {
+      font-size: 16px;
+    }
+  }
+}
+.chat-input-surface :deep(.tiptap p) {
+  margin: 0;
+}
+/*
+ * ProseMirror adds a trailing <br> after inline atoms (custom emoji, app icons) so the
+ * caret can follow them; without this rule it reads as a blank second line in the composer.
+ */
+.chat-input-surface :deep(.tiptap br.ProseMirror-trailingBreak) {
+  display: none;
+}
+.chat-input-surface :deep(.tiptap .composer-mention),
+.chat-input-surface :deep(.tiptap .composer-mention--channel),
+.chat-input-surface :deep(.tiptap .composer-mention--special) {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.45rem;
+  padding: 0.05rem 0.35rem;
+  margin: 0 0.05rem;
+  font-weight: 500;
+  line-height: 1.35;
+  background: var(--vue-auto-081);
+  color: var(--vue-auto-051);
+}
+.chat-input-surface :deep(.tiptap .composer-mention--channel) {
+  background: var(--vue-auto-293);
+  color: var(--vue-auto-052);
+}
+.chat-input-surface :deep(.tiptap .composer-mention--special) {
+  background: var(--vue-auto-294);
+  color: var(--vue-auto-053);
+}
+/*
+ * Custom emoji atoms must stay true inline-level: `inline-flex` participates in baseline
+ * alignment in a way that can temporarily inflate the line box (looks like an extra line)
+ * until more text is typed. `inline-block` + text-baseline alignment matches unicode emoji.
+ */
+.chat-input-surface :deep(.tiptap .composer-custom-emoji) {
+  display: inline-block;
+  vertical-align: -0.2em;
+  line-height: 1;
+  margin: 0 0.03em;
+}
+.chat-input-surface :deep(.tiptap .composer-app-icon) {
+  display: inline-block;
+  vertical-align: -0.2em;
+  line-height: 1;
+  margin: 0 0.03em;
+}
+.chat-input-surface :deep(.tiptap .composer-rich-block-token) {
+  display: block;
+  width: 100%;
+  margin: 0.2rem 0;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--muted);
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.chat-input-surface
+  :deep(.tiptap .composer-rich-block-token[data-rich-block='image']) {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0.15rem 0.35rem;
+  border: 1px dashed var(--border);
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+.chat-input-surface
+  :deep(.tiptap .composer-rich-block-token[data-rich-block='image']:hover) {
+  background: var(
+    --menu-item-selected-bg,
+    var(--echo-palette-rgb-0-0-0-0p06-0dfe)
+  );
+  border-color: var(--accent, var(--border));
+  color: var(--text);
+}
+.chat-input-surface
+  :deep(
+    .tiptap
+      .composer-rich-block-token[data-rich-block='image'][data-image-filled='true']
+  ) {
+  border-style: solid;
+  opacity: 0.92;
+}
+.chat-input-surface-wrap--image-slot-uploading
+  :deep(.tiptap .composer-rich-block-token[data-rich-block='image']) {
+  cursor: wait;
+  opacity: 0.72;
+  pointer-events: none;
+}
+.chat-input-surface :deep(.tiptap .emoji) {
+  height: 1.25em;
+  width: 1.25em;
+  max-height: 1.25em;
+  max-width: 1.25em;
+  display: inline-block;
+  object-fit: contain;
+  vertical-align: -0.2em;
+}
+/* Shown until emoji URL or icon catalog URL is available — avoids broken <img src="">. */
+.chat-input-surface :deep(.tiptap .composer-inline-glyph-fallback) {
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: 1.25em;
+  max-width: 7em;
+  height: 1.25em;
+  padding: 0 0.2em;
+  font-size: 0.68em;
+  font-weight: 500;
+  line-height: 1.25em;
+  border-radius: 0.25em;
+  background: var(--vue-auto-031);
+  color: var(--vue-auto-041);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* compact markdown delimiter styling (ProseMirror decorations, same document as caret) */
+.chat-input-surface :deep(.tiptap .composer-md-delim) {
+  color: var(--muted);
+  opacity: 0.55;
+  font-weight: inherit;
+  font-style: inherit;
+  text-decoration: none;
+}
+.chat-input-surface :deep(.tiptap .composer-md-bold) {
+  font-weight: 700;
+}
+.chat-input-surface :deep(.tiptap .composer-md-underline) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.chat-input-surface :deep(.tiptap .composer-md-code) {
+  border-radius: 0.25rem;
+  background: var(--md-inline-code-bg);
+  padding: 0.04em 0.2em;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 0.92em;
+}
+.chat-input-surface :deep(.tiptap .composer-md-strike) {
+  text-decoration: line-through;
+}
+.chat-input-surface :deep(.tiptap .composer-md-spoiler) {
+  border-radius: 0.25rem;
+  background: var(--vue-auto-031);
+  filter: blur(4px);
+  transition: filter 0.15s ease;
+}
+.chat-input-surface :deep(.tiptap .composer-md-spoiler:hover) {
+  filter: none;
+}
+.chat-input-surface :deep(.tiptap .composer-md-code-block) {
+  display: block;
+  margin: 0.15em 0;
+  border-radius: 0.35rem;
+  padding: 0.35em 0.5em;
+  background: var(--md-code-bg);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 0.88em;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.chat-input-surface :deep(.tiptap .composer-md-h1) {
+  font-size: 1.35em;
+  font-weight: 700;
+  line-height: 1.25;
+}

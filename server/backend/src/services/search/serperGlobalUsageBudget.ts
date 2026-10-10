@@ -137,18 +137,36 @@ export async function tryReserveGlobalSerperUnit(): Promise<SerperGlobalReserveR
       String(MONTH_TTL_SEC),
     )) as unknown;
     if (!Array.isArray(raw) || raw.length < 4) {
-      return { ok: true, dayUsed: 0, monthUsed: 0 };
+      return {
+        ok: false,
+        reason: 'redis_unavailable',
+        dayUsed: 0,
+        monthUsed: 0,
+      };
     }
     const ok = Number(raw[0]) === 1;
     const dayUsed = Number(raw[2]);
     const monthUsed = Number(raw[3]);
+    if (
+      !Number.isFinite(dayUsed) ||
+      dayUsed < 0 ||
+      !Number.isFinite(monthUsed) ||
+      monthUsed < 0
+    ) {
+      return {
+        ok: false,
+        reason: 'redis_unavailable',
+        dayUsed: 0,
+        monthUsed: 0,
+      };
+    }
     if (!ok) {
       const reason = raw[1] === 'month' ? 'month' : 'day';
       return { ok: false, reason, dayUsed, monthUsed };
     }
     return { ok: true, dayUsed, monthUsed };
   } catch {
-    if (failClosedWithoutRedis()) {
+    if (failClosedWithoutRedis() || config.redisUrl?.trim()) {
       return {
         ok: false,
         reason: 'redis_unavailable',

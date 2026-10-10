@@ -1218,6 +1218,31 @@ export default async function echoUploadsRoutes(
         return sendError(reply, 503, 'INTERNAL', 'Upload processing failed');
       }
 
+      if (
+        isVcWatchTogetherStorageKey(storageKeyClient) &&
+        body.purpose === 'vc_watch_together'
+      ) {
+        const sessionId =
+          typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+        if (sessionId && channelIdReg) {
+          const admitted = await addVcWatchTogetherSessionBytes(pool, {
+            sessionId,
+            hostUserId: userId,
+            channelId: channelIdReg,
+            byteLength,
+          });
+          if (!admitted) {
+            await purgeEchoUploadObject(storageKeyClient).catch(() => {});
+            return sendError(
+              reply,
+              400,
+              'UPLOAD_SESSION_QUOTA',
+              `Watch Together session limit is ${ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES} bytes`,
+            );
+          }
+        }
+      }
+
       await registerEchoUploadDedupe(pool, {
         kind,
         sha256Hex,
@@ -1259,22 +1284,6 @@ export default async function echoUploadsRoutes(
           sourceEtag: sourceMeta.etag,
         });
         kickVideoUploadOptimizeJob();
-      }
-
-      if (
-        isVcWatchTogetherStorageKey(storageKeyClient) &&
-        body.purpose === 'vc_watch_together'
-      ) {
-        const sessionId =
-          typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
-        if (sessionId && channelIdReg) {
-          await addVcWatchTogetherSessionBytes(pool, {
-            sessionId,
-            hostUserId: userId,
-            channelId: channelIdReg,
-            byteLength,
-          });
-        }
       }
 
       return reply.code(204).send();
@@ -1729,18 +1738,21 @@ export default async function echoUploadsRoutes(
       if (!parsed || parsed.ownerUserId !== userId) {
         return sendError(reply, 403, 'FORBIDDEN', 'Invalid library upload');
       }
-      const hostClaim = await claimVcWatchTogetherChannelHost(pool, {
-        channelId,
-        hostUserId: userId,
-        sessionId,
-      });
-      if (!hostClaim.ok) {
+      const ent = await getEchoEntitlements(pool, userId);
+      if (ent.plan === 'free') {
         return sendError(
           reply,
-          409,
-          'WATCH_TOGETHER_HOST_TAKEN',
-          'Another user is already hosting Watch Together in this channel',
-          hostClaim.hostUserId,
+          403,
+          'ECHO_PLUS_REQUIRED',
+          'Echo+ is required to host Watch Together uploads',
+        );
+      }
+      if (!(await canUserUploadToEchoChannel(pool, userId, channelId))) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Cannot host Watch Together in this channel',
         );
       }
       const dedupe = await pool.query<{ byte_length: string }>(
@@ -1757,15 +1769,6 @@ export default async function echoUploadsRoutes(
       if (registeredBytes > 0 && registeredBytes !== byteLength) {
         return sendError(reply, 400, 'INVALID_BODY', 'byteLength mismatch');
       }
-      const ent = await getEchoEntitlements(pool, userId);
-      if (ent.plan === 'free') {
-        return sendError(
-          reply,
-          403,
-          'ECHO_PLUS_REQUIRED',
-          'Echo+ is required to host Watch Together uploads',
-        );
-      }
       const quota = await assertVcWatchTogetherSessionQuota(pool, {
         sessionId,
         hostUserId: userId,
@@ -1780,12 +1783,34 @@ export default async function echoUploadsRoutes(
           `Watch Together session limit is ${ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES} bytes`,
         );
       }
-      await addVcWatchTogetherSessionBytes(pool, {
+      const hostClaim = await claimVcWatchTogetherChannelHost(pool, {
+        channelId,
+        hostUserId: userId,
+        sessionId,
+      });
+      if (!hostClaim.ok) {
+        return sendError(
+          reply,
+          409,
+          'WATCH_TOGETHER_HOST_TAKEN',
+          'Another user is already hosting Watch Together in this channel',
+          hostClaim.hostUserId,
+        );
+      }
+      const admitted = await addVcWatchTogetherSessionBytes(pool, {
         sessionId,
         hostUserId: userId,
         channelId,
         byteLength,
       });
+      if (!admitted) {
+        return sendError(
+          reply,
+          400,
+          'UPLOAD_SESSION_QUOTA',
+          `Watch Together session limit is ${ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES} bytes`,
+        );
+      }
       return reply.code(204).send();
     },
   );

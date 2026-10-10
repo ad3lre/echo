@@ -8,6 +8,7 @@ import { extractStorageKeyFromEchoMediaUrl } from '@shared/echoUploadStorageKey'
 import { rewriteR2EchoUploadUrlForReadThrough } from '@/features/voice/rewriteR2EchoUploadUrlForReadThrough';
 import { encodeEchoUploadStorageKeyPath } from '@shared/mediaCdn';
 import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '@shared/echoS3ReadThrough';
+import { localUploadReadUrl } from './localUploadReadUrl';
 
 type SignedCacheEntry = {
   url: string;
@@ -223,7 +224,10 @@ async function resolveAndRememberSignedEchoMediaUrl(opts: {
     return first.url;
   }
   // Unsigned media-cdn URLs 403; prefer cookie-authenticated API read-through.
-  return readThroughFallbackUrlForStorageKey(opts.storageKey);
+  return (
+    localUploadReadUrl(opts.raw) ??
+    readThroughFallbackUrlForStorageKey(opts.storageKey)
+  );
 }
 
 export async function batchResolveSignedEchoMediaUrls(
@@ -277,7 +281,11 @@ export async function batchResolveSignedEchoMediaUrls(
     }
     for (const row of chunk) {
       if (!out.has(row.url)) {
-        out.set(row.url, readThroughFallbackUrlForStorageKey(row.storageKey));
+        out.set(
+          row.url,
+          localUploadReadUrl(row.url) ??
+            readThroughFallbackUrlForStorageKey(row.storageKey),
+        );
       }
     }
   }

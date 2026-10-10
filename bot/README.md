@@ -19,10 +19,11 @@ It does **not** export messages, **threads** (not an Echo feature), audit log, o
 In the Developer Portal → **Bot** → **Privileged Gateway Intents**, enable:
 
 - **Server Members Intent** (`GUILD_MEMBERS`)
+- **Presence Intent** (`GUILD_PRESENCES`) for the presence relay in serve mode
 
 Without this, member pagination may fail or be incomplete.
 
-**Message Content Intent** is **not** required (this tool does not read messages).
+Serve mode also requires **Message Content Intent** for its bridge and uptime commands.
 
 ### Suggested bot permissions (OAuth2 URL generator)
 

@@ -590,6 +590,23 @@ export default async function echoVoiceRoutes(
           'NOT_SERVER_MEMBER',
         );
       }
+      const participation = await echoPool(req).query(
+        `SELECT 1
+         FROM echo_channels ch
+         INNER JOIN echo_voice_participants vp
+           ON vp.server_id = ch.server_id AND vp.channel_id = ch.id
+         WHERE ch.id = $1 AND ch.server_id = $2 AND vp.user_id = $3
+         LIMIT 1`,
+        [channelId, serverId, getAuthUser(req).id],
+      );
+      if (!participation.rowCount) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Join this voice channel before reporting QoS.',
+        );
+      }
       const sample = normalizeVoiceQosSample(req.body);
       if (!sample) {
         return sendError(

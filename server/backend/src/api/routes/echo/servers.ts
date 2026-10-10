@@ -10,7 +10,10 @@ import {
   LEGACY_SESSION_COOKIE,
   SESSION_COOKIE,
 } from '../../../auth/serverSession';
-import { assertEchoUserHasServerMembershipSlot } from '../../../domain/echoPlanEntitlements';
+import {
+  assertEchoUserHasServerMembershipSlot,
+  lockEchoServerMembershipEntitlement,
+} from '../../../domain/echoPlanEntitlements';
 import {
   createEchoServer,
   insertEchoAudit,
@@ -170,10 +173,26 @@ export default async function echoServersRoutes(
         }
         iconUrl = v.value;
       }
-      const slot = await assertEchoUserHasServerMembershipSlot(
-        pool,
-        getAuthUser(req).id,
-      );
+      const userId = getAuthUser(req).id;
+      const admission = await pool.connect();
+      let slot: Awaited<
+        ReturnType<typeof assertEchoUserHasServerMembershipSlot>
+      >;
+      let created: { serverId: string; defaultChannelId: string } | null = null;
+      try {
+        await admission.query('BEGIN');
+        await lockEchoServerMembershipEntitlement(admission, userId);
+        slot = await assertEchoUserHasServerMembershipSlot(admission, userId);
+        if (slot.ok) {
+          created = await createEchoServer(pool, userId, name, iconUrl);
+        }
+        await admission.query('COMMIT');
+      } catch (error) {
+        await admission.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      } finally {
+        admission.release();
+      }
       if (!slot.ok) {
         return sendError(
           reply,
@@ -183,12 +202,8 @@ export default async function echoServersRoutes(
           `current=${slot.current}`,
         );
       }
-      const { serverId, defaultChannelId } = await createEchoServer(
-        pool,
-        getAuthUser(req).id,
-        name,
-        iconUrl,
-      );
+      if (!created) throw new Error('Server creation did not complete');
+      const { serverId, defaultChannelId } = created;
       const auditId = await insertEchoAudit(
         pool,
         serverId,

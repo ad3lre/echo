@@ -211,7 +211,7 @@ export async function patchEchoForumPost(
       forum_post_tag_ids = COALESCE($2, forum_post_tag_ids),
       forum_post_pinned = COALESCE($3, forum_post_pinned),
       forum_post_locked = COALESCE($4, forum_post_locked),
-      forum_post_archived_at = COALESCE($5, forum_post_archived_at)
+      forum_post_archived_at = CASE WHEN $6::boolean THEN $5 ELSE forum_post_archived_at END
     WHERE id = $1
     RETURNING server_id
     `,
@@ -221,6 +221,7 @@ export async function patchEchoForumPost(
       patch.pinned === undefined ? null : pinned,
       patch.locked === undefined ? null : locked,
       patch.archivedAt === undefined ? null : archivedAt,
+      patch.archivedAt !== undefined,
     ],
   );
   if (r.rows.length === 0) return 'not_found';

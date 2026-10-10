@@ -63,14 +63,14 @@ export async function updateEchoMessageContent(
   }
 
   if (body.kind === 'legacy') {
-    await updateEchoMessageContentSql(
+    const updated = await updateEchoMessageContentSql(
       pool,
       channelId,
       messageId,
       body.content,
       body.attachments,
     );
-    return 'ok';
+    return updated ? 'ok' : 'not_found';
   }
 
   const scopedMentions = await filterMentionsForChannelContext(
@@ -79,17 +79,22 @@ export async function updateEchoMessageContent(
     body.mentions,
   );
 
-  await updateEchoMessageBodyJsonSql(pool, channelId, messageId, {
-    content: body.content,
-    contentJson: body.contentJson,
-    searchIndexText: body.searchIndexText,
-    mentions: scopedMentions ?? [],
-    messageFormatVersion: 2,
-    contentSchemaVersion: body.contentSchemaVersion,
-    attachments: body.attachments,
-    components: deriveMessageComponentsFromContentJson(body.contentJson),
-  });
-  return 'ok';
+  const updated = await updateEchoMessageBodyJsonSql(
+    pool,
+    channelId,
+    messageId,
+    {
+      content: body.content,
+      contentJson: body.contentJson,
+      searchIndexText: body.searchIndexText,
+      mentions: scopedMentions ?? [],
+      messageFormatVersion: 2,
+      contentSchemaVersion: body.contentSchemaVersion,
+      attachments: body.attachments,
+      components: deriveMessageComponentsFromContentJson(body.contentJson),
+    },
+  );
+  return updated ? 'ok' : 'not_found';
 }
 
 export async function softDeleteEchoMessage(

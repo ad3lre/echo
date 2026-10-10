@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import { nextEchoSnowflakeId } from '../../echoSnowflake';
+import { getEffectiveChannelPermissions } from '../roles/permissions';
 
 export type EchoWorkspaceEventSummary = {
   id: string;
@@ -120,6 +121,10 @@ export async function loadEchoWorkspaceEventPayload(
       WHERE e.server_id = ANY($1::text[])
         AND e.status = 'scheduled'
         AND e.ends_at > NOW()
+        AND EXISTS (
+          SELECT 1 FROM echo_server_members sm
+          WHERE sm.server_id = e.server_id AND sm.user_id = $2
+        )
       ORDER BY e.server_id, e.starts_at ASC
       `,
       [serverIds, userId],
@@ -137,20 +142,45 @@ export async function loadEchoWorkspaceEventPayload(
       INNER JOIN echo_servers s ON s.id = e.server_id
       LEFT JOIN echo_channels ch ON ch.id = e.channel_id AND ch.server_id = e.server_id
       WHERE r.user_id = $1
+        AND e.server_id = ANY($2::text[])
         AND r.status = 'going'
         AND e.status = 'scheduled'
         AND e.ends_at > NOW()
+        AND EXISTS (
+          SELECT 1 FROM echo_server_members sm
+          WHERE sm.server_id = e.server_id AND sm.user_id = $1
+        )
       ORDER BY e.starts_at ASC
       LIMIT ${MY_RSVPS_CAP}
       `,
-      [userId],
+      [userId, serverIds],
     ),
   ]);
 
   const byServer: Record<string, EchoWorkspaceEventSummary[]> = {};
   for (const sid of serverIds) byServer[sid] = [];
 
-  for (const row of upRes.rows as Record<string, unknown>[]) {
+  const redactHiddenChannel = async (row: Record<string, unknown>) => {
+    if (row.channel_id == null) return;
+    const channelId = String(row.channel_id);
+    const serverId = String(row.server_id ?? '');
+    const perms = await getEffectiveChannelPermissions(
+      pool,
+      serverId,
+      userId,
+      channelId,
+    );
+    if (!perms.has('VIEW_CHANNEL')) {
+      row.channel_id = null;
+      row.channel_name = null;
+    }
+  };
+
+  const upcomingRows = upRes.rows as Record<string, unknown>[];
+  const myRows = myRes.rows as Record<string, unknown>[];
+  await Promise.all([...upcomingRows, ...myRows].map(redactHiddenChannel));
+
+  for (const row of upcomingRows) {
     const sid = String(row.server_id ?? '');
     if (!sid || !byServer[sid]) continue;
     if (byServer[sid]!.length >= UPCOMING_PER_SERVER_CAP) continue;
@@ -191,7 +221,7 @@ export async function loadEchoWorkspaceEventPayload(
   }
 
   const myEventRsvps: EchoWorkspaceMyEventRsvp[] = [];
-  for (const row of myRes.rows as Record<string, unknown>[]) {
+  for (const row of myRows) {
     const maxRaw = row.max_attendees;
     const maxAttendees =
       maxRaw != null && Number.isFinite(Number(maxRaw))
@@ -398,96 +428,121 @@ export async function updateEchoServerEvent(
       reason: 'not_found' | 'bad_times' | 'bad_channel' | 'bad_location';
     }
 > {
-  const ev = await pool.query(
-    `SELECT id, starts_at, ends_at, channel_id, custom_location
-     FROM echo_server_events WHERE id = $1 AND server_id = $2`,
-    [input.eventId, input.serverId],
-  );
-  if (!ev.rowCount) return { ok: false, reason: 'not_found' };
-  const cur = ev.rows[0] as {
-    starts_at: Date;
-    ends_at: Date;
-    channel_id: unknown;
-    custom_location: unknown;
+  const client = await pool.connect();
+  const reject = async (
+    reason: 'not_found' | 'bad_times' | 'bad_channel' | 'bad_location',
+  ) => {
+    await client.query('ROLLBACK');
+    return { ok: false as const, reason };
   };
-  const starts = input.startsAt ?? new Date(cur.starts_at);
-  const ends = input.endsAt ?? new Date(cur.ends_at);
-  if (!(ends > starts)) return { ok: false, reason: 'bad_times' };
-
-  const locTouched =
-    input.channelId !== undefined || input.customLocation !== undefined;
-  let nextCh: string | null =
-    cur.channel_id != null && String(cur.channel_id).trim()
-      ? String(cur.channel_id).trim()
-      : null;
-  let nextCu = readCustomLocationCell({
-    custom_location: cur.custom_location,
-  });
-  if (locTouched) {
-    if (input.channelId !== undefined) {
-      nextCh = input.channelId?.trim() || null;
-      if (nextCh) nextCu = null;
-    }
-    if (input.customLocation !== undefined) {
-      nextCu = normalizeCustomLocation(input.customLocation);
-      if (nextCu) nextCh = null;
-    }
-    if (nextCh && nextCu) return { ok: false, reason: 'bad_location' };
-    if (nextCh) {
-      const chOk = await assertChannelInServer(pool, input.serverId, nextCh);
-      if (!chOk) return { ok: false, reason: 'bad_channel' };
-    }
-  }
-
-  const sets: string[] = ['updated_at = NOW()'];
-  const vals: unknown[] = [];
-  if (input.title !== undefined) {
-    sets.push(`title = $${vals.length + 1}`);
-    vals.push(input.title.trim().slice(0, 200) || 'Event');
-  }
-  if (input.description !== undefined) {
-    sets.push(`description = $${vals.length + 1}`);
-    vals.push(String(input.description).trim().slice(0, 4000));
-  }
-  if (input.imageUrl !== undefined) {
-    sets.push(`image_url = $${vals.length + 1}`);
-    vals.push(String(input.imageUrl).trim().slice(0, 2048));
-  }
-  if (input.startsAt !== undefined) {
-    sets.push(`starts_at = $${vals.length + 1}`);
-    vals.push(starts);
-  }
-  if (input.endsAt !== undefined) {
-    sets.push(`ends_at = $${vals.length + 1}`);
-    vals.push(ends);
-  }
-  if (input.timezoneLabel !== undefined) {
-    sets.push(`timezone_label = $${vals.length + 1}`);
-    const tz = input.timezoneLabel;
-    vals.push(
-      tz != null && String(tz).trim() ? String(tz).trim().slice(0, 64) : null,
+  try {
+    await client.query('BEGIN');
+    const ev = await client.query(
+      `SELECT id, starts_at, ends_at, channel_id, custom_location
+     FROM echo_server_events WHERE id = $1 AND server_id = $2 FOR UPDATE`,
+      [input.eventId, input.serverId],
     );
-  }
-  if (locTouched) {
-    sets.push(`channel_id = $${vals.length + 1}`);
-    vals.push(nextCh);
-    sets.push(`custom_location = $${vals.length + 1}`);
-    vals.push(nextCu);
-  }
-  if (input.maxAttendees !== undefined) {
-    sets.push(`max_attendees = $${vals.length + 1}`);
-    const m = input.maxAttendees;
-    vals.push(m != null && Number.isFinite(m) && m > 0 ? Math.floor(m) : null);
-  }
+    if (!ev.rowCount) return await reject('not_found');
+    const cur = ev.rows[0] as {
+      starts_at: Date;
+      ends_at: Date;
+      channel_id: unknown;
+      custom_location: unknown;
+    };
+    const starts = input.startsAt ?? new Date(cur.starts_at);
+    const ends = input.endsAt ?? new Date(cur.ends_at);
+    if (!(ends > starts)) return await reject('bad_times');
 
-  const idPh = vals.length + 1;
-  const sidPh = vals.length + 2;
-  vals.push(input.eventId, input.serverId);
-  await pool.query(
-    `UPDATE echo_server_events SET ${sets.join(', ')} WHERE id = $${idPh} AND server_id = $${sidPh}`,
-    vals,
-  );
-  return { ok: true };
+    const locTouched =
+      input.channelId !== undefined || input.customLocation !== undefined;
+    let nextCh: string | null =
+      cur.channel_id != null && String(cur.channel_id).trim()
+        ? String(cur.channel_id).trim()
+        : null;
+    let nextCu = readCustomLocationCell({
+      custom_location: cur.custom_location,
+    });
+    if (locTouched) {
+      if (input.channelId !== undefined) {
+        nextCh = input.channelId?.trim() || null;
+        if (nextCh) nextCu = null;
+      }
+      if (input.customLocation !== undefined) {
+        nextCu = normalizeCustomLocation(input.customLocation);
+        if (nextCu) nextCh = null;
+      }
+      if (nextCh && nextCu) return await reject('bad_location');
+      if (nextCh) {
+        const chOk = await client.query(
+          `SELECT 1 FROM echo_channels WHERE id = $1 AND server_id = $2 LIMIT 1`,
+          [nextCh, input.serverId],
+        );
+        if (!chOk.rowCount) return await reject('bad_channel');
+      }
+    }
+
+    const sets: string[] = ['updated_at = NOW()'];
+    const vals: unknown[] = [];
+    if (input.title !== undefined) {
+      sets.push(`title = $${vals.length + 1}`);
+      vals.push(input.title.trim().slice(0, 200) || 'Event');
+    }
+    if (input.description !== undefined) {
+      sets.push(`description = $${vals.length + 1}`);
+      vals.push(String(input.description).trim().slice(0, 4000));
+    }
+    if (input.imageUrl !== undefined) {
+      sets.push(`image_url = $${vals.length + 1}`);
+      vals.push(String(input.imageUrl).trim().slice(0, 2048));
+    }
+    if (input.startsAt !== undefined) {
+      sets.push(`starts_at = $${vals.length + 1}`);
+      vals.push(starts);
+    }
+    if (input.endsAt !== undefined) {
+      sets.push(`ends_at = $${vals.length + 1}`);
+      vals.push(ends);
+    }
+    if (input.timezoneLabel !== undefined) {
+      sets.push(`timezone_label = $${vals.length + 1}`);
+      const tz = input.timezoneLabel;
+      vals.push(
+        tz != null && String(tz).trim() ? String(tz).trim().slice(0, 64) : null,
+      );
+    }
+    if (locTouched) {
+      sets.push(`channel_id = $${vals.length + 1}`);
+      vals.push(nextCh);
+      sets.push(`custom_location = $${vals.length + 1}`);
+      vals.push(nextCu);
+    }
+    if (input.maxAttendees !== undefined) {
+      sets.push(`max_attendees = $${vals.length + 1}`);
+      const m = input.maxAttendees;
+      vals.push(
+        m != null && Number.isFinite(m) && m > 0 ? Math.floor(m) : null,
+      );
+    }
+
+    const idPh = vals.length + 1;
+    const sidPh = vals.length + 2;
+    vals.push(input.eventId, input.serverId);
+    await client.query(
+      `UPDATE echo_server_events SET ${sets.join(', ')} WHERE id = $${idPh} AND server_id = $${sidPh}`,
+      vals,
+    );
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* preserve original error */
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function cancelEchoServerEvent(

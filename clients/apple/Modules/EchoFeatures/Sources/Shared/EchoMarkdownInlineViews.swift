@@ -56,9 +56,10 @@ struct EchoMarkdownInlineText: View {
           }
         }
       } else {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-          ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+        EchoEmojiFlowLayout(spacing: 0) {
+          ForEach(Array(EchoMarkdownFlowWords.split(segments).enumerated()), id: \.offset) { _, segment in
             segmentView(segment)
+              .layoutValue(key: EchoInlineLineBreakKey.self, value: EchoMarkdownFlowWords.isLineBreak(segment))
           }
         }
       }
@@ -92,7 +93,7 @@ struct EchoMarkdownInlineText: View {
       Text(styled(value))
     case .math(let source, let display):
       EchoNativeMathView(
-        source: source,
+        source: EchoMarkdownMentions.restore(source),
         display: display,
         fontSize: snippet ? resolvedSize : nil,
         fillsWidth: !snippet
@@ -138,7 +139,11 @@ struct EchoEmojiFlowLayout: Layout {
     var rowHeight: CGFloat = 0
     var width: CGFloat = 0
     for subview in subviews {
-      let size = subview.sizeThatFits(.unspecified)
+      if subview[EchoInlineLineBreakKey.self] {
+        x = 0; y += max(rowHeight, 1) + spacing; rowHeight = 0
+        continue
+      }
+      let size = subview.sizeThatFits(ProposedViewSize(width: maxWidth, height: nil))
       if x > 0, x + size.width > maxWidth {
         x = 0
         y += rowHeight + spacing
@@ -158,7 +163,11 @@ struct EchoEmojiFlowLayout: Layout {
     var y = bounds.minY
     var rowHeight: CGFloat = 0
     for subview in subviews {
-      let size = subview.sizeThatFits(.unspecified)
+      if subview[EchoInlineLineBreakKey.self] {
+        x = bounds.minX; y += max(rowHeight, 1) + spacing; rowHeight = 0
+        continue
+      }
+      let size = subview.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
       if x > bounds.minX, x + size.width > bounds.maxX {
         x = bounds.minX
         y += rowHeight + spacing

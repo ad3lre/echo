@@ -52,7 +52,9 @@ export async function revalidateRecoveredChannelRooms(
 
     const exists = await echoChannelExistsInDb(pool, channelId);
     if (!exists) {
-      void socket.leave(channelId);
+      void Promise.resolve(socket.leave(channelId)).catch((error: unknown) => {
+        log.error(error, 'recovered channel leave failed');
+      });
       log.info(
         { socketId: socket.id, channelId, userId },
         'Recovered join evicted: unknown Echo channel',
@@ -62,7 +64,9 @@ export async function revalidateRecoveredChannelRooms(
 
     const ok = await canUserAccessChannel(pool, userId, channelId);
     if (!ok) {
-      void socket.leave(channelId);
+      void Promise.resolve(socket.leave(channelId)).catch((error: unknown) => {
+        log.error(error, 'recovered channel leave failed');
+      });
       log.info(
         { socketId: socket.id, channelId, userId },
         'Recovered join evicted: permission denied',
@@ -79,7 +83,10 @@ export function registerChannelHandlers(
 ): void {
   const { authenticated } = options;
 
-  void revalidateRecoveredChannelRooms(socket, log, userId, options);
+  void revalidateRecoveredChannelRooms(socket, log, userId, options).catch(
+    (error: unknown) =>
+      log.error(error, 'recovered channel access recheck failed'),
+  );
 
   socket.on('joinChannel', (channelId) => {
     void (async () => {
@@ -150,16 +157,32 @@ export function registerChannelHandlers(
       log.info(
         `Socket ${socket.id} (user: ${userId}) joining channel ${channelId}`,
       );
-      void socket.join(channelId);
+      void Promise.resolve(socket.join(channelId)).catch((error: unknown) => {
+        log.error(error, 'channel room join failed');
+      });
       if (pool) {
         const sid = await getEchoChannelServerId(pool, channelId);
-        if (sid) void socket.join(`echo:server:${sid}`);
+        if (sid) {
+          void Promise.resolve(socket.join(`echo:server:${sid}`)).catch(
+            (error: unknown) => log.error(error, 'server room join failed'),
+          );
+        }
       }
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'joinChannel handler failed');
+      emitJoinChannelError(
+        socket,
+        typeof channelId === 'string' ? channelId : '',
+        'UNAVAILABLE',
+        'Channel joins are temporarily unavailable.',
+      );
+    });
   });
 
   socket.on('leaveChannel', (channelId) => {
     if (typeof channelId !== 'string' || !channelId.trim()) return;
-    void socket.leave(channelId);
+    void Promise.resolve(socket.leave(channelId)).catch((error: unknown) => {
+      log.error(error, 'channel room leave failed');
+    });
   });
 }

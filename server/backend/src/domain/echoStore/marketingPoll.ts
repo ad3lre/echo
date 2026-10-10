@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { calculateMarketingPollScores } from '../../../../../contracts/marketingPollScoring';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
 
 export const ADEL_APPROVAL_POLL_ID = 'adel-approval-v2';
@@ -124,14 +125,13 @@ export async function submitMarketingPollEntry(
   opts: {
     pollId: string;
     displayName: string;
-    score: number;
-    categoryScores: Record<string, number>;
     answers: number[];
     clientIp: string;
     countryCode: string;
     userAgent: string;
   },
 ): Promise<SubmitMarketingPollResult> {
+  const { score, categoryScores } = calculateMarketingPollScores(opts.answers);
   const existing = await getMarketingPollEntryByIp(
     pool,
     opts.pollId,
@@ -156,8 +156,8 @@ export async function submitMarketingPollEntry(
         id,
         opts.pollId,
         opts.displayName,
-        opts.score,
-        JSON.stringify(opts.categoryScores),
+        score,
+        JSON.stringify(categoryScores),
         JSON.stringify(opts.answers),
         opts.clientIp,
         opts.countryCode,

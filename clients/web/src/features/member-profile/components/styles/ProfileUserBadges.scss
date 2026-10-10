@@ -1,0 +1,383 @@
+.profile-user-badges--sm {
+  gap: 0.3rem;
+}
+.profile-user-badges--md {
+  gap: 0.4rem;
+}
+
+/* Shared pill structure — matches friend heart / OG badges. */
+.profile-user-badges__pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  border-radius: 999px;
+  padding: 0.125rem 0.55rem 0.15rem;
+  min-height: 1.28rem;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.profile-user-badges__pill:hover {
+  transform: translateY(-1px) scale(1.03);
+}
+
+.profile-user-badges__pill:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.profile-user-badges--md .profile-user-badges__pill {
+  min-height: 1.48rem;
+  padding: 0.15rem 0.62rem 0.17rem;
+}
+
+.profile-user-badges__pill-icon {
+  position: relative;
+  z-index: 1;
+  width: 0.72rem;
+  height: 0.72rem;
+  margin-right: 0.22rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px var(--echo-palette-rgba-0-0-0-0p3-8980));
+}
+
+.profile-user-badges--md .profile-user-badges__pill-icon {
+  width: 0.82rem;
+  height: 0.82rem;
+  margin-right: 0.25rem;
+}
+
+.profile-user-badges__pill-glint {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.profile-user-badges__pill-rim {
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.profile-user-badges__pill-inner {
+  position: relative;
+  z-index: 1;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.profile-user-badges--md .profile-user-badges__pill-inner {
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+}
+
+/* Echo+ — indigo/violet gem with subtle purple glow */
+.profile-user-badges__pill--plus {
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-1e1b4b-d542) 0%,
+    var(--echo-palette-312e81-f837) 18%,
+    var(--echo-palette-4f46e5-d78f) 38%,
+    var(--echo-palette-818cf8-d7ba) 50%,
+    var(--echo-palette-a5b4fc-7fc7) 56%,
+    var(--echo-palette-6366f1-3398) 68%,
+    var(--echo-palette-3730a3-bbf8) 82%,
+    var(--echo-palette-1e1b4b-d542) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-224-231-255-0p45-e2d0),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p24-89a2),
+    0 0 0 1px var(--echo-palette-rgba-30-27-75-0p75-e180),
+    0 2px 6px var(--echo-palette-rgba-2-6-23-0p38-5769),
+    0 0 10px var(--echo-palette-rgba-99-102-241-0p32-165b),
+    0 0 20px var(--echo-palette-rgba-139-92-246-0p15-4dd4);
+}
+
+.profile-user-badges__pill--plus:hover {
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-237-242-255-0p55-3aac),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p18-7836),
+    0 0 0 1px var(--echo-palette-rgba-30-27-75-0p68-eba6),
+    0 3px 10px var(--echo-palette-rgba-0-0-0-0p38-c5ba),
+    0 0 18px var(--echo-palette-rgba-129-140-248-0p45-f40c),
+    0 0 30px var(--echo-palette-rgba-139-92-246-0p22-41f8);
+}
+
+.profile-user-badges__pill--plus .profile-user-badges__pill-glint {
+  background: linear-gradient(
+    175deg,
+    var(--echo-palette-rgba-237-242-255-0p62-212e) 0%,
+    var(--echo-palette-rgba-199-210-254-0p24-8b7d) 32%,
+    var(--echo-palette-rgba-167-139-250-0p08-0beb) 52%,
+    var(--echo-palette-rgba-255-255-255-0-ba98) 62%
+  );
+}
+
+.profile-user-badges__pill--plus .profile-user-badges__pill-rim {
+  box-shadow:
+    inset 0 0 0 1px var(--echo-palette-rgba-224-231-255-0p24-9f9b),
+    inset 0 -1px 2px var(--echo-palette-rgba-15-10-45-0p42-0728);
+}
+
+.profile-user-badges__pill--plus .profile-user-badges__pill-inner {
+  color: var(--echo-palette-eef2ff-3b57);
+  text-shadow:
+    0 1px 0 var(--echo-palette-rgba-15-10-45-0p62-f76b),
+    0 0 10px var(--echo-palette-rgba-165-180-252-0p4-629b);
+}
+
+.profile-user-badges__pill--plus .profile-user-badges__pill-icon {
+  filter: drop-shadow(0 0 3px var(--echo-palette-rgba-165-180-252-0p5-b89b))
+    drop-shadow(0 1px 1px var(--echo-palette-rgba-0-0-0-0p3-8980));
+}
+
+/* Echo Black — obsidian with silver/platinum accents */
+.profile-user-badges__pill--black {
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-0a0a0b-0345) 0%,
+    var(--echo-palette-18181b-c6ba) 20%,
+    var(--echo-palette-27272a-7cdb) 36%,
+    var(--echo-palette-52525b-696d) 48%,
+    var(--echo-palette-a1a1aa-cc68) 54%,
+    var(--echo-palette-52525b-696d) 60%,
+    var(--echo-palette-27272a-7cdb) 72%,
+    var(--echo-palette-18181b-c6ba) 86%,
+    var(--echo-palette-09090b-5530) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p32-ca7c),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p36-9df6),
+    0 0 0 1px var(--echo-palette-rgba-9-9-11-0p9-6e02),
+    0 0 0 2px var(--echo-palette-rgba-161-161-170-0p15-ce33),
+    0 2px 6px var(--echo-palette-rgba-0-0-0-0p48-02af),
+    0 0 12px var(--echo-palette-rgba-161-161-170-0p1-2182);
+}
+
+.profile-user-badges__pill--black:hover {
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p42-0e65),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p28-9dbc),
+    0 0 0 1px var(--echo-palette-rgba-9-9-11-0p82-07f7),
+    0 0 0 2px var(--echo-palette-rgba-161-161-170-0p22-0100),
+    0 3px 10px var(--echo-palette-rgba-0-0-0-0p48-02af),
+    0 0 18px var(--echo-palette-rgba-212-212-216-0p16-92fa);
+}
+
+.profile-user-badges__pill--black .profile-user-badges__pill-glint {
+  background: linear-gradient(
+    175deg,
+    var(--echo-palette-rgba-255-255-255-0p42-0e65) 0%,
+    var(--echo-palette-rgba-228-228-231-0p16-dbca) 30%,
+    var(--echo-palette-rgba-161-161-170-0p06-9243) 50%,
+    var(--echo-palette-rgba-255-255-255-0-ba98) 62%
+  );
+}
+
+.profile-user-badges__pill--black .profile-user-badges__pill-rim {
+  box-shadow:
+    inset 0 0 0 1px var(--echo-palette-rgba-228-228-231-0p2-f163),
+    inset 0 -1px 2px var(--echo-palette-rgba-0-0-0-0p52-b7cf);
+}
+
+.profile-user-badges__pill--black .profile-user-badges__pill-inner {
+  color: var(--echo-palette-fafafa-64f1);
+  text-shadow:
+    0 1px 0 var(--echo-palette-rgba-0-0-0-0p76-be8f),
+    0 0 8px var(--echo-palette-rgba-228-228-231-0p2-f163);
+  letter-spacing: 0.06em;
+}
+
+.profile-user-badges__pill--black .profile-user-badges__pill-icon {
+  filter: drop-shadow(0 0 2px var(--echo-palette-rgba-228-228-231-0p35-dfbd))
+    drop-shadow(0 1px 1px var(--echo-palette-rgba-0-0-0-0p5-8691));
+}
+
+/* Echo blue (915b563a): cobalt rim → vivid core — same structure as friend heart. */
+.profile-user-badges__pill--og {
+  min-width: 1.85rem;
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-07142a-660b) 0%,
+    var(--echo-palette-0b2d65-fa6b) 22%,
+    var(--echo-palette-1556b2-a723) 44%,
+    var(--echo-palette-2a8dff-4016) 56%,
+    var(--echo-palette-1a63c9-227e) 74%,
+    var(--echo-palette-0a2b61-5bab) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-226-242-255-0p4-46c1),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p24-89a2),
+    0 0 0 1px var(--echo-palette-rgba-7-25-56-0p75-0eec),
+    0 2px 6px var(--echo-palette-rgba-2-9-24-0p38-7ba9),
+    0 0 14px var(--echo-palette-rgba-50-139-255-0p3-2aed);
+}
+
+.profile-user-badges__pill--og:hover {
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-236-247-255-0p52-af34),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p2-e196),
+    0 0 0 1px var(--echo-palette-rgba-7-25-56-0p68-d8a4),
+    0 3px 10px var(--echo-palette-rgba-0-0-0-0p38-c5ba),
+    0 0 22px var(--echo-palette-rgba-82-165-255-0p46-794a);
+}
+
+.profile-user-badges--md .profile-user-badges__pill--og {
+  min-width: 2.05rem;
+}
+
+.profile-user-badges__pill--og .profile-user-badges__pill-glint {
+  background: linear-gradient(
+    180deg,
+    var(--echo-palette-rgba-237-247-255-0p56-7d9d) 0%,
+    var(--echo-palette-rgba-191-226-255-0p18-638c) 38%,
+    var(--echo-palette-rgba-255-255-255-0-ba98) 58%
+  );
+}
+
+.profile-user-badges__pill--og .profile-user-badges__pill-rim {
+  box-shadow:
+    inset 0 0 0 1px var(--echo-palette-rgba-208-232-255-0p2-47da),
+    inset 0 -1px 2px var(--echo-palette-rgba-5-18-41-0p42-9885);
+}
+
+.profile-user-badges__pill--og .profile-user-badges__pill-inner {
+  padding-left: 0.04em;
+  letter-spacing: 0.14em;
+  color: var(--echo-palette-eef7ff-fb56);
+  text-transform: uppercase;
+  text-shadow:
+    0 1px 0 var(--echo-palette-rgba-2-12-33-0p62-663f),
+    0 0 10px var(--echo-palette-rgba-158-214-255-0p4-dfba);
+}
+
+.profile-user-badges--md
+  .profile-user-badges__pill--og
+  .profile-user-badges__pill-inner {
+  letter-spacing: 0.16em;
+}
+
+/* Bug Hunter — emerald green with a warm amber accent */
+.profile-user-badges__pill--bug_hunter {
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-052e16-6676) 0%,
+    var(--echo-palette-14532d-cf99) 20%,
+    var(--echo-palette-16a34a-3c5c) 42%,
+    var(--echo-palette-4ade80-5f1c) 54%,
+    var(--echo-palette-22c55e-8b8f) 64%,
+    var(--echo-palette-15803d-7d4f) 78%,
+    var(--echo-palette-052e16-6676) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-187-247-208-0p42-5bb4),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p24-89a2),
+    0 0 0 1px var(--echo-palette-rgba-5-46-22-0p75-8ea1),
+    0 2px 6px var(--echo-palette-rgba-2-18-8-0p38-c3f7),
+    0 0 12px var(--echo-palette-rgba-34-197-94-0p3-1253);
+}
+
+.profile-user-badges__pill--bug_hunter:hover {
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-220-252-231-0p52-aa2f),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p18-7836),
+    0 0 0 1px var(--echo-palette-rgba-5-46-22-0p68-e47e),
+    0 3px 10px var(--echo-palette-rgba-0-0-0-0p38-c5ba),
+    0 0 18px var(--echo-palette-rgba-74-222-128-0p45-1dad),
+    0 0 30px var(--echo-palette-rgba-34-197-94-0p2-dd23);
+}
+
+.profile-user-badges__pill--bug_hunter .profile-user-badges__pill-glint {
+  background: linear-gradient(
+    175deg,
+    var(--echo-palette-rgba-220-252-231-0p56-8819) 0%,
+    var(--echo-palette-rgba-134-239-172-0p2-7e01) 32%,
+    var(--echo-palette-rgba-74-222-128-0p08-7a0d) 52%,
+    var(--echo-palette-rgba-255-255-255-0-ba98) 62%
+  );
+}
+
+.profile-user-badges__pill--bug_hunter .profile-user-badges__pill-rim {
+  box-shadow:
+    inset 0 0 0 1px var(--echo-palette-rgba-187-247-208-0p22-8976),
+    inset 0 -1px 2px var(--echo-palette-rgba-5-30-14-0p42-9dcf);
+}
+
+.profile-user-badges__pill--bug_hunter .profile-user-badges__pill-inner {
+  color: var(--echo-palette-f0fdf4-1167);
+  text-shadow:
+    0 1px 0 var(--echo-palette-rgba-5-30-14-0p62-a635),
+    0 0 10px var(--echo-palette-rgba-134-239-172-0p4-741c);
+}
+
+/* Developer — teal/cyan with a soft violet accent */
+.profile-user-badges__pill--developer {
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-042f2e-88e8) 0%,
+    var(--echo-palette-0f766e-c206) 20%,
+    var(--echo-palette-14b8a6-29a6) 42%,
+    var(--echo-palette-5eead4-bb0a) 54%,
+    var(--echo-palette-2dd4bf-f9ff) 64%,
+    var(--echo-palette-0d9488-fa48) 78%,
+    var(--echo-palette-042f2e-88e8) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-204-251-241-0p42-c4b5),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p24-89a2),
+    0 0 0 1px var(--echo-palette-rgba-4-47-46-0p75-b23e),
+    0 2px 6px var(--echo-palette-rgba-2-18-16-0p38-ceaf),
+    0 0 12px var(--echo-palette-rgba-20-184-166-0p3-0717);
+}
+
+.profile-user-badges__pill--developer:hover {
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-236-254-252-0p52-30f3),
+    inset 0 -2px 4px var(--echo-palette-rgba-0-0-0-0p18-7836),
+    0 0 0 1px var(--echo-palette-rgba-4-47-46-0p68-0a4f),
+    0 3px 10px var(--echo-palette-rgba-0-0-0-0p38-c5ba),
+    0 0 18px var(--echo-palette-rgba-94-234-212-0p45-efb9),
+    0 0 30px var(--echo-palette-rgba-20-184-166-0p2-3c04);
+}
+
+.profile-user-badges__pill--developer .profile-user-badges__pill-glint {
+  background: linear-gradient(
+    175deg,
+    var(--echo-palette-rgba-236-254-252-0p56-882f) 0%,
+    var(--echo-palette-rgba-153-246-228-0p2-b5c6) 32%,
+    var(--echo-palette-rgba-94-234-212-0p08-d091) 52%,
+    var(--echo-palette-rgba-255-255-255-0-ba98) 62%
+  );
+}
+
+.profile-user-badges__pill--developer .profile-user-badges__pill-rim {
+  box-shadow:
+    inset 0 0 0 1px var(--echo-palette-rgba-204-251-241-0p22-88f3),
+    inset 0 -1px 2px var(--echo-palette-rgba-4-30-28-0p42-9bf6);
+}
+
+.profile-user-badges__pill--developer .profile-user-badges__pill-inner {
+  color: var(--echo-palette-f0fdfa-d27e);
+  text-shadow:
+    0 1px 0 var(--echo-palette-rgba-4-30-28-0p62-6320),
+    0 0 10px var(--echo-palette-rgba-153-246-228-0p4-4117);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-user-badges__pill {
+    transition: none;
+  }
+  .profile-user-badges__pill:hover {
+    transform: none;
+  }
+}

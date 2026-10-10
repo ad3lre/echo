@@ -34,7 +34,18 @@ type IoSocket = Socket<
 >;
 
 const WATCH_JOIN_MIN_INTERVAL_MS = 800;
+const WATCH_JOIN_RATE_TTL_MS = 10 * 60_000;
+const WATCH_JOIN_RATE_MAX_ENTRIES = 50_000;
 const joinRate = new Map<string, number>();
+let nextJoinRateSweepAt = 0;
+
+function pruneJoinRate(now: number): void {
+  if (now < nextJoinRateSweepAt) return;
+  nextJoinRateSweepAt = now + 30_000;
+  for (const [key, timestamp] of joinRate) {
+    if (now - timestamp > WATCH_JOIN_RATE_TTL_MS) joinRate.delete(key);
+  }
+}
 
 function watchRateKey(userId: string, channelId: string): string {
   return `${userId}\0${channelId}`;
@@ -104,6 +115,7 @@ export function registerPaperWatchHandler(
     channelId: string,
     authoring: boolean,
   ): Promise<boolean> {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(channelId)) return false;
     if (!authenticated || isAnonymousSocketUser(userId)) {
       log.warn(
         { socketId: socket.id, channelId },
@@ -113,9 +125,14 @@ export function registerPaperWatchHandler(
     }
 
     const now = Date.now();
+    pruneJoinRate(now);
     const rk = watchRateKey(userId, channelId);
     const last = joinRate.get(rk) ?? 0;
     if (now - last < WATCH_JOIN_MIN_INTERVAL_MS) return false;
+    if (!last && joinRate.size >= WATCH_JOIN_RATE_MAX_ENTRIES) {
+      const oldest = joinRate.keys().next().value;
+      if (oldest !== undefined) joinRate.delete(oldest);
+    }
     joinRate.set(rk, now);
 
     const { enabled, pool } = await getEchoStore();
@@ -225,7 +242,9 @@ export function registerPaperWatchHandler(
       if (!channelId) return;
       const authoring = payload?.authoring === true;
       await addWatch(channelId, authoring);
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'paper watch handler failed');
+    });
   });
 
   socket.on('paper:authoring', (payload) => {
@@ -244,7 +263,9 @@ export function registerPaperWatchHandler(
       removeSocketFromChannel(io, socket.id, channelId, userId);
       socketPaperChannels.get(socket.id)?.delete(channelId);
       cleanupPaperCollabForUser(io, userId, [channelId]);
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'paper unwatch handler failed');
+    });
   });
 
   socket.on('disconnect', () => {

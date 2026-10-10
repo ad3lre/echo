@@ -104,7 +104,8 @@ function readUrl(attrs: Record<string, string>): string {
 function parseButtonsAttr(raw: string | undefined): ButtonRowButton[] | null {
   const body = raw?.trim();
   if (!body) return null;
-  const specs = body
+  const encoded = body.startsWith('v1:');
+  const specs = (encoded ? body.slice(3) : body)
     .split(';')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -112,7 +113,14 @@ function parseButtonsAttr(raw: string | undefined): ButtonRowButton[] | null {
   const buttons: ButtonRowButton[] = [];
   for (const spec of specs) {
     if (buttons.length >= BUTTON_ROW_LIMITS.maxButtonsPerRow) break;
-    const parts = spec.split('|').map((p) => p.trim());
+    let parts: string[];
+    try {
+      parts = spec
+        .split('|')
+        .map((p) => (encoded ? decodeURIComponent(p) : p.trim()));
+    } catch {
+      return null;
+    }
     if (parts.length < 2) continue;
     const label = clipLabel(parts[0] ?? '');
     if (!label) continue;
@@ -193,10 +201,12 @@ export function formatButtonRowComposerShortcut(
         btn.style === DISCORD_BUTTON_STYLE.LINK
           ? (btn.url ?? '')
           : (btn.customId ?? '');
-      return `${btn.label}|${style}|${target}`;
+      return [btn.label, style, target].map(encodeURIComponent).join('|');
     })
     .join(';');
-  return formatRichBlockToken(BUTTON_ROW_BLOCK_TYPE, { buttons: specs });
+  return formatRichBlockToken(BUTTON_ROW_BLOCK_TYPE, {
+    buttons: `v1:${specs}`,
+  });
 }
 
 /** Canonical plain projection: `![button: rowId=…]`. */

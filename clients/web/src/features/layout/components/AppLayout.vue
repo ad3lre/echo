@@ -14,7 +14,6 @@ import CompactPhoneTabShell from '@/features/layout/components/CompactPhoneTabSh
 import MobileHomeSurface from '@/features/layout/components/mobile/MobileHomeSurface.vue';
 import MobileServersSurface from '@/features/layout/components/mobile/MobileServersSurface.vue';
 import { ECHO_SCREEN_SHARE_USE_CONFIG_MODAL } from '@/config/screenShareUi';
-
 const GuildMobileVoiceLobbySheet = defineAsyncComponent(
   () => import('@/features/voice/components/GuildMobileVoiceLobbySheet.vue'),
 );
@@ -42,7 +41,6 @@ const BugReportModal = defineAsyncComponent(
 const ReportModal = defineAsyncComponent(
   () => import('@/features/safety/components/ReportModal.vue'),
 );
-
 const ScreenSharePickerModal = defineAsyncComponent(
   () => import('@/features/voice/components/ScreenSharePickerModal.vue'),
 );
@@ -272,6 +270,7 @@ const {
   _echoRoleCatalog,
   echoWorkspaceError,
   editMessage,
+  fillImageSlot,
   effectiveActiveChannel,
   endDmCall,
   leaveDmCallVoice,
@@ -1175,6 +1174,7 @@ useAppLayoutChatSurfaceProvide({
   handleVcModerate,
   handlePollVote,
   editMessage,
+  fillImageSlot,
   deleteMessage,
   handleReact,
   topReactions,

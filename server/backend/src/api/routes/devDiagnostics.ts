@@ -6,21 +6,9 @@ import {
   getSessionDiagnosticsState,
 } from '../../observability/sessionDiagnostics';
 
-function isLocalHostHeader(host: string | undefined): boolean {
-  if (!host) return false;
-  const h = host.toLowerCase();
-  return (
-    h.includes('localhost') || h.includes('127.0.0.1') || h.includes('[::1]')
-  );
-}
-
 function isLocalAddress(ip: string): boolean {
-  return (
-    ip === '127.0.0.1' ||
-    ip === '::1' ||
-    ip.endsWith('127.0.0.1') ||
-    ip.endsWith('::1')
-  );
+  const normalized = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+  return normalized === '127.0.0.1' || normalized === '::1';
 }
 
 const devDiagnosticsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -38,14 +26,13 @@ const devDiagnosticsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send({ error: 'Dev diagnostics disabled' });
       }
 
-      const hostHeader = Array.isArray(req.headers.host)
-        ? req.headers.host[0]
-        : req.headers.host;
-      if (!isLocalAddress(req.ip) && !isLocalHostHeader(hostHeader)) {
+      // Use the actual peer address; Host and forwarded headers are client
+      // controlled and must not grant access to local diagnostics.
+      const peerAddress = req.raw.socket.remoteAddress ?? '';
+      if (!isLocalAddress(peerAddress)) {
         fastify.log.warn(
           {
-            ip: req.ip,
-            hostHeader,
+            peerAddress,
           },
           'dev diagnostics ingest rejected for non-local host/ip',
         );

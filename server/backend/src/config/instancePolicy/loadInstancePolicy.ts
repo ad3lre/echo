@@ -6,7 +6,11 @@ import {
   type InstancePolicy,
 } from '../../../../../contracts/instancePolicy';
 import { buildInstancePolicyEnvOverrides } from './envOverrides';
-import { validateInstancePolicy } from './validateInstancePolicy';
+import {
+  InstancePolicyValidationError,
+  validateInstancePolicy,
+} from './validateInstancePolicy';
+import { instancePolicySchemaIssues } from './instancePolicySchema';
 
 export type InstancePolicySnapshot = Readonly<InstancePolicy>;
 
@@ -58,6 +62,8 @@ export function loadInstancePolicy(
     (process.env.NODE_ENV ?? '').trim().toLowerCase() === 'production';
   const filePath = opts.filePath ?? resolveDefaultInstancePolicyPath();
   const fileJson = readInstancePolicyFile(filePath);
+  const fileIssues = fileJson ? instancePolicySchemaIssues(fileJson, true) : [];
+  if (fileIssues.length) throw new InstancePolicyValidationError(fileIssues);
   const fromFile = fileJson
     ? deepMergeInstancePolicy(DEFAULT_INSTANCE_POLICY, fileJson)
     : DEFAULT_INSTANCE_POLICY;

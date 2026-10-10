@@ -38,7 +38,6 @@ import type {
 } from '@/audio/voiceEchoLiveKitData';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 import type { VcWatchTogetherRemotePlaybackState } from '@/features/voice/composables/useVcWatchTogetherPlayer';
-
 /**
  * Props / inject bundle for [`AppLayoutChatSurface.vue`](./components/AppLayoutChatSurface.vue).
  * Narrow types gradually; many handlers stay `any` to match the prior `defineProps([...])` surface.
@@ -208,6 +207,7 @@ export type AppLayoutChatSurfaceProps = {
   handleVcModerate: unknown;
   handlePollVote: unknown;
   editMessage: unknown;
+  fillImageSlot: unknown;
   deleteMessage: unknown;
   handleReact: unknown;
   topReactions: ReactionFavorite[];
@@ -467,7 +467,6 @@ export type AppLayoutChatSurfaceProps = {
     categoryId: string;
   } | null;
 };
-
 /** Keys merged in `AppLayoutChatSurface` inject-or-props `chatCtx` (search UI still prefers `APP_LAYOUT_SEARCH_PANEL_KEY`). */
 export const CHAT_SURFACE_INJECT_KEYS = [
   'dmSurfaceAdapter',
@@ -607,6 +606,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'handleVcModerate',
   'handlePollVote',
   'editMessage',
+  'fillImageSlot',
   'deleteMessage',
   'handleReact',
   'topReactions',

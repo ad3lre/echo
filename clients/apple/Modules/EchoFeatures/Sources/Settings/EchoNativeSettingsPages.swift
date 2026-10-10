@@ -193,7 +193,7 @@ struct EchoReportAbuseView: View {
         .pickerStyle(.segmented)
 
         if targetType == .user {
-          TextField(EchoCopy.string("@username or user ID"), text: $targetUserID)
+          TextField(EchoCopy.string("User ID"), text: $targetUserID)
             .padding(12)
             .background(EchoTheme.Color.ink(0.07), in: RoundedRectangle(cornerRadius: 12))
         } else {

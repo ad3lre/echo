@@ -10,7 +10,7 @@
     "build:holyc": "bash cores/games/ticTacToe/holyc/build-engine.sh",
     "typecheck": "tsc --noEmit",
     "start": "node dist/server/activities/src/index.js",
-    "test": "ts-node src/tests/run.ts"
+    "test": "node --import tsx src/http/internalGameRoutes.security.test.ts && ts-node src/tests/run.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",

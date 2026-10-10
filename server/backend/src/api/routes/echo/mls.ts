@@ -171,18 +171,22 @@ function sendProposalError(
   }
 }
 
+const MAX_MLS_WELCOME_COUNT = 100;
+const MAX_MLS_WELCOME_AGGREGATE_CHARS = 5_000_000;
+
 function parseWelcomes(raw: unknown): Array<{
   recipientUserId: string;
   recipientDeviceId: string;
   payload: string;
 }> | null {
   if (raw === undefined) return [];
-  if (!Array.isArray(raw)) return null;
+  if (!Array.isArray(raw) || raw.length > MAX_MLS_WELCOME_COUNT) return null;
   const out: Array<{
     recipientUserId: string;
     recipientDeviceId: string;
     payload: string;
   }> = [];
+  let aggregateChars = 0;
   for (const item of raw) {
     if (!item || typeof item !== 'object') return null;
     const o = item as Record<string, unknown>;
@@ -192,6 +196,8 @@ function parseWelcomes(raw: unknown): Array<{
       typeof o.recipientDeviceId === 'string' ? o.recipientDeviceId.trim() : '';
     const payload = typeof o.payload === 'string' ? o.payload.trim() : '';
     if (!recipientUserId || !recipientDeviceId || !payload) return null;
+    aggregateChars += payload.length;
+    if (aggregateChars > MAX_MLS_WELCOME_AGGREGATE_CHARS) return null;
     out.push({ recipientUserId, recipientDeviceId, payload });
   }
   return out;
@@ -577,7 +583,10 @@ export default async function echoMlsRoutes(
   );
   fastify.get<{ Params: { channelId: string } }>(
     '/dm/channels/:channelId/voice/mls/messages',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: MLS_READ_RATE },
+    },
     (req, reply) =>
       handleMessages(
         req,
@@ -648,7 +657,10 @@ export default async function echoMlsRoutes(
   );
   fastify.get<{ Params: { serverId: string; channelId: string } }>(
     '/servers/:serverId/channels/:channelId/voice/mls/messages',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: MLS_READ_RATE },
+    },
     (req, reply) =>
       handleMessages(
         req,

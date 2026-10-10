@@ -402,11 +402,16 @@ public struct EchoHomeClient: Sendable {
   {
     let uniqueIDs = Array(Set(userIDs)).filter { !$0.isEmpty }
     guard !uniqueIDs.isEmpty else { return [:] }
-    let query = uniqueIDs.map(escapedQuery).joined(separator: ",")
-    let response: EchoHomePresenceResponse = try await request(
-      path: "/presence", queryItems: [URLQueryItem(name: "ids", value: query)],
-      accessToken: accessToken)
-    return response.presence ?? [:]
+    var presence: [String: String] = [:]
+    for start in stride(from: 0, to: uniqueIDs.count, by: 200) {
+      let batch = uniqueIDs[start..<min(start + 200, uniqueIDs.count)]
+      let query = batch.map(escapedQuery).joined(separator: ",")
+      let response: EchoHomePresenceResponse = try await request(
+        path: "/presence", queryItems: [URLQueryItem(name: "ids", value: query)],
+        accessToken: accessToken)
+      presence.merge(response.presence ?? [:]) { _, newer in newer }
+    }
+    return presence
   }
 
   private func buildConversations(

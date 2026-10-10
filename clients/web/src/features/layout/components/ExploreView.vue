@@ -1041,333 +1041,7 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
-<style scoped lang="scss">
-.explore-view {
-  transform: translateZ(0);
-  background-color: var(--surface);
-  background-image:
-    radial-gradient(
-      circle at top left,
-      var(--explore-radial-accent),
-      transparent 22%
-    ),
-    radial-gradient(
-      circle at bottom right,
-      var(--explore-radial-cyan),
-      transparent 24%
-    ),
-    linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
-}
-
-.explore-server-widget {
-  background: linear-gradient(165deg, var(--vue-auto-077), var(--vue-auto-078));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 4%, transparent),
-    0 16px 40px var(--vue-auto-018);
-  border: 1px solid color-mix(in srgb, white 3%, transparent);
-}
-
-.explore-server-widget:hover {
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 7%, transparent),
-    0 20px 48px var(--vue-auto-065);
-  border-color: color-mix(in srgb, white 8%, transparent);
-}
-
-.explore-server-widget__banner {
-  isolation: isolate;
-  transform: translateZ(0);
-}
-
-.explore-server-widget__banner-image {
-  transform: translate3d(0, 0, 0) scale(1);
-  transform-origin: center center;
-  backface-visibility: hidden;
-  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.explore-server-widget:hover .explore-server-widget__banner-image,
-.explore-featured-widget:hover .explore-server-widget__banner-image {
-  transform: translate3d(0, 0, 0) scale(1.04);
-}
-
-.explore-server-widget__banner-scrim {
-  background: linear-gradient(
-    180deg,
-    var(--vue-auto-156) 0%,
-    var(--vue-auto-157) 100%
-  );
-}
-
-.explore-voice-badge {
-  color: color-mix(in srgb, #ecfdf5 92%, transparent);
-  background: color-mix(in srgb, var(--server-vc-active, #22c55e) 88%, #052e16);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, #22c55e 45%, transparent),
-    0 8px 20px color-mix(in srgb, black 35%, transparent);
-}
-
-.explore-voice-badge__dot {
-  background: var(--server-vc-active, #4ade80);
-  box-shadow: 0 0 0 2px color-mix(in srgb, #22c55e 35%, transparent);
-}
-
-.explore-server-widget__banner-shine {
-  background: linear-gradient(
-    125deg,
-    transparent 0%,
-    var(--vue-auto-001) 42%,
-    transparent 62%
-  );
-  transition: opacity 0.35s ease;
-}
-
-.explore-server-widget:hover .explore-server-widget__banner-shine {
-  opacity: 0.55;
-}
-
-.explore-featured-widget {
-  background: linear-gradient(165deg, var(--vue-auto-077), var(--vue-auto-078));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 4%, transparent),
-    0 12px 28px var(--vue-auto-079);
-  border: 1px solid color-mix(in srgb, white 3%, transparent);
-}
-
-.explore-featured-widget:hover {
-  border-color: color-mix(in srgb, white 8%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 7%, transparent),
-    0 16px 36px var(--vue-auto-046);
-}
-
-.explore-featured-widget__footer {
-  background: var(--vue-auto-158);
-}
-
-.explore-empty {
-  background: var(--vue-auto-159);
-  box-shadow: inset 0 0 0 1px var(--vue-auto-002);
-}
-
-.explore-search {
-  background: color-mix(in srgb, var(--vue-auto-007) 70%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 5%, transparent);
-}
-
-.explore-filter-strip,
-.explore-featured-strip {
-  scrollbar-width: none;
-}
-
-.explore-filter-strip::-webkit-scrollbar,
-.explore-featured-strip::-webkit-scrollbar {
-  display: none;
-}
-
-.explore-tag-chip {
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, white 8%, transparent),
-    0 10px 22px color-mix(in srgb, black 16%, transparent);
-}
-
-.explore-tag-chip--idle {
-  background: color-mix(in srgb, var(--vue-auto-162) 10%, var(--vue-auto-005));
-  color: color-mix(in srgb, white 82%, transparent);
-}
-
-.explore-tag-chip--idle:hover {
-  background: color-mix(in srgb, var(--vue-auto-162) 20%, var(--vue-auto-048));
-  color: color-mix(in srgb, white 96%, transparent);
-}
-
-.explore-tag-chip--active {
-  background: linear-gradient(135deg, var(--vue-auto-162), var(--vue-auto-163));
-  color: white;
-  box-shadow: 0 10px 24px var(--vue-auto-164);
-}
-
-.explore-server-tag {
-  background: color-mix(in srgb, white 6%, transparent);
-  color: color-mix(in srgb, white 72%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 6%, transparent);
-}
-
-.explore-ghost-btn {
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.explore-ghost-btn:hover {
-  background: var(--vue-auto-002);
-  color: var(--vue-auto-012);
-}
-
-.explore-alpha-toggle {
-  background: var(--vue-auto-047);
-  box-shadow:
-    inset 0 1px 0 var(--vue-auto-002),
-    0 0 0 1px var(--vue-auto-001);
-}
-
-.explore-alpha-toggle:hover {
-  background: var(--vue-auto-080);
-  color: var(--vue-auto-012);
-  box-shadow:
-    inset 0 1px 0 var(--vue-auto-001),
-    0 0 0 1px var(--vue-auto-045);
-}
-
-:deep(.explore-sort-dropdown .echo-dropdown-container) {
-  min-width: 0;
-  gap: 0;
-}
-
-:deep(.explore-sort-dropdown .echo-dropdown-trigger) {
-  background: var(--vue-auto-047);
-  box-shadow:
-    inset 0 1px 0 var(--vue-auto-002),
-    0 0 0 1px var(--vue-auto-001);
-  border-radius: 0.75rem;
-}
-
-:deep(.explore-sort-dropdown .echo-dropdown-trigger:hover) {
-  background: var(--vue-auto-080);
-  box-shadow:
-    inset 0 1px 0 var(--vue-auto-001),
-    0 0 0 1px var(--vue-auto-045);
-}
-
-:deep(
-  .explore-sort-dropdown .echo-dropdown-trigger.echo-dropdown-trigger--open
-) {
-  background: var(--vue-auto-160);
-  box-shadow:
-    inset 0 1px 0 var(--vue-auto-008),
-    0 0 0 1px var(--vue-auto-161);
-}
-
-:deep(.explore-sort-dropdown .echo-dropdown-menu) {
-  border-radius: 0.75rem;
-  box-shadow:
-    0 0 0 1px var(--vue-auto-001),
-    0 16px 48px var(--vue-auto-016);
-}
-
-.explore-primary-btn {
-  background: linear-gradient(135deg, var(--vue-auto-162), var(--vue-auto-163));
-  transition: filter 0.18s ease;
-}
-
-.explore-primary-btn:hover {
-  filter: brightness(1.06);
-}
-
-.explore-open-btn {
-  color: white;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, #059669 92%, #047857),
-    color-mix(in srgb, #10b981 88%, #059669)
-  );
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
-    0 0 0 1px color-mix(in srgb, #34d399 35%, transparent);
-  transition: filter 0.18s ease;
-}
-
-.explore-open-btn:hover {
-  filter: brightness(1.08);
-}
-
-.explore-join-locked-btn {
-  color: color-mix(in srgb, white 78%, transparent);
-  background: color-mix(in srgb, var(--vue-auto-005) 88%, #1a1a24);
-  border: 1px solid color-mix(in srgb, white 14%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
-  transition:
-    background-color 0.18s ease,
-    border-color 0.18s ease;
-}
-
-.explore-join-locked-btn:hover {
-  background: color-mix(in srgb, var(--vue-auto-048) 70%, #1a1a24);
-  border-color: color-mix(in srgb, white 22%, transparent);
-}
-
-.explore-join-locked-badge {
-  color: color-mix(in srgb, #fef3c7 92%, transparent);
-  background: color-mix(in srgb, #78350f 75%, #1c1917);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, #f59e0b 40%, transparent),
-    0 8px 20px color-mix(in srgb, black 35%, transparent);
-}
-
-.explore-server-widget--join-locked {
-  opacity: 0.92;
-}
-
-.explore-server-widget--join-locked:hover .explore-server-widget__banner-image,
-.explore-featured-widget.explore-server-widget--join-locked:hover
-  .explore-server-widget__banner-image {
-  transform: translate3d(0, 0, 0) scale(1);
-}
-
-.explore-secondary-btn {
-  background: color-mix(in srgb, black 18%, var(--vue-auto-005));
-  border: 1px solid color-mix(in srgb, white 10%, transparent);
-  transition: background-color 0.18s ease;
-}
-
-.explore-secondary-btn:hover {
-  background: color-mix(in srgb, black 10%, var(--vue-auto-048));
-}
-
-@media (max-width: 799px) {
-  .explore-view {
-    background-color: var(--explore-hero-grad-surface-tint);
-    background-image:
-      radial-gradient(
-        ellipse 120% 80% at 14% -8%,
-        var(--explore-radial-accent),
-        transparent 52%
-      ),
-      radial-gradient(
-        ellipse 95% 72% at 96% 12%,
-        color-mix(in srgb, var(--explore-hero-radial-rose) 26%, transparent),
-        transparent 48%
-      ),
-      radial-gradient(
-        ellipse 88% 68% at 78% 100%,
-        color-mix(in srgb, var(--explore-hero-radial-mint) 20%, transparent),
-        transparent 46%
-      ),
-      radial-gradient(
-        ellipse 72% 58% at -4% 88%,
-        color-mix(in srgb, var(--accent) 12%, transparent),
-        transparent 42%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(
-            in srgb,
-            var(--surface) 90%,
-            var(--explore-hero-grad-surface-tint) 10%
-          )
-          0%,
-        color-mix(in srgb, var(--bg) 92%, var(--explore-hero-grad-bg-tint) 8%)
-          100%
-      );
-  }
-
-  .explore-server-widget {
-    box-shadow:
-      inset 0 1px 0 var(--vue-auto-002),
-      0 12px 28px color-mix(in srgb, black 32%, transparent);
-  }
-}
-</style>
+<style scoped lang="scss" src="./styles/ExploreView.scss"></style>
 
 <style lang="scss">
 [data-theme='light'] .explore-view {
@@ -1410,14 +1084,16 @@ onBeforeUnmount(() => {
 
   .explore-server-widget {
     box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 85%, transparent),
+      inset 0 1px 0
+        color-mix(in srgb, var(--echo-palette-fff-e08d) 85%, transparent),
       0 14px 36px color-mix(in srgb, var(--foreground) 7%, transparent);
     border-color: color-mix(in srgb, var(--border) 82%, transparent);
   }
 
   .explore-server-widget:hover {
     box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 92%, transparent),
+      inset 0 1px 0
+        color-mix(in srgb, var(--echo-palette-fff-e08d) 92%, transparent),
       0 18px 44px color-mix(in srgb, var(--foreground) 9%, transparent);
     border-color: color-mix(in srgb, var(--border) 70%, transparent);
   }
@@ -1429,18 +1105,30 @@ onBeforeUnmount(() => {
   }
 
   .explore-voice-badge {
-    color: color-mix(in srgb, #14532d 92%, var(--text));
-    background: color-mix(in srgb, var(--server-vc-active, #22c55e) 18%, #fff);
+    color: color-mix(in srgb, var(--echo-palette-14532d-cf99) 92%, var(--text));
+    background: color-mix(
+      in srgb,
+      var(--server-vc-active, var(--echo-palette-22c55e-8b8f)) 18%,
+      var(--echo-palette-fff-e08d)
+    );
     box-shadow:
       inset 0 0 0 1px
-        color-mix(in srgb, var(--server-vc-active, #22c55e) 42%, transparent),
+        color-mix(
+          in srgb,
+          var(--server-vc-active, var(--echo-palette-22c55e-8b8f)) 42%,
+          transparent
+        ),
       0 6px 16px color-mix(in srgb, var(--foreground) 6%, transparent);
   }
 
   .explore-voice-badge__dot {
-    background: var(--server-vc-active, #16a34a);
+    background: var(--server-vc-active, var(--echo-palette-16a34a-3c5c));
     box-shadow: 0 0 0 2px
-      color-mix(in srgb, var(--server-vc-active, #22c55e) 28%, transparent);
+      color-mix(
+        in srgb,
+        var(--server-vc-active, var(--echo-palette-22c55e-8b8f)) 28%,
+        transparent
+      );
   }
 
   .explore-join-locked-btn {
@@ -1450,10 +1138,15 @@ onBeforeUnmount(() => {
   }
 
   .explore-join-locked-badge {
-    color: color-mix(in srgb, #92400e 92%, var(--text));
-    background: color-mix(in srgb, #fef3c7 88%, #fff);
+    color: color-mix(in srgb, var(--echo-palette-92400e-90b1) 92%, var(--text));
+    background: color-mix(
+      in srgb,
+      var(--echo-palette-fef3c7-5106) 88%,
+      var(--echo-palette-fff-e08d)
+    );
     box-shadow:
-      inset 0 0 0 1px color-mix(in srgb, #f59e0b 35%, transparent),
+      inset 0 0 0 1px
+        color-mix(in srgb, var(--echo-palette-f59e0b-251a) 35%, transparent),
       0 6px 16px color-mix(in srgb, var(--foreground) 6%, transparent);
   }
 }

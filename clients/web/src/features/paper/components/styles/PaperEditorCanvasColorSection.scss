@@ -1,0 +1,102 @@
+.paper-canvas-color-section {
+  margin-bottom: 0.875rem;
+}
+
+.paper-canvas-color-section--disabled {
+  opacity: 0.55;
+}
+
+.paper-canvas-color-section__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.paper-canvas-color-section__swatch {
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.paper-canvas-color-section__swatch--square {
+  border-radius: 0.5rem;
+}
+
+.paper-canvas-color-section__swatch--none {
+  background:
+    linear-gradient(
+      45deg,
+      var(--echo-palette-d4d4d8-4cf2) 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      -45deg,
+      var(--echo-palette-d4d4d8-4cf2) 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      45deg,
+      transparent 75%,
+      var(--echo-palette-d4d4d8-4cf2) 75%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 75%,
+      var(--echo-palette-d4d4d8-4cf2) 75%
+    );
+  background-size: 8px 8px;
+  background-position:
+    0 0,
+    0 4px,
+    4px -4px,
+    -4px 0;
+}
+
+.paper-canvas-color-section__swatch:hover:not(:disabled) {
+  transform: scale(1.04);
+}
+
+.paper-canvas-color-section__swatch--active {
+  box-shadow:
+    0 0 0 2px var(--elevated),
+    0 0 0 3px var(--accent);
+}
+
+.paper-canvas-color-section__swatch--custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(
+    from 0deg,
+    var(--echo-palette-ef4444-c36d),
+    var(--echo-palette-f59e0b-251a),
+    var(--echo-palette-22c55e-8b8f),
+    var(--echo-palette-3b82f6-b51d),
+    var(--echo-palette-a855f7-4542),
+    var(--echo-palette-ef4444-c36d)
+  );
+}
+
+.paper-canvas-color-section__swatch--open {
+  box-shadow:
+    0 0 0 2px var(--elevated),
+    0 0 0 3px var(--accent);
+}
+
+.paper-canvas-color-section__swatch:disabled {
+  cursor: not-allowed;
+}
+
+.paper-canvas-color-section__glyph {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: color-mix(in srgb, var(--text) 88%, var(--echo-palette-fff-e08d));
+  filter: drop-shadow(0 0 2px var(--echo-palette-rgba-0-0-0-0p35-20d4));
+  font-size: 0.875rem;
+  font-weight: 700;
+}

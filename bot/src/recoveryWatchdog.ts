@@ -37,7 +37,11 @@ export function triggerRecoveryWatchdog(reason: string): void {
   }
 
   const repoRoot = process.env.ECHO_REPO_ROOT?.trim() || process.cwd();
-  const script = join(repoRoot, 'scripts', 'echo-recovery-watchdog.mjs');
+  const script = join(
+    repoRoot,
+    'server/ops/scripts',
+    'echo-recovery-watchdog.mjs',
+  );
   if (!existsSync(script)) {
     console.warn(`[recovery-watchdog] missing script: ${script}`);
     return;
@@ -55,6 +59,9 @@ export function triggerRecoveryWatchdog(reason: string): void {
         PATH: `${nvmBin}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`,
       },
     });
+    child.on('error', (e) =>
+      console.warn('[recovery-watchdog] spawn failed', e),
+    );
     child.unref();
     console.warn(
       `[recovery-watchdog] spawned pid=${child.pid ?? '?'} (${reason})`,

@@ -17,6 +17,7 @@ final class EchoComposerPhotoLibrary {
     let id: String
     let asset: PHAsset
     var thumbnail: EchoPlatformImage?
+    var thumbnailFailed = false
   }
 
   private(set) var items: [Item] = []
@@ -108,7 +109,7 @@ final class EchoComposerPhotoLibrary {
           continuation.resume(throwing: error)
         } else if let data {
           let mimeType = Self.mimeType(for: uti)
-          let extensionName = mimeType == "image/png" ? "png" : "jpg"
+          let extensionName = mimeType == "image/png" ? "png" : mimeType == "image/heic" ? "heic" : "jpg"
           continuation.resume(
             returning: EchoComposerAsset(
               data: data,
@@ -181,6 +182,7 @@ final class EchoComposerPhotoLibrary {
     guard items.indices.contains(index) else { return }
     let id = items[index].id
     guard requestedIDs.insert(id).inserted else { return }
+    items[index].thumbnailFailed = false
     let options = PHImageRequestOptions()
     options.deliveryMode = .opportunistic
     options.resizeMode = .fast
@@ -196,6 +198,8 @@ final class EchoComposerPhotoLibrary {
           return
         }
         self.items[currentIndex].thumbnail = image
+        self.items[currentIndex].thumbnailFailed = image == nil
+        if image == nil { self.requestedIDs.remove(id) }
       }
     }
   }
@@ -283,7 +287,7 @@ struct EchoComposerPhotoGrid: View {
             Color.clear
               .aspectRatio(1, contentMode: .fit)
               .overlay {
-                EchoComposerPhotoThumbnail(image: item.thumbnail)
+                EchoComposerPhotoThumbnail(image: item.thumbnail, failed: item.thumbnailFailed)
               }
               .overlay {
                 if selectionIndex != nil {
@@ -339,6 +343,7 @@ struct EchoComposerPhotoSelectionMark: View {
 
 struct EchoComposerPhotoThumbnail: View {
   let image: EchoPlatformImage?
+  var failed = false
 
   var body: some View {
     GeometryReader { geo in
@@ -350,6 +355,9 @@ struct EchoComposerPhotoThumbnail: View {
             .scaledToFill()
             .frame(width: geo.size.width, height: geo.size.height)
             .clipped()
+        } else if failed {
+          Image(systemName: "photo.badge.exclamationmark")
+            .foregroundStyle(EchoTheme.Color.ink(0.42))
         } else {
           ProgressView().controlSize(.small).tint(EchoTheme.Color.ink(0.42))
         }

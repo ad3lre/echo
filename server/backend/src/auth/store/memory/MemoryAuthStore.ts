@@ -248,24 +248,26 @@ export class MemoryAuthStore implements AuthStore {
   ): Promise<AuthUser | null> {
     const u = this.users.get(userId);
     if (!u) return null;
-    if (patch.pfp !== undefined) u.pfp = patch.pfp;
-    if (patch.status !== undefined) u.status = patch.status;
+    const next = { ...u };
+    if (patch.pfp !== undefined) next.pfp = patch.pfp;
+    if (patch.status !== undefined) next.status = patch.status;
     if (patch.customStatus !== undefined)
-      u.customStatus = sanitizeProfileCustomStatus(patch.customStatus);
-    if (patch.bio !== undefined) u.bio = sanitizeProfileBio(String(patch.bio));
-    if (patch.bannerImage !== undefined) u.bannerImage = patch.bannerImage;
-    if (patch.bannerColor !== undefined) u.bannerColor = patch.bannerColor;
+      next.customStatus = sanitizeProfileCustomStatus(patch.customStatus);
+    if (patch.bio !== undefined)
+      next.bio = sanitizeProfileBio(String(patch.bio));
+    if (patch.bannerImage !== undefined) next.bannerImage = patch.bannerImage;
+    if (patch.bannerColor !== undefined) next.bannerColor = patch.bannerColor;
     if (patch.bannerRefractionEnabled !== undefined)
-      u.bannerRefractionEnabled = patch.bannerRefractionEnabled;
+      next.bannerRefractionEnabled = patch.bannerRefractionEnabled;
     if (patch.bannerBlurEnabled !== undefined)
-      u.bannerBlurEnabled = patch.bannerBlurEnabled;
+      next.bannerBlurEnabled = patch.bannerBlurEnabled;
     if (patch.bannerBlackoutEnabled !== undefined)
-      u.bannerBlackoutEnabled = patch.bannerBlackoutEnabled;
+      next.bannerBlackoutEnabled = patch.bannerBlackoutEnabled;
     if (patch.bannerPositionY !== undefined) {
       const n = Number(patch.bannerPositionY);
       if (!Number.isFinite(n) || n < 0 || n > 100)
         throw new Error('INVALID_BANNER_POSITION');
-      u.bannerPositionY = n;
+      next.bannerPositionY = n;
     }
     if (patch.email !== undefined) {
       throw new Error('EMAIL_CHANGE_REQUIRES_VERIFICATION');
@@ -273,22 +275,22 @@ export class MemoryAuthStore implements AuthStore {
     if (patch.displayName !== undefined) {
       const displayNameResult = validateDisplayName(patch.displayName, '');
       if (!displayNameResult.ok) throw new Error('INVALID_DISPLAY_NAME');
-      u.displayName = displayNameResult.displayName;
+      next.displayName = displayNameResult.displayName;
     }
     if (patch.username !== undefined) {
       const usernameResult = validateRegistrationUsername(patch.username);
       if (!usernameResult.ok) throw new Error('INVALID_USERNAME');
-      if (u.isGuest) throw new Error('USERNAME_GUEST_LOCKED');
+      if (next.isGuest) throw new Error('USERNAME_GUEST_LOCKED');
       const normalized = usernameResult.normalizedUsername;
       for (const other of this.users.values()) {
         if (other.id !== userId && other.username === normalized)
           throw new Error('USERNAME_TAKEN');
       }
-      u.username = normalized;
+      next.username = normalized;
     }
     if (patch.phone !== undefined) {
       if (patch.phone === null || String(patch.phone).trim() === '') {
-        u._memPendingE164 = undefined;
+        next._memPendingE164 = undefined;
       } else {
         const e164 = normalizeInputToE164(String(patch.phone));
         if (!e164) throw new Error('INVALID_PHONE');
@@ -300,12 +302,12 @@ export class MemoryAuthStore implements AuthStore {
             throw new Error('PHONE_IN_USE');
           }
         }
-        u._memPendingE164 = e164;
+        next._memPendingE164 = e164;
       }
     }
     if (patch.timeZone !== undefined) {
       if (patch.timeZone === null || String(patch.timeZone).trim() === '') {
-        delete (u as { timeZone?: string | null }).timeZone;
+        delete (next as { timeZone?: string | null }).timeZone;
       } else {
         const tz = String(patch.timeZone).trim().slice(0, 64);
         try {
@@ -313,18 +315,21 @@ export class MemoryAuthStore implements AuthStore {
         } catch {
           throw new Error('INVALID_TIME_ZONE');
         }
-        (u as { timeZone?: string }).timeZone = tz;
+        (next as { timeZone?: string }).timeZone = tz;
       }
     }
     if (patch.locale !== undefined) {
       if (patch.locale === null || String(patch.locale).trim() === '') {
-        delete (u as { locale?: string | null }).locale;
+        delete (next as { locale?: string | null }).locale;
       } else {
-        (u as { locale?: string }).locale = assertEchoAuthLocale(patch.locale);
+        (next as { locale?: string }).locale = assertEchoAuthLocale(
+          patch.locale,
+        );
       }
     }
-    u.updatedAt = new Date().toISOString();
-    return publicUser(u);
+    next.updatedAt = new Date().toISOString();
+    this.users.set(userId, next);
+    return publicUser(next);
   }
 
   async createGuestUser(): Promise<AuthUser | null> {
@@ -408,26 +413,33 @@ export class MemoryAuthStore implements AuthStore {
       u.displayName?.trim() ? u.displayName.trim() : username,
     );
     if (!displayNameResult.ok) throw new Error('INVALID_DISPLAY_NAME');
-    u.email = emailNorm;
-    u.username = username;
-    u.displayName = displayNameResult.displayName;
-    u.passwordHash = await makeHash(input.password);
-    u.isGuest = false;
-    u.guestPendingEmail = undefined;
-    u.emailVerified = false;
-    u.updatedAt = new Date().toISOString();
+    const passwordHash = await makeHash(input.password);
     const pfpIn = input.pfp?.trim() ?? '';
+    let pfp: string;
     if (pfpIn) {
       const v = validateEchoStoredBrandingUrl(pfpIn);
       if (!v.ok) throw new Error('INVALID_BODY');
-      u.pfp = v.value;
+      pfp = v.value;
     } else {
-      u.pfp = generateDefaultAvatarPfp(u.displayName);
+      pfp = generateDefaultAvatarPfp(displayNameResult.displayName);
     }
-    u.echoPlan = 'free';
-    u.hasActiveSubscription = false;
-    u.signupOrdinal = this.allocateMemorySignupOrdinal();
-    return publicUser(u);
+    const next: PasswordRecord = {
+      ...u,
+      email: emailNorm,
+      username,
+      displayName: displayNameResult.displayName,
+      passwordHash,
+      isGuest: false,
+      guestPendingEmail: undefined,
+      emailVerified: false,
+      updatedAt: new Date().toISOString(),
+      pfp,
+      echoPlan: 'free',
+      hasActiveSubscription: false,
+      signupOrdinal: this.allocateMemorySignupOrdinal(),
+    };
+    this.users.set(userId, next);
+    return publicUser(next);
   }
 
   async setGuestPendingEmail(
@@ -987,7 +999,7 @@ export class MemoryAuthStore implements AuthStore {
     counter: number,
   ): Promise<void> {
     const c = this.webauthnCredentials.get(credentialIdB64);
-    if (c) c.counter = counter;
+    if (c) c.counter = Math.max(c.counter, counter);
   }
 
   async renameWebAuthnCredential(

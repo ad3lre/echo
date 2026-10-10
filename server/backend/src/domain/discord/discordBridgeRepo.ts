@@ -288,7 +288,9 @@ export async function tryInsertBridgeIngested(
     `
     INSERT INTO echo_discord_bridge_ingested (discord_channel_id, discord_message_id)
     VALUES ($1, $2)
-    ON CONFLICT DO NOTHING
+    ON CONFLICT (discord_channel_id, discord_message_id) DO UPDATE
+      SET ingested_at = NOW()
+      WHERE echo_discord_bridge_ingested.ingested_at < NOW() - INTERVAL '5 minutes'
     RETURNING discord_message_id
     `,
     [discordChannelId, discordMessageId],

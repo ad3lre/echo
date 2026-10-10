@@ -1,0 +1,331 @@
+@use './VcActivityStage-shared' as *;
+.vc-act-widget--tictactoe:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 42%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 52px color-mix(in srgb, var(--vc-act-a1) 14%, black 26%);
+}
+.vc-act-widget--tictactoe:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 50%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 35%, transparent),
+    0 20px 44px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--tictactoe .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 74%, var(--vc-act-a1) 26%);
+}
+.vc-act-widget--openguessr {
+  --vc-act-a1: var(--echo-palette-2b8a7a-0233);
+  --vc-act-a2: var(--echo-palette-1e4d7a-54f9);
+  background:
+    radial-gradient(
+      115% 95% at 0% 0%,
+      color-mix(in srgb, var(--vc-act-a1) 34%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      110% 100% at 100% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 36%, transparent) 0%,
+      transparent 52%
+    ),
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--elevated) 90%, var(--echo-palette-050c10-715d))
+        0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 22%, var(--border));
+}
+.vc-act-widget--openguessr .vc-act-widget__media {
+  background: linear-gradient(
+    145deg,
+    var(--echo-palette-041016-e25d) 0%,
+    var(--echo-palette-0a1a22-be90) 45%,
+    var(--echo-palette-06120f-3c94) 100%
+  );
+}
+.vc-act-widget--openguessr:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 40%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 52px color-mix(in srgb, var(--vc-act-a2) 12%, black 26%);
+}
+.vc-act-widget--openguessr:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 48%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 34%, transparent),
+    0 20px 44px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--openguessr .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 76%, var(--vc-act-a1) 24%);
+}
+.vc-act-widget--skribblio {
+  --vc-act-a1: var(--echo-palette-22d3ee-24da);
+  --vc-act-a2: var(--echo-palette-0f766e-c206);
+  background:
+    radial-gradient(
+      115% 95% at 8% 0%,
+      color-mix(in srgb, var(--vc-act-a1) 36%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      105% 100% at 100% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 32%, transparent) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      168deg,
+      color-mix(in srgb, var(--elevated) 88%, var(--echo-palette-041216-0c90))
+        0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 24%, var(--border));
+}
+.vc-act-widget--skribblio .vc-act-widget__media {
+  background: linear-gradient(
+    150deg,
+    var(--echo-palette-041a1c-0668) 0%,
+    var(--echo-palette-0c1e2e-a742) 48%,
+    var(--echo-palette-061814-d568) 100%
+  );
+}
+.vc-act-widget--skribblio:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 44%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 52px color-mix(in srgb, var(--vc-act-a1) 14%, black 26%);
+}
+.vc-act-widget--skribblio:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 50%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 36%, transparent),
+    0 20px 44px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--skribblio .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 74%, var(--vc-act-a1) 26%);
+}
+.vc-act-widget--garticphone {
+  --vc-act-a1: var(--echo-palette-c084fc-4696);
+  --vc-act-a2: var(--echo-palette-db2777-bd08);
+  background:
+    radial-gradient(
+      120% 100% at 100% 0%,
+      color-mix(in srgb, var(--vc-act-a1) 32%, transparent) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      95% 90% at 0% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 28%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--elevated) 88%, var(--echo-palette-120818-2e64))
+        0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 24%, var(--border));
+}
+.vc-act-widget--garticphone .vc-act-widget__media {
+  background: linear-gradient(
+    160deg,
+    var(--echo-palette-140818-2548) 0%,
+    var(--echo-palette-1a0a16-0378) 40%,
+    var(--echo-palette-0c1020-22e6) 100%
+  );
+}
+.vc-act-widget--garticphone:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 42%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 9%, transparent) inset,
+    0 24px 54px color-mix(in srgb, var(--vc-act-a2) 14%, black 26%);
+}
+.vc-act-widget--garticphone:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 50%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 36%, transparent),
+    0 20px 46px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--garticphone .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 74%, var(--vc-act-a1) 26%);
+}
+.vc-act-widget--krunker {
+  --vc-act-a1: var(--echo-palette-f97316-3679);
+  --vc-act-a2: var(--echo-palette-0d4d3d-332c);
+  background:
+    radial-gradient(
+      110% 100% at 85% -5%,
+      color-mix(in srgb, var(--vc-act-a1) 34%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      100% 95% at 0% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 32%, transparent) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      172deg,
+      color-mix(in srgb, var(--elevated) 88%, var(--echo-palette-0a0c0a-ad1c))
+        0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 22%, var(--border));
+}
+.vc-act-widget--krunker .vc-act-widget__media {
+  background: linear-gradient(
+    150deg,
+    var(--echo-palette-0a0e0c-2b1b) 0%,
+    var(--echo-palette-122018-e349) 48%,
+    var(--echo-palette-1a1208-9a80) 100%
+  );
+}
+.vc-act-widget--krunker:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 44%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 54px color-mix(in srgb, var(--vc-act-a1) 15%, black 27%);
+}
+.vc-act-widget--krunker:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 52%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 36%, transparent),
+    0 20px 46px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--krunker .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 72%, var(--vc-act-a1) 28%);
+}
+.vc-act-widget--gooberdash {
+  --vc-act-a1: var(--echo-palette-e879f9-ab93);
+  --vc-act-a2: var(--echo-palette-22d3ee-24da);
+  background:
+    radial-gradient(
+      100% 100% at 10% 0%,
+      color-mix(in srgb, var(--vc-act-a1) 38%, transparent) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      100% 95% at 100% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 34%, transparent) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      168deg,
+      color-mix(in srgb, var(--elevated) 88%, var(--echo-palette-0c0614-baa8))
+        0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 26%, var(--border));
+}
+.vc-act-widget--gooberdash .vc-act-widget__media {
+  background: linear-gradient(
+    148deg,
+    var(--echo-palette-12081a-179f) 0%,
+    var(--echo-palette-0a1622-dfdf) 48%,
+    var(--echo-palette-1a0a18-86d1) 100%
+  );
+}
+.vc-act-widget--gooberdash:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 44%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 54px color-mix(in srgb, var(--vc-act-a2) 18%, black 26%);
+}
+.vc-act-widget--gooberdash:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 52%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 38%, transparent),
+    0 20px 46px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--gooberdash .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 70%, var(--vc-act-a1) 30%);
+}
+.vc-act-widget--smashkarts {
+  --vc-act-a1: var(--echo-palette-f97316-3679);
+  --vc-act-a2: var(--echo-palette-38bdf8-b035);
+  background:
+    radial-gradient(
+      105% 100% at 90% 0%,
+      color-mix(in srgb, var(--vc-act-a1) 38%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      95% 95% at 8% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 32%, transparent) 0%,
+      transparent 52%
+    ),
+    linear-gradient(
+      168deg,
+      color-mix(in srgb, var(--elevated) 88%, var(--echo-palette-160a04-bed1))
+        0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 26%, var(--border));
+}
+.vc-act-widget--smashkarts .vc-act-widget__media {
+  background: linear-gradient(
+    150deg,
+    var(--echo-palette-1c0a04-9baf) 0%,
+    var(--echo-palette-122135-758d) 52%,
+    var(--echo-palette-2a1004-78e9) 100%
+  );
+}
+.vc-act-widget--smashkarts:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 46%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 54px color-mix(in srgb, var(--vc-act-a1) 16%, black 26%);
+}
+.vc-act-widget--smashkarts:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 54%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 38%, transparent),
+    0 20px 46px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--smashkarts .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 70%, var(--vc-act-a1) 30%);
+}
+.vc-act-widget--clusterrush {
+  --vc-act-a1: var(--echo-palette-ff3814-914a);
+  --vc-act-a2: var(--echo-palette-003afa-2c16);
+  background:
+    radial-gradient(
+      100% 90% at 14% 12%,
+      color-mix(in srgb, var(--vc-act-a1) 34%, transparent) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      95% 90% at 90% 88%,
+      color-mix(in srgb, var(--vc-act-a2) 28%, transparent) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      168deg,
+      color-mix(in srgb, var(--elevated) 90%, var(--echo-palette-0a0a0a-0002))
+        0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 22%, var(--border));
+}
+.vc-act-widget--clusterrush .vc-act-widget__media {
+  background: linear-gradient(
+    152deg,
+    var(--echo-palette-0a0a0a-0002) 0%,
+    var(--echo-palette-0f172a-0e68) 45%,
+    var(--echo-palette-120808-41f1) 100%
+  );
+}
+.vc-act-widget--clusterrush:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 40%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 54px color-mix(in srgb, var(--vc-act-a1) 14%, black 26%);
+}
+.vc-act-widget--clusterrush:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 48%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 34%, transparent),
+    0 20px 46px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--clusterrush .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 70%, var(--vc-act-a1) 30%);
+}

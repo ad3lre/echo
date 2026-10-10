@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type pg from 'pg';
 import { config } from '../config';
 import { getPgPool } from '../db/pg';
 import { refreshImageBrowseCategoriesIfStale } from '../services/search/googleTrendsImageCategories';
@@ -27,33 +28,38 @@ export function startImageBrowseCategoriesRefreshJob(
     if (running) return;
     running = true;
     const pool = getPgPool();
+    let lockClient: pg.PoolClient | null = null;
     let lockHeld = false;
+    let unlockFailed = false;
     try {
       if (pool) {
-        const lockRes = await pool.query<{ locked: boolean }>(
+        lockClient = await pool.connect();
+        const lockRes = await lockClient.query<{ locked: boolean }>(
           `SELECT pg_try_advisory_lock($1) AS locked`,
           [IMAGE_CATEGORIES_ADVISORY_LOCK],
         );
         lockHeld = lockRes.rows[0]?.locked === true;
-        if (!lockHeld) {
-          running = false;
-          return;
-        }
+        if (!lockHeld) return;
       }
 
       await refreshImageBrowseCategoriesIfStale(fastify.log);
     } catch (e) {
       fastify.log.error(e, 'echo.image_categories.refresh_tick_failed');
     } finally {
-      if (pool && lockHeld) {
+      if (lockClient && lockHeld) {
         try {
-          await pool.query(`SELECT pg_advisory_unlock($1)`, [
+          await lockClient.query(`SELECT pg_advisory_unlock($1)`, [
             IMAGE_CATEGORIES_ADVISORY_LOCK,
           ]);
         } catch {
-          /* connection may be closing */
+          unlockFailed = true;
         }
       }
+      lockClient?.release(
+        unlockFailed
+          ? new Error('Failed to release image category job lock')
+          : undefined,
+      );
       running = false;
     }
   };

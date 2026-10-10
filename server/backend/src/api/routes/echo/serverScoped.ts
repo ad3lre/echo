@@ -882,11 +882,27 @@ export default async function echoServerScopedRoutes(
       }
       if (typeof body.startsAt === 'string' && body.startsAt.trim()) {
         const d = new Date(body.startsAt.trim());
-        if (!Number.isNaN(d.getTime())) patch.startsAt = d;
+        if (Number.isNaN(d.getTime())) {
+          return sendError(
+            reply,
+            400,
+            'INVALID_BODY',
+            'startsAt must be a valid date.',
+          );
+        }
+        patch.startsAt = d;
       }
       if (typeof body.endsAt === 'string' && body.endsAt.trim()) {
         const d = new Date(body.endsAt.trim());
-        if (!Number.isNaN(d.getTime())) patch.endsAt = d;
+        if (Number.isNaN(d.getTime())) {
+          return sendError(
+            reply,
+            400,
+            'INVALID_BODY',
+            'endsAt must be a valid date.',
+          );
+        }
+        patch.endsAt = d;
       }
       if ('channelId' in body) patch.channelId = body.channelId;
       if ('customLocation' in body) patch.customLocation = body.customLocation;

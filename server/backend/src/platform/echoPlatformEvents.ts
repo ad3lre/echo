@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Server } from 'socket.io';
 import type { EchoWorkspaceEvent } from '../../../../contracts/types/socket';
 import { canUserAccessChannel } from '../domain/permissions/echoPermissions';
+import { canUserReceiveServerWorkspaceEvent } from '../domain/permissions/echoWorkspaceEventAccess';
 import {
   claimEchoWorkspaceEventOutbox,
   insertEchoWorkspaceEventOutboxProcessing,
@@ -59,13 +60,13 @@ async function dispatchEchoWorkspaceEvent(
           if (!socket.data?.authenticated) return;
           const userId = String(socket.data.userId ?? '').trim();
           if (!userId) return;
-          const member = await pool.query(
-            `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2 LIMIT 1`,
-            [targets.serverId, userId],
+          const allowed = await canUserReceiveServerWorkspaceEvent(
+            pool,
+            targets.serverId!,
+            userId,
+            payload,
           );
-          if ((member.rowCount ?? 0) > 0) {
-            socket.emit('echo:workspace_event', payload);
-          }
+          if (allowed) socket.emit('echo:workspace_event', payload);
         }),
       );
     }
@@ -83,27 +84,71 @@ export function publishEchoWorkspaceEvent(
   fastify: FastifyInstance,
   payload: EchoWorkspaceEvent,
   targets?: { serverId?: string; userId?: string },
+  durableOutboxId?: string,
 ): void {
-  // Keep the existing immediate fanout semantics for request paths. The
-  // outbox is recorded asynchronously so callers do not need to become async.
-  void dispatchEchoWorkspaceEvent(fastify, payload, targets).catch((error) => {
-    fastify.log.warn(
-      { err: error, kind: payload.kind, targets },
-      'echo.workspace_event_dispatch_failed',
+  if (!DURABLE_WORKSPACE_EVENT_KINDS.has(payload.kind)) {
+    void dispatchEchoWorkspaceEvent(fastify, payload, targets).catch(
+      (error) => {
+        fastify.log.warn(
+          { err: error, kind: payload.kind, targets },
+          'echo.workspace_event_dispatch_failed',
+        );
+      },
     );
-  });
-
-  if (!DURABLE_WORKSPACE_EVENT_KINDS.has(payload.kind)) return;
+    return;
+  }
   const pool = getPgPool();
-  if (!pool) return;
+  if (!pool) {
+    fastify.log.error(
+      { kind: payload.kind, targets },
+      'echo.workspace_event_outbox_unavailable',
+    );
+    return;
+  }
+  if (durableOutboxId) {
+    void dispatchEchoWorkspaceEvent(fastify, payload, targets)
+      .then(() => markEchoWorkspaceEventOutboxDelivered(pool, durableOutboxId))
+      .catch(async (error) => {
+        await markEchoWorkspaceEventOutboxFailed(pool, {
+          id: durableOutboxId,
+          attempts: 1,
+          error: error instanceof Error ? error.message : String(error),
+          maxAttempts: 12,
+        }).catch((markError) => {
+          fastify.log.warn(
+            { err: markError, eventId: durableOutboxId },
+            'echo.workspace_event_outbox_retry_state_failed',
+          );
+        });
+        fastify.log.warn(
+          { err: error, eventId: durableOutboxId, kind: payload.kind },
+          'echo.workspace_event_delivery_failed',
+        );
+      });
+    return;
+  }
   const id = nextEchoSnowflakeId();
   void insertEchoWorkspaceEventOutboxProcessing(pool, {
     id,
     payload,
     targets,
   })
-    .then(() => markEchoWorkspaceEventOutboxDelivered(pool, id))
-    .catch((error) => {
+    .then(async () => {
+      await dispatchEchoWorkspaceEvent(fastify, payload, targets);
+      await markEchoWorkspaceEventOutboxDelivered(pool, id);
+    })
+    .catch(async (error) => {
+      await markEchoWorkspaceEventOutboxFailed(pool, {
+        id,
+        attempts: 1,
+        error: error instanceof Error ? error.message : String(error),
+        maxAttempts: 12,
+      }).catch((markError) => {
+        fastify.log.warn(
+          { err: markError, eventId: id },
+          'echo.workspace_event_outbox_retry_state_failed',
+        );
+      });
       fastify.log.warn(
         { err: error, eventId: id, kind: payload.kind },
         'echo.workspace_event_outbox_persist_failed',
@@ -152,13 +197,6 @@ export async function pruneEchoWorkspaceEventOutboxRows(): Promise<number> {
   return pruneEchoWorkspaceEventOutbox(pool);
 }
 
-/**
- * Publish an immediate voice roster delta to all members of a guild server.
- * This is a Discord-Gateway-style push (like VOICE_STATE_UPDATE) — clients apply it
- * in-place to their cached `voiceParticipantIds` / mute-deaf maps without a full
- * workspace refetch. `workspace_invalidated` is still emitted separately as the
- * eventual-correctness fallback.
- */
 /**
  * Notify call participants that a new MLS handshake message (voice E2EE v2) was
  * appended to a channel's delivery log. Guild channels fan out to the server

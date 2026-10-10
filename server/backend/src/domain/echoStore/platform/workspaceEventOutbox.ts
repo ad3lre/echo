@@ -19,7 +19,7 @@ export type EchoWorkspaceEventOutboxRow = {
  * the drain if the process exits between fanout and the delivered update.
  */
 export async function insertEchoWorkspaceEventOutboxProcessing(
-  pool: pg.Pool,
+  pool: pg.Pool | pg.PoolClient,
   args: {
     id: string;
     payload: EchoWorkspaceEvent;

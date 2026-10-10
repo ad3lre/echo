@@ -472,17 +472,14 @@ export default async function passkeyRoutes(
       addHeaders: { 'retry-after': true },
       ...httpRateLimitStoreOpts('echo-rl-passkey-auth-'),
     });
-    authScope.post<{ Body: { email?: string; username?: string } }>(
+    authScope.post<{ Body: Record<string, never> }>(
       '/passkey/login/options',
       {
         schema: {
           body: {
             type: 'object',
             additionalProperties: false,
-            properties: {
-              email: { type: 'string' },
-              username: { type: 'string' },
-            },
+            properties: {},
           },
         },
       },
@@ -497,30 +494,8 @@ export default async function passkeyRoutes(
               'Passkeys require a database.',
             );
           }
-          const emailRaw = req.body.email?.trim();
-          const usernameRaw = req.body.username?.trim();
-          let creds: { credentialIdB64: string }[] = [];
-          if (emailRaw) {
-            const u = await store.findPasswordUserByEmail(emailRaw);
-            if (u && !u.isGuest) {
-              creds = await store.listWebAuthnCredentialsForUser(u.id);
-            }
-          } else if (usernameRaw) {
-            const u = await store.getUserByUsername(usernameRaw);
-            if (u && !u.isGuest) {
-              creds = await store.listWebAuthnCredentialsForUser(u.id);
-            }
-          }
-          const allowCredentials =
-            creds.length > 0
-              ? creds.map((c) => ({
-                  id: c.credentialIdB64,
-                  type: 'public-key' as const,
-                }))
-              : undefined;
           const options = await generateAuthenticationOptions({
             rpID: config.echoWebAuthnRpId,
-            allowCredentials,
             userVerification: 'required',
           });
           const challengeId = newWebAuthnChallengeHandle();

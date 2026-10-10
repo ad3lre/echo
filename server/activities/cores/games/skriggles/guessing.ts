@@ -152,7 +152,7 @@ export function applyGuessToActivity(
   if (outcome.match === 'exact') {
     const withChat = mergeGuessChat(prev, outcome);
     if (everyoneGuessed(withChat, outcome)) {
-      return endRoundOnCorrectGuess(withChat, secret, outcome, nowMs);
+      return endRoundOnCorrectGuess(prev, secret, outcome, nowMs);
     }
     return withChat;
   }

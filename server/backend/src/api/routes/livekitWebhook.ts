@@ -167,7 +167,7 @@ export default async function livekitWebhookRoutes(
       return sendError(reply, 401, 'UNAUTHORIZED', 'Invalid webhook signature');
     }
 
-    if (!acceptLiveKitWebhookOnce(rawBody, authHeader)) {
+    if (!(await acceptLiveKitWebhookOnce(rawBody, authHeader))) {
       vcTrace(req.log, 'livekit.webhook:replay', {});
       return reply.code(200).send({ ok: true, duplicate: true });
     }

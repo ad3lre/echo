@@ -28,9 +28,10 @@ function freshPuzzle(
   _userId: string,
   now: number,
   mode: GameMode = 'daily',
+  level = 0,
 ): UserPuzzle {
   const dateKey = utcDateKeyFromMs(now);
-  const level = normalizeWordlineLevel(0);
+  level = normalizeWordlineLevel(level);
   const solution = wordlineSolutionForMode({ mode, dateKey, level });
   return {
     dateKey,
@@ -101,7 +102,12 @@ export const wordlineModule: GameModule<WordlineState, WordlineView> = {
     if (ctx.type === WORDLINE_ACTION.setMode) {
       const mode = (payload as WordlineSetModePayload | undefined)?.mode;
       if (mode !== 'daily' && mode !== 'levels') return null;
-      nextPuzzle = freshPuzzle(ctx.userId, ctx.now, mode);
+      nextPuzzle = freshPuzzle(
+        ctx.userId,
+        ctx.now,
+        mode,
+        mode === 'levels' && puzzle.mode === 'levels' ? puzzle.level : 0,
+      );
       nextByUser[ctx.userId] = nextPuzzle;
       return { byUser: nextByUser };
     }

@@ -27,7 +27,8 @@ export const RICH_BLOCK_TYPES = {
 
 export type KnownRichBlockType = keyof typeof RICH_BLOCK_TYPES;
 
-const BLOCK_TOKEN_RE = /!\[([a-z][a-z0-9_-]*):\s*([^\]]*)\]/gi;
+const BLOCK_TOKEN_RE =
+  /!\[([a-z][a-z0-9_-]*)(?::\s*((?:"(?:\\.|[^"\\])*"|[^"\]])*))?\]/gi;
 
 const SAFE_UNQUOTED_VALUE_RE = /^[a-zA-Z0-9._:/-]+$/;
 
@@ -58,7 +59,9 @@ export function parseRichBlockAttrs(body: string): Record<string, string> {
   let inQuote = false;
   for (let i = 0; i < body.length; i++) {
     const c = body[i];
-    if (c === '"') {
+    if (c === '\\' && inQuote && i + 1 < body.length) {
+      cur += c + body[++i];
+    } else if (c === '"') {
       inQuote = !inQuote;
       cur += c;
     } else if (c === ',' && !inQuote) {
@@ -81,7 +84,7 @@ export function parseRichBlockAttrs(body: string): Record<string, string> {
       val.endsWith('"') &&
       !inQuote
     ) {
-      val = val.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+      val = val.slice(1, -1).replace(/\\(["\\])/g, '$1');
     }
     if (key) attrs[key] = val;
   }
@@ -91,10 +94,10 @@ export function parseRichBlockAttrs(body: string): Record<string, string> {
 /** Parse a single rich block token string (must be the full token). */
 export function parseRichBlockToken(raw: string): RichBlockToken | null {
   const s = raw.trim();
-  const m = /^!\[([a-z][a-z0-9_-]*):\s*([^\]]*)\]$/i.exec(s);
+  const m = new RegExp(`^${BLOCK_TOKEN_RE.source}$`, 'i').exec(s);
   if (!m) return null;
   const type = m[1].toLowerCase();
-  const attrs = parseRichBlockAttrs(m[2]);
+  const attrs = parseRichBlockAttrs(m[2] ?? '');
   return {
     type,
     attrs,
@@ -117,7 +120,7 @@ export function findAllRichBlockTokens(
   while ((m = BLOCK_TOKEN_RE.exec(plain)) !== null) {
     const type = m[1].toLowerCase();
     if (filter && type !== filter) continue;
-    const attrs = parseRichBlockAttrs(m[2]);
+    const attrs = parseRichBlockAttrs(m[2] ?? '');
     out.push({
       type,
       attrs,

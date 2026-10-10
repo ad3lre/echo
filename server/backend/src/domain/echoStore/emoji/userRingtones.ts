@@ -42,7 +42,7 @@ export function isEchoUserRingtoneStorageKeyForUser(
 }
 
 export async function countEchoUserRingtones(
-  pool: pg.Pool,
+  pool: pg.Pool | pg.PoolClient,
   userId: string,
 ): Promise<number> {
   const r = await pool.query(
@@ -69,7 +69,7 @@ export async function listEchoUserRingtones(
 }
 
 export async function insertEchoUserRingtone(
-  pool: pg.Pool,
+  pool: pg.Pool | pg.PoolClient,
   userId: string,
   input: {
     label: string;

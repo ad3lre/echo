@@ -31,6 +31,7 @@ struct EchoAccountFieldSheet: View {
   let title: String
   let prompt: String
   @Binding var value: String
+  @State private var draft = ""
   let keyboard: EchoAccountKeyboard
   let onSave: () -> Void
 
@@ -47,7 +48,7 @@ struct EchoAccountFieldSheet: View {
               .font(.system(size: 11, weight: .bold, design: .rounded))
               .tracking(1.8)
               .foregroundStyle(EchoTheme.Color.ink(0.42))
-            TextField(prompt, text: $value)
+            TextField(prompt, text: $draft)
               .font(.system(size: 17, weight: .medium, design: .rounded))
               .foregroundStyle(EchoTheme.Color.fg)
               .padding(.horizontal, 16)
@@ -70,6 +71,7 @@ struct EchoAccountFieldSheet: View {
             subtitle: EchoCopy.string("Apply this change to your Echo account"),
             icon: "checkmark.circle.fill", tint: .purple
           ) {
+            value = draft
             onSave()
             dismiss()
           }
@@ -84,6 +86,7 @@ struct EchoAccountFieldSheet: View {
         }
       }
       .tint(EchoTheme.Color.fg)
+      .onAppear { draft = value }
     }
   }
 
@@ -100,7 +103,7 @@ struct EchoAccountFieldSheet: View {
 
   private var canSave: Bool {
     guard keyboard == .username else { return true }
-    return !value.trimmingCharacters(in: .whitespacesAndNewlines)
+    return !draft.trimmingCharacters(in: .whitespacesAndNewlines)
       .trimmingCharacters(in: CharacterSet(charactersIn: "@")).isEmpty
   }
 

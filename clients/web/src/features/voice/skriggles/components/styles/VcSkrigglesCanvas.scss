@@ -1,0 +1,103 @@
+.sk-canvas-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.sk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.45rem;
+  border: 1px solid var(--sk-border);
+  border-radius: var(--sk-radius);
+  background: var(--sk-surface);
+}
+
+.sk-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.sk-tool {
+  border: 1px solid var(--sk-border-mid);
+  border-radius: 7px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--echo-palette-rgba-255-255-255-0p04-3c64);
+  color: var(--sk-text-soft);
+
+  &--active {
+    border-color: var(--echo-palette-rgba-124-58-237-0p55-a386);
+    background: var(--echo-palette-rgba-124-58-237-0p12-e7e9);
+    color: var(--sk-text);
+  }
+
+  &--ghost {
+    color: var(--sk-text-muted);
+  }
+}
+
+.sk-swatch {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--echo-palette-rgba-0-0-0-0p15-0fa9);
+
+  &--active {
+    border-color: var(--sk-text);
+    box-shadow: 0 0 0 2px var(--echo-palette-rgba-124-58-237-0p35-5d80);
+  }
+}
+
+.sk-size {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--sk-border);
+  background: var(--echo-palette-rgba-255-255-255-0p03-1492);
+  cursor: pointer;
+
+  span {
+    display: block;
+    border-radius: 50%;
+    background: var(--sk-text);
+  }
+
+  &--active {
+    border-color: var(--echo-palette-rgba-124-58-237-0p55-a386);
+    background: var(--echo-palette-rgba-124-58-237-0p1-36c7);
+  }
+}
+
+.sk-canvas-frame {
+  position: relative;
+  width: 100%;
+  border-radius: var(--sk-radius);
+  overflow: hidden;
+  border: 1px solid var(--sk-border-mid);
+  background: var(--echo-palette-fff-e08d);
+  box-shadow: inset 0 0 0 1px var(--echo-palette-rgba-0-0-0-0p04-c220);
+}
+
+.sk-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  cursor: crosshair;
+
+  &--readonly {
+    cursor: default;
+  }
+}

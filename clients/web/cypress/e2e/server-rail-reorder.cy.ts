@@ -1,30 +1,34 @@
 import { waitForAppShell } from '../support/e2e';
 
-/**
- * Server rail uses pointer-driven reorder (desktop mouse). This spec anchors the
- * reorder root + icon hooks in the app shell; full drag requires 2+ joined servers.
- */
 describe('server rail reorder', () => {
-  it('exposes server rail reorder root in the app shell', () => {
-    cy.visit('/');
-    waitForAppShell();
-    cy.get('body').then(($body) => {
-      const root = $body.find('[data-cy=server-rail-reorder-root]');
-      if (root.length > 0) {
-        cy.wrap(root).should('exist');
+  beforeEach(() => {
+    cy.clearCookies();
+    const tag = `rail_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    cy.request('POST', '/api/v1/auth/register', {
+      username: tag,
+      email: `${tag}@echo.test`,
+      password: 'password123',
+      displayName: 'Rail Verify',
+    }).then(({ body }) => {
+      for (const name of ['First rail fixture', 'Second rail fixture']) {
+        cy.request({
+          method: 'POST',
+          url: '/api/v1/echo/servers',
+          headers: { 'x-csrf-token': body.csrfToken },
+          body: { name },
+        })
+          .its('status')
+          .should('eq', 201);
       }
     });
   });
 
-  it('lists server rail icons when the mock stack has joined guilds', () => {
+  it('exposes the reorder root and both seeded server icons', () => {
     cy.visit('/');
     waitForAppShell();
-    cy.get('body').then(($body) => {
-      const icons = $body.find('[data-cy=server-rail-icon]');
-      if (icons.length >= 2) {
-        cy.wrap(icons).first().should('be.visible');
-        cy.wrap(icons).eq(1).should('be.visible');
-      }
-    });
+    cy.get('[data-cy=server-rail-reorder-root]').should('be.visible');
+    cy.get('[data-cy=server-rail-icon]').should('have.length', 2);
+    cy.get('[data-cy=server-rail-icon]').first().should('be.visible');
+    cy.get('[data-cy=server-rail-icon]').eq(1).should('be.visible');
   });
 });

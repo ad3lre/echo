@@ -144,6 +144,13 @@ export default async function discordChannelsRoutes(
         nsfw?: boolean;
         position?: number;
       };
+      if (body.topic !== undefined || body.position !== undefined) {
+        return discordError(
+          reply,
+          400,
+          '400: topic and position are not supported for channel updates',
+        );
+      }
 
       const setClauses: string[] = [];
       const params: unknown[] = [channelId];

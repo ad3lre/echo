@@ -1,11 +1,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { sendError } from '../api/errors';
 import { config } from '../config';
-import { verifyAccessToken } from './token';
-import {
-  nativeBearerEnabledForRequest,
-  verifySessionBoundAccessToken,
-} from './nativeBearer';
+import { verifyLegacyAccessToken } from './legacyBearer';
+import { verifySessionBoundAccessToken } from './nativeBearer';
 import { getAuthStore } from './store';
 import type { AuthUser } from './types';
 import {
@@ -96,7 +93,11 @@ async function finalizeAuthenticatedUser(
   if (opts?.sessionId) req.authSessionId = opts.sessionId;
   if (opts?.viaNativeBearer) req.authViaNativeBearer = true;
   req.authUser = user;
-  if (opts?.sessionId) void touchServerSession(opts.sessionId);
+  if (opts?.sessionId) {
+    void touchServerSession(opts.sessionId).catch((err: unknown) => {
+      req.log.warn({ err }, 'session touch failed');
+    });
+  }
   return true;
 }
 
@@ -232,7 +233,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
       const token = header.slice('Bearer '.length);
       let payload: { sub: string; username: string };
       try {
-        payload = verifyAccessToken(token);
+        payload = verifyLegacyAccessToken(token);
       } catch {
         if (debugAuth) {
           req.log.warn(

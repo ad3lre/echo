@@ -1,6 +1,9 @@
 import type pg from 'pg';
 import { config } from '../../../config';
-import { assertEchoUserHasServerMembershipSlot } from '../../echoPlanEntitlements';
+import {
+  assertEchoUserHasServerMembershipSlot,
+  lockEchoServerMembershipEntitlement,
+} from '../../echoPlanEntitlements';
 import { isUserBannedFromServer } from '../members/access';
 import { insertEchoAudit } from '../safety/auditLog';
 import { normalizeEchoVanityCode } from '../community/invites';
@@ -10,41 +13,32 @@ import { postEchoMemberJoinWelcomeNotice } from '../../../services/echoMemberJoi
 import type { FastifyBaseLogger } from 'fastify';
 import type { Server as SocketIoServer } from 'socket.io';
 
-let cachedOfficialServerId: string | null | undefined;
-
 /** Resolve the platform official Echo server id (env id, then vanity slug). */
 export async function resolveOfficialEchoServerId(
   pool: pg.Pool,
 ): Promise<string | null> {
-  if (cachedOfficialServerId !== undefined) return cachedOfficialServerId;
-
   const fromEnv = config.echoOfficialServerId.trim();
   if (fromEnv) {
     const exists = await pool.query(
       `SELECT 1 FROM echo_servers WHERE id = $1 LIMIT 1`,
       [fromEnv],
     );
-    cachedOfficialServerId = exists.rows[0] ? fromEnv : null;
-    return cachedOfficialServerId;
+    return exists.rows[0] ? fromEnv : null;
   }
 
   const vanity = normalizeEchoVanityCode(config.echoOfficialServerVanity);
   if (vanity === null || vanity === '') {
-    cachedOfficialServerId = null;
     return null;
   }
   const v = await pool.query(
     `SELECT id FROM echo_servers WHERE LOWER(vanity_code) = $1 AND vanity_code <> '' LIMIT 1`,
     [vanity],
   );
-  cachedOfficialServerId = v.rows[0] ? String(v.rows[0].id) : null;
-  return cachedOfficialServerId;
+  return v.rows[0] ? String(v.rows[0].id) : null;
 }
 
-/** Clear resolver cache (tests). */
-export function resetOfficialEchoServerIdCacheForTests(): void {
-  cachedOfficialServerId = undefined;
-}
+/** Retained for test callers; resolution no longer caches mutable server state. */
+export function resetOfficialEchoServerIdCacheForTests(): void {}
 
 /**
  * Add a newly created account to the official Echo server. Bypasses invite/directory/raid
@@ -90,6 +84,7 @@ export async function joinNewAccountToOfficialEchoServer(
       );
       alreadyMember = mem.rows.length > 0;
       if (!alreadyMember) {
+        await lockEchoServerMembershipEntitlement(client, uid);
         const slot = await assertEchoUserHasServerMembershipSlot(client, uid);
         if (!slot.ok) {
           await client.query(`ROLLBACK`);

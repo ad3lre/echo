@@ -16,15 +16,15 @@ export type EchoVcActivityPopularityRow = {
  */
 export async function incrementEchoVcActivityOpen(
   pool: Pool,
+  userId: string,
   activityKey: EchoVcActivityKey,
 ): Promise<void> {
   await pool.query(
-    `INSERT INTO echo_vc_activity_opens (activity_key, open_count, last_open_at)
-     VALUES ($1, 1, NOW())
-     ON CONFLICT (activity_key) DO UPDATE SET
-       open_count = echo_vc_activity_opens.open_count + 1,
-       last_open_at = EXCLUDED.last_open_at`,
-    [activityKey],
+    `INSERT INTO echo_vc_activity_user_opens (user_id, activity_key, utc_day)
+     VALUES ($1, $2, (NOW() AT TIME ZONE 'UTC')::date)
+     ON CONFLICT (user_id, activity_key, utc_day) DO NOTHING
+     RETURNING user_id`,
+    [userId, activityKey],
   );
 }
 
@@ -38,7 +38,10 @@ export async function listEchoVcActivityPopularityOrdered(
   const r = await pool.query<{ activity_key: string; open_count: string }>(
     `SELECT u.k AS activity_key, COALESCE(o.open_count, 0) AS open_count
      FROM unnest($1::text[]) AS u(k)
-     LEFT JOIN echo_vc_activity_opens o ON o.activity_key = u.k
+     LEFT JOIN (
+       SELECT activity_key, COUNT(*)::bigint AS open_count
+       FROM echo_vc_activity_user_opens GROUP BY activity_key
+     ) o ON o.activity_key = u.k
      ORDER BY open_count DESC, u.k ASC`,
     [keys],
   );

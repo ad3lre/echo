@@ -387,23 +387,7 @@ struct EchoMessageAttachmentsView: View {
     }
   }
 
-  @ViewBuilder
   private func attachmentFallback(_ attachment: EchoMessageAttachment) -> some View {
-    HStack(spacing: 9) {
-      Image(systemName: attachment.kind.lowercased() == "audio" ? "waveform" : "doc.fill")
-      VStack(alignment: .leading, spacing: 2) {
-        Text(attachment.filename ?? EchoCopy.string("Attachment"))
-          .font(.system(size: 13, weight: .medium, design: .rounded))
-        if let mimeType = attachment.mimeType {
-          Text(mimeType)
-            .font(.system(size: 11, design: .rounded))
-            .foregroundStyle(EchoTheme.Color.ink(0.45))
-        }
-      }
-    }
-    .foregroundStyle(EchoTheme.Color.ink(0.78))
-    .padding(.horizontal, 12)
-    .padding(.vertical, 10)
-    .background(EchoTheme.Color.ink(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    EchoDocumentAttachment(attachment: attachment, baseURL: baseURL, accessToken: accessToken)
   }
 }

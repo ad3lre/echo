@@ -76,7 +76,7 @@ export function resolveHwidHashFromClientHwid(
 }
 
 async function insertAudit(
-  pool: pg.Pool,
+  pool: Pick<pg.Pool, 'query'>,
   params: {
     operatorId: string;
     action: string;
@@ -172,7 +172,7 @@ export async function evaluateInstanceBan(
 }
 
 async function insertBanRow(
-  pool: pg.Pool,
+  pool: Pick<pg.Pool, 'query'>,
   params: {
     reason: string;
     userId?: string | null;
@@ -266,6 +266,7 @@ export async function createInstanceBan(
   const isAllowlisted = Boolean(input.isAllowlisted);
   const created: InstanceBanRow[] = [];
   let primaryId: string | null = null;
+  const client = await pool.connect();
 
   const addRow = async (params: {
     userId?: string | null;
@@ -273,7 +274,7 @@ export async function createInstanceBan(
     hwidHash?: string | null;
     isPropagated?: boolean;
   }) => {
-    const row = await insertBanRow(pool, {
+    const row = await insertBanRow(client, {
       reason,
       userId: params.userId ?? null,
       ip: params.ip ?? null,
@@ -288,17 +289,25 @@ export async function createInstanceBan(
     created.push(row);
   };
 
-  if (userId) await addRow({ userId });
-  if (ip) await addRow({ ip, isPropagated: Boolean(userId) });
-  if (hwidHash) await addRow({ hwidHash, isPropagated: Boolean(userId) });
-
-  await insertAudit(pool, {
-    operatorId: input.bannedBy,
-    action: isAllowlisted ? 'allowlist_create' : 'ban_create',
-    banId: created[0]?.id ?? null,
-    targetUserId: userId,
-    detail: { banIds: created.map((b) => b.id), count: created.length },
-  });
+  try {
+    await client.query('BEGIN');
+    if (userId) await addRow({ userId });
+    if (ip) await addRow({ ip, isPropagated: Boolean(userId) });
+    if (hwidHash) await addRow({ hwidHash, isPropagated: Boolean(userId) });
+    await insertAudit(client, {
+      operatorId: input.bannedBy,
+      action: isAllowlisted ? 'allowlist_create' : 'ban_create',
+      banId: created[0]?.id ?? null,
+      targetUserId: userId,
+      detail: { banIds: created.map((b) => b.id), count: created.length },
+    });
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 
   if (userId && !isAllowlisted) {
     await deleteAllServerSessionsForUser(userId);

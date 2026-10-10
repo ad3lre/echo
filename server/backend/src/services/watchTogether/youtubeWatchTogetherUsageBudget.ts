@@ -34,7 +34,7 @@ function redisKeysForUser(
 
 /**
  * Atomically add billed seconds to per-user and global UTC-day counters.
- * When Redis is unavailable, returns ok (fail-open for single-node dev).
+ * Configured budgets require Redis; never silently bypass them on an outage.
  */
 const TRY_CONSUME_LUA = `
 local uk = KEYS[1]
@@ -72,7 +72,7 @@ export type YoutubeWatchTogetherConsumeResult =
   | { ok: true; userUsedSec: number; globalUsedSec: number }
   | {
       ok: false;
-      reason: 'user' | 'global';
+      reason: 'user' | 'global' | 'unavailable';
       userUsedSec: number;
       globalUsedSec: number;
     };
@@ -89,6 +89,17 @@ export async function tryConsumeYoutubeWatchTogetherSeconds(
   }
   const redis = getRedis();
   if (!redis) {
+    if (
+      config.youtubeWatchTogetherUserBudgetSec > 0 ||
+      config.youtubeWatchTogetherGlobalBudgetSec > 0
+    ) {
+      return {
+        ok: false,
+        reason: 'unavailable',
+        userUsedSec: 0,
+        globalUsedSec: 0,
+      };
+    }
     return { ok: true, userUsedSec: 0, globalUsedSec: 0 };
   }
   const day = youtubeWatchTogetherUtcDayKey();
@@ -113,7 +124,7 @@ export async function tryConsumeYoutubeWatchTogetherSeconds(
       String(KEY_TTL_SEC),
     )) as unknown;
     if (!Array.isArray(raw) || raw.length < 3) {
-      return { ok: true, userUsedSec: 0, globalUsedSec: 0 };
+      throw new Error('Malformed YouTube usage counter response');
     }
     const status = Number(raw[0]);
     const userUsedSec = Number(raw[1]);
@@ -124,9 +135,23 @@ export async function tryConsumeYoutubeWatchTogetherSeconds(
     if (status === 1) {
       return { ok: false, reason: 'global', userUsedSec, globalUsedSec };
     }
+    if (
+      status !== 2 ||
+      !Number.isFinite(userUsedSec) ||
+      !Number.isFinite(globalUsedSec) ||
+      userUsedSec < 0 ||
+      globalUsedSec < 0
+    ) {
+      throw new Error('Invalid YouTube usage counter response');
+    }
     return { ok: true, userUsedSec, globalUsedSec };
   } catch {
-    return { ok: true, userUsedSec: 0, globalUsedSec: 0 };
+    return {
+      ok: false,
+      reason: 'unavailable',
+      userUsedSec: 0,
+      globalUsedSec: 0,
+    };
   }
 }
 

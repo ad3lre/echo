@@ -1,0 +1,222 @@
+.hm-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+/* ── Guess history ───────────────────────────────────────────── */
+.hm-guess-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--hm-surface);
+  border: 1px solid var(--hm-border);
+  border-radius: var(--hm-radius);
+  max-height: 9rem;
+  min-height: 0;
+}
+
+.hm-guess-log__title {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hm-text-muted);
+}
+
+.hm-guess-log__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.hm-guess-log__row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  background: var(--echo-palette-rgba-255-255-255-0p03-1492);
+  border: 1px solid var(--hm-border);
+}
+
+.hm-guess-log__row--hit {
+  border-color: var(--echo-palette-rgba-16-185-129-0p28-4de1);
+  background: var(--echo-palette-rgba-16-185-129-0p06-bafe);
+}
+
+.hm-guess-log__row--miss {
+  border-color: var(--echo-palette-rgba-244-63-94-0p2-96ec);
+  background: var(--echo-palette-rgba-244-63-94-0p05-e6c6);
+}
+
+.hm-guess-log__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.hm-guess-log__phrase {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--hm-text-soft);
+  flex-shrink: 0;
+}
+
+.hm-guess-log__letter {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  background: var(--echo-palette-rgba-255-255-255-0p08-350e);
+  border: 1px solid var(--echo-palette-rgba-255-255-255-0p12-2082);
+  color: var(--hm-text);
+}
+
+.hm-guess-log__verdict {
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hm-guess-log__verdict--hit {
+  color: var(--hm-hit);
+}
+
+.hm-guess-log__verdict--miss {
+  color: var(--hm-miss);
+}
+
+/* ── Hit scoreboard (per round) ─────────────────────────────── */
+.hm-hit-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--hm-surface);
+  border: 1px solid var(--hm-border);
+  border-radius: var(--hm-radius);
+  min-height: 0;
+}
+
+.hm-hit-board__title {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hm-text-muted);
+}
+
+.hm-hit-board__lead {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  background: var(--echo-palette-rgba-16-185-129-0p08-806b);
+  border: 1px solid var(--echo-palette-rgba-16-185-129-0p28-4de1);
+}
+
+.hm-hit-board__lead-label {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hm-hit);
+}
+
+.hm-hit-board__lead-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--hm-text);
+  line-height: 1.25;
+}
+
+.hm-hit-board__lead-count {
+  font-size: 0.85rem;
+  font-weight: 900;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--echo-palette-6ee7b7-1b43);
+}
+
+.hm-hit-board__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  max-height: 8.5rem;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.hm-hit-board__row {
+  display: grid;
+  grid-template-columns: 1.1rem 1.5rem 1fr auto;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.4rem;
+  border-radius: 7px;
+  background: var(--echo-palette-rgba-255-255-255-0p03-1492);
+  border: 1px solid var(--hm-border);
+}
+
+.hm-hit-board__row--first {
+  border-color: var(--echo-palette-rgba-16-185-129-0p22-353f);
+}
+
+.hm-hit-board__rank {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--hm-text-muted);
+  text-align: center;
+}
+
+.hm-hit-board__name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--hm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.hm-hit-board__score {
+  font-size: 0.72rem;
+  font-weight: 900;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--hm-text-soft);
+}
+
+.hm-hit-board__empty {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--hm-text-muted);
+  font-style: italic;
+  padding: 0.2rem 0;
+}

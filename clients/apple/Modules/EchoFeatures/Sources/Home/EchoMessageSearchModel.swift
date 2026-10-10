@@ -69,6 +69,7 @@ final class EchoMessageSearchModel {
     let generation = searchGeneration
     activeQuery = trimmed
     results = []
+    isLoadingMore = false
     hasMoreBefore = false
     errorMessage = nil
     guard !trimmed.isEmpty || hasActiveCriteria else {
@@ -105,25 +106,30 @@ final class EchoMessageSearchModel {
     guard !isSearching, !isLoadingMore, hasMoreBefore,
       let cursor = results.last?.id, canSearch
     else { return }
+    let generation = searchGeneration
+    let query = activeQuery
+    let filters = criteria
     isLoadingMore = true
-    defer { isLoadingMore = false }
+    defer { if generation == searchGeneration { isLoadingMore = false } }
     do {
       let page = try await auth.withAccessTokenRetry { token in
         try await client.searchMessages(
           accessToken: token,
           channelID: conversation.channelID,
           currentUserID: userID,
-          query: activeQuery,
+          query: query,
           before: cursor,
           limit: 24,
-          criteria: criteria
+          criteria: filters
         )
       }
+      guard generation == searchGeneration, !Task.isCancelled else { return }
       let existingIDs = Set(results.map(\.id))
       let additions = page.messages.filter { !existingIDs.contains($0.id) }
       results.append(contentsOf: additions)
       hasMoreBefore = page.hasMoreBefore && !additions.isEmpty
     } catch {
+      guard generation == searchGeneration, !Task.isCancelled else { return }
       errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
   }

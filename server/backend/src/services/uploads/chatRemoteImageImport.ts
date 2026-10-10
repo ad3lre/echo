@@ -1,4 +1,5 @@
 import path from 'path';
+import { readBoundedResponseBody } from '../linkUnfurl/readBoundedResponseBody';
 import type { FastifyBaseLogger } from 'fastify';
 import type pg from 'pg';
 import { isLikelyGifMediaUrl } from '../../../../../contracts/gifHostLinks';
@@ -8,7 +9,6 @@ import {
   canSafelyResolveUrlForOutboundFetch,
   ssrfSafeFetch,
 } from '../linkUnfurl/linkUnfurlFetch';
-import { safeFetchAgent } from '../linkUnfurl/safeFetchAgent';
 import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
 import { resolveEchoUploadStorageKey } from './echoUploadResolveDest';
 import { storeEchoUploadBuffer } from './echoUploadStoreBuffer';
@@ -74,27 +74,23 @@ async function fetchRemoteImageBuffer(
   let current = url.trim();
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     if (!(await canSafelyResolveUrlForOutboundFetch(current))) return null;
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
     let res: Response;
     try {
       const fetchInit: RequestInit = {
         method: 'GET',
         redirect: 'manual',
-        signal: ac.signal,
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: {
           Accept: 'image/*',
           'User-Agent': 'EchoChatRemoteImageImport/1.0',
         },
       };
-      Object.assign(fetchInit, { dispatcher: safeFetchAgent });
       res = await ssrfSafeFetch(current, fetchInit);
     } catch {
       return null;
-    } finally {
-      clearTimeout(timer);
     }
     if (res.status >= 300 && res.status < 400) {
+      await res.body?.cancel();
       const loc = res.headers.get('location');
       if (!loc) return null;
       try {
@@ -104,7 +100,10 @@ async function fetchRemoteImageBuffer(
       }
       continue;
     }
-    if (!res.ok) return null;
+    if (!res.ok) {
+      await res.body?.cancel();
+      return null;
+    }
 
     let filenameHint = 'image.jpg';
     try {
@@ -114,18 +113,18 @@ async function fetchRemoteImageBuffer(
     }
 
     const headerCt = res.headers.get('content-type')?.split(';')[0]?.trim();
-    const cl = res.headers.get('content-length');
-    if (cl) {
-      const n = Number(cl);
-      if (Number.isFinite(n) && n > maxBytes) return null;
+    let ab: Buffer;
+    try {
+      ab = await readBoundedResponseBody(res, maxBytes);
+    } catch {
+      return null;
     }
-    const ab = await res.arrayBuffer();
-    if (ab.byteLength < 1 || ab.byteLength > maxBytes) return null;
+    if (ab.byteLength < 1) return null;
     const ct =
       coerceAllowedImageContentType(headerCt, filenameHint) ??
       coerceAllowedImageContentType(null, filenameHint);
     if (!ct) return null;
-    return { buf: Buffer.from(ab), contentType: ct, filenameHint };
+    return { buf: ab, contentType: ct, filenameHint };
   }
   return null;
 }

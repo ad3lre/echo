@@ -31,6 +31,9 @@ export async function evictUserFromEchoServerRealtimeScopes(
       io.in(userRoom).socketsLeave(channelId);
     }
   } catch (err) {
+    // If channel enumeration failed, disconnect these sockets entirely so a
+    // removed user cannot remain subscribed to any stale channel room.
+    io.in(userRoom).disconnectSockets(true);
     fastify.log.warn(
       {
         err,

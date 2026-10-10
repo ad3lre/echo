@@ -96,16 +96,11 @@ export async function attachSocketAdapterIfConfigured(
     fastify.log.info('NATS not configured, using default Socket.IO adapter');
     return;
   }
-  try {
-    const nc = await connectNats();
-    if (!nc) return;
-    io.adapter(createAdapter(nc));
-    subscribeToEchoChannelFanout(io, nc);
-    fastify.log.info('NATS connected, Socket.IO adapter attached');
-  } catch (err) {
-    fastify.log.warn(
-      { err },
-      'NATS_URL is set but NATS is unreachable; using default Socket.IO adapter (single process). Start NATS (e.g. `docker compose up -d nats`) or unset NATS_URL for local dev.',
-    );
-  }
+  // Configured cross-node transport is required before accepting traffic.
+  // Let startup fail so the process supervisor can retry when NATS recovers.
+  const nc = await connectNats();
+  if (!nc) throw new Error('Configured NATS connection is unavailable');
+  io.adapter(createAdapter(nc));
+  subscribeToEchoChannelFanout(io, nc);
+  fastify.log.info('NATS connected, Socket.IO adapter attached');
 }

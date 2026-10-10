@@ -5,10 +5,8 @@ import {
 } from '../discordBridge/discordBridgeApply';
 import { getDiscordImportState } from './discordImport';
 import { runDiscordMessageImport } from './discordMessageImport';
-import {
-  applyMirrorVoiceDenyConnect,
-  upsertDiscordVoiceMirrorVoiceChannel,
-} from '../../domain/discord/discordVoiceMirrorRepo';
+import { invalidateEchoPermissionCacheForServer } from '../../domain/permissions/echoPermissionCache';
+import { nextEchoSnowflakeId } from '../../domain/echoSnowflake';
 import { countEchoMessagesInChannel } from '../../domain/echoMessagesDal';
 
 function sleep(ms: number): Promise<void> {
@@ -206,24 +204,56 @@ export async function runDiscordImportPostSetup(
         }
         await sleep(jittered(DISCORD_API_SPACING_MS));
       } else if (t === 'voice') {
+        const client = await pool.connect();
         try {
-          await upsertDiscordVoiceMirrorVoiceChannel(pool, {
-            serverId,
-            channelId: echoChannelId,
-            enabled: true,
-          });
-          await pool.query(
+          await client.query('BEGIN');
+          await client.query(
+            `INSERT INTO echo_discord_voice_mirror_voice_channel
+               (channel_id, server_id, enabled, updated_at)
+             VALUES ($1, $2, true, NOW())
+             ON CONFLICT (channel_id) DO UPDATE SET
+               server_id = EXCLUDED.server_id,
+               enabled = true,
+               updated_at = NOW()`,
+            [echoChannelId, serverId],
+          );
+          await client.query(
             `UPDATE echo_channels SET discord_voice_mirror_only = true WHERE id = $1 AND server_id = $2`,
             [echoChannelId, serverId],
           );
-          await applyMirrorVoiceDenyConnect(pool, serverId, echoChannelId);
+          await client.query(
+            `DELETE FROM echo_channel_permission_overwrite_rows
+             WHERE server_id = $1 AND channel_id = $2`,
+            [serverId, echoChannelId],
+          );
+          await client.query(
+            `INSERT INTO echo_channel_permission_overwrite_rows
+               (id, server_id, channel_id, target_type, target_id, partial)
+             VALUES ($1, $2, $3, 'everyone', NULL, $4::jsonb)`,
+            [
+              nextEchoSnowflakeId(),
+              serverId,
+              echoChannelId,
+              JSON.stringify({ CONNECT: false }),
+            ],
+          );
+          await client.query(
+            `UPDATE echo_channels SET permission_overrides = NULL
+             WHERE id = $1 AND server_id = $2`,
+            [echoChannelId, serverId],
+          );
+          await client.query('COMMIT');
+          invalidateEchoPermissionCacheForServer(serverId);
           voice.enabled += 1;
         } catch (e) {
+          await client.query('ROLLBACK').catch(() => undefined);
           voice.failed += 1;
           voice.failures.push({
             channelId: echoChannelId,
             message: e instanceof Error ? e.message : String(e),
           });
+        } finally {
+          client.release();
         }
         await sleep(VOICE_LOCAL_GAP_MS);
       }

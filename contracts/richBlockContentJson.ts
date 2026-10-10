@@ -193,9 +193,14 @@ export function rebuildContentJsonPreservingRichBlocks(
   mentions?: InlineMention[],
 ): Record<string, unknown> {
   const filledById = filledImageSlotAttrsById(originalDoc);
-  const originalSlots = walkImageSlots(originalDoc);
   const rowsById = buttonRowsById(originalDoc);
   const plain = editedPlain.replace(/\r\n/g, '\n');
+  const canonicalIds = new Set(
+    plain.split('\n').map((line) => parseImageSlotToken(line.trim())?.slotId),
+  );
+  const originalSlots = walkImageSlots(originalDoc).filter(
+    (slot) => !canonicalIds.has(slot.slotId),
+  );
   const blocks: Record<string, unknown>[] = [];
   let imageShortcutSlotIndex = 0;
 

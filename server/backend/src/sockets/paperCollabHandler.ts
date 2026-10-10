@@ -42,6 +42,9 @@ const CURSOR_STALE_MS = 8_000;
 const DIRTY_STALE_MS = 3_000;
 /** Ephemeral previews go stale after this ms */
 const PREVIEW_STALE_MS = 5_000;
+const MAX_COLLAB_KEY_LENGTH = 128;
+const MAX_LOCKS_PER_USER_CHANNEL = 32;
+const MAX_COLLAB_ENTRIES_PER_CHANNEL = 512;
 /** Max length of preview text to broadcast */
 const MAX_PREVIEW_CHARS = 200;
 
@@ -69,6 +72,14 @@ type PreviewEntry = {
  */
 export const CURSOR_FLUSH_MS = 50;
 const pendingCursorFlush = new Map<string, ReturnType<typeof setTimeout>>();
+
+function validCollabKey(value: string): boolean {
+  return (
+    value.length > 0 &&
+    value.length <= MAX_COLLAB_KEY_LENGTH &&
+    !/[\u0000-\u001f\u007f]/.test(value)
+  );
+}
 
 function locksForChannel(channelId: string): Map<string, LockEntry> {
   let map = channelLocks.get(channelId);
@@ -382,17 +393,21 @@ export function registerPaperCollabHandler(
         typeof payload?.channelId === 'string' ? payload.channelId.trim() : '';
       const blockId =
         typeof payload?.blockId === 'string' ? payload.blockId.trim() : '';
-      if (!channelId || !blockId) return;
+      if (!validCollabKey(channelId) || !validCollabKey(blockId)) return;
       if (!(await collabAllowed(channelId))) return;
 
       const map = locksForChannel(channelId);
       const existing = map.get(blockId);
       if (existing && existing.userId !== userId) return;
+      if (!existing && map.size >= MAX_COLLAB_ENTRIES_PER_CHANNEL) return;
+      if (
+        !existing &&
+        [...map.values()].filter((entry) => entry.userId === userId).length >=
+          MAX_LOCKS_PER_USER_CHANNEL
+      )
+        return;
 
-      const displayName =
-        typeof payload?.displayName === 'string' && payload.displayName.trim()
-          ? payload.displayName.trim()
-          : 'Author';
+      const displayName = 'Author';
       map.set(blockId, {
         blockId,
         userId,
@@ -400,19 +415,22 @@ export function registerPaperCollabHandler(
         since: Date.now(),
       });
       broadcastLocks(io, channelId);
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'paper collaboration claim failed');
+    });
   });
 
   socket.on('paper:release', (payload) => {
     void (async () => {
       const channelId =
         typeof payload?.channelId === 'string' ? payload.channelId.trim() : '';
-      if (!channelId) return;
+      if (!validCollabKey(channelId)) return;
       if (!(await collabAllowed(channelId))) return;
 
       const blockId =
         typeof payload?.blockId === 'string' ? payload.blockId.trim() : '';
-      if (blockId) {
+      if (blockId && !validCollabKey(blockId)) return;
+      if (blockId && validCollabKey(blockId)) {
         const map = locksForChannel(channelId);
         const lock = map.get(blockId);
         if (lock?.userId === userId) {
@@ -423,7 +441,9 @@ export function registerPaperCollabHandler(
         return;
       }
       releaseLocksForUser(io, channelId, userId);
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'paper collaboration release failed');
+    });
   });
 
   socket.on('paper:cursor', (payload) => {
@@ -432,21 +452,15 @@ export function registerPaperCollabHandler(
         typeof payload?.channelId === 'string' ? payload.channelId.trim() : '';
       const blockId =
         typeof payload?.blockId === 'string' ? payload.blockId.trim() : '';
-      if (!channelId || !blockId) return;
+      if (!validCollabKey(channelId) || !validCollabKey(blockId)) return;
       if (!(await collabAllowed(channelId))) return;
 
       const anchor = Number(payload?.anchor);
       const head = Number(payload?.head);
       if (!Number.isFinite(anchor) || !Number.isFinite(head)) return;
 
-      const displayName =
-        typeof payload?.displayName === 'string' && payload.displayName.trim()
-          ? payload.displayName.trim()
-          : 'Author';
-      const color =
-        typeof payload?.color === 'string' && payload.color.trim()
-          ? payload.color.trim()
-          : '#6366f1';
+      const displayName = 'Author';
+      const color = '#6366f1';
 
       cursorsForChannel(channelId).set(userId, {
         userId,
@@ -458,7 +472,9 @@ export function registerPaperCollabHandler(
         updatedAt: Date.now(),
       });
       broadcastCursors(io, channelId);
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'paper collaboration cursor failed');
+    });
   });
 
   socket.on('paper:lock-request', (payload) => {
@@ -467,16 +483,13 @@ export function registerPaperCollabHandler(
         typeof payload?.channelId === 'string' ? payload.channelId.trim() : '';
       const blockId =
         typeof payload?.blockId === 'string' ? payload.blockId.trim() : '';
-      if (!channelId || !blockId) return;
+      if (!validCollabKey(channelId) || !validCollabKey(blockId)) return;
       if (!(await collabAllowed(channelId))) return;
 
       const lock = locksForChannel(channelId).get(blockId);
       if (!lock || lock.userId === userId) return;
 
-      const fromDisplayName =
-        typeof payload?.displayName === 'string' && payload.displayName.trim()
-          ? payload.displayName.trim()
-          : 'Someone';
+      const fromDisplayName = 'Someone';
 
       emitPaperEventToUser(io, channelId, lock.userId, 'paper:lock-requested', {
         channelId,
@@ -485,7 +498,9 @@ export function registerPaperCollabHandler(
         fromDisplayName,
         toUserId: lock.userId,
       });
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'paper collaboration lock request failed');
+    });
   });
 
   socket.on('paper:block-dirty', (payload) => {
@@ -494,20 +509,20 @@ export function registerPaperCollabHandler(
         typeof payload?.channelId === 'string' ? payload.channelId.trim() : '';
       const blockId =
         typeof payload?.blockId === 'string' ? payload.blockId.trim() : '';
-      if (!channelId || !blockId) return;
+      if (!validCollabKey(channelId) || !validCollabKey(blockId)) return;
       if (!(await collabAllowed(channelId))) return;
-
-      const displayName =
-        typeof payload?.displayName === 'string' && payload.displayName.trim()
-          ? payload.displayName.trim()
-          : 'Author';
-      const color =
-        typeof payload?.color === 'string' && payload.color.trim()
-          ? payload.color.trim()
-          : '#6366f1';
 
       const map = dirtyForChannel(channelId);
       const key = `${userId}:${blockId}`;
+      if (
+        !map.has(key) &&
+        (map.size >= MAX_COLLAB_ENTRIES_PER_CHANNEL ||
+          [...map.values()].filter((entry) => entry.userId === userId).length >=
+            MAX_LOCKS_PER_USER_CHANNEL)
+      )
+        return;
+      const displayName = 'Author';
+      const color = '#6366f1';
       map.set(key, {
         userId,
         blockId,
@@ -516,7 +531,9 @@ export function registerPaperCollabHandler(
         updatedAt: Date.now(),
       });
       broadcastDirty(io, channelId);
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'paper collaboration dirty state failed');
+    });
   });
 
   socket.on('paper:block-preview', (payload) => {
@@ -525,7 +542,7 @@ export function registerPaperCollabHandler(
         typeof payload?.channelId === 'string' ? payload.channelId.trim() : '';
       const blockId =
         typeof payload?.blockId === 'string' ? payload.blockId.trim() : '';
-      if (!channelId || !blockId) return;
+      if (!validCollabKey(channelId) || !validCollabKey(blockId)) return;
       if (!(await collabAllowed(channelId))) return;
 
       const previewText =
@@ -534,17 +551,17 @@ export function registerPaperCollabHandler(
           : '';
       if (!previewText) return;
 
-      const displayName =
-        typeof payload?.displayName === 'string' && payload.displayName.trim()
-          ? payload.displayName.trim()
-          : 'Author';
-      const color =
-        typeof payload?.color === 'string' && payload.color.trim()
-          ? payload.color.trim()
-          : '#6366f1';
-
       const map = previewsForChannel(channelId);
       const key = `${userId}:${blockId}`;
+      if (
+        !map.has(key) &&
+        (map.size >= MAX_COLLAB_ENTRIES_PER_CHANNEL ||
+          [...map.values()].filter((entry) => entry.userId === userId).length >=
+            MAX_LOCKS_PER_USER_CHANNEL)
+      )
+        return;
+      const displayName = 'Author';
+      const color = '#6366f1';
       map.set(key, {
         userId,
         blockId,
@@ -554,7 +571,9 @@ export function registerPaperCollabHandler(
         updatedAt: Date.now(),
       });
       broadcastPreviews(io, channelId);
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'paper collaboration preview failed');
+    });
   });
 
   socket.on('disconnect', () => {

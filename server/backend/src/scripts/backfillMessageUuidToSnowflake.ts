@@ -22,22 +22,26 @@ const BACKFILL_WORKER_ID = 31n;
 
 const execute = process.argv.includes('--execute');
 
-const sequenceByMs = new Map<number, number>();
+let lastGeneratedMs = -1;
+let lastGeneratedSequence = -1;
 
-function snowflakeFromTimestamp(ms: number): string {
-  let seq = sequenceByMs.get(ms) ?? 0;
-  if (seq > 0xfff) {
-    ms += 1;
-    seq = 0;
+function snowflakeFromTimestamp(sourceMs: number): string {
+  if (sourceMs > lastGeneratedMs) {
+    lastGeneratedMs = sourceMs;
+    lastGeneratedSequence = 0;
+  } else if (lastGeneratedSequence < 0xfff) {
+    lastGeneratedSequence += 1;
+  } else {
+    lastGeneratedMs += 1;
+    lastGeneratedSequence = 0;
   }
-  sequenceByMs.set(ms, seq + 1);
 
-  const delta = BigInt(ms - ECHO_SNOWFLAKE_EPOCH_MS);
+  const delta = BigInt(lastGeneratedMs - ECHO_SNOWFLAKE_EPOCH_MS);
   const id =
     (delta << 22n) |
     (BACKFILL_DATACENTER_ID << 17n) |
     (BACKFILL_WORKER_ID << 12n) |
-    BigInt(seq);
+    BigInt(lastGeneratedSequence);
 
   return id.toString(10);
 }
@@ -74,6 +78,15 @@ async function main(): Promise<void> {
       migrated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  const prior = await pool.query<{ new_id: string }>(
+    `SELECT new_id FROM _migration_message_id_map ORDER BY new_id::numeric DESC LIMIT 1`,
+  );
+  if (prior.rows[0]) {
+    const id = BigInt(prior.rows[0].new_id);
+    lastGeneratedMs = Number(id >> 22n) + ECHO_SNOWFLAKE_EPOCH_MS;
+    lastGeneratedSequence = Number(id & 0xfffn);
+  }
 
   let migrated = 0;
   let offset = 0;
@@ -129,6 +142,18 @@ async function main(): Promise<void> {
         );
         await client.query(
           `UPDATE echo_channel_read_state SET last_read_message_id = $1 WHERE last_read_message_id = $2`,
+          [newId, oldId],
+        );
+        await client.query(
+          `UPDATE echo_user_reports SET message_id = $1 WHERE message_id = $2`,
+          [newId, oldId],
+        );
+        await client.query(
+          `UPDATE echo_message_reports SET message_id = $1 WHERE message_id = $2`,
+          [newId, oldId],
+        );
+        await client.query(
+          `UPDATE echo_discord_import_media_mirror_queue SET message_id = $1 WHERE message_id = $2`,
           [newId, oldId],
         );
 

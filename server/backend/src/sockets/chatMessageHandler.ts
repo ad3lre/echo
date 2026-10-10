@@ -714,6 +714,11 @@ export function registerMessageHandler(
       } finally {
         endTimer();
       }
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'chat message handler failed');
+      if (socket.connected) {
+        socket.emit('message:failed', { code: 'PERSIST_FAILED' });
+      }
+    });
   });
 }

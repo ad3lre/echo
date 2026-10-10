@@ -1,0 +1,339 @@
+@use './EchoRailCorner-shared' as *;
+/* Motion + sheen variables: shared by vertical rail and top bar (compact) chrome. */
+.echo-corner {
+  --echo-cursor-x: 24%;
+  --echo-cursor-y: 16%;
+  --echo-shift-x: 0px;
+  --echo-shift-y: 0px;
+  --echo-logo-shift-x: 0px;
+  --echo-logo-shift-y: 0px;
+  --echo-logo-shadow-x: 0px;
+  --echo-logo-shadow-y: 0px;
+  --echo-highlight-opacity: 0.54;
+  --echo-logo-sheen-opacity: 0.54;
+  --echo-press-depth: 0;
+  --echo-logo-press-scale: 1;
+  --echo-logo-inner-scale: 1;
+  --echo-logo-press-shadow: 0px;
+  --echo-logo-press-sheen-shift: 0px;
+}
+.echo-corner--fluid {
+  min-height: 7.25rem;
+}
+/**
+ * Horizontal top strip: keep liquid chrome behind the logo only — no negative horizontal
+ * spill into DM / server pills (those sit in sibling flex items).
+ */
+.echo-corner--compact-top {
+  contain: layout paint;
+  /* Top action rail: no vertical rule between the Echo mark and the DM/server strip */
+  border-inline-end: none;
+}
+.echo-corner--compact-top .echo-corner__fluid {
+  /* Stay inside the logo column; blur reads as “corner” only */
+  inset: -0.25rem 0 -0.25rem 0;
+  width: 100%;
+  max-width: 5.25rem;
+  margin-left: -0.125rem;
+  height: 3.35rem;
+  max-height: none;
+  mask-image: radial-gradient(
+    ellipse 95% 115% at 38% 52%,
+    var(--echo-palette-rgb-0-0-0-1-069a) 0%,
+    var(--echo-palette-rgb-0-0-0-0p45-b7fd) 48%,
+    transparent 72%
+  );
+  mask-mode: alpha;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  mask-position: center;
+  -webkit-mask-image: radial-gradient(
+    ellipse 95% 115% at 38% 52%,
+    var(--echo-palette-rgb-0-0-0-1-069a) 0%,
+    var(--echo-palette-rgb-0-0-0-0p45-b7fd) 48%,
+    transparent 72%
+  );
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+}
+.echo-corner--compact-top .echo-corner__highlight {
+  inset: 0.12rem 0.15rem auto 0.06rem;
+  height: 2.35rem;
+}
+.echo-corner--compact-top .echo-corner__liquid {
+  height: 2.85rem;
+  opacity: 0.58;
+}
+.echo-corner--compact-top .echo-corner__ambient {
+  filter: blur(12px) saturate(112%);
+  opacity: 0.58;
+}
+.echo-corner--compact-top .echo-corner__particles {
+  opacity: 0.22;
+}
+/**
+ * Compact shell (phone): vertical rail is only 5.4rem wide — fluid chrome must not spill
+ * horizontally (blur + negative insets otherwise widen the scrollable rail column).
+ */
+@media (max-width: 799px) {
+  .echo-corner--fluid:not(.echo-corner--compact-top) {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .echo-corner--fluid:not(.echo-corner--compact-top) .echo-logo-wrapper,
+  .echo-corner--fluid:not(.echo-corner--compact-top) .echo-logo {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+  }
+
+  .echo-corner--fluid {
+    contain: layout paint;
+  }
+
+  .echo-corner--fluid .echo-corner__fluid {
+    inset: -0.35rem 0 auto -0.35rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .echo-corner--fluid .echo-corner__highlight {
+    inset: 0.35rem 0.15rem auto 0.15rem;
+  }
+
+  .echo-corner--fluid .echo-corner__liquid {
+    inset: -0.35rem 0 auto -0.35rem;
+    width: 100%;
+  }
+
+  .echo-corner--fluid .echo-corner__ambient {
+    filter: blur(14px) saturate(112%);
+    opacity: 0.65;
+  }
+}
+/** Match sidebar corner radius ratio: 18px / 48px → 15px at 40px mark. */
+.echo-logo-wrapper--compact-top {
+  border-radius: 15px;
+  clip-path: inset(0 round 15px);
+  -webkit-clip-path: inset(0 round 15px);
+}
+.echo-logo--compact-top {
+  border-radius: 15px;
+}
+.echo-corner__defs {
+  position: absolute;
+}
+.echo-corner__fluid {
+  position: absolute;
+  inset: -0.55rem -2rem auto -0.6rem;
+  height: 9.2rem;
+  z-index: 0;
+  mask-image: radial-gradient(
+    circle at 24% 16%,
+    var(--vue-auto-234) 0%,
+    var(--vue-auto-235) 36%,
+    var(--vue-auto-236) 66%,
+    transparent 95%
+  );
+  transition: mask-position 220ms ease-out;
+}
+.echo-corner__base,
+.echo-corner__ambient,
+.echo-corner__highlight,
+.echo-corner__particles,
+.echo-corner__shadow,
+.echo-corner__liquid {
+  position: absolute;
+  inset: 0;
+}
+.echo-corner__base {
+  background:
+    radial-gradient(
+      circle at calc(var(--echo-cursor-x) - 8%) calc(var(--echo-cursor-y) + 2%),
+      var(--vue-auto-237) 0%,
+      var(--vue-auto-238) 28%,
+      var(--vue-auto-035) 62%
+    ),
+    radial-gradient(
+      circle at calc(var(--echo-cursor-x) + 22%) 0%,
+      var(--vue-auto-239) 0%,
+      var(--vue-auto-240) 58%
+    ),
+    linear-gradient(180deg, var(--vue-auto-241) 0%, var(--vue-auto-035) 100%);
+  transition: background-position 220ms ease-out;
+}
+.echo-corner__ambient {
+  background:
+    radial-gradient(
+      ellipse at var(--echo-cursor-x) calc(var(--echo-cursor-y) - 4%),
+      var(--vue-auto-242) 0%,
+      var(--vue-auto-243) 26%,
+      var(--vue-auto-244) 48%,
+      var(--vue-auto-035) 72%
+    ),
+    radial-gradient(
+      ellipse at calc(var(--echo-cursor-x) + 30%)
+        calc(var(--echo-cursor-y) + 14%),
+      var(--vue-auto-245) 0%,
+      var(--vue-auto-035) 62%
+    ),
+    radial-gradient(
+      ellipse at 10% 66%,
+      var(--vue-auto-246) 0%,
+      var(--vue-auto-247) 64%
+    );
+  filter: blur(22px) saturate(118%);
+  opacity: 0.8;
+  animation: echo-fluid-breathe 28s ease-in-out infinite alternate;
+  transition: transform 220ms ease-out;
+}
+.echo-corner__highlight {
+  inset: 0.35rem 0.8rem auto 0.15rem;
+  height: 5.8rem;
+  background:
+    radial-gradient(
+      ellipse at calc(var(--echo-cursor-x) + 4%) calc(var(--echo-cursor-y) - 1%),
+      var(--vue-auto-248) 0%,
+      var(--vue-auto-249) 20%,
+      var(--vue-auto-250) 58%
+    ),
+    radial-gradient(
+      ellipse at calc(var(--echo-cursor-x) + 22%)
+        calc(var(--echo-cursor-y) + 7%),
+      var(--vue-auto-251) 0%,
+      var(--vue-auto-252) 55%
+    );
+  mix-blend-mode: screen;
+  opacity: var(--echo-highlight-opacity);
+  transition: opacity 220ms ease-out;
+}
+.echo-corner__liquid {
+  inset: -0.35rem -0.9rem auto -0.35rem;
+  width: calc(100% + 1.4rem);
+  height: 8.35rem;
+  opacity: 0.84;
+  filter: blur(8px) saturate(122%);
+  transform-origin: 24% 22%;
+  will-change: transform, opacity;
+  animation: echo-fluid-drift 38s ease-in-out infinite alternate;
+}
+.echo-corner__particles {
+  background-image:
+    radial-gradient(
+      circle at 18% 21%,
+      var(--vue-auto-253) 0 1.1px,
+      var(--vue-auto-254) 1.8px,
+      var(--vue-auto-255) 4.6px
+    ),
+    radial-gradient(
+      circle at 28% 33%,
+      var(--vue-auto-256) 0 1.2px,
+      var(--vue-auto-257) 2px,
+      var(--vue-auto-258) 4.8px
+    ),
+    radial-gradient(
+      circle at 36% 18%,
+      var(--vue-auto-259) 0 0.9px,
+      var(--vue-auto-260) 1.7px,
+      var(--vue-auto-261) 4.2px
+    ),
+    radial-gradient(
+      circle at 46% 28%,
+      var(--vue-auto-262) 0 1.1px,
+      var(--vue-auto-263) 1.9px,
+      var(--vue-auto-264) 4.5px
+    ),
+    radial-gradient(
+      circle at 40% 48%,
+      var(--vue-auto-265) 0 1px,
+      var(--vue-auto-266) 1.8px,
+      var(--vue-auto-267) 4.2px
+    );
+  mix-blend-mode: screen;
+  opacity: 0.3;
+  animation: echo-particles-twinkle 16s ease-in-out infinite alternate;
+}
+.echo-corner__shadow {
+  background:
+    radial-gradient(
+      ellipse at 14% 16%,
+      var(--vue-auto-268) 0%,
+      var(--vue-auto-269) 34%,
+      var(--vue-auto-270) 70%,
+      var(--vue-auto-271) 100%
+    ),
+    linear-gradient(180deg, var(--vue-auto-272) 0%, var(--vue-auto-273) 100%);
+  mix-blend-mode: multiply;
+  opacity: 0.9;
+}
+/* Firefox: reduce continuous compositor/paint pressure from decorative rail effects. */
+@supports (-moz-appearance: none) {
+  .echo-corner__ambient,
+  .echo-corner__liquid,
+  .echo-corner__particles {
+    animation: none;
+  }
+
+  .echo-corner__ambient {
+    filter: blur(12px) saturate(108%);
+    opacity: 0.72;
+  }
+
+  .echo-corner__liquid {
+    filter: blur(5px) saturate(110%);
+    opacity: 0.76;
+  }
+
+  .echo-corner__particles {
+    opacity: 0.2;
+  }
+}
+.echo-logo-wrapper {
+  pointer-events: auto;
+  position: relative;
+  border-radius: 18px;
+  /**
+   * Self-contained brand icon: opaque rounded square with brand gradient.
+   * Previously relied on .echo-corner__fluid sibling rendering perfectly behind
+   * the wrapper — when that misaligned (Safari compositing, narrow rail, etc.)
+   * the triangle PNG's transparent corners revealed the dark rail and read as
+   * "two sharp corners" since the triangle artwork is not square.
+   */
+  background: linear-gradient(
+    135deg,
+    var(--echo-palette-4a3bff-9f7e) 0%,
+    var(--echo-palette-2d77ff-3249) 55%,
+    var(--echo-palette-5b3dff-8cd0) 100%
+  );
+  /**
+   * WebKit bug: this wrapper has transform: translate3d(...) for hover motion,
+   * which promotes it to its own compositing layer. Safari does NOT reliably honor
+   * border-radius + overflow:hidden for clipping at the layer level — square
+   * corners leak through. clip-path IS honored by the compositor and forces the
+   * rounded shape regardless.
+   */
+  clip-path: inset(0 round 18px);
+  -webkit-clip-path: inset(0 round 18px);
+  /* Belt-and-suspenders for WebKit: paint containment forces a self-contained layer. */
+  contain: paint;
+  /* Keep sheen + logo compositing off the fluid rail (fixes wrong backdrop). */
+  isolation: isolate;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transform: translate3d(var(--echo-logo-shift-x), var(--echo-logo-shift-y), 0)
+    scale(var(--echo-logo-press-scale));
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  /**
+   * iOS Safari composites `filter: drop-shadow` on `<img>` at a low-res layer (blurry logo).
+   * Box-shadow on this wrapper gives a similar glow without filtering the bitmap.
+   */
+  box-shadow: calc(var(--echo-logo-shadow-x) * 0.45)
+    calc(
+      10px + (var(--echo-logo-shadow-y) * 0.45) - var(--echo-logo-press-shadow)
+    )
+    calc(22px - (var(--echo-logo-press-shadow) * 1.2)) 0 var(--vue-auto-275);
+}

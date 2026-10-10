@@ -103,14 +103,16 @@ public struct EchoAuthenticationClient: Sendable {
     try await perform(path: "/api/v1/auth/refresh", body: ["refreshToken": refreshToken])
   }
 
-  public func logout(accessToken: String, refreshToken: String) async throws {
+  public func logout(accessToken: String, refreshToken: String, pushDeviceToken: String? = nil) async throws {
     var request = URLRequest(url: baseURL.appending(path: "/api/v1/auth/logout"))
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue("application/json", forHTTPHeaderField: "Accept")
     request.setValue(clientIdentifier, forHTTPHeaderField: "X-Echo-Client")
     request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-    request.httpBody = try JSONEncoder().encode(["refreshToken": refreshToken])
+    var body = ["refreshToken": refreshToken]
+    body["pushDeviceToken"] = pushDeviceToken
+    request.httpBody = try JSONEncoder().encode(body)
     let (data, response) = try await EchoHTTPClient.data(for: request, session: session)
     guard let response = response as? HTTPURLResponse else {
       throw EchoAuthenticationError.invalidResponse

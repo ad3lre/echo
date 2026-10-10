@@ -1,0 +1,333 @@
+.call-header-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.call-tile--dm-pending {
+  opacity: 0.82;
+}
+.call-participants-shell {
+  container-type: inline-size;
+  container-name: call;
+}
+/* ========== AUDIO-ONLY VOICE WIDGET - MODERN STAGE LAYOUT ========== */
+/*
+ * Solo: flex-centered card. Multi: responsive grid so tiles grow with the voice
+ * column (compact) instead of staying capped ~220px with empty margins.
+ */
+.call-audio-only-gallery--grid {
+  gap: 12px;
+  padding: 12px;
+  min-height: 0;
+}
+.call-audio-only-gallery--grid.call-audio-only-gallery--solo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  justify-content: center;
+  min-height: 100%;
+}
+.call-audio-only-gallery--solo .call-tile {
+  flex: 0 0 auto;
+  width: min(360px, 70vw);
+  max-width: 400px;
+  aspect-ratio: 16 / 9;
+}
+.call-audio-only-gallery--solo .call-tile-name {
+  font-size: 14px;
+}
+.call-audio-only-gallery--grid:not(.call-audio-only-gallery--solo) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.25rem), 1fr));
+  align-content: center;
+  justify-items: stretch;
+  align-items: stretch;
+}
+.call-audio-only-gallery--grid:not(.call-audio-only-gallery--solo) .call-tile {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+@container call (min-width: 480px) {
+  .call-audio-only-gallery--grid:not(.call-audio-only-gallery--solo) {
+    gap: 14px;
+    padding: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  }
+}
+@container call (min-width: 720px) {
+  .call-audio-only-gallery--grid:not(.call-audio-only-gallery--solo) {
+    gap: 16px;
+    padding: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.75rem), 1fr));
+  }
+}
+/* ========== PARTICIPANT TILE ========== */
+.call-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+  padding: 0;
+  border-radius: 16px;
+  background: color-mix(
+    in srgb,
+    var(--surface, var(--echo-palette-1e1f22-c095)) 85%,
+    transparent
+  );
+  border: 1.5px solid var(--echo-palette-rgba-255-255-255-0p06-88bf);
+  box-shadow:
+    0 2px 12px var(--echo-palette-rgba-0-0-0-0p35-20d4),
+    inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p06-88bf);
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  position: relative;
+}
+.call-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--echo-palette-rgba-255-255-255-0p14-0320);
+  box-shadow:
+    0 8px 24px var(--echo-palette-rgba-0-0-0-0p45-7ddc),
+    inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p08-350e);
+}
+.call-tile--speaking {
+  border-color: var(--echo-palette-3ba55d-fc59) !important;
+  box-shadow:
+    0 0 0 1px var(--echo-palette-3ba55d-fc59),
+    0 0 16px var(--echo-palette-rgba-59-165-93-0p4-f81f),
+    0 8px 24px var(--echo-palette-rgba-0-0-0-0p45-7ddc) !important;
+}
+.call-tile--self {
+  border-color: var(--echo-palette-rgba-59-165-93-0p4-f81f);
+}
+/* Blurred pfp fills the whole card as background */
+.call-tile-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(28px) saturate(1.4) brightness(0.55);
+  transform: scale(1.1);
+  z-index: 0;
+  pointer-events: none;
+}
+/* Gradient scrim over the backdrop so the avatar + name read clearly */
+.call-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: linear-gradient(
+    to bottom,
+    var(--echo-palette-rgba-0-0-0-0p08-66c6) 0%,
+    var(--echo-palette-rgba-0-0-0-0p18-7836) 40%,
+    var(--echo-palette-rgba-0-0-0-0p62-c569) 75%,
+    var(--echo-palette-rgba-0-0-0-0p82-ae98) 100%
+  );
+  pointer-events: none;
+}
+[data-theme='light'] .call-tile::after {
+  background: linear-gradient(
+    to bottom,
+    var(--echo-palette-rgba-0-0-0-0p04-c220) 0%,
+    var(--echo-palette-rgba-0-0-0-0p12-18fb) 40%,
+    var(--echo-palette-rgba-0-0-0-0p5-8691) 75%,
+    var(--echo-palette-rgba-0-0-0-0p72-7868) 100%
+  );
+}
+/* All tile children sit above scrim */
+.call-tile > *:not(.call-tile-backdrop) {
+  position: relative;
+  z-index: 2;
+}
+/* ========== AVATAR ========== */
+/*
+ * ring-host is always sized to --call-avatar-size so the box-shadow ring and
+ * the deafen overlay (inset: 0 inside ring-host) always align with the avatar.
+ */
+.call-avatar-ring-host {
+  position: relative;
+  border-radius: 50%;
+  line-height: 0;
+  transition: box-shadow 0.12s ease-out;
+  /* Default size (solo / rail) — overridden per context below */
+  width: var(--call-avatar-size, 72px);
+  height: var(--call-avatar-size, 72px);
+  flex-shrink: 0;
+}
+/* Avatar button / wrap always fills ring-host exactly */
+.call-audio-circle-avatar-wrap,
+.call-audio-circle-avatar-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 4px 16px var(--echo-palette-rgba-0-0-0-0p5-8691);
+}
+/* Multi-participant grid: avatars scale with the wider tiles */
+.call-audio-only-gallery--grid:not(.call-audio-only-gallery--solo) .call-tile {
+  --call-avatar-size: clamp(48px, 16cqw, 96px);
+}
+/* ========== NAME & STATUS ========== */
+.call-tile-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--echo-palette-fff-e08d);
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px var(--echo-palette-rgba-0-0-0-0p8-7cfc);
+  letter-spacing: 0.01em;
+}
+.call-tile-avatar-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+  padding-top: 6px;
+}
+/* Solo: larger avatar */
+.call-audio-only-gallery--solo .call-tile {
+  --call-avatar-size: clamp(72px, 18cqw, 116px);
+}
+.call-audio-circle-avatar {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.call-tile-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 10px 8px;
+}
+.call-tile-activity-badges {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+}
+.call-tile-dm-pill {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg);
+  background: color-mix(
+    in srgb,
+    var(--scrim-2, var(--echo-palette-rgba-0-0-0-0p55-c182)) 100%,
+    transparent
+  );
+  backdrop-filter: blur(4px);
+}
+/* ----- Compact rail variant (under the Meet-style stage) ----- */
+.call-tile--rail {
+  --call-tile-w: 10rem;
+  --call-tile-pad: 10px;
+  --call-tile-radius: 12px;
+  width: var(--call-tile-w);
+  max-width: var(--call-tile-w);
+  flex: 0 0 var(--call-tile-w);
+  aspect-ratio: 16 / 9;
+  border-radius: var(--call-tile-radius);
+  opacity: 0.85;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    opacity 0.18s ease;
+}
+/* Meet stage: more people → slightly wider tiles in the horizontal rail. */
+.call-participant-rail--expanded-voice-rail .call-tile--rail {
+  --call-tile-w: clamp(9.5rem, 28cqw, 11.75rem);
+  --call-avatar-size: clamp(2.25rem, 17cqw, 3rem);
+}
+.call-tile--rail:hover,
+.call-tile--rail:focus-within {
+  opacity: 1;
+}
+.call-tile--rail {
+  --call-avatar-size: 2.75rem;
+}
+.call-tile--rail .call-tile-avatar-area {
+  padding: 2px 0 4px;
+}
+.call-tile--rail .call-tile-bottom {
+  padding: 2px 6px 6px;
+}
+.call-tile--rail .call-tile-name {
+  font-size: 11px;
+}
+.call-tile--rail .call-indicator-icon {
+  width: 10px;
+  height: 10px;
+}
+.call-tile--rail .call-tile-activity-badges {
+  top: 4px;
+  right: 4px;
+}
+.call-tile--rail .call-tile-dm-pill {
+  top: 4px;
+  left: 4px;
+  font-size: 8px;
+  padding: 1px 4px;
+}
+.call-participants-shell--meet-stage {
+  .call-participant-rail {
+    border: 1px solid transparent;
+    border-radius: 0.9rem;
+    background: color-mix(
+      in srgb,
+      var(--echo-palette-0b0a10-1424) 72%,
+      transparent
+    );
+  }
+}
+[data-theme='light']
+  .call-participants-shell--meet-stage
+  .call-participant-rail {
+  background: color-mix(
+    in srgb,
+    var(--surface, var(--echo-palette-f4f4f5-e141)) 88%,
+    transparent
+  );
+}
+[data-theme='light'] .call-tile--rail {
+  box-shadow: none;
+  border-color: color-mix(in srgb, var(--border) 65%, transparent);
+}
+.call-participant-rail-media-tile :deep(.stream-video-tile__loading) {
+  padding: 0;
+}
+.call-participant-rail-media-tile
+  :deep(.stream-video-tile__loading .relative img),
+.call-participant-rail-media-tile :deep(.stream-video-tile__loading .relative) {
+  height: 100%;
+  width: 100%;
+  max-height: 100%;
+  max-width: 100%;
+}

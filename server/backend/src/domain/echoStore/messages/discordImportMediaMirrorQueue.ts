@@ -22,10 +22,9 @@ export async function enqueueUnqueuedEchoDiscordImportMediaMirrorJobs(
        FROM echo_discord_import_media_mirror_queue
        CROSS JOIN admission_lock
        WHERE status IN ('pending', 'processing')
-     )
-     INSERT INTO echo_discord_import_media_mirror_queue
-       (message_id, channel_id, actor_id)
-     SELECT m.id, m.channel_id, m.author_id
+     ), candidates AS (
+       SELECT m.id, m.channel_id, m.author_id, qd.active_count,
+              ROW_NUMBER() OVER (ORDER BY m.id ASC) AS candidate_number
      FROM echo_messages m
      CROSS JOIN queue_depth qd
      WHERE m.deleted_at IS NULL
@@ -54,8 +53,12 @@ export async function enqueueUnqueuedEchoDiscordImportMediaMirrorJobs(
          OR COALESCE(m.reply_to::text, '') LIKE '%discordapp.com%'
          OR COALESCE(m.reply_to::text, '') LIKE '%discordapp.net%'
        )
-     ORDER BY m.id ASC
-    LIMIT $1
+     )
+     INSERT INTO echo_discord_import_media_mirror_queue
+       (message_id, channel_id, actor_id)
+     SELECT id, channel_id, author_id
+     FROM candidates
+     WHERE candidate_number <= LEAST($1, GREATEST(0, $2 - active_count))
     ON CONFLICT (message_id) DO NOTHING`,
     [boundedLimit, boundedDepth],
   );

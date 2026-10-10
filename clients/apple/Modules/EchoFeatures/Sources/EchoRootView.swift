@@ -56,8 +56,8 @@ public struct EchoRootView: View {
           userID: session.userID ?? ""
         ) {
           Task {
-            await EchoPushRegistration.shared.stop()
-            await model.signOut()
+            let pushToken = await EchoPushRegistration.shared.stop()
+            await model.signOut(pushDeviceToken: pushToken)
           }
         }
         .task(id: session.accessToken) {
@@ -70,6 +70,12 @@ public struct EchoRootView: View {
       } else {
         authFlow
       }
+    }
+    .onChange(of: model.activeSession?.userID, initial: true) { _, userID in
+      let account = userID.map { "\(model.apiBaseURL.absoluteString)|\($0)" }
+      EchoSoundPlayback.activate(accountID: account)
+      EchoCustomEmojiCatalog.shared.activate(accountID: account)
+      Task { await EchoMediaCaches.clear() }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     // The launch and entry surfaces own the entire window, including the
@@ -84,6 +90,7 @@ public struct EchoRootView: View {
     .task {
       EchoDisplayPreferences.registerBundledFontsIfNeeded()
       EchoNetworkPath.startMonitoring()
+      await EchoPendingPushCleanup.retry()
       await model.restoreStoredSessionIfNeeded()
     }
     #if os(iOS)
@@ -95,7 +102,10 @@ public struct EchoRootView: View {
       EchoNetworkPath.startMonitoring()
     }
     .echoRetryOnNetworkRecovery {
-      Task { await model.retryAfterNetworkRecovery() }
+      Task {
+        await EchoPendingPushCleanup.retry()
+        await model.retryAfterNetworkRecovery()
+      }
     }
     .alert(
       EchoCopy.string("Couldn’t continue"),
@@ -105,7 +115,10 @@ public struct EchoRootView: View {
       Button(EchoCopy.string("OK"), role: .cancel) { model.dismissError() }
       if model.canRetryConnectivityRestore {
         Button(EchoCopy.string("Try again")) {
-          Task { await model.retryAfterNetworkRecovery() }
+          Task {
+        await EchoPendingPushCleanup.retry()
+        await model.retryAfterNetworkRecovery()
+      }
         }
       }
     } message: {
@@ -168,7 +181,12 @@ public struct EchoRootView: View {
       }
       guard !Task.isCancelled else { return }
       guard model.activeSession?.refreshToken == session.refreshToken else { return }
-      _ = try? await model.ensureAccessToken(forceRefresh: true)
+      do {
+        _ = try await model.ensureAccessToken(forceRefresh: true)
+      } catch {
+        guard !Task.isCancelled, model.activeSession?.refreshToken == session.refreshToken else { return }
+        do { try await Task.sleep(for: .seconds(5)) } catch { return }
+      }
     }
   }
 }

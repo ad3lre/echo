@@ -104,7 +104,7 @@ struct EchoMediaViewer: View {
     VStack(spacing: 0) {
       HStack(spacing: 4) {
         if session.items.count > 1 {
-          Text("\(index + 1) / \(session.items.count)")
+          Text(EchoCopy.format("%lld / %lld", index + 1, session.items.count))
             .font(.system(size: 14, weight: .semibold, design: .rounded))
             .foregroundStyle(.white.opacity(0.78))
             .padding(.horizontal, 12)

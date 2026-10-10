@@ -84,7 +84,9 @@ function scheduleEchoVoiceUserLiveKitReconcile(
           'voice.user_livekit_reconcile_after_disconnect_failed',
         );
       }
-    })();
+    })().catch((error: unknown) => {
+      fastify.log.error(error, 'voice.user_livekit_reconcile_task_failed');
+    });
   }, VOICE_USER_LK_RECONCILE_AFTER_DISCONNECT_MS);
   voiceUserLiveKitReconcileTimers.set(userId, t);
 }
@@ -215,12 +217,18 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
         recovered: socket.recovered,
         transport: socket.conn.transport.name,
       },
+    }).catch((error: unknown) => {
+      log.error(error, 'socket connected diagnostic persistence failed');
     });
 
     if (authenticated && !socket.data.userId.startsWith('user_')) {
       registerEchoPresenceSocket(socket.data.userId);
       registerUserSocket(socket.data.userId, socket.id);
-      void socket.join(`echo:user:${socket.data.userId}`);
+      void Promise.resolve(
+        socket.join(`echo:user:${socket.data.userId}`),
+      ).catch((error: unknown) =>
+        log.error(error, 'echo_user_socket_join_failed'),
+      );
       void (async () => {
         const { pool, enabled } = await getEchoStore();
         if (!enabled || !pool) return;
@@ -239,7 +247,10 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
             socket.data.userId,
           );
           for (const sid of serverIds) {
-            void socket.join(`echo:server:${sid}`);
+            void Promise.resolve(socket.join(`echo:server:${sid}`)).catch(
+              (error: unknown) =>
+                log.error(error, 'echo_server_socket_join_failed'),
+            );
           }
         } catch (err) {
           log.warn(
@@ -247,7 +258,9 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
             'echo_server_socket_scope_bootstrap_failed',
           );
         }
-      })();
+      })().catch((error: unknown) => {
+        log.error(error, 'echo_user_socket_scope_bootstrap_failed');
+      });
     }
 
     attachSocketEventLogger(socket, log);
@@ -317,9 +330,11 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
           recovered: socket.recovered,
           reason,
         },
+      }).catch((error: unknown) => {
+        log.error(error, 'socket disconnected diagnostic persistence failed');
       });
       if (!authenticated || socket.data.userId.startsWith('user_')) return;
-      cleanupGameTunnelOnDisconnect(socket.id, socket.data.userId);
+      cleanupGameTunnelOnDisconnect(socket.id, socket.data.userId, log);
       const uid = socket.data.userId;
       unregisterUserSocket(uid, socket.id);
       const remaining = unregisterEchoPresenceSocket(uid);
@@ -408,7 +423,9 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
         } catch (e) {
           log.error(e, 'Failed to persist offline presence on disconnect');
         }
-      })();
+      })().catch((error: unknown) => {
+        log.error(error, 'socket_disconnect_presence_handler_failed');
+      });
     });
   });
 

@@ -4,6 +4,7 @@ import {
   echoMediaUrlNeedsSigning,
   isEchoMediaCdnCanonicalUrl,
   resolveSignedEchoMediaUrl,
+  batchResolveSignedEchoMediaUrls,
 } from './mediaCdn';
 import { ECHO_MEDIA_CDN_OBJECT_PREFIX } from '@shared/mediaCdn';
 
@@ -14,6 +15,14 @@ vi.mock('@/api/echo/transport', () => ({
 import { echoFetch } from '@/api/echo/transport';
 
 describe('mediaCdn service', () => {
+  it('keeps local uploads on their local route when CDN signing is unavailable', async () => {
+    vi.mocked(echoFetch).mockRejectedValue({ status: 403 });
+    const url = '/api/v1/echo/uploads/files/echo/channels/c1/u1/a.png';
+    expect(await resolveSignedEchoMediaUrl({ url })).toBe(url);
+    expect((await batchResolveSignedEchoMediaUrls([{ url }])).get(url)).toBe(
+      url,
+    );
+  });
   beforeEach(() => {
     clearEchoMediaCdnSignedUrlCacheForTests();
     vi.mocked(echoFetch).mockReset();

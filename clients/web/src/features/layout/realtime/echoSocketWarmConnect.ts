@@ -9,5 +9,9 @@ export function registerEchoSocketWarmConnect(
 
 export function warmEchoSocketConnect(): void {
   if (!ensureConnect) return;
-  void ensureConnect();
+  void Promise.resolve()
+    .then(ensureConnect)
+    .catch(() => {
+      // Warm-up is opportunistic; the normal realtime lifecycle owns recovery.
+    });
 }

@@ -1,0 +1,8 @@
+@mixin dark {
+  background: hsl(var(--_hue), 35%, 28%);
+}
+
+@mixin light {
+  background: hsl(var(--_hue), 42%, 88%);
+  color: hsl(var(--_hue), 40%, 32%);
+}

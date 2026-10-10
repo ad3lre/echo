@@ -11,6 +11,15 @@ final class EchoCustomEmojiCatalog {
   private(set) var byID: [String: EchoCustomEmoji] = [:]
   private(set) var byName: [String: EchoCustomEmoji] = [:]
   private var loadedForToken: String?
+  private var accountID: String?
+
+  func activate(accountID: String?) {
+    guard self.accountID != accountID else { return }
+    self.accountID = accountID
+    loadedForToken = nil
+    byID = [:]
+    byName = [:]
+  }
 
   func ingest(_ packs: [EchoEmojiPack]) {
     var nextID: [String: EchoCustomEmoji] = byID
@@ -27,8 +36,12 @@ final class EchoCustomEmojiCatalog {
   func refresh(baseURL: URL, accessToken: String) async {
     let token = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !token.isEmpty, token != loadedForToken else { return }
+    let account = accountID
     do {
       let packs = try await EchoHomeClient(baseURL: baseURL).loadEmojiLibrary(accessToken: token)
+      guard account == accountID, !Task.isCancelled else { return }
+      byID = [:]
+      byName = [:]
       ingest(packs)
       loadedForToken = token
     } catch {

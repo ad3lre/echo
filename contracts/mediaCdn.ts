@@ -78,7 +78,10 @@ export function extractStorageKeyFromMediaCdnUrl(
   };
 
   if (t.startsWith(ECHO_MEDIA_CDN_OBJECT_PREFIX)) {
-    return decodeStorageKeyPath(t.slice(ECHO_MEDIA_CDN_OBJECT_PREFIX.length));
+    return tryPathSuffix(
+      new URL(t, 'https://echo.invalid').pathname,
+      ECHO_MEDIA_CDN_OBJECT_PREFIX,
+    );
   }
 
   if (/^https?:\/\//i.test(t)) {

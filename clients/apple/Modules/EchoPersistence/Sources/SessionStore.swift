@@ -175,13 +175,15 @@ public final class KeychainSessionStore: SessionStore, @unchecked Sendable {
         return
       }
     #endif
-    // Replace rather than update so a legacy userPresence ACL cannot stick
-    // around and prompt Face ID on every token rotate.
-    _ = SecItemDelete(baseQuery as CFDictionary)
-    var item = baseQuery
-    item[kSecValueData as String] = data
-    item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-    let status = SecItemAdd(item as CFDictionary, nil)
+    let attributes: [String: Any] = [
+      kSecValueData as String: data,
+      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+    ]
+    var status = SecItemUpdate(baseQuery as CFDictionary, attributes as CFDictionary)
+    if status == errSecItemNotFound {
+      let item = baseQuery.merging(attributes) { _, replacement in replacement }
+      status = SecItemAdd(item as CFDictionary, nil)
+    }
     #if targetEnvironment(simulator)
       if status == errSecMissingEntitlement || status == errSecNotAvailable {
         UserDefaults.standard.set(data, forKey: simulatorSessionKey)

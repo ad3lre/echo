@@ -39,14 +39,14 @@ function attachEchoProxyForwardedProto(proxy: {
 /** Same-origin `/api` + `/socket.io` → Echo (dev server + `vite preview`). */
 const echoBackendProxy: Record<string, import('vite').ProxyOptions> = {
   '/api': {
-    target: 'http://127.0.0.1:3000',
+    target: process.env.ECHO_DEV_BACKEND_URL || 'http://127.0.0.1:3000',
     changeOrigin: true,
     configure(proxy) {
       attachEchoProxyForwardedProto(proxy);
     },
   },
   '/socket.io': {
-    target: 'http://127.0.0.1:3000',
+    target: process.env.ECHO_DEV_BACKEND_URL || 'http://127.0.0.1:3000',
     changeOrigin: true,
     ws: true,
     configure(proxy) {

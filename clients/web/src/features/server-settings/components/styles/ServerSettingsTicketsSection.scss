@@ -1,0 +1,213 @@
+.server-settings-tickets {
+  padding: 1.5rem;
+  max-width: 700px;
+
+  &__loading {
+    color: var(--color-fg-muted);
+    padding: 2rem 0;
+  }
+
+  &__error {
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-danger, var(--echo-palette-e55-3c93));
+    background: color-mix(
+      in srgb,
+      var(--color-danger, var(--echo-palette-e55-3c93)) 12%,
+      transparent
+    );
+    color: var(--color-fg);
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  &__empty-note {
+    font-size: 0.8125rem;
+    color: var(--color-fg-muted);
+    font-style: italic;
+    margin-top: 0.35rem;
+  }
+
+  &__section {
+    margin-bottom: 1.75rem;
+  }
+
+  &__heading {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  &__subheading {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  &__desc,
+  &__hint {
+    color: var(--color-fg-muted);
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+  }
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+  }
+
+  &__toggle--inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+  }
+
+  &__select {
+    width: 100%;
+    max-width: 320px;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    color: var(--color-fg);
+  }
+
+  &__select--small {
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.375rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    color: var(--color-fg);
+    font-size: 0.8rem;
+  }
+
+  &__input {
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    color: var(--color-fg);
+    width: 80px;
+
+    &--emoji {
+      width: 50px;
+      text-align: center;
+    }
+
+    &--grow {
+      flex: 1;
+    }
+  }
+
+  &__textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    color: var(--color-fg);
+    resize: vertical;
+    font-family: inherit;
+  }
+
+  &__role-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  &__role-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.375rem;
+    background: var(--color-bg-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  &__categories,
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  &__category-row,
+  &__field-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__btn {
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.375rem;
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    align-self: flex-start;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+
+  &__btn-danger {
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: var(--color-danger);
+    border: 1px solid var(--color-danger);
+    cursor: pointer;
+    font-size: 0.8rem;
+
+    &:hover {
+      background: var(--color-danger);
+      color: white;
+    }
+  }
+
+  &__actions {
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  &__save {
+    padding: 0.6rem 1.5rem;
+    border-radius: 0.5rem;
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.9rem;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+  }
+}

@@ -9,10 +9,27 @@ import {
   MAX_SOURCE_FILE_LOC,
   checkAppleMaintainability,
   countLines,
+  countRawUiCopy,
 } from './check-maintainability.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appleRoot = path.resolve(__dirname, '..');
+
+test('UI copy gate checks literal text on both sides of interpolations', () => {
+  for (const source of [
+    'Text("\\(name) welcomes you")',
+    'Text("@\\(name), welcome")',
+    'Text("Welcome, \\(name)")',
+    'Text("\\(format(\"name\")) welcomes you")',
+  ])
+    assert.equal(countRawUiCopy(source), 1, source);
+  for (const source of [
+    'Text("\\(name)")',
+    'Text("@\\(name)")',
+    'Text("\\(format(\"name\"))")',
+  ])
+    assert.equal(countRawUiCopy(source), 0, source);
+});
 
 test('live apple tree currently passes the maintainability gate', () => {
   const result = checkAppleMaintainability({ appleRoot });

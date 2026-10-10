@@ -290,6 +290,14 @@ export default async function guestRoutes(fastify: FastifyInstance) {
       },
     },
     async (req, reply) => {
+      if (config.registrationDisabled) {
+        return sendError(
+          reply,
+          403,
+          'REGISTRATION_DISABLED',
+          'Registration is disabled on this instance.',
+        );
+      }
       if (!req.authUser?.isGuest) {
         return sendError(
           reply,

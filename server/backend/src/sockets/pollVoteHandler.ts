@@ -100,6 +100,8 @@ export function registerPollVoteHandler(
         userId,
         socketId: socket.id,
       });
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'poll vote handler failed');
+    });
   });
 }

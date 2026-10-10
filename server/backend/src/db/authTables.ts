@@ -390,24 +390,8 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
   await pool.query(
     `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS awarded_badges TEXT[] NOT NULL DEFAULT '{}';`,
   );
-  await pool.query(`
-    UPDATE auth_users
-    SET awarded_badges = awarded_badges || ARRAY['bug_hunter']::TEXT[]
-    WHERE username IN ('bb', 'lesbian', 'm4')
-      AND NOT ('bug_hunter' = ANY(awarded_badges))
-  `);
-  await pool.query(`
-    UPDATE auth_users
-    SET awarded_badges = awarded_badges || ARRAY['og']::TEXT[]
-    WHERE username IN ('m4', 'blawh')
-      AND NOT ('og' = ANY(awarded_badges))
-  `);
-  await pool.query(`
-    UPDATE auth_users
-    SET awarded_badges = awarded_badges || ARRAY['developer']::TEXT[]
-    WHERE username IN ('dannas29', 'danny')
-      AND NOT ('developer' = ANY(awarded_badges))
-  `);
+  // Badge grants are administrative data keyed by immutable auth_users.id.
+  // Never infer official awards from a handle that anyone can register or rename.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS auth_echo_plus_interest (
       user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,

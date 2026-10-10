@@ -1835,9 +1835,13 @@ export async function createEchoChannel(
   const resolvedIconKey =
     type === 'stage' && (ik == null || ik === '') ? 'sofa' : ik;
   const actorId = opts?.actorIdForPersistence?.trim() || '';
-  const insert = actorId
-    ? await pool.query(
-        `WITH authorized_member AS (
+  const stageClient = type === 'stage' ? await pool.connect() : null;
+  const writer = stageClient ?? pool;
+  if (stageClient) await stageClient.query('BEGIN');
+  try {
+    const insert = actorId
+      ? await writer.query(
+          `WITH authorized_member AS (
            SELECT 1 FROM echo_server_members
            WHERE server_id = $2 AND user_id = $16
            FOR KEY SHARE
@@ -1845,58 +1849,74 @@ export async function createEchoChannel(
          INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, parent_channel_id, forum_available_tags, forum_post_tag_ids, forum_post_pinned, forum_post_locked, forum_post_archived_at, forum_post_creator_user_id, discord_voice_mirror_only)
          SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15
          FROM authorized_member`,
-        [
-          id,
-          serverId,
-          channelDisplayName,
-          type,
-          cid || null,
-          pos,
-          resolvedIconKey,
-          parent,
-          forumTagsJson,
-          postTagIdsJson,
-          postPinned,
-          postLocked,
-          postArchivedAt,
-          postCreator,
-          mirrorOnly,
-          actorId,
-        ],
-      )
-    : await pool.query(
-        `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, parent_channel_id, forum_available_tags, forum_post_tag_ids, forum_post_pinned, forum_post_locked, forum_post_archived_at, forum_post_creator_user_id, discord_voice_mirror_only)
+          [
+            id,
+            serverId,
+            channelDisplayName,
+            type,
+            cid || null,
+            pos,
+            resolvedIconKey,
+            parent,
+            forumTagsJson,
+            postTagIdsJson,
+            postPinned,
+            postLocked,
+            postArchivedAt,
+            postCreator,
+            mirrorOnly,
+            actorId,
+          ],
+        )
+      : await writer.query(
+          `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, parent_channel_id, forum_available_tags, forum_post_tag_ids, forum_post_pinned, forum_post_locked, forum_post_archived_at, forum_post_creator_user_id, discord_voice_mirror_only)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15)`,
+          [
+            id,
+            serverId,
+            channelDisplayName,
+            type,
+            cid || null,
+            pos,
+            resolvedIconKey,
+            parent,
+            forumTagsJson,
+            postTagIdsJson,
+            postPinned,
+            postLocked,
+            postArchivedAt,
+            postCreator,
+            mirrorOnly,
+          ],
+        );
+    if (actorId && (insert.rowCount ?? 0) === 0) {
+      if (stageClient) await stageClient.query('ROLLBACK');
+      return 'forbidden_channel_type';
+    }
+    if (type === 'stage') {
+      await writer.query(
+        `INSERT INTO echo_channel_permission_overwrite_rows (id, server_id, channel_id, target_type, target_id, partial)
+       VALUES ($1, $2, $3, 'everyone', NULL, $4::jsonb)`,
         [
-          id,
+          nextEchoSnowflakeId(),
           serverId,
-          channelDisplayName,
-          type,
-          cid || null,
-          pos,
-          resolvedIconKey,
-          parent,
-          forumTagsJson,
-          postTagIdsJson,
-          postPinned,
-          postLocked,
-          postArchivedAt,
-          postCreator,
-          mirrorOnly,
+          id,
+          JSON.stringify({ CONNECT: true, SPEAK: false }),
         ],
       );
-  if (actorId && (insert.rowCount ?? 0) === 0) return 'forbidden_channel_type';
-  if (type === 'stage') {
-    await pool.query(
-      `INSERT INTO echo_channel_permission_overwrite_rows (id, server_id, channel_id, target_type, target_id, partial)
-       VALUES ($1, $2, $3, 'everyone', NULL, $4::jsonb)`,
-      [
-        nextEchoSnowflakeId(),
-        serverId,
-        id,
-        JSON.stringify({ CONNECT: true, SPEAK: false }),
-      ],
-    );
+    }
+    if (stageClient) await stageClient.query('COMMIT');
+  } catch (err) {
+    if (stageClient) {
+      try {
+        await stageClient.query('ROLLBACK');
+      } catch {
+        /* preserve original error */
+      }
+    }
+    throw err;
+  } finally {
+    stageClient?.release();
   }
   if (type === 'paper') {
     await bootstrapEchoPaperDocument(pool, id, null);

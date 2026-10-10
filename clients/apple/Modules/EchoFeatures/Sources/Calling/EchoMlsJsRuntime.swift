@@ -25,7 +25,22 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
     authorizedUserIDs: [String] = [],
     baseURL: URL
   ) async throws -> EchoVoiceE2EEPrepareResult {
+    return try await withTaskCancellationHandler {
+      try Task.checkCancellation()
+      return try await prepareUncancelled(
+        channelID: channelID, accessToken: accessToken, viewerUserID: viewerUserID,
+        deviceID: deviceID, peerUserID: peerUserID, authorizedUserIDs: authorizedUserIDs, baseURL: baseURL)
+    } onCancel: {
+      Task { @MainActor in self.cancelPreparation() }
+    }
+  }
+
+  private func prepareUncancelled(
+    channelID: String, accessToken: String, viewerUserID: String, deviceID: String,
+    peerUserID: String?, authorizedUserIDs: [String], baseURL: URL
+  ) async throws -> EchoVoiceE2EEPrepareResult {
     try await ensureReady(baseURL: baseURL)
+    try Task.checkCancellation()
     var authorized = authorizedUserIDs
     if let peer = peerUserID { authorized.append(peer) }
     authorized.append(viewerUserID)
@@ -73,6 +88,24 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
         })();
         """)
     }
+  }
+
+  private func cancelPreparation() {
+    webView?.stopLoading()
+    webView?.configuration.userContentController.removeScriptMessageHandler(forName: "echoMls")
+    webView?.navigationDelegate = nil
+    webView = nil
+    ready = false
+    bootedBaseURL = nil
+    let readyPending = readyWaiters
+    let preparePending = prepareWaiters
+    let jsonPending = jsonWaiters
+    readyWaiters = []
+    prepareWaiters = [:]
+    jsonWaiters = [:]
+    readyPending.forEach { $0.resume(throwing: CancellationError()) }
+    preparePending.values.forEach { $0.resume(throwing: CancellationError()) }
+    jsonPending.values.forEach { $0.resume(throwing: CancellationError()) }
   }
 
   /// Pull MLS delivery-log updates for the active call; returns new media keys
@@ -273,7 +306,7 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
       let base = URL(string: echoBase)
     else { return }
     let requestBody = body["body"] as? String
-    Task {
+    Task { [weak requestWebView = webView] in
       do {
         let (status, text) = try await Self.http(
           base: base, method: method, path: path, token: token, body: requestBody)
@@ -285,7 +318,7 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
             w.resolve({ status: \(status), bodyText: \(Self.jsStringLiteral(text)) });
           })();
           """
-        await MainActor.run { webView?.evaluateJavaScript(script, completionHandler: nil) }
+        await MainActor.run { requestWebView?.evaluateJavaScript(script, completionHandler: nil) }
       } catch {
         let script = """
           (function(){
@@ -295,7 +328,7 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
             w.reject(new Error(\(Self.jsStringLiteral(error.localizedDescription))));
           })();
           """
-        await MainActor.run { webView?.evaluateJavaScript(script, completionHandler: nil) }
+        await MainActor.run { requestWebView?.evaluateJavaScript(script, completionHandler: nil) }
       }
     }
   }

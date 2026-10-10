@@ -74,7 +74,7 @@ const DISCORD_PERM_BITS: Record<string, bigint> = {
   SEND_VOICE_MESSAGES: 1n << 46n,
   SEND_POLLS: 1n << 49n,
   USE_EXTERNAL_APPS: 1n << 50n,
-  PIN_MESSAGES: 1n << 13n,
+  PIN_MESSAGES: 1n << 51n,
   BYPASS_SLOWMODE: 1n << 52n,
 };
 
@@ -316,7 +316,10 @@ export function serializeMessage(
     (att, idx) => ({
       id: String(idx),
       filename: att.filename ?? 'attachment',
-      size: 0,
+      size:
+        typeof att.fileSize === 'number' && Number.isFinite(att.fileSize)
+          ? Math.max(0, Math.trunc(att.fileSize))
+          : 0,
       url: att.url,
       proxy_url: att.url,
       ...(att.mimeType ? { content_type: att.mimeType } : {}),

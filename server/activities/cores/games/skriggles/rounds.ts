@@ -1,4 +1,5 @@
 import { mergeHangmanRoster } from '../hangman/core';
+import { isValidSkrigglesSettings } from './settings';
 import {
   normalizeSkrigglesWord,
   wordHintForSecret,
@@ -145,6 +146,7 @@ export function applySettingsChange(
 ): SkrigglesSnapshot | null {
   if (prev.phase !== 'lobby') return null;
   if (fromUserId.trim() !== orchestratorId) return null;
+  if (!isValidSkrigglesSettings(settings)) return null;
   return {
     ...prev,
     settings: {

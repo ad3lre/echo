@@ -280,20 +280,27 @@ async function startStageYoutubeStreamWithStreamKey(
     };
   }
 
-  await upsertStageYoutubeBroadcast(pool, {
-    serverId: opts.serverId,
-    channelId: opts.channelId,
-    startedByUserId: opts.actorUserId,
-    youtubeLinkUserId: opts.actorUserId,
-    youtubeBroadcastId: YOUTUBE_STAGE_STREAM_KEY_BROADCAST_ID,
-    youtubeStreamId: YOUTUBE_STAGE_STREAM_KEY_STREAM_ID,
-    livekitEgressId: null,
-    status: 'starting',
-    privacyStatus,
-    title,
-    watchUrl: null,
-    errorCode: null,
-  });
+  try {
+    await upsertStageYoutubeBroadcast(pool, {
+      serverId: opts.serverId,
+      channelId: opts.channelId,
+      startedByUserId: opts.actorUserId,
+      youtubeLinkUserId: opts.actorUserId,
+      youtubeBroadcastId: YOUTUBE_STAGE_STREAM_KEY_BROADCAST_ID,
+      youtubeStreamId: YOUTUBE_STAGE_STREAM_KEY_STREAM_ID,
+      livekitEgressId: null,
+      status: 'starting',
+      privacyStatus,
+      title,
+      watchUrl: null,
+      errorCode: null,
+    });
+  } catch (err) {
+    await clearStageYoutubeBroadcast(pool, opts.serverId, opts.channelId).catch(
+      () => {},
+    );
+    throw err;
+  }
 
   const egressLayout: StageEgressLayout = 'grid';
   try {
@@ -419,20 +426,36 @@ async function startStageYoutubeStreamOauth(
     };
   }
 
-  await upsertStageYoutubeBroadcast(pool, {
-    serverId: opts.serverId,
-    channelId: opts.channelId,
-    startedByUserId: opts.actorUserId,
-    youtubeLinkUserId: opts.actorUserId,
-    youtubeBroadcastId: session.broadcastId,
-    youtubeStreamId: session.streamId,
-    livekitEgressId: null,
-    status: 'starting',
-    privacyStatus,
-    title,
-    watchUrl: session.watchUrl,
-    errorCode: null,
-  });
+  try {
+    await upsertStageYoutubeBroadcast(pool, {
+      serverId: opts.serverId,
+      channelId: opts.channelId,
+      startedByUserId: opts.actorUserId,
+      youtubeLinkUserId: opts.actorUserId,
+      youtubeBroadcastId: session.broadcastId,
+      youtubeStreamId: session.streamId,
+      livekitEgressId: null,
+      status: 'starting',
+      privacyStatus,
+      title,
+      watchUrl: session.watchUrl,
+      errorCode: null,
+    });
+  } catch (err) {
+    try {
+      await transitionYoutubeBroadcast(
+        accessToken,
+        session.broadcastId,
+        'complete',
+      );
+    } catch {
+      /* best effort; preserve the original persistence failure */
+    }
+    await clearStageYoutubeBroadcast(pool, opts.serverId, opts.channelId).catch(
+      () => {},
+    );
+    throw err;
+  }
 
   const rtmpUrl = youtubeLiveRtmpIngestUrl(session);
   const egressLayout: StageEgressLayout = 'grid';

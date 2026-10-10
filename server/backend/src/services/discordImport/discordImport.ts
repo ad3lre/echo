@@ -35,10 +35,7 @@ import {
   mergeDiscordImportUserMapBatch,
 } from '../../domain/discord/discordImportUsers';
 import { syncDiscordImportedRoleAssignments } from '../../domain/discord/discordImportParity';
-import {
-  assertDiscordImportMetadataQuota,
-  recordDiscordImportMetadataStarted,
-} from './discordImportQuota';
+import { reserveDiscordImportMetadataStart } from './discordImportQuota';
 import { writeLocalEchoUploadFile } from '../uploads/localUploadDisk';
 import {
   buildEchoUploadPublicUrlForStorageKey,
@@ -1105,7 +1102,7 @@ async function importMetadataStep(
   }
 
   if (!existingState.metadataImported) {
-    await assertDiscordImportMetadataQuota(pool, actorId);
+    await reserveDiscordImportMetadataStart(pool, actorId);
   }
 
   const sourceDir = await resolveImportBundleSourceDir(pool, serverId);
@@ -1191,9 +1188,6 @@ async function importMetadataStep(
     warnings,
     lastError: '',
   });
-  if (!existingState.metadataImported) {
-    await recordDiscordImportMetadataStarted(pool, actorId);
-  }
   return { state };
 }
 
@@ -2058,6 +2052,14 @@ async function importChannelsStep(
   await assertServerChannelsSafeToReplace(pool, serverId, force);
 
   const warnings = [...bundle.warnings];
+  // Mark the layout incomplete before destructive replacement begins. If any
+  // later write fails, the state must not claim the old layout is still live.
+  await pool.query(
+    `UPDATE echo_discord_import_states
+     SET channels_imported_at = NULL, updated_at = NOW()
+     WHERE server_id = $1`,
+    [serverId],
+  );
   await pool.query(`DELETE FROM echo_channels WHERE server_id = $1`, [
     serverId,
   ]);

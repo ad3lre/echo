@@ -363,6 +363,7 @@ export default async function googleOAuthRoutes(
     }
 
     let targetUserId: string;
+    let newlyProvisionedUserId: string | null = null;
     if (payload.flow === 'login') {
       const echoUserId = await getUserIdByGoogleSub(pool, googleSub);
       if (!echoUserId) {
@@ -420,10 +421,7 @@ export default async function googleOAuthRoutes(
             }
           }
           targetUserId = userRecord.id;
-          void tryJoinOfficialEchoServerOnSignup(fastify.log, targetUserId, {
-            joinClientIp: req.ip,
-            io: fastify.io,
-          });
+          newlyProvisionedUserId = targetUserId;
         } catch (err: unknown) {
           fastify.log.error(err, 'google_oauth_provision_failed');
           const msg = err instanceof Error ? err.message : undefined;
@@ -468,6 +466,8 @@ export default async function googleOAuthRoutes(
       targetUserId,
     );
     if (otherUser) {
+      if (newlyProvisionedUserId)
+        await store.deleteUserAccount(newlyProvisionedUserId);
       return reply
         .code(302)
         .redirect(
@@ -477,6 +477,8 @@ export default async function googleOAuthRoutes(
 
     const user = await store.getUserById(targetUserId);
     if (!user) {
+      if (newlyProvisionedUserId)
+        await store.deleteUserAccount(newlyProvisionedUserId);
       return reply
         .code(302)
         .redirect(googleOAuthAppRedirect(false, 'user_gone', redirectOpts));
@@ -515,6 +517,8 @@ export default async function googleOAuthRoutes(
       }
     } catch (err) {
       fastify.log.error(err, 'google_oauth_encrypt_failed');
+      if (newlyProvisionedUserId)
+        await store.deleteUserAccount(newlyProvisionedUserId);
       return reply
         .code(302)
         .redirect(
@@ -541,6 +545,8 @@ export default async function googleOAuthRoutes(
       });
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
+      if (newlyProvisionedUserId)
+        await store.deleteUserAccount(newlyProvisionedUserId);
       if (code === '23505') {
         return reply
           .code(302)
@@ -560,6 +566,20 @@ export default async function googleOAuthRoutes(
         );
     }
 
+    if (newlyProvisionedUserId) {
+      void tryJoinOfficialEchoServerOnSignup(
+        fastify.log,
+        newlyProvisionedUserId,
+        {
+          joinClientIp: req.ip,
+          io: fastify.io,
+        },
+      ).catch((err: unknown) => {
+        fastify.log.warn(err, 'google_oauth_official_server_join_failed');
+      });
+      newlyProvisionedUserId = null;
+    }
+
     if (payload.flow === 'login') {
       clearGuestBindingCookie(reply);
       const audit = loginAuditDigests(req);
@@ -570,12 +590,16 @@ export default async function googleOAuthRoutes(
           reply,
           req,
         );
-        void store.recordLoginEvent({
-          userId: user.id,
-          eventType: 'login_success',
-          ipDigest: audit.ipDigest,
-          uaDigest: audit.uaDigest,
-        });
+        await store
+          .recordLoginEvent({
+            userId: user.id,
+            eventType: 'login_success',
+            ipDigest: audit.ipDigest,
+            uaDigest: audit.uaDigest,
+          })
+          .catch((err: unknown) => {
+            fastify.log.error(err, 'google_oauth_login_audit_failed');
+          });
       } catch (err) {
         fastify.log.error(err, 'google_oauth_login_session_failed');
         return reply

@@ -253,10 +253,21 @@ export function registerMessageEditDeleteHandler(
             ? { contentJson: row.contentJson }
             : {}),
           correlationId,
+        }).catch((error: unknown) => {
+          log.error(error, 'message edit link embed resolution failed');
         });
       }
-      void emitEchoAttentionForChannelMessageActivity(pool, io, channelId, log);
-    })();
+      void emitEchoAttentionForChannelMessageActivity(
+        pool,
+        io,
+        channelId,
+        log,
+      ).catch((error: unknown) => {
+        log.error(error, 'message edit attention fanout failed');
+      });
+    })().catch((error: unknown) => {
+      log.error(error, 'message edit handler failed');
+    });
   });
 
   socket.on('message:fillImageSlot', (payload: unknown) => {
@@ -338,7 +349,9 @@ export function registerMessageEditDeleteHandler(
           io,
           v.channelId,
           log,
-        );
+        ).catch((error: unknown) => {
+          log.error(error, 'image slot attention fanout failed');
+        });
         return;
       }
       if (r === 'not_found' || r === 'slot_not_found') {
@@ -353,7 +366,9 @@ export function registerMessageEditDeleteHandler(
         channelId: v.channelId,
         detail: r,
       });
-    })();
+    })().catch((error: unknown) => {
+      log.error(error, 'message image slot handler failed');
+    });
   });
 
   socket.on('message:delete', (payload: unknown) => {
@@ -423,7 +438,16 @@ export function registerMessageEditDeleteHandler(
         channelId,
         messageId,
       });
-      void emitEchoAttentionForChannelMessageActivity(pool, io, channelId, log);
-    })();
+      void emitEchoAttentionForChannelMessageActivity(
+        pool,
+        io,
+        channelId,
+        log,
+      ).catch((error: unknown) => {
+        log.error(error, 'message delete attention fanout failed');
+      });
+    })().catch((error: unknown) => {
+      log.error(error, 'message delete handler failed');
+    });
   });
 }

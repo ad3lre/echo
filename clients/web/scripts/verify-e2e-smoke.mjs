@@ -112,36 +112,58 @@ async function run() {
     );
   });
 
-  await step('server-rail: reorder root when present', async () => {
+  await step('server-rail: seeded reorder root and icons', async () => {
+    await context.clearCookies();
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    const tag = `rail_${Date.now().toString(36)}`;
+    const registration = await page.request.post(
+      `${E2E_ORIGIN}/api/v1/auth/register`,
+      {
+        data: {
+          username: tag,
+          email: `${tag}@echo.test`,
+          password: 'password123',
+          displayName: 'Rail Verify',
+        },
+      },
+    );
+    await assert(
+      registration.status() === 201,
+      `registration failed: ${registration.status()}`,
+    );
+    const { csrfToken } = await registration.json();
+    for (const name of ['First rail fixture', 'Second rail fixture']) {
+      const created = await page.request.post(
+        `${E2E_ORIGIN}/api/v1/echo/servers`,
+        {
+          headers: { 'x-csrf-token': csrfToken },
+          data: { name },
+        },
+      );
+      await assert(
+        created.status() === 201,
+        `server fixture failed: ${created.status()}`,
+      );
+    }
     await page.goto(`${E2E_ORIGIN}/`);
     await waitForAppShell(page);
-    const count = await page
+    await page
       .locator('[data-cy=server-rail-reorder-root]')
-      .count();
-    if (count > 0) {
-      await assert(
-        await page
-          .locator('[data-cy=server-rail-reorder-root]')
-          .first()
-          .isVisible(),
-        'reorder root not visible',
-      );
-    }
-  });
-
-  await step('server-rail: icons when mock guilds present', async () => {
+      .waitFor({ state: 'visible' });
     const icons = page.locator('[data-cy=server-rail-icon]');
-    const count = await icons.count();
-    if (count >= 2) {
-      await assert(
-        await icons.nth(0).isVisible(),
-        'first rail icon not visible',
-      );
-      await assert(
-        await icons.nth(1).isVisible(),
-        'second rail icon not visible',
-      );
-    }
+    await icons.nth(1).waitFor({ state: 'visible' });
+    await assert(
+      (await icons.count()) === 2,
+      'expected both seeded server icons',
+    );
+    await assert(await icons.nth(0).isVisible(), 'first rail icon not visible');
+    await assert(
+      await icons.nth(1).isVisible(),
+      'second rail icon not visible',
+    );
   });
 
   await browser.close();

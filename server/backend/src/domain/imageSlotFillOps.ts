@@ -7,7 +7,7 @@ import { isEchoMessageAuthorOrLinkedTwin } from './discord/discordTwinMessageAut
 import {
   selectEchoMessageAuthorDeleted,
   selectEchoMessageContentJsonRow,
-  updateEchoMessageBodyJsonSql,
+  compareAndSetEchoMessageBodyJsonSql,
 } from './echoMessagesDal';
 import { filterMentionsForChannelContext } from './echoStore/messages/mentionContext';
 import {
@@ -93,14 +93,21 @@ export async function fillEchoMessageImageSlot(
   );
   const schemaVersion = stored.contentSchemaVersion ?? 2;
 
-  await updateEchoMessageBodyJsonSql(pool, channelId, messageId, {
-    content: plain,
-    contentJson,
-    searchIndexText: plain,
-    mentions: scopedMentions ?? [],
-    messageFormatVersion: 2,
-    contentSchemaVersion: schemaVersion,
-  });
+  const updated = await compareAndSetEchoMessageBodyJsonSql(
+    pool,
+    channelId,
+    messageId,
+    stored.contentJson,
+    {
+      content: plain,
+      contentJson,
+      searchIndexText: plain,
+      mentions: scopedMentions ?? [],
+      messageFormatVersion: 2,
+      contentSchemaVersion: schemaVersion,
+    },
+  );
+  if (!updated) return { ok: false, code: 'slot_already_filled' };
 
   return { ok: true, contentJson, content: plain };
 }

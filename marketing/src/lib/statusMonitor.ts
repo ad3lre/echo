@@ -276,7 +276,9 @@ function applyProbeResult(root: HTMLElement, result: ProbeResult) {
   }
 }
 
+let refreshGeneration = 0;
 async function refresh(root: HTMLElement, options?: { showPending?: boolean }) {
+  const generation = ++refreshGeneration;
   if (options?.showPending) {
     setAggregate(root, 'pending', {
       headline: `Checking ${MARKETING_SITE_NAME}…`,
@@ -288,7 +290,7 @@ async function refresh(root: HTMLElement, options?: { showPending?: boolean }) {
   }
 
   const result = await probe();
-  applyProbeResult(root, result);
+  if (generation === refreshGeneration) applyProbeResult(root, result);
 }
 
 export function bootStatusMonitor() {

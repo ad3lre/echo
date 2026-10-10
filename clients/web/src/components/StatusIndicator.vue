@@ -145,13 +145,13 @@ const ariaLabel = computed(() => `Status: ${hoverTitle.value}`);
     height: 10px;
     border-radius: 50%;
     /* Explicit green: `--vue-auto-084` can resolve to near-black in some dark themes. */
-    background: rgb(34 197 94);
+    background: var(--echo-palette-rgb-34-197-94-8f67);
   }
 
   .status-phone {
     width: 7px;
     height: 10px;
-    color: rgb(34 197 94);
+    color: var(--echo-palette-rgb-34-197-94-8f67);
   }
 }
 
@@ -201,7 +201,7 @@ const ariaLabel = computed(() => `Status: ${hoverTitle.value}`);
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #5865f2;
+  background: var(--echo-palette-5865f2-c240);
   box-shadow: 0 0 0 2px var(--surface);
 }
 

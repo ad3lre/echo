@@ -168,6 +168,7 @@ module.exports = {
       env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
+        ...fileEnv,
       },
       restart_delay: 3000,
       max_restarts: 10,

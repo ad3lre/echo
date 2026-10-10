@@ -23,8 +23,8 @@ export async function runExternalCsamScanCmd(opts: {
   const tmpRoot = path.join(os.tmpdir(), `echo-csam-${randomUUID()}`);
   const inputPath = path.join(tmpRoot, 'in');
   try {
-    await mkdir(tmpRoot, { recursive: true });
-    await writeFile(inputPath, opts.inputBytes);
+    await mkdir(tmpRoot, { recursive: true, mode: 0o700 });
+    await writeFile(inputPath, opts.inputBytes, { mode: 0o600 });
     const argv = opts.argvTemplate.map((a) =>
       a.replaceAll(INPUT_TOKEN, inputPath),
     );

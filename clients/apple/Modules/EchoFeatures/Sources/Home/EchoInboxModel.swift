@@ -44,9 +44,10 @@ final class EchoInboxModel {
     }
   }
 
-  func respond(to request: EchoIncomingFriendRequest, accepting: Bool) {
-    guard respondingRequestIDs.insert(request.id).inserted else { return }
-    Task {
+  @discardableResult
+  func respond(to request: EchoIncomingFriendRequest, accepting: Bool) -> Task<Void, Never>? {
+    guard respondingRequestIDs.insert(request.id).inserted else { return nil }
+    return Task {
       defer { respondingRequestIDs.remove(request.id) }
       do {
         try await auth.withAccessTokenRetry { token in

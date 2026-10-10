@@ -173,12 +173,12 @@ describe('shared attention ping authority', () => {
     ).toBe('personal');
   });
 
-  it('matches mention label to display name when username differs', () => {
+  it('matches a legacy mention label without a target ID', () => {
     expect(
       classifyAttentionPingKind(
         [
           {
-            id: 'm1',
+            id: '',
             kind: 'user',
             label: 'Ada Lovelace',
             start: 0,

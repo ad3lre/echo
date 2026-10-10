@@ -3,15 +3,18 @@ import Foundation
 
 /// Gates UI sound effects using the latest notification preferences snapshot.
 enum EchoSoundPlayback {
-  private static let cacheKey = "echo.notificationSoundPrefs.v1"
+  @MainActor private(set) static var accountID: String?
+  @MainActor private static var cacheKey: String { "echo.notificationSoundPrefs.v2.\(accountID ?? "signed-out")" }
+
+  @MainActor static func activate(accountID: String?) { self.accountID = accountID }
 
   /// Updated whenever settings load or save notification preferences.
-  static func cache(_ preferences: EchoNotificationPreferences) {
+  @MainActor static func cache(_ preferences: EchoNotificationPreferences) {
     guard let data = try? JSONEncoder().encode(preferences) else { return }
     UserDefaults.standard.set(data, forKey: cacheKey)
   }
 
-  static func cachedPreferences() -> EchoNotificationPreferences {
+  @MainActor static func cachedPreferences() -> EchoNotificationPreferences {
     guard let data = UserDefaults.standard.data(forKey: cacheKey),
       let prefs = try? JSONDecoder().decode(EchoNotificationPreferences.self, from: data)
     else {

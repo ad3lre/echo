@@ -12,6 +12,7 @@ private final class EchoAddFriendModel {
   private(set) var errorMessage: String?
   private(set) var sentIDs = Set<String>()
   private(set) var sendingIDs = Set<String>()
+  private var searchGeneration = 0
 
   init(baseURL: URL, accessToken: String) {
     client = EchoSettingsClient(baseURL: baseURL)
@@ -19,16 +20,21 @@ private final class EchoAddFriendModel {
   }
 
   func search(_ query: String) async {
+    searchGeneration &+= 1
+    let generation = searchGeneration
     isLoading = true
     errorMessage = nil
-    defer { isLoading = false }
+    defer { if generation == searchGeneration { isLoading = false } }
     do {
-      candidates = try await client.searchFriendCandidates(
+      let results = try await client.searchFriendCandidates(
         query: query.trimmingCharacters(in: .whitespacesAndNewlines),
         limit: 8,
         accessToken: accessToken
       )
+      guard generation == searchGeneration, !Task.isCancelled else { return }
+      candidates = results
     } catch {
+      guard generation == searchGeneration, !Task.isCancelled else { return }
       candidates = []
       if let settingsError = error as? EchoSettingsClientError,
         case .server(let statusCode, _, _) = settingsError,

@@ -15,7 +15,7 @@ const RESERVED_DISPLAY_NAMES = new Set<string>([
 ]);
 // Strip ASCII control chars from user-visible profile fields.
 // eslint-disable-next-line no-control-regex -- intentional sanitization
-const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f]/;
+const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f]/g;
 
 /** Minimum password length for registration, password change, and guest upgrade. */
 export const MIN_PASSWORD_LENGTH = 8;

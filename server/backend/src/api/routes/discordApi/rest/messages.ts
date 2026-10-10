@@ -372,13 +372,24 @@ export default async function discordMessagesRoutes(
       const io = getIo(fastify);
       if (!io) return discordError(reply, 503, '503: Service Unavailable');
 
+      const botUserId = req.botApp!.id;
+      const target = await getEchoMessageByIdInChannel(
+        pool,
+        messageId.trim(),
+        channelId.trim(),
+      );
+      if (!target) return discordError(reply, 404, '404: Unknown Message');
+      if (target.authorId !== botUserId) {
+        return discordError(reply, 403, '403: Missing Permissions');
+      }
+
       const result = await editEchoMessageAndBroadcast(
         pool,
         io,
         fastify.log,
         channelId.trim(),
         messageId.trim(),
-        access.installerId,
+        botUserId,
         { kind: 'legacy', content },
       );
 

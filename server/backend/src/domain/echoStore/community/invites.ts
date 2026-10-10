@@ -186,7 +186,11 @@ export async function getEchoInvitePreview(
   if (!vcId) return withHighlights;
   const ch = await pool.query(
     `SELECT ch.id, ch.name FROM echo_channels ch
+     LEFT JOIN echo_category_permission_overrides cat_ov
+       ON cat_ov.server_id = ch.server_id AND cat_ov.category_id = ch.category_id
      WHERE ch.id = $1 AND ch.server_id = $2 AND ch.type = 'voice'
+       AND ch.permission_overrides->'VIEW_CHANNEL' IS DISTINCT FROM 'false'::jsonb
+       AND cat_ov.permission_overrides->'VIEW_CHANNEL' IS DISTINCT FROM 'false'::jsonb
        AND EXISTS (
          SELECT 1 FROM echo_roles r
          WHERE r.server_id = ch.server_id AND r.name = '@everyone'

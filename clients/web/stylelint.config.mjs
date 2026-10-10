@@ -57,10 +57,7 @@ export default {
     {
       files: ['**/*.vue'],
       customSyntax: 'postcss-html',
-      rules: {
-        'color-no-hex': null,
-        'function-disallowed-list': null,
-      },
+      rules: colorRules,
     },
     /* Theme swatch miniatures: explicit hex/rgba mirroring themes.scss (token file is ignored). */
     {

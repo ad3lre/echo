@@ -1,0 +1,126 @@
+.hm-scaffold {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--hm-surface);
+  border: 1px solid var(--hm-border);
+  border-radius: var(--hm-radius);
+  padding: 0.75rem;
+  /* subtle inner shadow for "stage" depth */
+  box-shadow:
+    inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p05-9ecb),
+    inset 0 -1px 0 var(--echo-palette-rgba-0-0-0-0p4-aa2b),
+    0 4px 20px var(--echo-palette-rgba-0-0-0-0p4-aa2b);
+  flex-shrink: 0;
+}
+
+@media (min-width: 680px) {
+  .hm-scaffold {
+    width: 13.5rem;
+  }
+}
+
+.hm-scaffold__svg {
+  width: 100%;
+  max-width: 12rem;
+  height: auto;
+  display: block;
+}
+
+/* Figure parts: inactive = ghost outline, active = drawn in */
+.hm-part {
+  stroke: var(--echo-palette-rgba-255-255-255-0p1-d371);
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  fill: none;
+  transition: stroke 0.5s ease;
+}
+
+.hm-part--active {
+  stroke: var(--hm-figure);
+  stroke-dashoffset: 0;
+  animation: hm-draw-part 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Progressive danger coloring on the SVG via data-damage attribute */
+.hm-scaffold__svg[data-damage='3'] .hm-part--active {
+  stroke: var(--echo-palette-f0c060-7d7a);
+}
+.hm-scaffold__svg[data-damage='4'] .hm-part--active {
+  stroke: var(--echo-palette-f97316-3679);
+}
+.hm-scaffold__svg[data-damage='5'] .hm-part--active {
+  stroke: var(--echo-palette-f87171-1a75);
+}
+.hm-scaffold__svg[data-damage='6'] .hm-part--active {
+  stroke: var(--echo-palette-dc2626-3871);
+}
+
+/* Dead outcome: entire figure turns red */
+.hm-scaffold__svg[data-outcome='lost'] .hm-part--active {
+  stroke: var(--echo-palette-ef4444-c36d);
+}
+
+/* Face details: fade in after head appears */
+.hm-face-dot {
+  opacity: 0;
+  transition: opacity 0.3s ease 0.45s;
+  color: var(--hm-figure);
+}
+
+.hm-face-dot--show {
+  opacity: 0.85;
+}
+
+.hm-scaffold__svg[data-outcome='lost'] .hm-face-dot {
+  color: var(--echo-palette-ef4444-c36d);
+}
+
+.hm-face-dead {
+  stroke: var(--echo-palette-ef4444-c36d);
+  opacity: 0;
+  animation: hm-face-appear 0.3s ease 0.2s forwards;
+}
+
+.hm-scaffold__caption {
+  font-size: 0.72rem;
+  color: var(--hm-text-muted);
+  text-align: center;
+  line-height: 1.4;
+
+  strong {
+    color: var(--hm-text-soft);
+    font-weight: 600;
+  }
+}
+
+@keyframes hm-draw-part {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes hm-face-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-part--active,
+  .hm-face-dead {
+    animation: none;
+  }
+
+  .hm-part {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+}

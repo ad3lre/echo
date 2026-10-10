@@ -22,6 +22,20 @@ import {
 import { isEchoApnsConfigured, sendEchoApnsToUser } from './echoApns';
 
 const PREVIEW_MAX = 140;
+const PUSH_RECIPIENT_CONCURRENCY = 8;
+
+async function dispatchInBoundedBatches(
+  targets: readonly PingTarget[],
+  dispatch: (target: PingTarget) => Promise<void>,
+): Promise<void> {
+  for (let i = 0; i < targets.length; i += PUSH_RECIPIENT_CONCURRENCY) {
+    await Promise.all(
+      targets
+        .slice(i, i + PUSH_RECIPIENT_CONCURRENCY)
+        .map((target) => dispatch(target)),
+    );
+  }
+}
 
 function previewFromMessage(m: Message): string {
   const raw = (m.contentText ?? m.content ?? '').replace(/\s+/g, ' ').trim();
@@ -198,16 +212,16 @@ export async function dispatchEchoMessagePushNotifications(
       const recipients = [...new Set(args.dmRecipients)].filter(
         (id) => id && id !== authorId,
       );
-      await Promise.all(
-        recipients.map((userId) =>
+      await dispatchInBoundedBatches(
+        recipients.map((userId) => ({ userId, pingKind: 'personal' as const })),
+        (target) =>
           pushToUserIfAllowed(
             pool,
-            userId,
+            target.userId,
             message.channelId,
             { ...payloadBase, tag: message.channelId },
             { serverId: null },
           ),
-        ),
       );
       return;
     }
@@ -217,15 +231,13 @@ export async function dispatchEchoMessagePushNotifications(
       serverId,
     );
     const targets = collectServerPushTargets(message, authorId, roleIdsByUser);
-    await Promise.all(
-      targets.map((t) =>
-        pushToUserIfAllowed(
-          pool,
-          t.userId,
-          message.channelId,
-          { ...payloadBase, tag: message.channelId },
-          { serverId, pingKind: t.pingKind },
-        ),
+    await dispatchInBoundedBatches(targets, (t) =>
+      pushToUserIfAllowed(
+        pool,
+        t.userId,
+        message.channelId,
+        { ...payloadBase, tag: message.channelId },
+        { serverId, pingKind: t.pingKind },
       ),
     );
   } catch (e) {

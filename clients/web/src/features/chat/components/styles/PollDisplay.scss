@@ -1,0 +1,110 @@
+.poll-display__option {
+  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+  background: color-mix(in srgb, var(--elevated) 88%, var(--surface) 12%);
+}
+
+.poll-display__option--readonly {
+  cursor: default;
+}
+
+.poll-display--discord .poll-display__option {
+  background: color-mix(in srgb, var(--elevated) 94%, white 6%);
+}
+
+.poll-time--ended {
+  color: color-mix(in srgb, var(--muted) 72%, var(--accent) 28%);
+}
+
+:global([data-theme='light']) .poll-display {
+  background: var(--echo-palette-fff-e08d);
+  border-color: color-mix(in srgb, var(--border) 78%, transparent);
+
+  .poll-display__question,
+  .poll-display__option-label {
+    color: var(--text);
+  }
+
+  .poll-display__option {
+    border-color: color-mix(in srgb, var(--border) 62%, transparent);
+    background: var(--echo-palette-fff-e08d);
+  }
+
+  .poll-display__option--selected {
+    border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+    background: color-mix(
+      in srgb,
+      var(--accent) 6%,
+      var(--echo-palette-fff-e08d)
+    );
+  }
+
+  .poll-display__bar {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  .poll-display__tally,
+  .poll-display__meta,
+  .poll-display__discord-note,
+  .poll-display__time {
+    color: color-mix(in srgb, var(--text) 56%, transparent);
+  }
+
+  .poll-display__who-voted {
+    color: var(--accent);
+  }
+}
+
+.modal-overlay-bg {
+  background-color: color-mix(in srgb, var(--foreground) 28%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.poll-voters-overlay {
+  pointer-events: auto;
+  isolation: isolate;
+}
+
+.poll-voters-modal {
+  height: min(28rem, calc(100vh - 3rem));
+  height: min(28rem, calc(100dvh - 3rem));
+}
+
+.poll-voters-modal__scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.real-glass-modal {
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 48px color-mix(in srgb, var(--foreground) 12%, transparent);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background-color: color-mix(in srgb, var(--surface) 88%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+
+:global([data-theme='light']) .poll-voters-modal {
+  color: var(--text);
+
+  &::before {
+    background-color: var(--echo-palette-fff-e08d);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .text-muted {
+    color: color-mix(in srgb, var(--text) 58%, transparent);
+  }
+
+  .text-foreground,
+  .text-foreground\/95 {
+    color: var(--text);
+  }
+}

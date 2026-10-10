@@ -369,10 +369,10 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), groupNameInputRef);
 <style>
 /* Pale modal surface: emerald-300 / amber-400 lack contrast on light glass */
 html[data-theme='light'] .group-dm-create-included-hint {
-  color: rgb(5 150 105);
+  color: var(--echo-palette-rgb-5-150-105-c06a);
 }
 
 html[data-theme='light'] .group-dm-create-submit-error {
-  color: rgb(180 83 9);
+  color: var(--echo-palette-rgb-180-83-9-70a6);
 }
 </style>

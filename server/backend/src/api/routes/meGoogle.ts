@@ -10,13 +10,8 @@ import { requireAuth } from '../../auth/middleware';
 import { getAuthStore } from '../../auth/store';
 import { config } from '../../config';
 import { getPgPool } from '../../db/pg';
-import {
-  deleteGoogleUserLink,
-  getGoogleLinkByUserId,
-} from '../../domain/googleUserLinkRepo';
+import { getGoogleLinkByUserId } from '../../domain/googleUserLinkRepo';
 import { isGoogleOauthConfigured } from '../../domain/googleOAuthRedirect';
-import { deleteYoutubeChannelLink } from '../../domain/youtube/youtubeUserLinkRepo';
-import { deleteYoutubeStreamKey } from '../../domain/youtube/youtubeStreamKeyRepo';
 import { stopAllActiveStageYoutubeStreamsForLinkUser } from '../../services/stage/stageYoutubeStream';
 
 function googleOauthRedirectUriForClient(): string | null {
@@ -99,18 +94,48 @@ export default async function meGoogleRoutes(
       if (!pool)
         return sendError(reply, 503, 'NOT_AVAILABLE', 'Database unavailable.');
 
-      await stopAllActiveStageYoutubeStreamsForLinkUser(pool, req.authUser.id);
-      await deleteYoutubeChannelLink(pool, req.authUser.id);
-      await deleteYoutubeStreamKey(pool, req.authUser.id);
-
-      const deleted = await deleteGoogleUserLink(pool, req.authUser.id);
-      if (!deleted) {
+      const googleLink = await getGoogleLinkByUserId(pool, req.authUser.id);
+      if (!googleLink) {
         return sendError(
           reply,
           404,
           'NOT_FOUND',
           'Google account is not linked.',
         );
+      }
+      // External stream shutdown is retryable and happens only after confirming
+      // the account is linked. Keep all credential/link row deletion atomic.
+      await stopAllActiveStageYoutubeStreamsForLinkUser(pool, req.authUser.id);
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const deleted = await client.query(
+          `DELETE FROM auth_google_user_links WHERE user_id = $1 RETURNING user_id`,
+          [req.authUser.id],
+        );
+        if (deleted.rowCount !== 1) {
+          await client.query('ROLLBACK');
+          return sendError(
+            reply,
+            404,
+            'NOT_FOUND',
+            'Google account is not linked.',
+          );
+        }
+        await client.query(
+          `DELETE FROM integration_youtube_channel_links WHERE user_id = $1`,
+          [req.authUser.id],
+        );
+        await client.query(
+          `DELETE FROM integration_youtube_stream_keys WHERE user_id = $1`,
+          [req.authUser.id],
+        );
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      } finally {
+        client.release();
       }
       return reply.code(200).send({ ok: true });
     },

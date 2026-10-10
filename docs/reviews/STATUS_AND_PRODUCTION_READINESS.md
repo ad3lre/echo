@@ -110,7 +110,7 @@ Sources: `[realtime-scaling.md](../infra/realtime-scaling.md)`, `[STACK.md](../o
 - **Uploads:** **env-gated**; production without S3 config means **503** on presign, not silent degrade. Chat, avatars/banners, server icons, and emoji share the same presign route with distinct **authorization** and **key prefixes**; configure **bucket CORS** for browser `PUT`.
 - **Operator Checklist (S3/CORS):**
   - **`ECHO_S3_BUCKET`**, **`ECHO_S3_REGION`**, **`ECHO_S3_ACCESS_KEY`**, **`ECHO_S3_SECRET_KEY`** (required for 200).
-  - **Bucket CORS:** Browser `PUT` requires a CORS policy on the bucket allowing the frontend origin with `PUT` method and `Content-Type` header.
+  - **Bucket CORS:** Browser `PUT` requires a CORS policy on the bucket allowing the frontend origin with `PUT` method and `Content-Type` and `If-None-Match` headers. Presigned uploads require create-only conditional writes; the object store must honor `If-None-Match: *`.
   - **Public Access:** Uploaded objects must be publicly readable if using the returned public URLs directly.
 - **CI:** `npm run test:echo:uploads -w backend` runs in the default **`echo-backend-ci.yml`** job (Postgres env).
 

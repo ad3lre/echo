@@ -7,6 +7,28 @@ import Testing
 
 @MainActor
 struct EchoCallModelTests {
+  @Test func endingDuringUncancellablePreparationNeverJoinsTheRoom() async {
+    let realtime = EchoRealtimeSession(
+      baseURL: URL(string: "https://chat-echo.com")!, currentUserID: "me", client: FakeRealtimeClient())
+    let calling = FakeCallingClient(session: EchoLiveKitSession(
+      url: "wss://voice.example", token: "join", roomName: "room", bitrateBps: nil, voiceE2EE: nil))
+    let transport = FakeCallTransport()
+    let preparation = ControlledCallPreparation()
+    let model = EchoCallModel(
+      baseURL: URL(string: "https://chat-echo.com")!, realtime: realtime, currentUserID: "me",
+      tokenProvider: { "access" }, client: calling, transport: transport, e2ee: preparation)
+    await model.startCall(to: EchoDirectMessage(id: "dm", channelID: "dm", peerUserID: "peer", displayName: "Peer"))
+    await preparation.waitUntilStarted()
+    let ending = Task { await model.decline() }
+    for _ in 0..<100 where model.phase != .ending { await Task.yield() }
+    #expect(model.phase == .ending)
+    preparation.release()
+    await ending.value
+    #expect(calling.createCount == 0)
+    #expect(transport.connectCount == 0)
+    #expect(model.phase == .idle)
+  }
+
   @Test func startCallMovesToDialingAndInvitesPeer() async {
     let realtimeClient = FakeRealtimeClient()
     let realtime = EchoRealtimeSession(
@@ -251,4 +273,25 @@ private final class FakeRealtimeClient: EchoRealtimeClient, @unchecked Sendable 
     reason: EchoDmCallEndReason
   ) {}
   func ping(timeout: Duration) async -> Bool { true }
+}
+
+@MainActor private final class ControlledCallPreparation: EchoVoiceE2EEPreparing {
+  private var pending: CheckedContinuation<EchoVoiceE2EEPrepareResult, Error>?
+  private var started: CheckedContinuation<Void, Never>?
+  func prepareDM(channelID: String, accessToken: String, viewerUserID: String,
+    peerUserID: String?, authorizedUserIDs: [String]) async throws -> EchoVoiceE2EEPrepareResult {
+    try await withCheckedThrowingContinuation { continuation in
+      pending = continuation
+      started?.resume()
+      started = nil
+    }
+  }
+  func waitUntilStarted() async {
+    if pending != nil { return }
+    await withCheckedContinuation { started = $0 }
+  }
+  func release() {
+    pending?.resume(returning: EchoVoiceE2EEPrepareResult(encryption: nil, deviceID: nil))
+    pending = nil
+  }
 }

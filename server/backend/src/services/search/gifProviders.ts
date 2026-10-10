@@ -95,7 +95,12 @@ export function klipyGifToGiphyProxyShape(g: KlipyGif): GiphyProxyGif {
 }
 
 async function fetchGiphyList(url: string): Promise<GiphyProxyGif[] | null> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(GIPHY_FETCH_MS) });
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(GIPHY_FETCH_MS) });
+  } catch {
+    return null;
+  }
   if (!res.ok) return null;
   let json: { data?: unknown[] };
   try {
@@ -107,7 +112,12 @@ async function fetchGiphyList(url: string): Promise<GiphyProxyGif[] | null> {
 }
 
 async function fetchKlipyList(url: string): Promise<GiphyProxyGif[] | null> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(GIPHY_FETCH_MS) });
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(GIPHY_FETCH_MS) });
+  } catch {
+    return null;
+  }
   if (!res.ok) return null;
   let json: KlipyListResponse;
   try {

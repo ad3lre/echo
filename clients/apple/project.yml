@@ -8,7 +8,7 @@ settings:
   base:
     SWIFT_VERSION: '6.0'
     PRODUCT_NAME: Echo
-    DEVELOPMENT_TEAM: '7HBQV8236H'
+    DEVELOPMENT_TEAM: '7T8JKF75WU'
     CODE_SIGN_STYLE: Automatic
     CURRENT_PROJECT_VERSION: 4
     MARKETING_VERSION: 0.1.1
@@ -49,14 +49,9 @@ targets:
         BGTaskSchedulerPermittedIdentifiers: [com.echo.ios.refresh]
     entitlements:
       path: Resources/iOS/EchoiOS.entitlements
-      properties:
-        aps-environment: $(APS_ENVIRONMENT)
-        com.apple.developer.applesignin: [Default]
-        com.apple.developer.associated-domains:
-          [applinks:chat-echo.com, webcredentials:chat-echo.com]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.echo.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.echo.ios.adelmac
         ECHO_API_BASE_URL: https://chat-echo.com
       configs:
         Debug:

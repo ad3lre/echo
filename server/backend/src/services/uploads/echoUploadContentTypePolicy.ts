@@ -35,10 +35,11 @@ export function sanitizeEchoUploadContentType(
 ): EchoUploadContentTypeSanitizeResult {
   const ct = raw.trim().toLowerCase();
   if (!ct) return { contentType: fallback, coerced: false };
-  if (BLOCKED_CONTENT_TYPES.has(ct)) {
+  const mediaType = ct.split(';', 1)[0]?.trim() ?? '';
+  if (BLOCKED_CONTENT_TYPES.has(mediaType)) {
     return { contentType: fallback, coerced: true };
   }
-  if (SAFE_CONTENT_TYPE_RE.test(ct)) {
+  if (SAFE_CONTENT_TYPE_RE.test(mediaType)) {
     return { contentType: ct, coerced: false };
   }
   if (SAFE_CONTENT_TYPE_EXACT.has(ct)) {

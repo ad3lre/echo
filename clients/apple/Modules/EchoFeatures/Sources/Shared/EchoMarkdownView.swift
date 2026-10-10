@@ -27,10 +27,10 @@ struct EchoMarkdownView: View {
     accessToken: String? = nil
   ) {
     self.markdown = markdown
-    self.mentions = mentions
+    self.mentions = []
     self.apiBaseURL = apiBaseURL
     self.accessToken = accessToken
-    blocks = EchoMarkdownBlockCache.blocks(markdown)
+    blocks = EchoMarkdownBlockCache.blocks(EchoMarkdownMentions.mark(markdown, mentions: mentions))
     emojiOnly = EchoEmojiOnlySizing.isEmojiOnlyUpTo12(markdown)
   }
 

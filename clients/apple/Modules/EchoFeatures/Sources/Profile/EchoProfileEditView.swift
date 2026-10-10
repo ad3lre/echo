@@ -44,6 +44,7 @@ struct EchoProfileEditView: View {
   @State private var bannerBlurEnabled = false
   @State private var bannerBlackoutEnabled = false
   @State private var effectsPersisting = false
+  @State private var presenceSaveTask: Task<Void, Never>?
   @State private var selectedTab: EditTab = .profile
 
   var body: some View {
@@ -144,11 +145,17 @@ struct EchoProfileEditView: View {
         applyLoadedPresence(identity.status)
       }
     }
-    .onChange(of: bannerItem) { _, item in
-      Task { bannerData = try? await item?.loadTransferable(type: Data.self) }
+    .task(id: bannerItem) {
+      let item = bannerItem
+      let data = try? await item?.loadTransferable(type: Data.self)
+      guard !Task.isCancelled, item == bannerItem else { return }
+      bannerData = data
     }
-    .onChange(of: avatarItem) { _, item in
-      Task { avatarData = try? await item?.loadTransferable(type: Data.self) }
+    .task(id: avatarItem) {
+      let item = avatarItem
+      let data = try? await item?.loadTransferable(type: Data.self)
+      guard !Task.isCancelled, item == avatarItem else { return }
+      avatarData = data
     }
     .onChange(of: selectedTab) { _, _ in
       dismissKeyboard()
@@ -340,16 +347,21 @@ struct EchoProfileEditView: View {
     guard next != presenceStatus, Self.canonicalPresence(next) != nil else { return }
     let previous = presenceStatus
     presenceStatus = next
-    Task { await persistPresence(previous: previous) }
+    let pending = presenceSaveTask
+    presenceSaveTask = Task {
+      await pending?.value
+      await persistPresence(next: next, previous: previous)
+    }
   }
 
-  private func persistPresence(previous: String) async {
+  private func persistPresence(next: String, previous: String) async {
     do {
       try await EchoSettingsClient(baseURL: baseURL).updatePresence(
-        presenceStatus, accessToken: accessToken)
-      originalPresenceStatus = presenceStatus
+        next, accessToken: accessToken)
+      originalPresenceStatus = next
     } catch {
-      presenceStatus = previous
+      guard presenceStatus == next else { return }
+      presenceStatus = originalPresenceStatus.isEmpty ? previous : originalPresenceStatus
       errorMessage = error.localizedDescription
     }
   }

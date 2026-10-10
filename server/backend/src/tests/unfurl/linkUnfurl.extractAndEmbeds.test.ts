@@ -84,8 +84,9 @@ async function main() {
   await run(
     'Echo message jump link returns embed_links_denied when EMBED_LINKS is denied',
     async () => {
+      // Origin must match instance publicUrls (see parseEchoMessageJumpPath).
       const content =
-        'see https://echo.test/channels/100000000000001/200000000000002';
+        'see http://localhost:8080/channels/100000000000001/200000000000002';
       const embeds = await buildLinkEmbedsFromPlainText(content, {
         allow: false,
       });

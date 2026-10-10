@@ -1,3 +1,4 @@
+import { userMentionTargetsViewer } from './attentionMentionIdentity';
 import type {
   EchoAttentionChannelSummary,
   EchoAttentionPingKind,
@@ -53,25 +54,7 @@ export function classifyAttentionPingKind(
   for (const mention of mentions) {
     if (mention.kind === 'channel') continue;
     if (mention.kind === 'user') {
-      if (opts.userId) {
-        const uid = opts.userId.trim();
-        const byUserId = mention.userId?.trim() === uid;
-        /** Some payloads put the target user id on `id` (see collectDmMentionNotifications). */
-        const byEntityId =
-          typeof mention.id === 'string' && mention.id.trim() === uid;
-        if (byUserId || byEntityId) {
-          best = mergeAttentionPingKinds(best, 'personal');
-          continue;
-        }
-      }
-      const labelLow = mention.label.trim().toLowerCase();
-      const labelCandidates = [opts.username, opts.displayName].filter(
-        (x): x is string => typeof x === 'string' && x.trim().length > 0,
-      );
-      if (
-        labelLow &&
-        labelCandidates.some((c) => c.trim().toLowerCase() === labelLow)
-      ) {
+      if (userMentionTargetsViewer(mention, opts)) {
         best = mergeAttentionPingKinds(best, 'personal');
       }
       continue;
@@ -118,24 +101,7 @@ export function selfPingingMentionKinds(
   for (const mention of mentions) {
     if (mention.kind === 'channel') continue;
     if (mention.kind === 'user') {
-      if (opts.userId) {
-        const uid = opts.userId.trim();
-        const byUserId = mention.userId?.trim() === uid;
-        const byEntityId =
-          typeof mention.id === 'string' && mention.id.trim() === uid;
-        if (byUserId || byEntityId) {
-          push('user');
-          continue;
-        }
-      }
-      const labelLow = mention.label.trim().toLowerCase();
-      const labelCandidates = [opts.username, opts.displayName].filter(
-        (x): x is string => typeof x === 'string' && x.trim().length > 0,
-      );
-      if (
-        labelLow &&
-        labelCandidates.some((c) => c.trim().toLowerCase() === labelLow)
-      ) {
+      if (userMentionTargetsViewer(mention, opts)) {
         push('user');
       }
       continue;

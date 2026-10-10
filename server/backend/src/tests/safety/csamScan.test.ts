@@ -22,9 +22,15 @@ async function testBlocklist(): Promise<void> {
   await writeFile(listPath, `# comment\n${h}\n`, 'utf8');
 
   const store = new Sha256BlocklistStore(listPath, 0);
-  await store.refreshIfNeeded();
+  assert.equal(await store.refreshIfNeeded(), true);
   assert.equal(store.has(h), true);
   assert.equal(store.has('0'.repeat(64)), false);
+
+  const unavailable = new Sha256BlocklistStore(
+    path.join(dir, 'missing.txt'),
+    0,
+  );
+  assert.equal(await unavailable.refreshIfNeeded(), false);
 }
 
 async function testExternalCmd(): Promise<void> {
@@ -55,6 +61,18 @@ async function testExternalCmd(): Promise<void> {
     timeoutMs: 5000,
   });
   assert.equal(inputPathOk, 'pass');
+
+  const privateModes = await runExternalCsamScanCmd({
+    argvTemplate: [
+      'node',
+      '-e',
+      'const fs=require("fs");const p=process.argv[1];if((fs.statSync(p).mode&0o777)!==0o600||(fs.statSync(require("path").dirname(p)).mode&0o777)!==0o700)process.exit(7)',
+      'INPUT_PATH',
+    ],
+    inputBytes: Buffer.from('synthetic fixture'),
+    timeoutMs: 5000,
+  });
+  assert.equal(privateModes, 'pass');
 }
 
 async function testLegalPrereq(): Promise<void> {

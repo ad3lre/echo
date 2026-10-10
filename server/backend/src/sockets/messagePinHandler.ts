@@ -110,10 +110,16 @@ export function registerMessagePinHandler(
   };
 
   socket.on('message:pin', (payload: unknown) => {
-    void run('pin', payload);
+    void run('pin', payload).catch((error: unknown) => {
+      log.error(error, 'message pin handler failed');
+      emitFailed(socket, 'PERSIST_FAILED');
+    });
   });
 
   socket.on('message:unpin', (payload: unknown) => {
-    void run('unpin', payload);
+    void run('unpin', payload).catch((error: unknown) => {
+      log.error(error, 'message unpin handler failed');
+      emitFailed(socket, 'PERSIST_FAILED');
+    });
   });
 }

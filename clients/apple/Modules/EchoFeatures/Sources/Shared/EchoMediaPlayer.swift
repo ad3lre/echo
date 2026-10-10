@@ -90,12 +90,15 @@ struct EchoVideoAttachmentPreview: View {
   }
 
   private var posterTaskID: String {
-    "\(attachment.storageKey ?? "")|\(attachment.url)"
+    "\(baseURL.absoluteString)|\(auth.activeSession?.userID ?? accessToken ?? "")|\(attachment.storageKey ?? "")|\(attachment.url)"
   }
 
   private func loadPoster() async {
-    if poster != nil || isLoadingPoster { return }
-    if let cached = await EchoVideoPosterCache.shared.image(for: posterTaskID) {
+    poster = nil
+    let key = posterTaskID
+    guard !Task.isCancelled else { return }
+    if let cached = await EchoVideoPosterCache.shared.image(for: key) {
+      guard key == posterTaskID, !Task.isCancelled else { return }
       poster = cached
       return
     }
@@ -109,8 +112,9 @@ struct EchoVideoAttachmentPreview: View {
         accessToken: accessToken,
         auth: auth)
     else { return }
-    guard let image = await EchoVideoPosterCache.shared.generate(url: url, cacheKey: posterTaskID)
+    guard let image = await EchoVideoPosterCache.shared.generate(url: url, cacheKey: key)
     else { return }
+    guard key == posterTaskID, !Task.isCancelled else { return }
     poster = image
   }
 }
@@ -121,6 +125,14 @@ actor EchoVideoPosterCache {
 
   private var images: [String: Image] = [:]
   private var inFlight: [String: Task<Image?, Never>] = [:]
+  private var generation = 0
+
+  func clear() {
+    generation &+= 1
+    images.removeAll()
+    inFlight.values.forEach { $0.cancel() }
+    inFlight.removeAll()
+  }
 
   func image(for key: String) -> Image? {
     images[key]
@@ -131,11 +143,13 @@ actor EchoVideoPosterCache {
     if let task = inFlight[cacheKey] {
       return await task.value
     }
+    let expected = generation
     let task = Task<Image?, Never> {
       await Self.makePoster(url: url)
     }
     inFlight[cacheKey] = task
     let image = await task.value
+    guard expected == generation else { return nil }
     inFlight[cacheKey] = nil
     if let image {
       images[cacheKey] = image

@@ -145,11 +145,17 @@ export async function applyEchoChannelPlacement(
   actorId: string,
   channelId: string,
   input: ApplyEchoChannelPlacementInput,
+  mutationClient?: pg.PoolClient,
 ): Promise<'ok' | 'forbidden' | 'not_found' | 'invalid_body'> {
-  const merged = await getMergedRolePermissions(pool, serverId, actorId);
+  const queryable = mutationClient ?? pool;
+  const merged = await getMergedRolePermissions(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!merged.has('MANAGE_ROLES') && !merged.has('MANAGE_GUILD')) {
     const effective = await getEffectiveChannelPermissions(
-      pool,
+      queryable as pg.Pool,
       serverId,
       actorId,
       channelId,
@@ -159,7 +165,7 @@ export async function applyEchoChannelPlacement(
     }
   }
 
-  const chQ = await pool.query(
+  const chQ = await queryable.query(
     `SELECT id, category_id FROM echo_channels WHERE id = $1 AND server_id = $2`,
     [channelId, serverId],
   );
@@ -174,7 +180,7 @@ export async function applyEchoChannelPlacement(
       : oldCat;
 
   if (newCat !== null) {
-    const catOk = await pool.query(
+    const catOk = await queryable.query(
       `SELECT 1 FROM echo_categories WHERE id = $1 AND server_id = $2`,
       [newCat, serverId],
     );
@@ -189,26 +195,62 @@ export async function applyEchoChannelPlacement(
 
   let siblingIndex = input.siblingIndex;
   if (siblingIndex === undefined) {
-    if (categoryChanging) {
-      const destBefore = await listBucketChannelIds(pool, serverId, newCat);
-      siblingIndex = destBefore.filter((id) => id !== channelId).length;
-    } else {
-      return 'invalid_body';
-    }
+    if (!categoryChanging) return 'invalid_body';
   }
 
   if (
-    typeof siblingIndex !== 'number' ||
-    !Number.isFinite(siblingIndex) ||
-    siblingIndex < 0 ||
-    siblingIndex !== Math.floor(siblingIndex)
+    siblingIndex !== undefined &&
+    (typeof siblingIndex !== 'number' ||
+      !Number.isFinite(siblingIndex) ||
+      siblingIndex < 0 ||
+      siblingIndex !== Math.floor(siblingIndex))
   ) {
     return 'invalid_body';
   }
 
-  const client = await pool.connect();
+  const client = mutationClient ?? (await pool.connect());
+  const ownsTransaction = mutationClient === undefined;
   try {
-    await client.query('BEGIN');
+    if (ownsTransaction) await client.query('BEGIN');
+
+    // Channel positions are compact across every bucket in a server. Serialize
+    // placement edits before reading the buckets so concurrent moves cannot
+    // write permutations calculated from the same snapshot.
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext('echo_channel_tree_move'), hashtext($1))`,
+      [serverId],
+    );
+
+    // The source category and destination bucket were validated before the
+    // transaction. Recheck the source after acquiring the lock; if another
+    // move changed it while we waited, let the caller retry against fresh state.
+    const lockedChannel = await client.query(
+      `SELECT category_id FROM echo_channels WHERE id = $1 AND server_id = $2`,
+      [channelId, serverId],
+    );
+    if (lockedChannel.rows.length === 0) {
+      if (ownsTransaction) await client.query('ROLLBACK');
+      return 'not_found';
+    }
+    if (
+      !categoryIdsEqual(
+        normalizeCategoryId(lockedChannel.rows[0].category_id as string | null),
+        oldCat,
+      )
+    ) {
+      if (ownsTransaction) await client.query('ROLLBACK');
+      return 'invalid_body';
+    }
+    if (newCat !== null) {
+      const lockedCategory = await client.query(
+        `SELECT 1 FROM echo_categories WHERE id = $1 AND server_id = $2`,
+        [newCat, serverId],
+      );
+      if (lockedCategory.rows.length === 0) {
+        if (ownsTransaction) await client.query('ROLLBACK');
+        return 'invalid_body';
+      }
+    }
 
     const oldBucket = await listBucketChannelIds(
       client as unknown as pg.Pool,
@@ -216,13 +258,23 @@ export async function applyEchoChannelPlacement(
       oldCat,
     );
     if (!oldBucket.includes(channelId)) {
-      await client.query('ROLLBACK');
+      if (ownsTransaction) await client.query('ROLLBACK');
       return 'not_found';
     }
 
+    const lockedSiblingIndex =
+      siblingIndex ??
+      (
+        await listBucketChannelIds(
+          client as unknown as pg.Pool,
+          serverId,
+          newCat,
+        )
+      ).filter((id) => id !== channelId).length;
+
     if (categoryIdsEqual(newCat, oldCat)) {
       const without = oldBucket.filter((id) => id !== channelId);
-      const clamped = Math.min(siblingIndex, without.length);
+      const clamped = Math.min(lockedSiblingIndex, without.length);
       const nextOrder = [
         ...without.slice(0, clamped),
         channelId,
@@ -235,7 +287,7 @@ export async function applyEchoChannelPlacement(
 
       const destBefore = await listBucketChannelIds(client, serverId, newCat);
       const destWithout = destBefore.filter((id) => id !== channelId);
-      const clamped = Math.min(siblingIndex, destWithout.length);
+      const clamped = Math.min(lockedSiblingIndex, destWithout.length);
       const nextDest = [
         ...destWithout.slice(0, clamped),
         channelId,
@@ -271,14 +323,14 @@ export async function applyEchoChannelPlacement(
       }
     }
 
-    await client.query('COMMIT');
+    if (ownsTransaction) await client.query('COMMIT');
   } catch {
-    await client.query('ROLLBACK');
+    if (ownsTransaction) await client.query('ROLLBACK');
     throw new Error('applyEchoChannelPlacement failed');
   } finally {
-    client.release();
+    if (ownsTransaction) client.release();
   }
 
-  invalidateEchoPermissionCacheForServer(serverId);
+  if (!mutationClient) invalidateEchoPermissionCacheForServer(serverId);
   return 'ok';
 }

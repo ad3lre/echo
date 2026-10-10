@@ -18,7 +18,9 @@ import {
   queryEchoDmThreadsForUser,
   selectUnreadAttentionAggregatesByChannel,
   selectUnreadAttentionAggregatesForUsersOnChannel,
+  selectUnreadMentionRowsForUsersOnChannel,
   selectUnreadMentionRowsForAttention,
+  selectUnreadReplyingUsersOnChannel,
   selectUnreadReplyToSelfRowsForAttention,
   type UnreadAttentionAggregate,
 } from '../../echoMessagesDal';
@@ -32,7 +34,10 @@ import { listEchoMemberRoleAssignmentsForUsers } from '../roles/memberRoleAssign
 import { listEchoSelfRoleIdsByServer } from '../roles/roles';
 import { listEchoServerNotificationLevelsForUser } from '../servers/serverNotificationPreferences';
 import { listEchoChannelNotificationOverridesForUser } from '../channels/channelNotificationOverrides';
-import { getEchoUserPublicProfileRow } from '../members/userTypingProfile';
+import {
+  getEchoUserPublicProfileRow,
+  getEchoUserPublicProfileRows,
+} from '../members/userTypingProfile';
 
 function parseMentions(raw: unknown): MentionEntity[] {
   if (!Array.isArray(raw)) return [];
@@ -377,6 +382,9 @@ export async function buildEchoChannelAttentionFanoutDeltas(
   const unreadMap = new Map(
     unreadByUser.map((row) => [row.user_id, row] as const),
   );
+  const unreadUserIds = unique.filter(
+    (userId) => (unreadMap.get(userId)?.unread_count ?? 0) > 0,
+  );
 
   const notificationLevelByUserId: Record<string, EchoServerNotificationLevel> =
     {};
@@ -410,6 +418,35 @@ export async function buildEchoChannelAttentionFanoutDeltas(
     }
   }
 
+  const profileRowsByUserId = new Map<
+    string,
+    Awaited<ReturnType<typeof getEchoUserPublicProfileRow>>
+  >();
+  const mentionRowsByUserId = new Map<string, unknown[]>();
+  let replyingUserIds = new Set<string>();
+  if (isGuild && unreadUserIds.length > 0) {
+    const profileBatches: string[][] = [];
+    for (let offset = 0; offset < unreadUserIds.length; offset += 200) {
+      profileBatches.push(unreadUserIds.slice(offset, offset + 200));
+    }
+    const [mentionRows, replying, profilesByBatch] = await Promise.all([
+      selectUnreadMentionRowsForUsersOnChannel(pool, ch, unreadUserIds),
+      selectUnreadReplyingUsersOnChannel(pool, ch, unreadUserIds),
+      Promise.all(
+        profileBatches.map((ids) => getEchoUserPublicProfileRows(pool, ids)),
+      ),
+    ]);
+    for (const row of mentionRows) {
+      const rows = mentionRowsByUserId.get(row.user_id) ?? [];
+      rows.push(row.mentions);
+      mentionRowsByUserId.set(row.user_id, rows);
+    }
+    replyingUserIds = new Set(replying);
+    for (const profile of profilesByBatch.flat()) {
+      profileRowsByUserId.set(profile.id, profile);
+    }
+  }
+
   const out: EchoChannelAttentionFanoutDelta[] = [];
   for (const userId of unique) {
     const lastReadMessageId = readStateByUserId[userId] ?? null;
@@ -428,30 +465,47 @@ export async function buildEchoChannelAttentionFanoutDeltas(
       });
       continue;
     }
-    const channelAttention = await buildEchoSingleChannelAttention(
-      pool,
-      userId,
-      ch,
-      {
-        lastReadMessageId,
-        serverId: isGuild ? (serverId ?? undefined) : undefined,
-        notificationLevel: isGuild
-          ? (notificationLevelByUserId[userId] ?? 'mentions')
-          : undefined,
-        memberRoleIds: isGuild
-          ? new Set(roleIdsByUserId[userId] ?? [])
-          : undefined,
-        unreadAggregate: {
-          channel_id: agg.channel_id,
-          server_id: agg.server_id,
-          unread_count: agg.unread_count,
-          first_unread_message_id: agg.first_unread_message_id,
-          first_unread_created_at: agg.first_unread_created_at,
-          latest_unread_message_id: agg.latest_unread_message_id,
-          latest_unread_created_at: agg.latest_unread_created_at,
-        },
-      },
-    );
+    let pingKind: EchoAttentionPingKind | null = null;
+    if (isGuild) {
+      const profile = profileRowsByUserId.get(userId);
+      const level = notificationLevelByUserId[userId] ?? 'mentions';
+      const memberRoleIds = new Set(roleIdsByUserId[userId] ?? []);
+      for (const mentions of mentionRowsByUserId.get(userId) ?? []) {
+        pingKind = mergeAttentionPingKinds(
+          pingKind,
+          applyAttentionNotificationLevel(
+            level,
+            classifyAttentionPingKind(parseMentions(mentions), {
+              userId,
+              ...(profile?.username?.trim()
+                ? { username: profile.username.trim() }
+                : {}),
+              ...(profile?.name?.trim()
+                ? { displayName: profile.name.trim() }
+                : {}),
+              memberRoleIds,
+            }),
+          ),
+        );
+      }
+      if (replyingUserIds.has(userId)) {
+        pingKind = mergeAttentionPingKinds(
+          pingKind,
+          applyAttentionNotificationLevel(level, 'personal'),
+        );
+      }
+    }
+    const channelAttention: EchoAttentionChannelSummary = {
+      channelId: ch,
+      kind: isGuild ? 'server' : 'dm',
+      ...(isGuild && serverId ? { serverId } : {}),
+      lastReadMessageId,
+      unreadCount: agg.unread_count,
+      firstUnreadMessageId: agg.first_unread_message_id ?? undefined,
+      latestUnreadMessageId: agg.latest_unread_message_id ?? undefined,
+      latestUnreadMessageAt: agg.latest_unread_created_at ?? undefined,
+      ...(pingKind ? { pingKind } : {}),
+    };
     out.push({ userId, lastReadMessageId, channelAttention });
   }
   return out;

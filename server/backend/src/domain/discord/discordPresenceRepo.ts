@@ -37,6 +37,7 @@ export async function upsertDiscordPresence(
       is_online = EXCLUDED.is_online,
       snapshot_at = EXCLUDED.snapshot_at,
       discord_guild_id = EXCLUDED.discord_guild_id
+    WHERE EXCLUDED.snapshot_at >= echo_discord_presence.snapshot_at
     `,
     [
       input.discordUserId,

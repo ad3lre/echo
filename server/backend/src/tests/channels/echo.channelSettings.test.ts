@@ -12,6 +12,7 @@ import {
   listEchoChannels,
   patchEchoChannel,
 } from '../../domain/echoStore';
+import { getEchoChannelMeta } from '../../domain/echoStore/channels/channelMeta';
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
   const passwordHash = await bcrypt.hash('pw', 4);
@@ -121,6 +122,46 @@ async function run(): Promise<void> {
     assert.equal(j2.reason, 'full');
 
     const textId = created.defaultChannelId;
+
+    // A failure in the final overwrite write must roll back the channel fields
+    // that were updated earlier in the same patch.
+    const triggerSuffix = Date.now().toString(36);
+    const triggerFunction = `chset_fail_overwrite_${triggerSuffix}`;
+    const triggerName = `chset_fail_overwrite_${triggerSuffix}`;
+    await pool.query(`
+      CREATE FUNCTION ${triggerFunction}() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.channel_id = '${textId.replace(/'/g, "''")}' THEN
+          RAISE EXCEPTION 'injected channel overwrite failure';
+        END IF;
+        RETURN NEW;
+      END;
+      $$
+    `);
+    await pool.query(
+      `CREATE TRIGGER ${triggerName} BEFORE INSERT ON echo_channel_permission_overwrite_rows
+       FOR EACH ROW EXECUTE FUNCTION ${triggerFunction}()`,
+    );
+    try {
+      await assert.rejects(
+        patchEchoChannel(pool, serverId, ownerId, textId, {
+          name: 'must-roll-back',
+          permissionOverrides: { SEND_MESSAGE: false },
+        }),
+        /replaceEchoChannelPermissionOverwrites failed/,
+      );
+      const unchangedName = await pool.query(
+        `SELECT name FROM echo_channels WHERE id = $1`,
+        [textId],
+      );
+      assert.equal(unchangedName.rows[0]?.name, 'general');
+    } finally {
+      await pool.query(
+        `DROP TRIGGER ${triggerName} ON echo_channel_permission_overwrite_rows`,
+      );
+      await pool.query(`DROP FUNCTION ${triggerFunction}()`);
+    }
+
     const rPatch = await patchEchoChannel(pool, serverId, ownerId, textId, {
       slowmodeSeconds: 5,
       nsfw: true,
@@ -185,8 +226,7 @@ async function run(): Promise<void> {
       messageFormatHard: true,
     });
     assert.equal(rFmt, 'ok');
-    const fmtList = await listEchoChannels(pool, serverId);
-    const txtFmt = fmtList.find((c) => c.id === textId);
+    const txtFmt = await getEchoChannelMeta(pool, textId);
     assert.equal(txtFmt?.messageFormatTemplate, '- ');
     assert.equal(txtFmt?.messageFormatHard, true);
 
@@ -200,9 +240,7 @@ async function run(): Promise<void> {
       messageFormatHard: true,
     });
     assert.equal(rClear, 'ok');
-    const cleared = (await listEchoChannels(pool, serverId)).find(
-      (c) => c.id === textId,
-    );
+    const cleared = await getEchoChannelMeta(pool, textId);
     assert.equal(cleared?.messageFormatTemplate, '');
     assert.equal(cleared?.messageFormatHard, false);
 

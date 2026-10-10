@@ -565,13 +565,11 @@ function horizontalRingIconCssUrl(server: Server): string {
   </div>
 </template>
 
-<style lang="scss">
-@use './serverRailPills.scss';
-</style>
+<style lang="scss" src="./styles/ServerRailServerIcons.scss"></style>
 
 <style scoped>
 .server-folder__voice-badge {
-  background: var(--server-vc-active, #22c55e);
+  background: var(--server-vc-active, var(--echo-palette-22c55e-8b8f));
 }
 
 /**
@@ -588,13 +586,13 @@ function horizontalRingIconCssUrl(server: Server): string {
     radial-gradient(
       closest-side circle at 50% 50%,
       transparent calc(100% * 0.78),
-      #000 calc(100% * 0.78) calc(100% * 0.94),
+      var(--echo-palette-000-81ef) calc(100% * 0.78) calc(100% * 0.94),
       transparent 0
     ),
     conic-gradient(
       from 0deg at 50% 50%,
-      #000 0deg,
-      #000 22.5deg,
+      var(--echo-palette-000-81ef) 0deg,
+      var(--echo-palette-000-81ef) 22.5deg,
       transparent 22.5deg,
       transparent 360deg
     );
@@ -606,13 +604,13 @@ function horizontalRingIconCssUrl(server: Server): string {
     radial-gradient(
       closest-side circle at 50% 50%,
       transparent calc(100% * 0.78),
-      #000 calc(100% * 0.78) calc(100% * 0.94),
+      var(--echo-palette-000-81ef) calc(100% * 0.78) calc(100% * 0.94),
       transparent 0
     ),
     conic-gradient(
       from 0deg at 50% 50%,
-      #000 0deg,
-      #000 22.5deg,
+      var(--echo-palette-000-81ef) 0deg,
+      var(--echo-palette-000-81ef) 22.5deg,
       transparent 22.5deg,
       transparent 360deg
     );
@@ -629,13 +627,13 @@ function horizontalRingIconCssUrl(server: Server): string {
     radial-gradient(
       closest-side circle at 50% 50%,
       transparent calc(100% * 0.74),
-      #000 calc(100% * 0.74) calc(100% * 0.96),
+      var(--echo-palette-000-81ef) calc(100% * 0.74) calc(100% * 0.96),
       transparent 0
     ),
     conic-gradient(
       from 0deg at 50% 50%,
-      #000 0deg,
-      #000 22.5deg,
+      var(--echo-palette-000-81ef) 0deg,
+      var(--echo-palette-000-81ef) 22.5deg,
       transparent 22.5deg,
       transparent 360deg
     );
@@ -643,13 +641,13 @@ function horizontalRingIconCssUrl(server: Server): string {
     radial-gradient(
       closest-side circle at 50% 50%,
       transparent calc(100% * 0.74),
-      #000 calc(100% * 0.74) calc(100% * 0.96),
+      var(--echo-palette-000-81ef) calc(100% * 0.74) calc(100% * 0.96),
       transparent 0
     ),
     conic-gradient(
       from 0deg at 50% 50%,
-      #000 0deg,
-      #000 22.5deg,
+      var(--echo-palette-000-81ef) 0deg,
+      var(--echo-palette-000-81ef) 22.5deg,
       transparent 22.5deg,
       transparent 360deg
     );

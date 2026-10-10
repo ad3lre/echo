@@ -2,7 +2,10 @@ import type pg from 'pg';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Server as SocketIoServer } from 'socket.io';
 import { isPostgresUndefinedColumnError } from '../../../db/pgErrors';
-import { assertEchoUserHasServerMembershipSlot } from '../../echoPlanEntitlements';
+import {
+  assertEchoUserHasServerMembershipSlot,
+  lockEchoServerMembershipEntitlement,
+} from '../../echoPlanEntitlements';
 import { nextEchoSnowflakeId } from '../../echoSnowflake';
 import { insertEchoAudit } from '../safety/auditLog';
 import { isUserBannedFromServer } from '../members/access';
@@ -1171,6 +1174,7 @@ export async function joinEchoServerFromInvite(
         return { ok: false, reason: 'invites_disabled' };
       }
       if (!alreadyMember) {
+        await lockEchoServerMembershipEntitlement(client, userId);
         const raid = await isEchoRaidJoinBlocked(client, serverId);
         if (raid.blocked) {
           await client.query(`ROLLBACK`);
@@ -1273,6 +1277,7 @@ export async function joinEchoServerFromDirectory(
       );
       alreadyMember = mem.rows.length > 0;
       if (!alreadyMember) {
+        await lockEchoServerMembershipEntitlement(client, userId);
         const raid = await isEchoRaidJoinBlocked(client, serverId);
         if (raid.blocked) {
           await client.query(`ROLLBACK`);

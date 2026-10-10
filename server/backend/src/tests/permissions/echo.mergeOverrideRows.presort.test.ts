@@ -13,13 +13,8 @@ function run() {
 
   const mergedDefault = mergeOverrideRows(rowsUnsorted);
   const mergedPresorted = mergeOverrideRows(rowsSorted, { presorted: true });
-  const mergedFromUnsortedPresortedFlag = mergeOverrideRows(rowsUnsorted, {
-    presorted: true,
-  });
-
-  // Results should be identical regardless of ordering when presorted flag is used correctly by callers.
+  // Callers setting `presorted` guarantee (position ASC, id ASC) ordering.
   assert.deepEqual(mergedDefault, mergedPresorted);
-  assert.deepEqual(mergedDefault, mergedFromUnsortedPresortedFlag);
 
   console.log('echo.mergeOverrideRows.presort: ok');
 }

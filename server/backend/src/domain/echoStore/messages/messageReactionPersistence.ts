@@ -57,21 +57,42 @@ export async function persistToggleEchoMessageReaction(
     };
   }
 
-  const has = await userHasEchoMessageReaction(pool, messageId, userId, emoji);
-  if (has) {
-    if (!(await canUserAccessChannel(pool, userId, channelId))) {
-      return { ok: false, code: 'FORBIDDEN' };
+  const lockClient = await pool.connect();
+  try {
+    await lockClient.query(`SELECT pg_advisory_lock(hashtextextended($1, 0))`, [
+      `echo_reaction:${messageId}:${userId}:${emoji}`,
+    ]);
+    const has = await userHasEchoMessageReaction(
+      pool,
+      messageId,
+      userId,
+      emoji,
+    );
+    if (has) {
+      if (!(await canUserAccessChannel(pool, userId, channelId))) {
+        return { ok: false, code: 'FORBIDDEN' };
+      }
+      await removeEchoMessageReaction(pool, messageId, userId, emoji);
+    } else {
+      if (!(await canUserAddMessageReaction(pool, userId, channelId))) {
+        return { ok: false, code: 'FORBIDDEN' };
+      }
+      await upsertEchoMessageReaction(pool, messageId, userId, emoji);
     }
-    await removeEchoMessageReaction(pool, messageId, userId, emoji);
-  } else {
-    if (!(await canUserAddMessageReaction(pool, userId, channelId))) {
-      return { ok: false, code: 'FORBIDDEN' };
-    }
-    await upsertEchoMessageReaction(pool, messageId, userId, emoji);
-  }
 
-  const reactions = await loadAggregatedReactionsForMessage(pool, messageId);
-  return { ok: true, reactions };
+    const reactions = await loadAggregatedReactionsForMessage(pool, messageId);
+    return { ok: true, reactions };
+  } finally {
+    try {
+      await lockClient.query(
+        `SELECT pg_advisory_unlock(hashtextextended($1, 0))`,
+        [`echo_reaction:${messageId}:${userId}:${emoji}`],
+      );
+      lockClient.release();
+    } catch (unlockError) {
+      lockClient.release(unlockError as Error);
+    }
+  }
 }
 
 export async function persistAddEchoMessageReaction(

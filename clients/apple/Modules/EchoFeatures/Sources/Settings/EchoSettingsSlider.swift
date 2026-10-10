@@ -20,7 +20,7 @@ struct EchoSettingSlider: View {
           .font(.system(size: 14, weight: .medium, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.58))
         Spacer()
-        Text("\(Int(value * valueScale))%")
+        Text(EchoCopy.format("%lld%%", Int(value * valueScale)))
           .font(.system(size: 13, weight: .semibold, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.78))
           .monospacedDigit()

@@ -236,12 +236,22 @@ export async function replaceEchoChannelPermissionOverwrites(
   actorId: string,
   channelId: string,
   rows: EchoPermissionOverwriteRowInput[],
+  mutationClient?: pg.PoolClient,
 ): Promise<ReplaceEchoPermissionOverwritesResult> {
-  const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
+  const queryable = mutationClient ?? pool;
+  const actorPerms = await getMergedRolePermissions(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!actorPerms.has('MANAGE_ROLES') && !actorPerms.has('MANAGE_GUILD'))
     return 'forbidden';
-  const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
-  const ch = await pool.query(
+  const actorIsOwner = await isEchoServerOwner(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
+  const ch = await queryable.query(
     `SELECT id FROM echo_channels WHERE id = $1 AND server_id = $2`,
     [channelId, serverId],
   );
@@ -249,15 +259,15 @@ export async function replaceEchoChannelPermissionOverwrites(
   if (!Array.isArray(rows)) return 'invalid_body';
 
   if (rows.length === 0) {
-    await pool.query(
+    await queryable.query(
       `DELETE FROM echo_channel_permission_overwrite_rows WHERE server_id = $1 AND channel_id = $2`,
       [serverId, channelId],
     );
-    await pool.query(
+    await queryable.query(
       `UPDATE echo_channels SET permission_overrides = NULL WHERE id = $1 AND server_id = $2`,
       [channelId, serverId],
     );
-    invalidateEchoPermissionCacheForServer(serverId);
+    if (!mutationClient) invalidateEchoPermissionCacheForServer(serverId);
     return 'ok';
   }
 
@@ -272,7 +282,7 @@ export async function replaceEchoChannelPermissionOverwrites(
     preparedRows;
 
   if (roleIdsToValidate.length > 0) {
-    const q = await pool.query(
+    const q = await queryable.query(
       `SELECT id FROM echo_roles WHERE server_id = $1 AND id = ANY($2::text[])`,
       [serverId, [...new Set(roleIdsToValidate)]],
     );
@@ -282,7 +292,7 @@ export async function replaceEchoChannelPermissionOverwrites(
     }
   }
   if (memberIdsToValidate.length > 0) {
-    const q = await pool.query(
+    const q = await queryable.query(
       `SELECT user_id FROM echo_server_members WHERE server_id = $1 AND user_id = ANY($2::text[])`,
       [serverId, [...new Set(memberIdsToValidate)]],
     );
@@ -294,9 +304,10 @@ export async function replaceEchoChannelPermissionOverwrites(
     }
   }
 
-  const client = await pool.connect();
+  const client = mutationClient ?? (await pool.connect());
+  const ownsTransaction = mutationClient === undefined;
   try {
-    await client.query('BEGIN');
+    if (ownsTransaction) await client.query('BEGIN');
     await client.query(
       `DELETE FROM echo_channel_permission_overwrite_rows WHERE server_id = $1 AND channel_id = $2`,
       [serverId, channelId],
@@ -319,14 +330,14 @@ export async function replaceEchoChannelPermissionOverwrites(
       `UPDATE echo_channels SET permission_overrides = NULL WHERE id = $1 AND server_id = $2`,
       [channelId, serverId],
     );
-    await client.query('COMMIT');
+    if (ownsTransaction) await client.query('COMMIT');
   } catch {
-    await client.query('ROLLBACK');
+    if (ownsTransaction) await client.query('ROLLBACK');
     throw new Error('replaceEchoChannelPermissionOverwrites failed');
   } finally {
-    client.release();
+    if (ownsTransaction) client.release();
   }
-  invalidateEchoPermissionCacheForServer(serverId);
+  if (!mutationClient) invalidateEchoPermissionCacheForServer(serverId);
   return replaceOverwriteResultFromStripped(strippedAllows);
 }
 
@@ -527,6 +538,18 @@ export async function patchEchoChannel(
       return 'forbidden';
     }
   }
+  if (patch.permissionOverrides !== undefined) {
+    if (!merged.has('MANAGE_ROLES') && !merged.has('MANAGE_GUILD')) {
+      return 'forbidden';
+    }
+    if (
+      patch.permissionOverrides !== null &&
+      (typeof patch.permissionOverrides !== 'object' ||
+        Array.isArray(patch.permissionOverrides))
+    ) {
+      return 'invalid_body';
+    }
+  }
 
   const chQ = await pool.query(
     `SELECT id, name, type, category_id,
@@ -660,125 +683,151 @@ export async function patchEchoChannel(
   if (patch.moveOutOfCategoryPermission !== undefined && !wantsPlacement)
     return 'invalid_body';
 
-  if (wantsPlacement) {
-    const pr = await applyEchoChannelPlacement(
-      pool,
-      serverId,
-      actorId,
-      channelId,
-      {
-        targetCategoryId:
-          patch.categoryId !== undefined ? patch.categoryId : undefined,
-        siblingIndex: patch.siblingIndex,
-        moveOutOfCategoryPermission: patch.moveOutOfCategoryPermission,
-      },
-    );
-    if (pr !== 'ok') return pr;
-  }
-
-  const sets: string[] = [];
-  const vals: unknown[] = [];
-
-  if (patch.name !== undefined) {
-    sets.push(`name = $${vals.length + 1}`);
-    vals.push(clampEchoChannelName(String(patch.name)));
-  }
-  if (patch.slowmodeSeconds !== undefined) {
-    sets.push(`slowmode_seconds = $${vals.length + 1}`);
-    vals.push(Math.floor(patch.slowmodeSeconds));
-  }
-  if (patch.userLimit !== undefined) {
-    sets.push(`user_limit = $${vals.length + 1}`);
-    vals.push(Math.floor(patch.userLimit));
-  }
-  if (patch.bitrateBps !== undefined) {
-    sets.push(`bitrate_bps = $${vals.length + 1}`);
-    vals.push(patch.bitrateBps);
-  }
-  if (patch.nsfw !== undefined) {
-    sets.push(`nsfw = $${vals.length + 1}`);
-    vals.push(patch.nsfw);
-  }
-  if (patch.iconKey !== undefined) {
-    sets.push(`icon_key = $${vals.length + 1}`);
-    vals.push(normalizeEchoChannelIconKeyForDb(patch.iconKey));
-  }
-  if (patch.forumCreatorDefaultPerms !== undefined) {
-    const norm = normalizeForumCreatorDefaultPerms(
-      patch.forumCreatorDefaultPerms,
-    );
-    sets.push(`forum_creator_default_perms = $${vals.length + 1}`);
-    vals.push(norm);
-  }
-  if (patch.voiceE2eeEnabled !== undefined) {
-    sets.push(`voice_e2ee_enabled = $${vals.length + 1}`);
-    vals.push(patch.voiceE2eeEnabled);
-  }
-  if (patch.autoDeleteAfterSeconds !== undefined) {
-    const parsed = parseAutoDeleteAfterSecondsPatch(
-      patch.autoDeleteAfterSeconds,
-    );
-    sets.push(`auto_delete_after_seconds = $${vals.length + 1}`);
-    vals.push(parsed ?? null);
-  }
-  if (patch.autoDeleteSyncedToCategory !== undefined) {
-    sets.push(`auto_delete_synced_to_category = $${vals.length + 1}`);
-    vals.push(patch.autoDeleteSyncedToCategory);
-  }
-  if (patch.paperCommentsEnabled !== undefined) {
-    sets.push(`paper_comments_enabled = $${vals.length + 1}`);
-    vals.push(patch.paperCommentsEnabled);
-  }
-  if (patch.paperShowAuthorGutter !== undefined) {
-    sets.push(`paper_show_author_gutter = $${vals.length + 1}`);
-    vals.push(patch.paperShowAuthorGutter);
-  }
-
-  if (formatPatchRequested) {
-    const dbT = String(ch.message_format_template ?? '');
-    const dbH = ch.message_format_hard === true;
-    const nextT =
-      patch.messageFormatTemplate !== undefined
-        ? normalizeEchoMessageFormatTemplateInput(patch.messageFormatTemplate)
-        : dbT;
-    let nextH =
-      patch.messageFormatHard !== undefined ? patch.messageFormatHard : dbH;
-    if (!nextT) nextH = false;
-    if (patch.messageFormatTemplate !== undefined) {
-      sets.push(`message_format_template = $${vals.length + 1}`);
-      vals.push(nextT);
-      sets.push(`message_format_hard = $${vals.length + 1}`);
-      vals.push(nextH);
-    } else if (patch.messageFormatHard !== undefined) {
-      sets.push(`message_format_hard = $${vals.length + 1}`);
-      vals.push(nextH);
+  const mutationClient = await pool.connect();
+  try {
+    await mutationClient.query('BEGIN');
+    if (wantsPlacement) {
+      const pr = await applyEchoChannelPlacement(
+        pool,
+        serverId,
+        actorId,
+        channelId,
+        {
+          targetCategoryId:
+            patch.categoryId !== undefined ? patch.categoryId : undefined,
+          siblingIndex: patch.siblingIndex,
+          moveOutOfCategoryPermission: patch.moveOutOfCategoryPermission,
+        },
+        mutationClient,
+      );
+      if (pr !== 'ok') {
+        await mutationClient.query('ROLLBACK');
+        return pr;
+      }
     }
-  }
 
-  if (sets.length > 0) {
-    const wBase = vals.length;
-    vals.push(serverId, channelId);
-    await pool.query(
-      `UPDATE echo_channels SET ${sets.join(', ')} WHERE server_id = $${wBase + 1} AND id = $${wBase + 2}`,
-      vals,
-    );
-    invalidateEchoPermissionCacheForServer(serverId);
-  }
+    const sets: string[] = [];
+    const vals: unknown[] = [];
 
-  if (patch.permissionOverrides !== undefined) {
-    const pr = await updateEchoChannelPermissionOverrides(
-      pool,
-      serverId,
-      actorId,
-      channelId,
-      patch.permissionOverrides,
-    );
-    if (pr === 'forbidden' || pr === 'not_found' || pr === 'invalid_body') {
-      return pr;
+    if (patch.name !== undefined) {
+      sets.push(`name = $${vals.length + 1}`);
+      vals.push(clampEchoChannelName(String(patch.name)));
     }
-  }
+    if (patch.slowmodeSeconds !== undefined) {
+      sets.push(`slowmode_seconds = $${vals.length + 1}`);
+      vals.push(Math.floor(patch.slowmodeSeconds));
+    }
+    if (patch.userLimit !== undefined) {
+      sets.push(`user_limit = $${vals.length + 1}`);
+      vals.push(Math.floor(patch.userLimit));
+    }
+    if (patch.bitrateBps !== undefined) {
+      sets.push(`bitrate_bps = $${vals.length + 1}`);
+      vals.push(patch.bitrateBps);
+    }
+    if (patch.nsfw !== undefined) {
+      sets.push(`nsfw = $${vals.length + 1}`);
+      vals.push(patch.nsfw);
+    }
+    if (patch.iconKey !== undefined) {
+      sets.push(`icon_key = $${vals.length + 1}`);
+      vals.push(normalizeEchoChannelIconKeyForDb(patch.iconKey));
+    }
+    if (patch.forumCreatorDefaultPerms !== undefined) {
+      const norm = normalizeForumCreatorDefaultPerms(
+        patch.forumCreatorDefaultPerms,
+      );
+      sets.push(`forum_creator_default_perms = $${vals.length + 1}`);
+      vals.push(norm);
+    }
+    if (patch.voiceE2eeEnabled !== undefined) {
+      sets.push(`voice_e2ee_enabled = $${vals.length + 1}`);
+      vals.push(patch.voiceE2eeEnabled);
+    }
+    if (patch.autoDeleteAfterSeconds !== undefined) {
+      const parsed = parseAutoDeleteAfterSecondsPatch(
+        patch.autoDeleteAfterSeconds,
+      );
+      sets.push(`auto_delete_after_seconds = $${vals.length + 1}`);
+      vals.push(parsed ?? null);
+    }
+    if (patch.autoDeleteSyncedToCategory !== undefined) {
+      sets.push(`auto_delete_synced_to_category = $${vals.length + 1}`);
+      vals.push(patch.autoDeleteSyncedToCategory);
+    }
+    if (patch.paperCommentsEnabled !== undefined) {
+      sets.push(`paper_comments_enabled = $${vals.length + 1}`);
+      vals.push(patch.paperCommentsEnabled);
+    }
+    if (patch.paperShowAuthorGutter !== undefined) {
+      sets.push(`paper_show_author_gutter = $${vals.length + 1}`);
+      vals.push(patch.paperShowAuthorGutter);
+    }
 
-  return 'ok';
+    if (formatPatchRequested) {
+      const dbT = String(ch.message_format_template ?? '');
+      const dbH = ch.message_format_hard === true;
+      const nextT =
+        patch.messageFormatTemplate !== undefined
+          ? normalizeEchoMessageFormatTemplateInput(patch.messageFormatTemplate)
+          : dbT;
+      let nextH =
+        patch.messageFormatHard !== undefined ? patch.messageFormatHard : dbH;
+      if (!nextT) nextH = false;
+      if (patch.messageFormatTemplate !== undefined) {
+        sets.push(`message_format_template = $${vals.length + 1}`);
+        vals.push(nextT);
+        sets.push(`message_format_hard = $${vals.length + 1}`);
+        vals.push(nextH);
+      } else if (patch.messageFormatHard !== undefined) {
+        sets.push(`message_format_hard = $${vals.length + 1}`);
+        vals.push(nextH);
+      }
+    }
+
+    if (sets.length > 0) {
+      const wBase = vals.length;
+      vals.push(serverId, channelId);
+      await mutationClient.query(
+        `UPDATE echo_channels SET ${sets.join(', ')} WHERE server_id = $${wBase + 1} AND id = $${wBase + 2}`,
+        vals,
+      );
+    }
+
+    if (patch.permissionOverrides !== undefined) {
+      const pr = await updateEchoChannelPermissionOverrides(
+        pool,
+        serverId,
+        actorId,
+        channelId,
+        patch.permissionOverrides,
+        mutationClient,
+      );
+      if (pr === 'forbidden' || pr === 'not_found' || pr === 'invalid_body') {
+        await mutationClient.query('ROLLBACK');
+        return pr;
+      }
+    }
+
+    await mutationClient.query('COMMIT');
+    if (
+      sets.length > 0 ||
+      wantsPlacement ||
+      patch.permissionOverrides !== undefined
+    ) {
+      invalidateEchoPermissionCacheForServer(serverId);
+    }
+    return 'ok';
+  } catch (err) {
+    try {
+      await mutationClient.query('ROLLBACK');
+    } catch {
+      /* preserve original error */
+    }
+    throw err;
+  } finally {
+    mutationClient.release();
+  }
 }
 
 /** Text slowmode: false if user must wait. Bypass: MANAGE_MESSAGES, MANAGE_CHANNELS, or Discord BYPASS_SLOWMODE. */
@@ -822,25 +871,31 @@ export async function updateEchoChannelPermissionOverrides(
   actorId: string,
   channelId: string,
   permissionOverrides: Record<string, unknown> | null,
+  mutationClient?: pg.PoolClient,
 ): Promise<UpdateEchoChannelPermissionOverridesResult> {
-  const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
+  const queryable = mutationClient ?? pool;
+  const actorPerms = await getMergedRolePermissions(
+    queryable as pg.Pool,
+    serverId,
+    actorId,
+  );
   if (!actorPerms.has('MANAGE_ROLES') && !actorPerms.has('MANAGE_GUILD'))
     return 'forbidden';
-  const ch = await pool.query(
+  const ch = await queryable.query(
     `SELECT id FROM echo_channels WHERE id = $1 AND server_id = $2`,
     [channelId, serverId],
   );
   if (ch.rows.length === 0) return 'not_found';
   if (permissionOverrides === null) {
-    await pool.query(
+    await queryable.query(
       `DELETE FROM echo_channel_permission_overwrite_rows WHERE server_id = $1 AND channel_id = $2`,
       [serverId, channelId],
     );
-    await pool.query(
+    await queryable.query(
       `UPDATE echo_channels SET permission_overrides = NULL WHERE id = $1 AND server_id = $2`,
       [channelId, serverId],
     );
-    invalidateEchoPermissionCacheForServer(serverId);
+    if (!mutationClient) invalidateEchoPermissionCacheForServer(serverId);
     return 'ok';
   }
   if (
@@ -857,6 +912,7 @@ export async function updateEchoChannelPermissionOverrides(
     actorId,
     channelId,
     [{ targetType: 'members', partial: cleaned }],
+    mutationClient,
   );
 }
 
