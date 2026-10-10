@@ -1,4 +1,15 @@
 /**
+ * User-facing copy when a guest is blocked from sending channel messages
+ * (`GUEST_LIMIT`). Cap `0` means messaging is locked to registered accounts.
+ */
+export function guestMessagingLimitDetail(cap: number): string {
+  if (cap <= 0) {
+    return 'Create an account to send messages.';
+  }
+  return 'Guest message limit reached. Create an account to continue.';
+}
+
+/**
  * Default-deny guest mutations on Echo REST: only explicitly allowlisted route patterns.
  * `routeUrl` is Fastify's route path (e.g. `/channels/:channelId/messages/:messageId`).
  */

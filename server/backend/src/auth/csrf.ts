@@ -39,6 +39,10 @@ const CSRF_EXEMPT_EXACT = new Set([
   '/api/v1/echo/marketing-poll/adel-approval-v2',
   /** Client boot-stall watcher — no session / CSRF cookie at cold start. */
   '/api/v1/echo/public/client-alerts/boot-stall',
+  /**
+   * Exyno chat.exyno.de password-unlock alerts (server→server; shared secret header).
+   */
+  '/api/v1/echo/public/client-alerts/exyno-chat-unlock',
   /** Anonymous client environment rollup — fires once per tab at cold start. */
   '/api/v1/analytics/client-environment',
   '/api/v1/hooks/livekit',

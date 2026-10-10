@@ -2,12 +2,12 @@
 
 export type PaperAppearanceMode = 'light' | 'dark' | 'sunny' | 'amoled';
 
-/** Cycle order matches Settings → Appearance theme cards (Sunny, Light, Dark, Amoled). */
+/** Cycle order matches Settings → Appearance theme cards (Amoled, Dark, Light, Sunny). */
 export const PAPER_APPEARANCE_CYCLE: readonly PaperAppearanceMode[] = [
-  'sunny',
-  'light',
-  'dark',
   'amoled',
+  'dark',
+  'light',
+  'sunny',
 ] as const;
 
 export type PaperPageColorPair = {

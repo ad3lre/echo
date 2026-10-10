@@ -79,10 +79,10 @@ export const PHONE_VERIFICATION_COMING_SOON = true;
 export const TWO_FACTOR_AUTH_COMING_SOON = true;
 
 export const THEME_OPTIONS = [
-  { id: 'Sunny' },
-  { id: 'Light' },
-  { id: 'Dark' },
   { id: 'Amoled' },
+  { id: 'Dark' },
+  { id: 'Light' },
+  { id: 'Sunny' },
 ];
 
 export const DENSITY_OPTIONS = [

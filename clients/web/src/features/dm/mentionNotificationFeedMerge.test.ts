@@ -169,6 +169,31 @@ describe('mergeMentionNotificationRows', () => {
     expect(merged[0]?.preview).toBe('discord @you ping');
   });
 
+  it('drops all client placeholders once the server feed has loaded', () => {
+    // Discord bridge: attention stub anchored on a non-mention latestUnread id,
+    // server feed returned empty for that channel (or the mention is elsewhere).
+    // After the feed settles we must not leave "Someone / Could not load…".
+    const client = [
+      clientRow({
+        channelId: 'c-discord',
+        messageId: 'latest-unread-non-mention',
+        preview: MENTION_NOTIFICATION_FAILED_PREVIEW,
+        authorId: '',
+        authorName: 'Someone',
+      }),
+      clientRow({
+        channelId: 'c-live',
+        messageId: 'm-live',
+        preview: 'live @you from socket',
+      }),
+    ];
+    const merged = mergeMentionNotificationRows([], client, 200, {
+      dropAllClientPlaceholders: true,
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.messageId).toBe('m-live');
+  });
+
   it('keeps a real client row for the same channel even when server covers it', () => {
     // A live websocket message (m11) arrived after the server fetch — it has a
     // resolved preview and should always be kept alongside the server row.

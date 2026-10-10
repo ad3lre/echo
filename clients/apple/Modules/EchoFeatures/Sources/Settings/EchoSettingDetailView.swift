@@ -17,7 +17,7 @@ struct EchoSettingDetailView: View {
   @AppStorage("echo.settings.time24Hour") private var uses24HourTime = false
   @AppStorage(EchoDisplayPreferences.Keys.syncTheme) private var syncTheme = false
   @AppStorage(EchoDisplayPreferences.Keys.saturateAccents) private var saturateAccents = false
-  @AppStorage(EchoDisplayPreferences.Keys.theme) private var theme = "dark"
+  @AppStorage(EchoDisplayPreferences.Keys.theme) private var theme = "amoled"
   @AppStorage(EchoDisplayPreferences.Keys.density) private var density = "comfortable"
   @AppStorage(EchoDisplayPreferences.Keys.fontScale) private var fontScale = 100.0
   @AppStorage(EchoDisplayPreferences.Keys.highContrast) private var highContrast = false
@@ -166,7 +166,7 @@ struct EchoSettingDetailView: View {
               // Migrate legacy "system" id if still present in storage.
               if next == "system" {
                 syncTheme = true
-                theme = "dark"
+                theme = "amoled"
               } else if syncTheme {
                 syncTheme = false
               }
@@ -187,7 +187,7 @@ struct EchoSettingDetailView: View {
               // Keep Amoled/Sunny swatch while syncing — OS only swaps light↔dark
               // (web resolveEffective*Variant). Migrate legacy "system" storage.
               if enabled, theme == "system" {
-                theme = "dark"
+                theme = "amoled"
               }
             }
             EchoSettingToggle(

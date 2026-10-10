@@ -1,6 +1,10 @@
 import Redis from 'ioredis';
 import { echoIoredisClientOptions } from '../../constants/ioredisEchoClient';
 import { config } from '../../config';
+import {
+  isSpamHaltActive,
+  recordSpamStrikeAndHalt,
+} from './progressiveSpamHalt';
 
 const MS_HOUR = 60 * 60 * 1000;
 const MS_DAY = 24 * MS_HOUR;
@@ -14,7 +18,6 @@ const mintTimestampsByIp = new Map<string, number[]>();
 const mintTimestamps24hByIp = new Map<string, number[]>();
 const guestMintBlockUntilByIp = new Map<string, number>();
 const failedCaptchaCountByIp = new Map<string, number>();
-const guestWriteComboBlockUntil = new Map<string, number>();
 
 function getRedis(): Redis | null {
   if (process.env.ECHO_CONFIG_TEST_ISOLATION === '1') return null;
@@ -33,10 +36,6 @@ function pruneTimestamps(
 ): number[] {
   const cutoff = now - windowMs;
   return arr.filter((t) => t > cutoff);
-}
-
-function comboKey(ip: string, guestId: string): string {
-  return `${ip}|${guestId}`;
 }
 
 function hourBucket(now: number): string {
@@ -195,46 +194,25 @@ export async function recordFailedGuestCaptcha(
   }
 }
 
+/**
+ * After a guest hits the socket/REST message rate limit, escalate the progressive
+ * spam-halt ladder (1m → 5m → 30m → 6h → 24h) for this guest + IP.
+ */
 export async function blockGuestWritesForIpGuest(
   ip: string,
   guestUserId: string,
   now = Date.now(),
 ): Promise<void> {
-  const until = now + config.guestAbuseComboBlockMs;
-  const redis = getRedis();
-  if (redis) {
-    try {
-      await redis.set(
-        `${REDIS_PREFIX}write:block:${comboKey(ip, guestUserId)}`,
-        '1',
-        'PX',
-        config.guestAbuseComboBlockMs,
-      );
-      return;
-    } catch {
-      /* mem fallback */
-    }
-  }
-  guestWriteComboBlockUntil.set(comboKey(ip, guestUserId), until);
+  await recordSpamStrikeAndHalt(guestUserId, ip, now);
 }
 
+/** True when progressive spam halt blocks this guest (IP+user). */
 export async function isGuestWriteComboBlocked(
   ip: string,
   guestUserId: string,
   now = Date.now(),
 ): Promise<boolean> {
-  const redis = getRedis();
-  if (redis) {
-    try {
-      const v = await redis.get(
-        `${REDIS_PREFIX}write:block:${comboKey(ip, guestUserId)}`,
-      );
-      if (v) return true;
-    } catch {
-      /* mem fallback */
-    }
-  }
-  return (guestWriteComboBlockUntil.get(comboKey(ip, guestUserId)) ?? 0) > now;
+  return isSpamHaltActive(guestUserId, ip, now);
 }
 
 /** Test helper: reset in-memory state. */
@@ -243,5 +221,4 @@ export function __resetGuestAbuseLimiterForTests(): void {
   mintTimestamps24hByIp.clear();
   guestMintBlockUntilByIp.clear();
   failedCaptchaCountByIp.clear();
-  guestWriteComboBlockUntil.clear();
 }

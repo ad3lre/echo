@@ -79,7 +79,7 @@ struct EchoAppearanceTests {
   }
 
   @Test func themeOptionsMatchWebOrder() {
-    #expect(EchoAppearance.themeOptions.map(\.id) == ["sunny", "light", "dark", "amoled"])
+    #expect(EchoAppearance.themeOptions.map(\.id) == ["amoled", "dark", "light", "sunny"])
   }
 
   @Test func inkTokensAreDistinctFromCanvas() {

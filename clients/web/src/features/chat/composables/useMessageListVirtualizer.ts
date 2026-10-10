@@ -313,7 +313,13 @@ function createVirtualizerOptionsComputed(
     estimateSize: (index: number) =>
       estimateMessageRowSize(estimateState, index),
     overscan: overscan.value,
-    useCachedMeasurements: true,
+    /**
+     * Must stay false. When true, TanStack's measureElement ignores DOM height and
+     * returns itemSizeCache ?? estimateSize — so the first estimate (often the
+     * ungrouped 64–88px floor before row facts settle) sticks forever and shows
+     * as blank gaps between same-author continuation messages.
+     */
+    useCachedMeasurements: false,
     initialMeasurementsCache: cache.value,
     scrollPaddingStart: paddingStart.value,
     scrollPaddingEnd: 16,

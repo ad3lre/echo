@@ -147,9 +147,9 @@ export function validateInstancePolicy(
   );
 
   pushIf(
-    policy.guest.maxTotalMessages < 10,
+    policy.guest.maxTotalMessages < 0,
     issues,
-    'guest.maxTotalMessages must be >= 10',
+    'guest.maxTotalMessages must be >= 0 (0 disables guest messaging)',
   );
   pushIf(
     policy.guest.directory.poolSize < 3 || policy.guest.directory.poolSize > 50,

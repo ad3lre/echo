@@ -23,6 +23,10 @@ function run(): void {
     isCsrfExemptPath('/api/v1/echo/public/client-alerts/boot-stall'),
     true,
   );
+  assert.equal(
+    isCsrfExemptPath('/api/v1/echo/public/client-alerts/exyno-chat-unlock'),
+    true,
+  );
   assert.equal(isCsrfExemptPath('/api/v1/analytics/client-environment'), true);
   assert.equal(isCsrfExemptPath('/api/v1/auth/verify-email'), true);
   assert.equal(isCsrfExemptPath('/api/v1/echo/servers'), false);

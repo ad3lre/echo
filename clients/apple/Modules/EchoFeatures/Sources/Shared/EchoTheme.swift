@@ -12,12 +12,12 @@ enum EchoAppearance {
   static let themeStorageKey = "echo.settings.style.theme"
   static let syncStorageKey = "echo.settings.style.syncTheme"
 
-  /// User-facing theme ids (web `THEME_OPTIONS` order: Sunny, Light, Dark, Amoled).
+  /// User-facing theme ids (web `THEME_OPTIONS` order: Amoled, Dark, Light, Sunny).
   static let themeOptions: [(id: String, label: String)] = [
-    ("sunny", "Sunny"),
-    ("light", "Light"),
-    ("dark", "Dark"),
     ("amoled", "Amoled"),
+    ("dark", "Dark"),
+    ("light", "Light"),
+    ("sunny", "Sunny"),
   ]
 
   /// `nil` means follow the system appearance.

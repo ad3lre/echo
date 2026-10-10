@@ -169,6 +169,9 @@ export function useAppLayoutMentionNotifications(deps: {
       mapServerMentionRowsToDmRows(mentionFeedRows.value),
       dmMentionNotificationsClient.value,
       120,
+      // Once the server feed has answered, drop leftover attention stubs that
+      // Discord bridges leave anchored on the wrong latestUnread id.
+      { dropAllClientPlaceholders: true },
     );
   });
 

@@ -55,13 +55,20 @@ function rowTimeValue(row: DmMentionNotificationRow): number {
  * server's mention row ID, producing a phantom stub that can never match a
  * server row. Dropping stubs for server-covered channels eliminates these
  * phantom loading indicators.
+ *
+ * When `dropAllClientPlaceholders` is set (server feed has finished loading),
+ * also drop leftover failed/loading stubs for channels the feed did not cover
+ * — Discord-bridged guild pings otherwise stick as "Someone / Could not load…"
+ * after attention anchors on the wrong message id.
  */
 export function mergeMentionNotificationRows(
   serverRows: readonly DmMentionNotificationRow[],
   clientRows: readonly DmMentionNotificationRow[],
   maxItems = 200,
+  opts?: { dropAllClientPlaceholders?: boolean },
 ): DmMentionNotificationRow[] {
   const byKey = new Map<string, DmMentionNotificationRow>();
+  const dropAllPlaceholders = opts?.dropAllClientPlaceholders === true;
 
   // Track which channels the server has already provided mention rows for.
   const serverChannelIds = new Set<string>();
@@ -90,7 +97,8 @@ export function mergeMentionNotificationRows(
     if (
       !existing &&
       isPlaceholderPreview(row.preview) &&
-      (serverChannelIds.has(channelId) ||
+      (dropAllPlaceholders ||
+        serverChannelIds.has(channelId) ||
         clientResolvedChannelIds.has(channelId))
     ) {
       continue;

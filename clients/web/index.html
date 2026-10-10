@@ -24,8 +24,8 @@
       content="black-translucent"
     />
     <meta name="mobile-web-app-capable" content="yes" />
-    <!-- Default dark; `applyBrowserChromeThemeColor` in main.ts + theme store keeps this in sync -->
-    <meta name="theme-color" content="#0d0812" />
+    <!-- Default AMOLED; `applyBrowserChromeThemeColor` in main.ts + theme store keeps this in sync -->
+    <meta name="theme-color" content="#000000" />
     <!-- Lets Safari / embedded frames request display capture when allowed for this origin -->
     <meta
       http-equiv="Permissions-Policy"
@@ -33,9 +33,41 @@
     />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <title>Echo</title>
+    <script>
+      /* Apply persisted theme before first paint (AMOLED default when unset). */
+      (function () {
+        try {
+          var raw = localStorage.getItem('echo_theme_v1');
+          var id =
+            raw === 'Light' ||
+            raw === 'Dark' ||
+            raw === 'Amoled' ||
+            raw === 'Sunny'
+              ? raw
+              : 'Amoled';
+          var sync = localStorage.getItem('echo_theme_sync_system_v1') === '1';
+          if (sync && window.matchMedia) {
+            id = window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'Light'
+              : 'Amoled';
+          }
+          var dark = id !== 'Light' && id !== 'Sunny';
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          if (id === 'Amoled') {
+            document.documentElement.dataset.echoDarkVariant = 'amoled';
+          }
+          if (id === 'Sunny') {
+            document.documentElement.dataset.echoLightVariant = 'sunny';
+          }
+        } catch (e) {
+          document.documentElement.dataset.theme = 'dark';
+          document.documentElement.dataset.echoDarkVariant = 'amoled';
+        }
+      })();
+    </script>
     <script src="/echo-boot-diag.js"></script>
     <link rel="stylesheet" href="/echo-boot-splash.css" />
   </head>

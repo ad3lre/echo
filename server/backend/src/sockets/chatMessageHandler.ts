@@ -7,6 +7,8 @@ import type {
 import { getSharedSocketMessageRateLimiter } from './messageRateLimiter';
 import { validateMessagePayload } from './messageValidation';
 import { config } from '../config';
+import { getInstancePolicy } from '../config/instancePolicy';
+import { guestMessagingLimitDetail } from '../domain/echoGuestPolicy';
 import {
   canUserSendMassMentionInChannel,
   evaluateEchoPostMessageAccess,
@@ -125,7 +127,6 @@ export function registerMessageHandler(
           });
           return;
         }
-
         const {
           channelId,
           content,
@@ -198,7 +199,7 @@ export function registerMessageHandler(
                 channelId: rawChannelId,
                 clientMessageId: rawClientId,
                 detail:
-                  'Sending paused briefly after too many messages. Create an account for full access.',
+                  'Sending paused after spam or rate limits. Wait, or create an account.',
               });
               return;
             }
@@ -223,7 +224,7 @@ export function registerMessageHandler(
               });
               return;
             }
-            const cap = config.guestMaxTotalMessages;
+            const cap = getInstancePolicy().guest.maxTotalMessages;
             if ((authU.guestTotalMessages ?? 0) >= cap) {
               log.info({
                 msg: 'echo_product_analytics',
@@ -234,8 +235,7 @@ export function registerMessageHandler(
                 code: 'GUEST_LIMIT',
                 channelId: rawChannelId,
                 clientMessageId: rawClientId,
-                detail:
-                  'Guest message limit reached. Create an account to continue.',
+                detail: guestMessagingLimitDetail(cap),
               });
               return;
             }
@@ -460,6 +460,7 @@ export function registerMessageHandler(
               userId,
               content,
               mentions: sanitizedMentions,
+              clientIp: clientIpFromSocket(socket),
             });
             if (!spamCheck.ok) {
               log.warn({

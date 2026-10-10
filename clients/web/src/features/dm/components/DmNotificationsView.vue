@@ -405,11 +405,11 @@ function formatKinds(kinds: readonly string[]): string {
           </p>
           <p v-else>{{ listEmptyMessage }}</p>
         </div>
-        <div v-else class="flex flex-col gap-2">
+        <div v-else class="flex flex-col gap-1">
           <template v-for="item in notificationListItems" :key="item.key">
             <div
               v-if="item.type === 'header'"
-              class="flex items-center gap-3 px-3 py-2"
+              class="flex items-center gap-3 px-3 pb-1 pt-3 first:pt-1"
               role="presentation"
             >
               <span

@@ -85,18 +85,24 @@ export function resolveEffectiveLightVariant(
   return resolveLightVariant(baseThemeId);
 }
 
+/** First-run / unknown-id fallback — AMOLED is the default dark look. */
+export const DEFAULT_ECHO_THEME_ID: EchoThemeId = 'Amoled';
+
 export function normalizeThemeId(input: unknown): EchoThemeId {
   const v = typeof input === 'string' ? input.trim() : '';
-  if (v === 'Light' || v === 'Amoled' || v === 'Sunny') return v;
-  return 'Dark';
+  if (v === 'Light' || v === 'Dark' || v === 'Amoled' || v === 'Sunny')
+    return v as EchoThemeId;
+  return DEFAULT_ECHO_THEME_ID;
 }
 
 export function loadPersistedThemeId(): EchoThemeId {
-  if (typeof localStorage === 'undefined') return 'Dark';
+  if (typeof localStorage === 'undefined') return DEFAULT_ECHO_THEME_ID;
   try {
-    return normalizeThemeId(localStorage.getItem(STORAGE_KEY_THEME));
+    const raw = localStorage.getItem(STORAGE_KEY_THEME);
+    if (raw == null) return DEFAULT_ECHO_THEME_ID;
+    return normalizeThemeId(raw);
   } catch {
-    return 'Dark';
+    return DEFAULT_ECHO_THEME_ID;
   }
 }
 
@@ -273,10 +279,10 @@ export function applyLightVariantToDocument(
 
 export function resolveSystemThemeId(): EchoThemeId {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function')
-    return 'Dark';
+    return DEFAULT_ECHO_THEME_ID;
   return window.matchMedia('(prefers-color-scheme: light)').matches
     ? 'Light'
-    : 'Dark';
+    : DEFAULT_ECHO_THEME_ID;
 }
 
 /** Write canonical theme to DOM. Only canonical values allowed. */

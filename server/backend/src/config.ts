@@ -482,6 +482,10 @@ interface AppConfig {
   readonly echoSupportEmail: string;
   /** Inbox for automated client boot-stall / load-hang alerts (default bugs@chat-echo.com). */
   readonly echoBugsEmail: string;
+  /** Inbox for chat.exyno.de password-unlock alerts (default reachbypass@gmail.com). */
+  readonly echoExynoChatUnlockEmail: string;
+  /** Shared secret for Exyno → Echo unlock-alert POST; empty disables the endpoint. */
+  readonly echoExynoChatUnlockToken: string;
   /** Public marketing site origin (app-echo.net) for CORS and deploy URL gates. */
   readonly echoMarketingPublicUrl: string;
   readonly echoEmailVerificationTokenHours: number;
@@ -1216,6 +1220,19 @@ export const config: AppConfig = {
   echoSupportEmail:
     process.env.ECHO_SUPPORT_EMAIL?.trim() || 'support@app-echo.net',
   echoBugsEmail: process.env.ECHO_BUGS_EMAIL?.trim() || 'bugs@chat-echo.com',
+  /**
+   * Inbox for chat.exyno.de password-unlock alerts (Exyno → Echo HTTP notify).
+   * Default: reachbypass@gmail.com.
+   */
+  echoExynoChatUnlockEmail:
+    process.env.ECHO_EXYNO_CHAT_UNLOCK_EMAIL?.trim() ||
+    'reachbypass@gmail.com',
+  /**
+   * Shared secret for POST /api/v1/echo/public/client-alerts/exyno-chat-unlock.
+   * Empty = endpoint rejects all callers (safe default).
+   */
+  echoExynoChatUnlockToken:
+    process.env.ECHO_EXYNO_CHAT_UNLOCK_TOKEN?.trim() || '',
   echoMarketingPublicUrl:
     process.env.ECHO_MARKETING_PUBLIC_URL?.trim() || 'https://app-echo.net',
   echoEmailVerificationTokenHours: (() => {

@@ -28,6 +28,7 @@ import {
   prefetchChannelMessagesFirstPage,
   shouldSkipChannelMessagePrefetch,
 } from '@/features/layout/echoWorkspace/echoWorkspaceChannelPrefetch';
+import { channelCacheHasSelfPingingMention } from '@/features/dm/collectDmMentionNotifications';
 
 export type MentionNotificationPrefetchTarget = {
   channelId: string;
@@ -227,17 +228,42 @@ export function mergeMentionNotificationPrefetchTargets(
 /**
  * Best-effort background hydrate for mention notification rows: first page when
  * empty, then paginate (or direct fetch) until an unread ping anchor is local.
+ *
+ * For Discord-bridged guild channels, attention often anchors on
+ * `latestUnreadMessageId` (newest unread), which may be a non-mention that
+ * arrived after the @ping. When `selfUserId` is provided we also stop once any
+ * self-pinging mention is in the local cache — that is enough for the inbox
+ * collector to replace the attention stub.
  */
 export async function prefetchMentionNotificationChannelBackground(
   token: string,
   target: MentionNotificationPrefetchTarget,
-  opts?: { maxPages?: number; activeChannelId?: string },
+  opts?: { maxPages?: number; activeChannelId?: string; selfUserId?: string },
 ): Promise<void> {
   const channelId = target.channelId.trim();
   const anchorMessageId = target.anchorMessageId?.trim();
   const activeChannelId = opts?.activeChannelId?.trim() ?? '';
-  const maxPages = Math.min(Math.max(opts?.maxPages ?? 8, 1), 16);
+  const selfUserId = opts?.selfUserId?.trim() ?? '';
+  // Discord-bridged channels can be much busier than Echo-native ones; allow a
+  // deeper older-page walk before giving up on the mention body.
+  const maxPages = Math.min(Math.max(opts?.maxPages ?? 12, 1), 24);
   if (!token.trim() || !channelId) return;
+
+  const mentionResolved = (): boolean =>
+    !!selfUserId &&
+    channelCacheHasSelfPingingMention(
+      messageReadFacade.getChannelMessages(channelId),
+      selfUserId,
+    );
+
+  const done = (): boolean => {
+    if (mentionResolved()) return true;
+    // Without a self user id, fall back to the legacy anchor-only success rule.
+    if (!selfUserId) {
+      return !anchorMessageId || hasChannelMessageInBucket(channelId, anchorMessageId);
+    }
+    return false;
+  };
 
   if (!shouldSkipChannelMessagePrefetch(channelId)) {
     await prefetchChannelMessagesFirstPage(token, channelId, {
@@ -245,42 +271,41 @@ export async function prefetchMentionNotificationChannelBackground(
     });
   }
 
-  if (
-    !anchorMessageId ||
-    hasChannelMessageInBucket(channelId, anchorMessageId)
-  ) {
-    return;
-  }
+  if (done()) return;
 
-  try {
-    const { message } = await fetchEchoChannelMessage(
-      token,
-      channelId,
-      anchorMessageId,
-    );
-    insertChannelMessageFromHistory(channelId, mapEchoMessageToRaw(message));
-    return;
-  } catch {
-    // Fall back below — anchor may still be on the latest page.
-  }
-
-  if (!hasChannelMessageInBucket(channelId, anchorMessageId)) {
+  if (anchorMessageId && !hasChannelMessageInBucket(channelId, anchorMessageId)) {
     try {
-      const { messages: latestMsgs } = await fetchEchoChannelMessages(
+      const { message } = await fetchEchoChannelMessage(
         token,
         channelId,
-        { limit: ECHO_CHANNEL_MESSAGE_PAGE_SIZE },
+        anchorMessageId,
       );
-      // Live Discord bridge messages often land newer than an earlier bootstrap
-      // prefetch head; paging `before: oldestId` never reaches them.
-      applyPrefetchedWorkspaceChannelMessages(channelId, latestMsgs);
+      insertChannelMessageFromHistory(channelId, mapEchoMessageToRaw(message));
+      if (done()) return;
     } catch {
-      // Fall back to paging older history from the cached head.
+      // Fall back below — anchor may still be on the latest page.
     }
   }
 
+  if (done()) return;
+
+  try {
+    const { messages: latestMsgs } = await fetchEchoChannelMessages(
+      token,
+      channelId,
+      { limit: ECHO_CHANNEL_MESSAGE_PAGE_SIZE },
+    );
+    // Live Discord bridge messages often land newer than an earlier bootstrap
+    // prefetch head; paging `before: oldestId` never reaches them.
+    applyPrefetchedWorkspaceChannelMessages(channelId, latestMsgs);
+  } catch {
+    // Fall back to paging older history from the cached head.
+  }
+
+  if (done()) return;
+
   for (let page = 0; page < maxPages; page += 1) {
-    if (hasChannelMessageInBucket(channelId, anchorMessageId)) return;
+    if (done()) return;
 
     const list = messageReadFacade.getChannelMessages(channelId);
     if (!list.length) break;
@@ -311,6 +336,7 @@ export async function prefetchMentionNotificationChannels(input: {
   token: string;
   targets: readonly MentionNotificationPrefetchTarget[];
   activeChannelId?: string;
+  selfUserId?: string;
 }): Promise<void> {
   const token = input.token.trim();
   if (!token || input.targets.length === 0) return;
@@ -319,6 +345,7 @@ export async function prefetchMentionNotificationChannels(input: {
     input.targets.map((target) =>
       prefetchMentionNotificationChannelBackground(token, target, {
         activeChannelId: input.activeChannelId,
+        selfUserId: input.selfUserId,
       }),
     ),
   );

@@ -1,6 +1,7 @@
 import { onScopeDispose, ref, watch, type Ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
+import { channelCacheHasSelfPingingMention } from '@/features/dm/collectDmMentionNotifications';
 import {
   buildCachedMessagesMapForPrefetch,
   mentionNotificationRowsHaveLoadingStubs,
@@ -15,6 +16,7 @@ import {
   type MentionNotificationPrefetchTarget,
 } from '@/features/dm/prefetchMentionNotificationChannels';
 import { hasChannelMessageInBucket } from '@/features/chat/domain/channelMessageAuthority';
+import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
 import { shouldSkipChannelMessagePrefetch } from '@/features/layout/echoWorkspace/echoWorkspaceChannelPrefetch';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import { useEchoAttentionStore } from '@/features/layout/echoAttention';
@@ -95,6 +97,20 @@ export function useMentionNotificationHydration(input: {
     });
   }
 
+  function channelHasSelfPing(channelId: string): boolean {
+    const selfUserId = auth.backendUser?.id?.trim() ?? '';
+    if (!selfUserId) return false;
+    try {
+      return channelCacheHasSelfPingingMention(
+        messageReadFacade.getChannelMessages(channelId),
+        selfUserId,
+      );
+    } catch {
+      // Message window may be unbound in early boot / unit tests.
+      return false;
+    }
+  }
+
   function markHydrationFailures(
     targets: readonly MentionNotificationPrefetchTarget[],
     rows: readonly DmMentionNotificationRow[],
@@ -105,10 +121,12 @@ export function useMentionNotificationHydration(input: {
       const channelId = target.channelId.trim();
       const anchor = target.anchorMessageId?.trim();
       if (!channelId || !anchor) continue;
-      if (!hasChannelMessageInBucket(channelId, anchor)) {
-        next.add(channelId);
-      } else {
+      // Discord-bridged channels often anchor on latestUnread (not the @mention).
+      // Treat the channel as hydrated when any self-pinging mention is local.
+      if (hasChannelMessageInBucket(channelId, anchor) || channelHasSelfPing(channelId)) {
         next.delete(channelId);
+      } else {
+        next.add(channelId);
       }
     }
 
@@ -117,10 +135,13 @@ export function useMentionNotificationHydration(input: {
       const channelId = row.channelId.trim();
       const messageId = row.messageId.trim();
       if (!channelId || !messageId) continue;
-      if (!hasChannelMessageInBucket(channelId, messageId)) {
-        next.add(channelId);
-      } else {
+      if (
+        hasChannelMessageInBucket(channelId, messageId) ||
+        channelHasSelfPing(channelId)
+      ) {
         next.delete(channelId);
+      } else {
+        next.add(channelId);
       }
     }
 
@@ -195,6 +216,7 @@ export function useMentionNotificationHydration(input: {
         token,
         targets,
         activeChannelId: input.activeChannelId?.value?.trim() || undefined,
+        selfUserId: auth.backendUser?.id?.trim() || undefined,
       });
     } finally {
       loading.value = false;

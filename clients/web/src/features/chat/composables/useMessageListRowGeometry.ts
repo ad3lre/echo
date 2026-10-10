@@ -37,7 +37,47 @@ import {
 } from '@/features/chat/composables/useMessageListVirtualRowObservation';
 import { flashMessageHighlightInRoot } from '@/features/chat/composables/messageListFlashHighlight';
 
-export type VisibleVirtualRow = { index: number; key?: unknown };
+export type VisibleVirtualRow = { index: number; key?: unknown; size?: number };
+
+/**
+ * Skip TanStack measureElement only when content height is unchanged *and* the
+ * virtual slot already matches. Content-only equality is not enough: the
+ * virtualizer can reset to a tall estimate while our last-height map still
+ * holds the short measured value — early-returning then leaves blank gaps
+ * between continuation messages.
+ */
+export function shouldSkipVirtualRowMeasureCommit(input: {
+  contentHeightPx: number;
+  lastContentHeightPx: number | undefined;
+  slotHeightPx: number | null;
+}): boolean {
+  const { contentHeightPx, lastContentHeightPx, slotHeightPx } = input;
+  if (lastContentHeightPx === undefined) return false;
+  if (Math.abs(lastContentHeightPx - contentHeightPx) >= 0.5) return false;
+  if (slotHeightPx == null) return false;
+  return Math.abs(slotHeightPx - contentHeightPx) < 0.5;
+}
+
+/** Prefer the absolute row shell height; fall back to the virtual item size. */
+export function resolveVirtualRowSlotHeightPx(
+  measureElement: Element,
+  virtualIndex: number,
+  virtualItems: readonly VisibleVirtualRow[],
+): number | null {
+  const shell = measureElement.parentElement;
+  if (
+    shell instanceof HTMLElement &&
+    shell.classList.contains('message-list-virtual-row')
+  ) {
+    const shellH = shell.getBoundingClientRect().height;
+    if (Number.isFinite(shellH) && shellH > 0) return shellH;
+  }
+  const item = virtualItems.find((row) => row.index === virtualIndex);
+  const size = item?.size;
+  return typeof size === 'number' && Number.isFinite(size) && size > 0
+    ? size
+    : null;
+}
 
 export type UseMessageListRowGeometryOptions = {
   getContainer: () => HTMLElement | null;
@@ -264,7 +304,18 @@ function commitVirtualRowMeasure(
   const prev = deferKey
     ? options.measureRowLastHeightByKey.get(deferKey)
     : undefined;
-  if (prev !== undefined && Math.abs(prev - h) < 0.5) return;
+  const slotHeightPx = Number.isFinite(idx)
+    ? resolveVirtualRowSlotHeightPx(element, idx, options.getVirtualItems())
+    : null;
+  if (
+    shouldSkipVirtualRowMeasureCommit({
+      contentHeightPx: h,
+      lastContentHeightPx: prev,
+      slotHeightPx,
+    })
+  ) {
+    return;
+  }
   if (messageListDebugEnabled()) {
     logRowHeightEstMismatch(options, {
       messageIndex,

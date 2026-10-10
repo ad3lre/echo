@@ -52,7 +52,7 @@ export function useSettingsForm() {
     phone: '',
     passwordMask: '••••••••••••',
     twoFactorEnabled: false,
-    theme: 'Dark' as EchoThemeId,
+    theme: 'Amoled' as EchoThemeId,
     density: 'Comfortable',
     /** Desktop sidebar vs top strip — see theme store `actionRailPlacement`. */
     actionRailPlacement: 'left' as 'left' | 'top',

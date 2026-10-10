@@ -38,6 +38,25 @@ export function getMediaCdnS3Client(): S3Client | null {
   return cachedClient;
 }
 
+/** Missing object in S3/R2 — map to HTTP 404, not 500. */
+export function isS3ObjectNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as {
+    name?: string;
+    Code?: string;
+    $metadata?: { httpStatusCode?: number };
+  };
+  if (
+    e.name === 'NoSuchKey' ||
+    e.name === 'NotFound' ||
+    e.Code === 'NoSuchKey' ||
+    e.Code === 'NotFound'
+  ) {
+    return true;
+  }
+  return e.$metadata?.httpStatusCode === 404;
+}
+
 export function guessContentTypeFromStorageKey(storageKey: string): string {
   const ext = path.extname(storageKey).toLowerCase();
   const m: Record<string, string> = {

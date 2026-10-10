@@ -56,7 +56,7 @@ describe('realtimeMessageFailedUserMessage', () => {
 
   it('GUEST_LIMIT and GUEST_ABUSE_COOLDOWN fall back when detail empty', () => {
     expect(realtimeMessageFailedUserMessage('GUEST_LIMIT', '')).toBe(
-      'Action temporarily blocked. Try again later.',
+      'Create an account to send messages.',
     );
     expect(realtimeMessageFailedUserMessage('GUEST_ABUSE_COOLDOWN', '')).toBe(
       'Action temporarily blocked. Try again later.',

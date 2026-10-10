@@ -18,10 +18,15 @@ html[data-theme='dark'],
 html[data-theme='dark'] body {
   background: #0d0812;
 }
+html[data-theme='dark'][data-echo-dark-variant='amoled'],
+html[data-theme='dark'][data-echo-dark-variant='amoled'] body {
+  background: #000000;
+}
 @media (prefers-color-scheme: dark) {
   html:not([data-theme]),
   html:not([data-theme]) body {
-    background: #0d0812;
+    /* Default first-run dark is AMOLED until hydrateBootThemeAndPreferences runs. */
+    background: #000000;
   }
 }
 #app {
@@ -43,9 +48,12 @@ html[data-theme='light'] .echo-boot-splash {
 html[data-theme='dark'] .echo-boot-splash {
   background: #0d0812;
 }
+html[data-theme='dark'][data-echo-dark-variant='amoled'] .echo-boot-splash {
+  background: #000000;
+}
 @media (prefers-color-scheme: dark) {
   html:not([data-theme]) .echo-boot-splash {
-    background: #0d0812;
+    background: #000000;
   }
 }
 .echo-boot-spinner {

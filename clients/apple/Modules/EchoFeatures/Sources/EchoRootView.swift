@@ -10,7 +10,7 @@ public struct EchoRootView: View {
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.colorScheme) private var colorScheme
 
-  @AppStorage(EchoDisplayPreferences.Keys.theme) private var theme = "dark"
+  @AppStorage(EchoDisplayPreferences.Keys.theme) private var theme = "amoled"
   @AppStorage(EchoDisplayPreferences.Keys.syncTheme) private var syncTheme = false
   @AppStorage(EchoDisplayPreferences.Keys.density) private var density = "comfortable"
   @AppStorage(EchoDisplayPreferences.Keys.fontScale) private var fontScale = 100.0

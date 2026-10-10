@@ -29,6 +29,9 @@ const GuestWelcomePreferencesModal = defineAsyncComponent(
 const GuestOnboardingModal = defineAsyncComponent(
   () => import('@/features/auth/components/GuestOnboardingModal.vue'),
 );
+const GuestUpgradeModal = defineAsyncComponent(
+  () => import('@/features/auth/components/GuestUpgradeModal.vue'),
+);
 const GuestCaptchaModal = defineAsyncComponent(
   () => import('@/features/auth/components/GuestCaptchaModal.vue'),
 );
@@ -2264,6 +2267,12 @@ const { mainContentAreaEl } = useAppLayoutMainWidthCollapse({
       @upgraded="() => void onGuestAccountUpgraded()"
       @sign-in-existing="onGuestOnboardingSignInExisting"
       @update:model-value="() => {}"
+    />
+    <GuestUpgradeModal
+      v-if="isGuestUpgradeModalOpen"
+      v-model="isGuestUpgradeModalOpen"
+      @upgraded="() => void onGuestAccountUpgraded()"
+      @sign-in-existing="onGuestUpgradeSignInFromSettings"
     />
     <GuestCaptchaModal
       v-if="isGuestCaptchaModalOpen"

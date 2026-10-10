@@ -36,7 +36,7 @@ final class EchoDisplayPreferences {
     static let solidGlass = "echo.settings.accessibility.solidGlass"
   }
 
-  var theme = "dark"
+  var theme = "amoled"
   var syncTheme = false
   var density = "comfortable"
   var fontScale = 100.0

@@ -161,8 +161,8 @@ function onDismiss() {
       <div v-else-if="showIntro" class="flex flex-col gap-1">
         <h4 class="text-lg font-bold text-foreground">Upgrade your account</h4>
         <p class="text-sm leading-relaxed text-muted">
-          You’re on a guest session. Add email and password to save your
-          account, unlock Friends, and use Echo without guest limits.
+          You’re on a guest session. Sign up to send messages, unlock Friends,
+          and use Echo without guest limits.
         </p>
       </div>
 

@@ -3,6 +3,8 @@ import {
   applyDarkVariantToDocument,
   applyLightVariantToDocument,
   applyVibrantAccentsToDocument,
+  DEFAULT_ECHO_THEME_ID,
+  normalizeThemeId,
   resolveCanonicalTheme,
   resolveDarkVariant,
   resolveEffectiveDarkVariant,
@@ -11,6 +13,14 @@ import {
 } from './theme';
 
 describe('theme canonical + variant resolution', () => {
+  it('defaults unknown / empty theme ids to AMOLED', () => {
+    expect(DEFAULT_ECHO_THEME_ID).toBe('Amoled');
+    expect(normalizeThemeId(null)).toBe('Amoled');
+    expect(normalizeThemeId('')).toBe('Amoled');
+    expect(normalizeThemeId('Dark')).toBe('Dark');
+    expect(normalizeThemeId('Amoled')).toBe('Amoled');
+  });
+
   it('keeps canonical theme dark/light only', () => {
     expect(resolveCanonicalTheme('Dark')).toBe('dark');
     expect(resolveCanonicalTheme('Light')).toBe('light');

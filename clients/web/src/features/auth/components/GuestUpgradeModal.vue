@@ -52,8 +52,8 @@ function onSignInExisting() {
             Save your account
           </h2>
           <p class="mt-2 text-sm leading-relaxed text-muted">
-            Add email and password to unlock Friends, join more servers, and
-            keep your messages across devices.
+            Sign up to send messages, unlock Friends, join more servers, and
+            keep your history across devices.
           </p>
         </div>
         <button

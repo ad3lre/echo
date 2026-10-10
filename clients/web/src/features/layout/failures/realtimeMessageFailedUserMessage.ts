@@ -55,6 +55,7 @@ export function realtimeMessageFailedUserMessage(
     case 'IDEMPOTENCY_EXPIRED':
       return 'That action expired. Try again.';
     case 'GUEST_LIMIT':
+      return d || 'Create an account to send messages.';
     case 'GUEST_ABUSE_COOLDOWN':
       return d || 'Action temporarily blocked. Try again later.';
     default:

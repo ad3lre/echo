@@ -7,6 +7,8 @@ import type {
 import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import { getAuthStore } from '../../../auth/store';
 import { config } from '../../../config';
+import { getInstancePolicy } from '../../../config/instancePolicy';
+import { guestMessagingLimitDetail } from '../../../domain/echoGuestPolicy';
 import { sendEchoChannelAccessDenied, sendError } from '../../errors';
 import { appendBackendDiagnostic } from '../../../observability/sessionDiagnostics';
 import {
@@ -203,7 +205,6 @@ export default async function echoMessagesRoutes(
       return reply.code(204).send();
     },
   );
-
   fastify.get(
     '/me/channel-notification-overrides',
     { preHandler: [requireAuth, requireEchoStore] },
@@ -958,7 +959,7 @@ export default async function echoMessagesRoutes(
               reply,
               429,
               'GUEST_ABUSE_COOLDOWN',
-              'Sending paused briefly after too many messages. Create an account for full access.',
+              'Sending paused after spam or rate limits. Wait for the halt to end, or create an account.',
             );
           }
           if (
@@ -972,7 +973,7 @@ export default async function echoMessagesRoutes(
             restMessageFailed('FORBIDDEN');
             return sendError(reply, 403, 'FORBIDDEN', 'DISPLAY_NAME_REQUIRED');
           }
-          const cap = config.guestMaxTotalMessages;
+          const cap = getInstancePolicy().guest.maxTotalMessages;
           if ((authU.guestTotalMessages ?? 0) >= cap) {
             req.log.info({
               msg: 'echo_product_analytics',
@@ -984,7 +985,7 @@ export default async function echoMessagesRoutes(
               reply,
               403,
               'GUEST_LIMIT',
-              'Guest message limit reached. Create an account to continue.',
+              guestMessagingLimitDetail(cap),
             );
           }
         }
@@ -1133,6 +1134,7 @@ export default async function echoMessagesRoutes(
           userId,
           content,
           mentions: sanitizedMentions,
+          clientIp: ip,
         });
         if (!spamCheck.ok) {
           restMessageFailed('SPAM_FILTER');

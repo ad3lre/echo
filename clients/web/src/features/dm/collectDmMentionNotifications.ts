@@ -23,13 +23,32 @@ function mentionPingsSelf(m: MentionEntity, selfId: string): boolean {
   return false;
 }
 
-function messagePingsSelf(msg: RawMessage, selfId: string): boolean {
+/** True when this cached message would appear in the viewer's mention inbox. */
+export function messagePingsSelf(msg: RawMessage, selfId: string): boolean {
   if (messageRepliesToUser(msg.replyTo, msg.replyTo?.authorId, selfId)) {
     return true;
   }
   const list = msg.mentions;
   if (!list?.length) return false;
   return list.some((x) => mentionPingsSelf(x, selfId));
+}
+
+/**
+ * True when the local channel cache already holds a message that pings `selfUserId`.
+ * Used by mention-inbox hydration so Discord-bridged channels can resolve via a
+ * nearby mention even when attention's `latestUnreadMessageId` anchor is a
+ * newer non-mention (or a stale id that 404s).
+ */
+export function channelCacheHasSelfPingingMention(
+  messages: readonly RawMessage[] | undefined,
+  selfUserId: string,
+): boolean {
+  const selfId = selfUserId.trim();
+  if (!selfId || !messages?.length) return false;
+  return messages.some(
+    (msg) =>
+      (msg.authorId ?? '').trim() !== selfId && messagePingsSelf(msg, selfId),
+  );
 }
 
 /**

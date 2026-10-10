@@ -69,7 +69,7 @@ for split CDN/API builds).
 | ----------------- | ------------------------------------------------------------------------------------ |
 | `general`         | Instance name/description; default public URLs (overridden by `ECHO_*_PUBLIC_URL`)   |
 | `registration`    | Disable registration, email verification, username/password bounds, HWID account cap |
-| `guest`           | Guest mint, directory pool, Turnstile site key (secret stays in env)                 |
+| `guest`           | Guest mint, directory pool, Turnstile site key (secret stays in env). `maxTotalMessages: 0` locks channel messaging to registered accounts (guests still browse). |
 | `limits.socket`   | Socket message burst + per-minute caps, idempotency window                           |
 | `limits.http`     | Global REST, Echo API scope, per-route buckets, optional instance-wide absolute caps |
 | `limits.upstream` | Serper, Honcho, Discord import daily caps                                            |

@@ -2,7 +2,10 @@ import type { ChannelCategory } from '@/features/layout/channels/useChannels';
 import type { ChannelSummary } from '@shared/types';
 import { getChannelDisplayName } from '@/assets/icons';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
-import { MENTION_NOTIFICATION_STUB_PREVIEW } from '@/features/dm/mentionNotificationAuthority';
+import {
+  MENTION_NOTIFICATION_FAILED_PREVIEW,
+  MENTION_NOTIFICATION_STUB_PREVIEW,
+} from '@/features/dm/mentionNotificationAuthority';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { messagePreviewPlainText } from '@/features/chat/domain/messagePreviewPlain';
 import { isDmThreadId } from '@/features/layout/mainSurface';
@@ -150,9 +153,13 @@ export function resolveMentionNotificationRowAuthorName(input: {
   const userId =
     input.row.authorId?.trim() || input.cachedAuthorId?.trim() || '';
   if (!userId) {
-    return input.row.preview === MENTION_NOTIFICATION_STUB_PREVIEW
-      ? '…'
-      : 'Someone';
+    // Loading stub keeps the ellipsis; failed stubs and empty authors fall back
+    // once cache catches up (Discord shadow authors often arrive via hydration).
+    if (input.row.preview === MENTION_NOTIFICATION_STUB_PREVIEW) return '…';
+    if (input.authorDisplayName?.trim()) {
+      return input.authorDisplayName.trim();
+    }
+    return 'Someone';
   }
 
   const serverId = resolveEchoServerIdContainingChannel(
@@ -179,11 +186,19 @@ export function resolveMentionNotificationRowPreview(input: {
   row: Pick<DmMentionNotificationRow, 'preview' | 'channelId' | 'messageId'>;
   cachedMessage?: Pick<RawMessage, 'content'> | null;
 }): string {
+  // Prefer a hydrated body whenever we have one — including recovering from the
+  // failed-stub copy after Discord-bridged history finally lands in cache.
+  if (input.cachedMessage) {
+    const fromCache = messagePreviewPlainText(input.cachedMessage, 220) || '…';
+    if (
+      input.row.preview === MENTION_NOTIFICATION_STUB_PREVIEW ||
+      input.row.preview === MENTION_NOTIFICATION_FAILED_PREVIEW
+    ) {
+      return fromCache;
+    }
+  }
   if (input.row.preview !== MENTION_NOTIFICATION_STUB_PREVIEW) {
     return input.row.preview;
-  }
-  if (input.cachedMessage) {
-    return messagePreviewPlainText(input.cachedMessage, 220) || '…';
   }
   return MENTION_NOTIFICATION_STUB_PREVIEW;
 }

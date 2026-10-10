@@ -13,7 +13,7 @@ import {
 } from '../cachePolicy';
 import { mediaCdnObjectServeTotal } from '../metrics';
 import { sendLocalObject } from '../localOrigin';
-import { sendS3Object } from '../s3Origin';
+import { isS3ObjectNotFoundError, sendS3Object } from '../s3Origin';
 import { verifyObjectReadToken } from '../tokenGate';
 import { fetchObjectBuffer } from '../objectBuffer';
 import { transformRasterVariant } from '../rasterImageTransform';
@@ -110,6 +110,13 @@ export async function registerObjectGetRoutes(
           });
           return reply.type('image/webp').send(body);
         } catch (err) {
+          if (isS3ObjectNotFoundError(err)) {
+            mediaCdnObjectServeTotal.inc({
+              outcome: 'not_found',
+              origin: 'variant',
+            });
+            return reply.code(404).send();
+          }
           req.log.error(
             { err, storageKeyHead: storageKey.slice(0, 28) },
             'media_cdn_variant_failed',
@@ -131,6 +138,16 @@ export async function registerObjectGetRoutes(
         await sendLocalObject(reply, req, storageKey);
         mediaCdnObjectServeTotal.inc({ outcome: 'ok', origin: 'local' });
       } catch (err) {
+        if (isS3ObjectNotFoundError(err)) {
+          mediaCdnObjectServeTotal.inc({
+            outcome: 'not_found',
+            origin: useS3 ? 's3' : 'local',
+          });
+          if (!reply.sent) {
+            return reply.code(404).send();
+          }
+          return;
+        }
         req.log.error(
           { err, storageKeyHead: storageKey.slice(0, 28) },
           'media_cdn_serve_failed',

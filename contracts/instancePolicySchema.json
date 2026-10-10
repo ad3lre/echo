@@ -100,7 +100,7 @@
         },
         "maxTotalMessages": {
           "type": "integer",
-          "minimum": 10
+          "minimum": 0
         },
         "directory": {
           "type": "object",

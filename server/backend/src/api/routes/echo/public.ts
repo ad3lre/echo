@@ -17,6 +17,8 @@ import {
   sendBootStallAlertEmail,
   type BootStallAlertKind,
 } from '../../../services/email/echoBootStallAlertEmail';
+import { sendExynoChatUnlockAlertEmail } from '../../../services/email/exynoChatUnlockAlertEmail';
+import { safeCompare } from '../../../shared/safeCompare';
 import { echoPool, requireEchoStore, trimEchoPathParam } from './routeUtils';
 import { sendError } from '../../errors';
 import { getPublicPaperDocumentByToken } from '../../../domain/echoStore/paper/paperShare';
@@ -318,6 +320,93 @@ export default async function echoPublicRoutes(
             userAgent,
           });
         }
+
+        return reply.code(202).send({ ok: true });
+      },
+    );
+  });
+
+  /**
+   * Exyno chat.exyno.de password unlock alerts (server→server).
+   * Auth: `X-Exyno-Alert-Token` must match ECHO_EXYNO_CHAT_UNLOCK_TOKEN.
+   * Emails ECHO_EXYNO_CHAT_UNLOCK_EMAIL (default reachbypass@gmail.com).
+   */
+  await fastify.register(async (scope) => {
+    await scope.register(rateLimit, {
+      max: 30,
+      timeWindow: '1 hour',
+      keyGenerator: (req) => `exyno-chat-unlock:ip:${req.ip}`,
+      addHeaders: { 'retry-after': true },
+    });
+
+    type UnlockAlertBody = {
+      unlockedAt?: unknown;
+      client?: unknown;
+      request?: unknown;
+    };
+
+    scope.post<{ Body: UnlockAlertBody }>(
+      '/public/client-alerts/exyno-chat-unlock',
+      async (req, reply) => {
+        const expected = config.echoExynoChatUnlockToken;
+        if (!expected) {
+          return reply.code(503).send({ error: 'unlock_alerts_disabled' });
+        }
+        const gotRaw = req.headers['x-exyno-alert-token'];
+        const got = typeof gotRaw === 'string' ? gotRaw.trim() : '';
+        if (!safeCompare(got, expected)) {
+          return reply.code(401).send({ error: 'unauthorized' });
+        }
+
+        const body = (req.body ?? {}) as UnlockAlertBody;
+        const clientMeta =
+          body.client &&
+          typeof body.client === 'object' &&
+          !Array.isArray(body.client)
+            ? (body.client as Record<string, unknown>)
+            : {};
+        const requestMeta =
+          body.request &&
+          typeof body.request === 'object' &&
+          !Array.isArray(body.request)
+            ? (body.request as Record<string, unknown>)
+            : {};
+        const unlockedAt =
+          typeof body.unlockedAt === 'string' && body.unlockedAt.trim()
+            ? body.unlockedAt.trim()
+            : new Date().toISOString();
+
+        const userAgent = String(req.headers['user-agent'] ?? '(unknown)');
+        const acceptLanguage = String(
+          req.headers['accept-language'] ?? '(none)',
+        );
+        const forwardedFor = String(
+          req.headers['x-forwarded-for'] ?? '(none)',
+        );
+
+        req.log.warn(
+          {
+            msg: 'exyno_chat_unlock_alert',
+            requestIp: req.ip,
+            hwid:
+              typeof clientMeta.hwid === 'string' ? clientMeta.hwid : undefined,
+          },
+          'Exyno chat password unlock reported',
+        );
+
+        void sendExynoChatUnlockAlertEmail(req.log, {
+          unlockedAt,
+          requestIp: req.ip,
+          userAgent,
+          acceptLanguage,
+          forwardedFor,
+          client: clientMeta,
+          request: {
+            ...requestMeta,
+            echoReceivedAt: new Date().toISOString(),
+            echoRequestIp: req.ip,
+          },
+        });
 
         return reply.code(202).send({ ok: true });
       },
