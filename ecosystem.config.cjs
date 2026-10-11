@@ -85,6 +85,27 @@ function bunApp(opts) {
   };
 }
 
+/** Run `bun <args…>` directly — avoids PM2 Bun fork wrapper issues with CLIs / ESM. */
+function bunCli(opts) {
+  const base = {
+    script: bunBin || 'bun',
+    interpreter: 'none',
+    args: opts.args,
+    cwd: opts.cwd,
+    env: {
+      ...(opts.env || {}),
+      PATH: `${bunPathPrefix}${process.env.PATH || ''}`,
+    },
+    restart_delay: opts.restart_delay ?? 3000,
+  };
+  if (opts.max_restarts != null) base.max_restarts = opts.max_restarts;
+  if (opts.env_file) base.env_file = opts.env_file;
+  return {
+    name: opts.name,
+    ...base,
+  };
+}
+
 module.exports = {
   apps: [
     bunApp({
@@ -113,23 +134,23 @@ module.exports = {
       },
       max_restarts: 10,
     }),
-    bunApp({
+    bunCli({
       name: 'echo-web',
-      script: path.join(repoRoot, 'node_modules/vite/bin/vite.js'),
-      args: 'preview --host --port 4173 --strictPort',
+      args: 'x vite preview --host --port 4173 --strictPort',
       cwd: './clients/web',
       env: {
         NODE_ENV: 'production',
       },
+      max_restarts: 10,
     }),
-    bunApp({
+    bunCli({
       name: 'echo-marketing',
-      script: path.join(repoRoot, 'node_modules/astro/bin/astro.mjs'),
-      args: 'preview --host --port 4174',
+      args: 'x astro preview --host --port 4174',
       cwd: './marketing',
       env: {
         NODE_ENV: 'production',
       },
+      max_restarts: 10,
     }),
     bunApp({
       name: 'echo-media',
@@ -152,10 +173,9 @@ module.exports = {
       },
       max_restarts: 10,
     }),
-    bunApp({
+    bunCli({
       name: 'echo-discord-bot',
-      script: path.join(repoRoot, 'bot/dist/index.js'),
-      args: '--serve',
+      args: 'bot/dist/index.js --serve',
       cwd: repoRoot,
       env_file: pm2EnvFile,
       env: {
