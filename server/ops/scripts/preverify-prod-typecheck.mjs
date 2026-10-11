@@ -57,7 +57,7 @@ async function main() {
       run('bot (tsc)', 'bun', [
         'run',
         '--filter',
-        'echo-discord-export-bot',
+        'bot',
         'build',
       ]),
     ]);

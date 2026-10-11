@@ -1,5 +1,5 @@
 {
-  "name": "echo-discord-export-bot",
+  "name": "bot",
   "version": "1.0.0",
   "private": true,
   "description": "Export Discord guild structure, permissions, members, and assets to JSON for platform import",
