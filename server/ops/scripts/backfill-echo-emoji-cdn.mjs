@@ -1,12 +1,12 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Backfill published custom emoji CDN objects (`echo/public-emojis/{id}.{ext}`).
  *
  * Requires: DATABASE_URL, S3 env (or ECHO_LOCAL_UPLOAD_DIR)
  *
  * Usage:
- *   ECHO_EMOJI_PUBLISH_TO_CDN=true node --import tsx scripts/backfill-echo-emoji-cdn.mjs
- *   ECHO_EMOJI_PUBLISH_TO_CDN=true node --import tsx scripts/backfill-echo-emoji-cdn.mjs --dry-run
+ *   ECHO_EMOJI_PUBLISH_TO_CDN=true bun scripts/backfill-echo-emoji-cdn.mjs
+ *   ECHO_EMOJI_PUBLISH_TO_CDN=true bun scripts/backfill-echo-emoji-cdn.mjs --dry-run
  */
 import pg from 'pg';
 

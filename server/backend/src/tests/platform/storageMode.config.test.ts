@@ -83,7 +83,7 @@ function resetProcessWideAuthAndSessionStores(): void {
 function clearBackendSingletonsForRestart() {
   resetProcessWideAuthAndSessionStores();
   // Config is evaluated at import-time. Clearing simulates a fresh process.
-  // On Windows + ts-node, module IDs can vary, so clear by both resolve() and substring.
+  // On Windows, module IDs can vary, so clear by both resolve() and substring.
   clearModule('../../config');
   clearModule('../../db/pg');
   clearModule('../../auth/store');

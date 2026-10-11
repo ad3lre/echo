@@ -1,6 +1,6 @@
 # Local PostgreSQL for Echo dev. Docker Compose reads `.env` in this directory for ${VAR} substitution.
-# `npm run dev` runs `db:up` first (see root package.json predev). Manual: npm run db:up
-# Stop: npm run db:down
+# `bun run dev` runs `db:up` first (see root package.json predev). Manual: bun run db:up
+# Stop: bun run db:down
 #
 # Defaults match the commented block in `.env.example`. Override POSTGRES_* in `.env` and set
 # DATABASE_URL to the same user/password/db (and host port if you change POSTGRES_PORT).
@@ -57,7 +57,7 @@ services:
       start_period: 5s
 
   livekit:
-    # Pin digest (npm run db:up / dev:lan recreate livekit to pick up bumps).
+    # Pin digest (bun run db:up / dev:lan recreate livekit to pick up bumps).
     image: livekit/livekit-server@sha256:b617bb3363f13e880a82164692d842681276bc6eed7da46092f9ddb22017b927
     container_name: echo-livekit
     depends_on:
@@ -73,7 +73,7 @@ services:
       # Avoid 50000–50100 on Windows: Hyper-V / excluded UDP ranges often overlap and Docker cannot bind.
       - '57000-57100:57000-57100/udp'
     volumes:
-      # Default `livekit.yaml` (localhost ICE). Override with `ECHO_LIVEKIT_YAML` after `npm run lan:sync`.
+      # Default `livekit.yaml` (localhost ICE). Override with `ECHO_LIVEKIT_YAML` after `bun run lan:sync`.
       - ${ECHO_LIVEKIT_YAML:-./server/ops/infra/livekit/livekit.yaml}:/etc/livekit.yaml
     command: ['--config', '/etc/livekit.yaml']
     healthcheck:

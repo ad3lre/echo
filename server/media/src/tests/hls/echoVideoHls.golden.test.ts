@@ -9,7 +9,7 @@
  *
  * Skips cleanly when ffmpeg/ffprobe are unavailable (e.g. CI without media tooling).
  *
- * Run: node --import tsx server/media/src/tests/hls/echoVideoHls.golden.test.ts
+ * Run: bun server/media/src/tests/hls/echoVideoHls.golden.test.ts
  */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';

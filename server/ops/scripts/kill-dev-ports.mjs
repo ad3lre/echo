@@ -1,5 +1,5 @@
 /**
- * Frees TCP ports used by `npm run dev` (or `npm run prod:serve` when `ECHO_FREE_PORTS` is set)
+ * Frees TCP ports used by `bun run dev` (or `bun run prod:serve` when `ECHO_FREE_PORTS` is set)
  * so a new run does not hit EADDRINUSE.
  */
 import { execFileSync } from 'node:child_process';
@@ -123,10 +123,10 @@ async function main() {
     console.error('');
     console.error('[kill-dev-ports] Cannot bind dev port(s):', busy.join(', '));
     console.error(
-      '  Another stack may be running (`npm run dev` elsewhere), or `kill-port` could not find PIDs (install `lsof` on Linux: apt install lsof / apk add lsof).',
+      '  Another stack may be running (`bun run dev` elsewhere), or `kill-port` could not find PIDs (install `lsof` on Linux: apt install lsof / apk add lsof).',
     );
     console.error(
-      `  Or use a different API port: PORT=${p === 3000 ? 3001 : 3000} npm run dev`,
+      `  Or use a different API port: PORT=${p === 3000 ? 3001 : 3000} bun run dev`,
     );
     console.error('');
     process.exit(1);

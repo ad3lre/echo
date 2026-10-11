@@ -36,6 +36,6 @@
 
 - Session architecture: [`OPTION_A_SESSION_ARCHITECTURE.md`](../../infra/auth/OPTION_A_SESSION_ARCHITECTURE.md).
 - Stack / auth snapshot: [`STACK.md`](../../overview/STACK.md).
-- Auth roadmap: [`AUTHENTICATION_PLAN.md`](../../plans/AUTHENTICATION_PLAN.md).
+- Auth roadmap: local `docs-dev/plans/AUTHENTICATION_PLAN.md` when present.
 - Production security checklist: [`../PRODUCTION_SECURITY_CHECKLIST.md`](../PRODUCTION_SECURITY_CHECKLIST.md).
-- Broader readiness: [`STATUS_AND_PRODUCTION_READINESS.md`](../../reviews/STATUS_AND_PRODUCTION_READINESS.md) §8.
+- Broader readiness: [`shipping-gate.md`](../shipping-gate.md), [`PRODUCTION_SECURITY_CHECKLIST.md`](../PRODUCTION_SECURITY_CHECKLIST.md).

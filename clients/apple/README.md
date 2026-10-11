@@ -61,8 +61,8 @@ cd clients/apple
 xcodegen generate
 open EchoApple.xcodeproj
 swift test --package-path . --no-parallel
-npm run apple:maintainability
-npm run apple:maintainability:test
+bun run apple:maintainability
+bun run apple:maintainability:test
 xcrun swift-format format --in-place --recursive --parallel Apps Modules Tests
 xcrun swift-format lint --recursive Apps Modules Tests
 xcodebuild -project EchoApple.xcodeproj -scheme EchoiOS \
@@ -73,7 +73,7 @@ xcodebuild -project EchoApple.xcodeproj -scheme EchoMacOS \
 
 ### Maintainability gate
 
-`npm run apple:maintainability` (also in `test:ci:guards` and format CI) enforces:
+`bun run apple:maintainability` (also in `test:ci:guards` and format CI) enforces:
 
 - Modules/Apps Swift files ≤ **650** LOC; Apps entry files ≤ **120**; Apps total ≤ **250**
 - Tests ≤ **600** LOC per file
@@ -102,9 +102,9 @@ Local Apple e2e (Postgres + native bearer, not the in-memory `dev:e2e` stack):
 
 ```bash
 colima start          # or Docker Desktop
-npm run db:up
-npm run dev:core      # API on :3000
-npm run apple:e2e     # REST + Socket.IO contract harness
+bun run db:up
+bun run dev:core      # API on :3000
+bun run apple:e2e     # REST + Socket.IO contract harness
 ```
 
 Sign into the simulator with the accounts written to `clients/apple/.e2e-local.json`
@@ -143,7 +143,7 @@ Production DM rooms require Echo voice E2EE (MLS v2). Apple runs the same
 `ts-mls` prepare path as web inside JavaScriptCore (`MlsBridge/` →
 `Resources/EchoMlsBridge.js`), with Keychain KV + URLSession host bridges, then
 installs the derived LiveKit frame keys. Rebuild the bridge after MLS crypto
-changes with `npm run apple:mls:bridge`.
+changes with `bun run apple:mls:bridge`.
 
 ## Realtime (Socket.IO)
 

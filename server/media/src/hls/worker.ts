@@ -1,7 +1,7 @@
 /**
  * Standalone chat video HLS worker. Run when API uses ECHO_VIDEO_HLS_WORKER=standalone.
  *
- *   npm run worker:video-hls -w media
+ *   bun run --filter media worker:video-hls
  */
 import pino from 'pino';
 import { config } from '../../../backend/src/config';

@@ -13,11 +13,11 @@ Background transcoding for chat video uploads into adaptive HLS (fMP4 VOD). Prog
 | `ECHO_VIDEO_HLS_WORKER` | API process                                             | Transcode process                                           |
 | ----------------------- | ------------------------------------------------------- | ----------------------------------------------------------- |
 | `embedded` (default)    | Runs drain loop + in-process kick after upload register | Same process                                                |
-| `standalone`            | Enqueues only; `pg_notify` wakes external worker(s)     | `npm run worker:video-hls` (or PM2 `echo-video-hls-worker`) |
+| `standalone`            | Enqueues only; `pg_notify` wakes external worker(s)     | `bun run worker:video-hls` (or PM2 `echo-video-hls-worker`) |
 
 Multiple standalone workers are safe: jobs use `FOR UPDATE SKIP LOCKED`.
 
-**Local dev:** leave `embedded` (default) so `npm run dev` does not need a second process.
+**Local dev:** leave `embedded` (default) so `bun run dev` does not need a second process.
 
 **Production:** `ECHO_VIDEO_HLS_WORKER=standalone` is required (startup gate) unless `ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true` for deliberate single-process smoke. From repo root, `pm2 start ecosystem.config.cjs` loads `.env` into both `echo-backend` and `echo-video-hls-worker` via `env_file`. The worker process is **required** (install **ffmpeg** on that host). On shutdown, the worker waits for the current transcode to finish (up to `ECHO_VIDEO_HLS_TIMEOUT_MS` + 30s) before exit.
 
@@ -46,9 +46,9 @@ Multiple standalone workers are safe: jobs use `FOR UPDATE SKIP LOCKED`.
 ## Commands
 
 ```bash
-# After npm run build -w backend (or root npm run build)
-npm run worker:video-hls          # production binary
-npm run worker:video-hls:dev      # ts-node (media workspace)
+# After bun run --filter backend build (or root bun run build)
+bun run worker:video-hls          # production binary
+bun run worker:video-hls:dev      # bun (media workspace)
 ```
 
 ## Ladder
@@ -67,7 +67,7 @@ Guarantees enforced by the packager + `validateHlsOutput`:
 
 **Cache headers** ([`objectStore.ts`](../../server/media/src/hls/objectStore.ts) `cacheControlForHlsObjectKey`): segments/init → `public, max-age=31536000, immutable`; manifests (`.m3u8`) → `public, max-age=60, must-revalidate`, because the manifest lives at a stable, non-versioned path (`…/hls/master.m3u8`) and is rewritten in place when a changed source is republished.
 
-**Golden test:** `npm run test:video-hls-golden -w media` (needs ffmpeg/ffprobe, skips otherwise) builds a real two-rung pack and asserts every referenced file exists, bitrate separation between rungs, `TARGETDURATION` ≈ segment length, independent-segments, and that the validator rejects a pack with a deleted segment.
+**Golden test:** `bun run --filter media` test:video-hls-golden (needs ffmpeg/ffprobe, skips otherwise) builds a real two-rung pack and asserts every referenced file exists, bitrate separation between rungs, `TARGETDURATION` ≈ segment length, independent-segments, and that the validator rejects a pack with a deleted segment.
 
 ## Failure behavior
 

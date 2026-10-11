@@ -4,7 +4,7 @@
 
 ## Checklist
 
-- [ ] I ran `npm run ci:precheck` from the repo root (or only touched files/jobs outside that scope, and noted why).
+- [ ] I ran `bun run ci:precheck` from the repo root (or only touched files/jobs outside that scope, and noted why).
 - [ ] For narrow changes I ran targeted tests instead of full `ci:precheck` (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
 - [ ] If this changes REST or Socket contracts, I updated or verified [`docs/contracts/`](../docs/contracts/) and any linked specs.
 - [ ] For user-visible UI changes, I described how to verify (screenshots optional).

@@ -1,8 +1,7 @@
-import bcrypt from 'bcrypt';
-import { config } from '../../config';
 import { maskE164 } from '../phoneE164';
 import { publicBadgesFromAccount } from '../../../../../contracts/echoAccountBadges';
 import type { AuthUser } from '../types';
+import { hashPassword } from '../passwordHash';
 import type { PasswordRecord } from './types';
 
 export function publicUser(user: PasswordRecord): AuthUser {
@@ -34,7 +33,7 @@ export function publicUser(user: PasswordRecord): AuthUser {
 export { normalizeUsername } from '../../../../../contracts/usernamePolicy';
 
 export async function makeHash(password: string): Promise<string> {
-  return bcrypt.hash(password, config.bcryptSaltRounds);
+  return hashPassword(password);
 }
 
 export function stripPasswordFields<T extends { passwordHash?: string }>(

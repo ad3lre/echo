@@ -6,10 +6,10 @@ function printUsage() {
   process.stdout.write(
     [
       'Usage:',
-      '  node server/ops/scripts/har-sanitize.mjs <input.har> [--out-dir <dir>] [--max-body <bytes>] [--aggressive]',
+      '  bun server/ops/scripts/har-sanitize.mjs <input.har> [--out-dir <dir>] [--max-body <bytes>] [--aggressive]',
       '',
       'Example:',
-      '  node server/ops/scripts/har-sanitize.mjs ../chat-echo.com.har --out-dir ./artifacts/har-clean --aggressive',
+      '  bun server/ops/scripts/har-sanitize.mjs ../chat-echo.com.har --out-dir ./artifacts/har-clean --aggressive',
       '',
     ].join('\n'),
   );

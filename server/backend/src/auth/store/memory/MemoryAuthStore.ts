@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import { verifyPassword } from '../../passwordHash';
 import { randomBytes, randomInt } from 'crypto';
 import { config } from '../../../config';
 import { validateEchoStoredBrandingUrl } from '../../../services/uploads/storedMediaUrl';
@@ -230,7 +230,7 @@ export class MemoryAuthStore implements AuthStore {
     password: string,
   ): Promise<boolean> {
     if (!user.passwordHash) return false;
-    return bcrypt.compare(password, user.passwordHash);
+    return verifyPassword(password, user.passwordHash);
   }
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
@@ -823,7 +823,7 @@ export class MemoryAuthStore implements AuthStore {
   ): Promise<void> {
     const u = this.users.get(userId);
     if (!u?.totpEnabled) throw new Error('TOTP_NOT_ENABLED');
-    if (!u.passwordHash || !(await bcrypt.compare(password, u.passwordHash))) {
+    if (!u.passwordHash || !(await verifyPassword(password, u.passwordHash))) {
       throw new Error('INVALID_PASSWORD');
     }
 

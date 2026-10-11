@@ -2,10 +2,10 @@
  * Regression: stale LiveKit room_finished must not wipe MLS state while a new
  * joiner holds a REST voice-participant row (E2EE prepare / session mint).
  *
- * Run: node --import tsx server/backend/src/tests/voice/echo.voiceE2eeRoomFinished.integration.ts
+ * Run: bun server/backend/src/tests/voice/echo.voiceE2eeRoomFinished.integration.ts
  */
 import assert from 'node:assert/strict';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../auth/store/helpers';
 import type pg from 'pg';
 import { ensureEchoTables } from '../../db/echoTables';
 import { getPgPool } from '../../db/pg';
@@ -16,7 +16,7 @@ import {
 } from '../../domain/echoStore';
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `rff_${id.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 48)}`;
   const email = `${username}@rff.echo.test`;
   await pool.query(

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Rolling prod deploy for a single checkout:
  * 1. preverify:prod
@@ -9,7 +9,7 @@
  * 6. ensure PM2 companions + Discord bot are up (start if down; skip if already running)
  *
  * Downtime is only the cutover window (~seconds), not the full build.
- * `npm run build` includes `marketing`; PM2 serves `marketing/dist` via astro preview.
+ * `bun run build` includes `marketing`; PM2 serves `marketing/dist` via astro preview.
  *
  * Env:
  *   ECHO_STAGING_API_PORT      (default 3001)
@@ -58,28 +58,16 @@ function appendMeta(line) {
   );
 }
 
-function nvmNodeBinDir() {
+function bunBinDir() {
   try {
-    const rcPath = path.join(repoRoot, '.nvmrc');
-    if (!fs.existsSync(rcPath)) return '';
-    const raw = fs.readFileSync(rcPath, 'utf8').trim().split(/\s+/)[0];
-    if (!raw) return '';
-    const base = path.join(os.homedir(), '.nvm', 'versions', 'node');
-    if (!fs.existsSync(base)) return '';
-    const want = raw.replace(/^v/, '');
-    const dirs = fs.readdirSync(base).filter((d) => {
-      if (!d.startsWith('v')) return false;
-      const rest = d.slice(1);
-      return (
-        rest === want ||
-        rest.startsWith(`${want}.`) ||
-        (want.includes('.') && rest.startsWith(want))
-      );
-    });
-    if (!dirs.length) return '';
-    dirs.sort();
-    const bin = path.join(base, dirs[dirs.length - 1], 'bin');
-    return fs.existsSync(path.join(bin, 'node')) ? bin : '';
+    const candidates = [
+      process.env.BUN_INSTALL ? path.join(process.env.BUN_INSTALL, 'bin') : '',
+      path.join(os.homedir(), '.bun', 'bin'),
+    ].filter(Boolean);
+    for (const bin of candidates) {
+      if (fs.existsSync(path.join(bin, 'bun'))) return bin;
+    }
+    return '';
   } catch {
     return '';
   }
@@ -87,13 +75,15 @@ function nvmNodeBinDir() {
 
 function baseEnv() {
   const env = { ...process.env, FORCE_COLOR: '0' };
-  const nvmBin = nvmNodeBinDir();
-  if (nvmBin) env.PATH = `${nvmBin}${path.delimiter}${env.PATH}`;
+  const bunBin = bunBinDir();
+  if (bunBin) env.PATH = `${bunBin}${path.delimiter}${env.PATH}`;
   return env;
 }
 
-function npmCmd() {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+function bunCmd() {
+  const dir = bunBinDir();
+  if (dir) return path.join(dir, 'bun');
+  return 'bun';
 }
 
 function run(cmd, args, opts = {}) {
@@ -196,8 +186,8 @@ function spawnDetached(cmd, args, pidFile) {
   return child.pid;
 }
 
-function spawnDetachedNpm(args, pidFile) {
-  return spawnDetached(npmCmd(), args, pidFile);
+function spawnDetachedBun(args, pidFile) {
+  return spawnDetached(bunCmd(), args, pidFile);
 }
 
 async function main() {
@@ -205,10 +195,10 @@ async function main() {
   const treeKill = await loadTreeKill();
 
   appendMeta('preverify:prod');
-  await run(npmCmd(), ['run', 'preverify:prod']);
+  await run(bunCmd(), ['run', 'preverify:prod']);
 
   appendMeta('build (live stack unchanged)');
-  await run(npmCmd(), ['run', 'build']);
+  await run(bunCmd(), ['run', 'build']);
 
   appendMeta(
     `staging serve on api=${STAGING_API_PORT} frontend=${STAGING_FRONTEND_PORT}`,
@@ -258,7 +248,7 @@ async function main() {
   }
 
   appendMeta('starting prod:serve on main ports');
-  const prodPid = spawnDetachedNpm(['run', 'prod:serve'], livePidFile);
+  const prodPid = spawnDetachedBun(['run', 'prod:serve'], livePidFile);
   appendMeta(`prod:serve pid=${prodPid}`);
 
   await waitForHttp(`http://127.0.0.1:3000/api/v1/health?ts=${Date.now()}`);

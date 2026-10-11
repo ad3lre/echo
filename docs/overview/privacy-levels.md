@@ -1,8 +1,5 @@
 # Privacy Levels — Echo
 
-**Last updated:** 23 March 2026  
-**Effective date:** 23 March 2026
-
 This document describes **privacy levels** for Echo communities and deployments. Levels describe how much data is collected, how identity persists, and how deeply the system may analyze behavior or content. Actual capabilities depend on product configuration, host setup (for self-hosted instances), and applicable law.
 
 For how Echo processes personal data in general, see [Privacy Policy](../../marketing/terms/en-US/privacy.md).

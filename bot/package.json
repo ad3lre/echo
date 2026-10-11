@@ -7,14 +7,14 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
-    "export": "npm run build && node dist/index.js",
-    "serve": "npm run build && node dist/index.js --serve",
-    "serve:dev": "tsx src/index.ts --serve"
+    "start": "bun dist/index.js",
+    "dev": "bun src/index.ts",
+    "export": "bun run build && bun dist/index.js",
+    "serve": "bun run build && bun dist/index.js --serve",
+    "serve:dev": "bun src/index.ts --serve"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "bun": ">=1.4.2"
   },
   "dependencies": {
     "discord.js": "^14.26.3",
@@ -22,7 +22,6 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
-    "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   }
 }

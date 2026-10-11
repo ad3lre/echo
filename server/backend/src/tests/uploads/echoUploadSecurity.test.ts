@@ -1,6 +1,6 @@
 /**
  * Upload intent + media URL policy unit tests.
- * Run: node --import tsx server/backend/src/tests/uploads/echoUploadSecurity.test.ts
+ * Run: bun server/backend/src/tests/uploads/echoUploadSecurity.test.ts
  */
 import assert from 'node:assert/strict';
 import path from 'node:path';

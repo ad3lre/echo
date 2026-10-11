@@ -2,8 +2,8 @@
  * One-off: email all rows in echo_bug_reports to ECHO_SUPPORT_EMAIL.
  *
  * Usage (from server/backend/):
- *   npx ts-node src/scripts/backfillBugReportSupportEmails.ts           # dry-run
- *   npx ts-node src/scripts/backfillBugReportSupportEmails.ts --execute # send
+ *   bun src/scripts/backfillBugReportSupportEmails.ts           # dry-run
+ *   bun src/scripts/backfillBugReportSupportEmails.ts --execute # send
  */
 import 'dotenv/config';
 import pino from 'pino';

@@ -1,6 +1,6 @@
 /**
  * Watch Together upload + HLS poll with a real short MP4.
- * Run: node --import tsx server/backend/src/tests/voice/vcWatchTogetherRealMp4.integration.ts [path/to/file.mp4]
+ * Run: bun server/backend/src/tests/voice/vcWatchTogetherRealMp4.integration.ts [path/to/file.mp4]
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';

@@ -3,8 +3,8 @@
  * Keeps guests who sent messages, participated in DMs, or started account upgrade.
  * Auto-join to the official server alone does not count as interaction.
  *
- *   npx ts-node src/scripts/purgeInactiveGuests.ts           # dry-run
- *   npx ts-node src/scripts/purgeInactiveGuests.ts --execute
+ *   bun src/scripts/purgeInactiveGuests.ts           # dry-run
+ *   bun src/scripts/purgeInactiveGuests.ts --execute
  *
  * Env: `DATABASE_URL` (same as the running server).
  */

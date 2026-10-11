@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Run production perf scenarios and write aggregated baseline JSON + markdown.
  */

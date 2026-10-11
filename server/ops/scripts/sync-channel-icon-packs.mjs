@@ -2,8 +2,8 @@
  * Vendors curated channel icons from @phosphor-icons/core (MIT) into
  * clients/web/src/assets/icons/ with math- and hobby- prefixes.
  *
- * Run: node server/ops/scripts/sync-channel-icon-packs.mjs
- * Requires: npm install (devDependency @phosphor-icons/core)
+ * Run: bun server/ops/scripts/sync-channel-icon-packs.mjs
+ * Requires: bun install (devDependency @phosphor-icons/core)
  */
 
 import fs from 'node:fs';
@@ -110,7 +110,7 @@ function syncPack(pack, label) {
 
 function main() {
   if (!fs.existsSync(phosphorFillDir)) {
-    console.error('❌ @phosphor-icons/core not found. Run: npm install');
+    console.error('❌ @phosphor-icons/core not found. Run: bun install');
     process.exit(1);
   }
   if (!fs.existsSync(iconsOutDir)) {

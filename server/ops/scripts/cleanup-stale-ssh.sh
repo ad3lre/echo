@@ -44,7 +44,7 @@ is_protected_cmd() {
   local cmd="$1"
   [[ -z "$cmd" ]] && return 1
   grep -qiE \
-    'dockerd|docker-proxy|containerd|caddy|(^|/)PM2|pm2 God|postgres:|postgres |livekit|livekit-server|coturn|turnserver|nats-server|redis-server|/prod/echo/|watchdog\.mjs|echo-backend|echo-web|echo-marketing|echo-video|vite preview|astro preview|npm start|npm run worker|npm run preview|concurrently' \
+    'dockerd|docker-proxy|containerd|caddy|(^|/)PM2|pm2 God|postgres:|postgres |livekit|livekit-server|coturn|turnserver|nats-server|redis-server|/prod/echo/|watchdog\.mjs|echo-backend|echo-web|echo-marketing|echo-video|vite preview|astro preview|bun run start|bun run worker|bun run preview|concurrently' \
     <<<"$cmd"
 }
 

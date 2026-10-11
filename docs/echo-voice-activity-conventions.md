@@ -9,7 +9,7 @@ two audio engines, three result shapes).
 
 This doc is the **canonical convention** for that family. The crisp, mechanical
 parts are enforced by `server/ops/scripts/check-voice-activity-conventions.mjs` (run via
-`npm run check:voice-activity`, part of `npm run test:ci:guards`). Existing
+`bun run check:voice-activity`, part of `bun run test:ci:guards`). Existing
 violations are grandfathered in
 `server/ops/scripts/voice-activity-conventions-allowlist.json` — the guard only blocks
 **new** drift, so the family converges as files are touched.

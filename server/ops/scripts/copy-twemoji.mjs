@@ -39,8 +39,8 @@ function requireSharp() {
     if (e && e.code === 'MODULE_NOT_FOUND') {
       console.error(
         'Missing dependency: sharp (needed to convert Twemoji SVG → WebP).\n' +
-          'From the repository root run: npm install\n' +
-          'If install fails or sharp has no binary for your Node version, use Node 20 LTS.',
+          'From the repository root run: bun install\n' +
+          'If install fails or sharp has no binary for your platform, retry with `bun install` after upgrading Bun to the pin in `.bun-version`.',
       );
       process.exit(1);
     }
@@ -121,7 +121,7 @@ function writeFingerprint(svgCount, pkgVersion, scriptHash) {
 
 async function copyTwemoji() {
   if (!fs.existsSync(sourceDir)) {
-    console.error('@twemoji/svg not found. Run npm install first.');
+    console.error('@twemoji/svg not found. Run bun install first.');
     process.exit(1);
   }
 
@@ -160,7 +160,7 @@ async function copyTwemoji() {
     console.error(
       'ECHO_SKIP_TWEMOJI_COPY is set but Twemoji assets are missing or stale.\n' +
         `  Source SVGs: ${files.length}; WebP on disk: ${existingWebp}.\n` +
-        'Unset ECHO_SKIP_TWEMOJI_COPY or run: npm run twemoji -- --force',
+        'Unset ECHO_SKIP_TWEMOJI_COPY or run: bun run twemoji -- --force',
     );
     process.exit(1);
   }

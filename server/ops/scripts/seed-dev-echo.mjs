@@ -1,9 +1,9 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Seeds a dev user + Echo server via the running HTTP API (no mock DB).
  * Requires: backend on SEED_API_BASE (default http://127.0.0.1:3000), DATABASE_URL on the server, Echo tables.
  *
- * Usage: `npm run seed:dev` (from repo root) with backend already running.
+ * Usage: `bun run seed:dev` (from repo root) with backend already running.
  */
 const base = (process.env.SEED_API_BASE ?? 'http://127.0.0.1:3000').replace(
   /\/$/,

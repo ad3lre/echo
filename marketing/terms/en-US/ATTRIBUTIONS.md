@@ -10,7 +10,7 @@ Emoji graphics are provided by **Twemoji**, © Twitter, Inc. and other contribut
 
 - **License:** [Creative Commons Attribution 4.0 International (CC-BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
 - **Source:** [github.com/twitter/twemoji](https://github.com/twitter/twemoji) (Twitter/X Twemoji)
-- **Usage:** Emoji picker and message display render emoji using Twemoji SVG assets via the twemoji npm package.
+- **Usage:** Emoji picker and message display render emoji using Twemoji SVG assets via the twemoji package.
 - **Assets:** SVG files from [@twemoji/svg](https://www.npmjs.com/package/@twemoji/svg) (Twemoji 15), copied locally to avoid CDN requests.
 
 **Attribution requirement:** You must give appropriate credit, provide a link to the license, and indicate if changes were made. No modifications have been made to the emoji graphics.

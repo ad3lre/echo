@@ -1,5 +1,5 @@
 /**
- * Run: npx ts-node src/tests/platform/snowflakeIds.test.ts
+ * Run: bun src/tests/platform/snowflakeIds.test.ts
  */
 import assert from 'node:assert/strict';
 import {

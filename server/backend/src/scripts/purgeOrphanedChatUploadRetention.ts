@@ -3,10 +3,10 @@
  * is missing from S3/local storage (orphaned metadata).
  *
  * Usage (from server/backend/):
- *   npx ts-node src/scripts/purgeOrphanedChatUploadRetention.ts
- *   npx ts-node src/scripts/purgeOrphanedChatUploadRetention.ts --execute
- *   npx ts-node src/scripts/purgeOrphanedChatUploadRetention.ts --execute --limit 100
- *   npx ts-node src/scripts/purgeOrphanedChatUploadRetention.ts --prefix echo/channels/
+ *   bun src/scripts/purgeOrphanedChatUploadRetention.ts
+ *   bun src/scripts/purgeOrphanedChatUploadRetention.ts --execute
+ *   bun src/scripts/purgeOrphanedChatUploadRetention.ts --execute --limit 100
+ *   bun src/scripts/purgeOrphanedChatUploadRetention.ts --prefix echo/channels/
  *
  * Requires: DATABASE_URL, S3 or ECHO_LOCAL_UPLOAD_DIR
  */

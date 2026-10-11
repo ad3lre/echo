@@ -77,7 +77,7 @@ Echo **does not** terminate WebRTC media; it only issues tokens and syncs DB sta
 1. From a browser, connect to a voice channel; confirm signaling uses **`wss://`** in DevTools.
 2. In Prometheus/Grafana, confirm **`echo_livekit_webhook_event_total`** increases on join/leave.
 3. Intentionally mis-sign a webhook (or use wrong secret in a staging env) and confirm **4xx** on `hooks_livekit` + alert tuning if needed.
-4. Run **`node server/ops/scripts/verify-livekit-production-env.mjs`** against production `.env` (checks `wss://`, documents firewall/TURN expectations).
+4. Run **`bun server/ops/scripts/verify-livekit-production-env.mjs`** against production `.env` (checks `wss://`, documents firewall/TURN expectations).
 5. **Reconnect vs token TTL:** With default `LIVEKIT_JOIN_TOKEN_TTL_SEC=300`, toggle network offline ~30s — expect SDK `Reconnecting`/`Reconnected` without re-mint. Offline **> 5 min** or `Disconnected` → guild client runs up to **8** full re-joins (fresh JWT each). Staging: set `LIVEKIT_JOIN_TOKEN_TTL_SEC=120` to exercise expiry sooner.
 
 ## 8. Production edge checklist (sign-off)

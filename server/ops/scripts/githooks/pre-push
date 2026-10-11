@@ -73,6 +73,6 @@ fi
 printf 'pre-push: GitHub mirror deferred until %s:00 %s (batched once per day).\n' \
   "$MIRROR_HOUR" "$MIRROR_TZ" >&2
 printf '  GitLab push will continue. To mirror immediately: ECHO_RELEASE_MIRROR_NOW=1 git push …\n' >&2
-printf '  Or: npm run mirror:github-release\n' >&2
-printf '  Install cron: npm run mirror:github-release:install-cron -- --yes\n' >&2
+printf '  Or: bun run mirror:github-release\n' >&2
+printf '  Install cron: bun run mirror:github-release:install-cron -- --yes\n' >&2
 exit 0

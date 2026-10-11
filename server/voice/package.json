@@ -4,10 +4,10 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node src/index.ts",
-    "test": "ts-node src/tests/run.ts && ts-node src/tests/config.test.ts && ts-node src/tests/verifyEchoForwardSignature.test.ts",
+    "dev": "bun src/index.ts",
+    "test": "bun src/tests/run.ts && bun test src/tests/config.test.ts && bun test src/tests/verifyEchoForwardSignature.test.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "bun dist/index.js"
   },
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",
@@ -17,7 +17,6 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
-    "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }
 }

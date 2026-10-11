@@ -30,7 +30,7 @@ macOS uses [`clients/apple/Resources/macOS/EchoMacOS.entitlements`](../../client
 
 Replace `<APPLE_TEAM_ID>` with the Apple Developer Team ID used to sign builds (e.g. `7HBQV8236H`). If a bundle identifier changes, update both `clients/apple/project.yml` and the Associated Domains capability together.
 
-Verify locally after a frontend build: `npm run verify:aasa`. Optional live check: `ECHO_AASA_VERIFY_URL=https://chat-echo.com npm run verify:aasa`.
+Verify locally after a frontend build: `bun run verify:aasa`. Optional live check: `ECHO_AASA_VERIFY_URL=https://chat-echo.com bun run verify:aasa`.
 
 ## Server policy
 

@@ -1,3 +1,8 @@
 # Specs
 
-Use this folder for detailed technical specifications that are not the primary **contract** surface. When a document is normative for integrations or APIs, prefer [contracts/](../contracts/) and link here for depth.
+Detailed technical specifications that are **not** the primary contract surface.
+Normative API / data rules live in [`docs/contracts/`](../contracts/); link here for
+depth when a topic needs a longer write-up.
+
+If you are looking for internal execution plans or historical reviews, those live
+in local **`docs-dev/`** (gitignored), not in this folder.

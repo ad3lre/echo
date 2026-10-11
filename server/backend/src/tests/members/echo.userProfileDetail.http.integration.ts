@@ -1,6 +1,6 @@
 /**
  * HTTP integration: roster workspace omits bio/banner; GET /users/:id/profile returns them.
- * Run: npm run test:echo:user-profile-detail -w backend
+ * Run: bun run --filter backend test:echo:user-profile-detail
  */
 import assert from 'node:assert/strict';
 import { getEchoStore } from '../../domain/echoStore';

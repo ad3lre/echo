@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import { verifyPassword } from '../../passwordHash';
 import { randomBytes, randomInt } from 'crypto';
 import type pg from 'pg';
 import * as authEmail from '../../email';
@@ -434,7 +434,7 @@ export class PostgresAuthStore implements AuthStore {
     password: string,
   ): Promise<boolean> {
     if (!user.passwordHash) return false;
-    return bcrypt.compare(password, user.passwordHash);
+    return verifyPassword(password, user.passwordHash);
   }
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
@@ -1524,7 +1524,7 @@ export class PostgresAuthStore implements AuthStore {
     if (!u.totp_enabled) throw new Error('TOTP_NOT_ENABLED');
     const pwOk =
       u.password_hash != null
-        ? await bcrypt.compare(password, String(u.password_hash))
+        ? await verifyPassword(password, String(u.password_hash))
         : false;
     if (!pwOk) throw new Error('INVALID_PASSWORD');
 

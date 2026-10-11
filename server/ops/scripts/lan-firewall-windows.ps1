@@ -1,5 +1,5 @@
 # Opens inbound ports for Echo LAN dev (Vite, API, LiveKit, TURN, RTP).
-# Run once in an elevated PowerShell: npm run lan:firewall
+# Run once in an elevated PowerShell: bun run lan:firewall
 # Requires Windows 8+ / PowerShell with NetSecurity module.
 
 $ErrorActionPreference = 'Stop'

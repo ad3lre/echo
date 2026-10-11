@@ -37,8 +37,8 @@ flowchart LR
 ## Commands
 
 ```bash
-npm run dev -w media    # local sidecar
-npm run test -w media   # sidecar unit tests
+bun run --filter media dev    # local sidecar
+bun run --filter media test   # sidecar unit tests
 ```
 
 ## Signing API

@@ -18,5 +18,5 @@ for (const rel of [
   }
 }
 console.log(
-  'LAN overrides cleared. Run `npm run db:up` to point LiveKit at default livekit.yaml again.',
+  'LAN overrides cleared. Run `bun run db:up` to point LiveKit at default livekit.yaml again.',
 );

@@ -34,69 +34,62 @@ const wtLocalUploadEnv = {
 };
 
 /**
- * PM2 app definitions. Install PM2 once: `npm install -g pm2` (use Node from `.nvmrc`, >=22.13).
+ * PM2 app definitions. Install PM2 once (`bun add -g pm2` or similar); apps run under Bun.
  * Start from repo root: `pm2 start ecosystem.config.cjs` so `env_file` loads DATABASE_URL, ECHO_S3_*, etc.
  * `echo-backend` uses ECHO_VIDEO_HLS_WORKER=standalone; `echo-video-hls-worker` must run alongside it (ffmpeg on PATH).
  * `echo-media` and `echo-activities` require Caddy routes on media.* / games.* subdomains.
  */
-function resolveNvmNode22Bin() {
+function resolveBunBin() {
   const home = process.env.HOME || '';
-  const versionsDir = path.join(home, '.nvm/versions/node');
-  if (!fs.existsSync(versionsDir)) return null;
-  const versions = fs
-    .readdirSync(versionsDir)
-    .filter((v) => /^v22\./.test(v))
-    .sort()
-    .reverse();
-  for (const v of versions) {
-    const nodeBin = path.join(versionsDir, v, 'bin', 'node');
-    if (fs.existsSync(nodeBin)) return nodeBin;
+  const candidates = [
+    process.env.BUN_INSTALL
+      ? path.join(process.env.BUN_INSTALL, 'bin', 'bun')
+      : '',
+    path.join(home, '.bun', 'bin', 'bun'),
+    '/usr/local/bin/bun',
+    '/usr/bin/bun',
+  ].filter(Boolean);
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  try {
+    const { execSync } = require('child_process');
+    const which = execSync('command -v bun', { encoding: 'utf8' }).trim();
+    if (which && fs.existsSync(which)) return which;
+  } catch {
+    /* ignore */
   }
   return null;
 }
 
-const node22Bin = resolveNvmNode22Bin();
-const npmCliJs = node22Bin
-  ? path.join(
-      path.dirname(node22Bin),
-      '..',
-      'lib',
-      'node_modules',
-      'npm',
-      'bin',
-      'npm-cli.js',
-    )
-  : null;
-const echoMarketing =
-  node22Bin && npmCliJs && fs.existsSync(npmCliJs)
-    ? {
-        name: 'echo-marketing',
-        script: npmCliJs,
-        args: 'run preview',
-        interpreter: node22Bin,
-        cwd: './marketing',
-        env: {
-          NODE_ENV: 'production',
-          // npm lifecycle runs `astro` via shell; ensure `node` is Node 22+, not an IDE shim.
-          PATH: `${path.dirname(node22Bin)}:${process.env.PATH || ''}`,
-        },
-        restart_delay: 3000,
-      }
-    : {
-        name: 'echo-marketing',
-        script: 'npm',
-        args: 'run preview',
-        cwd: './marketing',
-        env: { NODE_ENV: 'production' },
-        restart_delay: 3000,
-      };
+const bunBin = resolveBunBin();
+const bunPathPrefix = bunBin ? `${path.dirname(bunBin)}:` : '';
+
+function bunApp(opts) {
+  const base = {
+    interpreter: bunBin || 'bun',
+    env: {
+      ...(opts.env || {}),
+      PATH: `${bunPathPrefix}${process.env.PATH || ''}`,
+    },
+    restart_delay: opts.restart_delay ?? 3000,
+  };
+  if (opts.max_restarts != null) base.max_restarts = opts.max_restarts;
+  if (opts.env_file) base.env_file = opts.env_file;
+  return {
+    name: opts.name,
+    script: opts.script,
+    args: opts.args,
+    cwd: opts.cwd,
+    ...base,
+  };
+}
 
 module.exports = {
   apps: [
-    {
+    bunApp({
       name: 'echo-backend',
-      script: 'npm',
-      args: 'start',
+      script: 'dist/server/backend/src/index.js',
       cwd: './server/backend',
       env_file: pm2EnvFile,
       env: {
@@ -106,13 +99,11 @@ module.exports = {
         ECHO_VIDEO_HLS_WORKER: 'standalone',
         ...wtLocalUploadEnv,
       },
-      restart_delay: 3000,
       max_restarts: 10,
-    },
-    {
+    }),
+    bunApp({
       name: 'echo-video-hls-worker',
-      script: 'npm',
-      args: 'run worker:video-hls',
+      script: '../backend/dist/server/media/src/hls/worker.js',
       cwd: './server/media',
       env_file: pm2EnvFile,
       env: {
@@ -120,69 +111,70 @@ module.exports = {
         ...fileEnv,
         ...wtLocalUploadEnv,
       },
-      restart_delay: 3000,
       max_restarts: 10,
-    },
-    {
+    }),
+    bunApp({
       name: 'echo-web',
-      script: 'npm',
-      args: 'run preview',
+      script: path.join(repoRoot, 'node_modules/vite/bin/vite.js'),
+      args: 'preview --host --port 4173 --strictPort',
       cwd: './clients/web',
       env: {
         NODE_ENV: 'production',
       },
-      restart_delay: 3000,
-    },
-    echoMarketing,
-    {
+    }),
+    bunApp({
+      name: 'echo-marketing',
+      script: path.join(repoRoot, 'node_modules/astro/bin/astro.mjs'),
+      args: 'preview --host --port 4174',
+      cwd: './marketing',
+      env: {
+        NODE_ENV: 'production',
+      },
+    }),
+    bunApp({
       name: 'echo-media',
-      script: 'npm',
-      args: 'start',
+      script: 'dist/server/media/src/index.js',
       cwd: './server/media',
       env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
         ...fileEnv,
       },
-      restart_delay: 3000,
       max_restarts: 10,
-    },
-    {
+    }),
+    bunApp({
       name: 'echo-activities',
-      script: 'npm',
-      args: 'start',
+      script: 'dist/server/activities/src/index.js',
       cwd: './server/activities',
       env: {
         NODE_ENV: 'production',
         ...fileEnv,
       },
-      restart_delay: 3000,
       max_restarts: 10,
-    },
-    {
+    }),
+    bunApp({
       name: 'echo-discord-bot',
       script: path.join(repoRoot, 'bot/dist/index.js'),
       args: '--serve',
-      ...(node22Bin ? { interpreter: node22Bin } : {}),
       cwd: repoRoot,
       env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
         ...fileEnv,
       },
-      restart_delay: 3000,
       max_restarts: 10,
-    },
+    }),
     {
       name: 'echo-watchdog',
       script: 'server/ops/scripts/watchdog.mjs',
+      interpreter: bunBin || 'bun',
       env: {
-        // 3005 is reserved for the Discord bot internal API (ECHO_DISCORD_BOT_INTERNAL_PORT).
         WATCHDOG_PORT: 8095,
-        TARGET_PORT: 4173, // Default route points to chat-echo.com / echo-web
+        TARGET_PORT: 4173,
         TARGET_HOST: '127.0.0.1',
         WATCHDOG_HOST_TARGETS:
           'chat-echo.com=127.0.0.1:4173,www.chat-echo.com=127.0.0.1:4173,app-echo.net=127.0.0.1:4174,www.app-echo.net=127.0.0.1:4174',
+        PATH: `${bunPathPrefix}${process.env.PATH || ''}`,
       },
       restart_delay: 1000,
     },

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Postgres restore script - download from S3/R2 and restore.
  *
@@ -8,8 +8,8 @@
  * - Downloads dump to temp file, runs pg_restore
  *
  * Usage:
- *   sudo -E npm run backup:postgres:restore -- --date 2026-06-05 --tier daily
- *   sudo -E npm run backup:postgres:restore -- --date 2026-06-05 --tier daily --target-database-url postgres://...
+ *   sudo -E bun run backup:postgres:restore -- --date 2026-06-05 --tier daily
+ *   sudo -E bun run backup:postgres:restore -- --date 2026-06-05 --tier daily --target-database-url postgres://...
  *
  * Env (from /etc/echo/backup-restore.env or inherited):
  *   ECHO_BACKUP_S3_BUCKET       - Source bucket name
@@ -73,7 +73,7 @@ function printHelp() {
 Echo Postgres Restore - Hard Take (requires sudo)
 
 Usage:
-  sudo -E npm run backup:postgres:restore -- [options]
+  sudo -E bun run backup:postgres:restore -- [options]
 
 Options:
   --date YYYY-MM-DD          Date of backup to restore (required)
@@ -86,8 +86,8 @@ Environment:
   or inherited with -E flag to sudo.
 
 Examples:
-  sudo -E npm run backup:postgres:restore -- --date 2026-06-05
-  sudo -E npm run backup:postgres:restore -- --date 2026-06-05 --tier weekly --target-database-url postgres://restoreuser:pass@localhost/echo_scratch
+  sudo -E bun run backup:postgres:restore -- --date 2026-06-05
+  sudo -E bun run backup:postgres:restore -- --date 2026-06-05 --tier weekly --target-database-url postgres://restoreuser:pass@localhost/echo_scratch
 `);
 }
 
@@ -99,7 +99,7 @@ function checkSudo() {
       '\nThis script must run with sudo for the "hard take" security model.',
     );
     console.error(
-      'Run with: sudo -E npm run backup:postgres:restore -- [options]',
+      'Run with: sudo -E bun run backup:postgres:restore -- [options]',
     );
     process.exit(1);
   }

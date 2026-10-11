@@ -1,5 +1,5 @@
 /**
- * Run: node --import tsx server/backend/src/tests/unfurl/stageYoutubeBroadcast.claim.test.ts
+ * Run: bun server/backend/src/tests/unfurl/stageYoutubeBroadcast.claim.test.ts
  * Requires DATABASE_URL.
  */
 import { getPgPool } from '../../db/pg';

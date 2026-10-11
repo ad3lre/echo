@@ -1,12 +1,12 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Regenerate server/ops/scripts/new-code-charter-grandfather.json from the cutoff commit in
  * server/ops/scripts/new-code-charter-config.json.
  *
- *   node server/ops/scripts/generate-new-code-charter-grandfather.mjs --write
+ *   bun server/ops/scripts/generate-new-code-charter-grandfather.mjs --write
  *
  * After rewriting the path list, snapshot size ceilings with:
- *   node server/ops/scripts/generate-new-code-charter-grandfather-baselines.mjs --write
+ *   bun server/ops/scripts/generate-new-code-charter-grandfather-baselines.mjs --write
  */
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';

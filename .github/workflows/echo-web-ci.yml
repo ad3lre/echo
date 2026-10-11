@@ -9,7 +9,7 @@ on:
       - 'server/activities/cores/**'
       - 'contracts/**'
       - 'package.json'
-      - 'package-lock.json'
+      - 'bun.lock'
       - 'server/ops/scripts/god-file-baselines.json'
       - 'server/ops/scripts/check-god-file-ratchet.mjs'
       - 'server/ops/scripts/check-new-code-charter.mjs'
@@ -26,7 +26,7 @@ on:
       - 'server/activities/cores/**'
       - 'contracts/**'
       - 'package.json'
-      - 'package-lock.json'
+      - 'bun.lock'
       - 'server/ops/scripts/god-file-baselines.json'
       - 'server/ops/scripts/check-god-file-ratchet.mjs'
       - 'server/ops/scripts/check-new-code-charter.mjs'
@@ -42,42 +42,41 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22.13.1'
-          cache: 'npm'
+          bun-version-file: '.bun-version'
 
       - name: Install
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Lint (theme + TS + Vue essential)
-        run: npm run lint -w web
+        run: bun run --filter web lint
 
       - name: i18n key parity
-        run: npm run i18n:check -w web
+        run: bun run --filter web i18n:check
 
       - name: God-file ratchet
-        run: node server/ops/scripts/check-god-file-ratchet.mjs
+        run: bun server/ops/scripts/check-god-file-ratchet.mjs
 
       - name: New-code charter (June 2026+)
-        run: node server/ops/scripts/check-new-code-charter.mjs
+        run: bun server/ops/scripts/check-new-code-charter.mjs
 
       - name: New-code charter unit tests
-        run: npm run charter:new-code:test
+        run: bun run charter:new-code:test
 
       - name: Documentation links
-        run: npm run docs:links:check
+        run: bun run docs:links:check
 
       - name: Strict theme ESLint
-        run: npm run lint:theme -w web
+        run: bun run --filter web lint:theme
 
       - name: Stylelint (SCSS + Vue SFC styles)
-        run: npm run lint:style -w web
+        run: bun run --filter web lint:style
 
       - name: Typecheck + build
         env:
           NODE_OPTIONS: '--max-old-space-size=6144'
-        run: npm run build -w web
+        run: bun run --filter web build
 
       - name: Assert no source maps in dist
         run: |
@@ -88,4 +87,4 @@ jobs:
           fi
 
       - name: Unit tests
-        run: npm run test:coverage -w web -- --reporter=dot
+        run: bun run --filter web test:coverage -- --reporter=dot

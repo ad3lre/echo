@@ -489,7 +489,7 @@ All other tracked files under each folder follow the folder’s primary domain.
 
 ## Vue SFC inventory — `clients/web/src/components/` (primitives only, P1 complete)
 
-After [P1 code placement](./p1-code-placement-program.md), `components/` holds **10 flat files** — Echo\* design-system widgets plus config primitives. All feature UI moved to `features/<domain>/`. See [code-placement.md](./code-placement.md).
+After P1 code placement, `components/` holds **10 flat files** — Echo\* design-system widgets plus config primitives. All feature UI moved to `features/<domain>/`. See [code-placement.md](./code-placement.md).
 
 | Path                                                  | Domain                |
 | ----------------------------------------------------- | --------------------- |

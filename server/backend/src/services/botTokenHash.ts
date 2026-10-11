@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import bcrypt from 'bcrypt';
+import { hashPassword, verifyPassword } from '../auth/passwordHash';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -13,7 +13,7 @@ function isBcryptHash(stored: string): boolean {
 
 /** Hash a newly issued bot token for storage (bcrypt, not unsalted SHA-256). */
 export async function hashBotTokenForStorage(token: string): Promise<string> {
-  return bcrypt.hash(token, BCRYPT_ROUNDS);
+  return hashPassword(token, BCRYPT_ROUNDS);
 }
 
 /** Verify a presented bot token against a stored bcrypt or legacy SHA-256 hash. */
@@ -22,7 +22,7 @@ export async function verifyBotTokenAgainstStoredHash(
   storedHash: string,
 ): Promise<boolean> {
   if (isBcryptHash(storedHash)) {
-    return bcrypt.compare(token, storedHash);
+    return verifyPassword(token, storedHash);
   }
   return sha256Hex(token) === storedHash;
 }

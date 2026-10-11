@@ -1,6 +1,6 @@
 /**
  * Presign authorization smoke tests (requires DATABASE_URL).
- * Run: npm run test:echo:uploads -w backend
+ * Run: bun run --filter backend test:echo:uploads
  */
 import assert from 'node:assert/strict';
 import { getEchoStore } from '../../domain/echoStore';

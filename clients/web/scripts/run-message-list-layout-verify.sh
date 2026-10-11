@@ -24,7 +24,7 @@ ECHO_MARKETING_PUBLIC_URL="http://localhost:${FRONTEND_PORT}" \
 ECHO_API_PUBLIC_URL="http://127.0.0.1:${HARNESS_PORT}" \
 ECHO_SOCKET_MSG_PER_MINUTE=1000 ECHO_SOCKET_BURST_MAX=200 \
 PORT="${HARNESS_PORT}" LAYOUT_VERIFY_OUT="${OUT}" \
-  node --import tsx src/tests/helpers/messageListLayoutHarness.ts > /tmp/echo-layout-harness.log 2>&1 &
+  bun src/tests/helpers/messageListLayoutHarness.ts > /tmp/echo-layout-harness.log 2>&1 &
 HARNESS_PID=$!
 
 for _ in $(seq 1 60); do
@@ -37,7 +37,7 @@ if [[ ! -f "${OUT}" ]]; then
   exit 1
 fi
 
-BACKEND_URL="$(node -e "console.log(JSON.parse(require('fs').readFileSync('${OUT}','utf8')).backendUrl)")"
+BACKEND_URL="$(bun -e "console.log(JSON.parse(require('fs').readFileSync('${OUT}','utf8')).backendUrl)")"
 cd "${ROOT}/clients/web"
 # Use Vite /api proxy (same-origin cookies). Override production VITE_API_URL from .env.
 ECHO_DEV_BACKEND_URL="${BACKEND_URL}" VITE_SOCKET_IO_URL="http://localhost:${HARNESS_PORT}" VITE_API_URL= node "${ROOT}/node_modules/vite/bin/vite.js" --port "${FRONTEND_PORT}" --strictPort > /tmp/echo-layout-vite.log 2>&1 &

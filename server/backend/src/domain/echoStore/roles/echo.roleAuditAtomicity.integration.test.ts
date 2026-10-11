@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../../auth/store/helpers';
 import Fastify from 'fastify';
 import pg from 'pg';
 import { ensureEchoTables } from '../../../db/echoTables';
@@ -12,7 +12,7 @@ function stub(path: string, exports: object): void {
 }
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `raudit_${id.replace(/[^a-z0-9]/gi, '').slice(0, 14)}`;
   await pool.query(
     `INSERT INTO auth_users

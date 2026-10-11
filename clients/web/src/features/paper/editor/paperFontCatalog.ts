@@ -22,7 +22,7 @@ export type PaperFontDefinition = {
   family: string;
   category: PaperFontCategory;
   attributes: PaperFontHolderAttributes;
-  /** @fontsource npm package when it differs from `id`. */
+  /** @fontsource package name when it differs from `id`. */
   pkg?: string;
   /** Self-hosted OFL font (not from @fontsource). */
   bundled?: boolean;

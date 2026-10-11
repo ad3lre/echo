@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * CI guard: GitHub mirror policy hooks and docs must stay wired.
  * Prevents accidental removal of main-history leak protections.

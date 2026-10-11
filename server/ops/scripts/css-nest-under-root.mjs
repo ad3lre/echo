@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Nest flat CSS (selectors prefixed with `.rootClass`) under a single SCSS block.
- * Usage: node server/ops/scripts/css-nest-under-root.mjs <input.css> <output.scss> <rootClass>
+ * Usage: bun server/ops/scripts/css-nest-under-root.mjs <input.css> <output.scss> <rootClass>
  */
 import fs from 'node:fs';
 import postcss from 'postcss';
@@ -9,7 +9,7 @@ import postcss from 'postcss';
 const [inputPath, outputPath, rootClass] = process.argv.slice(2);
 if (!inputPath || !outputPath || !rootClass) {
   console.error(
-    'Usage: node server/ops/scripts/css-nest-under-root.mjs <input.css> <output.scss> <rootClass>',
+    'Usage: bun server/ops/scripts/css-nest-under-root.mjs <input.css> <output.scss> <rootClass>',
   );
   process.exit(1);
 }

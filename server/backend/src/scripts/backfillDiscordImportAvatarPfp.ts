@@ -5,8 +5,8 @@
  * avatars or bare avatar hashes) instead of Echo uploads / data URLs.
  *
  * Usage (from server/backend/):
- *   npx ts-node src/scripts/backfillDiscordImportAvatarPfp.ts           # dry-run
- *   npx ts-node src/scripts/backfillDiscordImportAvatarPfp.ts --execute # apply
+ *   bun src/scripts/backfillDiscordImportAvatarPfp.ts           # dry-run
+ *   bun src/scripts/backfillDiscordImportAvatarPfp.ts --execute # apply
  *
  * Requires: DATABASE_URL and configured Echo upload storage (local dir or S3).
  */

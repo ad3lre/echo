@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Read-only checks for LiveKit production env (run against operator .env).
- * Usage: node server/ops/scripts/verify-livekit-production-env.mjs [path-to-.env]
+ * Usage: bun server/ops/scripts/verify-livekit-production-env.mjs [path-to-.env]
  * Exit 0 when checks pass or LiveKit is disabled; exit 1 on hard failures.
  */
 import fs from 'node:fs';

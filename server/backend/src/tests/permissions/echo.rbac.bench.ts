@@ -2,7 +2,7 @@
  * Synthetic RBAC fold benchmark: measures foldRolePermissions and applyLayerFromPartialObject
  * under extreme conditions (500–1000 roles, admin-heavy, multi-layer).
  *
- * Run: npx ts-node src/tests/permissions/echo.rbac.bench.ts
+ * Run: bun src/tests/permissions/echo.rbac.bench.ts
  */
 
 import {

@@ -6,7 +6,7 @@
  * send (persist + broadcast), gateway fanout, and the in-RAM caches that back
  * them (permission fold cache + server permission aggregate). These complement
  * the coarse RED metrics in {@link ./echoMetrics} with the specific things we
- * tune for in docs/reviews/IN_MEMORY_SERVER_STATE_PLAN.md.
+ * tune for in local docs-dev/reviews/IN_MEMORY_SERVER_STATE_PLAN.md when present.
  *
  * All series register on the shared registry from {@link ./echoMetrics}, so they
  * are scraped at GET /api/v1/metrics and included in the weekly metrics digest

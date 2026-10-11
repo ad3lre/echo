@@ -2,8 +2,8 @@
  * Deletes all Echo app data in Postgres (users, servers, messages, sessions, audit, etc.)
  * while keeping table definitions, indexes, and extensions intact.
  *
- *   npx ts-node src/scripts/wipeAppDatabase.ts           # dry-run (lists tables)
- *   npx ts-node src/scripts/wipeAppDatabase.ts --execute # apply
+ *   bun src/scripts/wipeAppDatabase.ts           # dry-run (lists tables)
+ *   bun src/scripts/wipeAppDatabase.ts --execute # apply
  *
  * Env: `DATABASE_URL` (same as the running server). Loads repo root `.env`, then `server/backend/.env`, then `.env.lan`.
  */

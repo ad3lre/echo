@@ -2,7 +2,7 @@
  * End-to-end verification: post empty image slot → upload → fill → assert persisted + UI.
  *
  *   BACKEND_URL=http://127.0.0.1:3000 FRONTEND_URL=http://127.0.0.1:8084 \
- *     node clients/web/scripts/verify-image-slot-fill.mjs
+ *     bun clients/web/scripts/verify-image-slot-fill.mjs
  */
 import { chromium } from 'playwright';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';

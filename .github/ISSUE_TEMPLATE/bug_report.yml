@@ -36,4 +36,4 @@ body:
     id: context
     attributes:
       label: Version / context
-      description: Commit SHA or tag, Node version if relevant, and whether you use Docker Compose services (`npm run db:up`).
+      description: Commit SHA or tag, Node version if relevant, and whether you use Docker Compose services (`bun run db:up`).

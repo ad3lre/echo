@@ -7,8 +7,8 @@
 # Confirm: --yes or GITLAB_RELEASE_SYNC_CONFIRM=1
 #
 # Usage:
-#   npm run sync:gitlab-release -- --yes
-#   GITLAB_RELEASE_SYNC_CONFIRM=1 npm run sync:gitlab-release
+#   bun run sync:gitlab-release -- --yes
+#   GITLAB_RELEASE_SYNC_CONFIRM=1 bun run sync:gitlab-release
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -21,8 +21,8 @@ BRANCH="${BRANCH:-release/1.0.0}"
 if [[ "${1:-}" != "--yes" && -z "${GITLAB_RELEASE_SYNC_CONFIRM:-}" ]]; then
   echo "sync-gitlab-release-from-github: refusing to run without confirmation."
   echo "  This updates ${GITLAB_REMOTE}/${BRANCH} from ${GITHUB_REMOTE}/${BRANCH} (may rewrite divergent history)."
-  echo "  Run:  npm run sync:gitlab-release -- --yes"
-  echo "  Or:   GITLAB_RELEASE_SYNC_CONFIRM=1 npm run sync:gitlab-release"
+  echo "  Run:  bun run sync:gitlab-release -- --yes"
+  echo "  Or:   GITLAB_RELEASE_SYNC_CONFIRM=1 bun run sync:gitlab-release"
   exit 2
 fi
 

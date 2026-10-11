@@ -1,6 +1,6 @@
 /**
  * Unit tests for CSAM scan helpers (synthetic fixtures only).
- * Run: npm run test:csam -w backend
+ * Run: bun run --filter backend test:csam
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';

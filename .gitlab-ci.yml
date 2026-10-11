@@ -1,4 +1,4 @@
-# GitLab CI mirror (see docs/operations/ops/REPO_ARTIFACTS_POLICY.md).
+# GitLab CI mirror (internal remote; see docs/operations/github-release-mirror.md).
 #
 # Public OSS on GitHub: authoritative CI is GitHub Actions (.github/workflows/).
 # GitLab runs Prettier on doc/format paths and a ship gate (`ci:precheck` parity) on
@@ -38,16 +38,26 @@ stages:
   - 'contracts/**'
   - 'server/ops/scripts/**'
   - 'package.json'
-  - 'package-lock.json'
+  - 'bun.lock'
   - '.gitlab-ci.yml'
+
+.bun_setup: &bun_setup
+  before_script:
+    # bookworm-slim has no git; check-oss-artifacts needs `git ls-files`
+    - apt-get update -qq && apt-get install -y -qq git curl unzip ca-certificates >/dev/null
+    - export BUN_VERSION="$(tr -d ' \t\r\n' < .bun-version)"
+    - curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}"
+    - export BUN_INSTALL="$HOME/.bun"
+    - export PATH="$BUN_INSTALL/bin:$PATH"
+    - bun --version
 
 prettier:
   stage: quality
-  image: node:22.13-bookworm-slim
+  image: debian:bookworm-slim
   cache:
     key:
       files:
-        - package-lock.json
+        - bun.lock
     paths:
       - node_modules/
   rules:
@@ -55,24 +65,22 @@ prettier:
       changes: *prettier_paths
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes: *prettier_paths
-  before_script:
-    # bookworm-slim has no git; check-oss-artifacts needs `git ls-files`
-    - apt-get update -qq && apt-get install -y -qq git >/dev/null
+  <<: *bun_setup
   script:
-    - node server/ops/scripts/check-oss-artifacts.mjs
-    - npm ci
-    - npm run format:check
+    - bun server/ops/scripts/check-oss-artifacts.mjs
+    - bun install --frozen-lockfile
+    - bun run format:check
 
 ship-gate:
   stage: test
-  image: node:22.13-bookworm-slim
+  image: debian:bookworm-slim
   variables:
     # vue-tsc + vite on the web workspace OOMs at the default ~2GB heap on shared runners
     NODE_OPTIONS: '--max-old-space-size=6144'
   cache:
     key:
       files:
-        - package-lock.json
+        - bun.lock
     paths:
       - node_modules/
   rules:
@@ -80,9 +88,8 @@ ship-gate:
       changes: *ci_paths
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes: *ci_paths
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq git >/dev/null
+  <<: *bun_setup
   script:
-    - npm ci
-    - npm run ci:precheck
-    - npm run charter:new-code:test
+    - bun install --frozen-lockfile
+    - bun run ci:precheck
+    - bun run charter:new-code:test

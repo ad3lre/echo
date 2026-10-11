@@ -7,8 +7,8 @@
  * forward_of) in batched transactions.
  *
  * Usage (from server/backend/):
- *   npx ts-node src/scripts/backfillMessageUuidToSnowflake.ts           # dry-run
- *   npx ts-node src/scripts/backfillMessageUuidToSnowflake.ts --execute # apply
+ *   bun src/scripts/backfillMessageUuidToSnowflake.ts           # dry-run
+ *   bun src/scripts/backfillMessageUuidToSnowflake.ts --execute # apply
  */
 import { closePgPool, getPgPool } from '../db/pg';
 import {

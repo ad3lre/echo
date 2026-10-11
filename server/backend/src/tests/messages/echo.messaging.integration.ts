@@ -5,7 +5,7 @@ import { canUserPostMessage } from '../../domain/permissions/echoPermissions';
 
 /**
  * Lightweight pipeline check: Echo store + permission helpers when PostgreSQL is available.
- * Run from repo: `npm run test:echo -w backend` (requires DATABASE_URL and seeded `echo_channels` / `auth_users`).
+ * Run from repo: `bun run --filter backend test:echo` (requires DATABASE_URL and seeded `echo_channels` / `auth_users`).
  */
 async function run(): Promise<void> {
   const { enabled, pool } = await getEchoStore();

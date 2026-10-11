@@ -6,13 +6,13 @@ You can **run it yourself** (self-host), **fork and extend** it (AGPL), or use i
 
 ## Quick start
 
-From the repository root (Node.js **22.13+**, Docker for Postgres):
+From the repository root (Bun **1.4.2+**, Docker for Postgres):
 
 ```bash
-npm ci
+bun install --frozen-lockfile
 cp .env.example .env
-npm run db:up
-npm run dev
+bun run db:up
+bun run dev
 ```
 
 - API: **http://localhost:3000**
@@ -35,16 +35,16 @@ Full setup, PR checks, and maintainer notes: **[docs/DEVELOPMENT.md](./docs/DEVE
 
 ## What Echo is
 
-Echo is a **full-stack communication app**: a Vue 3 SPA, a Node.js (**Fastify**) API, **Socket.IO** for realtime, **PostgreSQL** for durable data, optional **NATS** for multi-process scaling, and **native Apple clients** under [`clients/apple/`](./clients/apple/) (more platforms to follow). A separate **marketing** site (Astro) and optional **Discord bridge / import** tooling exist for migration and interoperability—not as the core identity of the product.
+Echo is a **full-stack communication app**: a Vue 3 SPA, a **Bun** (**Fastify**) API, **Socket.IO** for realtime, **PostgreSQL** for durable data, optional **NATS** for multi-process scaling, and **native Apple clients** under [`clients/apple/`](./clients/apple/) (more platforms to follow). A separate **marketing** site (Astro) and optional **Discord bridge / import** tooling exist for migration and interoperability—not as the core identity of the product.
 
-The codebase is organized for **operators and contributors**: typed shared contracts between client and server, documented API behavior under [`docs/contracts/`](./docs/contracts/), and runbooks under [`docs/operations/`](./docs/operations/).
+The codebase is organized for **operators and contributors**: typed shared contracts between client and server, documented API behavior under [`docs/contracts/`](./docs/contracts/), and self-host runbooks under [`docs/operations/`](./docs/operations/).
 
 ## Why Echo
 
 - **Privacy and consent by design** — built around clear boundaries for data, sessions, and what the server is allowed to assume about users.
 - **You own your deployment** — no mandatory third-party control plane; configure auth, storage, voice, and edge the way your threat model requires.
 - **Realtime-first** — chat and presence are first-class; server/voice/video follow a documented LiveKit path with production checklists in-repo.
-- **Serious engineering guardrails** — contract tests, RBAC and snowflake guards in CI, observability hooks, and a single [production readiness rollup](./docs/reviews/STATUS_AND_PRODUCTION_READINESS.md) so progress is inspectable, not hand-wavy.
+- **Serious engineering guardrails** — contract tests, RBAC and snowflake guards in CI, observability hooks, and a documented [shipping gate](./docs/operations/shipping-gate.md) / [production security checklist](./docs/operations/PRODUCTION_SECURITY_CHECKLIST.md).
 - **Installable where your users are** — **PWA** for the web and **native Apple apps** in [`clients/apple/`](./clients/apple/) (iOS first; macOS shared where product-neutral).
 
 ## Open source
@@ -77,14 +77,14 @@ Echo is a **single monorepo**. UI lives in clients; suites own shared kits and s
 - **`server/ops/`** — Glue only (`scripts/`, `infra/`, `server/ops/monitoring/`, `perf/`).
 - **`marketing/`** — Astro public site (+ `marketing/terms/`).
 - **`bot/`** — Optional Discord bridge / import tooling.
-- **`docs/`** — Narrative docs, plans, and runbooks.
+- **`docs/`** — Public docs (getting started, contracts, self-host runbooks). Local deep notes: `docs-dev/` (gitignored).
 
 ## Stack (summary)
 
 | Layer    | Choices                                                                                                                                                         |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Frontend | Vue 3, Vite, Pinia, TypeScript (History API client navigation)                                                                                                  |
-| Backend  | Node.js, Fastify, Socket.IO, TypeScript                                                                                                                         |
+| Backend  | Bun, Fastify, Socket.IO, TypeScript                                                                                                                             |
 | Data     | PostgreSQL                                                                                                                                                      |
 | Realtime | Optional **NATS** Socket.IO adapter when **`NATS_URL`** is set — see [realtime scaling](./docs/infra/realtime-scaling.md) and [STACK](./docs/overview/STACK.md) |
 | Voice    | LiveKit (session + webhooks + client); ops in [`docs/operations/livekit-production.md`](./docs/operations/livekit-production.md)                                |
@@ -92,22 +92,22 @@ Echo is a **single monorepo**. UI lives in clients; suites own shared kits and s
 
 ## Getting started
 
-- **Install from the repo root** (`npm ci` or `npm install`). Root install is required (workspaces + devDependencies such as **`sharp`** for Twemoji assets). Installing only under `clients/web/` is not enough for `npm run dev` / `npm run build`.
-- **Node.js 22.13+** (see `package.json` `engines`). For `sharp`, see [sharp install](https://sharp.pixelplumbing.com/install).
-- **Local stack:** `npm run db:up` then `npm run dev` (see `.env.example`). Postgres-like behavior: **`ECHO_BACKEND_STORAGE=postgres`** and **`DATABASE_URL`**.
-- **Production-like local bundle:** `npm run prod` (full build + API on **:3000** + Vite preview on **:4173**). Skip rebuild: `npm run prod:serve`.
-- **Backend only:** `npm run build -w backend` (or root `npm run build`) before `npm start` (`node dist/server/backend/src/index.js`).
+- **Install from the repo root** (`bun install --frozen-lockfile` or `bun install`). Root install is required (workspaces + devDependencies such as **`sharp`** for Twemoji assets). Installing only under `clients/web/` is not enough for `bun run dev` / `bun run build`.
+- **Bun 1.4.2+** (see `package.json` `engines`). For `sharp`, see [sharp install](https://sharp.pixelplumbing.com/install).
+- **Local stack:** `bun run db:up` then `bun run dev` (see `.env.example`). Postgres-like behavior: **`ECHO_BACKEND_STORAGE=postgres`** and **`DATABASE_URL`**.
+- **Production-like local bundle:** `bun run prod` (full build + API on **:3000** + Vite preview on **:4173**). Skip rebuild: `bun run prod:serve`.
+- **Backend only:** `bun run --filter backend` build (or root `bun run build`) before `bun run start` (`bun dist/server/backend/src/index.js`).
 - **Production:** `DATABASE_URL` required; **`/api/v1/mock`** is not registered in production.
 - **VPS / bare metal:** [`docs/operations/linux-vps-deployment.md`](./docs/operations/linux-vps-deployment.md).
-- **Seed dev data (API running):** `npm run seed:dev`.
+- **Seed dev data (API running):** `bun run seed:dev`.
 
 ### Progressive Web App
 
-The SPA ships a [manifest](https://developer.mozilla.org/en-US/docs/Web/Manifest), themed icons under `clients/web/public/icons/` (regenerated on `npm run build -w web` via `server/ops/scripts/generate-pwa-icons.mjs`), and a minimal [service worker](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) (`clients/web/public/sw.js`). The worker registers in dev and production so Chrome can offer **Install Echo** on `npm run dev` (e.g. **http://localhost:8080**).
+The SPA ships a [manifest](https://developer.mozilla.org/en-US/docs/Web/Manifest), themed icons under `clients/web/public/icons/` (regenerated on `bun run --filter web` build via `server/ops/scripts/generate-pwa-icons.mjs`), and a minimal [service worker](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) (`clients/web/public/sw.js`). The worker registers in dev and production so Chrome can offer **Install Echo** on `bun run dev` (e.g. **http://localhost:8080**).
 
 - **HTTPS:** production installability needs a secure context; terminate TLS at your proxy and forward **`X-Forwarded-Proto`** when HTTPS enforcement is on (see `registerHttpsEnforcementIfConfigured` and [realtime-scaling](./docs/infra/realtime-scaling.md)).
-- **Verify:** Vite dev or `npm run build -w web && npm run preview -w web` → Chrome → **Install Echo**. Hard-reload once if the prompt is missing.
-- **Icons only:** `npm run pwa:icons` from repo root.
+- **Verify:** Vite dev or `bun run --filter web build && bun run --filter web` preview → Chrome → **Install Echo**. Hard-reload once if the prompt is missing.
+- **Icons only:** `bun run pwa:icons` from repo root.
 
 ## Native apps
 

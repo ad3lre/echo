@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Fails the build if removed dual-runtime symbols reappear in backend app code.
  */

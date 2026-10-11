@@ -1,6 +1,6 @@
 /**
  * Upload object-store routing when S3 and local disk are both configured.
- * Run: node --import tsx server/backend/src/tests/uploads/echoUploadObjectBackend.test.ts
+ * Run: bun server/backend/src/tests/uploads/echoUploadObjectBackend.test.ts
  */
 import assert from 'node:assert/strict';
 import path from 'node:path';

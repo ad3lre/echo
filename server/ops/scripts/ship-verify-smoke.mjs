@@ -1,6 +1,6 @@
 /**
- * After `npm run build -w backend`, starts the compiled backend on a high port and GETs /api/v1/health.
- * Invoked from `npm run ship:verify`.
+ * After `bun run --filter backend build`, starts the compiled backend on a high port and GETs /api/v1/health.
+ * Invoked from `bun run ship:verify`.
  */
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -26,7 +26,7 @@ const marketingIndexHtml = path.join(root, 'marketing', 'dist', 'index.html');
 
 if (!fs.existsSync(marketingIndexHtml)) {
   console.error(
-    'ship-verify-smoke: missing marketing/dist/index.html — run full `npm run build` first',
+    'ship-verify-smoke: missing marketing/dist/index.html — run full `bun run build` first',
   );
   process.exit(1);
 }

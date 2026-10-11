@@ -2,8 +2,8 @@
  * Marks inactive onboarding guests as soft-deleted (`guest_deleted_at`), keeping `userId` stable.
  * Activity proxy: `updated_at` (any auth profile touch bumps this).
  *
- *   npx ts-node src/scripts/softDeleteStaleGuests.ts           # dry-run
- *   npx ts-node src/scripts/softDeleteStaleGuests.ts --execute
+ *   bun src/scripts/softDeleteStaleGuests.ts           # dry-run
+ *   bun src/scripts/softDeleteStaleGuests.ts --execute
  *
  * Env: `ECHO_GUEST_STALE_DAYS` (default 90).
  */

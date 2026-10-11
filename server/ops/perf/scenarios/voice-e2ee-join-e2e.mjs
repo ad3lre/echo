@@ -2,7 +2,7 @@
  * Full-stack guild voice E2EE join: register user, enable E2EE on a voice channel,
  * join via UI, assert no privacy-setup failure dialog.
  *
- * Usage: node server/ops/perf/scenarios/voice-e2ee-join-e2e.mjs [baseUrl]
+ * Usage: bun server/ops/perf/scenarios/voice-e2ee-join-e2e.mjs [baseUrl]
  */
 import { chromium } from '@playwright/test';
 import { randomBytes } from 'node:crypto';

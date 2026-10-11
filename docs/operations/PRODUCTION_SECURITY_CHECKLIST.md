@@ -33,7 +33,7 @@
 
 ## Video HLS worker
 
-15. **`ECHO_VIDEO_HLS_WORKER=standalone`** — Required in production by default so ffmpeg does not share the API event loop. Run `npm run worker:video-hls` (or PM2 `echo-video-hls-worker`). Set **`ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true`** only for deliberate single-process smoke stacks.
+15. **`ECHO_VIDEO_HLS_WORKER=standalone`** — Required in production by default so ffmpeg does not share the API event loop. Run `bun run worker:video-hls` (or PM2 `echo-video-hls-worker`). Set **`ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true`** only for deliberate single-process smoke stacks.
 16. **`BCRYPT_SALT_ROUNDS`** — Default is **12**. Keep ≥12 in production; existing password hashes are not rehashed until the next password change.
 17. **CSAM image scan** — When **`ECHO_CSAM_IMAGE_SCAN_MODE=on`**, scanner errors **fail closed** by default (`ECHO_CSAM_FAIL_CLOSED` defaults true in that mode). Set **`ECHO_CSAM_FAIL_CLOSED=false`** only if you accept fail-open on scanner outages.
 

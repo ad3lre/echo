@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * New-code charter enforcement (docs/echo-code-charter.md + docs/overview/agents.md).
  *

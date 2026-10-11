@@ -5,10 +5,10 @@
  * rewrites message/user URL references, and deletes the legacy object.
  *
  * Usage (from server/backend/):
- *   npx ts-node src/scripts/backfillRasterImagesToWebp.ts
- *   npx ts-node src/scripts/backfillRasterImagesToWebp.ts --execute
- *   npx ts-node src/scripts/backfillRasterImagesToWebp.ts --execute --limit 50
- *   npx ts-node src/scripts/backfillRasterImagesToWebp.ts --prefix echo/channels/
+ *   bun src/scripts/backfillRasterImagesToWebp.ts
+ *   bun src/scripts/backfillRasterImagesToWebp.ts --execute
+ *   bun src/scripts/backfillRasterImagesToWebp.ts --execute --limit 50
+ *   bun src/scripts/backfillRasterImagesToWebp.ts --prefix echo/channels/
  *
  * Requires: DATABASE_URL, S3 or ECHO_LOCAL_UPLOAD_DIR
  */

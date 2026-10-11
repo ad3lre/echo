@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Verify AASA is present in clients/web/dist and matches Team ID + bundle ids
  * from `clients/apple/project.yml` (or env overrides).

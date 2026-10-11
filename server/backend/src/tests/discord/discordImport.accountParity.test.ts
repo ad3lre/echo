@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../auth/store/helpers';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -27,7 +27,7 @@ async function insertAuthUser(
   id: string,
   label: string,
 ): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `${label}_${id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`;
   const email = `${username}@echo.test`;
   await pool.query(

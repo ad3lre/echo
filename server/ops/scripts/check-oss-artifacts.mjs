@@ -1,6 +1,6 @@
 /**
  * Fail CI if forbidden paths are tracked (defense in depth beyond .gitignore).
- * Run from repo root: node server/ops/scripts/check-oss-artifacts.mjs
+ * Run from repo root: bun server/ops/scripts/check-oss-artifacts.mjs
  */
 import { spawnSync } from 'node:child_process';
 
@@ -50,6 +50,7 @@ for (const f of files) {
   if (f.includes('/echo-local-uploads/')) bad.add(f);
   if (f.startsWith('artifacts/')) bad.add(f);
   if (f === 'docs/overview/tree.md') bad.add(f);
+  if (f === 'docs-dev' || f.startsWith('docs-dev/')) bad.add(f);
   if (generatedOrDumpBasenames.has(f.split('/').pop() ?? '')) bad.add(f);
   for (const p of trackedAiOrIdePrefixes) {
     if (f === p.slice(0, -1) || f.startsWith(p)) bad.add(f);
@@ -63,7 +64,7 @@ for (const f of files) {
 
 if (bad.size > 0) {
   console.error(
-    'check-oss-artifacts: tracked files must not include HARs, scanner dumps under logs/, artifacts/, generated tree.md, lint/vitest/console dumps, AI/IDE local dirs, .env (non-example), .code-workspace, Aider state, Discord exports, or local uploads:\n' +
+    'check-oss-artifacts: tracked files must not include HARs, scanner dumps under logs/, artifacts/, generated tree.md, docs-dev/, lint/vitest/console dumps, AI/IDE local dirs, .env (non-example), .code-workspace, Aider state, Discord exports, or local uploads:\n' +
       [...bad].sort().join('\n'),
   );
   process.exit(1);

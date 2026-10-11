@@ -63,12 +63,12 @@ If you have the Echo backup system configured ([backup-restore.md](./backup-rest
 
 ```bash
 # Restore from yesterday's backup to current DATABASE_URL
-sudo -E npm run backup:postgres:restore -- \
+sudo -E bun run backup:postgres:restore -- \
   --date $(date -d yesterday +%Y-%m-%d) \
   --tier daily
 
 # Or restore to scratch for verification first
-sudo -E npm run backup:postgres:restore -- \
+sudo -E bun run backup:postgres:restore -- \
   --date 2026-06-05 \
   --tier daily \
   --target-database-url postgres://echo:pass@localhost/echo_scratch
@@ -78,5 +78,5 @@ Note: Restore requires `sudo` and read-capable credentials stored separately fro
 
 ## Related documentation
 
-- Production checklist: [`STATUS_AND_PRODUCTION_READINESS.md`](../../reviews/STATUS_AND_PRODUCTION_READINESS.md) §8.
+- Production checklist: [`PRODUCTION_SECURITY_CHECKLIST.md`](../PRODUCTION_SECURITY_CHECKLIST.md), [`shipping-gate.md`](../shipping-gate.md).
 - Snowflake-specific ops (IDs, indexes): [`snowflake-cutover.md`](./snowflake-cutover.md).

@@ -5,8 +5,8 @@
  * rewrites stored attachment/embed/sticker URLs when the stable asset path matches.
  *
  * Usage (from server/backend/):
- *   npx ts-node src/scripts/backfillDiscordImportCdnUrls.ts           # dry-run
- *   npx ts-node src/scripts/backfillDiscordImportCdnUrls.ts --execute # apply
+ *   bun src/scripts/backfillDiscordImportCdnUrls.ts           # dry-run
+ *   bun src/scripts/backfillDiscordImportCdnUrls.ts --execute # apply
  *
  * Requires: DATABASE_URL, running Discord bot with ECHO_DISCORD_BOT_WEBHOOK_SECRET.
  */

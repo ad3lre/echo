@@ -1,19 +1,20 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
- * VPS-oriented runner for `npm run dev` / `npm run prod`.
+ * VPS-oriented runner for `bun run dev` / `bun run prod`.
  *
  * Without --foreground: start the stack detached from the TTY, append logs under --log-dir,
  * write a PID file, then exit the launcher (survives SSH disconnect).
  *
  * --git-watch: keep the launcher running; poll git, and when origin moves, stop the stack,
- * `git pull --ff-only`, optionally `npm install`, and start again.
+ * `git pull --ff-only`, optionally `bun install`, and start again.
  *
  * --foreground: do not exit the launcher after starting (and for non-watch, wait on the child
  * with stdio inherited — useful for debugging).
  *
  * Env:
  *   VPS_GIT_POLL_MS - poll interval for --git-watch (default 60000)
- *   VPS_NPM_INSTALL_AFTER_PULL - set to "1" to run `npm install` after each successful pull
+ *   VPS_BUN_INSTALL_AFTER_PULL - set to "1" to run `bun install` after each successful pull
+ *   VPS_NPM_INSTALL_AFTER_PULL - legacy alias for VPS_BUN_INSTALL_AFTER_PULL
  *   VPS_SKIP_PROD_TYPECHECK - set to "1" to skip pre-deploy TypeScript checks (emergency only)
  */
 import fs from 'fs';
@@ -30,32 +31,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../../..');
 
 /**
- * When the shell's `node` is wrong (e.g. IDE-bundled Node 20), workspace scripts still need
- * the repo's `.nvmrc` Node (>=22.13 for Astro 6 + ESLint 10). Prepend ~/.nvm/.../bin to PATH if present.
+ * Prefer the repo Bun install (`~/.bun/bin`) when the shell `bun` is missing or wrong.
  */
-function nvmNodeBinDir() {
+function bunBinDir() {
   try {
-    const rcPath = path.join(repoRoot, '.nvmrc');
-    if (!fs.existsSync(rcPath)) return '';
-    const raw = fs.readFileSync(rcPath, 'utf8').trim().split(/\s+/)[0];
-    if (!raw) return '';
-    const base = path.join(os.homedir(), '.nvm', 'versions', 'node');
-    if (!fs.existsSync(base)) return '';
-    const want = raw.replace(/^v/, '');
-    const dirs = fs.readdirSync(base).filter((d) => {
-      if (!d.startsWith('v')) return false;
-      const rest = d.slice(1);
-      return (
-        rest === want ||
-        rest.startsWith(`${want}.`) ||
-        (want.includes('.') && rest.startsWith(want))
-      );
-    });
-    if (!dirs.length) return '';
-    dirs.sort();
-    const pick = dirs[dirs.length - 1];
-    const bin = path.join(base, pick, 'bin');
-    return fs.existsSync(path.join(bin, 'node')) ? bin : '';
+    const candidates = [
+      process.env.BUN_INSTALL ? path.join(process.env.BUN_INSTALL, 'bin') : '',
+      path.join(os.homedir(), '.bun', 'bin'),
+    ].filter(Boolean);
+    for (const bin of candidates) {
+      if (fs.existsSync(path.join(bin, 'bun'))) return bin;
+    }
+    return '';
   } catch {
     return '';
   }
@@ -63,7 +50,7 @@ function nvmNodeBinDir() {
 
 function printHelp() {
   console.error(`
-Usage: node server/ops/scripts/vps-serve.mjs <dev|prod> [options]
+Usage: bun server/ops/scripts/vps-serve.mjs <dev|prod> [options]
 
 Options:
   --git-watch       Poll origin and restart when new commits appear (launcher stays running)
@@ -75,11 +62,11 @@ Options:
   --poll-ms=N       Git poll interval in ms (default: 60000 or VPS_GIT_POLL_MS; min 5000)
 
 Examples:
-  npm run vps -- prod
-  npm run vps -- dev --foreground
-  npm run vps -- prod --git-watch
-  npm run vps -- dev --git-watch --daemon
-  npm run vps -- prod --git-watch --watch-branch=release/1.0.0
+  bun run vps -- prod
+  bun run vps -- dev --foreground
+  bun run vps -- prod --git-watch
+  bun run vps -- dev --git-watch --daemon
+  bun run vps -- prod --git-watch --watch-branch=release/1.0.0
 `);
 }
 
@@ -125,8 +112,10 @@ function parseArgs(argv) {
   return out;
 }
 
-function npmCmd() {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+function bunCmd() {
+  const dir = bunBinDir();
+  if (dir) return path.join(dir, 'bun');
+  return 'bun';
 }
 
 async function loadTreeKill() {
@@ -230,28 +219,25 @@ function spawnNpmRun(opts, logReuse, treeKill) {
     logs = openLogs(logDir, mode);
   }
 
-  /** Detach npm from the launcher TTY (daemon one-shot, or git-watch supervisor). */
+  /** Detach bun from the launcher TTY (daemon one-shot, or git-watch supervisor). */
   const detachChild = !foreground || gitWatch;
 
   appendMeta(
     logs.metaPath,
-    `spawn npm run ${mode} (foreground=${foreground}, gitWatch=${gitWatch}, detachChild=${detachChild})`,
+    `spawn bun run ${mode} (foreground=${foreground}, gitWatch=${gitWatch}, detachChild=${detachChild})`,
   );
 
   const stdio =
     foreground && !gitWatch ? 'inherit' : ['ignore', logs.outFd, logs.errFd];
 
-  const nvmBin = nvmNodeBinDir();
+  const bunBin = bunBinDir();
   const env = { ...process.env, FORCE_COLOR: '0' };
-  if (nvmBin) {
-    env.PATH = `${nvmBin}${path.delimiter}${env.PATH}`;
-    appendMeta(
-      logs.metaPath,
-      `PATH: prepended nvm node bin (${nvmBin}) so npm workspaces use .nvmrc Node`,
-    );
+  if (bunBin) {
+    env.PATH = `${bunBin}${path.delimiter}${env.PATH}`;
+    appendMeta(logs.metaPath, `PATH: prepended bun bin (${bunBin})`);
   }
 
-  const child = spawn(npmCmd(), ['run', mode], {
+  const child = spawn(bunCmd(), ['run', mode], {
     cwd: repoRoot,
     detached: detachChild,
     stdio,
@@ -272,7 +258,7 @@ function spawnNpmRun(opts, logReuse, treeKill) {
   child.on('exit', (code, signal) => {
     appendMeta(
       logs.metaPath,
-      `npm run ${mode} exit code=${code} signal=${signal ?? 'none'}`,
+      `bun run ${mode} exit code=${code} signal=${signal ?? 'none'}`,
     );
     clearPid(logDir, mode);
   });
@@ -335,9 +321,12 @@ async function workingTreeIsClean() {
 }
 
 async function maybeNpmInstallAfterPull(metaPath) {
-  if (process.env.VPS_NPM_INSTALL_AFTER_PULL !== '1') return;
-  appendMeta(metaPath, 'running npm install (VPS_NPM_INSTALL_AFTER_PULL=1)');
-  await execFileAsync(npmCmd(), ['install'], {
+  const enabled =
+    process.env.VPS_BUN_INSTALL_AFTER_PULL === '1' ||
+    process.env.VPS_NPM_INSTALL_AFTER_PULL === '1';
+  if (!enabled) return;
+  appendMeta(metaPath, 'running bun install (VPS_*_INSTALL_AFTER_PULL=1)');
+  await execFileAsync(bunCmd(), ['install'], {
     cwd: repoRoot,
     shell: process.platform === 'win32',
   });
@@ -380,7 +369,7 @@ async function runProdPreverifyOrExit(metaPath) {
     console.error(
       '[vps-serve] prod TypeScript preverify failed — deploy aborted (stack unchanged).',
     );
-    console.error('[vps-serve] see logs above or run: npm run preverify:prod');
+    console.error('[vps-serve] see logs above or run: bun run preverify:prod');
     process.exit(1);
   }
 }
@@ -631,7 +620,7 @@ async function main() {
     return;
   }
 
-  console.log(`[vps-serve] started npm run ${opts.mode} (pid=${child.pid})`);
+  console.log(`[vps-serve] started bun run ${opts.mode} (pid=${child.pid})`);
   console.log(`[vps-serve] pid file: ${pidFile}`);
   console.log(`[vps-serve] logs: ${logs.outPath} / ${logs.errPath}`);
   console.log(`[vps-serve] launcher detached; you can close this terminal.`);

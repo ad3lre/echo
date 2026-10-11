@@ -14,6 +14,6 @@ export function resolveEmojiDataByGroupPath() {
     if (fs.existsSync(candidate)) return candidate;
   }
   throw new Error(
-    'unicode-emoji-json/data-by-group.json not found; run npm install',
+    'unicode-emoji-json/data-by-group.json not found; run bun install',
   );
 }

@@ -58,7 +58,7 @@ function iphoneModelFromUa(u: string): string | null {
 }
 
 /**
- * Best-effort client environment label from a stored User-Agent (no extra npm deps).
+ * Best-effort client environment label from a stored User-Agent (no extra deps).
  * Order: OS first, then device / form factor.
  */
 export function parseAuthSessionUserAgent(

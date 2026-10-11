@@ -49,6 +49,6 @@ Starter JSON: [`grafana/echo-overview.json`](./grafana/echo-overview.json). Impo
 
 ## Related docs
 
-- [Observability pillar → 100%](../../../docs/operations/ops/OBSERVABILITY_OPS_TO_100.md)
 - [Multi-replica Socket.IO runbook](../../../docs/operations/runbooks/multi-replica-socketio.md)
 - [Realtime scaling](../../../docs/infra/realtime-scaling.md)
+- [Shipping gate](../../../docs/operations/shipping-gate.md)

@@ -180,7 +180,7 @@ export function assertEchoProductionConfigGates(
     !config.echoAllowEmbeddedVideoHls
   ) {
     deps.configStderr(
-      'ECHO_VIDEO_HLS_WORKER=embedded is not allowed in production (ffmpeg HLS drain shares the API event loop). Set ECHO_VIDEO_HLS_WORKER=standalone and run `npm run worker:video-hls` (or PM2 echo-video-hls-worker), or set ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true only for deliberate single-process smoke stacks. See docs/operations/chat-video-hls.md.',
+      'ECHO_VIDEO_HLS_WORKER=embedded is not allowed in production (ffmpeg HLS drain shares the API event loop). Set ECHO_VIDEO_HLS_WORKER=standalone and run `bun run worker:video-hls` (or PM2 echo-video-hls-worker), or set ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true only for deliberate single-process smoke stacks. See docs/operations/chat-video-hls.md.',
     );
     deps.exitProcess(1);
   }

@@ -8,7 +8,7 @@ import { buildWireAppLayoutDmAndShellResult } from './buildWireAppLayoutDmAndShe
  * Layout shell composition root: ordered wiring of region composables + slices.
  * Policy and merge rules live in feature public surfaces and named `useAppLayout*` /
  * `useEcho*` composables — not inline here.
- * Charter definition of “thin”: `docs/architecture/client-layer-violations.md` §1.
+ * Charter definition of “thin”: `docs-dev/architecture/client-layer-violations.md` §1.
  */
 
 export type WireAppLayoutDmAndShellResult = ReturnType<

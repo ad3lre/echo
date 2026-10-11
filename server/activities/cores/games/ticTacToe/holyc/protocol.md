@@ -50,7 +50,7 @@ from the repository root:
 ```sh
 go install github.com/project-solomon/holyc/hcc/cmd/hcc@v0.1.0
 export PATH="$HOME/go/bin:$PATH"
-npm run build:holyc -w activities
+bun run --filter activities build:holyc
 ```
 
 Point `GAME_SERVER_TTT_HOLYC_COMMAND` at the resulting absolute executable and

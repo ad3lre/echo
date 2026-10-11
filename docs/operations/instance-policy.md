@@ -18,12 +18,12 @@ Plan tier caps (`contracts/echoPlanLimits.ts`) are **not** overridden by this fi
 3. Validate without starting the API:
 
    ```bash
-   npm run instance-policy:validate
+   bun run instance-policy:validate
    # or a custom path:
-   node server/ops/scripts/validate-instance-policy.mjs /path/to/echo.instance.json
+   bun server/ops/scripts/validate-instance-policy.mjs /path/to/echo.instance.json
    ```
 
-4. Start Echo as usual (`npm run dev`, `npm run prod`, …).
+4. Start Echo as usual (`bun run dev`, `bun run prod`, …).
 
 If the file is missing, Echo uses built-in defaults (same behavior as before this
 feature).

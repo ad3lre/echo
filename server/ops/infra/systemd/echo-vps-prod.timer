@@ -1,5 +1,5 @@
 [Unit]
-Description=Timer — Echo production redeploy (npm run vps:prod)
+Description=Timer — Echo production redeploy (bun run vps:prod)
 
 [Timer]
 # Example: daily at 04:15 UTC. Adjust OnCalendar for your ops window.

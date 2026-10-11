@@ -31,7 +31,7 @@ import {
   recordPasswordLoginSuccess,
 } from '../../../services/auth/loginProtection';
 import { replyIfInstanceBanned } from '../../../domain/instanceBanEnforcement';
-import bcrypt from 'bcrypt';
+import { verifyPassword } from '../../../auth/passwordHash';
 
 const DUMMY_HASH =
   '$2b$10$Cm/6wtFYacv3Kh/YTvmAWuaI29ASBONCB4UZ1v8KT8TM04.iNlh1K';
@@ -116,7 +116,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
           }
 
           if (!userRecord) {
-            await bcrypt.compare(body.password, DUMMY_HASH);
+            await verifyPassword(body.password, DUMMY_HASH);
             await recordPasswordLoginFailure(usernameKey);
             void store.recordLoginEvent({
               userId: null,

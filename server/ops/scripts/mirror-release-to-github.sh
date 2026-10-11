@@ -3,8 +3,8 @@
 # cron job and for manual / emergency sync. See docs/operations/github-release-mirror.md.
 #
 # Usage:
-#   npm run mirror:github-release
-#   npm run mirror:github-release -- --dry-run
+#   bun run mirror:github-release
+#   bun run mirror:github-release -- --dry-run
 #
 # Env:
 #   GITLAB_REMOTE (origin), GITHUB_REMOTE (github), BRANCH (release/1.0.0)
@@ -78,7 +78,7 @@ if [[ -z "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]]; then
   if [[ -n "$origin_main" && "$local_sha" == "$origin_main" ]]; then
     echo "mirror-release-to-github: refusing: ${BRANCH} tip matches ${GITLAB_REMOTE}/${MAIN_BRANCH}." >&2
     echo "  That would expose internal per-commit history on GitHub." >&2
-    echo "  Publish with npm run publish:public-release, or set ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1." >&2
+    echo "  Publish with bun run publish:public-release, or set ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1." >&2
     exit 1
   fi
 fi

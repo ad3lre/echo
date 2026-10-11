@@ -1,13 +1,13 @@
-# systemd: production redeploy (`npm run vps:prod`)
+# systemd: production redeploy (`bun run vps:prod`)
 
 Production deploy is a **single checkout** at `/home/founder/prod/echo` (or your path). Run manually:
 
 ```bash
 cd /home/founder/prod/echo
-npm run vps:prod
+bun run vps:prod
 ```
 
-That preverifies TypeScript, runs `npm run build`, stops the previous stack, and starts `npm run prod` (API **:3000**, SPA **:4173**, Discord bot). Logs: `logs/vps/prod.*.log`. See [linux-vps-deployment.md](../../../../docs/operations/linux-vps-deployment.md).
+That preverifies TypeScript, runs `bun run build`, stops the previous stack, and starts `bun run prod` (API **:3000**, SPA **:4173**, Discord bot). Logs: `logs/vps/prod.*.log`. See [linux-vps-deployment.md](../../../../docs/operations/linux-vps-deployment.md).
 
 ## Automate `vps:prod`
 
@@ -56,7 +56,7 @@ Edit `/etc/echo/backup-upload.env` with:
 
 - `DATABASE_URL` (same as app)
 - `ECHO_BACKUP_S3_*` (write-only credentials to backup bucket)
-- `PATH` (to Node/npm if using nvm)
+- `PATH` (to Bun (~/.bun/bin))
 
 ### 3. Configure restore credentials (root-only)
 
@@ -104,7 +104,7 @@ See [backup-restore.md](../../../../docs/operations/runbooks/backup-restore.md) 
 
 ```bash
 # Download and restore to scratch database for verification
-sudo -E npm run backup:postgres:restore -- \
+sudo -E bun run backup:postgres:restore -- \
   --date 2026-06-05 \
   --tier daily \
   --target-database-url postgres://restoreuser:pass@localhost/echo_scratch

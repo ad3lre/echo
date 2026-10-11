@@ -65,7 +65,7 @@ export function requireStrongProductionSecret(
     const hasLan = Boolean(lanPath && fs.existsSync(lanPath));
     const shortHint =
       len > 0 && len < MIN_PRODUCTION_SECRET_LENGTH
-        ? ` Value is too short (${len} chars after trim; need at least ${MIN_PRODUCTION_SECRET_LENGTH}). Regenerate, e.g. node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64url'))".`
+        ? ` Value is too short (${len} chars after trim; need at least ${MIN_PRODUCTION_SECRET_LENGTH}). Regenerate, e.g. bun -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64url'))".`
         : len === 0
           ? ' Value is empty after trim — check .env for stray quotes/whitespace, blank lines in .env.lan, or an empty export in systemd/PM2.'
           : '';

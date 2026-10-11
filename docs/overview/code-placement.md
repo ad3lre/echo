@@ -2,7 +2,7 @@
 
 **Single source of truth** for where new frontend files go.  
 **Enforcement:** `server/ops/scripts/check-code-placement.mjs` (CI + pre-commit).  
-**Migration program:** [p1-code-placement-program.md](./p1-code-placement-program.md).
+**Migration program (local):** `docs-dev/overview/p1-code-placement-program.md` when present.
 
 **Current tree (2026-08-17):** directory-structure score **100 / 100** (12 clean, 0 mild, 0 material). Formula: `100 − 4×material − 2×mild`. Web leftover dumps and `features/chat/services/` are emptied and frozen at 0. Chat outbound/inbound/search live under noun folders. Docs architecture is one folder. Backend tests nest by capability (`auth/`, `messages/`, `permissions/`, …); new tests colocate. Echo API route files in `routes/echo/` no longer repeat the folder name.
 
@@ -50,7 +50,7 @@ Public barrels (`index.ts`) belong at a **real module boundary**, not in every f
 
 **Import rule:** feature A must not import `features/B/**` internals (`components/`, `composables/`, `stores/`, `services/`, `editor/`). Cross-feature coordination goes through app layout composition (`features/layout`), shared utils, or `@/api`. Importing a feature's _public surface_ (root-level file / `index.ts` barrel) is allowed.
 
-**Enforcement:** `server/ops/scripts/check-feature-boundaries.mjs` (`npm run check:feature-boundaries`, in `test:ci:guards`). It blocks **new** crossings; the ones that exist today are grandfathered in `server/ops/scripts/feature-boundaries-allowlist.json` (**shrink-only** — a stale entry fails the build, so every fix is permanent). The composer feature(s) in `server/ops/scripts/feature-boundaries-config.json` (`layout`, the app shell) are exempt as importers — wiring features together is their job.
+**Enforcement:** `server/ops/scripts/check-feature-boundaries.mjs` (`bun run check:feature-boundaries`, in `test:ci:guards`). It blocks **new** crossings; the ones that exist today are grandfathered in `server/ops/scripts/feature-boundaries-allowlist.json` (**shrink-only** — a stale entry fails the build, so every fix is permanent). The composer feature(s) in `server/ops/scripts/feature-boundaries-config.json` (`layout`, the app shell) are exempt as importers — wiring features together is their job.
 
 To shrink the allowlist: remove the cross-feature import (expose a feature public surface, move the helper into `contracts/`, or route through `layout`), then delete its entry. Prefer promoting shared widgets to a feature **root** public file (e.g. `features/voice/CameraPreview.vue`) over cross-importing `components/`. Do not grow `src/composables/` or `src/utils/` to “fix” a crossing. Feature-boundary allowlist is empty (0 crossings) — residual shared chat/voice/paper surfaces are feature-root public files.
 
@@ -94,7 +94,7 @@ HTTP client / transport stays in `clients/web/src/api/`. Shared published types 
 ## CI
 
 ```bash
-npm run placement:check
+bun run placement:check
 ```
 
 Fails when:
@@ -115,4 +115,4 @@ Emergency bypass (local only): `ECHO_CODE_PLACEMENT_BYPASS=1`
 - [features/README.md](../../clients/web/src/features/README.md) — feature module conventions
 - [agents.md](./agents.md) — layer responsibilities (model / controller / view)
 - [echo-code-charter.md](../echo-code-charter.md) — rule C13 (placement)
-- [p1-code-placement-program.md](./p1-code-placement-program.md) — P1 complete; leftover dumps freeze at 0
+- `docs-dev/overview/p1-code-placement-program.md` — P1 complete; leftover dumps freeze at 0 (local)

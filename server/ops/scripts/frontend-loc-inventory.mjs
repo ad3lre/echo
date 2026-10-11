@@ -1,12 +1,12 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Physical line inventory for clients/web/src + optional Vue SFC block splits
- * (uses @vue/compiler-sfc from clients/web/node_modules — run after npm install in clients/web/).
+ * (uses @vue/compiler-sfc from clients/web/node_modules — run after bun install in clients/web/).
  *
  * Usage (repo root):
- *   node server/ops/scripts/frontend-loc-inventory.mjs
- *   node server/ops/scripts/frontend-loc-inventory.mjs --all
- *   node server/ops/scripts/frontend-loc-inventory.mjs --top 40
+ *   bun server/ops/scripts/frontend-loc-inventory.mjs
+ *   bun server/ops/scripts/frontend-loc-inventory.mjs --all
+ *   bun server/ops/scripts/frontend-loc-inventory.mjs --top 40
  */
 import { createRequire } from 'node:module';
 import fs from 'node:fs';

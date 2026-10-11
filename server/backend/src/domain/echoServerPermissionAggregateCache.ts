@@ -2,7 +2,7 @@
  * In-process cache of a server's permission aggregate — the user-independent data the
  * permission fold needs: every role, every channel's category/overrides, and every channel
  * and category permission-overwrite row. This is the single-node analogue of Fluxer's guild
- * process holding the guild in RAM (see docs/reviews/IN_MEMORY_SERVER_STATE_PLAN.md §5/§2.2).
+ * process holding the guild in RAM (see local docs-dev/reviews/IN_MEMORY_SERVER_STATE_PLAN.md §5/§2.2 when present).
  *
  * The folded *result* is already cached per `(server,user,channel)`; this aggregate removes
  * the per-fold re-reads of roles/overwrites that those folds do on a cache miss — and every

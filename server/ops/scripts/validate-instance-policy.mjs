@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Validate an Echo instance policy JSON file without starting the API.
- * Usage: node server/ops/scripts/validate-instance-policy.mjs [path/to/echo.instance.json]
+ * Usage: bun server/ops/scripts/validate-instance-policy.mjs [path/to/echo.instance.json]
  */
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';

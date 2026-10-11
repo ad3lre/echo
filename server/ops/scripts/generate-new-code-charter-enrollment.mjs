@@ -1,10 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Snapshot post-cutoff metrics for files that do not yet meet strict thresholds.
  * Enrolled files are ratcheted: CI fails when lines, function length, or nesting
  * grow beyond the snapshot.
  *
- *   node server/ops/scripts/generate-new-code-charter-enrollment.mjs --write
+ *   bun server/ops/scripts/generate-new-code-charter-enrollment.mjs --write
  */
 import fs from 'node:fs';
 import path from 'node:path';

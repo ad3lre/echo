@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Contract: layout controller setup order for voice / DM / chat / unread / realtime.
- * See docs/architecture/clientCharterLayoutReactiveGraphAuthority.md — update both when reordering.
+ * See docs-dev/architecture/clientCharterLayoutReactiveGraphAuthority.md — update both when reordering.
  */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

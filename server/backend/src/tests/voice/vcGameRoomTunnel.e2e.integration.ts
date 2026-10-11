@@ -7,7 +7,7 @@
  *
  * Requires Postgres (DATABASE_URL).
  *
- * Run: npm run test:vc-game-room:tunnel:e2e -w backend
+ * Run: bun run --filter backend test:vc-game-room:tunnel:e2e
  */
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';

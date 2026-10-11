@@ -3,7 +3,7 @@
  * with fake mic devices (tone generators) and each side measures:
  *  1. remote MediaStream RMS (network receive path)
  *  2. attached <audio> element playback state
- * Usage: node server/ops/perf/scenarios/voice-audio-e2e.mjs [baseUrl]
+ * Usage: bun server/ops/perf/scenarios/voice-audio-e2e.mjs [baseUrl]
  * Env: E2E_USER_A/E2E_PASS_A, E2E_USER_B/E2E_PASS_B, E2E_SERVER_ID, E2E_VOICE_CHANNEL
  */
 import { chromium } from '@playwright/test';

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Tiptap v3 maps `"import"` types to `*.d.ts` and `"require"` to `*.d.cts`, but some
  * installs only materialize the `.d.cts` files. `moduleResolution: "bundler"` then

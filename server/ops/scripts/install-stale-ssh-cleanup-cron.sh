@@ -3,8 +3,8 @@
 # Runs every 30 minutes so ssh-agent count/RSS caps can trigger without waiting 48h.
 #
 # Usage:
-#   npm run ssh-cleanup:install-cron
-#   npm run ssh-cleanup:install-cron -- --yes
+#   bun run ssh-cleanup:install-cron
+#   bun run ssh-cleanup:install-cron -- --yes
 #
 # Env:
 #   ECHO_SSH_CLEANUP_CRON (*/30 * * * *), ECHO_SSH_CLEANUP_TZ (Europe/Berlin)

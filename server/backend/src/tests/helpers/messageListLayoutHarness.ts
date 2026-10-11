@@ -2,7 +2,7 @@
  * Ephemeral Postgres-backed API for Playwright message-list layout verification.
  * Writes connection details to the path in LAYOUT_VERIFY_OUT (default /tmp/echo-layout-verify.json).
  *
- * Run: node --import tsx server/backend/src/tests/helpers/messageListLayoutHarness.ts
+ * Run: bun server/backend/src/tests/helpers/messageListLayoutHarness.ts
  */
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';

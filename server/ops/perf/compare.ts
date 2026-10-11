@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Compare two perf baseline JSON files and flag regressions above a threshold.
  */
@@ -11,7 +11,7 @@ const THRESHOLD_PCT = Number.parseFloat(
 
 function usage(): never {
   console.error(
-    'Usage: node --import tsx server/ops/perf/compare.ts <baseline-a.json> <baseline-b.json>',
+    'Usage: bun server/ops/perf/compare.ts <baseline-a.json> <baseline-b.json>',
   );
   process.exit(1);
 }

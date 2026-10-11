@@ -1,5 +1,5 @@
 /**
- * Run: npx ts-node src/tests/messages/echoMessageIdPgCompare.test.ts
+ * Run: bun src/tests/messages/echoMessageIdPgCompare.test.ts
  */
 import assert from 'node:assert/strict';
 import {

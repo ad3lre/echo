@@ -1,9 +1,9 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Prints a safe rollout and migration plan for the RBAC full-matrix migration.
  * This script is informational only and performs no destructive actions.
  *
- * Run: node server/ops/scripts/print-rollout-plan.mjs
+ * Run: bun server/ops/scripts/print-rollout-plan.mjs
  */
 console.log('RBAC Full-Matrix Rollout Plan');
 console.log(

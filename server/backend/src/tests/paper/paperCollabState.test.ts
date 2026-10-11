@@ -1,5 +1,5 @@
 /**
- * Run: node --import tsx server/backend/src/tests/paper/paperCollabState.test.ts
+ * Run: bun server/backend/src/tests/paper/paperCollabState.test.ts
  */
 import assert from 'node:assert/strict';
 import {

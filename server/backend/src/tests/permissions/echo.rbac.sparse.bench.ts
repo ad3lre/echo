@@ -1,6 +1,6 @@
 /**
  * Compare standard foldRolePermissions vs sparse fold implementation.
- * Run: npx ts-node src/tests/permissions/echo.rbac.sparse.bench.ts
+ * Run: bun src/tests/permissions/echo.rbac.sparse.bench.ts
  */
 
 import {

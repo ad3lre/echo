@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /** Check local Markdown links in tracked documentation. */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';

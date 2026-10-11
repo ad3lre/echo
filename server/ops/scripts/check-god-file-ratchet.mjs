@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * God-file ratchet: oversized source files may not grow without an explicit baseline bump.
  *

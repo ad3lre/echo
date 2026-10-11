@@ -31,4 +31,4 @@ Echo uses trust-on-first-use for remote identity keys (see LibSignal store `isTr
 
 ## Roadmap notes
 
-Post-quantum extensions (e.g. PQXDH) depend on upstream `libsignal` ecosystem support in the TypeScript port Echo uses; see `docs/security/libsignal-dependency-roadmap.md`.
+Post-quantum extensions (e.g. PQXDH) depend on upstream `libsignal` ecosystem support in the TypeScript port Echo uses (local roadmap notes may live under `docs-dev/security/` when present).

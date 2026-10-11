@@ -1,12 +1,12 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Generate scripts/feature-boundaries-allowlist.json from the cross-feature
  * internal imports that exist today (grandfather). The allowlist is shrink-only;
  * regenerate it ONLY to add a deliberately-accepted new crossing — normally you
  * shrink it by hand (delete an entry) after removing the import.
  *
- *   node server/ops/scripts/generate-feature-boundaries-allowlist.mjs          # preview counts
- *   node server/ops/scripts/generate-feature-boundaries-allowlist.mjs --write  # write the file
+ *   bun server/ops/scripts/generate-feature-boundaries-allowlist.mjs          # preview counts
+ *   bun server/ops/scripts/generate-feature-boundaries-allowlist.mjs --write  # write the file
  */
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';

@@ -3,7 +3,7 @@
  * B accepts; both sides measure remote audio RMS from attached <audio> elements.
  * DM voice E2EE follows the `ECHO_DM_VOICE_E2EE_ENABLED` / `VITE_DM_VOICE_E2EE`
  * flags (on by default).
- * Usage: node server/ops/perf/scenarios/dm-call-audio-e2e.mjs [baseUrl]
+ * Usage: bun server/ops/perf/scenarios/dm-call-audio-e2e.mjs [baseUrl]
  */
 import { chromium } from '@playwright/test';
 

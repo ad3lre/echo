@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../auth/store/helpers';
 import pg from 'pg';
 import { ensureEchoTables } from '../../db/echoTables';
 import {
@@ -55,7 +55,7 @@ function jwtSourcesIncludeCamera(jwt: string): boolean {
 }
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `lk_${id.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 48)}`;
   const email = `${username}@lk.echo.test`;
   await pool.query(

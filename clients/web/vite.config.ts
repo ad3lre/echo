@@ -225,7 +225,7 @@ export default defineConfig(({ mode }) => {
     env.VITE_PUBLIC_INVITE_BASE || 'https://chat-echo.com'
   ).replace(/\/$/, '');
   const shouldAnalyze = process.env.ANALYZE === '1';
-  /** Fewer parallel transforms + skip dev-only middleware; use for iOS sim / tight RAM (`npm run dev:low-mem`). */
+  /** Fewer parallel transforms + skip dev-only middleware; use for iOS sim / tight RAM (`bun run dev:low-mem`). */
   const lowMemDev =
     mode === 'development' && process.env.ECHO_VITE_LOW_MEM === '1';
   return {

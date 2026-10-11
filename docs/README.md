@@ -1,61 +1,58 @@
 # Echo documentation
 
-Start here, then open the area that matches your work. **New to the repo?** See **[DEVELOPMENT.md](DEVELOPMENT.md)** (clone → install → dev server → PR checks).
+Public docs for contributors, self-hosters, and operators. Deep internal notes
+(plans, reviews, audits) live locally in **`docs-dev/`** (gitignored) — see
+[`docs-dev/README.md`](../docs-dev/README.md) if you have that tree.
 
-## Overview
+**New here?** Start with **[DEVELOPMENT.md](DEVELOPMENT.md)**.
 
-- [Stack](overview/STACK.md) — technologies and scale stance
-- [Repository layout](overview/repo-layout.md) — top-level map and client-vs-kit rule
-- Repository tree — generate the local layout snapshot with `npm run docs:tree` (the generated `docs/overview/tree.md` is intentionally not committed)
-- [Domain map](overview/domain-map.md) — server/backend/web domain boundaries
-- [agents.md](overview/agents.md) — client/controller charter for contributors
-- [privacy-levels.md](overview/privacy-levels.md) — product privacy positioning
-- [i18n](overview/i18n.md) — localization stance
-- [frontend-typescript-bloat-audit.md](overview/frontend-typescript-bloat-audit.md) — multi-axis TS/Vue size and coupling audit (repro commands inside)
+## Getting started
 
-## Architecture (client charter)
+| Doc | Purpose |
+| --- | ------- |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Clone → Bun install → `db:up` → `dev` → PR checks |
+| [overview/repo-layout.md](overview/repo-layout.md) | Monorepo map (clients vs server kits) |
+| [overview/STACK.md](overview/STACK.md) | Technologies and scale stance |
+| [overview/agents.md](overview/agents.md) | Contributor / agent charter |
+| [overview/code-placement.md](overview/code-placement.md) | Frontend file placement (CI-enforced) |
 
-- [client-charter-violations.md](architecture/client-charter-violations.md) — strict-charter tensions (merge, session, messaging) in compact tables
-- [client-layer-violations.md](architecture/client-layer-violations.md) — hotspot map and file pointers
-- [client-charter-leak-goals.md](architecture/client-charter-leak-goals.md) — leak-goals checklist
-- Per-area notes: `docs/architecture/clientCharter*.md` (see [architecture/README.md](architecture/README.md))
+## Product & contracts
 
-## Reviews & status
+| Doc | Purpose |
+| --- | ------- |
+| [contracts/](contracts/) | REST / realtime / data contracts |
+| [adr/](adr/) | Architecture decision records |
+| [overview/domain-map.md](overview/domain-map.md) | Domain boundaries |
+| [overview/privacy-levels.md](overview/privacy-levels.md) | Privacy positioning |
+| [overview/i18n.md](overview/i18n.md) | Localization stance |
+| [security/e2ee-threat-model.md](security/e2ee-threat-model.md) | E2EE threat model |
+| [specs/](specs/) | Spec stubs / pointers |
 
-- [STATUS_AND_PRODUCTION_READINESS.md](reviews/STATUS_AND_PRODUCTION_READINESS.md) — product/engineering scorecard and doc map
-- [reviews/security/](reviews/security/) — threat model and patch log for operators
+## Engineering guardrails
 
-## Infra
+| Doc | Purpose |
+| --- | ------- |
+| [echo-code-charter.md](echo-code-charter.md) | New-code size / purity ratchet (CI) |
+| [echo-voice-activity-conventions.md](echo-voice-activity-conventions.md) | VC activity naming conventions (CI) |
 
-Subsystem reference: [server/ops/infra/](../server/ops/infra/).
+## Self-host & operations
 
-## Plans
+| Doc | Purpose |
+| --- | ------- |
+| [operations/linux-vps-deployment.md](operations/linux-vps-deployment.md) | VPS / bare-metal deploy |
+| [operations/livekit-production.md](operations/livekit-production.md) | LiveKit production |
+| [infra/livekit-turn.md](infra/livekit-turn.md) | TURN / ICE |
+| [infra/realtime-scaling.md](infra/realtime-scaling.md) | Single-node vs NATS multi-instance |
+| [operations/media-cdn.md](operations/media-cdn.md) | Media CDN sidecar |
+| [operations/chat-video-hls.md](operations/chat-video-hls.md) | Chat video HLS worker |
+| [operations/voice-e2ee-livekit.md](operations/voice-e2ee-livekit.md) | Voice E2EE |
+| [operations/instance-policy.md](operations/instance-policy.md) | Instance policy file |
+| [operations/PRODUCTION_SECURITY_CHECKLIST.md](operations/PRODUCTION_SECURITY_CHECKLIST.md) | Production security |
+| [operations/shipping-gate.md](operations/shipping-gate.md) | Ship / prod gates |
+| [operations/ios-passkeys.md](operations/ios-passkeys.md) | iOS passkeys / Universal Links |
+| [operations/runbooks/](operations/runbooks/) | Backup, Postgres, Socket.IO, incidents |
+| [operations/github-release-mirror.md](operations/github-release-mirror.md) | GitLab → GitHub `release/1.0.0` mirror |
 
-Forward-looking technical plans: [plans/](plans/). Treat linked **STATUS** and **operations** docs as more current than stale plan checklists when they disagree.
+## Chat formatting (user-facing)
 
-## Operations
-
-Runbooks and procedures: [operations/](operations/).
-
-**Native apps:** repo root `releases/`; deeper procedures under `operations/`.
-
-## Contracts and specs
-
-- [contracts/](contracts/) — API/data contracts
-- [specs/](specs/) — technical specs
-
-## ADRs
-
-Architecture decision records (index):
-
-| ADR                                                                      | Topic                                                 |
-| ------------------------------------------------------------------------ | ----------------------------------------------------- |
-| [002 — Public snowflake IDs](adr/002-echo-public-snowflake-ids.md)       | Echo entity IDs (decimal snowflakes in JSON/Postgres) |
-| [Client message authority](architecture/adr-client-message-authority.md) | Single write owner for channel messages in the SPA    |
-| [Paper channel type](architecture/adr-paper-channel.md)                  | Guild channel for shared block document + comments    |
-
-Additional ADRs may land under `docs/adr/` or `docs/architecture/`; update this table when adding new ones.
-
-## Chat formatting (Markdown and math)
-
-User-facing copy for **Settings → Formatting** lives in **[`marketing/terms/`](../marketing/terms/)**.
+Settings → Formatting copy: **[`marketing/terms/`](../marketing/terms/)**.

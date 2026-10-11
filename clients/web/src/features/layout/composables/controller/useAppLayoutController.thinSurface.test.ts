@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Charter: layout composition root does not embed Echo HTTP or raw socket wiring.
- * See docs/architecture/clientCharterLayoutCompositionRootAuthority.md
+ * See docs-dev/architecture/clientCharterLayoutCompositionRootAuthority.md
  */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

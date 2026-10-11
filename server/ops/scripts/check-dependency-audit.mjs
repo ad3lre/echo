@@ -1,18 +1,17 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Dependency vulnerability gate.
  *
- * Fails the build when `npm audit` reports advisories at or above a severity
+ * Fails the build when `bun audit` reports advisories at or above a severity
  * threshold (default: high). Wired into `test:ci:guards` → `ci:precheck`, so it
  * runs in the pre-push hook and blocks vulnerable dependencies from reaching git.
  *
  * Fix a finding by updating the dependency or pinning a patched version via the
- * root `overrides` block, then `npm install`. For a genuinely unfixable advisory
+ * root `overrides` block, then `bun install`. For a genuinely unfixable advisory
  * (e.g. awaiting an upstream major), add its GHSA id to
  * `server/ops/scripts/dependency-audit-allowlist.json` with a reason and an expiry date.
  *
  *   ECHO_AUDIT_LEVEL=high|critical|moderate   severity threshold (default high)
- *   ECHO_AUDIT_OMIT_DEV=1                      audit production deps only
  *   ECHO_SKIP_DEP_AUDIT=1                      emergency local bypass (never in CI)
  */
 import { execSync } from 'node:child_process';
@@ -46,7 +45,9 @@ if (fs.existsSync(allowlistPath)) {
 function ghsaId(adv) {
   const url = String(adv?.url || '');
   const m = url.match(/GHSA-[0-9a-z-]+/i);
-  return m ? m[0] : String(adv?.source ?? '');
+  if (m) return m[0];
+  if (adv?.id != null) return String(adv.id);
+  return '';
 }
 
 function isAllowed(id) {
@@ -62,11 +63,9 @@ function isAllowed(id) {
 }
 
 function runAudit() {
-  const omitDev = process.env.ECHO_AUDIT_OMIT_DEV === '1' ? ' --omit=dev' : '';
-  const cmd = `npm audit --json${omitDev}`;
   try {
     return JSON.parse(
-      execSync(cmd, {
+      execSync('bun audit --json', {
         cwd: repoRoot,
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -74,7 +73,7 @@ function runAudit() {
       }),
     );
   } catch (e) {
-    // npm audit exits non-zero when vulnerabilities exist — JSON is still on stdout.
+    // bun audit exits non-zero when vulnerabilities exist — JSON is still on stdout.
     if (e.stdout) {
       try {
         return JSON.parse(e.stdout);
@@ -82,31 +81,32 @@ function runAudit() {
         /* fall through */
       }
     }
-    return null; // registry/network failure
+    return null;
   }
 }
 
 const report = runAudit();
-if (!report || !report.vulnerabilities) {
+if (!report || typeof report !== 'object') {
   console.warn(
-    '[check:dep-audit] WARN: could not run npm audit (offline/registry?). Not blocking.',
+    '[check:dep-audit] WARN: could not run bun audit (offline/registry?). Not blocking.',
   );
   process.exit(0);
 }
 
 const offending = [];
 let allowedCount = 0;
-for (const v of Object.values(report.vulnerabilities)) {
-  if ((SEV_ORDER[v.severity] ?? 0) < minSev) continue;
-  for (const adv of (v.via || []).filter((x) => typeof x === 'object')) {
+for (const [name, advisories] of Object.entries(report)) {
+  if (!Array.isArray(advisories)) continue;
+  for (const adv of advisories) {
+    if ((SEV_ORDER[adv.severity] ?? 0) < minSev) continue;
     const id = ghsaId(adv);
     if (isAllowed(id)) {
       allowedCount += 1;
       continue;
     }
     offending.push({
-      name: v.name,
-      severity: v.severity,
+      name,
+      severity: adv.severity,
       id,
       title: adv.title,
     });
@@ -120,22 +120,12 @@ if (offending.length === 0) {
 }
 
 console.error(
-  `\n[check:dep-audit] ${offending.length} dependency advisory(ies) at or above "${threshold}":\n`,
+  `[check:dep-audit] FAIL — ${offending.length} advisories >= ${threshold}:`,
 );
-const seen = new Set();
 for (const o of offending) {
-  const key = o.name + o.id;
-  if (seen.has(key)) continue;
-  seen.add(key);
-  console.error(
-    `  ${o.severity.padEnd(8)} ${o.name.padEnd(28)} ${o.id}  ${o.title || ''}`,
-  );
+  console.error(`  - ${o.severity} ${o.name} ${o.id} ${o.title || ''}`.trim());
 }
 console.error(
-  '\n  Fix: bump the dependency, or pin a patched version in the root "overrides", then `npm install`.',
+  '[check:dep-audit] Fix via dependency update / root overrides + bun install, or allowlist with expiry.',
 );
-console.error(
-  '  Unfixable for now? Add the GHSA id to scripts/dependency-audit-allowlist.json (reason + expires).',
-);
-console.error('  Emergency local bypass: ECHO_SKIP_DEP_AUDIT=1\n');
 process.exit(1);

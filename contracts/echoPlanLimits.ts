@@ -1,6 +1,6 @@
 /**
  * Echo subscription tiers — limits surfaced to clients and enforced on the API where implemented.
- * See `docs/plans/echo-plan-limits-status.md` for gaps (billing, voice, compression, daily caps, etc.).
+ * Plan-limit gaps (billing, voice, compression, daily caps, etc.) are tracked in local docs-dev notes when present.
  */
 
 export type EchoPlanId = 'free' | 'plus' | 'black';

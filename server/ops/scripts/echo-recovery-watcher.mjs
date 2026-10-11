@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Persistent prod recovery watcher (systemd / PM2 friendly).
  *

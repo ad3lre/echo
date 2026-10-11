@@ -1,10 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Snapshot current metrics for every existing grandfathered path.
  * Grandfathered files stay exempt from strict new-code rules (ban any, etc.),
  * but CI fails when lines, function length, or nesting grow past this ceiling.
  *
- *   node server/ops/scripts/generate-new-code-charter-grandfather-baselines.mjs --write
+ *   bun server/ops/scripts/generate-new-code-charter-grandfather-baselines.mjs --write
  */
 import fs from 'node:fs';
 import path from 'node:path';

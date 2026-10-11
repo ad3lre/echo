@@ -20,7 +20,7 @@
 
    This sets `core.hooksPath` to `server/ops/scripts/githooks` for this repository only.
 
-   On every push to a **non-GitHub** remote (e.g. GitLab `origin`), the hook runs **`npm run ci:precheck`** before the push proceeds (`format:check`, repo guards, clients/web/backend builds, web unit tests, backend contract tests, web ESLint + stylelint). Pushes to `github.com` skip the precheck (mirror-only). Emergency bypass: `ECHO_SKIP_CI_PRECHECK=1 git push …`. Manual run: `npm run ci:precheck`.
+   On every push to a **non-GitHub** remote (e.g. GitLab `origin`), the hook runs **`bun run ci:precheck`** before the push proceeds (`format:check`, repo guards, clients/web/backend builds, web unit tests, backend contract tests, web ESLint + stylelint). Pushes to `github.com` skip the precheck (mirror-only). Emergency bypass: `ECHO_SKIP_CI_PRECHECK=1 git push …`. Manual run: `bun run ci:precheck`.
 
 ## Behavior
 
@@ -31,7 +31,7 @@ Pushes to **GitLab** `origin/release/1.0.0` do **not** update GitHub immediately
 1. **Install the cron job** on a machine that is on at that time (your dev box, VPS, etc.):
 
    ```bash
-   npm run mirror:github-release:install-cron -- --yes
+   bun run mirror:github-release:install-cron -- --yes
    ```
 
    Override schedule with env vars when installing or in the crontab line:
@@ -42,7 +42,7 @@ Pushes to **GitLab** `origin/release/1.0.0` do **not** update GitHub immediately
 2. **Manual mirror** (same checks as cron):
 
    ```bash
-   npm run mirror:github-release
+   bun run mirror:github-release
    ```
 
 3. **Immediate mirror** (emergency; still runs safety checks):
@@ -59,13 +59,13 @@ The `pre-push` hook prints a reminder when GitHub is deferred. Pushes whose URL 
 
 **Goal:** `release/1.0.0` on GitHub should show its **own** linear history: each publish adds **one new commit** whose **parent** is the previous public tip, while the **tree** matches the `origin/main` snapshot you intend to ship. Public commit SHAs stay different from GitLab `main`; `origin/main` must never become an ancestor (no merge commit from `main`).
 
-### Recommended: `npm run publish:public-release`
+### Recommended: `bun run publish:public-release`
 
 Use the repo script so each GitHub commit has a **real subject and body** (summarized from internal `main` commits since the last publish), not a repeated generic line.
 
 ```bash
-npm run publish:public-release              # preview message only
-npm run publish:public-release -- --yes     # commit + push origin (GitHub at 23:00 cron)
+bun run publish:public-release              # preview message only
+bun run publish:public-release -- --yes     # commit + push origin (GitHub at 23:00 cron)
 ```
 
 The script:
@@ -78,8 +78,8 @@ The script:
 **Rewrite existing public messages** (same trees, new messages; force-pushes `release/1.0.0`):
 
 ```bash
-npm run publish:public-release -- --rewrite          # preview
-npm run publish:public-release -- --rewrite --yes    # apply + push
+bun run publish:public-release -- --rewrite          # preview
+bun run publish:public-release -- --rewrite --yes    # apply + push
 ```
 
 Optional: `-m "Custom subject"` overrides only the subject line.
@@ -142,6 +142,6 @@ GitHub is a **public mirror** for `release/1.0.0` only. The branch **`main` must
    - Refuses pushing **local `main`/`master`** to GitHub at all.
    - Refuses **`release/1.0.0` → GitHub** when the tip equals **`origin/main`**.
    - Refuses if **`main` or `release/1.0.0` track `github`** as upstream.
-5. **CI guard:** `node server/ops/scripts/check-github-remote-policy.mjs` (in `npm run test:ci:guards`) ensures hook wiring is not removed.
+5. **CI guard:** `bun server/ops/scripts/check-github-remote-policy.mjs` (in `bun run test:ci:guards`) ensures hook wiring is not removed.
 
 GitLab `release/1.0.0` pushes are not mirrored until the daily job (unless `ECHO_RELEASE_MIRROR_NOW=1`).

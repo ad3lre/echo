@@ -1,5 +1,5 @@
 /**
- * Run: node --import tsx server/backend/src/tests/paper/paperAttribution.test.ts
+ * Run: bun server/backend/src/tests/paper/paperAttribution.test.ts
  */
 import assert from 'node:assert/strict';
 import { applyPaperAttributionStamp } from '../../domain/paperAttribution';

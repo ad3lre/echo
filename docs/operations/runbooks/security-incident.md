@@ -64,7 +64,7 @@ This runbook covers first-response actions for common security incidents in a de
 
 ## Active Exploitation of a Known Class (Realtime room join / SSRF / OAuth CSRF)
 
-- Confirm the current deployed version includes the patch records: [patched-security-issues.md](../../reviews/security/patched-security-issues.md)
+- Confirm the current deployed version includes known patch records (local `docs-dev/reviews/security/patched-security-issues.md` when present; otherwise review recent security commits / advisories).
 - If uncertain, disable the feature at the edge:
   - block `/socket.io` temporarily (realtime)
   - block unfurl endpoints or outbound HTTP egress (SSRF)
@@ -76,4 +76,4 @@ This runbook covers first-response actions for common security incidents in a de
   - root cause and trust boundary violated
   - detection gaps
   - preventative controls (tests, config gates, documentation updates)
-- Add a regression entry to [patched-security-issues.md](../../reviews/security/patched-security-issues.md) for confirmed issues.
+- Record confirmed issues in the local patch log (`docs-dev/reviews/security/`) and add regression tests where practical.

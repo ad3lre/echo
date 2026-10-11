@@ -1,5 +1,5 @@
 /**
- * Regenerates docs/overview/tree.md — run from repo root: node server/ops/scripts/generate-tree-md.mjs
+ * Regenerates docs/overview/tree.md — run from repo root: bun server/ops/scripts/generate-tree-md.mjs
  *
  * Static asset trees are omitted entirely from the detailed tree (no line counts from those paths).
  */
@@ -28,7 +28,7 @@ const SKIP_REL_PREFIXES = [
 ];
 
 /** Generated file should not count itself in totals. */
-const SKIP_REL_FILES = new Set(['docs/overview/tree.md', 'package-lock.json']);
+const SKIP_REL_FILES = new Set(['docs/overview/tree.md', 'bun.lock']);
 
 /** Binary files are omitted from line totals for cleaner signal. */
 const BINARY_EXTS = new Set([
@@ -314,7 +314,8 @@ out.push('|   `-- tsconfig.json');
 out.push('|-- bot/ (Discord export / tooling)');
 out.push('|   |-- src/');
 out.push('|   `-- package.json');
-out.push('|-- docs/ (architecture, runbooks, rbac, adr, …)');
+out.push('|-- docs/ (public docs: contracts, runbooks, adr, …)');
+out.push('|-- docs-dev/ (local-only plans/reviews; gitignored)');
 out.push('|-- clients/web/ (Vite + Vue)');
 out.push('|   |-- public/');
 out.push('|   |-- src/');

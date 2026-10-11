@@ -1,6 +1,6 @@
 /**
  * VC Watch Together storage key helpers.
- * Run: node --import tsx server/backend/src/tests/voice/vcWatchTogetherStorageKey.test.ts
+ * Run: bun server/backend/src/tests/voice/vcWatchTogetherStorageKey.test.ts
  */
 import assert from 'node:assert/strict';
 import {

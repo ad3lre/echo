@@ -9,7 +9,7 @@
  * context uses `{ latencyHint: 'interactive' }` and stays functional, so real
  * audio still flows on the publish path — exactly the Safari failure shape.
  *
- * Usage: node server/ops/perf/scenarios/voice-audio-gate-suspended-e2e.mjs [baseUrl]
+ * Usage: bun server/ops/perf/scenarios/voice-audio-gate-suspended-e2e.mjs [baseUrl]
  */
 import { chromium } from '@playwright/test';
 

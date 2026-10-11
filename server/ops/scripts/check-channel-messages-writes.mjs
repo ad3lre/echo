@@ -1,7 +1,7 @@
 /**
  * Manual gate: flags direct assignments to workspace message buckets outside authority.
  * Allowlist: channelMessageAuthority.ts, channelMessageBucket.ts, tests, this script.
- * Run: node server/ops/scripts/check-channel-messages-writes.mjs
+ * Run: bun server/ops/scripts/check-channel-messages-writes.mjs
  */
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { dirname, join, relative } from 'path';

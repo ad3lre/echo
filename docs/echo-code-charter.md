@@ -341,10 +341,10 @@ All other paths under `clients/web/src`, `server/backend/src`, `shared`, `bot/sr
 Commands:
 
 ```bash
-npm run charter:new-code:check                   # CI / local
-npm run charter:new-code:test                    # unit tests for the checker
-npm run charter:new-code:enrollment              # refresh enrolled ceilings after intentional bumps
-npm run charter:new-code:grandfather-baselines   # re-snapshot grandfather size ceilings (shrink-only in review)
+bun run charter:new-code:check                   # CI / local
+bun run charter:new-code:test                    # unit tests for the checker
+bun run charter:new-code:enrollment              # refresh enrolled ceilings after intentional bumps
+bun run charter:new-code:grandfather-baselines   # re-snapshot grandfather size ceilings (shrink-only in review)
 ```
 
 Wired into: `echo-web-ci`, `echo-backend-ci`, `echo-format-ci`, `test:ci:guards`,

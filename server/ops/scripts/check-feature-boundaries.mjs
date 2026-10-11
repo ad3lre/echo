@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Feature import-boundary guard (docs/overview/code-placement.md — import rule).
  *
@@ -13,7 +13,7 @@
  * grandfathered in scripts/feature-boundaries-allowlist.json. That list may only
  * SHRINK: a stale entry (no longer a real import) also fails the build, so each
  * fix is permanent. Generate/refresh the allowlist with:
- *   node server/ops/scripts/generate-feature-boundaries-allowlist.mjs --write
+ *   bun server/ops/scripts/generate-feature-boundaries-allowlist.mjs --write
  *
  * Composer features (config.composerFeatures) are the sanctioned composition
  * roots and are exempt as importers — they wire the other features together.
@@ -213,7 +213,7 @@ function main() {
     console.error('check-feature-boundaries: FAILED');
     for (const e of errors) console.error(e);
     console.error(
-      '\nSee docs/overview/code-placement.md. Refresh the allowlist after fixing crossings:\n  node server/ops/scripts/generate-feature-boundaries-allowlist.mjs --write\nEmergency local bypass: ECHO_FEATURE_BOUNDARIES_BYPASS=1',
+      '\nSee docs/overview/code-placement.md. Refresh the allowlist after fixing crossings:\n  bun server/ops/scripts/generate-feature-boundaries-allowlist.mjs --write\nEmergency local bypass: ECHO_FEATURE_BOUNDARIES_BYPASS=1',
     );
     process.exit(1);
   }

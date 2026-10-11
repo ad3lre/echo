@@ -4,8 +4,8 @@
  * Runbook: docs/operations/runbooks/snowflake-cutover.md
  *
  * Usage:
- *   DATABASE_URL=... npx ts-node src/scripts/migrateEchoIdsToSnowflake.ts           # dry-run (default)
- *   DATABASE_URL=... npx ts-node src/scripts/migrateEchoIdsToSnowflake.ts --execute # apply (single DB, maintenance window)
+ *   DATABASE_URL=... bun src/scripts/migrateEchoIdsToSnowflake.ts           # dry-run (default)
+ *   DATABASE_URL=... bun src/scripts/migrateEchoIdsToSnowflake.ts --execute # apply (single DB, maintenance window)
  *
  * Large DBs: `--commit-per-channel-messages` or `MIGRATION_COMMIT_MESSAGES_PER_CHANNEL=1` commits message PK/JSON
  * updates one channel at a time (smaller WAL / locks than one server-wide transaction).

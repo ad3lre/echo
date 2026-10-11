@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Optional stress harness: many socket messages + joins (requires running backend + DATABASE_URL on client env).
- * Usage: BASE_URL=http://127.0.0.1:3000 TOKEN=<jwt> CHANNEL_ID=<uuid> node server/ops/scripts/socket-stress.mjs
+ * Usage: BASE_URL=http://127.0.0.1:3000 TOKEN=<jwt> CHANNEL_ID=<uuid> bun server/ops/scripts/socket-stress.mjs
  */
 import { io } from 'socket.io-client';
 

@@ -1,15 +1,15 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
- * Follow logs for a detached `npm run vps:*` stack (same paths as vps-serve.mjs).
+ * Follow logs for a detached `bun run vps:*` stack (same paths as vps-serve.mjs).
  *
  * - With no mode: picks dev or prod if exactly one of them has a pid file (stack or git-watch).
  * - Opens a new terminal window when a GUI is available (Windows, macOS, common Linux DEs).
  * - On headless SSH (no DISPLAY), runs `tail -f` in the current terminal.
  *
  * Usage:
- *   npm run vps:logs
- *   npm run vps:logs -- dev
- *   npm run vps:logs -- prod --log-dir=/path/to/logs
+ *   bun run vps:logs
+ *   bun run vps:logs -- dev
+ *   bun run vps:logs -- prod --log-dir=/path/to/logs
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,7 +21,7 @@ const repoRoot = path.resolve(__dirname, '../../..');
 
 function printHelp() {
   console.error(`
-Usage: node server/ops/scripts/vps-logs.mjs [dev|prod] [options]
+Usage: bun server/ops/scripts/vps-logs.mjs [dev|prod] [options]
 
 Options:
   --log-dir=DIR   Same as vps-serve (default: <repo>/logs/vps)
@@ -61,7 +61,7 @@ function detectMode(logDir) {
   const prod = pidRunning(logDir, 'prod');
   if (dev && prod) {
     console.error(
-      '[vps-logs] Both dev and prod have pid files; specify mode:\n  npm run vps:logs -- dev\n  npm run vps:logs -- prod',
+      '[vps-logs] Both dev and prod have pid files; specify mode:\n  bun run vps:logs -- dev\n  bun run vps:logs -- prod',
     );
     process.exit(1);
   }
@@ -207,7 +207,7 @@ function main() {
       else {
         console.error(
           `[vps-logs] Could not infer dev vs prod (no pid files and ambiguous logs under ${opts.logDir}).\n` +
-            'Start the stack, or pass the mode:\n  npm run vps:logs -- dev',
+            'Start the stack, or pass the mode:\n  bun run vps:logs -- dev',
         );
         process.exit(1);
       }

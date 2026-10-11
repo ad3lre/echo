@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../auth/store/helpers';
 import pg from 'pg';
 import { ensureEchoTables } from '../../db/echoTables';
 import {
@@ -10,7 +10,7 @@ import {
 import { nextEchoSnowflakeId } from '../../domain/echoSnowflake';
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `vcmig_${id.replace(/-/g, '').slice(0, 20)}_${Math.random().toString(36).slice(2, 8)}`;
   const email = `${username}@vcmig.echo.test`;
   await pool.query(

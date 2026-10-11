@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * CI guard: Echo REST route modules must not introduce new raw `pool.query(` calls.
  * Grandfathered files are listed in scripts/echo-routes-sql-allowlist.json (shrink-only).

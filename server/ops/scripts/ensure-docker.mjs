@@ -80,7 +80,7 @@ async function main() {
   const started = await tryStartDocker();
   if (!started) {
     console.error(
-      'Could not automatically start Docker on this system. Please start Docker Desktop (or the Docker daemon) and re-run npm.',
+      'Could not automatically start Docker on this system. Please start Docker Desktop (or the Docker daemon) and re-run bun install / bun run.',
     );
     process.exit(1);
   }

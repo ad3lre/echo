@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Event-driven prod recovery (spawned by Discord uptime monitor on healthy→down).
  *
@@ -103,9 +103,9 @@ const DEV_SCAN_ROOTS = [
 
 const DEV_SCAN_FILES = [
   'package.json',
-  'package-lock.json',
+  'bun.lock',
   'ecosystem.config.cjs',
-  '.nvmrc',
+  '.bun-version',
   'server/backend/package.json',
   'clients/web/package.json',
   'bot/package.json',

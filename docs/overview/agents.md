@@ -1,7 +1,7 @@
 # Contributor and agent charter
 
 **Audience:** Human contributors and automated agents working in this repository.  
-**Related:** [AGENTS.md](../../AGENTS.md) (repo-root pointer), [repo-layout.md](repo-layout.md) (top-level map), [client-charter-violations.md](../architecture/client-charter-violations.md) (inventory), [echo-code-charter.md](../echo-code-charter.md) (new-code size ratchet).
+**Related:** [AGENTS.md](../../AGENTS.md) (repo-root pointer), [repo-layout.md](repo-layout.md) (top-level map), [echo-code-charter.md](../echo-code-charter.md) (new-code size ratchet). Charter inventories live in local `docs-dev/architecture/` when present.
 
 This document defines how we investigate problems, control scope, and separate **domain truth** from **orchestration** and **presentation**. When behavior is unclear, prefer evidence (logs, code, reproduction) over assumptions.
 
@@ -143,7 +143,7 @@ Think of the controller as a **traffic manager**, not a decision maker.
 
 `clients/apple/` is SwiftUI-only and independent of `clients/web/`. Keep Apps/
 thin; put shared logic in Modules/. Before merging Apple changes, run
-`npm run apple:maintainability` (LOC ceilings, theme-only color literals, module
+`bun run apple:maintainability` (LOC ceilings, theme-only color literals, module
 import direction). Details: [`clients/apple/README.md`](../../clients/apple/README.md).
 
 ---

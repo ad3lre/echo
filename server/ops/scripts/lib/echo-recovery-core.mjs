@@ -44,32 +44,26 @@ export function appendRecoveryLog(line, metaPath) {
   );
 }
 
-function nvmNodeBinDir(repoRoot) {
+function bunBinDir() {
   try {
-    const rcPath = path.join(repoRoot, '.nvmrc');
-    if (!fs.existsSync(rcPath)) return '';
-    const raw = fs.readFileSync(rcPath, 'utf8').trim().split(/\s+/)[0];
-    if (!raw) return '';
-    const base = path.join(os.homedir(), '.nvm', 'versions', 'node');
-    if (!fs.existsSync(base)) return '';
-    const want = raw.replace(/^v/, '');
-    const dirs = fs
-      .readdirSync(base)
-      .filter((d) => d.startsWith('v') && d.slice(1).startsWith(want));
-    if (!dirs.length) return '';
-    dirs.sort();
-    const bin = path.join(base, dirs[dirs.length - 1], 'bin');
-    return fs.existsSync(path.join(bin, 'node')) ? bin : '';
+    const candidates = [
+      process.env.BUN_INSTALL ? path.join(process.env.BUN_INSTALL, 'bin') : '',
+      path.join(os.homedir(), '.bun', 'bin'),
+    ].filter(Boolean);
+    for (const bin of candidates) {
+      if (fs.existsSync(path.join(bin, 'bun'))) return bin;
+    }
+    return '';
   } catch {
     return '';
   }
 }
 
 export function baseEnv(repoRoot = resolveRepoRoot()) {
-  const nvmBin = nvmNodeBinDir(repoRoot);
-  const pathParts = nvmBin
+  const bunBin = bunBinDir();
+  const pathParts = bunBin
     ? [
-        nvmBin,
+        bunBin,
         '/usr/local/sbin',
         '/usr/local/bin',
         '/usr/sbin',
@@ -85,25 +79,24 @@ export function baseEnv(repoRoot = resolveRepoRoot()) {
   };
 }
 
-export function npmBin(repoRoot = resolveRepoRoot()) {
-  const binDir = nvmNodeBinDir(repoRoot);
+export function bunExecutable(repoRoot = resolveRepoRoot()) {
+  void repoRoot;
+  const binDir = bunBinDir();
   if (binDir) {
-    const npm = path.join(
-      binDir,
-      process.platform === 'win32' ? 'npm.cmd' : 'npm',
-    );
-    if (fs.existsSync(npm)) return npm;
+    const bun = path.join(binDir, 'bun');
+    if (fs.existsSync(bun)) return bun;
   }
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  return 'bun';
 }
 
+/** @deprecated Use bunExecutable — kept for callers during migration. */
+export function npmBin(repoRoot = resolveRepoRoot()) {
+  return bunExecutable(repoRoot);
+}
+
+/** @deprecated Use bunExecutable — kept for callers during migration. */
 export function nodeBin(repoRoot = resolveRepoRoot()) {
-  const binDir = nvmNodeBinDir(repoRoot);
-  if (binDir) {
-    const node = path.join(binDir, 'node');
-    if (fs.existsSync(node)) return node;
-  }
-  return process.execPath;
+  return bunExecutable(repoRoot);
 }
 
 export async function localApiHealthy(
@@ -190,7 +183,7 @@ function spawnDetachedProdServe(repoRoot, logDir, livePidFile, env) {
   fs.mkdirSync(logDir, { recursive: true });
   const outFd = fs.openSync(outPath, 'a');
   const errFd = fs.openSync(errPath, 'a');
-  const child = spawn(npmBin(repoRoot), ['run', 'prod:serve'], {
+  const child = spawn(bunExecutable(repoRoot), ['run', 'prod:serve'], {
     cwd: repoRoot,
     detached: true,
     stdio: ['ignore', outFd, errFd],

@@ -215,9 +215,9 @@ function printHelp(): void {
   console.log(`echo-discord-export-bot v${pkg.version}
 
 Usage:
-  node dist/index.js [guildId] [options]
-  npm run dev -- [guildId] [options]
-  node dist/index.js --serve [options]    Stay online; export each guild when the bot is invited
+  bun dist/index.js [guildId] [options]
+  bun run dev -- [guildId] [options]
+  bun dist/index.js --serve [options]    Stay online; export each guild when the bot is invited
 
 Environment:
   DISCORD_BOT_TOKEN   Required (unless passed elsewhere)
@@ -406,7 +406,7 @@ async function main(): Promise<void> {
   if (!guildId) {
     printHelp();
     console.log(
-      '\nNo guild selected. Pass <guildId> as the first argument, set DISCORD_GUILD_ID in .env, or run with --serve (see npm run serve:dev).',
+      '\nNo guild selected. Pass <guildId> as the first argument, set DISCORD_GUILD_ID in .env, or run with --serve (see bun run serve:dev).',
     );
     process.exit(0);
   }

@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Nest `.block__*` rules under `.block { }` in SCSS.
- * Usage: node server/ops/scripts/css-nest-bem-block.mjs <input.scss> <output.scss> <blockClass>
+ * Usage: bun server/ops/scripts/css-nest-bem-block.mjs <input.scss> <output.scss> <blockClass>
  */
 import fs from 'node:fs';
 import postcss from 'postcss';
@@ -9,7 +9,7 @@ import postcss from 'postcss';
 const [inputPath, outputPath, blockClass] = process.argv.slice(2);
 if (!inputPath || !outputPath || !blockClass) {
   console.error(
-    'Usage: node server/ops/scripts/css-nest-bem-block.mjs <in.scss> <out.scss> <blockClass>',
+    'Usage: bun server/ops/scripts/css-nest-bem-block.mjs <in.scss> <out.scss> <blockClass>',
   );
   process.exit(1);
 }

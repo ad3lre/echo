@@ -1,6 +1,6 @@
 /**
- * Runs before `npm run dev` (package.json `predev`).
- * Set ECHO_DEV_SKIP_SETUP=1 (or run `npm run dev:quick`) to skip Docker/DB/emoji
+ * Runs before `bun run dev` (package.json `predev`).
+ * Set ECHO_DEV_SKIP_SETUP=1 (or run `bun run dev:quick`) to skip Docker/DB/emoji
  * work when the stack is already up and assets are built — much faster restarts.
  */
 import { execSync } from 'node:child_process';
@@ -32,11 +32,11 @@ if (
 
 run(
   [
-    'node server/ops/scripts/ensure-docker.mjs',
-    'npm run db:up',
-    'node server/ops/scripts/copy-twemoji.mjs',
-    'node server/ops/scripts/build-emoji-secondary-aliases.mjs',
-    'node server/ops/scripts/build-emoji-search-index.mjs',
-    'node server/ops/scripts/diagnostics-prune.mjs',
+    'bun server/ops/scripts/ensure-docker.mjs',
+    'bun run db:up',
+    'bun server/ops/scripts/copy-twemoji.mjs',
+    'bun server/ops/scripts/build-emoji-secondary-aliases.mjs',
+    'bun server/ops/scripts/build-emoji-search-index.mjs',
+    'bun server/ops/scripts/diagnostics-prune.mjs',
   ].join(' && '),
 );

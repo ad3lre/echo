@@ -5,9 +5,10 @@ updates:
     schedule:
       interval: 'weekly'
 
-  # Single lockfile at repo root covers all npm workspaces
+  # Root package.json + bun.lock cover all Bun workspaces
   # (clients/web, server/backend, contracts, bot, marketing, server/ops/scripts,
-  # server/voice, server/media, server/activities).
+  # server/voice, server/media, server/activities). Dependabot still uses the
+  # npm ecosystem metadata against package.json; installs locally via Bun.
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:

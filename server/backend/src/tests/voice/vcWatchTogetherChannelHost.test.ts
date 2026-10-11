@@ -1,6 +1,6 @@
 /**
  * VC Watch Together per-channel host lock.
- * Run: node --import tsx server/backend/src/tests/voice/vcWatchTogetherChannelHost.test.ts
+ * Run: bun server/backend/src/tests/voice/vcWatchTogetherChannelHost.test.ts
  */
 import assert from 'node:assert/strict';
 import {

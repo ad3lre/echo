@@ -1,9 +1,9 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Frontend modularization report.
  *
- * Default (`npm run modularity:report`): always exit 0 — CI-safe honesty signal.
- * Strict (`npm run modularity:check` or `--fail`): exit 1 when any file is >= hardLimit.
+ * Default (`bun run modularity:report`): always exit 0 — CI-safe honesty signal.
+ * Strict (`bun run modularity:check` or `--fail`): exit 1 when any file is >= hardLimit.
  *
  * God-file growth is separately gated by check-god-file-ratchet.mjs.
  */

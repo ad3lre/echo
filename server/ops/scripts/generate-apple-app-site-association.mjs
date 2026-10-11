@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Writes `clients/web/public/.well-known/apple-app-site-association` for iOS
  * Universal Links and Shared Web Credentials (Password AutoFill / passkeys).

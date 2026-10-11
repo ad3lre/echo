@@ -4,7 +4,7 @@ export type MarkdownPreviewMenuMode = 'off' | 'inline' | 'split' | 'full';
  * When false, the composer markdown menu hides **Inline preview** and stored
  * `inline` is coerced to `split`. Implementation stays in place (TipTap
  * decorations, `setMarkdownDecorationsEnabled`, `applyMarkdownPreviewMode('inline')`).
- * Set to `true` to ship the feature. See `docs/plans/FUTURE_FEATURES.md`.
+ * Set to `true` to ship the feature. See `docs-dev/plans/FUTURE_FEATURES.md`.
  */
 export const INLINE_MARKDOWN_PREVIEW_UI_ENABLED = false;
 

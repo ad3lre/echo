@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Native Apple-client contract e2e against a running Echo API (Postgres required).
  *
@@ -7,7 +7,7 @@
  * live message / dm:activity, poll vote, after= catch-up, and token refresh.
  *
  * Usage (backend already healthy on :3000):
- *   npm run apple:e2e
+ *   bun run apple:e2e
  */
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';

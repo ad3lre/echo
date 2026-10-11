@@ -1,6 +1,6 @@
 /**
  * Upload storage key path safety + local disk resolve containment.
- * Run: node --import tsx server/backend/src/tests/uploads/echoUploadStorageKeyPath.test.ts
+ * Run: bun server/backend/src/tests/uploads/echoUploadStorageKeyPath.test.ts
  */
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';

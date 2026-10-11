@@ -2,7 +2,7 @@
  * Layout shell composition root: ordered wiring of region composables + slices.
  * Policy and merge rules live in `clients/web/src/services/` and named `useAppLayout*` /
  * `useEcho*` composables — not inline here.
- * Charter definition of “thin”: `docs/architecture/client-layer-violations.md` §1.
+ * Charter definition of “thin”: `docs-dev/architecture/client-layer-violations.md` §1.
  */
 import { wireAppLayoutDmAndShell } from './wireAppLayoutDmAndShell';
 import { wireAppLayoutVoiceAndRealtime } from './wireAppLayoutVoiceAndRealtime';

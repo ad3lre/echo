@@ -23,7 +23,7 @@ ECHO_APP_PUBLIC_URL="http://localhost:${FRONTEND_PORT}" \
 ECHO_MARKETING_PUBLIC_URL="http://localhost:${FRONTEND_PORT}" \
 ECHO_API_PUBLIC_URL="http://127.0.0.1:${HARNESS_PORT}" \
 PORT="${HARNESS_PORT}" IMAGE_SLOT_VERIFY_OUT="${OUT}" \
-  node --import tsx src/tests/helpers/imageSlotFillHarness.ts > /tmp/echo-image-slot-harness.log 2>&1 &
+  bun src/tests/helpers/imageSlotFillHarness.ts > /tmp/echo-image-slot-harness.log 2>&1 &
 HARNESS_PID=$!
 
 for _ in $(seq 1 60); do
@@ -36,7 +36,7 @@ if [[ ! -f "${OUT}" ]]; then
   exit 1
 fi
 
-BACKEND_URL="$(node -e "console.log(JSON.parse(require('fs').readFileSync('${OUT}','utf8')).backendUrl)")"
+BACKEND_URL="$(bun -e "console.log(JSON.parse(require('fs').readFileSync('${OUT}','utf8')).backendUrl)")"
 cd "${ROOT}/clients/web"
 ECHO_DEV_BACKEND_URL="${BACKEND_URL}" VITE_SOCKET_IO_URL="http://localhost:${HARNESS_PORT}" VITE_API_URL= node "${ROOT}/node_modules/vite/bin/vite.js" --port "${FRONTEND_PORT}" --strictPort > /tmp/echo-image-slot-vite.log 2>&1 &
 VITE_PID=$!

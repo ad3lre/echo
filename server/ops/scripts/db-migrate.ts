@@ -22,9 +22,9 @@ async function runMigrations() {
   try {
     // This is a placeholder. You would replace this with your actual migration tool command.
     // Examples:
-    // - TypeORM: await execAsync('npx typeorm-ts-node-commonjs migration:run -d ./src/data-source.ts');
-    // - Prisma: await execAsync('npx prisma migrate deploy');
-    // - Knex: await execAsync('npx knex migrate:latest --knexfile knexfile.ts');
+    // - TypeORM: await execAsync('bunx typeorm migration:run -d ./src/data-source.ts');
+    // - Prisma: await execAsync('bunx prisma migrate deploy');
+    // - Knex: await execAsync('bunx knex migrate:latest --knexfile knexfile.ts');
 
     // For demonstration, let's just log a message.
     // In a real application, ensure your migration tool is installed and configured.

@@ -1,9 +1,9 @@
 /**
  * MLS delivery service store tests (voice E2EE v2).
- * Run: node --import tsx server/backend/src/tests/voice/echo.mlsDelivery.test.ts
+ * Run: bun server/backend/src/tests/voice/echo.mlsDelivery.test.ts
  */
 import assert from 'node:assert/strict';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../auth/store/helpers';
 import type pg from 'pg';
 import { ensureEchoTables } from '../../db/echoTables';
 import { getPgPool } from '../../db/pg';
@@ -23,7 +23,7 @@ import {
 import { upsertEchoE2eeDevice } from '../../domain/echoStore/voice/e2ee';
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `mls_${id.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 48)}`;
   const email = `${username}@mls.echo.test`;
   await pool.query(

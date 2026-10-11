@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Start backend + frontend preview on staging ports without touching :3000 / :4173.
  */
@@ -51,8 +51,8 @@ const concurrentlyBin = path.join(
   'concurrently',
 );
 
-const backendCmd = `cross-env NODE_ENV=production PORT=${apiPort} npm start`;
-const frontendCmd = `node server/ops/scripts/wait-for-port.mjs 127.0.0.1 ${apiPort} && cross-env NODE_ENV=production npm run preview -w web -- --host --port ${frontendPort} --strictPort`;
+const backendCmd = `cross-env NODE_ENV=production PORT=${apiPort} bun run start`;
+const frontendCmd = `bun server/ops/scripts/wait-for-port.mjs 127.0.0.1 ${apiPort} && cross-env NODE_ENV=production bun run --filter web preview -- --host --port ${frontendPort} --strictPort`;
 
 const child = spawn(
   process.execPath,

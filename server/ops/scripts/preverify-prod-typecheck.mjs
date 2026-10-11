@@ -1,6 +1,6 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
- * Typecheck production workspaces before `npm run prod` tears down listening ports.
+ * Typecheck production workspaces before `bun run prod` tears down listening ports.
  * Fails fast so a broken deploy does not stop the running stack (see preprod without kill-port).
  *
  * Env:
@@ -16,24 +16,21 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../..',
 );
+const webRoot = path.join(repoRoot, 'clients/web');
 
-function npmCmd() {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
-}
-
-function spawnOpts() {
+function spawnOpts(cwd = repoRoot) {
   return {
-    cwd: repoRoot,
+    cwd,
     shell: process.platform === 'win32',
     env: { ...process.env, FORCE_COLOR: '1' },
     maxBuffer: 20 * 1024 * 1024,
   };
 }
 
-async function run(label, args) {
+async function run(label, cmd, args, cwd = repoRoot) {
   console.log(`[preverify:prod] ${label}…`);
   try {
-    const { stdout, stderr } = await execFileAsync(npmCmd(), args, spawnOpts());
+    const { stdout, stderr } = await execFileAsync(cmd, args, spawnOpts(cwd));
     if (stdout?.trim()) process.stdout.write(stdout);
     if (stderr?.trim()) process.stderr.write(stderr);
   } catch (e) {
@@ -56,23 +53,21 @@ async function main() {
 
   try {
     await Promise.all([
-      run('backend (tsc)', ['run', 'build', '-w', 'backend']),
-      run('bot (tsc)', ['run', 'build', '-w', 'bot']),
+      run('backend (tsc)', 'bun', ['run', '--filter', 'backend', 'build']),
+      run('bot (tsc)', 'bun', [
+        'run',
+        '--filter',
+        'echo-discord-export-bot',
+        'build',
+      ]),
     ]);
-    await run('web (vue-tsc)', [
-      'exec',
-      '-w',
-      'web',
-      '--',
-      'vue-tsc',
-      '--noEmit',
-    ]);
-    await run('sql schema columns (static)', [
+    await run('web (vue-tsc)', 'bun', ['x', 'vue-tsc', '--noEmit'], webRoot);
+    await run('sql schema columns (static)', 'bun', [
       'run',
       'check:sql-schema-columns',
     ]);
     if (process.env.DATABASE_URL?.trim()) {
-      await run('sql schema columns (live EXPLAIN)', [
+      await run('sql schema columns (live EXPLAIN)', 'bun', [
         'run',
         'check:sql-schema-columns:live',
       ]);

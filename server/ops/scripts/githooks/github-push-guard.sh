@@ -46,7 +46,7 @@ github_push_guard() {
       if [[ -n "$origin_main" && "$local_sha" == "$origin_main" ]]; then
         if [[ -z "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]]; then
           echo "pre-push: REFUSED — release/1.0.0 tip equals origin/main on GitHub push." >&2
-          echo "  That exposes GitLab per-commit history. Use: npm run publish:public-release -- --yes" >&2
+          echo "  That exposes GitLab per-commit history. Use: bun run publish:public-release -- --yes" >&2
           return 1
         fi
       fi
@@ -88,7 +88,7 @@ check_branch_upstream_policy() {
   if [[ "$release_remote" == "github" || "$release_remote" == "${GITHUB_REMOTE:-github}" ]]; then
     echo "pre-push: REFUSED — branch release/1.0.0 tracks GitHub (plain git push skips GitLab + publish script)." >&2
     echo "  git branch --set-upstream-to=origin/release/1.0.0 release/1.0.0" >&2
-    echo "  Mirror to GitHub: npm run mirror:github-release" >&2
+    echo "  Mirror to GitHub: bun run mirror:github-release" >&2
     return 1
   fi
 

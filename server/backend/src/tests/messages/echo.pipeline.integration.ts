@@ -1,6 +1,6 @@
 /**
  * Pipeline tests: HTTP + Socket.IO + Postgres (requires DATABASE_URL).
- * Run: ECHO_GUEST_ACCOUNTS_ENABLED=1 npm run test:echo:pipeline -w backend
+ * Run: ECHO_GUEST_ACCOUNTS_ENABLED=1 bun run --filter backend test:echo:pipeline
  *
  * Guest carve-out tests need guests enabled before Node loads `config` (imports are hoisted).
  */

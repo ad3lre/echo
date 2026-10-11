@@ -3,7 +3,7 @@
  * Requires Postgres (DATABASE_URL) and a running game-server on GAME_SERVER_PUBLIC_URL
  * (default http://127.0.0.1:3060).
  *
- * Run: npm run test:vc-game-room:e2e -w backend
+ * Run: bun run --filter backend test:vc-game-room:e2e
  */
 import assert from 'node:assert/strict';
 import { io as ioClient, type Socket } from 'socket.io-client';

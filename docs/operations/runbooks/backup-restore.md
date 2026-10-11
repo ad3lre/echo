@@ -117,8 +117,8 @@ ECHO_BACKUP_S3_SECRET_KEY=your_write_only_secret
 ECHO_BACKUP_S3_PREFIX=postgres
 ECHO_BACKUP_TMP_DIR=/var/lib/echo/backups/tmp
 
-# If using nvm, add Node to PATH
-PATH=/home/echo/.nvm/versions/node/v22.13.0/bin:/usr/local/bin:/usr/bin:/bin
+# Ensure Bun is on PATH
+PATH=/home/echo/.bun/bin:/usr/local/bin:/usr/bin:/bin
 ```
 
 ### 3. Configure restore credentials (root-only)
@@ -175,7 +175,7 @@ systemctl list-timers echo-backup.timer
 
 ```bash
 # Restore from today's daily backup to a scratch database
-sudo -E npm run backup:postgres:restore -- \
+sudo -E bun run backup:postgres:restore -- \
   --date $(date +%Y-%m-%d) \
   --tier daily \
   --target-database-url postgres://restoreuser:pass@localhost/echo_scratch
@@ -202,7 +202,7 @@ sudo -E npm run backup:postgres:restore -- \
 3. **Restore to scratch**:
 
    ```bash
-   sudo -E npm run backup:postgres:restore -- \
+   sudo -E bun run backup:postgres:restore -- \
      --date 2026-06-05 \
      --tier daily \
      --target-database-url postgres://echo:pass@localhost/echo_restore_test
@@ -216,7 +216,7 @@ sudo -E npm run backup:postgres:restore -- \
 
    ```bash
    # Point staging API at echo_restore_test
-   DATABASE_URL=postgres://echo:pass@localhost/echo_restore_test npm start
+   DATABASE_URL=postgres://echo:pass@localhost/echo_restore_test bun run start
 
    # Verify: login, read channel list, send message
    curl http://localhost:3000/api/v1/health
@@ -229,7 +229,7 @@ sudo -E npm run backup:postgres:restore -- \
    pg_dump $DATABASE_URL -Fc -f /tmp/pre-restore-$(date +%s).dump
 
    # Restore over production
-   sudo -E npm run backup:postgres:restore -- \
+   sudo -E bun run backup:postgres:restore -- \
      --date 2026-06-05 \
      --tier daily
 

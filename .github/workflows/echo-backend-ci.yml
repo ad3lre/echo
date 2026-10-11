@@ -9,7 +9,7 @@ on:
       - 'server/ops/scripts/check-*.mjs'
       - 'server/ops/scripts/god-file-baselines.json'
       - 'package.json'
-      - 'package-lock.json'
+      - 'bun.lock'
       - '.github/workflows/echo-backend-ci.yml'
   pull_request:
     paths:
@@ -19,7 +19,7 @@ on:
       - 'server/ops/scripts/check-*.mjs'
       - 'server/ops/scripts/god-file-baselines.json'
       - 'package.json'
-      - 'package-lock.json'
+      - 'bun.lock'
   workflow_dispatch:
 
 jobs:
@@ -50,19 +50,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22.13.1'
-          cache: 'npm'
+          bun-version-file: '.bun-version'
 
       - name: Install
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Typecheck backend
-        run: npm run build -w backend
+        run: bun run --filter backend build
 
       - name: Lint backend
-        run: npm run lint -w backend
+        run: bun run --filter backend lint
 
       - name: Contract surface + CI guards
         env:
@@ -70,32 +69,32 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           ECHO_BACKEND_STORAGE: postgres
         run: |
-          npm run test:storage-mode -w backend
-          npm run test:production-config-gates -w backend
-          npm run test:video-hls-worker-config -w backend
-          npm run test:video-hls-notify -w media
-          npm run test:linkUnfurlStubs -w backend
-          npm run test:linkUnfurlExtract -w backend
-          npm run test:shipping-security -w backend
-          npm run test:security -w backend
-          npm run test:echo:contract -w backend
-          npm run check:echo-channels
-          npm run check:echo-snowflake
-          npm run check:echo-single-reality
-          npm run check:echo-rbac
-          npm run check:channel-message-writes
-          node server/ops/scripts/check-echo-no-sql-in-routes.mjs
-          node server/ops/scripts/check-god-file-ratchet.mjs
-          node server/ops/scripts/check-new-code-charter.mjs
-          npm run charter:new-code:test
-          node server/ops/scripts/check-github-remote-policy.mjs
-          npm run check:sql-schema-columns
-          npm run check:sql-schema-columns:live
-          node --import tsx server/backend/src/tests/paper/paperCollabState.test.ts
-          node --import tsx server/backend/src/tests/paper/paperAttribution.test.ts
+          bun run --filter backend test:storage-mode
+          bun run --filter backend test:production-config-gates
+          bun run --filter backend test:video-hls-worker-config
+          bun run --filter media test:video-hls-notify
+          bun run --filter backend test:linkUnfurlStubs
+          bun run --filter backend test:linkUnfurlExtract
+          bun run --filter backend test:shipping-security
+          bun run --filter backend test:security
+          bun run --filter backend test:echo:contract
+          bun run check:echo-channels
+          bun run check:echo-snowflake
+          bun run check:echo-single-reality
+          bun run check:echo-rbac
+          bun run check:channel-message-writes
+          bun server/ops/scripts/check-echo-no-sql-in-routes.mjs
+          bun server/ops/scripts/check-god-file-ratchet.mjs
+          bun server/ops/scripts/check-new-code-charter.mjs
+          bun run charter:new-code:test
+          bun server/ops/scripts/check-github-remote-policy.mjs
+          bun run check:sql-schema-columns
+          bun run check:sql-schema-columns:live
+          bun server/backend/src/tests/paper/paperCollabState.test.ts
+          bun server/backend/src/tests/paper/paperAttribution.test.ts
 
       - name: Socket handler unit tests
-        run: npm run test -w web -- ../../server/backend/src/tests/channels/channelHandlers.joinChannel.test.ts
+        run: bun run --filter web test -- ../../server/backend/src/tests/channels/channelHandlers.joinChannel.test.ts
 
       - name: Pipeline integration (Postgres)
         env:
@@ -103,37 +102,37 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
           ECHO_GUEST_ACCOUNTS_ENABLED: '1'
-        run: npm run test:echo:pipeline -w backend
+        run: bun run --filter backend test:echo:pipeline
       - name: Multi-node integration (Postgres + NATS)
         env:
           ECHO_BACKEND_STORAGE: postgres
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           NATS_URL: nats://127.0.0.1:4222
           USE_MOCK_DB: 'false'
-        run: npm run test:echo:multinode -w backend
+        run: bun run --filter backend test:echo:multinode
       - name: Upload presign smoke (Postgres)
         env:
           ECHO_BACKEND_STORAGE: postgres
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
-        run: npm run test:echo:uploads -w backend
+        run: bun run --filter backend test:echo:uploads
       - name: RBAC integration + goldens (Postgres)
         env:
           ECHO_BACKEND_STORAGE: postgres
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
-        run: npm run test:echo:rbac -w backend
+        run: bun run --filter backend test:echo:rbac
       - name: Auth integration (Postgres)
         env:
           ECHO_BACKEND_STORAGE: postgres
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
           JWT_SECRET: jwt-0123456789abcdef0123456789abcdef01234567
-        run: npm run test:auth -w backend
+        run: bun run --filter backend test:auth
       - name: RBAC sparse bench
         env:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
-        run: npx ts-node server/backend/src/tests/permissions/echo.rbac.sparse.bench.ts
+        run: bun server/backend/src/tests/permissions/echo.rbac.sparse.bench.ts
 
   perf-validation:
     if: github.event_name == 'workflow_dispatch'
@@ -158,19 +157,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22.13.1'
-          cache: 'npm'
+          bun-version-file: '.bun-version'
 
       - name: Install
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Build backend
-        run: npm run build -w backend
+        run: bun run --filter backend build
 
       - name: Permission cache smoke test
-        run: npx ts-node server/backend/src/tests/permissions/echo.permission.cache.test.ts
+        run: bun server/backend/src/tests/permissions/echo.permission.cache.test.ts
 
       - name: Discord import smoke test
         env:
@@ -178,7 +176,7 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
           PG_TEST_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
-        run: npx ts-node server/backend/src/tests/discord/echo.discordImport.test.ts
+        run: bun server/backend/src/tests/discord/echo.discordImport.test.ts
 
       - name: Start backend for benchmark
         env:
@@ -188,7 +186,7 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
         run: |
-          node server/backend/dist/server/backend/src/index.js > /tmp/echo-backend.log 2>&1 &
+          bun server/backend/dist/server/backend/src/index.js > /tmp/echo-backend.log 2>&1 &
           echo $! > /tmp/echo-backend.pid
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3000/api/v1/health >/dev/null; then
@@ -201,7 +199,7 @@ jobs:
           exit 1
 
       - name: Benchmark health endpoint
-        run: npx autocannon -c 20 -d 20 http://127.0.0.1:3000/api/v1/health
+        run: bunx autocannon -c 20 -d 20 http://127.0.0.1:3000/api/v1/health
 
       - name: Stop benchmark backend
         if: always()

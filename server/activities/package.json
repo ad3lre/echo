@@ -5,12 +5,12 @@
   "description": "Echo activities suite — authoritative gamespace sidecar (Socket.IO + NATS); shared game cores live under server/activities/cores.",
   "main": "dist/server/activities/src/index.js",
   "scripts": {
-    "dev": "nodemon src/index.ts",
+    "dev": "bun --watch src/index.ts",
     "build": "tsc",
     "build:holyc": "bash cores/games/ticTacToe/holyc/build-engine.sh",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/server/activities/src/index.js",
-    "test": "node --import tsx src/http/internalGameRoutes.security.test.ts && ts-node src/tests/run.ts"
+    "start": "bun dist/server/activities/src/index.js",
+    "test": "bun test src/http/internalGameRoutes.security.test.ts && bun src/tests/run.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",
@@ -24,9 +24,7 @@
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.1.0",
-    "nodemon": "^3.1.14",
     "socket.io-client": "^4.8.3",
-    "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }
 }

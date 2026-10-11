@@ -4,9 +4,9 @@
 # to main (separate SHA / history). See docs/operations/github-release-mirror.md.
 #
 # Usage:
-#   npm run publish:public-release              # preview only
-#   npm run publish:public-release -- --yes       # create commit + push origin
-#   npm run publish:public-release -- --rewrite --yes   # rebuild all release messages
+#   bun run publish:public-release              # preview only
+#   bun run publish:public-release -- --yes       # create commit + push origin
+#   bun run publish:public-release -- --rewrite --yes   # rebuild all release messages
 #
 # Env: GITLAB_REMOTE (origin), BRANCH (release/1.0.0), GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, …
 set -euo pipefail

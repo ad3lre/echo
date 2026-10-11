@@ -1,6 +1,6 @@
 /**
  * Blocks until something accepts TCP connections on host:port (default 127.0.0.1:3000).
- * Used so Vite's dev proxy does not race ahead of the API on `npm run dev`.
+ * Used so Vite's dev proxy does not race ahead of the API on `bun run dev`.
  */
 import net from 'node:net';
 import { parseIntegerInRange, parseMinInteger } from './lib/number-parse.mjs';

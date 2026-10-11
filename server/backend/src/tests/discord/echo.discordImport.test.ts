@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../auth/store/helpers';
 import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -23,7 +23,7 @@ function permissionBits(names: string[]): string {
 }
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `dimport_${id.replace(/-/g, '').slice(0, 12)}`;
   const email = `${username}@discordimport.echo.test`;
   await pool.query(

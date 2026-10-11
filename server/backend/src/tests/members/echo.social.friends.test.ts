@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../auth/store/helpers';
 import pg from 'pg';
 import { ensureEchoTables } from '../../db/echoTables';
 import {
@@ -22,7 +22,7 @@ async function insertAuthUser(
   id: string,
   displayName: string,
 ): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `soc_${id.replace(/[^a-z0-9]/gi, '').slice(0, 12)}`;
   const email = `${username}@soc.echo.test`;
   await pool.query(

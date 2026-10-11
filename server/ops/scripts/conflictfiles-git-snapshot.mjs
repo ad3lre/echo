@@ -1,13 +1,13 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Grab commit + file-touch data for conflictfiles-style analysis.
  *
  * Usage:
- *   node server/ops/scripts/conflictfiles-git-snapshot.mjs
- *   node server/ops/scripts/conflictfiles-git-snapshot.mjs -n 20
- *   node server/ops/scripts/conflictfiles-git-snapshot.mjs --keywords fix,conflict,hotfix
- *   node server/ops/scripts/conflictfiles-git-snapshot.mjs --json > snapshot.json
- *   node server/ops/scripts/conflictfiles-git-snapshot.mjs --skip 10        # commits 11–20 from HEAD
+ *   bun server/ops/scripts/conflictfiles-git-snapshot.mjs
+ *   bun server/ops/scripts/conflictfiles-git-snapshot.mjs -n 20
+ *   bun server/ops/scripts/conflictfiles-git-snapshot.mjs --keywords fix,conflict,hotfix
+ *   bun server/ops/scripts/conflictfiles-git-snapshot.mjs --json > snapshot.json
+ *   bun server/ops/scripts/conflictfiles-git-snapshot.mjs --skip 10        # commits 11–20 from HEAD
  *
  * Writes to stdout or a path you pass; defaults are tuned for merge/conflict triage.
  */
@@ -75,7 +75,7 @@ function printHelp() {
     .write(`conflictfiles-git-snapshot — dump recent commits + keyword-filtered file touches
 
 Usage:
-  node server/ops/scripts/conflictfiles-git-snapshot.mjs [options]
+  bun server/ops/scripts/conflictfiles-git-snapshot.mjs [options]
 
 Options:
   -n, --count <n>     Commits to scan from HEAD (default: 10)
@@ -85,9 +85,9 @@ Options:
   -h, --help          Show this help
 
 Examples:
-  node server/ops/scripts/conflictfiles-git-snapshot.mjs -n 15
-  node server/ops/scripts/conflictfiles-git-snapshot.mjs --skip 10
-  node server/ops/scripts/conflictfiles-git-snapshot.mjs --keywords regression,fix --json
+  bun server/ops/scripts/conflictfiles-git-snapshot.mjs -n 15
+  bun server/ops/scripts/conflictfiles-git-snapshot.mjs --skip 10
+  bun server/ops/scripts/conflictfiles-git-snapshot.mjs --keywords regression,fix --json
 `);
 }
 

@@ -134,7 +134,7 @@ async function resizeLargeWebpAvatars() {
   });
   if (skipped > 0) {
     console.warn(
-      `Skipped ${skipped} avatar resize(s) (file locked or unreadable). Close editors and run: npm run assets:webp`,
+      `Skipped ${skipped} avatar resize(s) (file locked or unreadable). Close editors and run: bun run assets:webp`,
     );
   }
   return count;

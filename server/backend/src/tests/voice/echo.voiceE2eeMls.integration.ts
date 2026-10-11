@@ -2,10 +2,10 @@
  * E2E: guild voice E2EE session mint accepts an MLS group (v2) and rejects
  * legacy-only state without MLS init.
  *
- * Run: node --import tsx server/backend/src/tests/voice/echo.voiceE2eeMls.integration.ts
+ * Run: bun server/backend/src/tests/voice/echo.voiceE2eeMls.integration.ts
  */
 import assert from 'node:assert/strict';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../auth/store/helpers';
 import type pg from 'pg';
 import { config } from '../../config';
 import { ensureEchoTables } from '../../db/echoTables';
@@ -23,7 +23,7 @@ import { upsertEchoE2eeDevice } from '../../domain/echoStore/voice/e2ee';
 import { buildEchoTestApp } from '../helpers/echoTestApp';
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `ve2mls_${id.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 48)}`;
   const email = `${username}@ve2mls.echo.test`;
   await pool.query(

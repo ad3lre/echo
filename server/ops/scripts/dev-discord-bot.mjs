@@ -1,5 +1,5 @@
 /**
- * Start the Discord export bot alongside `npm run dev` when a bot token is available.
+ * Start the Discord export bot alongside `bun run dev` when a bot token is available.
  * Skips cleanly when DISCORD_BOT_TOKEN is unset (does not fail the whole dev stack).
  *
  * Loads repo-root `.env` via dotenv (handles UTF-8 BOM and CRLF). A naive `.split('\n')`
@@ -51,14 +51,14 @@ const token =
   readDiscordBotTokenFromEnvFile();
 if (!token) {
   console.log(
-    '[dev] Discord export bot: skipped (DISCORD_BOT_TOKEN unset — add it to .env to run the bot with npm run dev)',
+    '[dev] Discord export bot: skipped (DISCORD_BOT_TOKEN unset — add it to .env to run the bot with bun run dev)',
   );
   process.exit(0);
 }
 
 /**
  * Default bot export dir must match backend `ECHO_DISCORD_EXPORTS_ROOT` (see server/backend/src/config.ts),
- * which resolves to `bot/exports`. Without this, `npm run dev` writes to repo-root `exports/` and
+ * which resolves to `bot/exports`. Without this, `bun run dev` writes to repo-root `exports/` and
  * Discord import in Echo never finds the bundle.
  */
 const exportBaseDir =
@@ -76,7 +76,7 @@ const hookSecret =
   (process.env.ECHO_DISCORD_BOT_WEBHOOK_SECRET ?? '').trim() ||
   DEV_DISCORD_BOT_WEBHOOK_SECRET;
 
-/** Same default as scripts/wait-for-port.mjs — bot must not race ahead of `npm run dev` API bind. */
+/** Same default as scripts/wait-for-port.mjs — bot must not race ahead of `bun run dev` API bind. */
 const waitHost = process.env.ECHO_DEV_WAIT_API_HOST?.trim() || '127.0.0.1';
 const waitMs = parseMinInteger(process.env.WAIT_FOR_PORT_MS, 120_000, 1);
 const waitIntervalMs = 200;

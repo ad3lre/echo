@@ -1,5 +1,5 @@
 /**
- * Start the compiled Discord export bot alongside `npm run prod` when a bot token is available.
+ * Start the compiled Discord export bot alongside `bun run prod` when a bot token is available.
  * Skips cleanly when DISCORD_BOT_TOKEN is unset (does not fail the prod stack).
  *
  * Loads repo-root `.env` / `.env.local` the same way as `dev-discord-bot.mjs`.
@@ -48,7 +48,7 @@ const token =
   readDiscordBotTokenFromEnvFile();
 if (!token) {
   console.log(
-    '[prod] Discord export bot: skipped (DISCORD_BOT_TOKEN unset — add it to .env to run the bot with npm run prod)',
+    '[prod] Discord export bot: skipped (DISCORD_BOT_TOKEN unset — add it to .env to run the bot with bun run prod)',
   );
   process.exit(0);
 }
@@ -66,7 +66,7 @@ const hookUrl =
 const botEntry = join(root, 'bot', 'dist', 'index.js');
 if (!existsSync(botEntry)) {
   console.error(
-    `[prod] Discord export bot: missing ${botEntry} — run npm run build (or npm run build -w bot) first.`,
+    `[prod] Discord export bot: missing ${botEntry} — run bun run build (or bun run --filter bot) build first.`,
   );
   process.exit(1);
 }

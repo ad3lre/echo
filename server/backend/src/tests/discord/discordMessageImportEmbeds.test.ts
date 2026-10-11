@@ -1,5 +1,5 @@
 /**
- * Run: node --import tsx src/tests/discord/discordMessageImportEmbeds.test.ts
+ * Run: bun src/tests/discord/discordMessageImportEmbeds.test.ts
  */
 import assert from 'node:assert/strict';
 import {

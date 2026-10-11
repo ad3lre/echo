@@ -1,5 +1,5 @@
 /**
- * Run: npx ts-node src/tests/unfurl/linkUnfurl.extractAndEmbeds.test.ts
+ * Run: bun src/tests/unfurl/linkUnfurl.extractAndEmbeds.test.ts
  */
 process.env.ECHO_CONFIG_TEST_ISOLATION = '1';
 process.env.ECHO_BACKEND_STORAGE = 'memory';

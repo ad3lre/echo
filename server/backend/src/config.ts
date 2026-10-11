@@ -169,7 +169,7 @@ interface AppConfig {
   /**
    * When true with `NODE_ENV=production`, startup fails if `ECHO_GUEST_BINDING_SECRET` is unset/blank.
    * Defaults to **true** in production; set `ECHO_REQUIRE_GUEST_BINDING_SECRET_IN_PRODUCTION=false`
-   * only for deliberate single-process / local smoke stacks (e.g. `npm run prod:serve`), which then
+   * only for deliberate single-process / local smoke stacks (e.g. `bun run prod:serve`), which then
    * derives the binding HMAC key from `JWT_SECRET` like non-production (weaker than an independent secret).
    */
   readonly echoRequireGuestBindingSecretInProduction: boolean;
@@ -255,7 +255,7 @@ interface AppConfig {
   readonly echoLocalUploadDir: string | null;
   /**
    * Max raw body size for `PUT /uploads/local/put` (disk mode). Tier limits above this still use presigned
-   * URLs, but the PUT handler rejects larger bodies — see `docs/plans/echo-plan-limits-status.md`.
+   * URLs, but the PUT handler rejects larger bodies (see plan-limit notes in local docs-dev when present).
    */
   readonly echoLocalUploadBodyMaxBytes: number;
   /**
@@ -311,7 +311,7 @@ interface AppConfig {
   readonly echoVoiceReconcileIntervalMs: number;
   /**
    * `embedded`: HLS drain runs inside the API process (default, local dev).
-   * `standalone`: API only enqueues + pg_notify; run `npm run worker:video-hls` separately.
+   * `standalone`: API only enqueues + pg_notify; run `bun run worker:video-hls` separately.
    * Production requires standalone unless `ECHO_ALLOW_EMBEDDED_VIDEO_HLS=true`.
    */
   readonly echoVideoHlsWorker: 'embedded' | 'standalone';
@@ -611,14 +611,14 @@ interface AppConfig {
   /**
    * When true with `NODE_ENV=production`, startup fails if `ECHO_METRICS_SCRAPE_TOKEN` is unset.
    * Defaults to **true** in production; set `ECHO_REQUIRE_METRICS_SCRAPE_TOKEN_IN_PRODUCTION=false`
-   * only for deliberate single-process / local smoke stacks (e.g. `npm run prod:serve`).
+   * only for deliberate single-process / local smoke stacks (e.g. `bun run prod:serve`).
    */
   readonly echoRequireMetricsScrapeTokenInProduction: boolean;
   /**
    * When true with `NODE_ENV=production`, startup fails unless HTTPS media URLs and/or an
    * allowlist is configured. Defaults to **true** in production; set
    * `ECHO_REQUIRE_MEDIA_URL_HARDENING_IN_PRODUCTION=false` only for deliberate single-process /
-   * local smoke stacks (e.g. `npm run prod:serve`).
+   * local smoke stacks (e.g. `bun run prod:serve`).
    */
   readonly echoRequireMediaUrlHardeningInProduction: boolean;
   /** When true, message/branding media URL validation rejects non-HTTPS URLs (except data: where allowed). */

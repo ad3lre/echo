@@ -2,8 +2,8 @@
  * One-off: set `pfp` to the generated SVG data URL for users with empty `pfp`.
  *
  * Usage (from repo root or server/backend/):
- *   npx ts-node src/scripts/backfillDefaultAvatarPfp.ts           # dry-run
- *   npx ts-node src/scripts/backfillDefaultAvatarPfp.ts --execute # apply
+ *   bun src/scripts/backfillDefaultAvatarPfp.ts           # dry-run
+ *   bun src/scripts/backfillDefaultAvatarPfp.ts --execute # apply
  */
 import { generateDefaultAvatarPfp } from '../auth/defaultAvatarPfp';
 import { closePgPool, getPgPool } from '../db/pg';

@@ -3,7 +3,7 @@
  * (`clients/web/src/api/echo/transport.ts`) and keeps credentialed cross-origin
  * requests valid for the SPA origin. No database required.
  *
- * Run: npx ts-node src/tests/platform/corsPreflight.test.ts (from server/backend/)
+ * Run: bun src/tests/platform/corsPreflight.test.ts (from server/backend/)
  */
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';

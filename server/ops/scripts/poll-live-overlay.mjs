@@ -1,11 +1,11 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Temporarily show / clear a live picture overlay on app-echo.net/poll.
  *
  * Usage:
- *   node server/ops/scripts/poll-live-overlay.mjs set <https-image-url> [--caption "..."] [--ttl-hours 2]
- *   node server/ops/scripts/poll-live-overlay.mjs clear
- *   node server/ops/scripts/poll-live-overlay.mjs status
+ *   bun server/ops/scripts/poll-live-overlay.mjs set <https-image-url> [--caption "..."] [--ttl-hours 2]
+ *   bun server/ops/scripts/poll-live-overlay.mjs clear
+ *   bun server/ops/scripts/poll-live-overlay.mjs status
  */
 import Redis from 'ioredis';
 import fs from 'node:fs';
@@ -21,9 +21,9 @@ const KEY = 'echo:marketing-poll:live-overlay';
 
 function usage() {
   console.error(`Usage:
-  node server/ops/scripts/poll-live-overlay.mjs set <https-image-url> [--caption "..."] [--ttl-hours 2]
-  node server/ops/scripts/poll-live-overlay.mjs clear
-  node server/ops/scripts/poll-live-overlay.mjs status`);
+  bun server/ops/scripts/poll-live-overlay.mjs set <https-image-url> [--caption "..."] [--ttl-hours 2]
+  bun server/ops/scripts/poll-live-overlay.mjs clear
+  bun server/ops/scripts/poll-live-overlay.mjs status`);
   process.exit(1);
 }
 

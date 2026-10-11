@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Nest `.prefix-*` rules under `.rootClass` (VC tic-tac-toe pattern).
- * Usage: node server/ops/scripts/css-nest-under-prefix.mjs <input.css> <output.scss> <rootClass> <classPrefix>
+ * Usage: bun server/ops/scripts/css-nest-under-prefix.mjs <input.css> <output.scss> <rootClass> <classPrefix>
  */
 import fs from 'node:fs';
 import postcss from 'postcss';
@@ -9,7 +9,7 @@ import postcss from 'postcss';
 const [inputPath, outputPath, rootClass, classPrefix] = process.argv.slice(2);
 if (!inputPath || !outputPath || !rootClass || !classPrefix) {
   console.error(
-    'Usage: node server/ops/scripts/css-nest-under-prefix.mjs <in.css> <out.scss> <rootClass> <classPrefix>',
+    'Usage: bun server/ops/scripts/css-nest-under-prefix.mjs <in.css> <out.scss> <rootClass> <classPrefix>',
   );
   process.exit(1);
 }

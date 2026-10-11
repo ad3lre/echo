@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Guard: SQL in backend must not reference unknown table columns.
  *
@@ -7,8 +7,8 @@
  * not present in the parsed schema. Catches mistakes like auth_users.avatar_url (use pfp).
  *
  * Usage:
- *   node server/ops/scripts/check-sql-schema-columns.mjs           # static (CI + preverify)
- *   node server/ops/scripts/check-sql-schema-columns.mjs --live    # also EXPLAIN against DATABASE_URL
+ *   bun server/ops/scripts/check-sql-schema-columns.mjs           # static (CI + preverify)
+ *   bun server/ops/scripts/check-sql-schema-columns.mjs --live    # also EXPLAIN against DATABASE_URL
  *
  * Env:
  *   VPS_SKIP_SQL_SCHEMA_CHECK=1 — skip entirely (emergency only)

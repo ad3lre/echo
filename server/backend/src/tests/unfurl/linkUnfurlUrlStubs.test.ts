@@ -1,5 +1,5 @@
 /**
- * Run: npx ts-node src/tests/unfurl/linkUnfurlUrlStubs.test.ts
+ * Run: bun src/tests/unfurl/linkUnfurlUrlStubs.test.ts
  */
 import assert from 'node:assert/strict';
 import {

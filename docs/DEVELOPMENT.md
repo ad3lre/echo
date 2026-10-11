@@ -1,88 +1,91 @@
-# Development (quick start)
+# Development
 
-Opinionated path from **clone** to a running stack. Deep docs live under [`docs/README.md`](README.md).
+From clone to a running stack. Public doc index: [`docs/README.md`](README.md).
 
 ## Prerequisites
 
-- **Node.js 22.13+** (see root `package.json` `engines`).
-- **Docker** with Compose v2 (for Postgres, optional LiveKit stack via `npm run db:up`).
-- Clone from **GitHub** (public development and issues/PRs use GitHub only).
+- **Bun 1.4.2+** (pin: root `.bun-version`; also `package.json` `engines` / `packageManager`)
+- **Docker** with Compose v2 (Postgres + optional LiveKit via `bun run db:up`)
+- Public issues/PRs: **GitHub**. Day-to-day history for maintainers: **GitLab** `origin/main` (see [github-release-mirror.md](operations/github-release-mirror.md))
 
 ## Day 1 — run the web stack
 
-From the repository root:
-
 ```bash
-npm ci
+bun install --frozen-lockfile
 cp .env.example .env
-# Edit .env if needed (see comments inside .env.example).
-npm run db:up
-npm run dev:core
+# Edit .env if needed (comments in .env.example).
+bun run db:up
+bun run dev:core
 ```
 
-`dev:core` starts the API and web client. Use `npm run dev` when you also need
+`dev:core` starts the API and web client. Use `bun run dev` when you also need
 the Discord bot and activities worker.
 
-- API: default **http://localhost:3000**
-- Vite dev server: **http://localhost:8080** (see `.env` / `CORS_ORIGIN` if you change ports).
+| Service | Default URL |
+| ------- | ----------- |
+| API | http://localhost:3000 |
+| Vite SPA | http://localhost:8080 |
 
 ## Day 2 — where things live
 
-| Topic                               | Start here                                                                                                                         |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Top-level layout (client vs kit)    | [`docs/overview/repo-layout.md`](overview/repo-layout.md)                                                                          |
-| Stack and scale stance              | [`docs/overview/STACK.md`](overview/STACK.md)                                                                                      |
-| Contributor / client–server charter | [`docs/overview/agents.md`](overview/agents.md)                                                                                    |
-| REST / data contracts               | [`docs/contracts/`](contracts/)                                                                                                    |
-| Voice / LiveKit (high level)        | [`docs/infra/livekit-turn.md`](infra/livekit-turn.md), [`docs/operations/livekit-production.md`](operations/livekit-production.md) |
-| Native builds                       | [`clients/apple/README.md`](../clients/apple/README.md)                                                                            |
+| Topic | Start here |
+| ----- | ---------- |
+| Top-level layout | [overview/repo-layout.md](overview/repo-layout.md) |
+| Stack and scale | [overview/STACK.md](overview/STACK.md) |
+| Contributor charter | [overview/agents.md](overview/agents.md) |
+| Frontend placement | [overview/code-placement.md](overview/code-placement.md) |
+| REST / data contracts | [contracts/](contracts/) |
+| LiveKit / TURN | [infra/livekit-turn.md](infra/livekit-turn.md), [operations/livekit-production.md](operations/livekit-production.md) |
+| Native Apple | [clients/apple/README.md](../clients/apple/README.md) |
+| Internal plans / reviews | Local [`docs-dev/`](../docs-dev/) (gitignored; not in fresh clones) |
 
-## Checks before you open a PR
-
-From the repo root (see also [`CONTRIBUTING.md`](../CONTRIBUTING.md)):
-
-```bash
-npm run ci:precheck
-```
-
-That runs `test:ci` plus the web lint/stylelint jobs from GitHub Actions. After `./server/ops/scripts/setup-githooks.sh`, the same suite runs automatically on **`git push`** to non-GitHub remotes (skip with `ECHO_SKIP_CI_PRECHECK=1`). The hook activates Node from **`.nvmrc`** via nvm when your shell default is older than 22.13.
-
-Equivalent manual steps:
+## Checks before a PR
 
 ```bash
-npm run format:check
-npm run test:ci
-npm run lint -w web && npm run lint:theme -w web && npm run lint:style -w web
+./server/ops/scripts/setup-githooks.sh   # once per clone
+bun run ci:precheck
 ```
 
-Targeted tests (examples):
+`ci:precheck` matches the main GitHub Actions gate (`test:ci` plus web lint/stylelint).
+After hooks are installed, the same suite runs on **`git push`** to non-GitHub remotes
+(skip with `ECHO_SKIP_CI_PRECHECK=1`). Requires **Bun ≥1.4.2** on `PATH`.
+
+Manual equivalents:
 
 ```bash
-npm run test -w web -- --run path/to/file.test.ts
-npm run test:storage-mode -w backend
+bun run format:check
+bun run test:ci
+bun run --filter web lint && bun run --filter web lint:theme && bun run --filter web lint:style
 ```
 
-## CI on GitHub
+Targeted tests:
 
-**GitHub Actions** under [`.github/workflows/`](../.github/workflows/) is the **authoritative** CI for the public repository. Forks get the same workflows; jobs that need signing secrets may be skipped or limited on forks.
+```bash
+bun run --filter web test -- --run path/to/file.test.ts
+bun run --filter backend test:storage-mode
+```
 
-The root [`.gitlab-ci.yml`](../.gitlab-ci.yml) exists for **GitLab** mirrors (Prettier gate only). For a **GitHub-only** public export you may **delete** that file to avoid confusion, or keep it only on a private GitLab remote.
+## CI
+
+- **GitHub Actions** (`.github/workflows/`) — authoritative CI for the public repo.
+- **GitLab** (`.gitlab-ci.yml`) — Prettier + `ci:precheck` ship gate for the internal remote.
 
 ## Reference deployment vs your fork
 
-Example URLs and defaults sometimes mention **`chat-echo.com`** as the **maintainers’ reference deployment** (documentation and some CI build-time `VITE_*` URLs). **Your fork** should point `VITE_API_URL`, `VITE_SOCKET_IO_URL`, and related settings at **your own** API host (see `.env.example`). You are not required to call the reference deployment.
+Docs and some CI build-time `VITE_*` values may mention **`chat-echo.com`** as the
+maintainers’ reference deployment. Point `VITE_API_URL`, `VITE_SOCKET_IO_URL`, and
+related settings at **your** API host (see `.env.example`).
 
-## Maintainer: publishing a fresh GitHub repo (no history)
+## Production-like local
 
-When cutting the **public** tree from private development:
+```bash
+bun run prod          # build + API :3000 + Vite preview :4173
+bun run prod:serve    # skip rebuild
+bun run ship:verify   # install + build + /api/v1/health smoke
+```
 
-1. Use a **clean** branch that already includes license, security policy, and OSS hygiene.
-2. Produce an export directory (e.g. `git archive --format=tar HEAD | tar -x -C ../echo-public-export`, excluding `node_modules` and build outputs, or `rsync` with appropriate `--exclude`).
-3. Run **gitleaks** (and `node server/ops/scripts/check-oss-artifacts.mjs` after `git init` + first add) on that tree before publishing.
-4. In the export: `git init`, initial commit, add remote `https://github.com/ORG/REPO.git`, push **default branch**.
-5. On GitHub: enable **branch protection**, **required checks** (e.g. format + backend CI), **Dependabot**, and **private vulnerability reporting** (align with `.github/SECURITY.md`).
-6. **Rotate** any credential that was ever exposed outside the new public repo (old remotes, tickets, chat).
+Self-host: [operations/linux-vps-deployment.md](operations/linux-vps-deployment.md).
 
 ## License
 
-This project is **AGPL-3.0** (see root `LICENSE`). Contributions are accepted under the same license (see `CONTRIBUTING.md`).
+**AGPL-3.0-only** — see root `LICENSE` and `CONTRIBUTING.md`.

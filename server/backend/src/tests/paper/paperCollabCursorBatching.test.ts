@@ -1,5 +1,5 @@
 /**
- * Run: node --import tsx server/backend/src/tests/paper/paperCollabCursorBatching.test.ts
+ * Run: bun server/backend/src/tests/paper/paperCollabCursorBatching.test.ts
  *
  * Verifies that paper:cursor broadcasts are coalesced per channel: rapid moves
  * collapse into a single delayed snapshot, while emitCursorsNow flushes immediately.

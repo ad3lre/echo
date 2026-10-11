@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import bcrypt from 'bcrypt';
+import { makeHash } from '../../auth/store/helpers';
 import pg from 'pg';
 import { ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX } from '../../../../../contracts/echoEmojiCdn';
 import { nextEchoSnowflakeId } from '../../domain/echoSnowflake';
@@ -52,7 +52,7 @@ function clearBackendSingletonsForRestart() {
 }
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
-  const passwordHash = await bcrypt.hash('pw', 4);
+  const passwordHash = await makeHash('pw');
   const username = `pubem_${id.replace(/[^a-z0-9]/gi, '').slice(0, 20)}`;
   await pool.query(
     `

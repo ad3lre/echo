@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "engines": {
-    "node": ">=22.13.0"
+    "bun": ">=1.4.2"
   },
   "type": "module",
   "description": "SEO-first marketing site for Echo on app-echo.net.",

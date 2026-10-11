@@ -1,6 +1,6 @@
 /**
  * Registers the passthrough service worker in dev and production so PWA install
- * can be exercised on `npm run dev` (secure context: localhost).
+ * can be exercised on `bun run dev` (secure context: localhost).
  * The worker does not cache responses; it only proxies `fetch` for installability.
  */
 export function registerEchoServiceWorker(): void {

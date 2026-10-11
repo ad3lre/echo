@@ -2,7 +2,7 @@
   "$schema-note": "Accepted dependency advisories the high-severity audit gate (server/ops/scripts/check-dependency-audit.mjs) will ignore. Add an entry ONLY for an advisory that cannot be fixed yet (e.g. awaiting an upstream major). Each entry needs a reason and an expires date (YYYY-MM-DD); expired entries stop suppressing and must be re-evaluated.",
   "advisories": {
     "GHSA-vfj7-8cjw-p6xm": {
-      "reason": "braces@3.0.3 is latest; no patched release for stack-exhaustion DoS (transitive via stylelint/micromatch and nodemon/chokidar). Revisit when braces ships a fix or those trees drop braces.",
+      "reason": "braces@3.0.3 is latest; no patched release for stack-exhaustion DoS (transitive via stylelint/micromatch). Revisit when braces ships a fix or those trees drop braces.",
       "expires": "2026-12-31"
     }
   }

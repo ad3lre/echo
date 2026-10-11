@@ -2,7 +2,7 @@
 # `handle /socket.io*` routes so JSON and Engine.IO responses still use Helmet only, while HTML
 # and static assets get CSP + HSTS here (Mozilla HTTP Observatory grades `GET /`).
 #
-# On VPS hosts using `npm run vps:prod`, paste this into your site block after the
+# On VPS hosts using `bun run vps:prod`, paste this into your site block after the
 # `/api/*` and `/socket.io*` reverse_proxy handles. Adjust `root` to your checkout's
 # `web/dist` path (or proxy SPA traffic to `127.0.0.1:4173` instead).
 

@@ -2,7 +2,7 @@
  * Regression: stale LiveKit `room_finished` during guild E2EE join must not
  * wipe MLS state / REST participant rows — session mint must succeed (no 409).
  *
- * Run: node --import tsx server/backend/src/tests/voice/echo.voiceE2eeJoinRace.integration.ts
+ * Run: bun server/backend/src/tests/voice/echo.voiceE2eeJoinRace.integration.ts
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';

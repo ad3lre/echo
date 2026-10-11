@@ -11,14 +11,12 @@ permissions:
   contents: read
 
 jobs:
-  npm-audit:
+  dep-audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22.13.1'
-          cache: npm
-      - run: npm ci
-      # Same gate as `npm run check:dep-audit` (allowlist-aware); omit dev to match runtime risk.
-      - run: ECHO_AUDIT_OMIT_DEV=1 npm run check:dep-audit
+          bun-version-file: '.bun-version'
+      - run: bun install --frozen-lockfile
+      - run: bun run check:dep-audit

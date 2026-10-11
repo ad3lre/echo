@@ -1,5 +1,5 @@
 /**
- * Run: node --import tsx server/backend/src/tests/paper/paperComments.reply.test.ts
+ * Run: bun server/backend/src/tests/paper/paperComments.reply.test.ts
  * Requires DATABASE_URL.
  */
 import { getPgPool } from '../../db/pg';

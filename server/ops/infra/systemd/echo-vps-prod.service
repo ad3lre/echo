@@ -2,7 +2,7 @@
 # Install: sudo ./server/ops/scripts/deploy/install-vps-prod-systemd.sh
 
 [Unit]
-Description=Echo production redeploy (npm run vps:prod)
+Description=Echo production redeploy (bun run vps:prod)
 After=network-online.target docker.service
 Wants=network-online.target
 
@@ -11,12 +11,12 @@ Type=oneshot
 User=echo
 Group=echo
 
-# Optional: PATH for Node/npm (nvm), ECHO_REPO_ROOT override.
+# Optional: PATH for Bun (~/.bun/bin), ECHO_REPO_ROOT override.
 EnvironmentFile=-/etc/echo/vps-prod.env
 
 WorkingDirectory=/home/founder/prod/echo
 
-ExecStart=/usr/bin/env npm run vps:prod
+ExecStart=/usr/bin/env bun run vps:prod
 
 TimeoutStartSec=3600
 Nice=5

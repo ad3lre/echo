@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Voice-activity convention guard (docs/echo-voice-activity-conventions.md).
  *

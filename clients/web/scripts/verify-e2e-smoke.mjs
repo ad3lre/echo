@@ -1,6 +1,6 @@
 /**
  * Headless Playwright mirror of Cypress E2E smoke specs (for hosts without Xvfb).
- * Run with E2E stack up: `npm run dev:e2e` then `node clients/web/scripts/verify-e2e-smoke.mjs`
+ * Run with E2E stack up: `bun run dev:e2e` then `bun clients/web/scripts/verify-e2e-smoke.mjs`
  */
 import { chromium } from 'playwright';
 

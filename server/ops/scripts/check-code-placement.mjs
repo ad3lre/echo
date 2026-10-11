@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Frontend code placement guard (docs/overview/code-placement.md).
  *
@@ -371,7 +371,7 @@ function main() {
     console.error('check-code-placement: FAILED');
     for (const e of result.errors) console.error(`  ${e}`);
     console.error(
-      `\nSee docs/overview/code-placement.md and docs/overview/p1-code-placement-program.md.`,
+      `\nSee docs/overview/code-placement.md.`,
     );
     process.exit(1);
   }

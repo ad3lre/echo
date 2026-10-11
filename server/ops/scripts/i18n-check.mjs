@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Validate locale catalogs: en-GB keys must exist in en-US (partial en-GB is OK).
  */

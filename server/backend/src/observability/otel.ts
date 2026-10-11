@@ -8,14 +8,19 @@ import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
  * OpenTelemetry initialization for Echo backend.
  * Configured via standard OTEL_* environment variables.
  * Primary endpoint: OTEL_EXPORTER_OTLP_ENDPOINT (e.g. http://localhost:4318/v1/traces)
+ *
+ * Under Bun, auto-instrumentations are skipped (module-loader / diagnostics-channel
+ * gaps). Prefer prom-client metrics; exporter-only SDK may still start for manual spans.
  */
+
+const isBun = typeof Bun !== 'undefined';
 
 const sdk = new NodeSDK({
   resource: resourceFromAttributes({
     [SemanticResourceAttributes.SERVICE_NAME]: 'echo-backend',
   }),
   traceExporter: new OTLPTraceExporter(),
-  instrumentations: [getNodeAutoInstrumentations()],
+  instrumentations: isBun ? [] : [getNodeAutoInstrumentations()],
 });
 
 export function initOTel() {

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * CI guard: Echo channels must not be created implicitly from Socket.IO handlers.
  * Only explicit REST/domain paths may INSERT into echo_channels.

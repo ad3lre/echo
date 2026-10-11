@@ -9,7 +9,7 @@ on:
       - 'server/backend/**'
       - 'contracts/**'
       - 'package.json'
-      - 'package-lock.json'
+      - 'bun.lock'
       - '.github/workflows/echo-e2e-ci.yml'
   push:
     branches:
@@ -21,7 +21,7 @@ on:
       - 'server/backend/**'
       - 'contracts/**'
       - 'package.json'
-      - 'package-lock.json'
+      - 'bun.lock'
       - '.github/workflows/echo-e2e-ci.yml'
   workflow_dispatch:
 
@@ -32,13 +32,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22.13.1'
-          cache: 'npm'
+          bun-version-file: '.bun-version'
 
       - name: Install
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Cypress smoke (memory stack)
-        run: npm run test:e2e
+        run: bun run test:e2e

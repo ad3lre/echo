@@ -1,6 +1,6 @@
 /**
  * Multi-node integration tests: HTTP + Socket.IO + NATS (requires DATABASE_URL and NATS_URL).
- * Run: npm run test:echo:multinode -w backend
+ * Run: bun run --filter backend test:echo:multinode
  */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';

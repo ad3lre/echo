@@ -15,8 +15,8 @@ EnvironmentFile=-/etc/echo/backup-upload.env
 # Working directory: production checkout
 WorkingDirectory=/opt/echo
 
-# Uses npm from PATH (set in EnvironmentFile) so Node matches production toolchain
-ExecStart=/usr/bin/env npm run backup:postgres
+# Uses bun from PATH (set in EnvironmentFile) so runtime matches production toolchain
+ExecStart=/usr/bin/env bun run backup:postgres
 
 # Backup can take time on large databases
 TimeoutStartSec=1800

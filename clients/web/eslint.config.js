@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Theme enforcement: catch Tailwind palette literals in class strings and TS.
- * SCSS / Vue styles are excluded — ESLint cannot parse them; use `npm run lint:style` (AGENTS.md).
+ * SCSS / Vue styles are excluded — ESLint cannot parse them; use `bun run lint:style` (AGENTS.md).
  */
 const themeColorLiterals = [
   'error',
@@ -33,17 +33,17 @@ const themeColorLiterals = [
   {
     selector: 'Literal[value=/\\btext-white\\//]',
     message:
-      'Use theme-aware text utilities (text-fg, text-fg-soft, text-fg-subtle, text-foreground, text-muted). See docs/plans/theme-system-progress.md.',
+      'Use theme-aware text utilities (text-fg, text-fg-soft, text-fg-subtle, text-foreground, text-muted). Prefer CSS theme tokens over raw colors.',
   },
   {
     selector: 'Literal[value=/\\bbg-white\\//]',
     message:
-      'Use theme-aware surfaces (bg-glass-1…3, bg-scrim-*, bg-overlay-*). See docs/plans/theme-system-progress.md.',
+      'Use theme-aware surfaces (bg-glass-1…3, bg-scrim-*, bg-overlay-*). Prefer CSS theme tokens over raw colors.',
   },
   {
     selector: 'Literal[value=/\\bbg-black\\//]',
     message:
-      'Use theme overlays (bg-overlay-dim, bg-overlay-heavy, bg-overlay-ink, bg-scrim-*). See docs/plans/theme-system-progress.md.',
+      'Use theme overlays (bg-overlay-dim, bg-overlay-heavy, bg-overlay-ink, bg-scrim-*). Prefer CSS theme tokens over raw colors.',
   },
 ];
 

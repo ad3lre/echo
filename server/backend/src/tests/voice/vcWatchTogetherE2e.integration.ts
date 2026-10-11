@@ -1,6 +1,6 @@
 /**
  * Watch Together upload + session quota HTTP integration (requires DATABASE_URL).
- * Run: node --import tsx server/backend/src/tests/voice/vcWatchTogetherE2e.integration.ts
+ * Run: bun server/backend/src/tests/voice/vcWatchTogetherE2e.integration.ts
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';

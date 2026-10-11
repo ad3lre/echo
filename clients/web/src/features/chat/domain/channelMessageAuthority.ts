@@ -10,7 +10,7 @@ import { messageWindowAuthority } from '@/features/chat/domain/messageWindowAuth
  * mutate `ChannelMessageIndex` for ordering/identity, then call `syncChannelMessages`
  * (or use `replaceChannelMessagesFromHistory` / `mergeMissingChannelMessagesFromHistory` /
  * `prependChannelMessagesFromHistory`). Replace is empty-index only; see
- * `docs/architecture/channel-history-merge-invariants.md`.
+ * `docs-dev/architecture/channel-history-merge-invariants.md`.
  * Do not assign `messages[channelId]` directly outside this module’s helpers.
  *
  * Ordering truth flows here → `messageWindowAuthority`; see

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Postgres backup upload script - daily dumps to S3/R2 bucket.
  *

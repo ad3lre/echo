@@ -2,9 +2,9 @@
  * Process pending Discord import media mirror jobs until the queue is idle.
  *
  * Usage (from server/backend/):
- *   npx ts-node src/scripts/drainDiscordImportMediaMirrorQueue.ts
- *   npx ts-node src/scripts/drainDiscordImportMediaMirrorQueue.ts --requeue-failed
- *   npx ts-node src/scripts/drainDiscordImportMediaMirrorQueue.ts --clear-failed
+ *   bun src/scripts/drainDiscordImportMediaMirrorQueue.ts
+ *   bun src/scripts/drainDiscordImportMediaMirrorQueue.ts --requeue-failed
+ *   bun src/scripts/drainDiscordImportMediaMirrorQueue.ts --clear-failed
  */
 import { closePgPool, getPgPool } from '../db/pg';
 import {

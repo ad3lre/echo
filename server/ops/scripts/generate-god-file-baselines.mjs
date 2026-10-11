@@ -1,9 +1,9 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Regenerate server/ops/scripts/god-file-baselines.json from current tree (>= GOD_FILE_THRESHOLD lines).
  * Use after intentional refactors that shrink god files, or to snapshot before a baseline bump PR.
  *
- *   node server/ops/scripts/generate-god-file-baselines.mjs --write
+ *   bun server/ops/scripts/generate-god-file-baselines.mjs --write
  */
 import fs from 'node:fs';
 import path from 'node:path';

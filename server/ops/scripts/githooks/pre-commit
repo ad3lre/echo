@@ -9,6 +9,6 @@ if [[ -n "${ECHO_GOD_FILE_RATCHET_BYPASS:-}" ]]; then
   exit 0
 fi
 
-node "$ROOT/server/ops/scripts/check-god-file-ratchet.mjs" --staged
-node "$ROOT/server/ops/scripts/check-new-code-charter.mjs" --staged
-node "$ROOT/server/ops/scripts/check-code-placement.mjs" --staged
+bun "$ROOT/server/ops/scripts/check-god-file-ratchet.mjs" --staged
+bun "$ROOT/server/ops/scripts/check-new-code-charter.mjs" --staged
+bun "$ROOT/server/ops/scripts/check-code-placement.mjs" --staged

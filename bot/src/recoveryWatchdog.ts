@@ -1,30 +1,22 @@
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-function resolveNvmNodeBin(): string {
-  const override = process.env.ECHO_NODE_BIN?.trim();
+function resolveBunBin(): string {
+  const override = process.env.ECHO_BUN_BIN?.trim() || process.env.ECHO_NODE_BIN?.trim();
   if (override && existsSync(override)) return override;
 
-  const repoRoot = process.env.ECHO_REPO_ROOT?.trim() || process.cwd();
-  try {
-    const rcPath = join(repoRoot, '.nvmrc');
-    if (!existsSync(rcPath)) return process.execPath;
-    const raw = readFileSync(rcPath, 'utf8').trim().split(/\s+/)[0];
-    if (!raw) return process.execPath;
-    const base = join(homedir(), '.nvm', 'versions', 'node');
-    if (!existsSync(base)) return process.execPath;
-    const want = raw.replace(/^v/, '');
-    const dirs = readdirSync(base)
-      .filter((d) => d.startsWith('v') && d.slice(1).startsWith(want))
-      .sort();
-    if (!dirs.length) return process.execPath;
-    const node = join(base, dirs[dirs.length - 1]!, 'bin', 'node');
-    return existsSync(node) ? node : process.execPath;
-  } catch {
-    return process.execPath;
+  const candidates = [
+    process.env.BUN_INSTALL ? join(process.env.BUN_INSTALL, 'bin', 'bun') : '',
+    join(homedir(), '.bun', 'bin', 'bun'),
+    '/usr/local/bin/bun',
+    '/usr/bin/bun',
+  ].filter(Boolean);
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
   }
+  return process.execPath;
 }
 
 /**
@@ -48,15 +40,15 @@ export function triggerRecoveryWatchdog(reason: string): void {
   }
 
   try {
-    const nodeBin = resolveNvmNodeBin();
-    const nvmBin = join(nodeBin, '..');
-    const child = spawn(nodeBin, [script, `--reason=${reason}`], {
+    const bunBin = resolveBunBin();
+    const bunDir = join(bunBin, '..');
+    const child = spawn(bunBin, [script, `--reason=${reason}`], {
       cwd: repoRoot,
       detached: true,
       stdio: 'ignore',
       env: {
         ...process.env,
-        PATH: `${nvmBin}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`,
+        PATH: `${bunDir}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`,
       },
     });
     child.on('error', (e) =>

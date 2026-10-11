@@ -2,7 +2,7 @@
  * Playwright layout verification for message-list shell/hydration overlap fix.
  *
  * Requires a Postgres-backed stack with Vite using the `/api` proxy (unset VITE_API_URL):
- *   BACKEND_URL=http://127.0.0.1:3000 FRONTEND_URL=http://localhost:8081 node clients/web/scripts/verify-message-list-layout.mjs
+ *   BACKEND_URL=http://127.0.0.1:3000 FRONTEND_URL=http://localhost:8081 bun clients/web/scripts/verify-message-list-layout.mjs
  *
  * Default seed mode `guest` uses an existing busy directory server channel (no create-server rate limits).
  * Set LAYOUT_VERIFY_SEED=register to create an isolated server + messages instead.

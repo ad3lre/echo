@@ -13,34 +13,33 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22.13.1'
-          cache: 'npm'
+          bun-version-file: '.bun-version'
 
       - name: Install
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Prettier
-        run: npm run format:check
+        run: bun run format:check
 
       - name: OSS tracked-file guard
-        run: node server/ops/scripts/check-oss-artifacts.mjs
+        run: bun server/ops/scripts/check-oss-artifacts.mjs
 
       - name: God-file ratchet
-        run: node server/ops/scripts/check-god-file-ratchet.mjs
+        run: bun server/ops/scripts/check-god-file-ratchet.mjs
 
       - name: Apple maintainability gate
-        run: npm run apple:maintainability
+        run: bun run apple:maintainability
 
       - name: Apple maintainability unit tests
-        run: npm run apple:maintainability:test
+        run: bun run apple:maintainability:test
 
       - name: New-code charter (June 2026+)
-        run: node server/ops/scripts/check-new-code-charter.mjs
+        run: bun server/ops/scripts/check-new-code-charter.mjs
 
       - name: New-code charter unit tests
-        run: npm run charter:new-code:test
+        run: bun run charter:new-code:test
 
       - name: GitHub mirror policy guard
-        run: node server/ops/scripts/check-github-remote-policy.mjs
+        run: bun server/ops/scripts/check-github-remote-policy.mjs

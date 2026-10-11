@@ -2,7 +2,7 @@
  * E2E: DM voice LiveKit session mint accepts an MLS group (v2) on
  * `echo_dm_realm` and rejects mint before MLS init when DM E2EE is required.
  *
- * Run: node --import tsx server/backend/src/domain/echoStore/voice/echo.dmVoiceE2eeMls.integration.ts
+ * Run: bun server/backend/src/domain/echoStore/voice/echo.dmVoiceE2eeMls.integration.ts
  */
 import assert from 'node:assert/strict';
 import { config } from '../../../config';

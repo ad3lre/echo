@@ -3,8 +3,8 @@
 # See docs/operations/github-release-mirror.md.
 #
 # Usage:
-#   npm run mirror:github-release:install-cron
-#   npm run mirror:github-release:install-cron -- --yes
+#   bun run mirror:github-release:install-cron
+#   bun run mirror:github-release:install-cron -- --yes
 #
 # Env:
 #   ECHO_RELEASE_MIRROR_HOUR (23), ECHO_RELEASE_MIRROR_TZ (Europe/Berlin)

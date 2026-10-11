@@ -14,7 +14,7 @@
  *    Any other domain/api file importing them directly is a bypass risk:
  *    performance, trace, and sentinel assumptions can silently break.
  *
- * Run: node server/ops/scripts/check-echo-rbac-primitives.mjs
+ * Run: bun server/ops/scripts/check-echo-rbac-primitives.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';

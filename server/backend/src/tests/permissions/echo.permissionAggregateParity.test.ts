@@ -25,7 +25,7 @@ function resetAggregateCaches(): void {
  * divergence in how the cached path selects roles/overwrites surfaces as a mismatch.
  *
  * Note: this is the non-Postgres safety net. The Postgres-backed echo.permissionBatchParity
- * integration suite (npm run db:up + test:ci:backend:integration) is the authoritative
+ * integration suite (bun run db:up + test:ci:backend:integration) is the authoritative
  * regression check for the aggregate fold.
  */
 
