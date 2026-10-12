@@ -1,7 +1,8 @@
 # Repository layout
 
 Echo is **one monorepo**. Day-to-day work is on **`main`** (GitLab `origin` for
-maintainers). Public GitHub carries **`release/1.0.0` only** — see
+maintainers). Public GitHub carries **`main` only** (mirrored from GitLab
+`release/1.0.0`) — see
 [github-release-mirror.md](../operations/github-release-mirror.md).
 
 ## Top-level map

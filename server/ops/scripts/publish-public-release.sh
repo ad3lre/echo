@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Append one commit to release/1.0.0 (public mirror) with a descriptive message derived
+# Append one commit to GitLab release/1.0.0 (public line mirrored to GitHub main) with a message derived
 # from internal origin/main commits since the last publish. Never fast-forwards release
 # to main (separate SHA / history). See docs/operations/github-release-mirror.md.
 #

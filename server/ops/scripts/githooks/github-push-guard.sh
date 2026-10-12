@@ -21,34 +21,35 @@ github_push_guard() {
     [[ -z "${local_ref:-}" ]] && continue
     [[ -z "${remote_ref:-}" ]] && continue
 
-    # Never create/update main or master on GitHub.
-    if [[ "$remote_ref" == "refs/heads/main" || "$remote_ref" == "refs/heads/master" ]]; then
-      if [[ "$local_sha" != "$zero" ]]; then
-        echo "pre-push: REFUSED — would create or update '${remote_ref#refs/heads/}' on GitHub." >&2
-        echo "  GitHub is public mirror for release/1.0.0 only. Internal history lives on GitLab origin/main." >&2
-        echo "  Delete mistaken branch: git push github --delete main" >&2
-        echo "  Set default branch on GitHub to release/1.0.0 (Settings → General)." >&2
-        return 1
-      fi
+    # Deletes are always allowed (e.g. remove legacy release/1.0.0 on GitHub).
+    if [[ "$local_sha" == "$zero" ]]; then
+      continue
     fi
 
-    # Never push the local main branch to GitHub (any refspec target).
+    # Never push the local main/master branch to GitHub (any destination).
+    # That would publish GitLab's unsquashed history.
     if [[ "$local_ref" == "refs/heads/main" || "$local_ref" == "refs/heads/master" ]]; then
-      if [[ "$local_sha" != "$zero" ]]; then
-        echo "pre-push: REFUSED — local branch '${local_ref#refs/heads/}' must not be pushed to GitHub." >&2
-        echo "  Push main to GitLab only: git push origin main" >&2
-        return 1
-      fi
+      echo "pre-push: REFUSED — local branch '${local_ref#refs/heads/}' must not be pushed to GitHub." >&2
+      echo "  Push main to GitLab only: git push origin main" >&2
+      echo "  Public mirror: bun run publish:public-release -- --yes && bun run mirror:github-release" >&2
+      return 1
     fi
 
-    # release/1.0.0 on GitHub must not share a tip with origin/main (unsquashed internal graph).
-    if [[ "$remote_ref" == "refs/heads/release/1.0.0" && "$local_sha" != "$zero" ]]; then
-      if [[ -n "$origin_main" && "$local_sha" == "$origin_main" ]]; then
-        if [[ -z "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]]; then
-          echo "pre-push: REFUSED — release/1.0.0 tip equals origin/main on GitHub push." >&2
-          echo "  That exposes GitLab per-commit history. Use: bun run publish:public-release -- --yes" >&2
-          return 1
-        fi
+    # GitHub public mirror is main only.
+    if [[ "$remote_ref" != "refs/heads/main" ]]; then
+      echo "pre-push: REFUSED — would create or update '${remote_ref#refs/heads/}' on GitHub." >&2
+      echo "  GitHub is the public mirror for main only (squashed from GitLab release/1.0.0)." >&2
+      echo "  Internal history lives on GitLab origin/main." >&2
+      echo "  Mirror with: bun run mirror:github-release" >&2
+      return 1
+    fi
+
+    # GitHub main must not share a tip with origin/main (unsquashed internal graph).
+    if [[ -n "$origin_main" && "$local_sha" == "$origin_main" ]]; then
+      if [[ -z "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]]; then
+        echo "pre-push: REFUSED — GitHub main tip equals origin/main." >&2
+        echo "  That exposes GitLab per-commit history. Use: bun run publish:public-release -- --yes" >&2
+        return 1
       fi
     fi
   done <<<"$ref_updates"

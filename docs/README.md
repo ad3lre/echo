@@ -51,7 +51,7 @@ tree is present on a developer machine.
 | [operations/shipping-gate.md](operations/shipping-gate.md)                                 | Ship / prod gates                      |
 | [operations/ios-passkeys.md](operations/ios-passkeys.md)                                   | iOS passkeys / Universal Links         |
 | [operations/runbooks/](operations/runbooks/)                                               | Backup, Postgres, Socket.IO, incidents |
-| [operations/github-release-mirror.md](operations/github-release-mirror.md)                 | GitLab → GitHub `release/1.0.0` mirror |
+| [operations/github-release-mirror.md](operations/github-release-mirror.md)                 | GitLab `release/1.0.0` → GitHub `main` mirror |
 
 ## Chat formatting (user-facing)
 

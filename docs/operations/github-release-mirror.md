@@ -1,6 +1,14 @@
-# GitHub mirror for `release/1.0.0` only
+# GitHub mirror: public `main` (from GitLab `release/1.0.0`)
 
-**Policy:** Day-to-day pushes go to GitLab (`origin`). Only the branch **`release/1.0.0`** is also pushed to GitHub [`ad3lre/echo`](https://github.com/ad3lre/echo). Other branches must not be pushed to GitHub from this workflow.
+**Policy:** Day-to-day pushes go to GitLab (`origin`). The public GitHub repo [`ad3lre/echo`](https://github.com/ad3lre/echo) carries **`main` only** — a squashed timeline mirrored from GitLab **`release/1.0.0`**. Other branches must not be pushed to GitHub from this workflow.
+
+| Remote / branch | Role |
+| --- | --- |
+| GitLab `origin/main` | Internal day-to-day history |
+| GitLab `origin/release/1.0.0` | Public publish line (one commit per ship) |
+| GitHub `main` | Public mirror of `origin/release/1.0.0` |
+
+GitHub `main` is **not** GitLab `main`. Public SHAs stay different; internal per-commit history must never become reachable from GitHub.
 
 ## One-time setup per clone
 
@@ -26,7 +34,7 @@
 
 ### Scheduled GitHub mirror (default: 23:00 daily)
 
-Pushes to **GitLab** `origin/release/1.0.0` do **not** update GitHub immediately. All publishes during the day land on GitLab first; **one batched mirror** pushes the latest tip to GitHub at **23:00** in your configured timezone (default **Europe/Berlin**).
+Pushes to **GitLab** `origin/release/1.0.0` do **not** update GitHub immediately. All publishes during the day land on GitLab first; **one batched mirror** pushes the latest tip to **GitHub `main`** at **23:00** in your configured timezone (default **Europe/Berlin**).
 
 1. **Install the cron job** on a machine that is on at that time (your dev box, VPS, etc.):
 
@@ -51,17 +59,17 @@ Pushes to **GitLab** `origin/release/1.0.0` do **not** update GitHub immediately
    ECHO_RELEASE_MIRROR_NOW=1 git push origin release/1.0.0
    ```
 
-The `pre-push` hook prints a reminder when GitHub is deferred. Pushes whose URL contains `github.com` only validate refs (never create/update `main` there) and do not schedule a mirror.
+The `pre-push` hook prints a reminder when GitHub is deferred. Pushes whose URL contains `github.com` only validate refs (GitHub **`main` only**; tip must not equal `origin/main`) and do not schedule a mirror.
 
 **Do not fast-forward `release/1.0.0` to `origin/main`.** The mirror script **refuses** when the release tip equals `origin/main` unless `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1` (emergency only).
 
 ## Publishing internal `main` to the public release line (separate timeline)
 
-**Goal:** `release/1.0.0` on GitHub should show its **own** linear history: each publish adds **one new commit** whose **parent** is the previous public tip, while the **tree** matches the `origin/main` snapshot you intend to ship. Public commit SHAs stay different from GitLab `main`; `origin/main` must never become an ancestor (no merge commit from `main`).
+**Goal:** GitHub `main` (via GitLab `release/1.0.0`) should show its **own** linear history: each publish adds **one new commit** whose **parent** is the previous public tip, while the **tree** matches the `origin/main` snapshot you intend to ship. Public commit SHAs stay different from GitLab `main`; `origin/main` must never become an ancestor (no merge commit from `main`).
 
 ### Recommended: `bun run publish:public-release`
 
-Use the repo script so each GitHub commit has a **real subject and body** (summarized from internal `main` commits since the last publish), not a repeated generic line.
+Use the repo script so each public commit has a **real subject and body** (summarized from internal `main` commits since the last publish), not a repeated generic line.
 
 ```bash
 bun run publish:public-release              # preview message only
@@ -75,7 +83,7 @@ The script:
 - Adds a **bullet list** of internal commit subjects when there are several.
 - Records `Echo-Source: <origin/main-sha>` in the footer so the next publish knows what was already shipped.
 
-**Rewrite existing public messages** (same trees, new messages; force-pushes `release/1.0.0`):
+**Rewrite existing public messages** (same trees, new messages; force-pushes GitLab `release/1.0.0`):
 
 ```bash
 bun run publish:public-release -- --rewrite          # preview
@@ -120,27 +128,27 @@ Server-side GitLab jobs do not run the local hook. To mirror from CI at a fixed 
 
 Pipeline pushes must **not** set `release/1.0.0` to the same commit as `origin/main` (same rule as the mirror script: use `publish-public-release`, unless you accept exposing internal history via `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1`).
 
-## Do not keep `main` on GitHub
+## GitHub is `main` only (not GitLab `main`)
 
-GitHub is a **public mirror** for `release/1.0.0` only. The branch **`main` must not exist** on GitHub: it duplicates GitLab’s long `main` history and is easy to push by mistake.
+GitHub’s default branch is **`main`**, but that tip must always be the squashed public line (same commits as GitLab `release/1.0.0`). Pushing GitLab `origin/main` to GitHub would leak internal history.
 
 ### How leaks happen (avoid these)
 
-1. **`git push github main`** or **`git push github HEAD:main`** — blocked by `github-push-guard.sh` when hooks are installed.
+1. **`git push github main`** from local `main` — blocked by `github-push-guard.sh` when hooks are installed.
 2. **`release/1.0.0` tracking `github`** — a plain `git push` on that branch skips GitLab and `publish-public-release`. Run `./server/ops/scripts/setup-githooks.sh` to reset upstream to **`origin/release/1.0.0`**.
 3. **Fast-forwarding `release/1.0.0` to `origin/main`** — mirror and pre-push refuse when tips match (unless `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1`).
 4. **`git push --no-verify`** — bypasses all local hooks; do not use for GitHub pushes.
-5. **GitHub default branch still `main`** — invites accidental pushes and confused clones.
+5. **Creating non-`main` branches on GitHub** — blocked; mirror only updates `main`.
 
 ### Recovery and prevention
 
-1. **Delete `main` on GitHub if it appears:** `git push github --delete main`
-2. **Default branch:** GitHub → **Settings → General → Default branch** → **`release/1.0.0`** (not `main`).
-3. **Block recreation (server-side):** **Settings → Rules → Rulesets** — rule on branch **`main`**: block creation and pushes for everyone.
+1. **Default branch:** GitHub → **Settings → General → Default branch** → **`main`**.
+2. **Delete leftover `release/1.0.0` on GitHub if it appears:** `git push github --delete release/1.0.0`
+3. **Block recreation of other public branches (server-side):** **Settings → Rules → Rulesets** — allow pushes only to **`main`** for the mirror credentials, or block creation of other branches.
 4. **Local hooks (required):** `./server/ops/scripts/setup-githooks.sh` — `pre-push` runs `github-push-guard.sh` before any push:
-   - Refuses **create/update `main` or `master`** on the `github` remote (by remote name or `github.com` URL).
-   - Refuses pushing **local `main`/`master`** to GitHub at all.
-   - Refuses **`release/1.0.0` → GitHub** when the tip equals **`origin/main`**.
+   - Allows **GitHub `main` only** (other refs refused; deletes allowed).
+   - Refuses **local `main`/`master` → GitHub** at all.
+   - Refuses **GitHub `main`** when the tip equals **`origin/main`**.
    - Refuses if **`main` or `release/1.0.0` track `github`** as upstream.
 5. **CI guard:** `bun server/ops/scripts/check-github-remote-policy.mjs` (in `bun run test:ci:guards`) ensures hook wiring is not removed.
 

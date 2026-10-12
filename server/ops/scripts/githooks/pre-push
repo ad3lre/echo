@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 1) Block GitHub pushes that leak GitLab main history (github-push-guard.sh).
 # 2) CI precheck before pushes to non-GitHub remotes (server/ops/scripts/ci-precheck.sh).
-# 3) Mirror release/1.0.0 to GitHub only when ECHO_RELEASE_MIRROR_NOW=1; otherwise daily cron.
+# 3) Mirror GitLab release/1.0.0 → GitHub main when ECHO_RELEASE_MIRROR_NOW=1; otherwise daily cron.
 #
 # See docs/operations/github-release-mirror.md.
 set -euo pipefail

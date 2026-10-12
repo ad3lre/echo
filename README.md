@@ -51,13 +51,13 @@ The codebase is organized for **operators and contributors**: typed shared contr
 
 Echo is **open source** under the [**GNU Affero General Public License v3.0 only**](./LICENSE) (AGPL). Contributions, issues, and pull requests: [CONTRIBUTING.md](./CONTRIBUTING.md), [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md), [`.github/SECURITY.md`](./.github/SECURITY.md). **Documentation index:** [docs/README.md](./docs/README.md).
 
-**CI (GitHub Actions)** — badges target this fork’s default GitHub branch (`release/1.0.0`). Change `ad3lre/echo` and `branch=…` in the URLs if your owner/repo or branch name differs:
+**CI (GitHub Actions)** — badges target this fork’s default GitHub branch (`main`). Change `ad3lre/echo` and `branch=…` in the URLs if your owner/repo or branch name differs:
 
-[![Echo format check](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml)
-[![Echo backend checks](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml)
-[![Echo web checks](https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml)
-[![Echo E2E smoke](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml)
-[![CodeQL](https://github.com/ad3lre/echo/actions/workflows/codeql.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/codeql.yml)
+[![Echo format check](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml)
+[![Echo backend checks](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml)
+[![Echo web checks](https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml)
+[![Echo E2E smoke](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml)
+[![CodeQL](https://github.com/ad3lre/echo/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/codeql.yml)
 
 Release and signing workflows may need **repository secrets** on the canonical fork; forks still get format, backend, web, and E2E checks when relevant paths change.
 

@@ -18,13 +18,17 @@ const guard = fs.readFileSync(
   path.join(root, 'server/ops/scripts/githooks/github-push-guard.sh'),
   'utf8',
 );
+const mirror = fs.readFileSync(
+  path.join(root, 'server/ops/scripts/mirror-release-to-github.sh'),
+  'utf8',
+);
 
 const requiredInGuard = [
   'refs/heads/main',
   'refs/heads/master',
-  'refs/heads/release/1.0.0',
   'origin/main',
   'check_branch_upstream_policy',
+  'GitHub is the public mirror for main only',
 ];
 
 const missing = requiredInGuard.filter((s) => !guard.includes(s));
@@ -46,6 +50,13 @@ if (!prePush.includes('github-push-guard.sh')) {
 if (!prePush.includes('check_branch_upstream_policy')) {
   console.error(
     'check-github-remote-policy: pre-push must call check_branch_upstream_policy',
+  );
+  process.exit(1);
+}
+
+if (!mirror.includes('GITHUB_BRANCH="${GITHUB_BRANCH:-main}"')) {
+  console.error(
+    'check-github-remote-policy: mirror-release-to-github.sh must default GITHUB_BRANCH to main',
   );
   process.exit(1);
 }

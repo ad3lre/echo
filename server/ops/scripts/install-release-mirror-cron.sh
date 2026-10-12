@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install a user crontab entry that mirrors release/1.0.0 to GitHub once per day at 23:00.
+# Install a user crontab entry that mirrors GitLab release/1.0.0 → GitHub main once per day at 23:00.
 # See docs/operations/github-release-mirror.md.
 #
 # Usage:
@@ -39,7 +39,7 @@ fi
 mkdir -p "$(dirname "$LOG")"
 CRON_LINE="${MINUTE} ${HOUR} * * * TZ=${TZ_NAME} cd ${ROOT} && bash server/ops/scripts/mirror-release-to-github.sh >>${LOG} 2>&1 ${MARKER}"
 
-echo "Daily GitHub mirror (GitLab release/1.0.0 -> github):"
+echo "Daily GitHub mirror (GitLab release/1.0.0 -> github/main):"
 echo "  When: ${HOUR}:$(printf '%02d' "$MINUTE") ${TZ_NAME} (server must be on and have git + remotes)"
 echo "  Log:  ${LOG}"
 echo ""

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Point this repo at committed hooks under server/ops/scripts/githooks:
-#   pre-push — GitHub leak guard + CI precheck + release/1.0.0 mirror policy
+#   pre-push — GitHub leak guard + CI precheck + release→GitHub main mirror policy
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 HOOKS_PATH="server/ops/scripts/githooks"
@@ -22,7 +22,7 @@ if git show-ref --verify --quiet refs/heads/release/1.0.0; then
 fi
 
 echo "core.hooksPath set to $HOOKS_PATH for $(pwd)"
-echo "GitHub push guard: blocks main on github, local main→github, release tip == origin/main"
+echo "GitHub push guard: GitHub main only; blocks local main→github and tip == origin/main"
 echo "pre-commit: god-file ratchet + new-code charter on staged paths"
 echo "  skip god-file: ECHO_GOD_FILE_RATCHET_BYPASS=1"
 echo "  skip charter: ECHO_NEW_CODE_CHARTER_BYPASS=1"
