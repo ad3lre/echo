@@ -67,9 +67,13 @@ git fetch "$GITHUB_REMOTE" "$GITHUB_BRANCH" --quiet 2>/dev/null || true
 if [[ -n "$EXPLICIT_SHA" ]]; then
   local_sha="$EXPLICIT_SHA"
 else
-  local_sha=$(git rev-parse "$GITLAB_REMOTE/$BRANCH")
+  local_sha=$(git rev-parse --verify "$GITLAB_REMOTE/$BRANCH^{commit}")
 fi
-github_sha=$(git rev-parse "$GITHUB_REMOTE/$GITHUB_BRANCH" 2>/dev/null || true)
+# Only treat as mirrored when the remote-tracking tip is a real commit
+# (missing github/main must not become force-with-lease expected object).
+github_sha=$(
+  git rev-parse --verify --quiet "$GITHUB_REMOTE/$GITHUB_BRANCH^{commit}" 2>/dev/null || true
+)
 
 if [[ -n "$github_sha" && "$local_sha" == "$github_sha" ]]; then
   echo "Already mirrored: ${GITHUB_REMOTE}/${GITHUB_BRANCH} is at ${local_sha:0:12} ($(git log -1 --oneline "$local_sha"))."
