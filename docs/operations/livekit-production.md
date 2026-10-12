@@ -2,7 +2,7 @@
 
 This document is the **operator entry point** for running Echo voice against a **production-grade** LiveKit stack: TLS for browsers and webhooks, TURN for restrictive NATs, secrets rotation, and observability. **Implementing** DNS, certificates, and cloud resources is **outside this repository**; Echo ships **docs, metrics, alerts, and example configs** here.
 
-**Related:** [livekit-turn.md](../infra/livekit-turn.md) (ports, dev Compose), [livekit-observability.md](../infra/livekit-observability.md) (metrics, alert rules), example SFU YAML [`server/ops/infra/livekit/livekit.production.example.yaml`](../../server/ops/infra/livekit/livekit.production.example.yaml).
+**Related:** [livekit-turn.md](../infra/livekit-turn.md) (ports, dev Compose), local `docs-dev/infra/livekit-observability.md` (metrics, alert rules) when present, example SFU YAML [`server/ops/infra/livekit/livekit.production.example.yaml`](../../server/ops/infra/livekit/livekit.production.example.yaml).
 
 ---
 

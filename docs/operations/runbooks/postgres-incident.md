@@ -79,4 +79,4 @@ Note: Restore requires `sudo` and read-capable credentials stored separately fro
 ## Related documentation
 
 - Production checklist: [`PRODUCTION_SECURITY_CHECKLIST.md`](../PRODUCTION_SECURITY_CHECKLIST.md), [`shipping-gate.md`](../shipping-gate.md).
-- Snowflake-specific ops (IDs, indexes): [`snowflake-cutover.md`](./snowflake-cutover.md).
+- Snowflake-specific ops (IDs, indexes): local `docs-dev/operations/runbooks/snowflake-cutover.md` when present.

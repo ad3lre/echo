@@ -118,7 +118,7 @@ Restore credentials are **not** loaded by the backup service; they live only in 
 
 Always-on monitor: if the **local** API stays down for **45 minutes**, force-restart `prod:serve` + PM2 apps. Survives host reboots via `Restart=always`. On failed recovery, emails **`bugs@chat-echo.com`**.
 
-Full behaviour: [docs/operations/echo-recovery-watcher.md](../../../../docs/operations/echo-recovery-watcher.md).
+Full behaviour: local `docs-dev/operations/echo-recovery-watcher.md` when present.
 
 ## One-time setup
 

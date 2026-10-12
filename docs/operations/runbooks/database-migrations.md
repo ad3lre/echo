@@ -7,4 +7,4 @@ Echo uses Postgres with schema evolved alongside the backend. Before production 
 3. **Verify**: Smoke the app against that DB (login, read channel, send message) or run `bun run --filter backend` test:echo:pipeline with `DATABASE_URL` pointed at the copy.
 4. **Rollback**: Prefer **restore from backup** or redeploy the previous application image that matches the previous schema. Document which release pairs with which schema for your environment.
 
-For snowflake-related operations, see [snowflake-cutover.md](./snowflake-cutover.md). For incidents, see [postgres-incident.md](./postgres-incident.md).
+For snowflake-related operations, see local `docs-dev/operations/runbooks/snowflake-cutover.md` when present. For incidents, see [postgres-incident.md](./postgres-incident.md).

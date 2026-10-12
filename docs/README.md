@@ -1,8 +1,8 @@
 # Echo documentation
 
 Public docs for contributors, self-hosters, and operators. Deep internal notes
-(plans, reviews, audits) live locally in **`docs-dev/`** (gitignored) — see
-[`docs-dev/README.md`](../docs-dev/README.md) if you have that tree.
+(plans, reviews, audits) live locally in gitignored **`docs-dev/`** when that
+tree is present on a developer machine.
 
 **New here?** Start with **[DEVELOPMENT.md](DEVELOPMENT.md)**.
 

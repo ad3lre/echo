@@ -37,7 +37,7 @@ the Discord bot and activities worker.
 | REST / data contracts    | [contracts/](contracts/)                                                                                             |
 | LiveKit / TURN           | [infra/livekit-turn.md](infra/livekit-turn.md), [operations/livekit-production.md](operations/livekit-production.md) |
 | Native Apple             | [clients/apple/README.md](../clients/apple/README.md)                                                                |
-| Internal plans / reviews | Local [`docs-dev/`](../docs-dev/) (gitignored; not in fresh clones)                                                  |
+| Internal plans / reviews | Local `docs-dev/` (gitignored; not in fresh clones)                                                                  |
 
 ## Checks before a PR
 

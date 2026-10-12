@@ -34,7 +34,7 @@
 
 ## Related documentation
 
-- Session architecture: [`OPTION_A_SESSION_ARCHITECTURE.md`](../../infra/auth/OPTION_A_SESSION_ARCHITECTURE.md).
+- Session architecture: local `docs-dev/infra/auth/OPTION_A_SESSION_ARCHITECTURE.md` when present.
 - Stack / auth snapshot: [`STACK.md`](../../overview/STACK.md).
 - Auth roadmap: local `docs-dev/plans/AUTHENTICATION_PLAN.md` when present.
 - Production security checklist: [`../PRODUCTION_SECURITY_CHECKLIST.md`](../PRODUCTION_SECURITY_CHECKLIST.md).
