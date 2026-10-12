@@ -10,8 +10,8 @@
     "start": "bun dist/server/media/src/index.js",
     "worker:video-hls": "bun ../backend/dist/server/media/src/hls/worker.js",
     "worker:video-hls:dev": "bun src/hls/worker.ts",
-    "test:video-hls-notify": "bun test src/tests/hls/videoHlsNotify.test.ts",
-    "test:video-hls-golden": "bun test src/tests/hls/echoVideoHls.golden.test.ts"
+    "test:video-hls-notify": "bun src/tests/hls/videoHlsNotify.test.ts",
+    "test:video-hls-golden": "bun src/tests/hls/echoVideoHls.golden.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.888.0",

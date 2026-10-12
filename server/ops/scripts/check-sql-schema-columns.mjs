@@ -8,7 +8,7 @@
  *
  * Usage:
  *   bun server/ops/scripts/check-sql-schema-columns.mjs           # static (CI + preverify)
- *   bun server/ops/scripts/check-sql-schema-columns.mjs --live    # also EXPLAIN against DATABASE_URL
+ *   bun server/ops/scripts/check-sql-schema-columns.mjs --live    # ensureAppSchema + EXPLAIN against DATABASE_URL
  *
  * Env:
  *   VPS_SKIP_SQL_SCHEMA_CHECK=1 — skip entirely (emergency only)
@@ -350,6 +350,15 @@ function scanFile(filePath, schemas) {
   return { violations, liveQueries };
 }
 
+async function ensureLiveSchema(pool) {
+  /* Live EXPLAIN needs real relations. Do not rely on prior tests (bun test
+   * exits before script-style ensureEchoTables finishes). */
+  const { ensureAppSchema } = await import(
+    path.join(backendSrc, 'db', 'ensureAppSchema.ts')
+  );
+  await ensureAppSchema(pool);
+}
+
 async function runLiveExplain(liveQueries) {
   const url = process.env.DATABASE_URL?.trim();
   if (!url) {
@@ -379,6 +388,7 @@ async function runLiveExplain(liveQueries) {
   const seen = new Set();
 
   try {
+    await ensureLiveSchema(pool);
     for (const sql of liveQueries) {
       const key = sql.trim();
       if (seen.has(key)) continue;
