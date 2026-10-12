@@ -66,7 +66,7 @@ jobs:
         run: bun run --filter activities test
 
       - name: Typecheck crypto
-        run: bun run typecheck --prefix server/backend/crypto
+        run: bun run --cwd server/backend/crypto typecheck
 
       - name: Test crypto
         run: bun run --filter web test -- --run ../../server/backend/crypto/src
