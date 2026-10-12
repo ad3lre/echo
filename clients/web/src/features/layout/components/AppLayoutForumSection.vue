@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import ChatView from '@/features/chat/components/ChatView.vue';
+import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import ChatInput from '@/features/chat/components/ChatInput.vue';
+import AppLayoutSplash from '@/features/layout/components/AppLayoutSplash.vue';
+
+const ChatView = defineAsyncComponent({
+  loader: () => import('@/features/chat/components/ChatView.vue'),
+  loadingComponent: AppLayoutSplash,
+  delay: 200,
+});
 import { icons } from '@/assets/icons';
 import { useSimpleContextMenu } from '@/features/layout/useSimpleContextMenu';
 import { copyToClipboard } from '@/features/chat/copyToClipboard';

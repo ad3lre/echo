@@ -26,6 +26,7 @@ import {
 } from '@/platform/browserCompatibility';
 import { isChatAudioUpload } from '@/features/chat/chatUploadMediaTypes';
 import { useAuthSessionStore } from '@/features/auth/authSession';
+import { scheduleDeferredTask } from '@/features/layout/failures/scheduleDeferredTask';
 
 const STORAGE_KEY = 'echo-call-ringtone-ui-v1';
 export const CALL_RINGTONE_UPLOAD_MAX_BYTES = ECHO_RINGTONE_UPLOAD_MAX_BYTES;
@@ -334,10 +335,28 @@ export const useCallRingtoneStore = defineStore('callRingtone', () => {
     }
   }
 
+  let deferredCustomRefresh: ReturnType<typeof scheduleDeferredTask> | null =
+    null;
   watch(
     () => authSession.backendUser?.id,
     () => {
-      void refreshCustomFromServer();
+      deferredCustomRefresh?.cancel();
+      deferredCustomRefresh = null;
+      const user = authSession.backendUser;
+      if (!user || user.isGuest) {
+        custom.value = [];
+        serverMaxCustom.value = 0;
+        return;
+      }
+      /* Built-ins work offline; custom GET /ringtones waits so cold boot history
+       * is not fighting ringtone metadata on the wire. */
+      deferredCustomRefresh = scheduleDeferredTask(
+        () => {
+          deferredCustomRefresh = null;
+          void refreshCustomFromServer();
+        },
+        { timeoutMs: 3000, fallbackDelayMs: 1000 },
+      );
     },
     { immediate: true },
   );

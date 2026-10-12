@@ -8,7 +8,6 @@ import type {
   PollData,
   ReplyTo,
 } from '@shared/types';
-import ChatView from '@/features/chat/components/ChatView.vue';
 import { icons } from '@/assets/icons';
 import AppLayoutLoadError from '@/features/layout/components/AppLayoutLoadError.vue';
 import AppLayoutSplash from '@/features/layout/components/AppLayoutSplash.vue';
@@ -48,6 +47,13 @@ const MessageRequestsView = defineAsyncComponent({
 });
 const DmNotificationsView = defineAsyncComponent({
   loader: () => import('@/features/dm/components/DmNotificationsView.vue'),
+  loadingComponent: AppLayoutSplash,
+  errorComponent: AppLayoutLoadError,
+  delay: 200,
+  timeout: DM_HUB_LOAD_TIMEOUT_MS,
+});
+const ChatView = defineAsyncComponent({
+  loader: () => import('@/features/chat/components/ChatView.vue'),
   loadingComponent: AppLayoutSplash,
   errorComponent: AppLayoutLoadError,
   delay: 200,
@@ -645,50 +651,7 @@ async function handleDmCallLeave() {
     :dm-history-intro="dmHistoryIntro"
   />
 
-  <ChatView
-    v-else-if="
-      (mainSurface.type === 'serverText' ||
-        mainSurface.type === 'serverEmptyOnboarding') &&
-      effectiveActiveChannel?.type !== 'paper'
-    "
-    class="min-h-0 min-w-0 flex-1"
-    :active-channel="effectiveActiveChannel"
-    :active-channel-messages="activeChannelMessagesMap"
-    :header-overlay-inset-px="headerOverlayInsetPx"
-    :server-id="selectedServerId"
-    :resolve-author-role="resolveAuthorRole"
-    :users="users"
-    :mention-users="mentionUsers"
-    :mention-roles="mentionRoles"
-    :channels="allChannels"
-    :send-message="sendMessage"
-    :on-request-forward="onRequestForward"
-    :current-user-id="currentUserId"
-    :linked-discord-user-id="linkedDiscordUserId ?? null"
-    :current-user-name="currentUserName"
-    :current-user-pfp="currentUserPfp"
-    :on-poll-vote="handlePollVote"
-    :on-save-edit="editMessage"
-    :on-fill-image-slot="fillImageSlot"
-    :on-delete="deleteMessage"
-    :on-react="handleReact"
-    :top-reactions="topReactions"
-    :remove-reaction-favorite="removeReactionFavorite"
-    :on-go-to-channel="handleGoToChannel"
-    :on-go-to-message="handleGoToMessage"
-    :on-open-profile="openMemberProfile"
-    :on-open-profile-from-context-menu="openProfileFromContextMenu"
-    :can-moderate-author="canModerateAuthor"
-    :on-moderate-user="handleModerateUser"
-    :show-nsfw-gate="showNsfwChatGate"
-    :on-nsfw-acknowledge="acknowledgeNsfwChannel"
-    :on-nsfw-decline="declineNsfwGate"
-    :no-servers-yet="mainSurface.type === 'serverEmptyOnboarding'"
-    :on-open-explore="onOpenExplore"
-    :can-show-discord-channel-import="canShowDiscordChannelImport"
-    :transition-loading="surfaceSwitchLoading"
-    :guild-shell-settling="guildShellSettling"
-  />
+  <!-- serverText / serverEmptyOnboarding: rendered by AppLayoutChatSurface → GuildTextChatView -->
 
   <div
     v-else-if="mainSurface.type === 'unknown'"

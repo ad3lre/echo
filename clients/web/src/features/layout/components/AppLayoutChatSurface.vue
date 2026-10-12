@@ -51,6 +51,15 @@ const AppLayoutDmSection = defineAsyncComponent({
   loader: () => import('@/features/layout/components/AppLayoutDmSection.vue'),
   ...surfaceAsyncOptions,
 });
+/**
+ * Guild text / empty-onboarding chat is the cold-boot critical path. Load ChatView
+ * here directly so we do not download AppLayoutDmSection (friends hub, DM call UI)
+ * just to show a server channel.
+ */
+const GuildTextChatView = defineAsyncComponent({
+  loader: () => import('@/features/chat/components/ChatView.vue'),
+  ...surfaceAsyncOptions,
+});
 import AppLayoutDmSidePanel from '@/features/layout/components/AppLayoutDmSidePanel.vue';
 import { APP_LAYOUT_SEARCH_PANEL_KEY } from '@/features/layout/chatSurfaceContext';
 import { LAYOUT_CHAT_SURFACE_KEY } from '@/features/layout/layoutInjectionKeys';
@@ -756,6 +765,50 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :linked-discord-user-id="chatCtx.linkedDiscordUserId ?? null"
         :top-reactions="chatCtx.topReactions"
         :remove-reaction-favorite="chatCtx.removeReactionFavorite"
+      />
+      <GuildTextChatView
+        v-else-if="
+          (chatCtx.mainSurface.type === 'serverText' ||
+            chatCtx.mainSurface.type === 'serverEmptyOnboarding') &&
+          chatCtx.effectiveActiveChannel?.type !== 'paper'
+        "
+        class="min-h-0 min-w-0 flex-1"
+        :active-channel="chatCtx.effectiveActiveChannel"
+        :active-channel-messages="chatCtx.activeChannelMessagesMap"
+        :header-overlay-inset-px="shellHeaderOverlayInsetPx"
+        :server-id="chatCtx.selectedServerId"
+        :resolve-author-role="chatCtx.resolveAuthorRole"
+        :users="chatCtx.users"
+        :mention-users="chatCtx.usersForMentionAutocomplete"
+        :mention-roles="chatCtx.rolesForMentionAutocomplete"
+        :channels="allChannelsForDm"
+        :send-message="chatCtx.sendMessage"
+        :on-request-forward="chatCtx.onRequestForward"
+        :current-user-id="chatCtx.currentUser?.id ?? ''"
+        :linked-discord-user-id="chatCtx.linkedDiscordUserId ?? null"
+        :current-user-name="chatCtx.currentUser?.name"
+        :current-user-pfp="chatCtx.currentUser?.pfp"
+        :on-poll-vote="chatCtx.handlePollVote"
+        :on-save-edit="chatCtx.editMessage"
+        :on-fill-image-slot="chatCtx.fillImageSlot"
+        :on-delete="chatCtx.deleteMessage"
+        :on-react="chatCtx.handleReact"
+        :top-reactions="chatCtx.topReactions"
+        :remove-reaction-favorite="chatCtx.removeReactionFavorite"
+        :on-go-to-channel="chatCtx.handleGoToChannel"
+        :on-go-to-message="resolvedHandleGoToMessage"
+        :on-open-profile="chatCtx.openMemberProfile"
+        :on-open-profile-from-context-menu="chatCtx.openProfileFromContextMenu"
+        :can-moderate-author="chatCtx.canModerateAuthor"
+        :on-moderate-user="chatCtx.handleModerateUser"
+        :show-nsfw-gate="chatCtx.showNsfwChatGate"
+        :on-nsfw-acknowledge="chatCtx.acknowledgeNsfwChannel"
+        :on-nsfw-decline="chatCtx.declineNsfwGate"
+        :no-servers-yet="chatCtx.mainSurface.type === 'serverEmptyOnboarding'"
+        :on-open-explore="chatCtx.onOpenExplore"
+        :can-show-discord-channel-import="chatCtx.canShowDiscordChannelImport"
+        :transition-loading="chatCtx.surfaceSwitchLoading"
+        :guild-shell-settling="chatCtx.guildShellSettling"
       />
       <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col">
         <AppLayoutDmSection

@@ -100,8 +100,13 @@ describe('runEchoWorkspaceHydrateFromApi', () => {
 
     expect(result).toEqual({ ok: true });
     expect(fetchEchoWorkspaceState).not.toHaveBeenCalled();
-    expect(fetchWorkspaceSocialForHydrate).toHaveBeenCalledWith('t', false);
-    expect(friendIds.value).toEqual(['u1']);
+    /* Social is deferred when workspace was already loaded by startInitialLoad. */
+    await vi.waitFor(() => {
+      expect(fetchWorkspaceSocialForHydrate).toHaveBeenCalledWith('t', false);
+    });
+    await vi.waitFor(() => {
+      expect(friendIds.value).toEqual(['u1']);
+    });
   });
 
   it('does not update server store or cache when applyWorkspaceSnapshot rejects stale snapshot', async () => {

@@ -4,14 +4,7 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 
-/**
- * OpenTelemetry initialization for Echo backend.
- * Configured via standard OTEL_* environment variables.
- * Primary endpoint: OTEL_EXPORTER_OTLP_ENDPOINT (e.g. http://localhost:4318/v1/traces)
- *
- * Under Bun, auto-instrumentations are skipped (module-loader / diagnostics-channel
- * gaps). Prefer prom-client metrics; exporter-only SDK may still start for manual spans.
- */
+/** OTel via OTEL_* env. Under Bun, skip auto-instrumentations (loader gaps). */
 
 const isBun = typeof Bun !== 'undefined';
 
@@ -24,15 +17,11 @@ const sdk = new NodeSDK({
 });
 
 export function initOTel() {
-  if (!process.env.OTEL_EXPORTER_OTLP_ENDPOINT) {
-    // If no endpoint is provided, we don't start the SDK to avoid overhead/errors
-    return;
-  }
-
+  if (!process.env.OTEL_EXPORTER_OTLP_ENDPOINT) return;
   try {
     sdk.start();
   } catch {
-    /* OTel optional; ignore startup failure */
+    /* OTel optional */
   }
 }
 

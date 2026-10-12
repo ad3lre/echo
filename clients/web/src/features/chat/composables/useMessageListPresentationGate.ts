@@ -15,7 +15,7 @@ import type { MessageListViewportSnapshot } from '@/features/chat/composables/me
 import { logMessageList } from '@/features/chat/composables/messageListDebugLog';
 
 /** Failsafe: never leave the cold-load overlay up if anchor work stalls. */
-export const INITIAL_ANCHOR_OVERLAY_SAFETY_MS = 2500;
+export const INITIAL_ANCHOR_OVERLAY_SAFETY_MS = 1200;
 
 export type UseMessageListPresentationGateOptions = {
   channelId: () => string | undefined;
@@ -117,6 +117,9 @@ function tryMarkColdWindowUsable(state: GateState): void {
   const activeWindow = state.options.getActiveWindowChannelId();
   if (activeWindow && activeWindow !== cid) return;
   const saved = state.options.readSavedViewport(cid);
+  /* Default / bottom-follow: drop the skeleton as soon as rows exist. Anchor
+   * scroll can refine after paint — only hold for a non-bottom restored viewport
+   * whose anchor message is not in the window yet. */
   if (
     saved &&
     !saved.followNewMessages &&

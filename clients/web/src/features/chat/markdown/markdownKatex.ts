@@ -161,9 +161,23 @@ function escapeKatexFallback(latex: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** KaTeX's renderer is loaded only when math is present; its layout CSS loads at app startup. */
+let katexCssLoadPromise: Promise<void> | null = null;
+
+/** Inject KaTeX layout CSS once, when math is first needed (kept off the boot critical path). */
+function ensureMarkdownKatexCssLoaded(): Promise<void> {
+  if (katexCssLoadPromise) return katexCssLoadPromise;
+  katexCssLoadPromise = import('katex/dist/katex.min.css')
+    .then(() => undefined)
+    .catch(() => {
+      katexCssLoadPromise = null;
+    });
+  return katexCssLoadPromise ?? Promise.resolve();
+}
+
+/** KaTeX renderer + CSS load only when math is present — not at app startup. */
 export function ensureMarkdownKatexLoaded(): void {
   if (katexModule || katexLoadPromise) return;
+  void ensureMarkdownKatexCssLoaded();
   katexLoadPromise = import('katex')
     .then((mod) => {
       katexModule = (mod.default ?? mod) as KatexModule;

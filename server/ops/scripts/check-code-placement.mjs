@@ -370,9 +370,7 @@ function main() {
   if (result.errors.length) {
     console.error('check-code-placement: FAILED');
     for (const e of result.errors) console.error(`  ${e}`);
-    console.error(
-      `\nSee docs/overview/code-placement.md.`,
-    );
+    console.error(`\nSee docs/overview/code-placement.md.`);
     process.exit(1);
   }
 

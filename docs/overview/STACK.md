@@ -30,8 +30,8 @@ Lazy-load heavy views, WebP assets, virtualized chat lists, system fonts with fa
 
 First-party native apps (not a WebView shell):
 
-| Platform | Entry |
-| -------- | ----- |
+| Platform    | Entry                                                      |
+| ----------- | ---------------------------------------------------------- |
 | iOS / macOS | [`clients/apple/README.md`](../../clients/apple/README.md) |
 
 Passkeys / Universal Links: [ios-passkeys.md](../operations/ios-passkeys.md).
@@ -68,13 +68,13 @@ S3-compatible storage when **`ECHO_S3_*`** is set (uploads, media, backups).
 
 ## Tooling
 
-| Concern | Choice |
-| ------- | ------ |
-| Package manager / runtime | **Bun 1.4.2+** (workspaces, `bun.lock`) |
-| Tests | Vitest (web), `bun test` / workspace scripts (backend) |
-| Format | Prettier (`bun run format`) |
-| Lint | ESLint + Stylelint (web) |
-| CI | GitHub Actions (public); GitLab mirror for internal `main` |
+| Concern                   | Choice                                                     |
+| ------------------------- | ---------------------------------------------------------- |
+| Package manager / runtime | **Bun 1.4.2+** (workspaces, `bun.lock`)                    |
+| Tests                     | Vitest (web), `bun test` / workspace scripts (backend)     |
+| Format                    | Prettier (`bun run format`)                                |
+| Lint                      | ESLint + Stylelint (web)                                   |
+| CI                        | GitHub Actions (public); GitLab mirror for internal `main` |
 
 ## Example deployment (maintainers’ reference)
 

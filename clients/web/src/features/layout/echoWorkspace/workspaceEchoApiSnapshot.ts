@@ -868,9 +868,19 @@ export function workspaceHttpJsonToEchoWorkspaceState(
           typeof raw.members_by_server === 'object'
         ? raw.members_by_server
         : undefined;
-  const membersByServer =
+  const normalizedMembers =
     rawMembers !== undefined
       ? normalizeWorkspaceMembersByServer(rawMembers, raw.servers)
+      : undefined;
+  /* `memberDetail=none` returns empty per-server arrays — treat as "no roster
+   * payload" so applyWorkspaceSnapshot keeps a warm-cached member list until
+   * the deferred roster fetch lands. */
+  const membersByServer =
+    normalizedMembers &&
+    Object.values(normalizedMembers).some(
+      (rows) => Array.isArray(rows) && rows.length > 0,
+    )
+      ? normalizedMembers
       : undefined;
 
   const rawRec = raw as Record<string, unknown>;

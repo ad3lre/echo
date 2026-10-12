@@ -54,12 +54,7 @@ async function main() {
   try {
     await Promise.all([
       run('backend (tsc)', 'bun', ['run', '--filter', 'backend', 'build']),
-      run('bot (tsc)', 'bun', [
-        'run',
-        '--filter',
-        'bot',
-        'build',
-      ]),
+      run('bot (tsc)', 'bun', ['run', '--filter', 'bot', 'build']),
     ]);
     await run('web (vue-tsc)', 'bun', ['x', 'vue-tsc', '--noEmit'], webRoot);
     await run('sql schema columns (static)', 'bun', [

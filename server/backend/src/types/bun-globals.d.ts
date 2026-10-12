@@ -7,6 +7,6 @@ interface BunPassword {
   verify(password: string, hash: string): Promise<boolean>;
 }
 
-declare var Bun: {
+declare const Bun: {
   password: BunPassword;
 };

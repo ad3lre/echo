@@ -477,7 +477,7 @@ function groupEchoChannelRowsToWorkspaceCategories(
 
 /** Member row for workspace bootstrap (member list, mentions, pings). */
 /** Profile fields included in `/workspace` member rosters (`full` = legacy default). */
-export type EchoWorkspaceMemberDetail = 'full' | 'roster';
+export type EchoWorkspaceMemberDetail = 'full' | 'roster' | 'none';
 
 export type EchoWorkspaceMemberDto = {
   userId: string;
@@ -536,7 +536,11 @@ export async function listEchoWorkspaceForUser(
   myEventRsvps: EchoWorkspaceMyEventRsvp[];
 }> {
   const memberDetail: EchoWorkspaceMemberDetail =
-    opts?.memberDetail === 'roster' ? 'roster' : 'full';
+    opts?.memberDetail === 'roster'
+      ? 'roster'
+      : opts?.memberDetail === 'none'
+        ? 'none'
+        : 'full';
   const servers = await listEchoServersForUser(pool, userId);
   if (servers.length === 0) {
     return {
@@ -550,6 +554,7 @@ export async function listEchoWorkspaceForUser(
   }
   const serverIds = servers.map((s) => s.id);
 
+  const emptyMemRes = { rows: [] as Record<string, unknown>[] };
   const [catRes, chRes, memRes] = await Promise.all([
     pool.query(
       `
@@ -595,8 +600,10 @@ export async function listEchoWorkspaceForUser(
       `,
       [serverIds],
     ),
-    pool.query(
-      `
+    memberDetail === 'none'
+      ? Promise.resolve(emptyMemRes)
+      : pool.query(
+          `
       SELECT m.server_id, m.user_id, m.joined_at,
              NULLIF(TRIM(m.nickname), '') AS server_nickname,
              COALESCE(
@@ -647,8 +654,8 @@ export async function listEchoWorkspaceForUser(
                )) ASC,
                m.user_id ASC
       `,
-      [serverIds],
-    ),
+          [serverIds],
+        ),
   ]);
 
   const membersByServer: Record<string, EchoWorkspaceMemberDto[]> = {};

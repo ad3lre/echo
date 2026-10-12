@@ -1097,7 +1097,9 @@ export function createEchoHistoryController(
   watch(
     () => auth.isAuthenticated,
     () => {
-      void hydrateAttentionSnapshot();
+      /* Attention summary is not needed to paint first messages — defer so it
+       * does not contend with cold history / workspace shell on the wire. */
+      scheduleAttentionRefresh('auth_hydrate');
     },
     { immediate: true },
   );

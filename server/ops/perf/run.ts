@@ -15,7 +15,8 @@ import {
 } from './lib/report.mjs';
 
 const perfDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(perfDir, '..');
+/** Monorepo root (`server/ops/perf` → `../../..`). */
+const repoRoot = path.resolve(perfDir, '../../..');
 
 function main(): void {
   const env = getPerfEnv(perfDir);

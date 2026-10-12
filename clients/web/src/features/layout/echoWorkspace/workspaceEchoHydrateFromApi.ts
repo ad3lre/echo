@@ -7,10 +7,7 @@ import {
 import type { WorkspaceStateApi } from '@/features/layout/echoWorkspace/types';
 import type { RailTab } from '@/features/layout/mainSurface';
 import { applyTimeoutUntilFromWorkspaceSnapshot } from '@/features/layout/workspaceTimeoutApplyFromSnapshot';
-import {
-  fetchWorkspaceSocialForHydrate,
-  fetchWorkspaceSocialForRefresh,
-} from '@/features/layout/echoWorkspace/workspaceSocialHydrate';
+import { fetchWorkspaceSocialForRefresh } from '@/features/layout/echoWorkspace/workspaceSocialHydrate';
 import { applyWorkspaceBootstrapServerNav } from '@/features/layout/echoWorkspace/workspaceBootstrapServerNav';
 import {
   saveEchoWorkspaceToCache,
@@ -26,6 +23,7 @@ import {
   currentEchoWorkspaceSocialRefreshSeq,
   nextEchoWorkspaceSocialRefreshSeq,
 } from '@/features/layout/echoWorkspace/workspaceSocialRefreshSeq';
+import { scheduleOrAwaitWorkspaceSocialHydrate } from '@/features/layout/echoWorkspace/workspaceEchoHydrateSocialApply';
 
 /** Shell nav / debug labels stay aligned with `useEchoWorkspaceLifecycle` callers. */
 const SHELL_SOURCE = 'useEchoWorkspaceLifecycle';
@@ -184,29 +182,7 @@ export async function runEchoWorkspaceHydrateFromApi(
         selectedServerId: p.serverStore.selectedServerId,
       });
     }
-    const socialSeq = nextEchoWorkspaceSocialRefreshSeq();
-    const social = await withTransientFetchRetries(() =>
-      fetchWorkspaceSocialForHydrate(p.token, p.isGuest),
-    );
-    if (p.isStale?.()) {
-      dbgMemberList('hydrateEchoFromApi aborted: auth rotated mid-social', {
-        userId: p.userId,
-      });
-      return { ok: true };
-    }
-    if (socialSeq !== currentEchoWorkspaceSocialRefreshSeq()) {
-      if (p.workspace.socialGraphStatus.value === 'loading') {
-        p.workspace.socialGraphStatus.value = 'ready';
-      }
-    } else {
-      p.workspace.friendIds.value = social.friendIds;
-      p.workspace.friendRequestsIncoming.value = social.friendRequestsIncoming;
-      p.workspace.friendRequestsOutgoing.value = social.friendRequestsOutgoing;
-      p.workspace.messageRequests.value = social.messageRequests;
-      p.workspace.socialGraphStatus.value = 'ready';
-      p.mergeEchoDmThreadsFromApi?.(social.dmThreads);
-      p.mergeEchoBlockedFromApi?.(social.blockedUserIds);
-    }
+    /* Channel selection must not wait on friends/DM/blocks — apply nav first. */
     if (workspaceSnapshotApplied && fetchedWorkspace?.servers.length) {
       const state = fetchedWorkspace;
       applyWorkspaceBootstrapServerNav({
@@ -221,8 +197,21 @@ export async function runEchoWorkspaceHydrateFromApi(
         logSource: SHELL_SOURCE,
       });
     }
+
     void p.refreshEchoRoleData();
-    p.syncEchoPresenceFromApi?.();
+    await scheduleOrAwaitWorkspaceSocialHydrate(
+      {
+        token: p.token,
+        userId: p.userId,
+        isGuest: p.isGuest,
+        workspace: p.workspace,
+        mergeEchoDmThreadsFromApi: p.mergeEchoDmThreadsFromApi,
+        mergeEchoBlockedFromApi: p.mergeEchoBlockedFromApi,
+        syncEchoPresenceFromApi: p.syncEchoPresenceFromApi,
+        isStale: p.isStale,
+      },
+      { defer: skipWorkspace },
+    );
     return { ok: true };
   } catch (e) {
     p.workspace.socialGraphStatus.value = 'error';

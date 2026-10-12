@@ -26,7 +26,15 @@ export {
   buildWorkspaceMemberFetchDebugPayload,
 } from '@/features/layout/echoWorkspace/workspaceEchoApiSnapshot';
 
+export type EchoWorkspaceMemberDetailQuery = 'full' | 'roster' | 'none';
+
 export type FetchEchoWorkspaceStateOptions = {
+  /**
+   * `none` — servers + channel trees only (fast first paint; roster follows).
+   * `roster` — members without banner/bio (default for full hydrate).
+   * `full` — members with profile chrome fields.
+   */
+  memberDetail?: EchoWorkspaceMemberDetailQuery;
   /** Optional hook for member-roster diagnostics — keep `dbgMemberList` in callers/orchestrators, not in this module. */
   onWorkspaceMemberFetchDebug?: (
     payload: EchoWorkspaceMemberFetchDebugPayload,
@@ -38,6 +46,8 @@ export async function fetchEchoWorkspaceState(
   currentUserId: string | undefined,
   options?: FetchEchoWorkspaceStateOptions,
 ): Promise<EchoWorkspaceState> {
+  const memberDetail: EchoWorkspaceMemberDetailQuery =
+    options?.memberDetail ?? 'roster';
   const raw = await echoFetch<{
     servers: Awaited<ReturnType<typeof fetchEchoServers>>['servers'];
     categoriesByServer: Record<string, ChannelCategory[]>;
@@ -49,7 +59,7 @@ export async function fetchEchoWorkspaceState(
     upcoming_events_by_server_id?: unknown;
     myEventRsvps?: unknown;
     my_event_rsvps?: unknown;
-  }>(token, '/workspace?memberDetail=roster');
+  }>(token, `/workspace?memberDetail=${memberDetail}`);
   if (
     !Array.isArray(raw.servers) ||
     raw.categoriesByServer == null ||

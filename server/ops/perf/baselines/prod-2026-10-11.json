@@ -1,0 +1,221 @@
+{
+  "meta": {
+    "baseUrl": "https://chat-echo.com",
+    "gitSha": "9d71fa7de6125b7ef278b2fa19e3f651ecb5cdf3",
+    "iterations": 3,
+    "recordedAt": "2026-10-11T16:29:02.819Z",
+    "runId": "2026-10-11T16-26-27-224Z"
+  },
+  "scenarios": {
+    "cold_boot": {
+      "boot_spinner_visible": {
+        "median": 0,
+        "p95": 0,
+        "min": 0,
+        "max": 0,
+        "stdev": 0,
+        "samples": [0, 0, 0]
+      },
+      "boot_vue_mounted": {
+        "median": 147,
+        "p95": 155,
+        "min": 134,
+        "max": 156,
+        "stdev": 9,
+        "samples": [134, 147, 156]
+      },
+      "boot_gate_dismissed": {
+        "median": 105,
+        "p95": 110,
+        "min": 84,
+        "max": 111,
+        "stdev": 12,
+        "samples": [84, 105, 111]
+      },
+      "boot_shell_visible": {
+        "median": 1346,
+        "p95": 1432,
+        "min": 1297,
+        "max": 1442,
+        "stdev": 60,
+        "samples": [1297, 1346, 1442]
+      },
+      "boot_workspace_settled": {
+        "median": 1050,
+        "p95": 1172,
+        "min": 986,
+        "max": 1185,
+        "stdev": 83,
+        "samples": [986, 1050, 1185]
+      },
+      "boot_chat_ready": {
+        "median": 2160,
+        "p95": 2169,
+        "min": 2057,
+        "max": 2170,
+        "stdev": 51,
+        "samples": [2057, 2160, 2170]
+      }
+    },
+    "vc_connect": {
+      "vc_connect_start": {
+        "median": 2624,
+        "p95": 3357,
+        "min": 2528,
+        "max": 3438,
+        "stdev": 408,
+        "samples": [2528, 2624, 3438]
+      },
+      "vc_connected": {
+        "median": 3305,
+        "p95": 4939,
+        "min": 3102,
+        "max": 5120,
+        "stdev": 907,
+        "samples": [3102, 3305, 5120]
+      },
+      "vc_connect_duration": {
+        "median": 681,
+        "p95": 1582,
+        "min": 574,
+        "max": 1682,
+        "stdev": 499,
+        "samples": [574, 681, 1682]
+      }
+    },
+    "misc_nav": {
+      "misc_explore_open_ms": {
+        "median": 1644,
+        "p95": 2128,
+        "min": 1571,
+        "max": 2182,
+        "stdev": 272,
+        "samples": [1571, 1644, 2182]
+      },
+      "misc_dm_tab_ms": {
+        "median": 287,
+        "p95": 302,
+        "min": 188,
+        "max": 304,
+        "stdev": 51,
+        "samples": [188, 287, 304]
+      },
+      "misc_server_switch_ms": {
+        "median": 0,
+        "p95": 0,
+        "min": 0,
+        "max": 0,
+        "stdev": 0,
+        "samples": [0, 0, 0]
+      },
+      "misc_return_guild_ms": {
+        "median": 2983,
+        "p95": 3144,
+        "min": 2982,
+        "max": 3162,
+        "stdev": 85,
+        "samples": [2982, 2983, 3162]
+      }
+    },
+    "warm_boot": {
+      "boot_spinner_visible": {
+        "median": 0,
+        "p95": 0,
+        "min": 0,
+        "max": 0,
+        "stdev": 0,
+        "samples": [0, 0, 0]
+      },
+      "boot_vue_mounted": {
+        "median": 102,
+        "p95": 142,
+        "min": 98,
+        "max": 146,
+        "stdev": 22,
+        "samples": [98, 102, 146]
+      },
+      "boot_gate_dismissed": {
+        "median": 64,
+        "p95": 66,
+        "min": 58,
+        "max": 66,
+        "stdev": 3,
+        "samples": [58, 64, 66]
+      },
+      "boot_shell_visible": {
+        "median": 1104,
+        "p95": 1127,
+        "min": 1045,
+        "max": 1130,
+        "stdev": 36,
+        "samples": [1045, 1104, 1130]
+      },
+      "boot_workspace_settled": {
+        "median": 678,
+        "p95": 697,
+        "min": 657,
+        "max": 699,
+        "stdev": 21,
+        "samples": [657, 699]
+      },
+      "boot_chat_ready": {
+        "median": 1112,
+        "p95": 1189,
+        "min": 1098,
+        "max": 1197,
+        "stdev": 44,
+        "samples": [1098, 1112, 1197]
+      }
+    },
+    "chat_switch": {
+      "chat_switch_start": {
+        "median": 0,
+        "p95": 0,
+        "min": 0,
+        "max": 0,
+        "stdev": 0,
+        "samples": [0, 0, 0]
+      },
+      "chat_switch_fetch_start": {
+        "median": 1,
+        "p95": 1,
+        "min": 1,
+        "max": 1,
+        "stdev": 0,
+        "samples": [1]
+      },
+      "chat_switch_fetch_end": {
+        "median": 1699,
+        "p95": 2576,
+        "min": 723,
+        "max": 2674,
+        "stdev": 976,
+        "samples": [723, 2674]
+      },
+      "chat_switch_merge_done": {
+        "median": 1032,
+        "p95": 1453,
+        "min": 885,
+        "max": 1500,
+        "stdev": 262,
+        "samples": [885, 1032, 1500]
+      },
+      "chat_switch_ui_rendered": {
+        "median": 190,
+        "p95": 209,
+        "min": 124,
+        "max": 211,
+        "stdev": 37,
+        "samples": [124, 190, 211]
+      },
+      "chat_switch_first_message_visible": {
+        "median": 2509,
+        "p95": 2861,
+        "min": 2214,
+        "max": 2900,
+        "stdev": 281,
+        "samples": [2214, 2509, 2900]
+      }
+    }
+  }
+}

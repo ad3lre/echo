@@ -4,7 +4,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 function resolveBunBin(): string {
-  const override = process.env.ECHO_BUN_BIN?.trim() || process.env.ECHO_NODE_BIN?.trim();
+  const override =
+    process.env.ECHO_BUN_BIN?.trim() || process.env.ECHO_NODE_BIN?.trim();
   if (override && existsSync(override)) return override;
 
   const candidates = [

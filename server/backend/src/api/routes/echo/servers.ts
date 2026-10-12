@@ -55,10 +55,12 @@ function guestServerExploreForbidden(reply: Parameters<typeof sendError>[0]) {
 function parseWorkspaceMemberDetailQuery(
   query: Record<string, unknown> | undefined,
 ): EchoWorkspaceMemberDetail {
-  const raw = query?.memberDetail;
-  if (typeof raw === 'string' && raw.trim().toLowerCase() === 'roster') {
-    return 'roster';
-  }
+  const n =
+    typeof query?.memberDetail === 'string'
+      ? query.memberDetail.trim().toLowerCase()
+      : '';
+  if (n === 'roster') return 'roster';
+  if (n === 'none' || n === 'shell') return 'none';
   return 'full';
 }
 

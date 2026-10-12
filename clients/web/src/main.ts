@@ -17,11 +17,7 @@ import { useBugHunterStore } from '@/features/layout/bugHunter';
 import { hydrateBootThemeAndPreferences } from '@/features/layout/boot/bootThemeHydration';
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
 import type { WorkspaceStateApi } from '@/features/layout/echoWorkspace/useEchoWorkspace';
-import type { EchoWorkspaceState } from '@/api/echoClient';
-import {
-  prefetchInboundUrlChannelFirstPage,
-  prefetchWorkspaceBootstrapTextChannelsNonBlocking,
-} from '@/features/layout/echoWorkspace/echoWorkspaceChannelPrefetch';
+import { prefetchInboundUrlChannelFirstPage } from '@/features/layout/echoWorkspace/echoWorkspaceChannelPrefetch';
 import {
   readJwtSub,
   readWorkspaceSessionCache,
@@ -36,8 +32,7 @@ import './assets/themes.scss';
 import './assets/density.scss';
 import './assets/accessibility.scss';
 import './assets/main.scss';
-/* Load KaTeX's structural vlist rules before any message can be typeset. */
-import 'katex/dist/katex.min.css';
+/* KaTeX CSS loads with the math renderer (markdownKatex) — not on the critical path. */
 import './assets/document-canvas.scss';
 import { registerEchoServiceWorker } from '@/registerServiceWorker';
 import { reloadEchoApp } from '@/platform/reloadEchoApp';
@@ -150,12 +145,9 @@ async function bootstrap() {
         (
           getEchoPlatform().workspace as WorkspaceStateApi
         ).preHydrateFromSessionCache(preCache);
-        if (preToken) {
-          prefetchWorkspaceBootstrapTextChannelsNonBlocking(
-            preToken,
-            preCache as EchoWorkspaceState,
-          );
-        }
+        /* Do not warm secondary channel heads here — that competes with the
+         * inbound URL channel prefetch + first history. Bootstrap warm starts
+         * after chat is ready (see startInitialLoad). */
       }
     }
   } catch {

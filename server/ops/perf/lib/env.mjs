@@ -10,8 +10,11 @@ const defaultPerfDir = path.resolve(libDir, '..');
  */
 export function getPerfEnv(perfDir = defaultPerfDir) {
   const root = perfDir;
-  const repoRoot = path.resolve(root, '..');
+  /** Monorepo root from `server/ops/perf` (`../../..`). */
+  const repoRoot = path.resolve(root, '../../..');
+  // Prefer repo-root `.env.perf`; also accept `server/ops/.env.perf`.
   loadDotEnvPerf(repoRoot);
+  loadDotEnvPerf(path.resolve(root, '../..'));
 
   const runId =
     process.env.PERF_RUN_ID?.trim() ||

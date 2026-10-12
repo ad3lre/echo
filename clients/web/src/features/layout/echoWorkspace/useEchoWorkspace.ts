@@ -32,6 +32,7 @@ import { bindChannelMessageBuckets } from '@/features/chat/domain/channelMessage
 import { applyTimeoutUntilFromWorkspaceSnapshot } from '@/features/layout/workspaceTimeoutApplyFromSnapshot';
 import { buildServerMemberNicknameMapFromMembersByServer } from '@/features/layout/echoWorkspace/workspaceEchoApiSnapshot';
 import { prefetchWorkspaceBootstrapTextChannelsNonBlocking } from '@/features/layout/echoWorkspace/echoWorkspaceChannelPrefetch';
+import { scheduleDeferredTask } from '@/features/layout/failures/scheduleDeferredTask';
 
 import type { MockData, WorkspaceStateRefs, WorkspaceStateApi } from './types';
 import { echoUserRowFromAuthUser, loadEchoExploreDirectoryRows } from './utils';
@@ -344,6 +345,9 @@ export function createWorkspaceState(): WorkspaceStateApi {
 
       const wsOut = await withTransientFetchRetries(() =>
         fetchEchoWorkspaceState(token || '__session__', sessionUser.id, {
+          /* Shell first: skip member roster SQL so /workspace returns faster;
+           * roster hydrates after chat is ready (deferred below). */
+          memberDetail: 'none',
           onWorkspaceMemberFetchDebug: (payload) =>
             dbgMemberList(
               'fetchEchoWorkspaceState → buildEchoWorkspaceState',
@@ -404,15 +408,61 @@ export function createWorkspaceState(): WorkspaceStateApi {
         },
       );
       applyWorkspaceStateToRefs(state, { authoritative: true });
-      users.value = applyWorkspaceRosterUsersPipeline([], {
-        membersByServer: state.membersByServer ?? {},
-        authUser: user,
-      });
+      /* Shell (`memberDetail=none`) omits roster — keep warm-cache users; only
+       * replace the roster pipeline when the snapshot actually includes members. */
+      if (state.membersByServer) {
+        users.value = applyWorkspaceRosterUsersPipeline([], {
+          membersByServer: state.membersByServer,
+          authUser: user,
+        });
+      } else {
+        users.value = applyWorkspaceRosterUsersPipeline(users.value, {
+          authUser: user,
+        });
+      }
       fromApi.value = true;
       apiError.value = null;
       auth.applyRestoredProfile(user);
       writeWorkspaceSessionCache(user.id, state);
-      prefetchWorkspaceBootstrapTextChannelsNonBlocking(token, state);
+      /* Cap boot fan-out: URL channel is already prefetched; warm other heads and
+       * member roster only after the first paint window so history wins the wire. */
+      const bootToken = token;
+      const bootUserId = user.id;
+      const bootAuthGen = authGenForLoad;
+      scheduleDeferredTask(
+        () => {
+          if (auth.authStateGeneration !== bootAuthGen) return;
+          void withTransientFetchRetries(() =>
+            fetchEchoWorkspaceState(bootToken || '__session__', bootUserId, {
+              memberDetail: 'roster',
+              onWorkspaceMemberFetchDebug: (payload) =>
+                dbgMemberList(
+                  'deferred roster fetch → buildEchoWorkspaceState',
+                  payload as Record<string, unknown>,
+                ),
+            }),
+          )
+            .then((rosterState) => {
+              if (auth.authStateGeneration !== bootAuthGen) return;
+              applyWorkspaceStateToRefs(rosterState, { authoritative: true });
+              users.value = applyWorkspaceRosterUsersPipeline(users.value, {
+                membersByServer: rosterState.membersByServer ?? {},
+                authUser: auth.backendUser ?? user,
+              });
+              writeWorkspaceSessionCache(bootUserId, rosterState);
+            })
+            .catch((error) => {
+              reportPrimaryFlowFailure(
+                'startInitialLoad.deferredRoster',
+                error,
+                undefined,
+                { showBanner: false },
+              );
+            });
+          prefetchWorkspaceBootstrapTextChannelsNonBlocking(bootToken, state);
+        },
+        { timeoutMs: 2800, fallbackDelayMs: 900 },
+      );
       void seedPublicExploreDirectory();
     } catch (e) {
       apiError.value = e instanceof Error ? e.message : 'Failed to load data';

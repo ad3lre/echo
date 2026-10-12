@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10",
+  "generatedAt": "2026-10-12",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -350,8 +350,8 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/api/echo/workspace.ts": {
-      "lines": 74,
-      "longestFunction": 38,
+      "lines": 84,
+      "longestFunction": 40,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
     },
@@ -2186,8 +2186,8 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/chat/ingest/echoHistoryOrchestration.ts": {
-      "lines": 1539,
-      "longestFunction": 1444,
+      "lines": 1541,
+      "longestFunction": 1446,
       "deepNestingLines": 1,
       "maxNestingSpaces": 14
     },
@@ -3044,7 +3044,7 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/layout/components/AppLayoutChatSurface.vue": {
-      "lines": 1031,
+      "lines": 1084,
       "longestFunction": 45,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
@@ -3056,7 +3056,7 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/layout/components/AppLayoutDmSection.vue": {
-      "lines": 728,
+      "lines": 691,
       "longestFunction": 3,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -3068,7 +3068,7 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/layout/components/AppLayoutForumSection.vue": {
-      "lines": 1098,
+      "lines": 1104,
       "longestFunction": 36,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -3128,7 +3128,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/layout/components/AppLayoutVoiceSection.vue": {
-      "lines": 1029,
+      "lines": 1031,
       "longestFunction": 11,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -4484,10 +4484,10 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/layout/echoWorkspace/useEchoWorkspace.ts": {
-      "lines": 481,
-      "longestFunction": 403,
-      "deepNestingLines": 8,
-      "maxNestingSpaces": 14
+      "lines": 531,
+      "longestFunction": 452,
+      "deepNestingLines": 27,
+      "maxNestingSpaces": 18
     },
     "clients/web/src/features/layout/echoWorkspace/utils.ts": {
       "lines": 96,
@@ -4508,14 +4508,14 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/layout/echoWorkspace/workspaceEchoApiSnapshot.ts": {
-      "lines": 906,
-      "longestFunction": 53,
+      "lines": 916,
+      "longestFunction": 57,
       "deepNestingLines": 3,
       "maxNestingSpaces": 14
     },
     "clients/web/src/features/layout/echoWorkspace/workspaceEchoHydrateFromApi.ts": {
-      "lines": 290,
-      "longestFunction": 138,
+      "lines": 279,
+      "longestFunction": 129,
       "deepNestingLines": 3,
       "maxNestingSpaces": 14
     },
@@ -6740,7 +6740,7 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/voice/callRingtone.ts": {
-      "lines": 473,
+      "lines": 492,
       "longestFunction": 70,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
@@ -7310,8 +7310,8 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/main.ts": {
-      "lines": 438,
-      "longestFunction": 310,
+      "lines": 430,
+      "longestFunction": 307,
       "deepNestingLines": 4,
       "maxNestingSpaces": 14
     },
@@ -8258,8 +8258,8 @@
       "maxNestingSpaces": 16
     },
     "server/backend/src/api/routes/echo/servers.ts": {
-      "lines": 437,
-      "longestFunction": 9,
+      "lines": 439,
+      "longestFunction": 11,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },
@@ -8558,7 +8558,7 @@
       "maxNestingSpaces": 0
     },
     "server/backend/src/auth/store/helpers.ts": {
-      "lines": 46,
+      "lines": 45,
       "longestFunction": 25,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -8990,7 +8990,7 @@
       "maxNestingSpaces": 10
     },
     "server/backend/src/domain/echoStore/channels/categoriesWorkspace.ts": {
-      "lines": 1965,
+      "lines": 1972,
       "longestFunction": 291,
       "deepNestingLines": 80,
       "maxNestingSpaces": 18
@@ -9584,8 +9584,8 @@
       "maxNestingSpaces": 6
     },
     "server/backend/src/observability/otel.ts": {
-      "lines": 37,
-      "longestFunction": 12,
+      "lines": 31,
+      "longestFunction": 8,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
     },

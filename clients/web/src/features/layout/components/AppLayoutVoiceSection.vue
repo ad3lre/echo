@@ -33,7 +33,6 @@ import type {
   PollData,
   ReplyTo,
 } from '@shared/types';
-import ChatView from '@/features/chat/components/ChatView.vue';
 import type { PopoutAnchorRect } from '@/features/member-profile/memberProfiles';
 import type { RemoteParticipantTrackInfo } from '@/features/voice/useLiveKitVoiceRoom';
 import type { Room as LKRoom } from 'livekit-client';
@@ -51,6 +50,9 @@ import { parseStageModeFromDescription } from '@/features/voice/stage/stageLobby
 import { resolveVoiceChannelForParticipants } from '@/features/layout/resolveVoiceChannelForParticipants';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 
+const ChatView = defineAsyncComponent(
+  () => import('@/features/chat/components/ChatView.vue'),
+);
 const CallView = defineAsyncComponent(
   () => import('@/features/voice/CallView.vue'),
 );
