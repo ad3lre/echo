@@ -77,3 +77,38 @@ export function verifyMfaPendingToken(token: string): MfaPendingTokenPayload {
   }
   return { sub: decoded.sub, typ: 'mfa_pending' };
 }
+
+/** Short-lived token after password OK while email verify or new-IP OTP is pending. */
+export type LoginEmailPendingTokenPayload = {
+  sub: string;
+  typ: 'login_email_pending';
+};
+
+export function signLoginEmailPendingToken(userId: string): string {
+  return jwt.sign(
+    {
+      sub: userId,
+      typ: 'login_email_pending',
+    } satisfies LoginEmailPendingTokenPayload,
+    config.jwtSecret,
+    {
+      expiresIn: config.echoMfaPendingJwtExpiresIn as SignOptions['expiresIn'],
+    },
+  );
+}
+
+export function verifyLoginEmailPendingToken(
+  token: string,
+): LoginEmailPendingTokenPayload {
+  const decoded = jwt.verify(token, config.jwtSecret, {
+    algorithms: ['HS256'],
+  }) as LoginEmailPendingTokenPayload & Record<string, unknown>;
+  if (
+    decoded?.typ !== 'login_email_pending' ||
+    typeof decoded.sub !== 'string' ||
+    !decoded.sub
+  ) {
+    throw new Error('Invalid login email pending token');
+  }
+  return { sub: decoded.sub, typ: 'login_email_pending' };
+}

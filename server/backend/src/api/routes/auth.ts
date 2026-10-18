@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import registerRoutes from './auth/register';
 import loginRoutes from './auth/login';
+import loginEmailIpRoutes from './auth/loginEmailIp';
 import passwordRoutes from './auth/password';
 import twoFactorRoutes from './auth/2fa';
 import sessionRoutes from './auth/session';
@@ -18,6 +19,7 @@ export default async function authRoutes(
 ) {
   await fastify.register(registerRoutes);
   await fastify.register(loginRoutes);
+  await fastify.register(loginEmailIpRoutes);
   await fastify.register(passwordRoutes);
   await fastify.register(twoFactorRoutes);
   await fastify.register(sessionRoutes);

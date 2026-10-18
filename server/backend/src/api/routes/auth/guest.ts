@@ -28,6 +28,10 @@ import { sendSignupVerificationEmail } from '../../../services/auth/emailVerific
 import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
 import { authSessionJsonBody } from '../../../auth/authSessionResponse';
 import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSessionRevocation';
+import { signLoginEmailPendingToken } from '../../../auth/token';
+import { emailVerificationRequiredBody } from '../../../services/auth/passwordLoginGates';
+import { maskEmailAddress } from '../../../services/auth/maskEmail';
+import { emailVerifyLockEnforced } from '../../../auth/emailVerifyLockPolicy';
 import {
   authHwidAccountCapActive,
   countDistinctAccountsForHwidProfileAndIp,
@@ -329,19 +333,40 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           user.id,
           'guest_upgrade',
         );
-        const session = await issueEchoBrowserSession(store, user, reply, req);
+        clearBrowserSessionCookies(reply);
         fastify.log.info({
           msg: 'echo_product_analytics',
           event: 'guest_upgrade_completed',
-          userId: session.user.id,
+          userId: user.id,
         });
-        if (
-          mode === 'postgres' &&
-          session.user.email &&
-          !session.user.emailVerified
-        ) {
-          void sendSignupVerificationEmail(fastify.log, store, session.user);
+        if (mode === 'postgres' && user.email && !user.emailVerified) {
+          void sendSignupVerificationEmail(fastify.log, store, user);
         }
+        if (emailVerifyLockEnforced() && user.email && !user.emailVerified) {
+          return reply.code(200).send(
+            emailVerificationRequiredBody({
+              loginToken: signLoginEmailPendingToken(user.id),
+              maskedEmail: maskEmailAddress(user.email),
+              user: { id: user.id, username: user.username },
+            }),
+          );
+        }
+        let sessionUser = user;
+        if (user.email && !user.emailVerified) {
+          const { plainToken } = await store.createEmailVerificationToken(
+            user.id,
+            'signup',
+            { enforceResendCooldown: false },
+          );
+          await store.consumeEmailVerificationToken(plainToken);
+          sessionUser = (await store.getUserById(user.id)) ?? user;
+        }
+        const session = await issueEchoBrowserSession(
+          store,
+          sessionUser,
+          reply,
+          req,
+        );
         return reply.code(200).send(authSessionJsonBody(session));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : undefined;

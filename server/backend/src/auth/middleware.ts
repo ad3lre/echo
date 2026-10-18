@@ -14,6 +14,7 @@ import {
 } from './serverSession';
 import { clientIpFromFastifyRequest } from '../net/clientIp';
 import { replyIfInstanceBanned } from '../domain/instanceBanEnforcement';
+import { emailVerifyLockEnforced } from './emailVerifyLockPolicy';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -24,6 +25,18 @@ declare module 'fastify' {
     authViaNativeBearer?: boolean;
   }
 }
+
+function pathOnly(url: string): string {
+  const q = url.indexOf('?');
+  return q === -1 ? url : url.slice(0, q);
+}
+
+/** Routes still allowed while an unverified-email session is hard-locked. */
+const EMAIL_VERIFY_LOCK_ALLOWLIST = new Set([
+  '/api/v1/auth/resend-verification',
+  '/api/v1/auth/logout',
+  '/api/v1/auth/me',
+]);
 
 function checkGuestGates(
   user: AuthUser,
@@ -56,6 +69,24 @@ function checkGuestGates(
   return null;
 }
 
+function checkEmailVerificationLock(
+  req: FastifyRequest,
+  user: AuthUser,
+): { code: number; errorCode: string; message: string } | null {
+  if (!emailVerifyLockEnforced()) return null;
+  if (user.isGuest) return null;
+  const email = user.email?.trim() ?? '';
+  if (!email || user.emailVerified) return null;
+  const path = pathOnly(req.url);
+  if (EMAIL_VERIFY_LOCK_ALLOWLIST.has(path)) return null;
+  return {
+    code: 403,
+    errorCode: 'EMAIL_VERIFICATION_REQUIRED',
+    message:
+      'Verify your email to unlock this account. Check your inbox for a verification link.',
+  };
+}
+
 /**
  * Returns the authenticated user from a request that has passed `requireAuth`.
  * Prefer this over `req.authUser!` — it centralises the assertion and gives
@@ -79,6 +110,11 @@ async function finalizeAuthenticatedUser(
       await deleteServerSession(opts.sessionId, user.id);
     }
     sendError(reply, gate.code, gate.errorCode, gate.message);
+    return false;
+  }
+  const emailLock = checkEmailVerificationLock(req, user);
+  if (emailLock) {
+    sendError(reply, emailLock.code, emailLock.errorCode, emailLock.message);
     return false;
   }
   if (

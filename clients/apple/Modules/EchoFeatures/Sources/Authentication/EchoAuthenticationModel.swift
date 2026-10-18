@@ -12,10 +12,22 @@ public final class EchoAuthenticationModel {
   private(set) var errorMessage: String?
   private(set) var pendingMfaToken: String?
   private(set) var pendingMfaUsername: String?
+  private(set) var pendingEmailGateToken: String?
+  private(set) var pendingEmailGateMasked: String?
+  private(set) var pendingEmailGateKind: EmailGateKind?
+  enum EmailGateKind: Sendable, Equatable {
+    case verify
+    case ipCode
+  }
   let hasStoredSession: Bool
   let biometricLabel: String
   var apiBaseURL: URL { baseURL }
   var isMfaPending: Bool { pendingMfaToken != nil }
+  var isEmailVerifyPending: Bool { pendingEmailGateKind == .verify }
+  var isEmailIpPending: Bool { pendingEmailGateKind == .ipCode }
+  var isChallengePending: Bool {
+    isMfaPending || isEmailVerifyPending || isEmailIpPending
+  }
   private let baseURL: URL
   private let authenticationClient: EchoAuthenticationClient
   private let sessionStore: any SessionStore
@@ -146,6 +158,42 @@ public final class EchoAuthenticationModel {
     }
   }
 
+  func completeEmailIpCode(code: String) async -> Bool {
+    let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let token = pendingEmailGateToken, !trimmed.isEmpty else { return false }
+    return await submit {
+      try await authenticationClient.signInEmailIpCode(loginToken: token, code: trimmed)
+    }
+  }
+
+  func resendEmailVerification() async {
+    guard let token = pendingEmailGateToken else { return }
+    isWorking = true
+    errorMessage = nil
+    defer { isWorking = false }
+    do {
+      try await authenticationClient.resendEmailVerification(loginToken: token)
+      errorMessage = EchoCopy.string("Verification email sent. Check your inbox.")
+    } catch {
+      errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    }
+  }
+
+  func resendEmailIpCode() async {
+    guard let token = pendingEmailGateToken else { return }
+    isWorking = true
+    errorMessage = nil
+    defer { isWorking = false }
+    do {
+      let result = try await authenticationClient.resendEmailIpCode(loginToken: token)
+      pendingEmailGateToken = result.token
+      pendingEmailGateMasked = result.maskedEmail
+      pendingEmailGateKind = .ipCode
+    } catch {
+      errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    }
+  }
+
   /// Recovery codes are longer than TOTP digits and often hyphenated.
   nonisolated static func looksLikeRecoveryCode(_ code: String) -> Bool {
     let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -171,6 +219,9 @@ public final class EchoAuthenticationModel {
   func cancelMfa() {
     pendingMfaToken = nil
     pendingMfaUsername = nil
+    pendingEmailGateToken = nil
+    pendingEmailGateMasked = nil
+    pendingEmailGateKind = nil
     errorMessage = nil
   }
 
@@ -179,6 +230,13 @@ public final class EchoAuthenticationModel {
     pendingMfaToken = token
     pendingMfaUsername = username
     self.errorMessage = errorMessage
+  }
+
+  func seedPendingEmailVerify(token: String, maskedEmail: String, username: String) {
+    pendingEmailGateToken = token
+    pendingEmailGateMasked = maskedEmail
+    pendingEmailGateKind = .verify
+    pendingMfaUsername = username
   }
 
   func signInWithPasskey(username: String) async -> Bool {
@@ -190,13 +248,7 @@ public final class EchoAuthenticationModel {
         client: authenticationClient, username: username)
       return await applyAuthResult(result)
     } catch let error as EchoAuthenticationError {
-      if case .mfaRequired(let token, let user) = error {
-        pendingMfaToken = token
-        pendingMfaUsername = user.username
-        return false
-      }
-      errorMessage = error.errorDescription ?? error.localizedDescription
-      return false
+      return handleAuthChallenge(error)
     } catch let error as ASAuthorizationError where error.code == .canceled {
       return false
     } catch {
@@ -302,12 +354,7 @@ public final class EchoAuthenticationModel {
         displayName: credential.displayName)
       _ = await applyAuthResult(result)
     } catch let error as EchoAuthenticationError {
-      if case .mfaRequired(let token, let user) = error {
-        pendingMfaToken = token
-        pendingMfaUsername = user.username
-      } else {
-        errorMessage = error.errorDescription ?? error.localizedDescription
-      }
+      _ = handleAuthChallenge(error)
     } catch let error as ASAuthorizationError where error.code == .canceled {
     } catch {
       errorMessage =
@@ -347,7 +394,37 @@ public final class EchoAuthenticationModel {
     currentSession = nil
     pendingMfaToken = nil
     pendingMfaUsername = nil
+    pendingEmailGateToken = nil
+    pendingEmailGateMasked = nil
+    pendingEmailGateKind = nil
     await EchoMediaCaches.clear()
+  }
+
+  private func handleAuthChallenge(_ error: EchoAuthenticationError) -> Bool {
+    switch error {
+    case .mfaRequired(let token, let user):
+      pendingMfaToken = token
+      pendingMfaUsername = user.username
+      pendingEmailGateKind = nil
+      return false
+    case .emailVerificationRequired(let token, let masked, let user):
+      pendingEmailGateToken = token
+      pendingEmailGateMasked = masked
+      pendingEmailGateKind = .verify
+      pendingMfaUsername = user.username
+      pendingMfaToken = nil
+      return false
+    case .emailIpVerificationRequired(let token, let masked, let user):
+      pendingEmailGateToken = token
+      pendingEmailGateMasked = masked
+      pendingEmailGateKind = .ipCode
+      pendingMfaUsername = user.username
+      pendingMfaToken = nil
+      return false
+    default:
+      errorMessage = error.errorDescription ?? error.localizedDescription
+      return false
+    }
   }
 
   private func submit(
@@ -360,13 +437,7 @@ public final class EchoAuthenticationModel {
       let result = try await request()
       return await applyAuthResult(result)
     } catch let error as EchoAuthenticationError {
-      if case .mfaRequired(let token, let user) = error {
-        pendingMfaToken = token
-        pendingMfaUsername = user.username
-        return false
-      }
-      errorMessage = error.errorDescription ?? error.localizedDescription
-      return false
+      return handleAuthChallenge(error)
     } catch {
       errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
       return false
@@ -385,6 +456,9 @@ public final class EchoAuthenticationModel {
       currentSession = session
       pendingMfaToken = nil
       pendingMfaUsername = nil
+      pendingEmailGateToken = nil
+      pendingEmailGateMasked = nil
+      pendingEmailGateKind = nil
       return true
     } catch {
       errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

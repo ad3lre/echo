@@ -36,6 +36,7 @@ struct EchoAuthScreen: View {
   @State private var password = ""
   @State private var confirmPassword = ""
   @State private var mfaCode = ""
+  @State private var emailIpCode = ""
 
   private var isRegistration: Bool { mode == .register }
   private var canSubmit: Bool {
@@ -54,9 +55,10 @@ struct EchoAuthScreen: View {
         VStack(spacing: 0) {
           HStack {
             Button(action: {
-              if model.isMfaPending {
+              if model.isChallengePending {
                 model.cancelMfa()
                 mfaCode = ""
+                emailIpCode = ""
               } else {
                 onBack()
               }
@@ -69,16 +71,20 @@ struct EchoAuthScreen: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
-              model.isMfaPending
+              model.isChallengePending
                 ? EchoCopy.string("Cancel verification")
                 : EchoCopy.string("Back")
             )
             Spacer()
-            EchoAuthFlowTrack(mode: mode, isVerifying: model.isMfaPending)
+            EchoAuthFlowTrack(mode: mode, isVerifying: model.isChallengePending)
           }
           .padding(.top, 22)
 
-          if model.isMfaPending {
+          if model.isEmailVerifyPending {
+            emailVerifyContent(proxy: proxy)
+          } else if model.isEmailIpPending {
+            emailIpContent(proxy: proxy)
+          } else if model.isMfaPending {
             mfaContent(proxy: proxy)
           } else {
             signInContent(proxy: proxy)
@@ -91,6 +97,106 @@ struct EchoAuthScreen: View {
       .safeAreaPadding(.bottom, 12)
     }
     .background(Color.clear)
+  }
+
+  @ViewBuilder
+  private func emailVerifyContent(proxy: GeometryProxy) -> some View {
+    VStack(spacing: 0) {
+      VStack(spacing: 0) {
+        EchoCopy.text("Verify your email")
+          .font(.system(size: 28, weight: .semibold, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.fg)
+        Text(
+          {
+            if let masked = model.pendingEmailGateMasked, !masked.isEmpty {
+              return EchoCopy.format(
+                "Your account is locked until you verify %@. Open the link we sent, then sign in again.",
+                masked)
+            }
+            return EchoCopy.string(
+              "Your account is locked until you verify your email. Open the link we sent, then sign in again."
+            )
+          }()
+        )
+        .font(.system(size: 14, weight: .regular))
+        .foregroundStyle(EchoTheme.Color.ink(0.60))
+        .multilineTextAlignment(.center)
+        .padding(.top, 8)
+      }
+      .padding(.top, 64)
+
+      Button {
+        Task { await model.resendEmailVerification() }
+      } label: {
+        EchoCopy.text("Resend verification email")
+          .font(.system(size: 16, weight: .semibold, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.onAccent)
+          .frame(maxWidth: .infinity, minHeight: 52)
+      }
+      .buttonStyle(EchoPrimaryButtonStyle())
+      .disabled(model.isWorking)
+      .opacity(model.isWorking ? 0.45 : 1)
+      .padding(.top, 30)
+      .padding(.bottom, max(28, proxy.safeAreaInsets.bottom + 18))
+    }
+  }
+
+  @ViewBuilder
+  private func emailIpContent(proxy: GeometryProxy) -> some View {
+    VStack(spacing: 0) {
+      VStack(spacing: 0) {
+        EchoCopy.text("Confirm sign-in")
+          .font(.system(size: 28, weight: .semibold, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.fg)
+        Text(
+          {
+            if let masked = model.pendingEmailGateMasked, !masked.isEmpty {
+              return EchoCopy.format("Enter the code we sent to %@.", masked)
+            }
+            return EchoCopy.string("Enter the code we emailed you to confirm this sign-in.")
+          }()
+        )
+        .font(.system(size: 14, weight: .regular))
+        .foregroundStyle(EchoTheme.Color.ink(0.60))
+        .multilineTextAlignment(.center)
+        .padding(.top, 8)
+      }
+      .padding(.top, 64)
+
+      EchoAuthField(
+        title: EchoCopy.string("Email code"), text: $emailIpCode, isSecure: false
+      )
+      .padding(.top, 30)
+
+      Button {
+        Task { _ = await model.completeEmailIpCode(code: emailIpCode) }
+      } label: {
+        EchoCopy.text("Continue")
+          .font(.system(size: 16, weight: .semibold, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.onAccent)
+          .frame(maxWidth: .infinity, minHeight: 52)
+      }
+      .buttonStyle(EchoPrimaryButtonStyle())
+      .disabled(
+        emailIpCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isWorking
+      )
+      .opacity(
+        emailIpCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1
+      )
+      .padding(.top, 18)
+
+      Button {
+        Task { await model.resendEmailIpCode() }
+      } label: {
+        EchoCopy.text("Resend code")
+          .font(.system(size: 14, weight: .medium))
+          .foregroundStyle(EchoTheme.Color.ink(0.60))
+      }
+      .buttonStyle(.plain)
+      .disabled(model.isWorking)
+      .padding(.top, 14)
+      .padding(.bottom, max(28, proxy.safeAreaInsets.bottom + 18))
+    }
   }
 
   @ViewBuilder

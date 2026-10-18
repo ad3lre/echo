@@ -61,6 +61,8 @@ function jarMergeSetCookie(
 
 async function run(): Promise<void> {
   process.env.ECHO_CONFIG_TEST_ISOLATION = '1';
+  /** Exercise hard email-verify lock (normally softened under test isolation). */
+  process.env.ECHO_AUTH_FORCE_EMAIL_VERIFY_LOCK = '1';
   // Use empty strings so dotenv does not repopulate these from a local `.env`.
   process.env.NODE_ENV = 'development';
   process.env.ECHO_BACKEND_STORAGE = 'memory';
@@ -105,12 +107,64 @@ async function run(): Promise<void> {
     `register failed: ${registerRes.body}`,
   );
   const registered = registerRes.json() as {
+    emailVerificationRequired?: boolean;
+    loginToken?: string;
+    user?: { id: string; username?: string };
+  };
+  assert.equal(
+    registered.emailVerificationRequired,
+    true,
+    `expected email lock on register: ${registerRes.body}`,
+  );
+  assert.ok(registered.user?.id);
+  assert.ok(registered.loginToken);
+  /* No session until email is verified. */
+  {
+    const jarProbe = jarFromSetCookie(
+      registerRes.headers['set-cookie'],
+      CSRF_COOKIE,
+    );
+    assert.equal(jarProbe.header.includes('echo_sid='), false);
+  }
+
+  const authStore = getAuthStore();
+  const { plainToken } = await authStore.createEmailVerificationToken(
+    registered.user!.id,
+    'signup',
+    { enforceResendCooldown: false },
+  );
+  const verifyRes = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/verify-email',
+    headers: { 'user-agent': testUserAgent },
+    payload: { token: plainToken },
+  });
+  assert.equal(verifyRes.statusCode, 200, `verify failed: ${verifyRes.body}`);
+
+  const loginAfterVerify = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/login',
+    headers: { 'user-agent': testUserAgent },
+    payload: { username, password },
+  });
+  assert.equal(
+    loginAfterVerify.statusCode,
+    200,
+    `login after verify failed: ${loginAfterVerify.body}`,
+  );
+  const sessionAfterVerify = loginAfterVerify.json() as {
+    emailIpVerificationRequired?: boolean;
     user?: { id: string; emailVerified?: boolean; phoneVerified?: boolean };
   };
-  assert.ok(registered.user?.id);
-  assert.equal(typeof registered.user?.emailVerified, 'boolean');
-  assert.equal(typeof registered.user?.phoneVerified, 'boolean');
-  let jar = jarFromSetCookie(registerRes.headers['set-cookie'], CSRF_COOKIE);
+  /* Verify-email trusts this IP, so login should mint a session (no IP OTP). */
+  assert.equal(sessionAfterVerify.emailIpVerificationRequired, undefined);
+  assert.ok(sessionAfterVerify.user?.id);
+  assert.equal(typeof sessionAfterVerify.user?.emailVerified, 'boolean');
+  assert.equal(typeof sessionAfterVerify.user?.phoneVerified, 'boolean');
+  let jar = jarFromSetCookie(
+    loginAfterVerify.headers['set-cookie'],
+    CSRF_COOKIE,
+  );
   assert.ok(jar.header.includes('echo_sid='));
   assert.ok(jar.csrf);
 
@@ -499,18 +553,38 @@ async function run(): Promise<void> {
     200,
     `guest upgrade: ${guestUpgrade.body}`,
   );
-  const upUser = (
-    guestUpgrade.json() as {
-      user: { isGuest?: boolean; id: string; username: string };
-    }
-  ).user;
-  assert.equal(upUser.isGuest, false);
-  assert.equal(upUser.id, mintBody.user.id);
-  assert.equal(upUser.username, guestUsername);
+  const upgradeBody = guestUpgrade.json() as {
+    emailVerificationRequired?: boolean;
+    loginToken?: string;
+    user: { isGuest?: boolean; id: string; username: string };
+  };
+  assert.equal(upgradeBody.emailVerificationRequired, true);
+  assert.ok(upgradeBody.loginToken);
+  assert.equal(upgradeBody.user.id, mintBody.user.id);
+  assert.equal(upgradeBody.user.username, guestUsername);
+
+  const { plainToken: guestVerifyToken } =
+    await authStore.createEmailVerificationToken(
+      upgradeBody.user.id,
+      'signup',
+      { enforceResendCooldown: false },
+    );
+  const guestVerifyRes = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/verify-email',
+    headers: { 'user-agent': testUserAgent },
+    payload: { token: guestVerifyToken },
+  });
+  assert.equal(
+    guestVerifyRes.statusCode,
+    200,
+    `guest verify: ${guestVerifyRes.body}`,
+  );
 
   const guestLoginByUsername = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/login',
+    headers: { 'user-agent': testUserAgent },
     payload: { username: guestUsername, password: 'password123' },
   });
   assert.equal(
@@ -522,12 +596,17 @@ async function run(): Promise<void> {
   const guestLoginByEmail = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/login',
+    headers: { 'user-agent': testUserAgent },
     payload: { username: guestEmail, password: 'password123' },
   });
   assert.equal(
     guestLoginByEmail.statusCode,
     200,
     `guest email login failed: ${guestLoginByEmail.body}`,
+  );
+  assert.ok(
+    (guestLoginByEmail.json() as { user?: { id?: string } }).user?.id,
+    'guest email login should return a session user',
   );
 
   await app.close();

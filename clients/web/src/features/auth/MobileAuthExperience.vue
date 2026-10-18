@@ -17,11 +17,17 @@ import {
   authForgotPassword,
   authGoogleLoginStart,
   authLogin,
+  authLoginEmailIpCode,
+  authLoginEmailIpResend,
   authLoginMfa,
+  authLoginResendVerification,
   authPasskeyLoginVerify,
   authRegister,
   authUpgradeGuest,
+  isAuthLoginEmailIpChallenge,
+  isAuthLoginEmailVerificationChallenge,
   isAuthLoginMfaChallenge,
+  type AuthLoginResult,
 } from '@/api/authClient';
 import { translateApiErrorBody } from '@/i18n/apiErrors';
 import { echoT } from '@/i18n';
@@ -66,17 +72,26 @@ const emit = defineEmits<{ authenticated: [] }>();
 
 const authSession = useAuthSessionStore();
 
-type View = 'welcome' | 'login' | 'register' | 'forgot' | 'mfa';
+type View =
+  | 'welcome'
+  | 'login'
+  | 'register'
+  | 'forgot'
+  | 'mfa'
+  | 'email-verify'
+  | 'email-ip';
 const view = ref<View>('welcome');
 const direction = ref<'forward' | 'back'>('forward');
 
 function push(target: Exclude<View, 'welcome'>) {
   direction.value = 'forward';
+  errorMessage.value = '';
   view.value = target;
 }
 
 function pop(target: View = 'welcome') {
   direction.value = 'back';
+  errorMessage.value = '';
   view.value = target;
 }
 
@@ -145,6 +160,9 @@ const mfaToken = ref<string | null>(null);
 const mfaFactor = ref<'totp' | 'recovery'>('totp');
 const mfaTotpCode = ref('');
 const mfaRecoveryCode = ref('');
+const emailGateToken = ref<string | null>(null);
+const emailGateMasked = ref('');
+const emailIpCode = ref('');
 
 const legalModalOpen = ref(false);
 const legalModalTab = ref<'terms' | 'privacy'>('terms');
@@ -183,9 +201,14 @@ function mapError(err: unknown): string {
   }
   if (err instanceof AuthApiError) {
     const c = err.body.code;
-    if (c === 'INVALID_MFA_CODE') return 'That code doesn’t match. Try again.';
-    if (c === 'INVALID_MFA_TOKEN')
+    if (c === 'INVALID_MFA_CODE' || c === 'INVALID_EMAIL_IP_CODE')
+      return 'That code doesn’t match. Try again.';
+    if (c === 'INVALID_MFA_TOKEN' || c === 'INVALID_LOGIN_TOKEN')
       return 'The sign-in step expired. Try logging in again.';
+    if (c === 'EMAIL_VERIFICATION_REQUIRED')
+      return 'Verify your email to unlock this account. Check your inbox for a link.';
+    if (c === 'VERIFICATION_EMAIL_COOLDOWN' || c === 'LOGIN_EMAIL_OTP_COOLDOWN')
+      return 'Please wait a moment before requesting another email.';
     if (c === 'INVALID_CREDENTIALS')
       return 'That username or password doesn’t match our records.';
     if (c === 'USERNAME_TAKEN')
@@ -224,21 +247,39 @@ async function passkeyModalSignIn(raw: string): Promise<string | null> {
       challengeId,
       credential: credential as unknown as Record<string, unknown>,
     });
-    if (isAuthLoginMfaChallenge(result)) {
-      mfaToken.value = result.mfaToken;
-      mfaFactor.value = 'totp';
-      mfaTotpCode.value = '';
-      mfaRecoveryCode.value = '';
-      push('mfa');
-      return null;
-    }
-    authSession.setSession(result);
-    emit('authenticated');
+    await handleLoginResult(result);
     return null;
   } catch (e) {
     void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(raw));
     return mapPasskeyCeremonyError(e, 'login');
   }
+}
+
+async function handleLoginResult(result: AuthLoginResult): Promise<void> {
+  if (isAuthLoginEmailVerificationChallenge(result)) {
+    emailGateToken.value = result.loginToken;
+    emailGateMasked.value = result.maskedEmail;
+    forgotMessage.value = '';
+    push('email-verify');
+    return;
+  }
+  if (isAuthLoginEmailIpChallenge(result)) {
+    emailGateToken.value = result.loginToken;
+    emailGateMasked.value = result.maskedEmail;
+    emailIpCode.value = '';
+    push('email-ip');
+    return;
+  }
+  if (isAuthLoginMfaChallenge(result)) {
+    mfaToken.value = result.mfaToken;
+    mfaFactor.value = 'totp';
+    mfaTotpCode.value = '';
+    mfaRecoveryCode.value = '';
+    push('mfa');
+    return;
+  }
+  authSession.setSession(result);
+  emit('authenticated');
 }
 
 async function startOauthRedirect(
@@ -280,16 +321,7 @@ async function submitLogin(): Promise<void> {
   errorMessage.value = '';
   try {
     const result = await authLogin({ username: u, password: p });
-    if (isAuthLoginMfaChallenge(result)) {
-      mfaToken.value = result.mfaToken;
-      mfaFactor.value = 'totp';
-      mfaTotpCode.value = '';
-      mfaRecoveryCode.value = '';
-      push('mfa');
-      return;
-    }
-    authSession.setSession(result);
-    emit('authenticated');
+    await handleLoginResult(result);
   } catch (e) {
     setAuthError(mapError(e));
   } finally {
@@ -356,7 +388,7 @@ async function submitRegister(): Promise<void> {
   submitting.value = true;
   errorMessage.value = '';
   try {
-    const session = authSession.backendUser?.isGuest
+    const result = authSession.backendUser?.isGuest
       ? await authUpgradeGuest({
           username: u,
           password: p,
@@ -369,8 +401,67 @@ async function submitRegister(): Promise<void> {
           email: em,
           ...(d ? { displayName: d } : {}),
         });
-    authSession.setSession(session);
-    emit('authenticated');
+    await handleLoginResult(result);
+  } catch (e) {
+    setAuthError(mapError(e));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function resendEmailVerification(): Promise<void> {
+  const token = emailGateToken.value?.trim() ?? '';
+  if (!token) {
+    setAuthError('Sign-in expired. Try logging in again.');
+    return;
+  }
+  submitting.value = true;
+  errorMessage.value = '';
+  try {
+    await authLoginResendVerification({ loginToken: token });
+    forgotMessage.value = 'Verification email sent. Check your inbox.';
+  } catch (e) {
+    setAuthError(mapError(e));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function submitEmailIpCode(): Promise<void> {
+  const token = emailGateToken.value?.trim() ?? '';
+  const code = emailIpCode.value.trim();
+  if (!token) {
+    setAuthError('Sign-in expired. Try logging in again.');
+    return;
+  }
+  if (!/^\d{4,8}$/.test(code)) {
+    setAuthError('Enter the code from your email.');
+    return;
+  }
+  submitting.value = true;
+  errorMessage.value = '';
+  try {
+    const result = await authLoginEmailIpCode({ loginToken: token, code });
+    await handleLoginResult(result);
+  } catch (e) {
+    setAuthError(mapError(e));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function resendEmailIpCode(): Promise<void> {
+  const token = emailGateToken.value?.trim() ?? '';
+  if (!token) {
+    setAuthError('Sign-in expired. Try logging in again.');
+    return;
+  }
+  submitting.value = true;
+  errorMessage.value = '';
+  try {
+    const result = await authLoginEmailIpResend({ loginToken: token });
+    emailGateToken.value = result.loginToken;
+    emailGateMasked.value = result.maskedEmail;
   } catch (e) {
     setAuthError(mapError(e));
   } finally {
@@ -849,6 +940,121 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             :disabled="submitting || isMockDataMode"
           >
             Send reset link
+          </button>
+        </form>
+      </section>
+
+      <!-- ── EMAIL VERIFY LOCK ─────────────────────────────────────────── -->
+      <section
+        v-else-if="view === 'email-verify'"
+        key="email-verify"
+        class="mobile-auth__page mobile-auth__page--form"
+      >
+        <header class="mobile-auth__top-nav">
+          <button
+            type="button"
+            class="mobile-auth__back"
+            aria-label="Back"
+            @click="pop('login')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15 18l-6-6 6-6"
+              />
+            </svg>
+          </button>
+          <h1 class="mobile-auth__top-title">Verify email</h1>
+          <span
+            class="mobile-auth__back mobile-auth__back--ghost"
+            aria-hidden="true"
+          />
+        </header>
+        <div class="mobile-auth__form">
+          <p class="mobile-auth__forgot-blurb">
+            Your account is locked until you verify
+            <strong v-if="emailGateMasked">{{ emailGateMasked }}</strong
+            ><template v-else>your email</template>. Open the link we sent, then
+            sign in again.
+          </p>
+          <p v-if="forgotMessage" class="mobile-auth__success" role="status">
+            {{ forgotMessage }}
+          </p>
+          <button
+            type="button"
+            class="mobile-auth__primary mobile-auth__primary--filled"
+            :disabled="submitting"
+            @click="resendEmailVerification"
+          >
+            Resend verification email
+          </button>
+        </div>
+      </section>
+
+      <!-- ── NEW-IP EMAIL CODE ─────────────────────────────────────────── -->
+      <section
+        v-else-if="view === 'email-ip'"
+        key="email-ip"
+        class="mobile-auth__page mobile-auth__page--form"
+      >
+        <header class="mobile-auth__top-nav">
+          <button
+            type="button"
+            class="mobile-auth__back"
+            aria-label="Back"
+            @click="pop('login')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15 18l-6-6 6-6"
+              />
+            </svg>
+          </button>
+          <h1 class="mobile-auth__top-title">Confirm sign-in</h1>
+          <span
+            class="mobile-auth__back mobile-auth__back--ghost"
+            aria-hidden="true"
+          />
+        </header>
+        <form class="mobile-auth__form" @submit.prevent="submitEmailIpCode">
+          <p class="mobile-auth__forgot-blurb">
+            Enter the code we sent to
+            <strong v-if="emailGateMasked">{{ emailGateMasked }}</strong
+            ><template v-else>your email</template>.
+          </p>
+          <label class="mobile-auth__field">
+            <span class="mobile-auth__label">Email code</span>
+            <input
+              v-model="emailIpCode"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="8"
+              class="mobile-auth__input"
+              placeholder="000000"
+            />
+          </label>
+          <button
+            type="submit"
+            class="mobile-auth__primary mobile-auth__primary--filled"
+            :disabled="submitting"
+          >
+            Continue
+          </button>
+          <button
+            type="button"
+            class="mobile-auth__inline-link"
+            :disabled="submitting"
+            @click="resendEmailIpCode"
+          >
+            Resend code
           </button>
         </form>
       </section>

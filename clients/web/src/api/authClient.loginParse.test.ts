@@ -40,6 +40,36 @@ describe('parseAuthLoginResult', () => {
     });
   });
 
+  it('parses email verification challenge', () => {
+    const out = parseAuthLoginResult({
+      emailVerificationRequired: true,
+      loginToken: 'ltok',
+      maskedEmail: 'a***@echo.test',
+      user: { id: '9', username: 'alice' },
+    });
+    expect(out).toEqual({
+      emailVerificationRequired: true,
+      loginToken: 'ltok',
+      maskedEmail: 'a***@echo.test',
+      user: { id: '9', username: 'alice' },
+    });
+  });
+
+  it('parses new-IP email OTP challenge', () => {
+    const out = parseAuthLoginResult({
+      emailIpVerificationRequired: true,
+      loginToken: 'ltok',
+      maskedEmail: 'a***@echo.test',
+      user: { id: '9', username: 'alice' },
+    });
+    expect(out).toEqual({
+      emailIpVerificationRequired: true,
+      loginToken: 'ltok',
+      maskedEmail: 'a***@echo.test',
+      user: { id: '9', username: 'alice' },
+    });
+  });
+
   it('throws on invalid payload', () => {
     expect(() => parseAuthLoginResult(null)).toThrow('INVALID_LOGIN_RESPONSE');
     expect(() => parseAuthLoginResult({})).toThrow('INVALID_LOGIN_RESPONSE');

@@ -230,19 +230,19 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/settings/GuestAccountUpgradePanel.vue": {
-      "lines": 484,
-      "longestFunction": 30,
+      "lines": 500,
+      "longestFunction": 41,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/auth/useInlineAuthFlow.ts": {
-      "lines": 423,
-      "longestFunction": 360,
+      "lines": 535,
+      "longestFunction": 464,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/auth/InlineAuthPanel.vue": {
-      "lines": 581,
+      "lines": 701,
       "longestFunction": 4,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -403,6 +403,12 @@
       "deepNestingLines": 4,
       "maxNestingSpaces": 14
     },
+    "server/backend/src/api/routes/auth/loginEmailIp.ts": {
+      "lines": 375,
+      "longestFunction": 0,
+      "deepNestingLines": 79,
+      "maxNestingSpaces": 16
+    },
     "server/backend/src/config/instancePolicy/envOverrides.ts": {
       "lines": 201,
       "longestFunction": 88,
@@ -438,6 +444,12 @@
       "longestFunction": 54,
       "deepNestingLines": 5,
       "maxNestingSpaces": 14
+    },
+    "server/backend/src/services/auth/loginTrustedIpStore.ts": {
+      "lines": 310,
+      "longestFunction": 119,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
     },
     "server/backend/src/domain/echoStore/messages/discordImportMediaMirrorQueue.ts": {
       "lines": 67,

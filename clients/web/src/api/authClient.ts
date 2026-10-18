@@ -46,6 +46,30 @@ export {
   echoAuthDebugLog,
   echoAuthLogRequestFailure,
 } from './authClientCore';
+export {
+  type AuthSessionPayload,
+  type AuthLoginMfaChallenge,
+  type AuthLoginEmailVerificationChallenge,
+  type AuthLoginEmailIpChallenge,
+  type AuthLoginResult,
+  isAuthLoginMfaChallenge,
+  isAuthLoginEmailVerificationChallenge,
+  isAuthLoginEmailIpChallenge,
+  parseAuthLoginResult,
+  authLogin,
+  authLoginMfa,
+  authLoginEmailIpCode,
+  authLoginEmailIpResend,
+  authLoginResendVerification,
+} from './authLoginChallenges';
+import {
+  type AuthLoginResult,
+  isAuthLoginEmailIpChallenge,
+  isAuthLoginEmailVerificationChallenge,
+  isAuthLoginMfaChallenge,
+  parseAuthLoginResult,
+} from './authLoginChallenges';
+
 export type {
   AuthUserPublic,
   EchoPlusInterestBillingCycle,
@@ -389,7 +413,7 @@ export async function authUpgradeGuest(body: {
   username?: string;
   displayName?: string;
   pfp?: string;
-}): Promise<{ user: AuthUserPublic }> {
+}): Promise<AuthLoginResult> {
   assertAuthDomainNetworkAllowed();
   const traceId = newTraceId();
   const url = appendDiagTraceId(`${AUTH_BASE}/guest/upgrade`, traceId);
@@ -414,8 +438,15 @@ export async function authUpgradeGuest(body: {
   }
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'POST /auth/guest/upgrade');
-  await finalizeAuthSessionResponse(data);
-  return data as { user: AuthUserPublic };
+  const parsed = parseAuthLoginResult(data);
+  if (
+    !isAuthLoginEmailVerificationChallenge(parsed) &&
+    !isAuthLoginEmailIpChallenge(parsed) &&
+    !isAuthLoginMfaChallenge(parsed)
+  ) {
+    await finalizeAuthSessionResponse(data);
+  }
+  return parsed;
 }
 
 export async function authRegister(body: {
@@ -424,7 +455,7 @@ export async function authRegister(body: {
   email: string;
   displayName?: string;
   clientHwid?: string;
-}): Promise<{ user: AuthUserPublic }> {
+}): Promise<AuthLoginResult> {
   const traceId = newTraceId();
   const url = appendDiagTraceId(`${AUTH_BASE}/register`, traceId);
   const clientHwid = body.clientHwid?.trim() || getOrCreateEchoClientHwid();
@@ -453,132 +484,15 @@ export async function authRegister(body: {
   }
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'POST /auth/register');
-  await finalizeAuthSessionResponse(data);
-  return data as { user: AuthUserPublic };
-}
-
-export type AuthSessionPayload = {
-  user: AuthUserPublic;
-};
-
-export type AuthLoginMfaChallenge = {
-  mfaRequired: true;
-  mfaToken: string;
-  user: { id: string; username: string };
-};
-
-export type AuthLoginResult = AuthSessionPayload | AuthLoginMfaChallenge;
-
-export function isAuthLoginMfaChallenge(
-  r: AuthLoginResult,
-): r is AuthLoginMfaChallenge {
-  return 'mfaRequired' in r && r.mfaRequired === true;
-}
-
-/** Parse successful login JSON (200). Exported for unit tests. */
-export function parseAuthLoginResult(data: unknown): AuthLoginResult {
-  if (!data || typeof data !== 'object') {
-    throw new Error('INVALID_LOGIN_RESPONSE');
+  const parsed = parseAuthLoginResult(data);
+  if (
+    !isAuthLoginEmailVerificationChallenge(parsed) &&
+    !isAuthLoginEmailIpChallenge(parsed) &&
+    !isAuthLoginMfaChallenge(parsed)
+  ) {
+    await finalizeAuthSessionResponse(data);
   }
-  const o = data as Record<string, unknown>;
-  if (o.mfaRequired === true) {
-    const mfaToken = typeof o.mfaToken === 'string' ? o.mfaToken.trim() : '';
-    const u = o.user;
-    if (!mfaToken || !u || typeof u !== 'object') {
-      throw new Error('INVALID_LOGIN_RESPONSE');
-    }
-    const user = u as Record<string, unknown>;
-    const id = typeof user.id === 'string' ? user.id : '';
-    const username = typeof user.username === 'string' ? user.username : '';
-    if (!id || !username) throw new Error('INVALID_LOGIN_RESPONSE');
-    return { mfaRequired: true, mfaToken, user: { id, username } };
-  }
-  const user = o.user;
-  if (!user || typeof user !== 'object') {
-    throw new Error('INVALID_LOGIN_RESPONSE');
-  }
-  return {
-    user: user as AuthUserPublic,
-  };
-}
-
-export async function authLogin(body: {
-  username: string;
-  password: string;
-}): Promise<AuthLoginResult> {
-  assertAuthDomainNetworkAllowed();
-  const traceId = newTraceId();
-  let res: Response;
-  try {
-    res = await fetch(appendDiagTraceId(`${AUTH_BASE}/login`, traceId), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ ...body, diagTraceId: traceId }),
-    });
-  } catch (error) {
-    logAuthNetworkFailure({
-      operation: 'login',
-      traceId,
-      url: appendDiagTraceId(`${AUTH_BASE}/login`, traceId),
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      error,
-    });
-    throw error;
-  }
-  const data = await parseJson(res);
-  if (!res.ok && authDebugEnabled()) {
-    echoClientDebugError('[echo][auth][login] non-ok response', {
-      endpoint: `${AUTH_BASE}/login`,
-      status: res.status,
-      body: data,
-    });
-  }
-  throwIfError(res, data, 'POST /auth/login');
-  if (data && typeof data === 'object') {
-    await finalizeAuthSessionResponse(data as Record<string, unknown>);
-  }
-  return parseAuthLoginResult(data);
-}
-
-export async function authLoginMfa(body: {
-  mfaToken: string;
-  code?: string;
-  recoveryCode?: string;
-}): Promise<AuthSessionPayload> {
-  assertAuthDomainNetworkAllowed();
-  const traceId = newTraceId();
-  const url = appendDiagTraceId(`${AUTH_BASE}/login/mfa`, traceId);
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ ...body, diagTraceId: traceId }),
-    });
-  } catch (error) {
-    logAuthNetworkFailure({
-      operation: 'login_mfa',
-      traceId,
-      url,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      error,
-    });
-    throw error;
-  }
-  const data = (await parseJson(res)) as Record<string, unknown>;
-  throwIfError(res, data, 'POST /auth/login/mfa');
-  await finalizeAuthSessionResponse(data);
-  const user = data.user;
-  if (!user || typeof user !== 'object') {
-    throw new Error('INVALID_LOGIN_RESPONSE');
-  }
-  return {
-    user: user as AuthUserPublic,
-  };
+  return parsed;
 }
 
 export async function authResendVerification(): Promise<void> {

@@ -29,6 +29,12 @@ function run(): void {
   );
   assert.equal(isCsrfExemptPath('/api/v1/analytics/client-environment'), true);
   assert.equal(isCsrfExemptPath('/api/v1/auth/verify-email'), true);
+  assert.equal(isCsrfExemptPath('/api/v1/auth/login/email-ip-code'), true);
+  assert.equal(isCsrfExemptPath('/api/v1/auth/login/email-ip-resend'), true);
+  assert.equal(
+    isCsrfExemptPath('/api/v1/auth/login/resend-verification'),
+    true,
+  );
   assert.equal(isCsrfExemptPath('/api/v1/echo/servers'), false);
   console.log('csrf.exemptPaths: ok');
 }

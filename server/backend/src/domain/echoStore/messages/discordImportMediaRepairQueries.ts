@@ -24,7 +24,7 @@ export async function listEchoMessagesWithDiscordImportMediaTokens(
          OR COALESCE(forward_of::text, '') LIKE '%discord-import-media-%'
          OR COALESCE(reply_to::text, '') LIKE '%discord-import-media-%'
        )
-     ORDER BY timestamp DESC
+     ORDER BY id DESC
      LIMIT $1`,
     [boundedLimit],
   );

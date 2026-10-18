@@ -1,121 +1,110 @@
+<p align="center">
+  <img src="./clients/web/public/echo-rounded-trans.svg" alt="Echo logo" width="120">
+</p>
+
+<p align="center">
+  <strong>Echo</strong> — open, privacy-minded chat, voice, and communities.<br>
+  Self-host it, fork it (AGPL), or ship a product you control end-to-end.
+</p>
+
+<p align="center">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0--only-purple" alt="AGPL-3.0-only" /></a>
+  <a href="./docs/DEVELOPMENT.md"><img src="https://img.shields.io/badge/Docs-DEVELOPMENT.md-blue" alt="Development docs" /></a>
+  <a href="https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml"><img src="https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml/badge.svg?branch=main" alt="Format CI" /></a>
+  <a href="https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml"><img src="https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml/badge.svg?branch=main" alt="Backend CI" /></a>
+  <a href="https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml"><img src="https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml/badge.svg?branch=main" alt="Web CI" /></a>
+  <a href="https://github.com/ad3lre/echo/actions/workflows/codeql.yml"><img src="https://github.com/ad3lre/echo/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL" /></a>
+</p>
+
+<p align="center">
+  <img src="./marketing/public/desktop-screenshot.png" alt="Echo desktop app" width="720">
+</p>
+
 # Echo
 
-**Echo** is an open, privacy-minded platform for **communities**: real-time **chat**, **voice and video** (LiveKit), servers and channels, DMs, roles, and the workflows people expect from a modern team or social space—without treating your community as ad inventory.
-
-You can **run it yourself** (self-host), **fork and extend** it (AGPL), or use it as the basis for a product you control end-to-end.
+Echo is a full-stack platform for **communities**: realtime **chat**, **voice and video** (LiveKit), servers and channels, DMs, roles, and the workflows people expect from a modern team or social space—without treating your community as ad inventory.
 
 ## Quick start
 
-From the repository root (Bun **1.4.2+**, Docker for Postgres):
+Bun **1.4.2+** and Docker (Postgres):
 
 ```bash
 bun install --frozen-lockfile
 cp .env.example .env
 bun run db:up
-bun run dev
+bun run dev:core
 ```
 
-- API: **http://localhost:3000**
-- Vite dev server: **http://localhost:8080**
+| Service  | URL                   |
+| -------- | --------------------- |
+| API      | http://localhost:3000 |
+| Vite SPA | http://localhost:8080 |
 
-Full setup, PR checks, and maintainer notes: **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)**.
+`dev:core` starts the API and web client. Use `bun run dev` when you also need the Discord bot and activities worker.
 
-## Contents
-
-- [What Echo is](#what-echo-is)
-- [Why Echo](#why-echo)
-- [Open source](#open-source)
-- [Project structure](#project-structure)
-- [Stack (summary)](#stack-summary)
-- [Getting started](#getting-started)
-- [Native apps](#native-apps)
-- [Contributing](#contributing)
-- [Third-party assets](#third-party-assets)
-- [License](#license)
-
-## What Echo is
-
-Echo is a **full-stack communication app**: a Vue 3 SPA, a **Bun** (**Fastify**) API, **Socket.IO** for realtime, **PostgreSQL** for durable data, optional **NATS** for multi-process scaling, and **native Apple clients** under [`clients/apple/`](./clients/apple/) (more platforms to follow). A separate **marketing** site (Astro) and optional **Discord bridge / import** tooling exist for migration and interoperability—not as the core identity of the product.
-
-The codebase is organized for **operators and contributors**: typed shared contracts between client and server, documented API behavior under [`docs/contracts/`](./docs/contracts/), and self-host runbooks under [`docs/operations/`](./docs/operations/).
+Full setup, PR checks, and maintainer notes: **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)**. Doc index: **[docs/README.md](./docs/README.md)**.
 
 ## Why Echo
 
-- **Privacy and consent by design** — built around clear boundaries for data, sessions, and what the server is allowed to assume about users.
-- **You own your deployment** — no mandatory third-party control plane; configure auth, storage, voice, and edge the way your threat model requires.
-- **Realtime-first** — chat and presence are first-class; server/voice/video follow a documented LiveKit path with production checklists in-repo.
-- **Serious engineering guardrails** — contract tests, RBAC and snowflake guards in CI, observability hooks, and a documented [shipping gate](./docs/operations/shipping-gate.md) / [production security checklist](./docs/operations/PRODUCTION_SECURITY_CHECKLIST.md).
-- **Installable where your users are** — **PWA** for the web and **native Apple apps** in [`clients/apple/`](./clients/apple/) (iOS first; macOS shared where product-neutral).
-
-## Open source
-
-Echo is **open source** under the [**GNU Affero General Public License v3.0 only**](./LICENSE) (AGPL). Contributions, issues, and pull requests: [CONTRIBUTING.md](./CONTRIBUTING.md), [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md), [`.github/SECURITY.md`](./.github/SECURITY.md). **Documentation index:** [docs/README.md](./docs/README.md).
-
-**CI (GitHub Actions)** — badges target this fork’s default GitHub branch (`main`). Change `ad3lre/echo` and `branch=…` in the URLs if your owner/repo or branch name differs:
-
-[![Echo format check](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml)
-[![Echo backend checks](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml)
-[![Echo web checks](https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/echo-web-ci.yml)
-[![Echo E2E smoke](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml)
-[![CodeQL](https://github.com/ad3lre/echo/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/ad3lre/echo/actions/workflows/codeql.yml)
-
-Release and signing workflows may need **repository secrets** on the canonical fork; forks still get format, backend, web, and E2E checks when relevant paths change.
+- **Privacy and consent by design** — clear boundaries for data, sessions, and what the server may assume about users.
+- **You own your deployment** — no mandatory third-party control plane; configure auth, storage, voice, and edge for your threat model.
+- **Realtime-first** — chat and presence are first-class; voice/video follow a documented LiveKit path with production checklists in-repo.
+- **Engineering guardrails** — contract and security tests, RBAC and snowflake guards in CI, observability hooks, [shipping gate](./docs/operations/shipping-gate.md), [production security checklist](./docs/operations/PRODUCTION_SECURITY_CHECKLIST.md).
+- **Installable where users are** — **PWA** for the web and **native Apple apps** in [`clients/apple/`](./clients/apple/).
 
 ## Project structure
 
-Echo is a **single monorepo**. UI lives in clients; suites own shared kits and sidecars. Full map: **[docs/overview/repo-layout.md](./docs/overview/repo-layout.md)**.
+Single monorepo. Full map: **[docs/overview/repo-layout.md](./docs/overview/repo-layout.md)**.
 
-- **`clients/web/`** — Vue 3 + Vite SPA (Pinia, TypeScript). History API navigation ([`urlNavigation.ts`](./clients/web/src/features/layout/urlNavigation.ts)), not vue-router.
-- **`clients/apple/`** — Native SwiftUI iOS/macOS clients.
-- **`server/backend/`** — Fastify REST API, Socket.IO, Postgres, auth and Echo domain logic.
-- **`contracts/`** — Shared TypeScript types/constants (client ↔ server). TS-only — do not commit emitted `.js`.
-- **`clients/web/src/features/paper/`** — Paper editor feature (fold of former top-level `paper/`).
-- **`server/backend/crypto/`** — E2EE + MLS kit (no Vue UI; settings UX stays in `clients/web/`).
-- **`server/media/`** — Media CDN + chat video HLS worker.
-- **`server/voice/`** — Voice helper sidecar (LiveKit-adjacent).
-- **`server/activities/`** — VC gamespace sidecar + shared game cores.
-- **`server/ops/`** — Glue only (`scripts/`, `infra/`, `server/ops/monitoring/`, `perf/`).
-- **`marketing/`** — Astro public site (+ `marketing/terms/`).
-- **`bot/`** — Optional Discord bridge / import tooling.
-- **`docs/`** — Public docs (getting started, contracts, self-host runbooks). Local deep notes: `docs-dev/` (gitignored).
+| Path                     | Role                                                                  |
+| ------------------------ | --------------------------------------------------------------------- |
+| `clients/web/`           | Vue 3 + Vite SPA (Pinia, TypeScript; History API nav, not vue-router) |
+| `clients/apple/`         | Native SwiftUI iOS/macOS clients                                      |
+| `server/backend/`        | Fastify REST, Socket.IO, Postgres, auth and domain logic              |
+| `contracts/`             | Shared TypeScript types/constants (client ↔ server)                   |
+| `server/backend/crypto/` | E2EE + MLS kit                                                        |
+| `server/media/`          | Media CDN + chat video HLS worker                                     |
+| `server/voice/`          | Voice helper sidecar (LiveKit-adjacent)                               |
+| `server/activities/`     | VC gamespace sidecar + shared game cores                              |
+| `server/ops/`            | Scripts, infra, monitoring, perf                                      |
+| `marketing/`             | Astro public site                                                     |
+| `bot/`                   | Optional Discord bridge / import tooling                              |
+| `docs/`                  | Public docs (contracts, self-host runbooks)                           |
 
-## Stack (summary)
+## Stack
 
-| Layer    | Choices                                                                                                                                                         |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend | Vue 3, Vite, Pinia, TypeScript (History API client navigation)                                                                                                  |
-| Backend  | Bun, Fastify, Socket.IO, TypeScript                                                                                                                             |
-| Data     | PostgreSQL                                                                                                                                                      |
-| Realtime | Optional **NATS** Socket.IO adapter when **`NATS_URL`** is set — see [realtime scaling](./docs/infra/realtime-scaling.md) and [STACK](./docs/overview/STACK.md) |
-| Voice    | LiveKit (session + webhooks + client); ops in [`docs/operations/livekit-production.md`](./docs/operations/livekit-production.md)                                |
-| Storage  | S3-compatible object storage when **`ECHO_S3_*`** is configured (optional)                                                                                      |
+| Layer    | Choices                                                                                                           |
+| -------- | ----------------------------------------------------------------------------------------------------------------- |
+| Frontend | Vue 3, Vite, Pinia, TypeScript                                                                                    |
+| Backend  | Bun, Fastify, Socket.IO, TypeScript                                                                               |
+| Data     | PostgreSQL                                                                                                        |
+| Realtime | Optional **NATS** Socket.IO adapter when `NATS_URL` is set — [realtime scaling](./docs/infra/realtime-scaling.md) |
+| Voice    | LiveKit — [livekit-production.md](./docs/operations/livekit-production.md)                                        |
+| Storage  | S3-compatible when `ECHO_S3_*` is configured (optional)                                                           |
 
-## Getting started
+## Getting started (operators)
 
-- **Install from the repo root** (`bun install --frozen-lockfile` or `bun install`). Root install is required (workspaces + devDependencies such as **`sharp`** for Twemoji assets). Installing only under `clients/web/` is not enough for `bun run dev` / `bun run build`.
-- **Bun 1.4.2+** (see `package.json` `engines`). For `sharp`, see [sharp install](https://sharp.pixelplumbing.com/install).
-- **Local stack:** `bun run db:up` then `bun run dev` (see `.env.example`). Postgres-like behavior: **`ECHO_BACKEND_STORAGE=postgres`** and **`DATABASE_URL`**.
-- **Production-like local bundle:** `bun run prod` (full build + API on **:3000** + Vite preview on **:4173**). Skip rebuild: `bun run prod:serve`.
-- **Backend only:** `bun run --filter backend` build (or root `bun run build`) before `bun run start` (`bun dist/server/backend/src/index.js`).
-- **Production:** `DATABASE_URL` required; **`/api/v1/mock`** is not registered in production.
-- **VPS / bare metal:** [`docs/operations/linux-vps-deployment.md`](./docs/operations/linux-vps-deployment.md).
-- **Seed dev data (API running):** `bun run seed:dev`.
+- Install from the **repo root** (`bun install --frozen-lockfile`). Root workspaces + `sharp` (Twemoji) are required; `clients/web/` alone is not enough.
+- Local: `bun run db:up` then `bun run dev:core`. Postgres mode: `ECHO_BACKEND_STORAGE=postgres` and `DATABASE_URL`.
+- Production-like local: `bun run prod` (API **:3000**, Vite preview **:4173**). Skip rebuild: `bun run prod:serve`.
+- Seed (API running): `bun run seed:dev`.
+- VPS / bare metal: [linux-vps-deployment.md](./docs/operations/linux-vps-deployment.md).
 
 ### Progressive Web App
 
-The SPA ships a [manifest](https://developer.mozilla.org/en-US/docs/Web/Manifest), themed icons under `clients/web/public/icons/` (regenerated on `bun run --filter web` build via `server/ops/scripts/generate-pwa-icons.mjs`), and a minimal [service worker](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) (`clients/web/public/sw.js`). The worker registers in dev and production so Chrome can offer **Install Echo** on `bun run dev` (e.g. **http://localhost:8080**).
-
-- **HTTPS:** production installability needs a secure context; terminate TLS at your proxy and forward **`X-Forwarded-Proto`** when HTTPS enforcement is on (see `registerHttpsEnforcementIfConfigured` and [realtime-scaling](./docs/infra/realtime-scaling.md)).
-- **Verify:** Vite dev or `bun run --filter web build && bun run --filter web` preview → Chrome → **Install Echo**. Hard-reload once if the prompt is missing.
-- **Icons only:** `bun run pwa:icons` from repo root.
+Manifest + icons under `clients/web/public/icons/` (regenerated on web build) and `clients/web/public/sw.js`. Chrome can offer **Install Echo** on `bun run dev:core` (http://localhost:8080). Icons only: `bun run pwa:icons`.
 
 ## Native apps
 
-Native clients are first-party apps (not a WebView shell). Start with **Apple** — see [`clients/apple/README.md`](./clients/apple/README.md). Passkeys / Universal Links: [`docs/operations/ios-passkeys.md`](./docs/operations/ios-passkeys.md).
+First-party SwiftUI clients (not a WebView shell): [`clients/apple/README.md`](./clients/apple/README.md). Passkeys: [`docs/operations/ios-passkeys.md`](./docs/operations/ios-passkeys.md).
 
 ## Contributing
 
-We welcome contributions on **GitHub**. Start with [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md), then [CONTRIBUTING.md](./CONTRIBUTING.md).
+Public contributions on **GitHub**. Start with [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md), then [CONTRIBUTING.md](./CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md). Security: [`.github/SECURITY.md`](./.github/SECURITY.md).
+
+Before a PR: `./server/ops/scripts/setup-githooks.sh` (once), then `bun run ci:precheck`.
+
+CI on `main` (format, backend, web, CodeQL) is shown in the badges above. E2E smoke runs on pull requests and release publishes (`echo-e2e-ci.yml`), not on every `main` push.
 
 ## Third-party assets
 
@@ -125,6 +114,4 @@ Icons and emoji: [marketing/terms/en-US/ATTRIBUTIONS.md](./marketing/terms/en-US
 
 **GNU Affero General Public License v3.0 only** — see [`LICENSE`](./LICENSE).
 
-If you **modify** this program and **offer** it as a **network service**, the AGPL requires offering **Corresponding Source** to users of that service under the same license. Distributed **binaries** must also satisfy source-offer rules. See the [GNU AGPL howto](https://www.gnu.org/licenses/agpl-3.0.html) and [FSF FAQ (AGPL)](https://www.gnu.org/licenses/gpl-faq.en.html#AGPLv3).
-
-**Downstream:** app stores and notarized bundles may add their own terms; packagers remain responsible for AGPL compliance.
+If you **modify** this program and **offer** it as a **network service**, the AGPL requires offering **Corresponding Source** to users of that service under the same license. See the [GNU AGPL howto](https://www.gnu.org/licenses/agpl-3.0.html).

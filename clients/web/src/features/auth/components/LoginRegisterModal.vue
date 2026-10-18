@@ -9,11 +9,17 @@ import {
   authGoogleLoginStart,
   authForgotPassword,
   authLogin,
+  authLoginEmailIpCode,
+  authLoginEmailIpResend,
   authLoginMfa,
+  authLoginResendVerification,
   authPasskeyLoginVerify,
   authRegister,
   authUpgradeGuest,
+  isAuthLoginEmailIpChallenge,
+  isAuthLoginEmailVerificationChallenge,
   isAuthLoginMfaChallenge,
+  type AuthLoginResult,
 } from '@/api/authClient';
 import { translateApiErrorBody } from '@/i18n/apiErrors';
 import { echoT } from '@/i18n';
@@ -92,6 +98,12 @@ const mfaToken = ref<string | null>(null);
 const mfaFactor = ref<'totp' | 'recovery'>('totp');
 const mfaTotpCode = ref('');
 const mfaRecoveryCode = ref('');
+const emailGateToken = ref<string | null>(null);
+const emailGateMasked = ref('');
+const emailIpCode = ref('');
+const emailVerifyNotice = ref('');
+/** After password: email verify lock, new-IP OTP, or null. */
+const emailGateKind = ref<null | 'verify' | 'ip'>(null);
 
 /** Sub-view on login/register (e.g. forgot password). */
 const authSubView = ref<null | 'forgot'>(null);
@@ -141,6 +153,12 @@ const signedInAccountLabel = computed(() => {
 });
 
 const showMfaStep = computed(() => Boolean(mfaToken.value));
+const showEmailVerifyStep = computed(
+  () => emailGateKind.value === 'verify' && !mfaToken.value,
+);
+const showEmailIpStep = computed(
+  () => emailGateKind.value === 'ip' && !mfaToken.value,
+);
 
 const showAuthErrorModal = computed(
   () => isCompactShell.value && props.modelValue && !!errorMessage.value.trim(),
@@ -174,6 +192,11 @@ watch(
     mfaTotpCode.value = '';
     mfaRecoveryCode.value = '';
     mfaFactor.value = 'totp';
+    emailGateToken.value = null;
+    emailGateMasked.value = '';
+    emailIpCode.value = '';
+    emailVerifyNotice.value = '';
+    emailGateKind.value = null;
     authSubView.value = props.initialAuthSubView ?? null;
     forgotEmail.value = '';
     forgotMessage.value = '';
@@ -322,6 +345,36 @@ function mapError(err: unknown): string {
   return echoT('common.somethingWentWrong');
 }
 
+async function handleLoginResult(result: AuthLoginResult): Promise<boolean> {
+  if (isAuthLoginEmailVerificationChallenge(result)) {
+    emailGateToken.value = result.loginToken;
+    emailGateMasked.value = result.maskedEmail;
+    emailVerifyNotice.value = '';
+    emailGateKind.value = 'verify';
+    mfaToken.value = null;
+    return false;
+  }
+  if (isAuthLoginEmailIpChallenge(result)) {
+    emailGateToken.value = result.loginToken;
+    emailGateMasked.value = result.maskedEmail;
+    emailIpCode.value = '';
+    emailGateKind.value = 'ip';
+    mfaToken.value = null;
+    return false;
+  }
+  if (isAuthLoginMfaChallenge(result)) {
+    mfaToken.value = result.mfaToken;
+    mfaFactor.value = 'totp';
+    mfaTotpCode.value = '';
+    mfaRecoveryCode.value = '';
+    emailGateKind.value = null;
+    return false;
+  }
+  authSession.setSession(result);
+  close();
+  return true;
+}
+
 async function submitLogin() {
   if (isMockDataMode) {
     errorMessage.value = mapError(new Error('ACCOUNTS_DISABLED_PREVIEW'));
@@ -337,15 +390,7 @@ async function submitLogin() {
   errorMessage.value = '';
   try {
     const result = await authLogin({ username: u, password: p });
-    if (isAuthLoginMfaChallenge(result)) {
-      mfaToken.value = result.mfaToken;
-      mfaFactor.value = 'totp';
-      mfaTotpCode.value = '';
-      mfaRecoveryCode.value = '';
-      return;
-    }
-    authSession.setSession(result);
-    close();
+    await handleLoginResult(result);
   } catch (e) {
     errorMessage.value = mapError(e);
   } finally {
@@ -391,7 +436,72 @@ function cancelMfa() {
   mfaToken.value = null;
   mfaTotpCode.value = '';
   mfaRecoveryCode.value = '';
+  emailGateToken.value = null;
+  emailGateMasked.value = '';
+  emailIpCode.value = '';
+  emailVerifyNotice.value = '';
+  emailGateKind.value = null;
   errorMessage.value = '';
+}
+
+async function resendEmailVerification() {
+  const token = emailGateToken.value?.trim() ?? '';
+  if (!token) {
+    errorMessage.value = 'Sign-in expired. Try logging in again.';
+    return;
+  }
+  submitting.value = true;
+  errorMessage.value = '';
+  try {
+    await authLoginResendVerification({ loginToken: token });
+    emailVerifyNotice.value = 'Verification email sent. Check your inbox.';
+  } catch (e) {
+    errorMessage.value = mapError(e);
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function submitEmailIpCode() {
+  const token = emailGateToken.value?.trim() ?? '';
+  const code = emailIpCode.value.trim();
+  if (!token) {
+    errorMessage.value = 'Sign-in expired. Try logging in again.';
+    return;
+  }
+  if (!/^\d{4,8}$/.test(code)) {
+    errorMessage.value = 'Enter the code from your email.';
+    return;
+  }
+  submitting.value = true;
+  errorMessage.value = '';
+  try {
+    const result = await authLoginEmailIpCode({ loginToken: token, code });
+    await handleLoginResult(result);
+  } catch (e) {
+    errorMessage.value = mapError(e);
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function resendEmailIpCode() {
+  const token = emailGateToken.value?.trim() ?? '';
+  if (!token) {
+    errorMessage.value = 'Sign-in expired. Try logging in again.';
+    return;
+  }
+  submitting.value = true;
+  errorMessage.value = '';
+  try {
+    const result = await authLoginEmailIpResend({ loginToken: token });
+    emailGateToken.value = result.loginToken;
+    emailGateMasked.value = result.maskedEmail;
+  } catch (e) {
+    errorMessage.value = mapError(e);
+  } finally {
+    submitting.value = false;
+  }
 }
 
 async function submitRegister() {
@@ -423,7 +533,7 @@ async function submitRegister() {
   submitting.value = true;
   errorMessage.value = '';
   try {
-    const session = authSession.backendUser?.isGuest
+    const result = authSession.backendUser?.isGuest
       ? await authUpgradeGuest({
           username: u,
           password: p,
@@ -436,8 +546,7 @@ async function submitRegister() {
           email: em,
           ...(d ? { displayName: d } : {}),
         });
-    authSession.setSession(session);
-    close();
+    await handleLoginResult(result);
   } catch (e) {
     errorMessage.value = mapError(e);
   } finally {
@@ -531,15 +640,7 @@ async function submitPasskeyLogin() {
       challengeId,
       credential: credential as unknown as Record<string, unknown>,
     });
-    if (isAuthLoginMfaChallenge(result)) {
-      mfaToken.value = result.mfaToken;
-      mfaFactor.value = 'totp';
-      mfaTotpCode.value = '';
-      mfaRecoveryCode.value = '';
-      return;
-    }
-    authSession.setSession(result);
-    close();
+    await handleLoginResult(result);
   } catch (e) {
     errorMessage.value = mapPasskeyCeremonyError(e, 'login');
     void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(username.value));
@@ -578,6 +679,8 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               class="text-[1.5rem] font-bold leading-snug tracking-tight text-foreground"
             >
               <template v-if="signedInFullAccount">Account</template>
+              <template v-else-if="showEmailVerifyStep">Verify email</template>
+              <template v-else-if="showEmailIpStep">Confirm sign-in</template>
               <template v-else-if="showMfaStep"
                 >Two-factor authentication</template
               >
@@ -598,6 +701,23 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             >
               Preview mode: connect the full app to sign in with a saved
               account.
+            </p>
+            <p
+              v-else-if="
+                showAuthForms && showEmailVerifyStep && !isMockDataMode
+              "
+              class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
+            >
+              Your account is locked until you verify
+              {{ emailGateMasked || 'your email' }}. Open the link we sent, then
+              sign in again.
+            </p>
+            <p
+              v-else-if="showAuthForms && showEmailIpStep && !isMockDataMode"
+              class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
+            >
+              Enter the code we sent to
+              {{ emailGateMasked || 'your email' }} to confirm this new sign-in.
             </p>
             <p
               v-else-if="showAuthForms && showMfaStep && !isMockDataMode"
@@ -706,8 +826,92 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             local.
           </div>
 
+          <div v-if="showEmailVerifyStep" class="mt-8 space-y-5">
+            <p
+              v-if="emailVerifyNotice"
+              class="rounded-xl bg-glass-2 px-4 py-3 text-sm leading-snug text-fg-soft"
+              role="status"
+            >
+              {{ emailVerifyNotice }}
+            </p>
+            <div
+              v-if="errorMessage && !isCompactShell"
+              class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
+              role="alert"
+            >
+              {{ errorMessage }}
+            </div>
+            <button
+              type="button"
+              class="auth-submit mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45"
+              :disabled="submitting || isMockDataMode"
+              @click="resendEmailVerification"
+            >
+              Resend verification email
+            </button>
+            <button
+              type="button"
+              class="w-full text-center text-sm text-fg-subtle hover:text-fg-soft"
+              @click="cancelMfa"
+            >
+              Back to sign in
+            </button>
+          </div>
+
           <form
-            v-if="showMfaStep"
+            v-else-if="showEmailIpStep"
+            class="mt-8 space-y-5"
+            @submit.prevent="submitEmailIpCode"
+          >
+            <div>
+              <label class="auth-label" for="auth-email-ip-code"
+                >Email code</label
+              >
+              <input
+                id="auth-email-ip-code"
+                v-model="emailIpCode"
+                inputmode="numeric"
+                type="text"
+                autocomplete="one-time-code"
+                maxlength="8"
+                class="auth-input mt-2.5"
+                placeholder="000000"
+                autofocus
+              />
+            </div>
+            <div
+              v-if="errorMessage && !isCompactShell"
+              class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
+              role="alert"
+            >
+              {{ errorMessage }}
+            </div>
+            <button
+              type="submit"
+              class="auth-submit mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45"
+              :disabled="submitting || isMockDataMode"
+            >
+              Continue
+            </button>
+            <button
+              type="button"
+              class="w-full text-center text-sm text-fg-subtle hover:text-fg-soft"
+              :disabled="submitting"
+              @click="resendEmailIpCode"
+            >
+              Resend code
+            </button>
+            <button
+              type="button"
+              class="w-full text-center text-sm text-fg-subtle hover:text-fg-soft"
+              @click="cancelMfa"
+            >
+              Back to sign in
+            </button>
+          </form>
+
+          <form
+            v-else-if="showMfaStep"
             class="mt-8 space-y-5"
             @submit.prevent="submitMfa"
           >

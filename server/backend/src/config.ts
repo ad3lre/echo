@@ -511,6 +511,14 @@ interface AppConfig {
   readonly echoTotpIssuer: string;
   /** JWT lifetime for MFA pending token after password (e.g. 5m). */
   readonly echoMfaPendingJwtExpiresIn: string;
+  /** New-IP email OTP TTL (minutes). */
+  readonly echoLoginEmailOtpTtlMinutes: number;
+  /** New-IP email OTP digit length. */
+  readonly echoLoginEmailOtpLength: number;
+  /** Cooldown between new-IP email OTP sends (seconds). */
+  readonly echoLoginEmailOtpResendCooldownSeconds: number;
+  /** Max verify attempts per new-IP email OTP challenge. */
+  readonly echoLoginEmailOtpMaxAttempts: number;
   readonly echo2faRecoveryCodeCount: number;
   readonly echoMfaLoginMaxPerIpPer15Min: number;
   /** Max failed password attempts per account before lockout. */
@@ -1301,6 +1309,30 @@ export const config: AppConfig = {
   echoTotpIssuer: process.env.ECHO_TOTP_ISSUER?.trim() || 'Echo',
   echoMfaPendingJwtExpiresIn:
     process.env.ECHO_MFA_PENDING_JWT_EXPIRES_IN?.trim() || '5m',
+  echoLoginEmailOtpTtlMinutes: (() => {
+    const raw = process.env.ECHO_LOGIN_EMAIL_OTP_TTL_MINUTES;
+    if (raw === undefined || raw === '') return 10;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 && n <= 60 ? n : 10;
+  })(),
+  echoLoginEmailOtpLength: (() => {
+    const raw = process.env.ECHO_LOGIN_EMAIL_OTP_LENGTH;
+    if (raw === undefined || raw === '') return 6;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 4 && n <= 8 ? n : 6;
+  })(),
+  echoLoginEmailOtpResendCooldownSeconds: (() => {
+    const raw = process.env.ECHO_LOGIN_EMAIL_OTP_RESEND_COOLDOWN_SECONDS;
+    if (raw === undefined || raw === '') return 60;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 10 && n <= 3600 ? n : 60;
+  })(),
+  echoLoginEmailOtpMaxAttempts: (() => {
+    const raw = process.env.ECHO_LOGIN_EMAIL_OTP_MAX_ATTEMPTS;
+    if (raw === undefined || raw === '') return 5;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 3 && n <= 20 ? n : 5;
+  })(),
   echo2faRecoveryCodeCount: (() => {
     const raw = process.env.ECHO_2FA_RECOVERY_CODE_COUNT;
     if (raw === undefined || raw === '') return 10;

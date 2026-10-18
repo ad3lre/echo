@@ -21,7 +21,7 @@ import { isEchoServerOwner } from '../members/access';
 import {
   actorMayGrantPermissionSet,
   elevatedPermissionsBlockDefaultOnJoin,
-} from './roles';
+} from './roleGrantGuards';
 import {
   loadEchoRoleCategoryDefaults,
   propagateCategoryDefaultsToSyncedRoles,

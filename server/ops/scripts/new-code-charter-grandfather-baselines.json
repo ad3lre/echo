@@ -134,7 +134,7 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/api/authClient.ts": {
-      "lines": 1198,
+      "lines": 1112,
       "longestFunction": 57,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
@@ -650,8 +650,8 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/auth/MobileAuthExperience.vue": {
-      "lines": 958,
-      "longestFunction": 47,
+      "lines": 1164,
+      "longestFunction": 46,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -710,8 +710,8 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/auth/components/GuestOnboardingModal.vue": {
-      "lines": 500,
-      "longestFunction": 73,
+      "lines": 517,
+      "longestFunction": 87,
       "deepNestingLines": 1,
       "maxNestingSpaces": 14
     },
@@ -728,7 +728,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/auth/components/LoginRegisterModal.vue": {
-      "lines": 1256,
+      "lines": 1460,
       "longestFunction": 56,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
@@ -7928,7 +7928,7 @@
       "maxNestingSpaces": 20
     },
     "server/backend/src/api/routes/auth.ts": {
-      "lines": 29,
+      "lines": 31,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 2
@@ -7946,15 +7946,15 @@
       "maxNestingSpaces": 12
     },
     "server/backend/src/api/routes/auth/guest.ts": {
-      "lines": 421,
+      "lines": 446,
       "longestFunction": 0,
-      "deepNestingLines": 50,
+      "deepNestingLines": 53,
       "maxNestingSpaces": 16
     },
     "server/backend/src/api/routes/auth/login.ts": {
-      "lines": 375,
+      "lines": 404,
       "longestFunction": 13,
-      "deepNestingLines": 58,
+      "deepNestingLines": 66,
       "maxNestingSpaces": 14
     },
     "server/backend/src/api/routes/auth/me.ts": {
@@ -7970,9 +7970,9 @@
       "maxNestingSpaces": 16
     },
     "server/backend/src/api/routes/auth/register.ts": {
-      "lines": 413,
-      "longestFunction": 4,
-      "deepNestingLines": 53,
+      "lines": 448,
+      "longestFunction": 5,
+      "deepNestingLines": 61,
       "maxNestingSpaces": 16
     },
     "server/backend/src/api/routes/auth/session.ts": {
@@ -8432,7 +8432,7 @@
       "maxNestingSpaces": 2
     },
     "server/backend/src/auth/csrf.ts": {
-      "lines": 145,
+      "lines": 148,
       "longestFunction": 63,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -8486,7 +8486,7 @@
       "maxNestingSpaces": 6
     },
     "server/backend/src/auth/middleware.ts": {
-      "lines": 305,
+      "lines": 341,
       "longestFunction": 183,
       "deepNestingLines": 29,
       "maxNestingSpaces": 16
@@ -8588,8 +8588,8 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/auth/token.ts": {
-      "lines": 80,
-      "longestFunction": 13,
+      "lines": 115,
+      "longestFunction": 15,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
     },
@@ -8666,7 +8666,7 @@
       "maxNestingSpaces": 14
     },
     "server/backend/src/config.ts": {
-      "lines": 1514,
+      "lines": 1546,
       "longestFunction": 10,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -8690,8 +8690,8 @@
       "maxNestingSpaces": 0
     },
     "server/backend/src/db/authTables.ts": {
-      "lines": 417,
-      "longestFunction": 413,
+      "lines": 462,
+      "longestFunction": 458,
       "deepNestingLines": 3,
       "maxNestingSpaces": 15
     },
@@ -9224,10 +9224,10 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/domain/echoStore/roles/roles.ts": {
-      "lines": 1504,
-      "longestFunction": 106,
-      "deepNestingLines": 8,
-      "maxNestingSpaces": 14
+      "lines": 49,
+      "longestFunction": 0,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 2
     },
     "server/backend/src/domain/echoStore/roles/selfAssignableRoles.ts": {
       "lines": 499,

@@ -21,7 +21,7 @@ import {
   getMergedRolePermissions,
 } from './permissions';
 import { isEchoServerOwner } from '../members/access';
-import { actorMayGrantPermissionSet } from './roles';
+import { actorMayGrantPermissionSet } from './roleGrantGuards';
 
 export type UpdateEchoChannelPermissionOverridesResult =
   | 'ok'

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { httpRateLimitStoreOpts } from '../../../services/httpRateLimitStore';
 import { sendError } from '../../errors';
@@ -37,9 +37,16 @@ import { deleteAllServerSessionsForUser } from '../../../auth/serverSession';
 import { clearBrowserSessionCookies } from '../../../auth/sessionCookies';
 import { replyIfInstanceBanned } from '../../../domain/instanceBanEnforcement';
 import { clientIpFromFastifyRequest } from '../../../net/clientIp';
+import { loginAuditDigests } from '../../../auth/loginAudit';
+import { signLoginEmailPendingToken } from '../../../auth/token';
+import { trustLoginIp } from '../../../services/auth/loginTrustedIpStore';
+import { emailVerificationRequiredBody } from '../../../services/auth/passwordLoginGates';
+import { maskEmailAddress } from '../../../services/auth/maskEmail';
+import { emailVerifyLockEnforced } from '../../../auth/emailVerifyLockPolicy';
 
 export default async function registerRoutes(fastify: FastifyInstance) {
   async function finishEmailVerification(
+    req: FastifyRequest,
     reply: Parameters<typeof sendError>[0],
     token: string,
     opts?: { json?: boolean },
@@ -65,6 +72,16 @@ export default async function registerRoutes(fastify: FastifyInstance) {
     const updated = await store.getUserById(outcome.userId);
     if (updated) {
       await updateCachedUserInAllSessions(updated.id, updated);
+    }
+    if (outcome.purpose === 'signup') {
+      /* Trust the IP that completed email verification so the next password
+       * login from the same network skips the new-IP OTP step. */
+      try {
+        const { ipDigest } = loginAuditDigests(req);
+        if (ipDigest) await trustLoginIp(outcome.userId, ipDigest);
+      } catch {
+        /* non-fatal */
+      }
     }
     if (outcome.purpose === 'email_change') {
       await deleteAllServerSessionsForUser(outcome.userId);
@@ -155,7 +172,9 @@ export default async function registerRoutes(fastify: FastifyInstance) {
         const token =
           typeof req.body?.token === 'string' ? req.body.token.trim() : '';
         try {
-          return await finishEmailVerification(reply, token, { json: true });
+          return await finishEmailVerification(req, reply, token, {
+            json: true,
+          });
         } catch (err) {
           fastify.log.error(err, 'verify_email_post_failed');
           return sendError(
@@ -260,32 +279,48 @@ export default async function registerRoutes(fastify: FastifyInstance) {
           ) {
             return;
           }
-          const user = await store.createUser(body);
+          let user = await store.createUser(body);
+          if (mode === 'postgres' && user.email && !user.emailVerified) {
+            void sendSignupVerificationEmail(fastify.log, store, user);
+          }
+          if (normalizedHwidForCap) {
+            await recordHwidProfileAccountBinding(
+              user.id,
+              normalizedHwidForCap,
+              ip,
+            );
+          }
+          void tryJoinOfficialEchoServerOnSignup(fastify.log, user.id, {
+            joinClientIp: ip,
+            io: fastify.io,
+          });
+          recordAbsoluteRegisterSuccess();
+          /* No session until email is verified — force the verify inbox step. */
+          if (emailVerifyLockEnforced() && user.email && !user.emailVerified) {
+            return reply.code(201).send(
+              emailVerificationRequiredBody({
+                loginToken: signLoginEmailPendingToken(user.id),
+                maskedEmail: maskEmailAddress(user.email),
+                user: { id: user.id, username: user.username },
+              }),
+            );
+          }
+          /* Test isolation: auto-verify so harnesses that register→use session keep working. */
+          if (user.email && !user.emailVerified) {
+            const { plainToken } = await store.createEmailVerificationToken(
+              user.id,
+              'signup',
+              { enforceResendCooldown: false },
+            );
+            await store.consumeEmailVerificationToken(plainToken);
+            user = (await store.getUserById(user.id)) ?? user;
+          }
           const session = await issueEchoBrowserSession(
             store,
             user,
             reply,
             req,
           );
-          if (
-            mode === 'postgres' &&
-            session.user.email &&
-            !session.user.emailVerified
-          ) {
-            void sendSignupVerificationEmail(fastify.log, store, session.user);
-          }
-          if (normalizedHwidForCap) {
-            await recordHwidProfileAccountBinding(
-              session.user.id,
-              normalizedHwidForCap,
-              ip,
-            );
-          }
-          void tryJoinOfficialEchoServerOnSignup(fastify.log, session.user.id, {
-            joinClientIp: ip,
-            io: fastify.io,
-          });
-          recordAbsoluteRegisterSuccess();
           return reply.code(201).send(authSessionJsonBody(session));
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : undefined;

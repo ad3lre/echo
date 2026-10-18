@@ -15,11 +15,17 @@ import {
   authForgotPassword,
   authGoogleLoginStart,
   authLogin,
+  authLoginEmailIpCode,
+  authLoginEmailIpResend,
   authLoginMfa,
+  authLoginResendVerification,
   authPasskeyLoginVerify,
   authRegister,
   authUpgradeGuest,
+  isAuthLoginEmailIpChallenge,
+  isAuthLoginEmailVerificationChallenge,
   isAuthLoginMfaChallenge,
+  type AuthLoginResult,
 } from '@/api/authClient';
 import { translateApiErrorBody } from '@/i18n/apiErrors';
 import { echoT } from '@/i18n';
@@ -54,7 +60,9 @@ export type InlineAuthView =
   | 'login'
   | 'register'
   | 'forgot'
-  | 'mfa';
+  | 'mfa'
+  | 'email-verify'
+  | 'email-ip';
 
 const STRENGTH_STRONG_PCT = 82;
 const STRENGTH_GOOD_PCT = 58;
@@ -83,6 +91,10 @@ export function useInlineAuthFlow(opts: {
   const mfaFactor = ref<'totp' | 'recovery'>('totp');
   const mfaTotpCode = ref('');
   const mfaRecoveryCode = ref('');
+
+  const emailGateToken = ref<string | null>(null);
+  const emailGateMasked = ref('');
+  const emailIpCode = ref('');
 
   function push(target: Exclude<InlineAuthView, 'welcome'>) {
     direction.value = 'forward';
@@ -147,6 +159,12 @@ export function useInlineAuthFlow(opts: {
         return 'That code doesn’t match. Try again.';
       if (c === 'INVALID_MFA_TOKEN')
         return 'The sign-in step expired. Try logging in again.';
+      if (c === 'INVALID_LOGIN_TOKEN')
+        return 'The sign-in step expired. Try logging in again.';
+      if (c === 'INVALID_EMAIL_IP_CODE')
+        return 'That code doesn’t match. Try again.';
+      if (c === 'EMAIL_VERIFICATION_REQUIRED')
+        return 'Verify your email to unlock this account. Check your inbox for a link.';
       if (c === 'INVALID_CREDENTIALS')
         return 'That username or password doesn’t match our records.';
       if (c === 'USERNAME_TAKEN')
@@ -157,6 +175,11 @@ export function useInlineAuthFlow(opts: {
       if (c === 'CHALLENGE_EXPIRED')
         return 'That sign-in step expired. Try again.';
       if (c === 'VERIFICATION_FAILED') return 'Verification failed. Try again.';
+      if (
+        c === 'VERIFICATION_EMAIL_COOLDOWN' ||
+        c === 'LOGIN_EMAIL_OTP_COOLDOWN'
+      )
+        return 'Please wait a moment before requesting another email.';
       return translateApiErrorBody(err.body);
     }
     if (err instanceof Error) return err.message;
@@ -183,11 +206,7 @@ export function useInlineAuthFlow(opts: {
       challengeId,
       credential: credential as Record<string, unknown>,
     });
-    if (isAuthLoginMfaChallenge(result)) {
-      beginMfaChallenge(result.mfaToken);
-      return;
-    }
-    await adoptSessionAndLoadWorkspace(result);
+    await handleLoginResult(result);
   }
 
   /**
@@ -264,6 +283,36 @@ export function useInlineAuthFlow(opts: {
     push('mfa');
   }
 
+  function beginEmailVerifyChallenge(token: string, maskedEmail: string): void {
+    emailGateToken.value = token;
+    emailGateMasked.value = maskedEmail;
+    forgotMessage.value = '';
+    push('email-verify');
+  }
+
+  function beginEmailIpChallenge(token: string, maskedEmail: string): void {
+    emailGateToken.value = token;
+    emailGateMasked.value = maskedEmail;
+    emailIpCode.value = '';
+    push('email-ip');
+  }
+
+  async function handleLoginResult(result: AuthLoginResult): Promise<void> {
+    if (isAuthLoginEmailVerificationChallenge(result)) {
+      beginEmailVerifyChallenge(result.loginToken, result.maskedEmail);
+      return;
+    }
+    if (isAuthLoginEmailIpChallenge(result)) {
+      beginEmailIpChallenge(result.loginToken, result.maskedEmail);
+      return;
+    }
+    if (isAuthLoginMfaChallenge(result)) {
+      beginMfaChallenge(result.mfaToken);
+      return;
+    }
+    await adoptSessionAndLoadWorkspace(result);
+  }
+
   async function submitLogin(): Promise<void> {
     if (isMock()) {
       setAuthError(mapError(new Error('ACCOUNTS_DISABLED_PREVIEW')));
@@ -279,11 +328,7 @@ export function useInlineAuthFlow(opts: {
     errorMessage.value = '';
     try {
       const result = await authLogin({ username: u, password: p });
-      if (isAuthLoginMfaChallenge(result)) {
-        beginMfaChallenge(result.mfaToken);
-        return;
-      }
-      await adoptSessionAndLoadWorkspace(result);
+      await handleLoginResult(result);
     } catch (e) {
       setAuthError(mapError(e));
     } finally {
@@ -356,10 +401,71 @@ export function useInlineAuthFlow(opts: {
     submitting.value = true;
     errorMessage.value = '';
     try {
-      const session = authSession.backendUser?.isGuest
+      const result = authSession.backendUser?.isGuest
         ? await authUpgradeGuest(payload)
         : await authRegister(payload);
-      await adoptSessionAndLoadWorkspace(session);
+      await handleLoginResult(result);
+    } catch (e) {
+      setAuthError(mapError(e));
+    } finally {
+      submitting.value = false;
+    }
+  }
+
+  async function resendEmailVerification(): Promise<void> {
+    const token = emailGateToken.value?.trim() ?? '';
+    if (!token) {
+      setAuthError('Sign-in expired. Try logging in again.');
+      return;
+    }
+    submitting.value = true;
+    errorMessage.value = '';
+    try {
+      await authLoginResendVerification({ loginToken: token });
+      setAuthError('');
+      forgotMessage.value = 'Verification email sent. Check your inbox.';
+    } catch (e) {
+      setAuthError(mapError(e));
+    } finally {
+      submitting.value = false;
+    }
+  }
+
+  async function submitEmailIpCode(): Promise<void> {
+    const token = emailGateToken.value?.trim() ?? '';
+    const code = emailIpCode.value.trim();
+    if (!token) {
+      setAuthError('Sign-in expired. Try logging in again.');
+      return;
+    }
+    if (!/^\d{4,8}$/.test(code)) {
+      setAuthError('Enter the code from your email.');
+      return;
+    }
+    submitting.value = true;
+    errorMessage.value = '';
+    try {
+      const result = await authLoginEmailIpCode({ loginToken: token, code });
+      await handleLoginResult(result);
+    } catch (e) {
+      setAuthError(mapError(e));
+    } finally {
+      submitting.value = false;
+    }
+  }
+
+  async function resendEmailIpCode(): Promise<void> {
+    const token = emailGateToken.value?.trim() ?? '';
+    if (!token) {
+      setAuthError('Sign-in expired. Try logging in again.');
+      return;
+    }
+    submitting.value = true;
+    errorMessage.value = '';
+    try {
+      const result = await authLoginEmailIpResend({ loginToken: token });
+      emailGateToken.value = result.loginToken;
+      emailGateMasked.value = result.maskedEmail;
     } catch (e) {
       setAuthError(mapError(e));
     } finally {
@@ -403,6 +509,9 @@ export function useInlineAuthFlow(opts: {
     mfaFactor,
     mfaTotpCode,
     mfaRecoveryCode,
+    emailGateToken,
+    emailGateMasked,
+    emailIpCode,
     passkeyAvailable,
     passwordStrength,
     strengthBarClass,
@@ -418,5 +527,8 @@ export function useInlineAuthFlow(opts: {
     submitMfa,
     submitRegister,
     submitForgot,
+    resendEmailVerification,
+    submitEmailIpCode,
+    resendEmailIpCode,
   };
 }

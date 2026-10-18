@@ -42,6 +42,8 @@ const {
   mfaFactor,
   mfaTotpCode,
   mfaRecoveryCode,
+  emailGateMasked,
+  emailIpCode,
   passkeyAvailable,
   passwordStrength,
   strengthBarClass,
@@ -57,6 +59,9 @@ const {
   submitMfa,
   submitRegister,
   submitForgot,
+  resendEmailVerification,
+  submitEmailIpCode,
+  resendEmailIpCode,
 } = flow;
 
 const legalModalOpen = ref(false);
@@ -488,6 +493,121 @@ onBeforeUnmount(() => {
             :disabled="submitting || isMockDataMode"
           >
             Send reset link
+          </button>
+        </form>
+      </div>
+
+      <!-- ── Email verify lock ────────────────────────────────────────── -->
+      <div
+        v-else-if="view === 'email-verify'"
+        key="email-verify"
+        class="inline-auth__view"
+      >
+        <header class="inline-auth__nav">
+          <button
+            type="button"
+            class="inline-auth__back"
+            aria-label="Back"
+            @click="pop('login')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15 18l-6-6 6-6"
+              />
+            </svg>
+          </button>
+          <h3 class="inline-auth__nav-title">Verify email</h3>
+          <span class="inline-auth__back inline-auth__back--ghost" />
+        </header>
+        <div class="inline-auth__form">
+          <p class="inline-auth__legal">
+            Your account is locked until you verify
+            <strong v-if="emailGateMasked">{{ emailGateMasked }}</strong
+            ><template v-else>your email</template>. Open the link we sent, then
+            sign in again.
+          </p>
+          <p v-if="forgotMessage" class="inline-auth__legal" role="status">
+            {{ forgotMessage }}
+          </p>
+          <p v-if="errorMessage" class="inline-auth__error" role="alert">
+            {{ errorMessage }}
+          </p>
+          <button
+            type="button"
+            class="inline-auth__btn inline-auth__btn--primary"
+            :disabled="submitting"
+            @click="resendEmailVerification"
+          >
+            Resend verification email
+          </button>
+        </div>
+      </div>
+
+      <!-- ── New-IP email code ─────────────────────────────────────────── -->
+      <div
+        v-else-if="view === 'email-ip'"
+        key="email-ip"
+        class="inline-auth__view"
+      >
+        <header class="inline-auth__nav">
+          <button
+            type="button"
+            class="inline-auth__back"
+            aria-label="Back"
+            @click="pop('login')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15 18l-6-6 6-6"
+              />
+            </svg>
+          </button>
+          <h3 class="inline-auth__nav-title">Confirm sign-in</h3>
+          <span class="inline-auth__back inline-auth__back--ghost" />
+        </header>
+        <form class="inline-auth__form" @submit.prevent="submitEmailIpCode">
+          <p class="inline-auth__legal">
+            Enter the code we sent to
+            <strong v-if="emailGateMasked">{{ emailGateMasked }}</strong
+            ><template v-else>your email</template> to confirm this new sign-in.
+          </p>
+          <label class="inline-auth__field">
+            <span class="inline-auth__label">Email code</span>
+            <input
+              v-model="emailIpCode"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="8"
+              class="inline-auth__input"
+              placeholder="000000"
+            />
+          </label>
+          <p v-if="errorMessage" class="inline-auth__error" role="alert">
+            {{ errorMessage }}
+          </p>
+          <button
+            type="submit"
+            class="inline-auth__btn inline-auth__btn--primary"
+            :disabled="submitting"
+          >
+            Continue
+          </button>
+          <button
+            type="button"
+            class="inline-auth__link"
+            :disabled="submitting"
+            @click="resendEmailIpCode"
+          >
+            Resend code
           </button>
         </form>
       </div>

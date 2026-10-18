@@ -410,7 +410,52 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
     ON auth_echo_plus_interest (created_at DESC);
   `);
   /**
-   * One-time for existing deployments (run manually after deploy if you must not force re-verify):
-   * UPDATE auth_users SET email_verified_at = created_at WHERE email_verified_at IS NULL AND email IS NOT NULL AND TRIM(email) <> '';
+   * Hard email-verification lock: accounts with an email but no `email_verified_at`
+   * cannot obtain a session. Backfill existing rows so turning this on does not
+   * lock out everyone who signed up under soft verification. New signups keep
+   * `email_verified_at` NULL until they confirm.
    */
+  await pool.query(`
+    UPDATE auth_users
+    SET email_verified_at = COALESCE(created_at, NOW())
+    WHERE email_verified_at IS NULL
+      AND email IS NOT NULL
+      AND TRIM(email) <> ''
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_user_trusted_login_ips (
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      ip_digest TEXT NOT NULL,
+      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, ip_digest)
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS auth_user_trusted_login_ips_user_idx
+    ON auth_user_trusted_login_ips (user_id);
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_login_email_otp_challenges (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      purpose TEXT NOT NULL DEFAULT 'new_ip_login',
+      email_norm TEXT NOT NULL,
+      ip_digest TEXT NOT NULL,
+      code_hmac TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      attempt_count INT NOT NULL DEFAULT 0,
+      max_attempts INT NOT NULL DEFAULT 5,
+      consumed_at TIMESTAMPTZ NULL,
+      invalidated_at TIMESTAMPTZ NULL,
+      invalidation_reason TEXT NULL
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS auth_login_email_otp_challenges_user_created_idx
+    ON auth_login_email_otp_challenges (user_id, created_at DESC);
+  `);
 }

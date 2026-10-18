@@ -5,7 +5,7 @@ import {
   getMergedRolePermissions,
 } from './permissions';
 import { getMemberTopRolePosition, isEchoServerOwner } from '../members/access';
-import { actorMayGrantPermissionSet } from './roles';
+import { actorMayGrantPermissionSet } from './roleGrantGuards';
 import { expandStoredRolePermissionsToCanonSet } from '../../permissions/echoPermissionPrimitives';
 
 export type EchoRoleLinkDto = {

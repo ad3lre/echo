@@ -2,10 +2,7 @@
 import rateLimit from '@fastify/rate-limit';
 import { httpRateLimitStoreOpts } from '../../../services/httpRateLimitStore';
 import { sendError } from '../../errors';
-import {
-  signMfaPendingToken,
-  verifyMfaPendingToken,
-} from '../../../auth/token';
+import { verifyMfaPendingToken } from '../../../auth/token';
 import { getAuthStore } from '../../../auth/store';
 import { clearGuestBindingCookie } from '../../../auth/sessionCookies';
 import { isValidEmailFormat } from '../../../auth/email';
@@ -32,6 +29,12 @@ import {
 } from '../../../services/auth/loginProtection';
 import { replyIfInstanceBanned } from '../../../domain/instanceBanEnforcement';
 import { verifyPassword } from '../../../auth/passwordHash';
+import {
+  emailIpVerificationRequiredBody,
+  emailVerificationRequiredBody,
+  evaluatePasswordLoginGates,
+} from '../../../services/auth/passwordLoginGates';
+import { trustLoginIp } from '../../../services/auth/loginTrustedIpStore';
 
 const DUMMY_HASH =
   '$2b$10$Cm/6wtFYacv3Kh/YTvmAWuaI29ASBONCB4UZ1v8KT8TM04.iNlh1K';
@@ -152,7 +155,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
           await recordPasswordLoginSuccess(accountKey);
 
           const full = await store.getUserById(userRecord.id);
-          if (full?.isGuest) {
+          if (!full || full.isGuest) {
             return sendError(
               reply,
               403,
@@ -163,11 +166,27 @@ export default async function loginRoutes(fastify: FastifyInstance) {
 
           clearGuestBindingCookie(reply);
 
-          if (userRecord.totpEnabled) {
+          const postGate = await evaluatePasswordLoginGates({
+            log: fastify.log,
+            store,
+            user: full,
+            ipDigest: audit.ipDigest,
+          });
+          if (postGate.kind === 'email_verification_required') {
+            return reply
+              .code(200)
+              .send(emailVerificationRequiredBody(postGate));
+          }
+          if (postGate.kind === 'email_ip_required') {
+            return reply
+              .code(200)
+              .send(emailIpVerificationRequiredBody(postGate));
+          }
+          if (postGate.kind === 'mfa_required') {
             return reply.code(200).send({
               mfaRequired: true,
-              mfaToken: signMfaPendingToken(userRecord.id),
-              user: { id: userRecord.id, username: userRecord.username },
+              mfaToken: postGate.mfaToken,
+              user: postGate.user,
             });
           }
 
@@ -177,6 +196,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
             ipDigest: audit.ipDigest,
             uaDigest: audit.uaDigest,
           });
+          await trustLoginIp(userRecord.id, audit.ipDigest);
           if (
             await replyIfInstanceBanned(reply, {
               userId: userRecord.id,
@@ -307,6 +327,14 @@ export default async function loginRoutes(fastify: FastifyInstance) {
               'MFA step expired or invalid. Sign in again.',
             );
           }
+          if (user.email && !user.emailVerified) {
+            return sendError(
+              reply,
+              403,
+              'EMAIL_VERIFICATION_REQUIRED',
+              'Verify your email before continuing.',
+            );
+          }
           if (!user.totpEnabled) {
             return sendError(
               reply,
@@ -338,6 +366,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
           }
           await recordMfaLoginSuccess(userId);
           clearGuestBindingCookie(reply);
+          await trustLoginIp(userId, audit.ipDigest);
           void store.recordLoginEvent({
             userId,
             eventType: 'login_success_mfa',

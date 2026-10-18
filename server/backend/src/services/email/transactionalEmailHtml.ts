@@ -1,4 +1,5 @@
 import { config } from '../../config';
+import { renderTransactionalEmailCta } from './transactionalEmailCta';
 
 export type TransactionalEmailBranding = {
   /** Shown in browser tab; keep short. */
@@ -9,7 +10,8 @@ export type TransactionalEmailBranding = {
   greetingName: string;
   /** Plain sentences, HTML-escaped and each wrapped in a paragraph. */
   bodyParagraphs: string[];
-  primaryCta: { href: string; label: string };
+  /** Optional button + fallback link (omit for code-only emails such as OTP). */
+  primaryCta?: { href: string; label: string };
   /** Optional extra muted paragraph (already trusted / plain text from caller). */
   finePrint?: string;
 };
@@ -19,13 +21,10 @@ const CARD_BG = '#0d0914';
 const TEXT_PRIMARY = '#f5f2fa';
 const TEXT_MUTED = '#9b8fb0';
 const ACCENT = '#8b9bf8';
-const ACCENT_DEEP = '#5c52e0';
-const CTA_TEXT = '#ffffff';
-const SUBTLE_LINE = 'rgba(155,143,176,0.12)';
 
 /**
  * Table-based, mostly-inline HTML for transactional mail (verification, password
- * reset). Tuned for dark-mode Echo branding and conservative client support.
+ * reset, OTP). Tuned for dark-mode Echo branding and conservative client support.
  */
 export function buildTransactionalEmailHtml(
   input: TransactionalEmailBranding,
@@ -35,8 +34,6 @@ export function buildTransactionalEmailHtml(
   const title = escapeHtml(input.documentTitle);
   const pre = escapeHtml(input.preheader);
   const greeting = escapeHtml(input.greetingName);
-  const ctaHref = escapeAttr(input.primaryCta.href);
-  const ctaLabel = escapeHtml(input.primaryCta.label);
   const bodyPs = input.bodyParagraphs
     .map(
       (t) =>
@@ -45,6 +42,14 @@ export function buildTransactionalEmailHtml(
     .join('');
   const fine = input.finePrint
     ? `<p style="margin:20px 0 0;font-size:13px;line-height:1.55;color:${TEXT_MUTED};">${escapeHtml(input.finePrint)}</p>`
+    : '';
+  const ctaBlock = input.primaryCta
+    ? renderTransactionalEmailCta({
+        href: input.primaryCta.href,
+        label: input.primaryCta.label,
+        escapeHtml,
+        escapeAttr,
+      })
     : '';
 
   const logoBlock = logoUrl
@@ -78,18 +83,8 @@ export function buildTransactionalEmailHtml(
               <p style="margin:0 0 28px;font-size:26px;font-weight:650;letter-spacing:-0.02em;line-height:1.25;color:${TEXT_PRIMARY};">${title}</p>
               <p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:${TEXT_PRIMARY};">Hi ${greeting},</p>
               ${bodyPs}
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0 0;">
-                <tr>
-                  <td align="center" style="border-radius:12px;background:linear-gradient(135deg,${ACCENT} 0%,${ACCENT_DEEP} 100%);box-shadow:0 4px 16px rgba(139,155,248,0.25);">
-                    <a href="${ctaHref}" style="display:inline-block;padding:16px 32px;font-size:15px;font-weight:600;color:${CTA_TEXT};text-decoration:none;border-radius:12px;">${ctaLabel}</a>
-                  </td>
-                </tr>
-              </table>
+              ${ctaBlock}
               ${fine}
-              <p style="margin:32px 0 0;padding-top:24px;border-top:1px solid ${SUBTLE_LINE};font-size:12px;line-height:1.6;color:${TEXT_MUTED};">
-                If the button doesn't work, copy this link:<br />
-                <a href="${ctaHref}" style="color:${ACCENT};word-break:break-all;text-decoration:none;">${escapeHtml(input.primaryCta.href)}</a>
-              </p>
             </td>
           </tr>
           <tr>

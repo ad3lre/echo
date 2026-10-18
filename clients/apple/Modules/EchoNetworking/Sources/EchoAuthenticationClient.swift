@@ -16,6 +16,10 @@ private struct AuthResponse: Codable, Sendable {
   let auth: EchoNativeSession?
   let mfaRequired: Bool?
   let mfaToken: String?
+  let emailVerificationRequired: Bool?
+  let emailIpVerificationRequired: Bool?
+  let loginToken: String?
+  let maskedEmail: String?
 }
 
 private struct ErrorResponse: Decodable {
@@ -26,6 +30,8 @@ private struct ErrorResponse: Decodable {
 public enum EchoAuthenticationError: LocalizedError, Sendable, Equatable {
   case server(code: String?, message: String)
   case mfaRequired(token: String, user: EchoAuthenticatedUser)
+  case emailVerificationRequired(token: String, maskedEmail: String, user: EchoAuthenticatedUser)
+  case emailIpVerificationRequired(token: String, maskedEmail: String, user: EchoAuthenticatedUser)
   case nativeSessionUnavailable
   case invalidResponse
   case noActiveSession
@@ -35,6 +41,14 @@ public enum EchoAuthenticationError: LocalizedError, Sendable, Equatable {
     case .server(_, let message): message
     case .mfaRequired:
       "Enter the verification code from your authenticator app to finish signing in."
+    case .emailVerificationRequired(_, let masked, _):
+      masked.isEmpty
+        ? "Verify your email to unlock this account. Check your inbox for a link."
+        : "Verify \(masked) to unlock this account. Check your inbox for a link."
+    case .emailIpVerificationRequired(_, let masked, _):
+      masked.isEmpty
+        ? "Enter the code we emailed you to confirm this sign-in."
+        : "Enter the code we sent to \(masked) to confirm this sign-in."
     case .nativeSessionUnavailable: "This Echo server has not enabled native app sessions yet."
     case .invalidResponse: "Echo returned an unexpected response. Please try again."
     case .noActiveSession: "You are not signed in."
@@ -82,6 +96,36 @@ public struct EchoAuthenticationClient: Sendable {
     if let code, !code.isEmpty { body["code"] = code }
     if let recoveryCode, !recoveryCode.isEmpty { body["recoveryCode"] = recoveryCode }
     return try await perform(path: "/api/v1/auth/login/mfa", body: body)
+  }
+
+  public func signInEmailIpCode(loginToken: String, code: String) async throws -> (
+    user: EchoAuthenticatedUser, session: EchoNativeSession
+  ) {
+    try await perform(
+      path: "/api/v1/auth/login/email-ip-code",
+      body: ["loginToken": loginToken, "code": code])
+  }
+
+  public func resendEmailIpCode(loginToken: String) async throws -> (
+    token: String, maskedEmail: String, user: EchoAuthenticatedUser
+  ) {
+    let data = try await sendJSON(
+      path: "/api/v1/auth/login/email-ip-resend", body: ["loginToken": loginToken])
+    let payload = try JSONDecoder().decode(AuthResponse.self, from: data)
+    guard payload.emailIpVerificationRequired == true,
+      let token = payload.loginToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !token.isEmpty
+    else {
+      throw EchoAuthenticationError.invalidResponse
+    }
+    return (token, payload.maskedEmail ?? "", payload.user)
+  }
+
+  public func resendEmailVerification(loginToken: String) async throws {
+    let data = try await sendJSON(
+      path: "/api/v1/auth/login/resend-verification", body: ["loginToken": loginToken])
+    // 204 has empty body; sendJSON only returns on 2xx.
+    _ = data
   }
 
   public func register(username: String, email: String, password: String, displayName: String?)
@@ -171,6 +215,24 @@ public struct EchoAuthenticationClient: Sendable {
     user: EchoAuthenticatedUser, session: EchoNativeSession
   ) {
     let payload = try JSONDecoder().decode(AuthResponse.self, from: data)
+    if payload.emailVerificationRequired == true {
+      guard let token = payload.loginToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+        !token.isEmpty
+      else {
+        throw EchoAuthenticationError.invalidResponse
+      }
+      throw EchoAuthenticationError.emailVerificationRequired(
+        token: token, maskedEmail: payload.maskedEmail ?? "", user: payload.user)
+    }
+    if payload.emailIpVerificationRequired == true {
+      guard let token = payload.loginToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+        !token.isEmpty
+      else {
+        throw EchoAuthenticationError.invalidResponse
+      }
+      throw EchoAuthenticationError.emailIpVerificationRequired(
+        token: token, maskedEmail: payload.maskedEmail ?? "", user: payload.user)
+    }
     if payload.mfaRequired == true {
       guard let token = payload.mfaToken?.trimmingCharacters(in: .whitespacesAndNewlines),
         !token.isEmpty

@@ -9,7 +9,7 @@ import {
   canManageEchoRolesCatalog,
 } from './permissions';
 import { isEchoServerOwner } from '../members/access';
-import { actorMayGrantPermissionSet } from './roles';
+import { actorMayGrantPermissionSet } from './roleGrantGuards';
 import { listEchoCategories } from '../channels/categoriesWorkspace';
 import {
   type EchoSelfRolesConfig,

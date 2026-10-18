@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { authUpgradeGuest } from '@/api/authClient';
+import {
+  authUpgradeGuest,
+  isAuthLoginEmailIpChallenge,
+  isAuthLoginEmailVerificationChallenge,
+  isAuthLoginMfaChallenge,
+} from '@/api/authClient';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import { icons } from '@/assets/icons';
 import {
@@ -85,14 +90,25 @@ async function submit() {
   busy.value = true;
   err.value = '';
   try {
-    const session = await authUpgradeGuest({
+    const result = await authUpgradeGuest({
       email: em,
       password: password.value,
       ...(displayName.value.trim()
         ? { displayName: displayName.value.trim() }
         : {}),
     });
-    auth.setSession(session);
+    if (isAuthLoginEmailVerificationChallenge(result)) {
+      err.value = `Account saved — verify ${result.maskedEmail || 'your email'} via the link we sent, then sign in.`;
+      return;
+    }
+    if (
+      isAuthLoginMfaChallenge(result) ||
+      isAuthLoginEmailIpChallenge(result)
+    ) {
+      err.value = 'Account saved — sign in again to finish verification.';
+      return;
+    }
+    auth.setSession(result);
     emit('upgraded');
   } catch (e: unknown) {
     err.value = e instanceof Error ? e.message : 'Upgrade failed';

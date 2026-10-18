@@ -6,6 +6,9 @@ import {
   authDiscordOAuthStart,
   authPatchMe,
   authUpgradeGuest,
+  isAuthLoginEmailVerificationChallenge,
+  isAuthLoginMfaChallenge,
+  isAuthLoginEmailIpChallenge,
 } from '@/api/authClient';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import { icons } from '@/assets/icons';
@@ -219,14 +222,28 @@ async function submit() {
     auth.applyRestoredProfile(patchedGuest);
 
     // 2) Upgrade guest → full account (username + credentials)
-    const session = await authUpgradeGuest({
+    const result = await authUpgradeGuest({
       email: em,
       password: password.value,
       username: vr.normalizedUsername,
       displayName: displayName.value.trim(),
       pfp: pfp.value,
     });
-    auth.setSession(session);
+    if (isAuthLoginEmailVerificationChallenge(result)) {
+      error.value = `Account created — verify ${result.maskedEmail || 'your email'} via the link we sent, then sign in.`;
+      emit('update:modelValue', false);
+      return;
+    }
+    if (
+      isAuthLoginMfaChallenge(result) ||
+      isAuthLoginEmailIpChallenge(result)
+    ) {
+      error.value =
+        'Account created — sign in again to finish verification steps.';
+      emit('update:modelValue', false);
+      return;
+    }
+    auth.setSession(result);
     emit('upgraded');
     emit('update:modelValue', false);
   } catch (e) {

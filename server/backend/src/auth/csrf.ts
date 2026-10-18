@@ -19,6 +19,9 @@ const CSRF_EXEMPT_EXACT = new Set([
   '/api/v1/auth/guest',
   '/api/v1/auth/refresh',
   '/api/v1/auth/login/mfa',
+  '/api/v1/auth/login/resend-verification',
+  '/api/v1/auth/login/email-ip-code',
+  '/api/v1/auth/login/email-ip-resend',
   '/api/v1/auth/forgot-password',
   '/api/v1/auth/reset-password',
   /** SPA POST verify from email link (single-use token; no session / CSRF cookie yet). */
