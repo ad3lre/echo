@@ -3,9 +3,12 @@
  * Run: ECHO_GUEST_ACCOUNTS_ENABLED=1 bun run --filter backend test:echo:pipeline
  *
  * Guest carve-out tests need guests enabled before Node loads `config` (imports are hoisted).
+ * Soften email-verify lock so register still returns a session (same as other integration suites).
  */
 process.env.ECHO_GUEST_ACCOUNTS_ENABLED =
   process.env.ECHO_GUEST_ACCOUNTS_ENABLED ?? '1';
+process.env.ECHO_CONFIG_TEST_ISOLATION =
+  process.env.ECHO_CONFIG_TEST_ISOLATION ?? '1';
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';

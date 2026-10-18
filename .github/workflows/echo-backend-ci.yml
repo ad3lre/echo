@@ -102,6 +102,7 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
           ECHO_GUEST_ACCOUNTS_ENABLED: '1'
+          ECHO_CONFIG_TEST_ISOLATION: '1'
         run: bun run --filter backend test:echo:pipeline
       - name: Multi-node integration (Postgres + NATS)
         env:
@@ -109,18 +110,21 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           NATS_URL: nats://127.0.0.1:4222
           USE_MOCK_DB: 'false'
+          ECHO_CONFIG_TEST_ISOLATION: '1'
         run: bun run --filter backend test:echo:multinode
       - name: Upload presign smoke (Postgres)
         env:
           ECHO_BACKEND_STORAGE: postgres
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
+          ECHO_CONFIG_TEST_ISOLATION: '1'
         run: bun run --filter backend test:echo:uploads
       - name: RBAC integration + goldens (Postgres)
         env:
           ECHO_BACKEND_STORAGE: postgres
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
+          ECHO_CONFIG_TEST_ISOLATION: '1'
         run: bun run --filter backend test:echo:rbac
       - name: Auth integration (Postgres)
         env:
@@ -128,6 +132,7 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
           JWT_SECRET: jwt-0123456789abcdef0123456789abcdef01234567
+          ECHO_CONFIG_TEST_ISOLATION: '1'
         run: bun run --filter backend test:auth
       - name: RBAC sparse bench
         env:
