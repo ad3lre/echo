@@ -75,10 +75,10 @@ function wireEffectiveChannelAndVcGuards(
   function ensureViewingConnectedVoiceChannel() {
     const vid = uiState.currentVoiceChannelId.value?.trim();
     if (!vid) return;
-    // Activities mount inside CallView, which only exists while the main surface
-    // is on that voice channel. Also re-select the owning guild — DM/Explore /
-    // another server leaves findChannelContextById empty so isViewingVoiceChannel
-    // stays false and the picker appears to do nothing.
+    // Activities mount via VoiceSection whenever phase !== closed; still jump
+    // the main surface to the connected VC so CallView chrome stays coherent.
+    // Re-select the owning guild — DM/Explore / another server leaves
+    // findChannelContextById empty so isViewingVoiceChannel stays false.
     const sid = resolveEchoServerIdContainingChannel(
       vid,
       workspace.categoriesByServer.value,

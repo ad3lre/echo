@@ -7,6 +7,7 @@ final class EchoSoundPlayer {
 
   private var effectPlayer: AVAudioPlayer?
   private var ringtonePlayer: AVAudioPlayer?
+  private var loopingRingtoneID: String?
 
   func preview(_ sound: EchoSoundOption, volume: Double) {
     play(sound, volume: volume)
@@ -18,21 +19,66 @@ final class EchoSoundPlayer {
   }
 
   func previewRingtone(_ entry: EchoRingtoneEntry, volume: Double) {
+    let clamped = max(0, min(1, volume))
+    // While a call is already ringing, never replace the loop with a one-shot —
+    // long "music" ringtones would play once and auto-stop mid-ring.
+    if loopingRingtoneID != nil || (ringtonePlayer?.isPlaying == true) {
+      startRingtoneLoop(entry, volume: clamped)
+      return
+    }
     guard let url = Self.resourceURL(for: entry) else { return }
     stopRingtone()
-    playOneShot(url: url, volume: volume)
+    do {
+      // Use the ringtone playback session (not `.ambient`) so longer tracks
+      // aren't ducked/cut by silent-switch ambient rules mid-preview.
+      prepareSession(forRingtone: true)
+      let player = try AVAudioPlayer(contentsOf: url)
+      player.numberOfLoops = 0
+      player.volume = Float(clamped)
+      player.prepareToPlay()
+      ringtonePlayer = player
+      loopingRingtoneID = nil
+      guard player.play() else {
+        prepareSession(forRingtone: true)
+        _ = player.play()
+        return
+      }
+    } catch {
+      // Preview is best-effort.
+    }
+  }
+
+  /// True when any in-app ringtone loop is currently playing.
+  var isPlayingAnyRingtoneLoop: Bool {
+    ringtonePlayer?.isPlaying == true && loopingRingtoneID != nil
+  }
+
+  /// True when the in-app ringtone loop is already playing this entry.
+  func isPlayingRingtoneLoop(for entry: EchoRingtoneEntry) -> Bool {
+    isPlayingAnyRingtoneLoop && loopingRingtoneID == entry.id
+  }
+
+  func setRingtoneVolume(_ volume: Double) {
+    ringtonePlayer?.volume = Float(max(0, min(1, volume)))
   }
 
   func startRingtoneLoop(_ entry: EchoRingtoneEntry, volume: Double) {
+    let clamped = max(0, min(1, volume))
+    // CallKit / mute toggles re-enter here often — don't restart the track.
+    if isPlayingRingtoneLoop(for: entry) {
+      setRingtoneVolume(clamped)
+      return
+    }
     guard let url = Self.resourceURL(for: entry) else { return }
     stopRingtone()
     do {
       prepareSession(forRingtone: true)
       let player = try AVAudioPlayer(contentsOf: url)
       player.numberOfLoops = -1
-      player.volume = Float(max(0, min(1, volume)))
+      player.volume = Float(clamped)
       player.prepareToPlay()
       ringtonePlayer = player
+      loopingRingtoneID = entry.id
       guard player.play() else {
         // CallKit may have flipped the session mid-start; retry once on the
         // active route without changing category.
@@ -48,6 +94,7 @@ final class EchoSoundPlayer {
   func stopRingtone() {
     ringtonePlayer?.stop()
     ringtonePlayer = nil
+    loopingRingtoneID = nil
   }
 
   private func playOneShot(url: URL, volume: Double) {

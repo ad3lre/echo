@@ -1,6 +1,10 @@
 import EchoDomain
 import SwiftUI
 
+#if os(iOS)
+  import UIKit
+#endif
+
 struct EchoHomeBackground: View {
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
   @Environment(\.colorScheme) private var colorScheme
@@ -24,7 +28,6 @@ struct EchoProfileHeader: View {
   let profile: EchoUserProfile
   let baseURL: URL
   var accessToken: String? = nil
-  let presenceStatus: String
   let onProfileTap: () -> Void
   let onMenuTap: () -> Void
 
@@ -40,17 +43,19 @@ struct EchoProfileHeader: View {
           // Extend the artwork beneath the curve so raster/remote-image
           // edges can never form a hairline seam at the section boundary.
           .frame(height: 226)
+          .clipped()
 
           EchoHeaderSlice(raisedChromeShelves: colorScheme == .light)
             .fill(displayPrefs.canvas(colorScheme: colorScheme))
             .frame(height: 84)
+            .allowsHitTesting(false)
 
           HStack(alignment: .bottom, spacing: 14) {
             EchoProfileAvatar(
-              profile: profile, baseURL: baseURL, accessToken: accessToken,
-              presenceStatus: presenceStatus
+              profile: profile, baseURL: baseURL, accessToken: accessToken
             )
             .frame(width: 76, height: 76)
+            .zIndex(2)
 
             VStack(alignment: .leading, spacing: 3) {
               Text(profile.name)
@@ -62,7 +67,8 @@ struct EchoProfileHeader: View {
                 .foregroundStyle(EchoTheme.Color.ink(0.58))
                 .lineLimit(1)
             }
-            .padding(.bottom, 7)
+            // Seat the name on the raised chrome shelf (edit-profile parity).
+            .padding(.bottom, 10)
 
             Spacer(minLength: 0)
 
@@ -74,13 +80,13 @@ struct EchoProfileHeader: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .padding(.bottom, 7)
+            .padding(.bottom, 10)
           }
           .padding(.horizontal, 22)
+          .padding(.bottom, 8)
+          .zIndex(1)
         }
         .background(displayPrefs.canvas(colorScheme: colorScheme))
-        .compositingGroup()
-        .clipped()
 
         // Opaque seal so no banner fringe can show between header and search.
         displayPrefs.canvas(colorScheme: colorScheme)
@@ -121,19 +127,21 @@ struct EchoHeaderSlice: Shape {
     return path
   }
 
-  /// Gentle rises under the name and caret — enough contrast for light ink,
-  /// without the tall twin peaks that read as excessive shelves.
+  /// Soft rise under the display name (+ a lighter one under the caret) so
+  /// light-mode ink sits on chrome, not the banner photograph.
   private func lightReadablePath(in rect: CGRect) -> Path {
     var path = Path()
     let w = rect.width
-    let nameY = rect.midY - 4
-    let dipY = rect.midY + 6
-    let caretY = rect.midY - 2
+    // A modest lift vs the prior shelves — enough for the name to clear the
+    // banner, without the tall twin peaks that read as excessive.
+    let nameY = rect.midY - 12
+    let dipY = rect.midY + 4
+    let caretY = rect.midY - 8
     path.move(to: CGPoint(x: rect.minX, y: rect.midY + 10))
     path.addCurve(
       to: CGPoint(x: w * 0.36, y: nameY),
-      control1: CGPoint(x: w * 0.16, y: rect.midY + 8),
-      control2: CGPoint(x: w * 0.26, y: nameY + 1)
+      control1: CGPoint(x: w * 0.16, y: rect.midY + 6),
+      control2: CGPoint(x: w * 0.26, y: nameY + 2)
     )
     path.addCurve(
       to: CGPoint(x: w * 0.70, y: dipY),
@@ -157,37 +165,75 @@ struct EchoProfileAvatar: View {
   let baseURL: URL
   var accessToken: String? = nil
   var presenceStatus: String? = nil
+  /// Canvas (or themed) ring around the avatar — drawn under the presence badge
+  /// so the online indicator is never half-covered by the stroke.
+  var rimWidth: CGFloat = 0
+  var rimColor: Color? = nil
+  var presenceSize: CGFloat = 20
+  @Environment(\.colorScheme) private var colorScheme
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
 
-  var body: some View {
-    ZStack(alignment: .bottomTrailing) {
-      if let avatarURL = profile.avatarURL,
-        !avatarURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-      {
-        EchoMediaImage(source: profile.avatarURL, baseURL: baseURL, accessToken: accessToken) {
-          EchoGeneratedAvatar(name: profile.name, seed: profile.name)
-        }
-        .clipShape(Circle())
-      } else {
-        EchoGeneratedAvatar(name: profile.name, seed: profile.name)
-      }
-      if presenceStatus != nil {
-        EchoPresenceIndicator(status: presenceStatus, size: 16)
-      }
-    }
-    .echoShadow(color: .black.opacity(0.32), radius: 14, y: 8)
+  private var resolvedRimColor: Color {
+    rimColor ?? displayPrefs.canvas(colorScheme: colorScheme)
   }
 
+  var body: some View {
+    // Presence must overlay the circle bounds — not the shadow. Shadow after
+    // the badge was expanding layout and parking the dot under the avatar.
+    avatarImage
+      .overlay {
+        if rimWidth > 0 {
+          Circle()
+            .stroke(resolvedRimColor, lineWidth: rimWidth)
+            .allowsHitTesting(false)
+        }
+      }
+      .overlay(alignment: .bottomTrailing) {
+        if presenceStatus != nil {
+          EchoPresenceIndicator(
+            status: presenceStatus,
+            size: presenceSize,
+            borderColor: resolvedRimColor
+          )
+          // Sit on the rim; keep above the stroke so half the badge isn’t clipped.
+          .offset(x: rimWidth > 0 ? 1 : -2, y: rimWidth > 0 ? 1 : -2)
+          .zIndex(2)
+          .allowsHitTesting(false)
+        }
+      }
+      .echoShadow(color: .black.opacity(0.32), radius: 14, y: 8)
+  }
+
+  @ViewBuilder
+  private var avatarImage: some View {
+    if let avatarURL = profile.avatarURL,
+      !avatarURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    {
+      EchoMediaImage(
+        source: profile.avatarURL,
+        baseURL: baseURL,
+        accessToken: accessToken,
+        maxPixelSize: EchoAvatarPrefetcher.avatarMaxPixelSize
+      ) {
+        EchoGeneratedAvatar(name: profile.name, seed: profile.name)
+      }
+      .clipShape(Circle())
+    } else {
+      EchoGeneratedAvatar(name: profile.name, seed: profile.name)
+    }
+  }
 }
 
 struct EchoDirectMessageList: View {
   let conversations: [EchoDirectMessage]
   @Binding var searchText: String
+  @FocusState.Binding var searchFocused: Bool
   let baseURL: URL
   var accessToken: String? = nil
-  let currentUserID: String
   let onRefresh: () async -> Void
+  /// When search was focused, first tap should only dismiss the keyboard.
+  var onConsumeKeyboardTap: () -> Bool = { false }
   let onOpen: (EchoDirectMessage) -> Void
-  let onLeave: (EchoDirectMessage) -> Void
   let inboxNotificationCount: Int
   let onOpenInbox: () -> Void
   @State private var hasScrolled = false
@@ -206,6 +252,21 @@ struct EchoDirectMessageList: View {
             .foregroundStyle(EchoTheme.Color.fg)
             .tint(EchoTheme.Color.fg)
             .textFieldStyle(.plain)
+            .focused($searchFocused)
+            .submitLabel(.search)
+            #if os(iOS)
+              .textInputAutocapitalization(.never)
+            #endif
+            .autocorrectionDisabled()
+            // While focused, a tap on the field dismisses — it must not keep
+            // rebinding the caret / keyboard (conversation-search parity).
+            .overlay {
+              if searchFocused {
+                Color.clear
+                  .contentShape(Rectangle())
+                  .onTapGesture { dismissSearchKeyboard() }
+              }
+            }
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
@@ -214,18 +275,22 @@ struct EchoDirectMessageList: View {
           EchoTheme.Color.ink(0.065), in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
         .overlay(
-          RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(EchoTheme.Color.ink(0.08))
+          RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(
+            searchFocused ? EchoTheme.Color.indigo.opacity(0.55) : EchoTheme.Color.ink(0.08))
         )
 
         EchoHomeActionButton(
           systemName: "tray.fill",
           accessibilityLabel: EchoCopy.string("Inbox"),
           notificationCount: inboxNotificationCount,
-          action: onOpenInbox
+          action: {
+            if onConsumeKeyboardTap() { return }
+            onOpenInbox()
+          }
         )
       }
       .padding(.horizontal, 22)
-      .padding(.top, 24)
+      .padding(.top, 10)
       .padding(.bottom, 17)
 
       ZStack(alignment: .top) {
@@ -241,16 +306,19 @@ struct EchoDirectMessageList: View {
               .foregroundStyle(EchoTheme.Color.ink(0.46))
               .padding(.horizontal, 24)
               .padding(.top, 18)
+              .frame(maxWidth: .infinity)
+              .contentShape(Rectangle())
+              .onTapGesture { dismissSearchKeyboard() }
             } else {
               ForEach(conversations) { conversation in
                 EchoDirectMessageRow(
                   conversation: conversation,
                   baseURL: baseURL,
                   accessToken: accessToken,
-                  canLeave: EchoHiddenDmInboxStore.shared.canLeave(
-                    conversation, selfUserID: currentUserID),
-                  onTap: { onOpen(conversation) },
-                  onLeave: { onLeave(conversation) }
+                  onTap: {
+                    if onConsumeKeyboardTap() { return }
+                    onOpen(conversation)
+                  }
                 )
               }
             }
@@ -266,6 +334,7 @@ struct EchoDirectMessageList: View {
           }
         }
         .coordinateSpace(name: "echo-direct-messages-scroll")
+        .scrollDismissesKeyboard(.immediately)
         .refreshable {
           await onRefresh()
         }
@@ -287,6 +356,16 @@ struct EchoDirectMessageList: View {
         hasScrolled = offset < -4
       }
     }
+    .onDisappear { dismissSearchKeyboard() }
+  }
+
+  private func dismissSearchKeyboard() {
+    guard searchFocused else { return }
+    searchFocused = false
+    #if os(iOS)
+      UIApplication.shared.sendAction(
+        #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    #endif
   }
 }
 
@@ -356,9 +435,7 @@ struct EchoDirectMessageRow: View {
   let conversation: EchoDirectMessage
   let baseURL: URL
   var accessToken: String? = nil
-  var canLeave = true
   let onTap: () -> Void
-  var onLeave: (() -> Void)? = nil
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
 
   var body: some View {
@@ -400,24 +477,12 @@ struct EchoDirectMessageRow: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
-    .echoSwipeAction(
-      edge: .trailing,
-      systemImage: "rectangle.portrait.and.arrow.right",
-      tint: .red.opacity(0.92),
-      enabled: canLeave && onLeave != nil
-    ) {
-      onLeave?()
-    }
     .accessibilityElement(children: .combine)
     .accessibilityLabel(conversation.displayName)
     .accessibilityValue(
       conversation.lastMessage ?? EchoCopy.string("No messages yet")
     )
     .accessibilityHint(EchoCopy.string("Open conversation"))
-    .accessibilityAction(named: EchoCopy.string("Leave conversation")) {
-      guard canLeave else { return }
-      onLeave?()
-    }
   }
 }
 
@@ -425,16 +490,21 @@ struct EchoConversationAvatar: View {
   let conversation: EchoDirectMessage
   let baseURL: URL
   var accessToken: String? = nil
+  @Environment(\.colorScheme) private var colorScheme
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
 
   var body: some View {
-    ZStack(alignment: .bottomTrailing) {
+    ZStack {
       Circle().fill(EchoTheme.Color.ink(0.08))
       if conversation.avatarURLs.count > 1 {
         EchoGroupAvatar(
           conversation: conversation, baseURL: baseURL, accessToken: accessToken)
       } else if conversation.avatarURL != nil {
         EchoMediaImage(
-          source: conversation.avatarURL, baseURL: baseURL, accessToken: accessToken
+          source: conversation.avatarURL,
+          baseURL: baseURL,
+          accessToken: accessToken,
+          maxPixelSize: EchoAvatarPrefetcher.avatarMaxPixelSize
         ) {
           EchoGeneratedAvatar(
             name: conversation.displayName,
@@ -448,8 +518,15 @@ struct EchoConversationAvatar: View {
           seed: conversation.displayName
         )
       }
+    }
+    .overlay(alignment: .bottomTrailing) {
       if conversation.avatarURLs.count <= 1 {
-        EchoPresenceIndicator(status: conversation.presenceStatus, size: 14)
+        EchoPresenceIndicator(
+          status: conversation.presenceStatus,
+          size: 14,
+          borderColor: displayPrefs.canvas(colorScheme: colorScheme)
+        )
+        .offset(x: -1, y: -1)
       }
     }
   }
@@ -469,7 +546,12 @@ struct EchoGroupAvatar: View {
       ) {
         ForEach(Array(conversation.avatarURLs.prefix(4).enumerated()), id: \.offset) {
           index, source in
-          EchoMediaImage(source: source, baseURL: baseURL, accessToken: accessToken) {
+          EchoMediaImage(
+            source: source,
+            baseURL: baseURL,
+            accessToken: accessToken,
+            maxPixelSize: EchoAvatarPrefetcher.avatarMaxPixelSize
+          ) {
             EchoGeneratedAvatar(
               name: conversation.displayName, seed: "\(conversation.channelID)-\(index)")
           }

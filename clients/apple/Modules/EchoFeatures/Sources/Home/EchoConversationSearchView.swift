@@ -25,14 +25,14 @@ struct EchoConversationSearchView: View {
   var body: some View {
     VStack(spacing: 0) {
       searchChrome
-      Group {
-        if let model {
-          EchoConversationSearchFilters(model: model) {
-            filterEpoch &+= 1
-          }
-          .padding(.top, 10)
-          .padding(.bottom, 8)
+      if let model {
+        EchoConversationSearchFilters(model: model) {
+          filterEpoch &+= 1
         }
+        .padding(.top, 6)
+        .padding(.bottom, 4)
+      }
+      Group {
         searchContent
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -140,7 +140,8 @@ struct EchoConversationSearchView: View {
       .accessibilityLabel(EchoCopy.string("Close"))
     }
     .padding(.horizontal, 16)
-    .padding(.top, 12)
+    .padding(.top, 10)
+    .padding(.bottom, 2)
     .animation(.easeOut(duration: 0.18), value: searchFocused)
   }
 

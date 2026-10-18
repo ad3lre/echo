@@ -23,11 +23,20 @@ struct EchoMediaImage<Placeholder: View>: View {
   var storageKey: String? = nil
   /// `.fill` for collage cells / avatars; `.fit` for lone letterboxed images.
   var contentMode: ContentMode = .fill
+  /// Downsample budget for `EchoImageLoader` (avatars use a smaller cap).
+  var maxPixelSize: CGFloat = 1024
   @Environment(EchoAuthenticationModel.self) private var auth
   @ViewBuilder let placeholder: () -> Placeholder
   @State private var fetchURL: URL?
 
+  /// Already-warmed decode cache (prefetch) — paint before the async resolve finishes.
+  private var eagerCachedURL: URL? {
+    guard let original = resolvedURL(source, baseURL: baseURL) else { return nil }
+    return EchoDecodedImageCache.shared.bitmap(for: original) != nil ? original : nil
+  }
+
   var body: some View {
+    let displayURL = fetchURL ?? eagerCachedURL
     Group {
       if let dataURL = EchoDataURL(source) {
         if dataURL.mimeType == "image/svg+xml" {
@@ -37,8 +46,9 @@ struct EchoMediaImage<Placeholder: View>: View {
         } else {
           placeholder()
         }
-      } else if let url = fetchURL {
-        EchoRemoteImage(url: url, contentMode: contentMode, placeholder: placeholder)
+      } else if let url = displayURL {
+        EchoRemoteImage(
+          url: url, contentMode: contentMode, maxPixelSize: maxPixelSize, placeholder: placeholder)
       } else if resolvedURL(source, baseURL: baseURL) != nil {
         placeholder().overlay {
           ProgressView().tint(EchoTheme.Color.ink(0.55))
@@ -75,6 +85,10 @@ enum EchoMediaURLResolver {
   ) async -> URL? {
     guard let original = resolvedURL(source, baseURL: baseURL) else { return nil }
     let raw = source ?? original.absoluteString
+    // Disk already has bytes for this asset — skip a sign round-trip on cold launch.
+    if await EchoImageDataCache.shared.hasData(for: original) {
+      return original
+    }
     guard echoMediaURLNeedsSigning(raw, storageKey: storageKey) else {
       return original
     }

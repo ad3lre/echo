@@ -1881,6 +1881,7 @@ const { mainContentAreaEl } = useAppLayoutMainWidthCollapse({
             @channel-open-voice-audio-settings="
               () => openUserSettingsModal('Voice & Video')
             "
+            @channel-open-voice-activities="openVcActivityPicker"
             @expand-channels="expandChannels"
             @expand-members="expandMembers"
             @channel-delete-channel="onChannelPanelDeleteChannel"
@@ -2001,6 +2002,7 @@ const { mainContentAreaEl } = useAppLayoutMainWidthCollapse({
             @channel-open-voice-audio-settings="
               () => openUserSettingsModal('Voice & Video')
             "
+            @channel-open-voice-activities="openVcActivityPicker"
             @expand-channels="expandChannels"
             @expand-members="expandMembers"
             @channel-delete-channel="onChannelPanelDeleteChannel"
@@ -2064,6 +2066,7 @@ const { mainContentAreaEl } = useAppLayoutMainWidthCollapse({
             @channel-open-voice-audio-settings="
               () => openUserSettingsModal('Voice & Video')
             "
+            @channel-open-voice-activities="openVcActivityPicker"
             @expand-channels="expandChannels"
             @expand-members="expandMembers"
             @channel-delete-channel="onChannelPanelDeleteChannel"
@@ -2109,6 +2112,7 @@ const { mainContentAreaEl } = useAppLayoutMainWidthCollapse({
             @channel-open-voice-audio-settings="
               () => openUserSettingsModal('Voice & Video')
             "
+            @channel-open-voice-activities="openVcActivityPicker"
             @expand-channels="expandChannels"
             @expand-members="expandMembers"
             @channel-delete-channel="onChannelPanelDeleteChannel"
@@ -2131,6 +2135,7 @@ const { mainContentAreaEl } = useAppLayoutMainWidthCollapse({
           @channel-open-voice-audio-settings="
             () => openUserSettingsModal('Voice & Video')
           "
+          @channel-open-voice-activities="openVcActivityPicker"
           @expand-channels="expandChannels"
           @expand-members="expandMembers"
           @channel-delete-channel="onChannelPanelDeleteChannel"
@@ -2178,6 +2183,7 @@ const { mainContentAreaEl } = useAppLayoutMainWidthCollapse({
         @channel-open-voice-audio-settings="
           () => openUserSettingsModal('Voice & Video')
         "
+        @channel-open-voice-activities="openVcActivityPicker"
         @expand-channels="expandChannels"
         @expand-members="expandMembers"
         @channel-delete-channel="onChannelPanelDeleteChannel"

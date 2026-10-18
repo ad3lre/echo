@@ -25,8 +25,8 @@ public enum EchoHTTPClient {
     configuration.timeoutIntervalForResource = 75
     configuration.requestCachePolicy = .returnCacheDataElseLoad
     configuration.urlCache = URLCache(
-      memoryCapacity: 24 * 1024 * 1024,
-      diskCapacity: 96 * 1024 * 1024,
+      memoryCapacity: 32 * 1024 * 1024,
+      diskCapacity: 160 * 1024 * 1024,
       diskPath: "echo.media.urlcache"
     )
     configuration.httpMaximumConnectionsPerHost = 6

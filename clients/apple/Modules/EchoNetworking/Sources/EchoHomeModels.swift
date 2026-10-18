@@ -144,15 +144,42 @@ public struct EchoMessageSearchCriteria: Equatable, Sendable {
 public struct EchoAttentionChannelSummary: Decodable, Equatable, Sendable {
   public let channelID: String
   public let unreadCount: Int
+  /// `dm` | `server` | …
+  public let kind: String?
+  public let serverID: String?
+  /// `personal` | `role` | `broadcast` when a mention ping is pending.
+  public let pingKind: String?
 
   enum CodingKeys: String, CodingKey {
     case channelID = "channelId"
     case unreadCount
+    case kind
+    case serverID = "serverId"
+    case pingKind
   }
 
-  public init(channelID: String, unreadCount: Int) {
+  public init(
+    channelID: String,
+    unreadCount: Int,
+    kind: String? = nil,
+    serverID: String? = nil,
+    pingKind: String? = nil
+  ) {
     self.channelID = channelID
     self.unreadCount = unreadCount
+    self.kind = kind
+    self.serverID = serverID
+    self.pingKind = pingKind
+  }
+
+  public var hasUnread: Bool { unreadCount > 0 }
+
+  /// Mention-class ping (red / personal rail color on web).
+  public var hasMentionPing: Bool {
+    guard let ping = pingKind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+      !ping.isEmpty
+    else { return false }
+    return ping == "personal" || ping == "role" || ping == "broadcast"
   }
 }
 
@@ -160,11 +187,17 @@ public struct EchoAttentionSnapshot: Equatable, Sendable {
   public let unreadCount: Int
   public let channelAttention: [String: EchoAttentionChannelSummary]
 
+  public static let empty = EchoAttentionSnapshot(unreadCount: 0, channelAttention: [:])
+
   public init(
     unreadCount: Int, channelAttention: [String: EchoAttentionChannelSummary] = [:]
   ) {
     self.unreadCount = unreadCount
     self.channelAttention = channelAttention
+  }
+
+  public func summary(for channelID: String) -> EchoAttentionChannelSummary? {
+    channelAttention[channelID]
   }
 }
 

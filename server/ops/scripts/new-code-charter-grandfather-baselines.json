@@ -524,7 +524,7 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/components/LimitedGifImg.vue": {
-      "lines": 579,
+      "lines": 572,
       "longestFunction": 33,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -3032,7 +3032,7 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/layout/components/AppLayout.vue": {
-      "lines": 2351,
+      "lines": 2357,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
@@ -3044,7 +3044,7 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/layout/components/AppLayoutChatSurface.vue": {
-      "lines": 1100,
+      "lines": 1102,
       "longestFunction": 45,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
@@ -3128,7 +3128,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/layout/components/AppLayoutVoiceSection.vue": {
-      "lines": 1016,
+      "lines": 1034,
       "longestFunction": 11,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8

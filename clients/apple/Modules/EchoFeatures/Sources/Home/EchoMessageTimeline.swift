@@ -15,6 +15,9 @@ struct EchoConversationView: View {
   /// Current user's avatar for optimistic send headers.
   var selfAvatarURL: String? = nil
   let callModel: EchoCallModel?
+  var guildContext: EchoGuildConversationContext? = nil
+  /// When set (guild side-peek), back reveals the channel list instead of dismissing.
+  var onRequestExit: (() -> Void)? = nil
 
   @Environment(\.dismiss) private var dismiss
   @Environment(\.scenePhase) private var scenePhase
@@ -25,21 +28,37 @@ struct EchoConversationView: View {
   @State private var showingSearch = false
   @State private var showingProfile = false
   @State private var showingPins = false
+  @State private var showingMembers = false
+  @State private var membersModel: EchoServersModel?
+  @State private var selectedMemberProfile: EchoUserProfile?
   @State private var searchTargetMessageID: String?
   @State private var replyTarget: EchoMessageReplyTo?
+
+  private var isGuildChannel: Bool { guildContext != nil }
+  private var isPersonalNotes: Bool {
+    guard !isGuildChannel else { return false }
+    return conversation.peerUserID.map {
+      $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        == userID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    } ?? false
+  }
 
   init(
     conversation: EchoDirectMessage,
     baseURL: URL,
     userID: String,
     selfAvatarURL: String? = nil,
-    callModel: EchoCallModel? = nil
+    callModel: EchoCallModel? = nil,
+    guildContext: EchoGuildConversationContext? = nil,
+    onRequestExit: (() -> Void)? = nil
   ) {
     self.conversation = conversation
     self.baseURL = baseURL
     self.userID = userID
     self.selfAvatarURL = selfAvatarURL
     self.callModel = callModel
+    self.guildContext = guildContext
+    self.onRequestExit = onRequestExit
   }
 
   var body: some View {
@@ -48,18 +67,32 @@ struct EchoConversationView: View {
         conversation: conversation,
         baseURL: baseURL,
         accessToken: liveComposerAccessToken,
-        isPersonalNotes: conversation.peerUserID.map {
-          $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            == userID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        } ?? false,
+        isPersonalNotes: isPersonalNotes,
+        isGuildChannel: isGuildChannel,
+        guildChannel: guildContext?.channel,
         pinnedCount: model?.pinnedMessageIDs.count ?? 0,
-        onProfileTap: { showingProfile = true },
-        onExit: { dismiss() },
+        showsPins: !isGuildChannel,
+        showsCall: !isGuildChannel,
+        onProfileTap: {
+          if isGuildChannel {
+            showingMembers = true
+          } else {
+            showingProfile = true
+          }
+        },
+        onExit: {
+          if let onRequestExit {
+            onRequestExit()
+          } else {
+            dismiss()
+          }
+        },
         onCall: {
           if let callModel { Task { await callModel.startCall(to: conversation) } }
         },
         onPins: { showingPins = true },
-        onSearch: { showingSearch = true }
+        onSearch: { showingSearch = true },
+        onMembers: isGuildChannel ? { showingMembers = true } : nil
       )
 
       if let model {
@@ -186,7 +219,7 @@ struct EchoConversationView: View {
       }
     #endif
     .sheet(isPresented: $showingPins) {
-      if let model {
+      if let model, !isGuildChannel {
         EchoPinnedMessagesView(
           model: model,
           conversation: conversation,
@@ -198,20 +231,62 @@ struct EchoConversationView: View {
         )
       }
     }
+    .sheet(isPresented: $showingMembers) {
+      if let guildContext, let membersModel {
+        EchoServerMembersView(
+          server: guildContext.server,
+          model: membersModel,
+          baseURL: baseURL,
+          accessToken: liveComposerAccessToken,
+          onSelectMember: { member in
+            showingMembers = false
+            selectedMemberProfile = EchoUserProfile(
+              id: member.userID,
+              name: member.name,
+              username: member.username,
+              avatarURL: member.avatarURL
+            )
+          }
+        )
+      }
+    }
+    .onChange(of: showingMembers) { _, showing in
+      guard showing, guildContext != nil, membersModel == nil else { return }
+      membersModel = EchoServersModel(baseURL: baseURL, auth: auth)
+    }
     #if os(iOS)
       .fullScreenCover(isPresented: $showingProfile) {
         peerProfileView
+      }
+      .fullScreenCover(item: $selectedMemberProfile) { profile in
+        EchoFullProfileView(
+          profile: profile,
+          presenceStatus: nil,
+          baseURL: baseURL,
+          accessToken: liveComposerAccessToken
+        )
       }
     #else
       .sheet(isPresented: $showingProfile) {
         peerProfileView
       }
+      .sheet(item: $selectedMemberProfile) { profile in
+        EchoFullProfileView(
+          profile: profile,
+          presenceStatus: nil,
+          baseURL: baseURL,
+          accessToken: liveComposerAccessToken
+        )
+      }
     #endif
+    // Nudge the whole thread ~10% into the top safe area so the header
+    // sits closer to the notch without overlapping the Dynamic Island.
+    .padding(.top, -6)
     .background(alignment: .top) {
       // Swipe chrome clips the header's own safe-area bleed; paint the notch
       // band here (outside that clip) so it matches the header fill.
       EchoTheme.Color.canvas
-        .frame(height: 96)
+        .frame(height: 88)
         .frame(maxWidth: .infinity)
         .ignoresSafeArea(edges: .top)
     }
@@ -239,7 +314,7 @@ struct EchoConversationView: View {
 
   @ViewBuilder
   private var peerProfileView: some View {
-    if let peerID = conversation.peerUserID {
+    if !isGuildChannel, let peerID = conversation.peerUserID {
       EchoFullProfileView(
         profile: EchoUserProfile(
           id: peerID,
@@ -276,7 +351,8 @@ private struct EchoConversationTimeline: View {
 
   var body: some View {
     ScrollViewReader { proxy in
-      ScrollView(showsIndicators: false) {
+      // Vertical-only: wide markdown/LaTeX must not unlock a horizontal axis.
+      ScrollView(.vertical, showsIndicators: false) {
         LazyVStack(alignment: .leading, spacing: 0) {
           if model.isLoading && model.messages.isEmpty {
             ProgressView("Loading messages")
@@ -325,6 +401,9 @@ private struct EchoConversationTimeline: View {
                   { onJumpToReply?(reply.messageID) }
                 }
               )
+              // Keep each target column-width so tall chats cannot grow a
+              // horizontal content size that mis-anchors scrollPosition.
+              .frame(maxWidth: .infinity, alignment: .leading)
               .id(message.id)
               .onAppear {
                 guard index == 0, model.hasMoreBefore, loadOlderArmed else { return }
@@ -336,14 +415,16 @@ private struct EchoConversationTimeline: View {
             }
           }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .scrollTargetLayout()
         .padding(.horizontal, 18)
         .padding(.vertical, 18)
       }
-      // Identity position keeps the visible row stable when older pages are
-      // prepended — no post-layout `scrollTo` compensation. Bottom following
-      // is opt-in via `followLatest` rather than size-change re-anchoring.
-      .scrollPosition(id: $scrolledMessageID, anchor: .bottom)
+      // `.bottom` is (0.5, 1) — when content is briefly wider than the
+      // viewport (lazy LaTeX / markdown measure), that x=0.5 centers the
+      // column and the whole DM list opens left-shifted. Pin leading+bottom.
+      .defaultScrollAnchor(.bottomLeading)
+      .scrollPosition(id: $scrolledMessageID, anchor: .bottomLeading)
       .scrollDismissesKeyboard(.interactively)
       .onChange(of: scrolledMessageID) { _, messageID in
         let latestID = model.messages.last?.id
@@ -355,6 +436,18 @@ private struct EchoConversationTimeline: View {
       .onChange(of: model.messages.last?.id, initial: true) { _, lastID in
         guard let lastID, followLatest else { return }
         scrolledMessageID = lastID
+        // LazyVStack often under-measures on the first pass when the thread
+        // is taller than the viewport — re-anchor once layout settles.
+        Task { @MainActor in
+          await Task.yield()
+          guard followLatest, model.messages.last?.id == lastID else { return }
+          scrolledMessageID = lastID
+          var transaction = Transaction()
+          transaction.disablesAnimations = true
+          withTransaction(transaction) {
+            proxy.scrollTo(lastID, anchor: .bottomLeading)
+          }
+        }
       }
       .onChange(of: scrollTargetMessageID) { _, messageID in
         guard let messageID else { return }

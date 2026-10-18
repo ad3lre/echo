@@ -1,4 +1,5 @@
 import Combine
+import CryptoKit
 import EchoNetworking
 import Foundation
 import ImageIO
@@ -9,6 +10,35 @@ import SwiftUI
 #elseif os(macOS)
   import AppKit
 #endif
+
+/// Stable identity for a media asset across resigning (`?t=` / Amz query churn).
+/// Used so cold launches can reuse on-disk bytes without re-downloading.
+func echoCanonicalMediaURLString(for url: URL) -> String {
+  guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+    return url.absoluteString
+  }
+  if let items = components.queryItems, !items.isEmpty {
+    let kept = items.filter { item in
+      let name = item.name.lowercased()
+      if name == "t" || name == "token" || name == "sig" || name == "signature"
+        || name == "expires" || name == "expire" || name == "x-id"
+      {
+        return false
+      }
+      if name.hasPrefix("x-amz-") { return false }
+      return true
+    }
+    components.queryItems = kept.isEmpty ? nil : kept
+  }
+  components.fragment = nil
+  return components.string ?? url.absoluteString
+}
+
+func echoStableMediaCacheKey(for url: URL) -> String {
+  let canonical = echoCanonicalMediaURLString(for: url)
+  let digest = SHA256.hash(data: Data(canonical.utf8))
+  return digest.map { String(format: "%02x", $0) }.joined()
+}
 
 /// Process-wide signed URL + decoded image caches for Echo media.
 actor EchoSignedURLCache {
@@ -91,29 +121,50 @@ func echoMediaURLNeedsSigning(_ url: String, storageKey: String?) -> Bool {
   return trimmed.contains("/v1/o/") || trimmed.contains("/api/v1/echo/uploads/")
 }
 
-/// A process-wide data cache prevents profile pictures from refetching when
-/// SwiftUI recreates a row during refresh, search, or presence updates.
+/// Process-wide image bytes: memory first, then Library/Caches, then network.
+/// Keys are stable across CDN resigning so avatars survive cold launches.
 actor EchoImageDataCache {
   static let shared = EchoImageDataCache()
 
-  private var values: [URL: Data] = [:]
-  private var cacheOrder: [URL] = []
-  private var costs: [URL: Int] = [:]
+  private var values: [String: Data] = [:]
+  private var cacheOrder: [String] = []
+  private var costs: [String: Int] = [:]
   private var totalCost = 0
-  private var inFlight: [URL: Task<Data, Error>] = [:]
+  private var inFlight: [String: Task<Data, Error>] = [:]
   private let maximumEntries = 256
   /// Bound decoded-ready bytes so media-heavy chats cannot retain unbounded payloads.
   private let maximumCost = 48 * 1024 * 1024
+  /// Persistent avatar / thumbnail budget (re-downloadable; lives under Caches).
+  private let maximumDiskCost = 128 * 1024 * 1024
+  private var diskReady = false
+  private var diskDirectory: URL?
+  private var diskCost = 0
+
+  /// True when memory or disk already has bytes for this asset (no network).
+  func hasData(for url: URL) -> Bool {
+    guard EchoURLPolicy.isAllowedCachedFetchURL(url) else { return false }
+    let key = echoStableMediaCacheKey(for: url)
+    if values[key] != nil { return true }
+    ensureDiskReady()
+    guard let fileURL = diskFileURL(forKey: key) else { return false }
+    return FileManager.default.fileExists(atPath: fileURL.path)
+  }
 
   func data(for url: URL) async throws -> Data {
     guard EchoURLPolicy.isAllowedCachedFetchURL(url) else {
       throw URLError(.badURL)
     }
-    if let value = values[url] {
-      touch(url)
+    let key = echoStableMediaCacheKey(for: url)
+    if let value = values[key] {
+      touch(key)
+      touchDiskFile(forKey: key)
       return value
     }
-    if let task = inFlight[url] { return try await task.value }
+    if let disk = readDisk(forKey: key) {
+      insertMemory(disk, forKey: key)
+      return disk
+    }
+    if let task = inFlight[key] { return try await task.value }
 
     let task = Task<Data, Error> {
       guard EchoURLPolicy.isAllowedCachedFetchURL(url) else {
@@ -131,10 +182,10 @@ actor EchoImageDataCache {
       }
       return data
     }
-    inFlight[url] = task
-    defer { inFlight[url] = nil }
+    inFlight[key] = task
+    defer { inFlight[key] = nil }
     let value = try await task.value
-    insert(value, for: url)
+    insert(value, forKey: key)
     return value
   }
 
@@ -145,25 +196,62 @@ actor EchoImageDataCache {
     totalCost = 0
     inFlight.values.forEach { $0.cancel() }
     inFlight.removeAll()
+    ensureDiskReady()
+    if let diskDirectory {
+      try? FileManager.default.removeItem(at: diskDirectory)
+      try? FileManager.default.createDirectory(
+        at: diskDirectory, withIntermediateDirectories: true)
+    }
+    diskCost = 0
   }
 
-  private func insert(_ data: Data, for url: URL) {
-    if let existing = costs[url] {
+  /// Test / preview seam: seed memory + disk without a network fetch.
+  func seed(_ data: Data, for url: URL) {
+    guard EchoURLPolicy.isAllowedCachedFetchURL(url), !data.isEmpty else { return }
+    insert(data, forKey: echoStableMediaCacheKey(for: url))
+  }
+
+  /// Drop one in-memory entry (disk kept) — models a process restart for that asset.
+  func clearMemory(for url: URL) {
+    let key = echoStableMediaCacheKey(for: url)
+    if let cost = costs.removeValue(forKey: key) {
+      totalCost = max(0, totalCost - cost)
+    }
+    values.removeValue(forKey: key)
+    cacheOrder.removeAll { $0 == key }
+  }
+
+  func remove(for url: URL) {
+    let key = echoStableMediaCacheKey(for: url)
+    clearMemory(for: url)
+    guard let fileURL = diskFileURL(forKey: key) else { return }
+    let size = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+    try? FileManager.default.removeItem(at: fileURL)
+    diskCost = max(0, diskCost - size)
+  }
+
+  private func insert(_ data: Data, forKey key: String) {
+    insertMemory(data, forKey: key)
+    writeDisk(data, forKey: key)
+  }
+
+  private func insertMemory(_ data: Data, forKey key: String) {
+    if let existing = costs[key] {
       totalCost -= existing
     }
-    values[url] = data
-    costs[url] = data.count
+    values[key] = data
+    costs[key] = data.count
     totalCost += data.count
-    touch(url)
-    evictIfNeeded()
+    touch(key)
+    evictMemoryIfNeeded()
   }
 
-  private func touch(_ url: URL) {
-    cacheOrder.removeAll { $0 == url }
-    cacheOrder.append(url)
+  private func touch(_ key: String) {
+    cacheOrder.removeAll { $0 == key }
+    cacheOrder.append(key)
   }
 
-  private func evictIfNeeded() {
+  private func evictMemoryIfNeeded() {
     while cacheOrder.count > maximumEntries || totalCost > maximumCost {
       guard let expired = cacheOrder.first else { break }
       cacheOrder.removeFirst()
@@ -171,6 +259,86 @@ actor EchoImageDataCache {
       if let cost = costs.removeValue(forKey: expired) {
         totalCost -= cost
       }
+    }
+  }
+
+  private func ensureDiskReady() {
+    guard !diskReady else { return }
+    diskReady = true
+    let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+    guard let caches else { return }
+    let dir = caches.appendingPathComponent("echo.media.images", isDirectory: true)
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    diskDirectory = dir
+    diskCost = (try? FileManager.default.contentsOfDirectory(
+      at: dir,
+      includingPropertiesForKeys: [.fileSizeKey],
+      options: [.skipsHiddenFiles]
+    ))?
+    .reduce(into: 0) { partial, file in
+      let size =
+        (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+      partial += size
+    } ?? 0
+  }
+
+  private func diskFileURL(forKey key: String) -> URL? {
+    ensureDiskReady()
+    return diskDirectory?.appendingPathComponent(key, isDirectory: false)
+  }
+
+  private func readDisk(forKey key: String) -> Data? {
+    guard let fileURL = diskFileURL(forKey: key),
+      let data = try? Data(contentsOf: fileURL), !data.isEmpty
+    else { return nil }
+    touchDiskFile(forKey: key)
+    return data
+  }
+
+  private func writeDisk(_ data: Data, forKey key: String) {
+    guard let fileURL = diskFileURL(forKey: key) else { return }
+    let existed =
+      (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+    do {
+      try data.write(to: fileURL, options: .atomic)
+      diskCost += data.count - existed
+      evictDiskIfNeeded()
+    } catch {
+      // Best-effort persistence; memory cache still serves this session.
+    }
+  }
+
+  private func touchDiskFile(forKey key: String) {
+    guard let fileURL = diskFileURL(forKey: key),
+      FileManager.default.fileExists(atPath: fileURL.path)
+    else { return }
+    try? FileManager.default.setAttributes(
+      [.modificationDate: Date()], ofItemAtPath: fileURL.path)
+  }
+
+  private func evictDiskIfNeeded() {
+    guard diskCost > maximumDiskCost, let diskDirectory else { return }
+    let files =
+      (try? FileManager.default.contentsOfDirectory(
+        at: diskDirectory,
+        includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
+        options: [.skipsHiddenFiles]
+      )) ?? []
+    let ranked = files.sorted { lhs, rhs in
+      let l =
+        (try? lhs.resourceValues(forKeys: [.contentModificationDateKey])
+          .contentModificationDate) ?? .distantPast
+      let r =
+        (try? rhs.resourceValues(forKeys: [.contentModificationDateKey])
+          .contentModificationDate) ?? .distantPast
+      return l < r
+    }
+    for file in ranked {
+      guard diskCost > maximumDiskCost else { break }
+      let size =
+        (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+      try? FileManager.default.removeItem(at: file)
+      diskCost = max(0, diskCost - size)
     }
   }
 }
@@ -183,29 +351,31 @@ actor EchoImageDataCache {
 final class EchoDecodedImageCache {
   static let shared = EchoDecodedImageCache()
 
-  private var values: [URL: EchoDecodedBitmap] = [:]
-  private var cacheOrder: [URL] = []
-  private var costs: [URL: Int] = [:]
+  private var values: [String: EchoDecodedBitmap] = [:]
+  private var cacheOrder: [String] = []
+  private var costs: [String: Int] = [:]
   private var totalCost = 0
   private let maximumEntries = 256
   /// Approximate RGBA footprint budget for downsampled bitmaps.
   private let maximumCost = 64 * 1024 * 1024
 
   func bitmap(for url: URL) -> EchoDecodedBitmap? {
-    guard let bitmap = values[url] else { return nil }
-    touch(url)
+    let key = echoStableMediaCacheKey(for: url)
+    guard let bitmap = values[key] else { return nil }
+    touch(key)
     return bitmap
   }
 
   func insert(_ bitmap: EchoDecodedBitmap, for url: URL) {
-    if let existing = costs[url] {
+    let key = echoStableMediaCacheKey(for: url)
+    if let existing = costs[key] {
       totalCost -= existing
     }
-    values[url] = bitmap
+    values[key] = bitmap
     let clamped = max(bitmap.cost, 1)
-    costs[url] = clamped
+    costs[key] = clamped
     totalCost += clamped
-    touch(url)
+    touch(key)
     evictIfNeeded()
   }
 
@@ -216,9 +386,9 @@ final class EchoDecodedImageCache {
     totalCost = 0
   }
 
-  private func touch(_ url: URL) {
-    cacheOrder.removeAll { $0 == url }
-    cacheOrder.append(url)
+  private func touch(_ key: String) {
+    cacheOrder.removeAll { $0 == key }
+    cacheOrder.append(key)
   }
 
   private func evictIfNeeded() {
@@ -255,6 +425,14 @@ final class EchoImageLoader: ObservableObject {
       requestTask?.cancel()
       loadedURL = url
       bitmap = nil
+    }
+
+    // Prefetch / prior paint — show on this frame, no spinner flash.
+    if let cached = EchoDecodedImageCache.shared.bitmap(for: url) {
+      requestTask?.cancel()
+      bitmap = cached
+      isLoading = false
+      return
     }
 
     requestTask?.cancel()

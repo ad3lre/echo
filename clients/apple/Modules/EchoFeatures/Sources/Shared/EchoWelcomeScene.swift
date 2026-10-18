@@ -78,9 +78,9 @@ struct EchoConversationStack: View {
         .offset(x: 0, y: -14)
       EchoConversationCard(variant: .muted)
         .rotationEffect(.degrees(3))
-        .offset(x: -9, y: 85)
+        .offset(x: -9, y: 62)
     }
-    .frame(width: 205, height: 270)
+    .frame(width: 205, height: 248)
   }
 }
 

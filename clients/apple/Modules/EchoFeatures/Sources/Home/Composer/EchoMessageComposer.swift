@@ -84,7 +84,8 @@ struct EchoMessageComposer: View {
               .allowsHitTesting(false)
           }
           EchoInlineMarkdownEditor(
-            text: $state.text, height: $editorHeight, apiBaseURL: baseURL
+            text: $state.text, height: $editorHeight, apiBaseURL: baseURL,
+            accessToken: accessToken
           )
           .frame(height: editorHeight)
         }

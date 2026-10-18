@@ -10,17 +10,51 @@ struct EchoCallView: View {
   let baseURL: URL
   let accessToken: String
   @Bindable private var ringtoneStore = EchoCallRingtoneStore.shared
+  @State private var showingRingtonePanel = false
+  @State private var ringPulse = false
+
+  private var isRinging: Bool {
+    model.phase == .incoming || model.phase == .dialing
+  }
+
+  private var videoSurface: EchoCallVideoSurface {
+    EchoCallVideoSurface(
+      remoteCamera: model.remoteCameraTrack,
+      remoteScreen: model.remoteScreenTrack,
+      localCamera: model.localCameraTrack,
+      localScreen: model.localScreenTrack)
+  }
 
   var body: some View {
     ZStack {
       EchoTheme.Color.canvas.ignoresSafeArea()
       background
 
+      if videoSurface.hasAnyVideo {
+        videoSurface
+          .ignoresSafeArea()
+          .transition(.opacity)
+      }
+
       VStack(spacing: 0) {
         topBar
           .padding(.top, 18)
+        if showingRingtonePanel, isRinging {
+          EchoCallRingtonePanel(
+            store: ringtoneStore,
+            onToggleMute: { model.toggleRingtoneMute() }
+          ) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+              showingRingtonePanel = false
+            }
+          }
+          .padding(.top, 10)
+          .transition(.move(edge: .top).combined(with: .opacity))
+        }
         Spacer(minLength: 36)
-        identity
+        if !videoSurface.hasAnyVideo {
+          identity
+        }
         Spacer()
         controls
           .padding(.bottom, 54)
@@ -28,6 +62,10 @@ struct EchoCallView: View {
       .padding(.horizontal, 28)
     }
     .preferredColorScheme(.dark)
+    .animation(.easeInOut(duration: 0.22), value: showingRingtonePanel)
+    .onChange(of: isRinging) { _, ringing in
+      if !ringing { showingRingtonePanel = false }
+    }
     .accessibilityElement(children: .contain)
   }
 
@@ -57,9 +95,11 @@ struct EchoCallView: View {
           .background(.white.opacity(0.12), in: Capsule())
       }
       Spacer()
-      if model.phase == .incoming || model.phase == .dialing {
+      if isRinging {
         Button {
-          model.toggleRingtoneMute()
+          withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+            showingRingtonePanel.toggle()
+          }
         } label: {
           Image(systemName: ringtoneStore.muted ? "bell.slash.fill" : "bell.fill")
             .font(.system(size: 14, weight: .semibold))
@@ -68,10 +108,7 @@ struct EchoCallView: View {
             .background(.white.opacity(0.12), in: Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(
-          ringtoneStore.muted
-            ? EchoCopy.string("Unmute ringtone")
-            : EchoCopy.string("Mute ringtone"))
+        .accessibilityLabel(EchoCopy.string("Ringtones"))
       }
     }
   }
@@ -80,7 +117,7 @@ struct EchoCallView: View {
     VStack(spacing: 22) {
       if let conversation = model.conversation {
         ZStack {
-          if model.phase == .incoming || model.phase == .dialing {
+          if isRinging {
             Circle()
               .stroke(.white.opacity(0.18), lineWidth: 2)
               .frame(width: 148, height: 148)
@@ -115,8 +152,6 @@ struct EchoCallView: View {
       status
     }
   }
-
-  @State private var ringPulse = false
 
   @ViewBuilder
   private var status: some View {
@@ -162,8 +197,8 @@ struct EchoCallView: View {
         .buttonStyle(.borderedProminent)
         .tint(.white.opacity(0.16))
     } else {
-      VStack(spacing: 28) {
-        HStack(spacing: 22) {
+      VStack(spacing: 22) {
+        HStack(spacing: 18) {
           callButton(
             title: model.isMuted ? EchoCopy.string("Unmute") : EchoCopy.string("Mute"),
             icon: model.isMuted ? "mic.slash.fill" : "mic.fill",
@@ -184,7 +219,19 @@ struct EchoCallView: View {
           ) { model.toggleSpeaker() }
         }
 
-        HStack(spacing: 22) {
+        HStack(spacing: 18) {
+          callButton(
+            title: EchoCopy.string("Video"),
+            icon: model.isCameraEnabled ? "video.fill" : "video.slash.fill",
+            color: model.isCameraEnabled ? .white : .white.opacity(0.14),
+            foreground: model.isCameraEnabled ? .black : .white
+          ) { Task { await model.toggleCamera() } }
+          callButton(
+            title: EchoCopy.string("Share screen"),
+            icon: model.isScreenSharing ? "rectangle.on.rectangle.fill" : "rectangle.on.rectangle",
+            color: model.isScreenSharing ? .white : .white.opacity(0.14),
+            foreground: model.isScreenSharing ? .black : .white
+          ) { Task { await model.toggleScreenShare() } }
           #if os(iOS)
             VStack(spacing: 8) {
               EchoAudioRoutePicker()
@@ -195,14 +242,15 @@ struct EchoCallView: View {
                 .foregroundStyle(.white.opacity(0.72))
             }
           #endif
-          callButton(
-            title: model.phase == .dialing
-              ? EchoCopy.string("Cancel")
-              : EchoCopy.string("End call"),
-            icon: "phone.down.fill",
-            color: .red
-          ) { Task { await model.end() } }
         }
+
+        callButton(
+          title: model.phase == .dialing
+            ? EchoCopy.string("Cancel")
+            : EchoCopy.string("End call"),
+          icon: "phone.down.fill",
+          color: .red
+        ) { Task { await model.end() } }
       }
     }
   }
@@ -224,6 +272,8 @@ struct EchoCallView: View {
         Text(title)
           .font(.system(size: 11, weight: .medium, design: .rounded))
           .foregroundStyle(.white.opacity(0.72))
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
       }
     }
     .buttonStyle(.plain)
@@ -251,7 +301,7 @@ struct EchoCallView: View {
   private struct EchoAudioRoutePicker: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
       let view = AVRoutePickerView()
-      view.prioritizesVideoDevices = false
+      view.prioritizesVideoDevices = true
       view.activeTintColor = .white
       view.tintColor = .white
       return view

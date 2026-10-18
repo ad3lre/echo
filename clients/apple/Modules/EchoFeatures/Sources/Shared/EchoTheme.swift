@@ -249,32 +249,30 @@ enum EchoTheme {
         dark: (0.32, 0.30, 0.78, 1)
       )
     }
+    /// Brand indigo accents stay indigo on Sunny (web `--accent` is unchanged;
+    /// amber is reserved for focus rings / ambient sheen, not primary CTAs).
     static var indigoBright: SwiftUI.Color {
       adaptive(
         light: rgb(0x63, 0x5B, 0xFF),
-        dark: (0.45, 0.42, 0.96, 1),
-        sunny: rgb(0xD9, 0x77, 0x06)
+        dark: (0.45, 0.42, 0.96, 1)
       )
     }
     static var indigoSoft: SwiftUI.Color {
       adaptive(
         light: rgb(0x63, 0x66, 0xF1),
-        dark: (0.52, 0.50, 0.92, 1),
-        sunny: rgb(0xF5, 0x9E, 0x0B)
+        dark: (0.52, 0.50, 0.92, 1)
       )
     }
     static var indigoDeep: SwiftUI.Color {
       adaptive(
         light: rgb(0x43, 0x3A, 0xD0),
-        dark: (0.38, 0.30, 0.86, 1),
-        sunny: rgb(0xB4, 0x53, 0x09)
+        dark: (0.38, 0.30, 0.86, 1)
       )
     }
     static var indigoVivid: SwiftUI.Color {
       adaptive(
         light: rgb(0x4F, 0x46, 0xE5),
-        dark: (0.31, 0.27, 0.90, 1),
-        sunny: rgb(0xD9, 0x77, 0x06)
+        dark: (0.31, 0.27, 0.90, 1)
       )
     }
 
@@ -283,8 +281,7 @@ enum EchoTheme {
       guard saturated else { return actionHighlight }
       return adaptive(
         light: rgb(0x63, 0x66, 0xF1),
-        dark: rgb(0x81, 0x8C, 0xF8),
-        sunny: rgb(0xF5, 0x9E, 0x0B)
+        dark: rgb(0x81, 0x8C, 0xF8)
       )
     }
 
@@ -292,8 +289,7 @@ enum EchoTheme {
       guard saturated else { return indigoSoft }
       return adaptive(
         light: rgb(0x4F, 0x46, 0xE5),
-        dark: rgb(0xA5, 0xB4, 0xFC),
-        sunny: rgb(0xD9, 0x77, 0x06)
+        dark: rgb(0xA5, 0xB4, 0xFC)
       )
     }
     static let violet = SwiftUI.Color(red: 0.63, green: 0.34, blue: 1.0)
@@ -304,6 +300,14 @@ enum EchoTheme {
     static let presenceOnline = SwiftUI.Color(red: 0.20, green: 0.86, blue: 0.51)
     static let presenceIdle = SwiftUI.Color(red: 0.96, green: 0.68, blue: 0.22)
     static let presenceDnd = SwiftUI.Color(red: 0.94, green: 0.30, blue: 0.38)
+    /// Mobile tab bar dark chrome fill (near-black ink pool).
+    static let tabBarDarkPool = SwiftUI.Color(red: 0.06, green: 0.07, blue: 0.09)
+    /// Starred server indicator on server rows.
+    static let serverStarAccent = SwiftUI.Color(red: 0.25, green: 0.55, blue: 1.0)
+    /// Mention ping dot (web `--server-ping-personal` / #f43f5e).
+    static let mentionPing = SwiftUI.Color(red: 0.957, green: 0.247, blue: 0.369)
+    /// Server owner crown accent.
+    static let ownerCrown = SwiftUI.Color(red: 0.95, green: 0.75, blue: 0.2)
     static var presenceOffline: SwiftUI.Color {
       adaptive(
         light: (0.45, 0.48, 0.55, 1),

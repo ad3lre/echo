@@ -35,6 +35,8 @@
 	<string>Use Face ID to unlock your saved Echo session.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Echo uses your microphone when you join a voice call.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Echo uses your camera for video calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Show your photo library inside the message composer so you can attach photos.</string>
 	<key>UIBackgroundModes</key>

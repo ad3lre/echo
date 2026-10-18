@@ -1,5 +1,6 @@
 import EchoNetworking
 import Foundation
+import Observation
 import UserNotifications
 
 #if os(iOS)
@@ -30,11 +31,15 @@ public enum EchoAppBadge {
   }
 }
 
+/// Shared attention snapshot for badges + guild channel unread indicators.
 @MainActor
+@Observable
 public final class EchoAttentionSync {
   public static let shared = EchoAttentionSync()
   private var client: EchoHomeClient?
   private var pending: Task<Void, Never>?
+
+  public private(set) var snapshot: EchoAttentionSnapshot = .empty
 
   public func configure(baseURL: URL) {
     client = EchoHomeClient(baseURL: baseURL)
@@ -46,8 +51,9 @@ public final class EchoAttentionSync {
       try? await Task.sleep(for: .milliseconds(250))
       guard !Task.isCancelled, let client else { return }
       guard let token = try? await auth.ensureAccessToken() else { return }
-      guard let snapshot = try? await client.loadAttention(accessToken: token) else { return }
-      EchoAppBadge.apply(snapshot.unreadCount)
+      guard let next = try? await client.loadAttention(accessToken: token) else { return }
+      snapshot = next
+      EchoAppBadge.apply(next.unreadCount)
     }
     pending = work
     await work.value

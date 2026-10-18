@@ -23,7 +23,6 @@ public struct EchoRootView: View {
   @AppStorage(EchoDisplayPreferences.Keys.solidGlass) private var solidGlass = false
 
   @State private var displayPrefs = EchoDisplayPreferences()
-  @State private var showingEntryActions = false
   @State private var authPage: EchoAuthPage = .welcome
 
   public init() {}
@@ -51,7 +50,7 @@ public struct EchoRootView: View {
       if model.isRestoringSession {
         EchoSessionRestoreView()
       } else if let session = model.activeSession {
-        EchoHomeView(
+        EchoMainShellView(
           baseURL: model.apiBaseURL,
           userID: session.userID ?? ""
         ) {
@@ -132,7 +131,6 @@ public struct EchoRootView: View {
       switch authPage {
       case .welcome:
         EchoWelcomeView(
-          showingEntryActions: $showingEntryActions,
           unlockTitle: model.hasStoredSession
             ? EchoCopy.format("Unlock with %@", model.biometricLabel) : nil,
           onUnlock: model.hasStoredSession
@@ -155,10 +153,7 @@ public struct EchoRootView: View {
   }
 
   private func returnToWelcome() {
-    animateAuth {
-      showingEntryActions = false
-      authPage = .welcome
-    }
+    animateAuth { authPage = .welcome }
   }
 
   private func animateAuth(_ updates: () -> Void) {

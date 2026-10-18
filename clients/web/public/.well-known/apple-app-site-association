@@ -4,7 +4,7 @@
     "details": [
       {
         "appIDs": [
-          "7T8JKF75WU.com.echo.ios.adelmac"
+          "K2V5TD6F83.com.echo.ios.adelmac"
         ],
         "components": [
           {
@@ -41,8 +41,8 @@
   },
   "webcredentials": {
     "apps": [
-      "7T8JKF75WU.com.echo.ios.adelmac",
-      "7T8JKF75WU.com.echo.macos"
+      "K2V5TD6F83.com.echo.ios.adelmac",
+      "K2V5TD6F83.com.echo.macos"
     ]
   }
 }

@@ -3,7 +3,11 @@ import SwiftUI
 struct EchoPresenceIndicator: View {
   let status: String?
   var size: CGFloat = 13
+  /// Surface behind the badge — used for idle/dnd cutouts and the avatar halo.
   var borderColor = EchoTheme.Color.canvas
+  /// When false, skip the outer halo (list rows that already sit on flat chrome).
+  var showsHalo = true
+  @Environment(\.colorScheme) private var colorScheme
 
   private var canonicalStatus: String {
     switch status?.lowercased() {
@@ -21,6 +25,13 @@ struct EchoPresenceIndicator: View {
     }
   }
 
+  /// Halo punches the badge out of the avatar. Keep it thinner in light mode so
+  /// it reads as a cutout, not a hard outline ring.
+  private var haloWidth: CGFloat {
+    let ratio = colorScheme == .light ? 0.16 : 0.22
+    return max(colorScheme == .light ? 1.5 : 2, size * ratio)
+  }
+
   var body: some View {
     ZStack {
       Circle().fill(color)
@@ -36,7 +47,11 @@ struct EchoPresenceIndicator: View {
       }
     }
     .frame(width: size, height: size)
-    .overlay(Circle().stroke(borderColor, lineWidth: max(2, size * 0.22)))
+    .overlay {
+      if showsHalo {
+        Circle().stroke(borderColor, lineWidth: haloWidth)
+      }
+    }
     .accessibilityLabel(accessibilityLabel)
   }
 

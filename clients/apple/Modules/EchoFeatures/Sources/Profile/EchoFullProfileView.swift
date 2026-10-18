@@ -210,11 +210,14 @@ private struct EchoFullProfilePage: View {
         profile: model.profile,
         baseURL: baseURL,
         accessToken: accessToken,
-        presenceStatus: model.presenceStatus
+        presenceStatus: model.presenceStatus,
+        rimWidth: 6,
+        presenceSize: 24
       )
       .frame(width: 104, height: 104)
-      .overlay(Circle().stroke(EchoTheme.Color.canvas, lineWidth: 6))
-      .padding(.leading, 22)
+      // Allow the presence badge to sit slightly past the frame without clipping.
+      .padding(4)
+      .padding(.leading, 18)
       .offset(y: 44)
     }
     .padding(.bottom, 44)

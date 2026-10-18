@@ -97,10 +97,9 @@ struct EchoProfileEditView: View {
           Button(action: onExit) {
             Image(systemName: "arrow.left")
               .font(.system(size: 15, weight: .bold))
-              .foregroundStyle(chromeIconColor)
+              .foregroundStyle(.white)
               .frame(width: 40, height: 40)
               .background(.black.opacity(0.38), in: Circle())
-              .overlay(Circle().stroke(Color.white.opacity(0.18)))
           }
           .buttonStyle(.plain)
           .accessibilityLabel(EchoCopy.string("Close edit profile"))
@@ -170,11 +169,6 @@ struct EchoProfileEditView: View {
     }
   }
 
-  private var chromeIconColor: Color {
-    let scheme = EchoTheme.forcedColorScheme ?? colorScheme
-    return scheme == .light ? EchoTheme.Color.ink(0.92) : .white
-  }
-
   private func dismissKeyboard() {
     #if os(iOS)
       UIApplication.shared.sendAction(
@@ -219,21 +213,14 @@ struct EchoProfileEditView: View {
         .frame(height: 84)
         .allowsHitTesting(false)
       HStack(alignment: .bottom, spacing: 8) {
-        ZStack(alignment: .bottomTrailing) {
-          PhotosPicker(selection: $avatarItem, matching: .images) {
-            EchoEditableAvatar(
-              profile: profile, baseURL: baseURL, accessToken: accessToken, data: avatarData
-            )
-          }
-          .buttonStyle(.plain)
-          .frame(width: 76, height: 76)
-          .accessibilityLabel(EchoCopy.string("Change profile picture"))
-          if !presenceStatus.isEmpty {
-            EchoPresenceIndicator(status: presenceStatus, size: 16)
-              .allowsHitTesting(false)
-          }
+        PhotosPicker(selection: $avatarItem, matching: .images) {
+          EchoEditableAvatar(
+            profile: profile, baseURL: baseURL, accessToken: accessToken, data: avatarData
+          )
         }
+        .buttonStyle(.plain)
         .frame(width: 76, height: 76)
+        .accessibilityLabel(EchoCopy.string("Change profile picture"))
         VStack(alignment: .leading, spacing: 3) {
           Text(displayName.isEmpty ? (profile?.name ?? "") : displayName)
             .font(.system(size: 21, weight: .semibold, design: .rounded))

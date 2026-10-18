@@ -10,6 +10,8 @@ final class EchoHomeModel {
   private let settingsClient: any EchoHomeSocialReading
   @ObservationIgnored var auth: EchoAuthenticationModel
   private let userID: String
+  /// Used to prefetch DM avatars as soon as the home snapshot lands.
+  private let mediaBaseURL: URL?
   var currentUserID: String { userID }
   private(set) var snapshot: EchoHomeSnapshot?
   private(set) var isLoading = false
@@ -20,6 +22,7 @@ final class EchoHomeModel {
   @ObservationIgnored private var pendingUnknownChannelReload: Task<Void, Never>?
   @ObservationIgnored private var loadGeneration = 0
   @ObservationIgnored private var lightRefreshGeneration = 0
+  @ObservationIgnored private var avatarPrefetchTask: Task<Void, Never>?
 
   init(
     baseURL: URL,
@@ -32,6 +35,7 @@ final class EchoHomeModel {
     self.settingsClient = settingsClient ?? EchoSettingsClient(baseURL: baseURL)
     self.auth = auth
     self.userID = userID
+    self.mediaBaseURL = baseURL
   }
 
   /// Test seam that bypasses concrete networking clients.
@@ -46,6 +50,7 @@ final class EchoHomeModel {
     self.settingsClient = settingsClient
     self.auth = auth
     self.userID = userID
+    self.mediaBaseURL = nil
     self.snapshot = snapshot
     self.hasLoaded = snapshot != nil
   }
@@ -115,6 +120,8 @@ final class EchoHomeModel {
       }
       guard generation == loadGeneration else { return }
       snapshot = next.preservingPreviews(from: snapshot)
+      // Don’t wait on inbox/presence — warm the first DM faces immediately.
+      prefetchHomeAvatars(from: next)
       async let inboxRefresh: Void = refreshInboxNotificationCount()
       async let presenceRefresh: Void = refreshCurrentUserPresence()
       async let attentionRefresh: Void = EchoAttentionSync.shared.refresh(auth: auth)
@@ -215,6 +222,23 @@ final class EchoHomeModel {
       try? await Task.sleep(for: .milliseconds(400))
       pendingUnknownChannelReload = nil
       await reload()
+    }
+  }
+
+  private func prefetchHomeAvatars(from snapshot: EchoHomeSnapshot) {
+    guard let mediaBaseURL else { return }
+    avatarPrefetchTask?.cancel()
+    let auth = self.auth
+    avatarPrefetchTask = Task(priority: .userInitiated) { @MainActor in
+      let token = (try? await auth.ensureAccessToken()) ?? auth.activeSession?.accessToken
+      guard !Task.isCancelled else { return }
+      await EchoAvatarPrefetcher.prefetchHome(
+        conversations: snapshot.conversations,
+        selfAvatarURL: snapshot.profile.avatarURL,
+        baseURL: mediaBaseURL,
+        accessToken: token,
+        auth: auth
+      )
     }
   }
 }

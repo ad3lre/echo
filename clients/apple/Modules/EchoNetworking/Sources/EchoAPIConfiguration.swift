@@ -16,6 +16,11 @@ public enum EchoAPIConfiguration {
     else {
       return defaultBaseURL
     }
+    // Physical devices cannot reach the Mac's loopback. Debug Info.plist still
+    // points at localhost for the simulator; remap that to production on device.
+    if isLoopbackAPIBaseURL(url), !isRunningOnSimulator {
+      return defaultBaseURL
+    }
     return url
   }
 
@@ -25,7 +30,20 @@ public enum EchoAPIConfiguration {
     guard let scheme = url.scheme?.lowercased() else { return false }
     if scheme == "https" { return true }
     guard scheme == "http" else { return false }
+    return isLoopbackAPIBaseURL(url)
+  }
+
+  public static func isLoopbackAPIBaseURL(_ url: URL) -> Bool {
     let host = (url.host ?? "").lowercased()
     return host == "localhost" || host == "127.0.0.1" || host == "::1"
+  }
+
+  /// `TARGET_OS_SIMULATOR` is set for simulator builds of any Apple platform.
+  public static var isRunningOnSimulator: Bool {
+    #if targetEnvironment(simulator)
+      true
+    #else
+      false
+    #endif
   }
 }

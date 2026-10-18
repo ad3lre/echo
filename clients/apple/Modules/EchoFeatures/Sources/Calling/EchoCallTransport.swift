@@ -8,6 +8,15 @@ enum EchoCallTransportState: Sendable {
   case disconnected
 }
 
+struct EchoCallVideoTrackSnapshot: @unchecked Sendable {
+  var localCamera: VideoTrack?
+  var localScreen: VideoTrack?
+  var remoteCamera: VideoTrack?
+  var remoteScreen: VideoTrack?
+
+  static let empty = EchoCallVideoTrackSnapshot()
+}
+
 /// LiveKit frame-encryption material produced by voice E2EE prepare (MLS v2 or
 /// legacy shared-key v1). Keys never leave the device except as ciphertext.
 struct EchoCallMediaEncryption: Sendable, Equatable {
@@ -36,17 +45,21 @@ protocol EchoCallTransporting: AnyObject, Sendable {
   var onRemoteParticipantConnected: (@Sendable (String) -> Void)? { get set }
   /// Fired when a remote LiveKit participant leaves (MLS roster reconcile).
   var onRemoteParticipantDisconnected: (@Sendable (String) -> Void)? { get set }
+  var onVideoTracksChange: (@Sendable (EchoCallVideoTrackSnapshot) -> Void)? { get set }
   func connect(session: EchoLiveKitSession, encryption: EchoCallMediaEncryption?) async throws
   func rotateEncryption(_ encryption: EchoCallMediaEncryption) async throws
   func setMuted(_ muted: Bool) async throws
   func setDeafened(_ deafened: Bool) throws
   func setSpeakerEnabled(_ enabled: Bool) throws
+  func setCameraEnabled(_ enabled: Bool) async throws
+  func setScreenShareEnabled(_ enabled: Bool) async throws
   func disconnect() async
 }
 
 enum EchoCallTransportError: Error, LocalizedError {
   case encryptedMediaUnavailable
   case microphoneDenied
+  case cameraDenied
 
   var errorDescription: String? {
     switch self {
@@ -54,6 +67,8 @@ enum EchoCallTransportError: Error, LocalizedError {
       EchoCopy.string("This encrypted call needs a security update before this device can join.")
     case .microphoneDenied:
       EchoCopy.string("Allow microphone access in Settings to place Echo calls.")
+    case .cameraDenied:
+      EchoCopy.string("Allow camera access in Settings to use video on Echo calls.")
     }
   }
 }
@@ -68,6 +83,7 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
   var onParticipantCountChange: (@Sendable (Int) -> Void)?
   var onRemoteParticipantConnected: (@Sendable (String) -> Void)?
   var onRemoteParticipantDisconnected: (@Sendable (String) -> Void)?
+  var onVideoTracksChange: (@Sendable (EchoCallVideoTrackSnapshot) -> Void)?
 
   private let room = Room()
   private var outputGain = 1.0
@@ -175,10 +191,22 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
     #endif
   }
 
+  func setCameraEnabled(_ enabled: Bool) async throws {
+    _ = try await room.localParticipant.setCamera(enabled: enabled)
+    publishVideoTracks()
+  }
+
+  func setScreenShareEnabled(_ enabled: Bool) async throws {
+    // iOS without a Broadcast Upload Extension captures the in-app screen only.
+    _ = try await room.localParticipant.setScreenShare(enabled: enabled)
+    publishVideoTracks()
+  }
+
   func disconnect() async {
     await room.disconnect()
     keyProvider = nil
     isDeafened = false
+    onVideoTracksChange?(.empty)
   }
 
   func room(
@@ -220,10 +248,66 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
     didSubscribeTrack publication: RemoteTrackPublication
   ) {
     applyRemoteVolume(to: publication.track as? RemoteAudioTrack)
+    if publication.kind == .video { publishVideoTracks() }
+  }
+
+  func room(
+    _ room: Room,
+    participant: RemoteParticipant,
+    didUnsubscribeTrack publication: RemoteTrackPublication
+  ) {
+    if publication.kind == .video { publishVideoTracks() }
+  }
+
+  func room(
+    _ room: Room,
+    participant: LocalParticipant,
+    didPublishTrack publication: LocalTrackPublication
+  ) {
+    if publication.kind == .video { publishVideoTracks() }
+  }
+
+  func room(
+    _ room: Room,
+    participant: LocalParticipant,
+    didUnpublishTrack publication: LocalTrackPublication
+  ) {
+    if publication.kind == .video { publishVideoTracks() }
   }
 
   private func publishParticipantCount() {
     onParticipantCountChange?(room.remoteParticipants.count + 1)
+  }
+
+  private func publishVideoTracks() {
+    var localCamera: VideoTrack?
+    var localScreen: VideoTrack?
+    for publication in room.localParticipant.videoTracks {
+      guard let track = publication.track as? VideoTrack else { continue }
+      if publication.source == .screenShareVideo {
+        localScreen = track
+      } else {
+        localCamera = track
+      }
+    }
+    var remoteCamera: VideoTrack?
+    var remoteScreen: VideoTrack?
+    for participant in room.remoteParticipants.values {
+      for publication in participant.videoTracks {
+        guard let track = publication.track as? VideoTrack else { continue }
+        if publication.source == .screenShareVideo {
+          remoteScreen = track
+        } else {
+          remoteCamera = track
+        }
+      }
+    }
+    onVideoTracksChange?(
+      EchoCallVideoTrackSnapshot(
+        localCamera: localCamera,
+        localScreen: localScreen,
+        remoteCamera: remoteCamera,
+        remoteScreen: remoteScreen))
   }
 
   private func applyRemoteVolumes() {

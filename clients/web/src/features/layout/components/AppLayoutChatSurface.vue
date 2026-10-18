@@ -105,12 +105,14 @@ const chatCtx = computed(() => {
        * be passed through without `unref`, otherwise we lose the Ref wrapper and
        * downstream `:ref="..."` bindings stop working (pins dropdown anchor).
        */
-      if (
-        k === 'pinsButtonRefDm' ||
-        k === 'pinsButtonRefServer' ||
-        k === 'vcActivityUi'
-      ) {
+      if (k === 'pinsButtonRefDm' || k === 'pinsButtonRefServer') {
         o[k as string] = inj[k];
+      } else if (k === 'vcActivityUi') {
+        // Keep a ComputedRef so VoiceSection re-renders when phase changes.
+        // Passing the raw Ref as a prop gets shallow-unwrapped to a stale object.
+        o[k as string] = computed(() =>
+          unref(inj[k] as MaybeRef<AppLayoutChatSurfaceProps['vcActivityUi']>),
+        );
       } else {
         o[k as string] = unref(
           inj[k] as MaybeRef<AppLayoutChatSurfaceProps[typeof k]>,

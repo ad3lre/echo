@@ -19,7 +19,12 @@ final class EchoCallRingtoneStore {
   }
 
   var muted: Bool {
-    didSet { persist() }
+    didSet {
+      persist()
+      // Mute must actually stop playback — `startIncomingLoop` alone is a no-op
+      // when muted and used to leave a loop running.
+      if muted { stopIncomingLoop() }
+    }
   }
 
   var selectedEntry: EchoRingtoneEntry {
@@ -48,7 +53,26 @@ final class EchoCallRingtoneStore {
   }
 
   func select(_ entry: EchoRingtoneEntry) {
+    let wasLooping = EchoSoundPlayer.shared.isPlayingAnyRingtoneLoop
     selectedStorageID = EchoRingtoneCatalog.storageID(forBuiltin: entry.id)
+    if wasLooping, !muted {
+      // Swap the looping track without a full CallKit re-arm.
+      EchoSoundPlayer.shared.stopRingtone()
+      startIncomingLoop()
+    }
+  }
+
+  /// Select a ringtone and hear it — keeps an active call ring looping
+  /// (music tracks must not collapse to a one-shot that auto-stops).
+  func selectAndHear(_ entry: EchoRingtoneEntry) {
+    let wasLooping = EchoSoundPlayer.shared.isPlayingAnyRingtoneLoop
+    select(entry)
+    guard !muted else { return }
+    if wasLooping || EchoSoundPlayer.shared.isPlayingAnyRingtoneLoop {
+      startIncomingLoop()
+      return
+    }
+    previewSelected()
   }
 
   func previewSelected() {
@@ -56,9 +80,15 @@ final class EchoCallRingtoneStore {
   }
 
   func startIncomingLoop() {
-    guard !muted else { return }
+    guard !muted else {
+      stopIncomingLoop()
+      return
+    }
     // Match web: master sound-effects toggle gates call ringtone.
-    guard EchoSoundPlayback.cachedPreferences().soundEffects else { return }
+    guard EchoSoundPlayback.cachedPreferences().soundEffects else {
+      stopIncomingLoop()
+      return
+    }
     EchoSoundPlayer.shared.startRingtoneLoop(selectedEntry, volume: Double(playbackVolume01))
   }
 

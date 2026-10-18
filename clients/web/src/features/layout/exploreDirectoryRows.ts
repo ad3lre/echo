@@ -98,80 +98,17 @@ export function collectExploreQuickFilters(
     .map(([tag, count]) => ({ tag, count }));
 }
 
-/** VC-active rows first, then `compare` (stable via optional `order`). */
-export function compareExploreServersWithVoicePriority<
-  T extends { voiceParticipantCount?: number; order?: number },
->(a: T, b: T, compare: (a: T, b: T) => number): number {
-  const aVoice = (a.voiceParticipantCount ?? 0) > 0;
-  const bVoice = (b.voiceParticipantCount ?? 0) > 0;
-  if (aVoice !== bVoice) return Number(bVoice) - Number(aVoice);
-  return compare(a, b) || (a.order ?? 0) - (b.order ?? 0);
-}
-
-export function sortExploreServersWithVoicePriority<
-  T extends { voiceParticipantCount?: number; order?: number },
->(list: T[], compare: (a: T, b: T) => number): T[] {
-  return [...list].sort((a, b) =>
-    compareExploreServersWithVoicePriority(a, b, compare),
-  );
-}
-
-export type ExploreRecommendedSortRow = {
-  order?: number;
-  lastVoiceActivityAt?: string;
-  lastChatActivityAt?: string;
-  /** Explicit banner URL on the listing (not icon fallback). */
-  hasRealBanner?: boolean;
-  /** Non-empty public description on the listing. */
-  hasDescription?: boolean;
-};
-
-function exploreActivityAtMs(iso?: string): number {
-  if (!iso?.trim()) return 0;
-  const t = Date.parse(iso.trim());
-  return Number.isFinite(t) ? t : 0;
-}
-
-/** Tertiary Recommended tie-break: banner + description completeness. */
-export function exploreDirectoryProfileCompletenessScore(
-  row: Pick<ExploreRecommendedSortRow, 'hasRealBanner' | 'hasDescription'>,
-): number {
-  let score = 0;
-  if (row.hasRealBanner) score += 1;
-  if (row.hasDescription) score += 1;
-  return score;
-}
-
-/**
- * Recommended Explore ordering: latest voice activity, then latest chat activity,
- * then fuller public profiles (banner + description).
- */
-export function compareExploreRecommendedServers<
-  T extends ExploreRecommendedSortRow,
->(a: T, b: T): number {
-  const voiceDiff =
-    exploreActivityAtMs(b.lastVoiceActivityAt) -
-    exploreActivityAtMs(a.lastVoiceActivityAt);
-  if (voiceDiff !== 0) return voiceDiff;
-
-  const chatDiff =
-    exploreActivityAtMs(b.lastChatActivityAt) -
-    exploreActivityAtMs(a.lastChatActivityAt);
-  if (chatDiff !== 0) return chatDiff;
-
-  const profileDiff =
-    exploreDirectoryProfileCompletenessScore(b) -
-    exploreDirectoryProfileCompletenessScore(a);
-  if (profileDiff !== 0) return profileDiff;
-
-  return (a.order ?? 0) - (b.order ?? 0);
-}
-
-export function sortExploreRecommendedServers<
-  T extends ExploreRecommendedSortRow,
->(list: T[]): T[] {
-  return [...list].sort(compareExploreRecommendedServers);
-}
+/** Canonical sort — SSOT in `contracts/exploreDirectorySort.ts`. */
+export {
+  compareExploreRecommendedServers,
+  compareExploreServersWithVoicePriority,
+  exploreActivityAtMs,
+  exploreDirectoryProfileCompletenessScore,
+  exploreTrendyScore,
+  sortExploreRecommendedServers,
+  sortExploreServersWithVoicePriority,
+  type ExploreRecommendedSortRow,
+} from '@shared/exploreDirectorySort';
 
 export function filterExploreDirectoryRowsByTags<T extends ExploreDirectoryRow>(
   rows: T[],

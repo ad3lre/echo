@@ -3,6 +3,10 @@ import EchoNetworking
 import Observation
 import SwiftUI
 
+#if os(iOS)
+  import UIKit
+#endif
+
 /// The authenticated home surface backed exclusively by Echo REST data.
 public struct EchoHomeView: View {
   @Environment(\.openURL) private var openURL
@@ -13,34 +17,45 @@ public struct EchoHomeView: View {
   let baseURL: URL
   let userID: String
   let onSignOut: () -> Void
+  let realtime: EchoRealtimeSession
   @State private var homeModel: EchoHomeModel?
-  @State private var realtime: EchoRealtimeSession
   @State private var showingProfileMenu = false
   @State private var showingProfileEdit = false
   @State private var showingSettings = false
   @State private var showingInbox = false
   @State private var selectedConversation: EchoDirectMessage?
   @State private var searchText = ""
+  @FocusState private var searchFocused: Bool
+  /// Survives the UIKit resign race: tapping a control while the search field
+  /// is focused clears `@FocusState` before the button action runs. First tap
+  /// should only dismiss the keyboard; the next tap navigates.
+  @State private var searchKeyboardArmed = false
   @State private var pendingNotificationChannelID: String?
   @State private var pendingNotificationURL: URL?
   @State private var sheetAccessToken = ""
   @State private var callModel: EchoCallModel?
   @State private var hiddenInboxEpoch = 0
 
-  public init(
+  init(
     baseURL: URL,
     userID: String,
+    realtime: EchoRealtimeSession,
     onSignOut: @escaping () -> Void
   ) {
     self.baseURL = baseURL
     self.userID = userID
+    self.realtime = realtime
     self.onSignOut = onSignOut
-    _realtime = State(initialValue: EchoRealtimeSession(baseURL: baseURL, currentUserID: userID))
   }
 
   public var body: some View {
     let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
-    return VStack(spacing: 0) {
+    return homeLifecycle(homeStack)
+  }
+
+  @ViewBuilder
+  private var homeStack: some View {
+    VStack(spacing: 0) {
       if let homeModel {
         if showingProfileEdit, let profile = homeModel.snapshot?.profile {
           EchoProfileEditView(
@@ -57,56 +72,7 @@ public struct EchoHomeView: View {
           )
           .transition(.opacity)
         } else if let snapshot = homeModel.snapshot {
-          EchoProfileHeader(
-            profile: snapshot.profile,
-            baseURL: baseURL,
-            accessToken: liveMediaAccessToken,
-            presenceStatus: homeModel.currentUserPresence,
-            onProfileTap: {
-              Task {
-                await prepareSheetToken()
-                withAnimation(.easeInOut(duration: 0.22)) {
-                  showingProfileEdit = true
-                }
-              }
-            },
-            onMenuTap: {
-              showingProfileMenu = true
-            }
-          )
-          EchoDirectMessageList(
-            conversations: filteredConversations(snapshot.conversations),
-            searchText: $searchText,
-            baseURL: baseURL,
-            accessToken: liveMediaAccessToken,
-            currentUserID: userID,
-            onRefresh: {
-              await homeModel.reload()
-              openPendingNotificationIfPossible()
-            },
-            onOpen: { conversation in
-              Task {
-                await prepareSheetToken()
-                selectedConversation = conversation
-              }
-            },
-            onLeave: { conversation in
-              withAnimation(.easeInOut(duration: 0.2)) {
-                EchoHiddenDmInboxStore.shared.hide(conversation, selfUserID: userID)
-                hiddenInboxEpoch &+= 1
-                if selectedConversation?.id == conversation.id {
-                  selectedConversation = nil
-                }
-              }
-            },
-            inboxNotificationCount: homeModel.inboxNotificationCount,
-            onOpenInbox: {
-              Task {
-                await prepareSheetToken()
-                showingInbox = true
-              }
-            }
-          )
+          homeSnapshotContent(homeModel, snapshot: snapshot)
         } else if homeModel.isLoading {
           EchoHomeLoadingView()
         } else {
@@ -123,183 +89,320 @@ public struct EchoHomeView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(EchoHomeBackground().ignoresSafeArea())
     .ignoresSafeArea(.container, edges: .top)
-    .task {
-      let model = homeModel ?? EchoHomeModel(baseURL: baseURL, auth: auth, userID: userID)
-      homeModel = model
-      model.auth = auth
-      if callModel == nil {
-        callModel = EchoCallModel(
-          baseURL: baseURL, realtime: realtime, currentUserID: userID
-        ) {
-          (try? await auth.ensureAccessToken()) ?? auth.activeSession?.accessToken
+  }
+
+  private func homeLifecycle<Content: View>(_ content: Content) -> some View {
+    homePresentations(homeObservers(homeTasks(content)))
+  }
+
+  private func homeTasks<Content: View>(_ content: Content) -> some View {
+    content
+      .task {
+        let model = homeModel ?? EchoHomeModel(baseURL: baseURL, auth: auth, userID: userID)
+        homeModel = model
+        model.auth = auth
+        if callModel == nil {
+          callModel = EchoCallModel(
+            baseURL: baseURL, realtime: realtime, currentUserID: userID
+          ) {
+            (try? await auth.ensureAccessToken()) ?? auth.activeSession?.accessToken
+          }
+        }
+        await prepareSheetToken()
+        EchoAttentionSync.shared.configure(baseURL: baseURL)
+        await model.loadIfNeeded()
+        realtime.setPresenceStatus(model.currentUserPresence)
+        openPendingNotificationIfPossible()
+      }
+      .task {
+        let handlerID = realtime.addHandler { event in
+          homeModel?.applyRealtime(event)
+          applyRealtimeToSelectedConversation(event)
+          applyRealtimeToCalling(event)
+        }
+        defer { realtime.removeHandler(handlerID) }
+        await EchoRealtimeWait.untilCancelled()
+      }
+      .task(id: auth.activeSession?.accessToken) {
+        if let token = auth.activeSession?.accessToken {
+          await realtime.connect(accessToken: token)
+          await EchoCustomEmojiCatalog.shared.refresh(baseURL: baseURL, accessToken: token)
+        } else {
+          await realtime.disconnect()
         }
       }
-      await prepareSheetToken()
-      EchoAttentionSync.shared.configure(baseURL: baseURL)
-      await model.loadIfNeeded()
-      realtime.setPresenceStatus(model.currentUserPresence)
-      openPendingNotificationIfPossible()
-    }
-    .task {
-      let handlerID = realtime.addHandler { event in
-        homeModel?.applyRealtime(event)
-        applyRealtimeToSelectedConversation(event)
-        applyRealtimeToCalling(event)
-      }
-      defer { realtime.removeHandler(handlerID) }
-      await EchoRealtimeWait.untilCancelled()
-    }
-    .task(id: auth.activeSession?.accessToken) {
-      if let token = auth.activeSession?.accessToken {
-        await realtime.connect(accessToken: token)
-        await EchoCustomEmojiCatalog.shared.refresh(baseURL: baseURL, accessToken: token)
-      } else {
-        await realtime.disconnect()
-      }
-    }
-    .environment(realtime)
-    .onChange(of: scenePhase) { _, phase in
-      realtime.setSceneActive(phase == .active)
-      if phase == .background {
-        EchoBackgroundRefresh.schedule()
-      }
-      if phase == .active {
-        Task {
-          await homeModel?.refreshLightweight()
+      .environment(realtime)
+  }
+
+  private func homeObservers<Content: View>(_ content: Content) -> some View {
+    content
+      .onChange(of: scenePhase) { _, phase in
+        realtime.setSceneActive(phase == .active)
+        if phase == .background {
+          EchoBackgroundRefresh.schedule()
+        }
+        if phase == .active {
+          Task { await homeModel?.refreshLightweight() }
         }
       }
-    }
-    .onChange(of: homeModel?.currentUserPresence) { _, status in
-      if let status { realtime.setPresenceStatus(status) }
-    }
-    .echoRetryOnNetworkRecovery {
-      retryHomeIfUnavailable()
-      if let token = auth.activeSession?.accessToken {
-        Task { await realtime.connect(accessToken: token) }
+      .onChange(of: homeModel?.currentUserPresence) { _, status in
+        if let status { realtime.setPresenceStatus(status) }
       }
-    }
-    .onChange(of: auth.activeSession?.accessToken) { _, newToken in
-      if let newToken, !newToken.isEmpty {
-        sheetAccessToken = newToken
+      .echoRetryOnNetworkRecovery {
+        retryHomeIfUnavailable()
+        if let token = auth.activeSession?.accessToken {
+          Task { await realtime.connect(accessToken: token) }
+        }
       }
-    }
-    .onReceive(NotificationCenter.default.publisher(for: .echoNotificationSelected)) {
-      notification in
-      receiveNotificationSelection(notification.userInfo)
-    }
-    .onReceive(NotificationCenter.default.publisher(for: .echoRemoteNotificationReceived)) { _ in
-      Task { await EchoAttentionSync.shared.refresh(auth: auth) }
-    }
-    .onChange(of: homeModel?.snapshot?.conversations.map(\.id)) { _, _ in
-      openPendingNotificationIfPossible()
-    }
-    .onChange(of: homeModel?.snapshot?.personalNotes?.channelID) { _, _ in
-      openPendingNotificationIfPossible()
-    }
-    .sheet(isPresented: $showingProfileMenu) {
-      EchoProfileMenu(
-        profile: homeModel?.snapshot?.profile,
-        onEditProfile: {
-          showingProfileMenu = false
-          Task {
-            await prepareSheetToken()
-            withAnimation(.easeInOut(duration: 0.22)) {
-              showingProfileEdit = true
+      .onChange(of: auth.activeSession?.accessToken) { _, newToken in
+        if let newToken, !newToken.isEmpty {
+          sheetAccessToken = newToken
+        }
+      }
+      .onReceive(NotificationCenter.default.publisher(for: .echoNotificationSelected)) {
+        notification in
+        receiveNotificationSelection(notification.userInfo)
+      }
+      .onReceive(NotificationCenter.default.publisher(for: .echoRemoteNotificationReceived)) { _ in
+        Task { await EchoAttentionSync.shared.refresh(auth: auth) }
+      }
+      .onChange(of: homeModel?.snapshot?.conversations.map(\.id)) { _, _ in
+        openPendingNotificationIfPossible()
+      }
+      .onChange(of: homeModel?.snapshot?.personalNotes?.channelID) { _, _ in
+        openPendingNotificationIfPossible()
+      }
+      .onChange(of: searchFocused) { _, focused in
+        handleSearchFocusChange(focused)
+      }
+      .onChange(of: showingProfileEdit) { _, showing in
+        if showing { dismissHomeSearchKeyboard() }
+      }
+      .onChange(of: showingProfileMenu) { _, showing in
+        if showing { dismissHomeSearchKeyboard() }
+      }
+      .onChange(of: showingSettings) { _, showing in
+        if showing { dismissHomeSearchKeyboard() }
+      }
+      .onChange(of: showingInbox) { _, showing in
+        if showing { dismissHomeSearchKeyboard() }
+      }
+      .onChange(of: selectedConversation?.id) { _, id in
+        if id != nil { dismissHomeSearchKeyboard() }
+      }
+  }
+
+  private func homePresentations<Content: View>(_ content: Content) -> some View {
+    content
+      .sheet(isPresented: $showingProfileMenu) {
+        EchoProfileMenu(
+          profile: homeModel?.snapshot?.profile,
+          onEditProfile: {
+            showingProfileMenu = false
+            dismissHomeSearchKeyboard()
+            Task {
+              await prepareSheetToken()
+              withAnimation(.easeInOut(duration: 0.22)) {
+                showingProfileEdit = true
+              }
             }
+          },
+          onSettings: {
+            showingProfileMenu = false
+            dismissHomeSearchKeyboard()
+            Task {
+              await prepareSheetToken()
+              showingSettings = true
+            }
+          },
+          onSignOut: {
+            showingProfileMenu = false
+            onSignOut()
           }
-        },
-        onSettings: {
-          showingProfileMenu = false
-          Task {
-            await prepareSheetToken()
-            showingSettings = true
-          }
-        },
-        onSignOut: {
-          showingProfileMenu = false
-          onSignOut()
+        )
+        .presentationDetents([.height(270)])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(.clear)
+      }
+      .sheet(isPresented: $showingSettings) {
+        EchoSettingsView(
+          baseURL: baseURL,
+          accessToken: sheetAccessToken,
+          profile: homeModel?.snapshot?.profile,
+          onSignOut: onSignOut
+        )
+        .environment(auth)
+        .environment(displayPrefs)
+        .echoApplyLiveAppearance(displayPrefs, systemScheme: colorScheme)
+      }
+      .background { homeInboxPresentation }
+      .background { homeConversationPresentation }
+      .overlay {
+        if let callModel, callModel.isPresented, selectedConversation == nil {
+          EchoCallView(model: callModel, baseURL: baseURL, accessToken: liveMediaAccessToken)
+            .transition(.opacity)
+            .zIndex(20)
         }
-      )
-      .presentationDetents([.height(270)])
-      .presentationDragIndicator(.visible)
-      .presentationBackground(.clear)
-    }
-    .sheet(isPresented: $showingSettings) {
-      EchoSettingsView(
-        baseURL: baseURL,
-        accessToken: sheetAccessToken,
-        profile: homeModel?.snapshot?.profile,
-        onSignOut: onSignOut
-      )
-      .environment(auth)
-      .environment(displayPrefs)
-      .echoApplyLiveAppearance(displayPrefs, systemScheme: colorScheme)
-    }
-    #if os(iOS)
-      .fullScreenCover(
-        isPresented: $showingInbox,
-        onDismiss: { Task { await homeModel?.refreshInboxNotificationCount() } }
-      ) {
-        EchoInboxView(
-          personalNotes: homeModel?.snapshot?.personalNotes,
-          baseURL: baseURL,
-          accessToken: sheetAccessToken,
-          userID: userID
-        )
-        .environment(auth)
-        .environment(realtime)
       }
-    #else
-      .sheet(
-        isPresented: $showingInbox,
-        onDismiss: { Task { await homeModel?.refreshInboxNotificationCount() } }
-      ) {
-        EchoInboxView(
-          personalNotes: homeModel?.snapshot?.personalNotes,
-          baseURL: baseURL,
-          accessToken: sheetAccessToken,
-          userID: userID
-        )
-        .environment(auth)
-        .environment(realtime)
-      }
-    #endif
-    #if os(iOS)
-      .fullScreenCover(item: $selectedConversation) { conversation in
-        EchoConversationView(
-          conversation: conversation,
-          baseURL: baseURL,
-          userID: userID,
-          selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
-          callModel: callModel
-        )
-        .environment(auth)
-        .environment(realtime)
-      }
-    #else
-      .sheet(item: $selectedConversation) { conversation in
-        EchoConversationView(
-          conversation: conversation,
-          baseURL: baseURL,
-          userID: userID,
-          selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
-          callModel: callModel
-        )
-        .environment(auth)
-        .environment(realtime)
-      }
-    #endif
-    .overlay {
-      if let callModel, callModel.isPresented, selectedConversation == nil {
-        EchoCallView(model: callModel, baseURL: baseURL, accessToken: liveMediaAccessToken)
-          .transition(.opacity)
-          .zIndex(20)
-      }
-    }
+  }
+
+  @ViewBuilder
+  private var homeInboxPresentation: some View {
+    Color.clear
+      .frame(width: 0, height: 0)
+      #if os(iOS)
+        .fullScreenCover(
+          isPresented: $showingInbox,
+          onDismiss: { Task { await homeModel?.refreshInboxNotificationCount() } }
+        ) {
+          EchoInboxView(
+            personalNotes: homeModel?.snapshot?.personalNotes,
+            baseURL: baseURL,
+            accessToken: sheetAccessToken,
+            userID: userID
+          )
+          .environment(auth)
+          .environment(realtime)
+        }
+      #else
+        .sheet(
+          isPresented: $showingInbox,
+          onDismiss: { Task { await homeModel?.refreshInboxNotificationCount() } }
+        ) {
+          EchoInboxView(
+            personalNotes: homeModel?.snapshot?.personalNotes,
+            baseURL: baseURL,
+            accessToken: sheetAccessToken,
+            userID: userID
+          )
+          .environment(auth)
+          .environment(realtime)
+        }
+      #endif
+  }
+
+  @ViewBuilder
+  private var homeConversationPresentation: some View {
+    Color.clear
+      .frame(width: 0, height: 0)
+      #if os(iOS)
+        .fullScreenCover(item: $selectedConversation) { conversation in
+          EchoConversationView(
+            conversation: conversation,
+            baseURL: baseURL,
+            userID: userID,
+            selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
+            callModel: callModel
+          )
+          .environment(auth)
+          .environment(realtime)
+        }
+      #else
+        .sheet(item: $selectedConversation) { conversation in
+          EchoConversationView(
+            conversation: conversation,
+            baseURL: baseURL,
+            userID: userID,
+            selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
+            callModel: callModel
+          )
+          .environment(auth)
+          .environment(realtime)
+        }
+      #endif
   }
 
   private func retryHomeIfUnavailable() {
     Task { await homeModel?.retryIfUnavailable() }
+  }
+
+  @ViewBuilder
+  private func homeSnapshotContent(
+    _ homeModel: EchoHomeModel, snapshot: EchoHomeSnapshot
+  ) -> some View {
+    EchoProfileHeader(
+      profile: snapshot.profile,
+      baseURL: baseURL,
+      accessToken: liveMediaAccessToken,
+      onProfileTap: {
+        if consumeSearchKeyboardTap() { return }
+        Task {
+          await prepareSheetToken()
+          withAnimation(.easeInOut(duration: 0.22)) {
+            showingProfileEdit = true
+          }
+        }
+      },
+      onMenuTap: {
+        if consumeSearchKeyboardTap() { return }
+        showingProfileMenu = true
+      }
+    )
+    EchoDirectMessageList(
+      conversations: filteredConversations(snapshot.conversations),
+      searchText: $searchText,
+      searchFocused: $searchFocused,
+      baseURL: baseURL,
+      accessToken: liveMediaAccessToken,
+      onRefresh: {
+        await homeModel.reload()
+        openPendingNotificationIfPossible()
+      },
+      onConsumeKeyboardTap: { consumeSearchKeyboardTap() },
+      onOpen: { conversation in
+        Task {
+          await prepareSheetToken()
+          selectedConversation = conversation
+        }
+      },
+      inboxNotificationCount: homeModel.inboxNotificationCount,
+      onOpenInbox: {
+        if consumeSearchKeyboardTap() { return }
+        Task {
+          await prepareSheetToken()
+          showingInbox = true
+        }
+      }
+    )
+  }
+
+  private func handleSearchFocusChange(_ focused: Bool) {
+    if focused {
+      searchKeyboardArmed = true
+      return
+    }
+    // Keep armed briefly so the tap that dismissed focus can still consume it.
+    Task { @MainActor in
+      try? await Task.sleep(for: .milliseconds(120))
+      if !searchFocused { searchKeyboardArmed = false }
+    }
+  }
+
+  /// First tap while search was focused: dismiss keyboard only (return true).
+  /// Second tap: return false so the caller can navigate.
+  @discardableResult
+  private func consumeSearchKeyboardTap() -> Bool {
+    guard searchKeyboardArmed || searchFocused else { return false }
+    searchKeyboardArmed = false
+    dismissHomeSearchKeyboard()
+    return true
+  }
+
+  /// Drop search focus so returning from edit/inbox/DM does not re-pop the keyboard.
+  private func dismissHomeSearchKeyboard() {
+    searchKeyboardArmed = false
+    guard searchFocused else {
+      #if os(iOS)
+        UIApplication.shared.sendAction(
+          #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+      #endif
+      return
+    }
+    searchFocused = false
+    #if os(iOS)
+      UIApplication.shared.sendAction(
+        #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    #endif
   }
 
   private func applyRealtimeToSelectedConversation(_ event: EchoRealtimeEvent) {

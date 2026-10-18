@@ -317,7 +317,9 @@ private struct EchoHTMLText: View {
       if size.width > 0, size.width < 10_000 {
         return CGSize(width: size.width, height: height)
       }
-      return CGSize(width: mathSize.width, height: height)
+      // Unspecified width: do not advertise formula width up into LazyVStack
+      // (wide LaTeX was expanding the DM column and left-shifting scroll).
+      return CGSize(width: UIView.noIntrinsicMetric, height: height)
     }
   }
 
@@ -337,9 +339,14 @@ private struct EchoHTMLText: View {
     func sizeThatFits(
       _ proposal: ProposedViewSize, uiView: EchoMathContainerView, context: Context
     ) -> CGSize? {
-      let width = proposal.width ?? uiView.mathLabel.intrinsicContentSize.width
+      // Prefer the column proposal. Without one, defer width to the parent
+      // instead of returning the raw formula width (see sizeThatFits above).
+      if let width = proposal.width, width.isFinite, width > 0 {
+        return uiView.sizeThatFits(
+          CGSize(width: width, height: proposal.height ?? .greatestFiniteMagnitude))
+      }
       return uiView.sizeThatFits(
-        CGSize(width: width, height: proposal.height ?? .greatestFiniteMagnitude))
+        CGSize(width: 0, height: proposal.height ?? .greatestFiniteMagnitude))
     }
   }
 #else
@@ -408,10 +415,11 @@ private struct EchoHTMLText: View {
     ) -> CGSize? {
       let size = nsView.mathLabel.fittingSize
       let height = max(ceil(size.height), 1)
-      if let width = proposal.width {
+      if let width = proposal.width, width.isFinite, width > 0 {
         return CGSize(width: width, height: height)
       }
-      return CGSize(width: max(ceil(size.width), 1), height: height)
+      // Match iOS: don't expand the chat column to the formula width.
+      return CGSize(width: NSView.noIntrinsicMetric, height: height)
     }
   }
 #endif

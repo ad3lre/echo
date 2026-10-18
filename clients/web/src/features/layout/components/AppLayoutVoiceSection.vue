@@ -2,6 +2,7 @@
 import {
   computed,
   defineAsyncComponent,
+  inject,
   ref,
   toRef,
   unref,
@@ -11,6 +12,7 @@ import {
   type MaybeRef,
   type ShallowRef,
 } from 'vue';
+import { LAYOUT_CHAT_SURFACE_KEY } from '@/features/layout/layoutInjectionKeys';
 import type {
   EchoHangmanActivityV1,
   EchoSkrigglesActivityV1,
@@ -393,8 +395,24 @@ const voiceChannelActivityLabel = computed(() => {
   return name ? name : 'Voice channel';
 });
 
+/**
+ * Prefer the live inject Ref over the prop. Vue shallow-unwraps Ref props, so a
+ * parent that passes `vcActivityUi` as a Ref can leave this section holding a
+ * stale `{ phase: 'closed' }` object — Activities then looks like a no-op while
+ * CallView stays mounted.
+ */
+const layoutChatSurface = inject(LAYOUT_CHAT_SURFACE_KEY, null);
+
+function readVcActivityUi(): VcActivityUiState {
+  const fromInject = layoutChatSurface?.vcActivityUi;
+  if (fromInject !== undefined) return unref(fromInject);
+  return unref(props.vcActivityUi);
+}
+
+const vcActivityUiLive = computed(() => readVcActivityUi());
+
 const vcActivitySurfaceOpen = computed(
-  () => unref(props.vcActivityUi).phase !== 'closed',
+  () => vcActivityUiLive.value.phase !== 'closed',
 );
 
 // Warm voice call / activity chunks when voice UI or activities are active.
@@ -422,7 +440,7 @@ const stageUpcomingEvents = computed(
 );
 
 const channelHasActiveVcActivity = computed(() => {
-  if (unref(props.vcActivityUi).phase !== 'closed') return true;
+  if (vcActivityUiLive.value.phase !== 'closed') return true;
   return props.activeVoiceChannelParticipants.some(
     (p) => (p.activityPresence?.length ?? 0) > 0,
   );
@@ -439,7 +457,7 @@ const {
   channelId: stageChannelId,
   serverId: computed(() => props.selectedServerId),
   upcomingEvents: stageUpcomingEvents,
-  vcActivityUi: props.vcActivityUi,
+  vcActivityUi: vcActivityUiLive,
   channelHasActiveVcActivity,
   voiceConnectedToChannel: voiceConnectedToStageChannel,
 });
@@ -638,7 +656,7 @@ const voiceSectionDockPadStyle = computed(() => {
             v-else-if="vcActivitySurfaceOpen && !isStageChannel"
             :key="`vc-activity:${voiceUiChannel?.id ?? 'none'}`"
             class="min-w-0 min-h-0 flex-1"
-            :state="vcActivityUi"
+            :state="vcActivityUiLive"
             :voice-channel-label="voiceChannelActivityLabel"
             :compact-layout="isCompactMobileGuild"
             :channel-panel-collapsed="!!channelPanelCollapsed"

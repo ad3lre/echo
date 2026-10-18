@@ -8,7 +8,8 @@ settings:
   base:
     SWIFT_VERSION: '6.0'
     PRODUCT_NAME: Echo
-    DEVELOPMENT_TEAM: '7T8JKF75WU'
+    # Free Personal Team (Adel Dabagh). Cert CN may show a different id; OU/team is this.
+    DEVELOPMENT_TEAM: 'K2V5TD6F83'
     CODE_SIGN_STYLE: Automatic
     CURRENT_PROJECT_VERSION: 4
     MARKETING_VERSION: 0.1.1
@@ -38,6 +39,7 @@ targets:
           NSAllowsLocalNetworking: true
         NSFaceIDUsageDescription: Use Face ID to unlock your saved Echo session.
         NSMicrophoneUsageDescription: Echo uses your microphone when you join a voice call.
+        NSCameraUsageDescription: Echo uses your camera for video calls.
         NSPhotoLibraryUsageDescription: Show your photo library inside the message composer so you can attach photos.
         UILaunchScreen:
           UIColorName: EchoLaunchBackground
@@ -48,6 +50,9 @@ targets:
         UIBackgroundModes: [audio, voip, fetch, remote-notification]
         BGTaskSchedulerPermittedIdentifiers: [com.echo.ios.refresh]
     entitlements:
+      # Keep empty on the free Personal Team — Associated Domains / Sign in with Apple
+      # / APNs require a paid Apple Developer Program membership. See
+      # docs/operations/ios-passkeys.md for the paid-account entitlement set.
       path: Resources/iOS/EchoiOS.entitlements
     settings:
       base:

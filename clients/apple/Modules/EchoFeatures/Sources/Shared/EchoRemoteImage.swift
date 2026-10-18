@@ -10,6 +10,7 @@ import SwiftUI
 struct EchoRemoteImage<Placeholder: View>: View {
   let url: URL
   var contentMode: ContentMode = .fill
+  var maxPixelSize: CGFloat = 1024
   @ViewBuilder let placeholder: () -> Placeholder
   @StateObject private var loader = EchoImageLoader()
 
@@ -25,6 +26,17 @@ struct EchoRemoteImage<Placeholder: View>: View {
         #else
           bitmap.image.resizable().aspectRatio(contentMode: contentMode)
         #endif
+      } else if let cached = EchoDecodedImageCache.shared.bitmap(for: url) {
+        // Prefetch hit before `.task` runs — zero placeholder frames.
+        #if os(iOS)
+          if cached.isAnimated {
+            EchoAnimatedUIImage(image: cached.uiImage, contentMode: contentMode)
+          } else {
+            cached.image.resizable().aspectRatio(contentMode: contentMode)
+          }
+        #else
+          cached.image.resizable().aspectRatio(contentMode: contentMode)
+        #endif
       } else {
         placeholder().overlay {
           if loader.isLoading {
@@ -34,6 +46,7 @@ struct EchoRemoteImage<Placeholder: View>: View {
       }
     }
     .task(id: url) {
+      loader.maxPixelSize = maxPixelSize
       loader.load(url: url)
     }
   }

@@ -32,7 +32,7 @@ import LiveKit
       let configuration = CXProviderConfiguration()
       configuration.maximumCallGroups = 1
       configuration.maximumCallsPerCallGroup = 1
-      configuration.supportsVideo = false
+      configuration.supportsVideo = true
       configuration.supportedHandleTypes = [.generic]
       configuration.includesCallsInRecents = true
       // Bundled in the iOS app target (`Resources/iOS/Sounds/EchoCallRingtone.m4a`).
@@ -91,6 +91,12 @@ import LiveKit
     func setSpeakerEnabled(_ enabled: Bool) throws {
       prefersSpeaker = enabled
       try AVAudioSession.sharedInstance().overrideOutputAudioPort(enabled ? .speaker : .none)
+    }
+
+    func reportHasVideo(id: UUID, hasVideo: Bool) {
+      let update = CXCallUpdate()
+      update.hasVideo = hasVideo
+      provider.reportCall(with: id, updated: update)
     }
 
     /// CallKit activates the session asynchronously; media publish must wait.
@@ -230,6 +236,7 @@ import LiveKit
     func requestEnd(id: UUID) async { onEnd?(id) }
     func reportEnded(id: UUID, declined: Bool = false) {}
     func setSpeakerEnabled(_ enabled: Bool) throws {}
+    func reportHasVideo(id: UUID, hasVideo: Bool) {}
     func waitForAudioActivation(timeoutNanoseconds: UInt64 = 2_500_000_000) async {}
   }
 #endif

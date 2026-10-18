@@ -1,13 +1,13 @@
 import type { Server } from '@shared/types';
+import {
+  MAX_STARRED_SERVERS,
+  SERVER_RAIL_MRU_MAX_STORED,
+} from '@shared/serverListOrdering';
+
+export { MAX_STARRED_SERVERS, SERVER_RAIL_MRU_MAX_STORED };
 
 /** Max server icons on the main rail before overflow / “more” (must match Pinia `visibleServers` base slice). */
 export const VISIBLE_SERVER_RAIL_SLOT_COUNT = 5;
-
-/** Starred / pinned-from-more servers on the rail (each counts toward {@link VISIBLE_SERVER_RAIL_SLOT_COUNT}). */
-export const MAX_STARRED_SERVERS = 4;
-
-/** Cap for persisted MRU id list (localStorage). */
-export const SERVER_RAIL_MRU_MAX_STORED = 64;
 
 export type ServerRailProjection = {
   visible: Server[];

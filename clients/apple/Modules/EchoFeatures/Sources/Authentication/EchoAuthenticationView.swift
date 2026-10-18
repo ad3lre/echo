@@ -74,7 +74,7 @@ struct EchoAuthScreen: View {
                 : EchoCopy.string("Back")
             )
             Spacer()
-            EchoPageTrack(mode: mode)
+            EchoAuthFlowTrack(mode: mode, isVerifying: model.isMfaPending)
           }
           .padding(.top, 22)
 
@@ -165,16 +165,23 @@ struct EchoAuthScreen: View {
         EchoAuthField(
           title: isRegistration
             ? EchoCopy.string("Username") : EchoCopy.string("Username or email"), text: $username,
-          isSecure: false)
+          isSecure: false,
+          contentType: .username)
         if isRegistration {
           EchoAuthField(
-            title: EchoCopy.string("Email"), text: $email, isSecure: false, isEmail: true)
-          EchoAuthField(title: EchoCopy.string("Display name"), text: $displayName, isSecure: false)
+            title: EchoCopy.string("Email"), text: $email, isSecure: false, isEmail: true,
+            contentType: .emailAddress)
+          EchoAuthField(
+            title: EchoCopy.string("Display name"), text: $displayName, isSecure: false,
+            contentType: .name)
         }
-        EchoAuthField(title: EchoCopy.string("Password"), text: $password, isSecure: true)
+        EchoAuthField(
+          title: EchoCopy.string("Password"), text: $password, isSecure: true,
+          contentType: isRegistration ? .newPassword : .password)
         if isRegistration {
           EchoAuthField(
-            title: EchoCopy.string("Confirm password"), text: $confirmPassword, isSecure: true)
+            title: EchoCopy.string("Confirm password"), text: $confirmPassword, isSecure: true,
+            contentType: .newPassword)
         }
       }
       .padding(.top, 20)
@@ -228,20 +235,40 @@ struct EchoAuthScreen: View {
   }
 }
 
-private struct EchoPageTrack: View {
+/// Per-flow progress only — sign-in and register each own a two-step track
+/// (credentials → verify). They are not one shared welcome/login/register path.
+private struct EchoAuthFlowTrack: View {
   let mode: EchoAuthMode
+  let isVerifying: Bool
+
+  private var accent: Color {
+    mode == .signIn ? EchoTheme.Color.signInBlue : EchoTheme.Color.violetDeep
+  }
+
+  private var step: Int { isVerifying ? 2 : 1 }
+
   var body: some View {
     HStack(spacing: 5) {
-      Capsule().fill(EchoTheme.Color.ink(0.20)).frame(width: 22, height: 3)
-      Capsule().fill(
-        mode == .signIn ? EchoTheme.Color.signInBlue : EchoTheme.Color.ink(0.20)
-      ).frame(width: 22, height: 3)
-      Capsule().fill(
-        mode == .register ? EchoTheme.Color.violetDeep : EchoTheme.Color.ink(0.20)
-      ).frame(width: 22, height: 3)
+      Capsule()
+        .fill(step >= 1 ? accent : EchoTheme.Color.ink(0.20))
+        .frame(width: 22, height: 3)
+      Capsule()
+        .fill(step >= 2 ? accent : EchoTheme.Color.ink(0.20))
+        .frame(width: 22, height: 3)
     }
-    .accessibilityHidden(true)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(
+      "\(mode == .signIn ? EchoCopy.string("Log in") : EchoCopy.string("Register")), \(EchoCopy.format("%lld / %lld", step, 2))"
+    )
   }
+}
+
+private enum EchoAuthFieldContentType {
+  case username
+  case emailAddress
+  case name
+  case password
+  case newPassword
 }
 
 private struct EchoAuthField: View {
@@ -249,6 +276,7 @@ private struct EchoAuthField: View {
   @Binding var text: String
   let isSecure: Bool
   var isEmail = false
+  var contentType: EchoAuthFieldContentType? = nil
   var body: some View {
     Group {
       if isSecure {
@@ -260,6 +288,7 @@ private struct EchoAuthField: View {
     .font(.system(size: 15, weight: .regular)).foregroundStyle(EchoTheme.Color.fg).tint(EchoTheme.Color.fg).textFieldStyle(
       .plain
     )
+    .echoPasswordAutofillContentType(contentType)
     .padding(.horizontal, 17).frame(maxWidth: .infinity, minHeight: 51)
     .background(EchoTheme.Color.ink(0.065), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     .overlay {
@@ -328,5 +357,17 @@ extension View {
     #else
       self
     #endif
+  }
+
+  @ViewBuilder
+  fileprivate func echoPasswordAutofillContentType(_ type: EchoAuthFieldContentType?) -> some View {
+    switch type {
+    case .username: textContentType(.username)
+    case .emailAddress: textContentType(.emailAddress)
+    case .name: textContentType(.name)
+    case .password: textContentType(.password)
+    case .newPassword: textContentType(.newPassword)
+    case nil: self
+    }
   }
 }

@@ -6,12 +6,17 @@ struct EchoConversationHeader: View {
   let baseURL: URL
   var accessToken: String? = nil
   let isPersonalNotes: Bool
+  var isGuildChannel = false
+  var guildChannel: EchoGuildChannel? = nil
   var pinnedCount: Int = 0
+  var showsPins = true
+  var showsCall = true
   let onProfileTap: () -> Void
   let onExit: () -> Void
   let onCall: () -> Void
   let onPins: () -> Void
   let onSearch: () -> Void
+  var onMembers: (() -> Void)? = nil
 
   var body: some View {
     HStack(spacing: 8) {
@@ -23,20 +28,36 @@ struct EchoConversationHeader: View {
           .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
-      .accessibilityLabel(EchoCopy.string("Close conversation"))
+      .accessibilityLabel(
+        isGuildChannel
+          ? EchoCopy.string("Show channels")
+          : EchoCopy.string("Close conversation")
+      )
 
       Button(action: onProfileTap) {
         HStack(spacing: 9) {
-          EchoMediaImage(
-            source: conversation.avatarURL, baseURL: baseURL, accessToken: accessToken
-          ) {
-            EchoGeneratedAvatar(name: conversation.displayName, seed: conversation.channelID)
-          }
-          .clipShape(Circle())
-          .frame(width: 34, height: 34)
-          .overlay(alignment: .bottomTrailing) {
-            if !isPersonalNotes {
-              EchoPresenceIndicator(status: conversation.presenceStatus, size: 11)
+          if isGuildChannel, let guildChannel {
+            EchoChannelIcon(
+              channel: guildChannel, baseURL: baseURL, accessToken: accessToken, size: 22
+            )
+            .frame(width: 34, height: 34)
+            .background(EchoTheme.Color.ink(0.06), in: Circle())
+          } else {
+            EchoMediaImage(
+              source: conversation.avatarURL,
+              baseURL: baseURL,
+              accessToken: accessToken,
+              maxPixelSize: EchoAvatarPrefetcher.avatarMaxPixelSize
+            ) {
+              EchoGeneratedAvatar(name: conversation.displayName, seed: conversation.channelID)
+            }
+            .clipShape(Circle())
+            .frame(width: 34, height: 34)
+            .overlay(alignment: .bottomTrailing) {
+              if !isPersonalNotes && !isGuildChannel {
+                EchoPresenceIndicator(status: conversation.presenceStatus, size: 12)
+                  .offset(x: -1, y: -1)
+              }
             }
           }
 
@@ -45,7 +66,12 @@ struct EchoConversationHeader: View {
               .font(.system(size: 15, weight: .semibold, design: .rounded))
               .foregroundStyle(EchoTheme.Color.ink(0.94))
               .lineLimit(1)
-            if let username = conversation.username, !username.isEmpty {
+            if isGuildChannel {
+              Text(EchoCopy.string("Members"))
+                .font(.system(size: 11, weight: .regular, design: .rounded))
+                .foregroundStyle(EchoTheme.Color.ink(0.42))
+                .lineLimit(1)
+            } else if let username = conversation.username, !username.isEmpty {
               Text("@\(username)")
                 .font(.system(size: 11, weight: .regular, design: .rounded))
                 .foregroundStyle(EchoTheme.Color.ink(0.42))
@@ -62,26 +88,37 @@ struct EchoConversationHeader: View {
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
-      .disabled(isPersonalNotes)
-      .accessibilityLabel(EchoCopy.format("Open %@ profile", conversation.displayName))
+      .disabled(isPersonalNotes && !isGuildChannel)
+      .accessibilityLabel(
+        isGuildChannel
+          ? EchoCopy.string("Open members")
+          : EchoCopy.format("Open %@ profile", conversation.displayName)
+      )
 
       HStack(spacing: 4) {
-        if !isPersonalNotes {
+        if showsCall && !isPersonalNotes && !isGuildChannel {
           conversationAction("phone.fill", label: EchoCopy.string("Call"), action: onCall)
         }
-        conversationAction(
-          pinnedCount > 0 ? "pin.fill" : "pin",
-          label: EchoCopy.string("Pinned messages"),
-          size: 13,
-          emphasized: pinnedCount > 0,
-          action: onPins)
+        if isGuildChannel, let onMembers {
+          conversationAction(
+            "person.3", label: EchoCopy.string("Members"), size: 14, action: onMembers)
+        }
+        if showsPins && !isGuildChannel {
+          conversationAction(
+            pinnedCount > 0 ? "pin.fill" : "pin",
+            label: EchoCopy.string("Pinned messages"),
+            size: 13,
+            emphasized: pinnedCount > 0,
+            action: onPins)
+        }
         conversationAction(
           "magnifyingglass", label: EchoCopy.string("Search messages"), action: onSearch)
       }
     }
     .padding(.horizontal, 14)
-    .padding(.top, 14)
-    .padding(.bottom, 14)
+    // Sit a bit closer to the notch/status band (~10% tighter than before).
+    .padding(.top, 8)
+    .padding(.bottom, 12)
     .frame(maxWidth: .infinity)
     .background(EchoTheme.Color.canvas)
   }

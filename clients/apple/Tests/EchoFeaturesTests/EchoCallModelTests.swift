@@ -173,6 +173,50 @@ struct EchoCallModelTests {
 
     #expect(model.phase == .active)
   }
+
+  @Test func screenShareCanBeArmedWhileDialingAndPublishesOnActive() async {
+    let realtime = EchoRealtimeSession(
+      baseURL: URL(string: "https://chat-echo.com")!,
+      currentUserID: "me",
+      client: FakeRealtimeClient())
+    let transport = FakeCallTransport(autoConnect: true, autoJoinPeer: false)
+    let model = EchoCallModel(
+      baseURL: URL(string: "https://chat-echo.com")!,
+      realtime: realtime,
+      currentUserID: "me",
+      tokenProvider: { "access" },
+      client: FakeCallingClient(
+        session: EchoLiveKitSession(
+          url: "wss://voice.example",
+          token: "join",
+          roomName: "room",
+          bitrateBps: nil,
+          voiceE2EE: nil)),
+      transport: transport,
+      e2ee: FixedE2EEPreparer(encryption: nil))
+    let conversation = EchoDirectMessage(
+      id: "dm-1", channelID: "dm-1", peerUserID: "peer", displayName: "Maya")
+
+    await model.startCall(to: conversation)
+    for _ in 0..<40 where transport.connectCount == 0 {
+      try? await Task.sleep(nanoseconds: 10_000_000)
+    }
+    #expect(model.phase == .dialing)
+
+    await model.toggleScreenShare()
+    #expect(model.isScreenSharing)
+    #expect(transport.screenShareEnabled == nil)
+
+    transport.simulatePeerJoined()
+    for _ in 0..<40 where model.phase != .active {
+      try? await Task.sleep(nanoseconds: 10_000_000)
+    }
+    #expect(model.phase == .active)
+    for _ in 0..<40 where transport.screenShareEnabled != true {
+      try? await Task.sleep(nanoseconds: 10_000_000)
+    }
+    #expect(transport.screenShareEnabled == true)
+  }
 }
 
 private struct FixedE2EEPreparer: EchoVoiceE2EEPreparing {
@@ -216,13 +260,22 @@ private final class FakeCallTransport: EchoCallTransporting, @unchecked Sendable
   var onParticipantCountChange: (@Sendable (Int) -> Void)?
   var onRemoteParticipantConnected: (@Sendable (String) -> Void)?
   var onRemoteParticipantDisconnected: (@Sendable (String) -> Void)?
+  var onVideoTracksChange: (@Sendable (EchoCallVideoTrackSnapshot) -> Void)?
   private(set) var connectCount = 0
   private(set) var lastEncryption: EchoCallMediaEncryption?
+  private(set) var cameraEnabled: Bool?
+  private(set) var screenShareEnabled: Bool?
   private let autoConnect: Bool
+  private let autoJoinPeer: Bool
   private let shouldThrowEncrypted: Bool
 
-  init(autoConnect: Bool = true, shouldThrowEncrypted: Bool = true) {
+  init(
+    autoConnect: Bool = true,
+    autoJoinPeer: Bool = true,
+    shouldThrowEncrypted: Bool = true
+  ) {
     self.autoConnect = autoConnect
+    self.autoJoinPeer = autoJoinPeer
     self.shouldThrowEncrypted = shouldThrowEncrypted
   }
 
@@ -232,10 +285,21 @@ private final class FakeCallTransport: EchoCallTransporting, @unchecked Sendable
     if session.voiceE2EE?.required == true, encryption?.hasMaterial != true, shouldThrowEncrypted {
       throw EchoCallTransportError.encryptedMediaUnavailable
     }
-    if autoConnect {
-      onStateChange?(.connected)
-      onParticipantCountChange?(2)
+    guard autoConnect else { return }
+    // Apply connected first, then peer-join, with yields so the model's
+    // MainActor Tasks observe transportIsConnected before activateIfReady.
+    await MainActor.run { onStateChange?(.connected) }
+    await Task.yield()
+    await Task.yield()
+    if autoJoinPeer {
+      await MainActor.run { onParticipantCountChange?(2) }
+      await Task.yield()
+      await Task.yield()
     }
+  }
+
+  func simulatePeerJoined() {
+    onParticipantCountChange?(2)
   }
 
   func rotateEncryption(_ encryption: EchoCallMediaEncryption) async throws {
@@ -245,6 +309,8 @@ private final class FakeCallTransport: EchoCallTransporting, @unchecked Sendable
   func setMuted(_ muted: Bool) async throws {}
   func setDeafened(_ deafened: Bool) throws {}
   func setSpeakerEnabled(_ enabled: Bool) throws {}
+  func setCameraEnabled(_ enabled: Bool) async throws { cameraEnabled = enabled }
+  func setScreenShareEnabled(_ enabled: Bool) async throws { screenShareEnabled = enabled }
   func disconnect() async { onStateChange?(.disconnected) }
 }
 

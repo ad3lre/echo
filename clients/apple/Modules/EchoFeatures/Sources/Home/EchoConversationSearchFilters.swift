@@ -56,7 +56,10 @@ struct EchoConversationSearchFilters: View {
         model.setAuthorScope(.me)
         onChange()
       }
-      if model.conversation.peerUserID != nil {
+      // Guild channels have no single peer — skip the "Them" chip.
+      if let peerID = model.conversation.peerUserID,
+        !peerID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      {
         EchoSearchFilterChip(
           title: peerLabel,
           systemImage: "person.crop.circle",

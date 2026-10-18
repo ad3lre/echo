@@ -307,6 +307,40 @@
         }
       }
     },
+    "Search servers": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search servers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar servidores"
+          }
+        }
+      }
+    },
+    "No servers found.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No servers found."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontraron servidores."
+          }
+        }
+      }
+    },
     "No conversations yet.": {
       "extractionState": "manual",
       "localizations": {
@@ -4518,6 +4552,23 @@
         }
       }
     },
+    "— %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "— %lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "— %lld"
+          }
+        }
+      }
+    },
     "·": {
       "extractionState": "manual",
       "localizations": {
@@ -5804,6 +5855,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bienvenido de nuevo"
+          }
+        }
+      }
+    },
+    "Sign in with Echo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with Echo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar sesión con Echo"
+          }
+        }
+      }
+    },
+    "Create an account": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create an account"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear una cuenta"
+          }
+        }
+      }
+    },
+    "to": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "to"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a"
           }
         }
       }
@@ -9651,6 +9753,91 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cifrado"
+          }
+        }
+      }
+    },
+    "Ringtones": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ringtones"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tonos"
+          }
+        }
+      }
+    },
+    "Share screen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share screen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir pantalla"
+          }
+        }
+      }
+    },
+    "Wait until the call connects to start video.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait until the call connects to start video."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera a que la llamada se conecte para iniciar el video."
+          }
+        }
+      }
+    },
+    "Wait until the call connects to share your screen.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait until the call connects to share your screen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera a que la llamada se conecte para compartir tu pantalla."
+          }
+        }
+      }
+    },
+    "Allow camera access in Settings to use video on Echo calls.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow camera access in Settings to use video on Echo calls."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite el acceso a la cámara en Ajustes para usar video en las llamadas de Echo."
           }
         }
       }

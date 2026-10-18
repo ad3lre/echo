@@ -1,11 +1,8 @@
 import EchoDomain
 import EchoNetworking
 import Foundation
+import LiveKit
 import Observation
-
-#if os(iOS)
-  import AVFoundation
-#endif
 
 enum EchoCallPhase: Equatable {
   case idle
@@ -41,6 +38,13 @@ final class EchoCallModel {
   private(set) var isDeafened = false
   private(set) var isSpeakerEnabled = true
   private(set) var isEncrypted = false
+  private(set) var isCameraEnabled = false
+  private(set) var isScreenSharing = false
+  /// LiveKit camera / screen tracks for in-call video tiles (nil when unused).
+  private(set) var localCameraTrack: VideoTrack?
+  private(set) var localScreenTrack: VideoTrack?
+  private(set) var remoteCameraTrack: VideoTrack?
+  private(set) var remoteScreenTrack: VideoTrack?
 
   private var callID: UUID?
   private var correlationID: String?
@@ -99,6 +103,15 @@ final class EchoCallModel {
         await self.syncVoiceMlsKeys()
       }
     }
+    self.transport.onVideoTracksChange = { [weak self] snapshot in
+      Task { @MainActor in
+        guard let self else { return }
+        self.localCameraTrack = snapshot.localCamera
+        self.localScreenTrack = snapshot.localScreen
+        self.remoteCameraTrack = snapshot.remoteCamera
+        self.remoteScreenTrack = snapshot.remoteScreen
+      }
+    }
     systemCalls.onAnswer = { [weak self] id in
       Task { @MainActor in await self?.answerFromSystem(id: id) }
     }
@@ -120,17 +133,24 @@ final class EchoCallModel {
     guard phase == .idle else { return }
     await teardownTask?.value
     guard phase == .idle else { return }
+    // Mic before UI / ring / CallKit so TCC doesn’t interrupt playback.
+    do {
+      try await EchoCallMediaPermissions.ensureMicrophoneAccess()
+    } catch {
+      presentPreflightFailure(conversation: conversation, error: error)
+      return
+    }
     let id = UUID()
     let correlation = id.uuidString.lowercased()
     begin(conversation: conversation, callID: id, correlationID: correlation, phase: .dialing)
 
     do {
-      try await ensureMicrophoneAccess()
       try systemCalls.prepare()
       try await systemCalls.startOutgoing(id: id, handle: conversation.displayName)
       guard callID == id, phase == .dialing else { return }
       systemCalls.reportConnecting(id: id)
-      // CallKit may have taken the audio session — restart ringback on it.
+      // CallKit may have taken the audio session — re-attach ringback on it
+      // without restarting the same track from zero when already looping.
       syncCallRingtone()
       realtime.inviteToCall(channelID: conversation.channelID, correlationID: correlation)
       connect()
@@ -205,9 +225,7 @@ final class EchoCallModel {
     guard let callID else { return }
     EchoCallRingtoneStore.shared.stopIncomingLoop()
     do {
-      try await ensureMicrophoneAccess()
-      // The system Answer action owns audio-session activation. Asking the
-      // transaction controller keeps Lock Screen, headset, and app UI in sync.
+      try await EchoCallMediaPermissions.ensureMicrophoneAccess()
       try await systemCalls.requestAnswer(id: callID)
     } catch {
       fail(error)
@@ -263,6 +281,65 @@ final class EchoCallModel {
     syncCallRingtone()
   }
 
+  func toggleCamera() async {
+    let next = !isCameraEnabled
+    guard allowsLocalMediaArming else {
+      errorMessage = EchoCopy.string("Wait until the call connects to start video.")
+      return
+    }
+    do {
+      // Permission + UI arming can happen while ringing; LiveKit publish waits
+      // until active so camera session setup does not thrash ringtone audio.
+      if next { try await EchoCallMediaPermissions.ensureCameraAccess() }
+      isCameraEnabled = next
+      errorMessage = nil
+      EchoSoundPlayback.play(next ? .cameraOn : .cameraOff)
+      await publishLocalVideoIfReady()
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  func toggleScreenShare() async {
+    let next = !isScreenSharing
+    guard allowsLocalMediaArming else {
+      errorMessage = EchoCopy.string("Wait until the call connects to share your screen.")
+      return
+    }
+    isScreenSharing = next
+    errorMessage = nil
+    EchoSoundPlayback.play(next ? .streamingOn : .streamingOff)
+    await publishLocalVideoIfReady()
+  }
+
+  /// Video / screen share may be armed while dialing or connecting (pre-start).
+  private var allowsLocalMediaArming: Bool {
+    switch phase {
+    case .dialing, .connecting, .active, .reconnecting, .incoming: true
+    case .idle, .ending, .failed: false
+    }
+  }
+
+  /// Publish armed camera / screen share only once the call is live — starting
+  /// capture mid-ring used to interrupt the ringtone audio session.
+  private var canPublishLocalVideo: Bool {
+    transportIsConnected && (phase == .active || phase == .reconnecting)
+  }
+
+  private func publishLocalVideoIfReady() async {
+    guard canPublishLocalVideo else { return }
+    do {
+      try await transport.setCameraEnabled(isCameraEnabled)
+      try await transport.setScreenShareEnabled(isScreenSharing)
+      if let callID {
+        systemCalls.reportHasVideo(
+          id: callID, hasVideo: isCameraEnabled || isScreenSharing)
+      }
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
   func dismissError() {
     guard phase == .failed else {
       errorMessage = nil
@@ -288,6 +365,12 @@ final class EchoCallModel {
     isDeafened = false
     isSpeakerEnabled = true
     isEncrypted = false
+    isCameraEnabled = false
+    isScreenSharing = false
+    localCameraTrack = nil
+    localScreenTrack = nil
+    remoteCameraTrack = nil
+    remoteScreenTrack = nil
     transportIsConnected = false
     remoteAccepted = false
     isOutgoing = phase == .dialing
@@ -360,11 +443,25 @@ final class EchoCallModel {
   private func syncCallRingtone() {
     let shouldRing =
       !isDeafened
+      && !EchoCallRingtoneStore.shared.muted
       && (phase == .incoming || phase == .dialing)
     if shouldRing {
       EchoCallRingtoneStore.shared.startIncomingLoop()
     } else {
       EchoCallRingtoneStore.shared.stopIncomingLoop()
+    }
+  }
+
+  private func presentPreflightFailure(conversation: EchoDirectMessage, error: Error) {
+    self.conversation = conversation
+    errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    phase = .failed
+    let dismissID = UUID()
+    callID = dismissID
+    dismissTask = Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 3_000_000_000)
+      guard !Task.isCancelled, callID == dismissID || phase == .failed else { return }
+      reset()
     }
   }
 
@@ -444,6 +541,8 @@ final class EchoCallModel {
     phase = .active
     if startedAt == nil { startedAt = Date() }
     if isOutgoing, let callID { systemCalls.reportConnected(id: callID) }
+    // Flush any video / screen share armed during dialing or connecting.
+    Task { await publishLocalVideoIfReady() }
   }
 
   private func matches(_ signal: EchoDmCallSignal) -> Bool {
@@ -535,30 +634,16 @@ final class EchoCallModel {
     isDeafened = false
     isSpeakerEnabled = true
     isEncrypted = false
+    isCameraEnabled = false
+    isScreenSharing = false
+    localCameraTrack = nil
+    localScreenTrack = nil
+    remoteCameraTrack = nil
+    remoteScreenTrack = nil
     transportIsConnected = false
     remoteAccepted = false
     isOutgoing = false
     liveRemoteIdentities = []
   }
 
-  private func ensureMicrophoneAccess() async throws {
-    #if os(iOS)
-      // Use AVAudioApplication's async API — bridging
-      // `AVAudioSession.requestRecordPermission` with a MainActor-isolated
-      // continuation crashes when TCC invokes the callback off-main
-      // (`_swift_task_checkIsolatedSwift` on `com.avaudiosession.tccserver`).
-      switch AVAudioApplication.shared.recordPermission {
-      case .granted:
-        return
-      case .denied:
-        throw EchoCallTransportError.microphoneDenied
-      case .undetermined:
-        guard await AVAudioApplication.requestRecordPermission() else {
-          throw EchoCallTransportError.microphoneDenied
-        }
-      @unknown default:
-        return
-      }
-    #endif
-  }
 }
