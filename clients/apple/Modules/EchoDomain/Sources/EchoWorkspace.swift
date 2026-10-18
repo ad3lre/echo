@@ -74,6 +74,8 @@ public struct EchoGuildChannel: Identifiable, Equatable, Sendable, Hashable {
   public let type: String
   public let categoryID: String
   public let categoryName: String
+  /// Server category order (`category.position`); used instead of sorting by name.
+  public let categoryPosition: Int
   public let position: Int
   /// Web channel icon key (`message`, `sparkle.svg`, `emoji:🔥`, `custom-emoji:…`, URL).
   public let iconKey: String?
@@ -89,6 +91,7 @@ public struct EchoGuildChannel: Identifiable, Equatable, Sendable, Hashable {
     type: String,
     categoryID: String = "",
     categoryName: String = "",
+    categoryPosition: Int = 0,
     position: Int = 0,
     iconKey: String? = nil
   ) {
@@ -97,6 +100,7 @@ public struct EchoGuildChannel: Identifiable, Equatable, Sendable, Hashable {
     self.type = type
     self.categoryID = categoryID
     self.categoryName = categoryName
+    self.categoryPosition = categoryPosition
     self.position = position
     self.iconKey = iconKey
   }

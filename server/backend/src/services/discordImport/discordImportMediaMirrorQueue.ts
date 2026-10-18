@@ -178,6 +178,43 @@ export async function enqueueDiscordImportMediaMirrorJob(
   return Boolean(ins.rowCount && ins.rowCount > 0);
 }
 
+/**
+ * Re-queue a mirror job after Discord media repair. Resets completed/failed rows;
+ * respects queue-depth pressure for brand-new inserts.
+ */
+export async function forceEnqueueDiscordImportMediaMirrorJob(
+  pool: pg.Pool,
+  row: { messageId: string; channelId: string; actorId: string },
+): Promise<'queued' | 'already_active' | 'pressure'> {
+  const active = await pool.query(
+    `SELECT status FROM echo_discord_import_media_mirror_queue
+     WHERE message_id = $1 AND status IN ('pending', 'processing')`,
+    [row.messageId],
+  );
+  if ((active.rowCount ?? 0) > 0) return 'already_active';
+
+  const reset = await pool.query(
+    `UPDATE echo_discord_import_media_mirror_queue
+     SET status = 'pending',
+         attempts = 0,
+         last_error = NULL,
+         channel_id = $2,
+         actor_id = $3,
+         updated_at = NOW()
+     WHERE message_id = $1
+       AND status IN ('completed', 'failed')
+     RETURNING message_id`,
+    [row.messageId, row.channelId, row.actorId],
+  );
+  if ((reset.rowCount ?? 0) > 0) {
+    kickDiscordImportMediaMirrorDrain();
+    return 'queued';
+  }
+
+  const inserted = await enqueueDiscordImportMediaMirrorJob(pool, row);
+  return inserted ? 'queued' : 'pressure';
+}
+
 /** Queue background rehost when a persisted message still references Discord CDN media. */
 export async function maybeEnqueueDiscordImportMediaMirror(
   pool: pg.Pool,

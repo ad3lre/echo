@@ -15,6 +15,7 @@ struct EchoServersView: View {
 
   @Environment(EchoAuthenticationModel.self) private var auth
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(EchoShellChrome.self) private var shellChrome
   @Environment(\.colorScheme) private var colorScheme
   @State private var localModel: EchoServersModel?
   @State private var selectedServer: EchoServerSummary?
@@ -31,25 +32,46 @@ struct EchoServersView: View {
   private var activeModel: EchoServersModel? { model ?? localModel }
 
   var body: some View {
-    NavigationStack {
-      VStack(spacing: 0) {
-        serversHeader
-        Group {
-          if let activeModel {
-            content(activeModel)
-          } else {
-            ProgressView()
-              .frame(maxWidth: .infinity, maxHeight: .infinity)
+    let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+    // In-tab overlay (not fullScreenCover) so the shell tab bar can sit above
+    // the channel list when peeking from chat.
+    return ZStack {
+      NavigationStack {
+        VStack(spacing: 0) {
+          serversHeader
+          Group {
+            if let activeModel {
+              content(activeModel)
+            } else {
+              ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
           }
         }
+        .background(EchoHomeBackground().ignoresSafeArea())
+        #if os(iOS)
+          .toolbar(.hidden, for: .navigationBar)
+        #endif
+        .simultaneousGesture(
+          TapGesture().onEnded { dismissServersSearchKeyboard() }
+        )
       }
-      .background(EchoHomeBackground().ignoresSafeArea())
-      #if os(iOS)
-        .toolbar(.hidden, for: .navigationBar)
-      #endif
-      .simultaneousGesture(
-        TapGesture().onEnded { dismissServersSearchKeyboard() }
-      )
+
+      if let server = selectedServer, let activeModel {
+        EchoServerChannelsView(
+          server: server,
+          model: activeModel,
+          baseURL: baseURL,
+          userID: userID,
+          accessToken: accessToken,
+          onClose: { selectedServer = nil }
+        )
+        .environment(auth)
+        .environment(displayPrefs)
+        .environment(shellChrome)
+        .transition(.opacity)
+        .zIndex(2)
+      }
     }
     .alert(
       EchoCopy.string("Leave server?"),
@@ -89,35 +111,6 @@ struct EchoServersView: View {
     .onChange(of: pendingOpenServerID) { _, _ in
       Task { await openPendingServerIfNeeded() }
     }
-    #if os(iOS)
-      .fullScreenCover(item: $selectedServer) { server in
-        if let activeModel {
-          EchoServerChannelsView(
-            server: server,
-            model: activeModel,
-            baseURL: baseURL,
-            userID: userID,
-            accessToken: accessToken
-          )
-          .environment(auth)
-          .environment(displayPrefs)
-        }
-      }
-    #else
-      .sheet(item: $selectedServer) { server in
-        if let activeModel {
-          EchoServerChannelsView(
-            server: server,
-            model: activeModel,
-            baseURL: baseURL,
-            userID: userID,
-            accessToken: accessToken
-          )
-          .environment(auth)
-          .environment(displayPrefs)
-        }
-      }
-    #endif
   }
 
   private func openPendingServerIfNeeded() async {
@@ -133,10 +126,18 @@ struct EchoServersView: View {
       next = EchoServersModel(baseURL: baseURL, auth: auth)
       localModel = next
     }
-    await next.reload()
-    if let server = next.servers.first(where: { $0.id == id }) {
-      next.noteOpened(server)
-      selectedServer = server
+    // Join → Open can race membership; retry a few times before giving up.
+    for attempt in 0..<4 {
+      await next.reload()
+      if let server = next.servers.first(where: { $0.id == id }) {
+        next.noteOpened(server)
+        selectedServer = server
+        pendingOpenServerID = nil
+        return
+      }
+      if attempt < 3 {
+        try? await Task.sleep(for: .milliseconds(280 + attempt * 180))
+      }
     }
     pendingOpenServerID = nil
   }
@@ -335,6 +336,8 @@ struct EchoServersView: View {
           }
         }
       }
+      // Recycle rows on Style → Theme so Sunny brown ink can’t stick mid-list.
+      .id(displayPrefs.appearanceGeneration)
       .listStyle(.plain)
       .scrollContentBackground(.hidden)
       .scrollDismissesKeyboard(.immediately)

@@ -84,7 +84,11 @@ struct EchoMessageComposer: View {
               .allowsHitTesting(false)
           }
           EchoInlineMarkdownEditor(
-            text: $state.text, height: $editorHeight, apiBaseURL: baseURL,
+            text: $state.text,
+            height: $editorHeight,
+            tokenCaretUTF16: $state.tokenCaretUTF16,
+            pendingPreferredTokenOffset: $state.pendingPreferredTokenOffset,
+            apiBaseURL: baseURL,
             accessToken: accessToken
           )
           .frame(height: editorHeight)
@@ -274,11 +278,12 @@ struct EchoMessageComposer: View {
           ? EchoComposerImageUploadNormalize.jpegCompatibleUpload(
             data: data, filename: url.lastPathComponent, mimeType: mimeType)
           : (data, url.lastPathComponent, mimeType)
+        let (uploadData, uploadName, uploadMime) = normalized
         state.assets.append(
           EchoComposerAsset(
-            data: normalized.data,
-            filename: normalized.filename,
-            mimeType: normalized.mimeType,
+            data: uploadData,
+            filename: uploadName,
+            mimeType: uploadMime,
             kind: kind))
       }
       state.poll = nil

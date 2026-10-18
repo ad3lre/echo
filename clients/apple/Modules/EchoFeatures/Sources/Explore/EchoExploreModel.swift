@@ -13,6 +13,8 @@ final class EchoExploreModel {
   private(set) var joinedIDs = Set<String>()
   private(set) var isLoading = false
   private(set) var errorMessage: String?
+  /// Join failures (shown even when the directory list is already loaded).
+  private(set) var joinErrorMessage: String?
   private(set) var joiningIDs = Set<String>()
 
   var searchQuery = "" {
@@ -56,14 +58,26 @@ final class EchoExploreModel {
 
   private func rebuildCatalog() {
     listed = EchoExploreDirectory.listedServers(from: servers, joinedIDs: joinedIDs)
-    quickFilters = EchoExploreDirectory.collectQuickFilters(from: listed)
-    featured = EchoExploreDirectory.featured(listed)
     refreshResults()
   }
 
   private func refreshResults() {
+    // Tag chips count against the search-matched set (not the selected tag), so
+    // bubbles with zero hits disappear while typing.
+    let searchMatched = EchoExploreDirectory.filter(
+      rows: listed, query: searchQuery, selectedTag: nil)
+    quickFilters = EchoExploreDirectory.collectQuickFilters(from: searchMatched)
+    if let tag = selectedTag,
+      !quickFilters.contains(where: { $0.tag == tag })
+    {
+      selectedTag = nil
+      return
+    }
+
     let filtered = EchoExploreDirectory.filter(
       rows: listed, query: searchQuery, selectedTag: selectedTag)
+    // Featured follows the same search/tag filters; empty → section hides in the view.
+    featured = EchoExploreDirectory.featured(filtered)
     sorted = EchoExploreDirectory.sort(
       filtered,
       mode: sortMode,
@@ -135,10 +149,16 @@ final class EchoExploreModel {
     resetPaging()
   }
 
+  func clearJoinError() {
+    joinErrorMessage = nil
+  }
+
   func join(_ listed: EchoExploreDirectory.ListedServer) async -> Bool {
     let id = listed.id
-    guard !joiningIDs.contains(id), !joinedIDs.contains(id) else { return false }
+    guard !joiningIDs.contains(id) else { return false }
+    if joinedIDs.contains(id) { return true }
     joiningIDs.insert(id)
+    joinErrorMessage = nil
     defer { joiningIDs.remove(id) }
     do {
       let token = try await auth.ensureAccessToken()
@@ -147,7 +167,7 @@ final class EchoExploreModel {
       rebuildCatalog()
       return true
     } catch {
-      errorMessage = EchoCopy.string("Echo couldn’t join that server.")
+      joinErrorMessage = EchoCopy.string("Echo couldn’t join that server. Tap Join to try again.")
       return false
     }
   }

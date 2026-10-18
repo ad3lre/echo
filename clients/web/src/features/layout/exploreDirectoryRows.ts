@@ -121,3 +121,30 @@ export function filterExploreDirectoryRowsByTags<T extends ExploreDirectoryRow>(
     normalizeExploreDirectoryTags(row.tags).some((tag) => wanted.has(tag)),
   );
 }
+
+/** Text search over name / description / tags (Explore search field). */
+export function filterExploreDirectoryRowsBySearch<
+  T extends ExploreDirectoryRow & {
+    blurb?: string;
+    descriptionRaw?: string;
+  },
+>(rows: T[], queryRaw: string): T[] {
+  const query = String(queryRaw ?? '')
+    .trim()
+    .toLowerCase();
+  if (!query) return rows;
+  return rows.filter((row) => {
+    const name = String(row.name ?? '').toLowerCase();
+    const blurb = String(row.blurb ?? row.description ?? '').toLowerCase();
+    const description = String(
+      row.descriptionRaw ?? row.description ?? '',
+    ).toLowerCase();
+    const tags = normalizeExploreDirectoryTags(row.tags);
+    return (
+      name.includes(query) ||
+      blurb.includes(query) ||
+      description.includes(query) ||
+      tags.some((tag) => tag.includes(query))
+    );
+  });
+}

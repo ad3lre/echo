@@ -1,7 +1,10 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { Client } from 'discord.js';
-import { fetchChannelMessages } from './exporter/messages.js';
+import {
+  fetchChannelMessage,
+  fetchChannelMessages,
+} from './exporter/messages.js';
 import { getBotHealthSnapshot } from './botHealth.js';
 import { parseIntegerInRange } from './util/numberParsing.js';
 
@@ -62,6 +65,55 @@ export function startBotInternalServer(client: Client) {
       res.statusCode = 401;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+
+    const oneMessageMatch = url.pathname.match(
+      /^\/channels\/(\d+)\/messages\/(\d+)$/,
+    );
+    if (req.method === 'GET' && oneMessageMatch) {
+      const channelId = oneMessageMatch[1];
+      const messageId = oneMessageMatch[2];
+      if (!channelId || !messageId) {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ error: 'Missing channelId or messageId' }));
+        return;
+      }
+      try {
+        const message = await fetchChannelMessage(client, channelId, messageId);
+        if (!message) {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Message not found' }));
+          return;
+        }
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ message }));
+      } catch (err) {
+        console.error(
+          `[bot-server] Error fetching message ${messageId} in ${channelId}:`,
+          err,
+        );
+        const notFound =
+          err instanceof Error &&
+          (/Unknown Message/i.test(err.message) ||
+            /10008/.test(err.message) ||
+            err.message.includes('404'));
+        res.statusCode = notFound ? 404 : 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(
+          JSON.stringify({
+            error: isProduction
+              ? notFound
+                ? 'Message not found'
+                : 'Internal server error'
+              : err instanceof Error
+                ? err.message
+                : String(err),
+          }),
+        );
+      }
       return;
     }
 

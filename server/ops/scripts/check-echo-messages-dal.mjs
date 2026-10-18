@@ -22,6 +22,13 @@ const allowlisted = new Set(
       'messages',
       'discordImportMediaMirrorQueue.ts',
     ),
+    path.join(
+      backendSrc,
+      'domain',
+      'echoStore',
+      'messages',
+      'discordImportMediaRepairQueries.ts',
+    ),
     path.join(backendSrc, 'domain', 'echoStore', 'community', 'forums.ts'),
     path.join(backendSrc, 'domain', 'echoStore', 'servers', 'servers.ts'),
   ].map((p) => path.normalize(p)),

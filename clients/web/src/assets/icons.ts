@@ -30,7 +30,7 @@ import iconDesktop from './icons/desktop.svg?url';
 import iconStream from './icons/stream.svg?url';
 import iconLogOut from './icons/log out.svg?url';
 import iconExplore from './icons/rocket-outline.svg?url';
-import iconExploreFilled from './icons/rocket.svg?url';
+import iconExploreFilled from './icons/rocket-filled.svg?url';
 import iconCommunity from './icons/multiple-users-silhouette.svg?url';
 import iconCommunityFilled from './icons/multiple-users-silhouette-filled.svg?url';
 import iconBellSchool from './icons/bell-school.svg?url';

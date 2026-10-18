@@ -382,7 +382,7 @@ private struct EchoFullProfilePage: View {
     } label: {
       HStack(spacing: 9) {
         if model.isUpdatingFriendship {
-          ProgressView().tint(EchoTheme.Color.fg)
+          ProgressView().tint(friendshipLabelColor)
         } else {
           Image(systemName: friendshipIcon)
             .font(.system(size: 14, weight: .semibold))
@@ -390,7 +390,7 @@ private struct EchoFullProfilePage: View {
         Text(friendshipTitle)
           .font(.system(size: 14, weight: .semibold, design: .rounded))
       }
-      .foregroundStyle(EchoTheme.Color.ink(0.94))
+      .foregroundStyle(friendshipLabelColor)
       .frame(maxWidth: .infinity)
       .frame(height: 48)
       .background(friendshipTint, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
@@ -504,6 +504,14 @@ private struct EchoFullProfilePage: View {
     case .none, .incoming: EchoTheme.Color.indigoDeep
     case .outgoing: EchoTheme.Color.ink(0.1)
     case .friend: EchoTheme.Color.elevatedMid
+    }
+  }
+
+  /// Indigo CTAs need light label ink — theme `ink` reads dark/blue on light mode.
+  private var friendshipLabelColor: Color {
+    switch model.friendship {
+    case .none, .incoming: Color.white.opacity(0.96)
+    case .outgoing, .friend: EchoTheme.Color.ink(0.94)
     }
   }
 

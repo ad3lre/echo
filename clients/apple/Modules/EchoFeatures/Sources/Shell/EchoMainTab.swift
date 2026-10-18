@@ -22,8 +22,7 @@ enum EchoMainTab: String, CaseIterable, Identifiable, Hashable {
     switch self {
     case .home: "EchoTabMessage"
     case .servers: "EchoTabCommunity"
-    // Takeoff rocket for both states — matches web rail / Explore chrome.
-    case .explore: "EchoTabExploreFilled"
+    case .explore: "EchoTabExplore"
     }
   }
 

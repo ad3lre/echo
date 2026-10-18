@@ -125,35 +125,41 @@ struct EchoExploreServerCard: View {
     colorScheme == .light || displayPrefs.theme == "sunny"
   }
 
+  /// Web `bannerFor`: real banner, else icon — never leave the strip blank.
+  private var displayBannerURL: String? {
+    let banner = listed.server.bannerURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if !banner.isEmpty { return banner }
+    let icon = listed.server.iconURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return icon.isEmpty ? nil : icon
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       ZStack(alignment: .bottomLeading) {
         EchoServerBannerStrip(
-          bannerURL: listed.server.bannerURL,
+          bannerURL: displayBannerURL,
           baseURL: baseURL,
           accessToken: accessToken,
           height: 96
         ) {
           bannerFallback
         }
-        .clipShape(
-          UnevenRoundedRectangle(
-            topLeadingRadius: 22, bottomLeadingRadius: 0,
-            bottomTrailingRadius: 0, topTrailingRadius: 22,
-            style: .continuous
-          )
-        )
 
-        if !isLight {
+        // Scrim only at the bottom (web explore banner fade) — must not expand
+        // to the full ZStack or it paints the whole strip empty/dark.
+        VStack(spacing: 0) {
+          Spacer(minLength: 0)
           LinearGradient(
-            colors: [.clear, EchoTheme.Color.canvas.opacity(0.88)],
+            colors: [
+              .clear,
+              (isLight ? Color.white : EchoTheme.Color.canvas).opacity(isLight ? 0.35 : 0.72),
+            ],
             startPoint: .top,
             endPoint: .bottom
           )
-          .frame(height: 48)
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-          .allowsHitTesting(false)
+          .frame(height: 40)
         }
+        .allowsHitTesting(false)
 
         EchoServerIcon(
           iconURL: listed.server.iconURL,
@@ -205,12 +211,23 @@ struct EchoExploreServerCard: View {
           ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
               ForEach(listed.tags.prefix(6), id: \.self) { tag in
+                // Web `.explore-server-tag`: ~72% fg on a light chip — ink(0.50)
+                // on ink(0.06) was unreadable on dark elevated cards.
                 Text(EchoExploreDirectory.QuickFilter(tag: tag, count: 0).label)
                   .font(.system(size: 11, weight: .semibold, design: .rounded))
-                  .foregroundStyle(EchoTheme.Color.ink(0.50))
+                  .foregroundStyle(EchoTheme.Color.ink(isLight ? 0.58 : 0.82))
                   .padding(.horizontal, 8)
                   .frame(height: 24)
-                  .background(EchoTheme.Color.ink(0.06), in: Capsule())
+                  .background(
+                    EchoTheme.Color.ink(isLight ? 0.07 : 0.14),
+                    in: Capsule()
+                  )
+                  .overlay(
+                    Capsule().stroke(
+                      EchoTheme.Color.ink(isLight ? 0.06 : 0.16),
+                      lineWidth: 1
+                    )
+                  )
               }
             }
           }
@@ -235,13 +252,14 @@ struct EchoExploreServerCard: View {
       RoundedRectangle(cornerRadius: 22, style: .continuous)
         .stroke(EchoTheme.Color.ink(isLight ? 0.06 : 0.08), lineWidth: 1)
     }
+    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
   }
 
   private var bannerFallback: some View {
     LinearGradient(
       colors: [
-        EchoTheme.Color.ambientIndigo.opacity(0.55),
-        EchoTheme.Color.ink(0.08),
+        EchoTheme.Color.ambientIndigo.opacity(isLight ? 0.42 : 0.55),
+        EchoTheme.Color.ink(isLight ? 0.06 : 0.12),
       ],
       startPoint: .topLeading,
       endPoint: .bottomTrailing

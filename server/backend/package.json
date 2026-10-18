@@ -79,6 +79,7 @@
     "purge:orphaned-upload-retention": "bun src/scripts/purgeOrphanedChatUploadRetention.ts",
     "backfill:discord-import-avatar-pfp": "bun src/scripts/backfillDiscordImportAvatarPfp.ts",
     "drain:discord-import-media-mirror": "bun src/scripts/drainDiscordImportMediaMirrorQueue.ts",
+    "repair:discord-import-media": "bun src/scripts/repairDiscordImportMedia.ts",
     "backfill:emoji-cdn": "bun ../ops/scripts/backfill-echo-emoji-cdn.mjs",
     "guest:soft-delete-stale": "bun src/scripts/softDeleteStaleGuests.ts",
     "guest:purge-inactive": "bun src/scripts/purgeInactiveGuests.ts",

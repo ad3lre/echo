@@ -71,27 +71,24 @@ struct EchoServerBannerStrip<Fallback: View>: View {
   @ViewBuilder let fallback: () -> Fallback
 
   var body: some View {
-    Color.clear
-      .frame(height: height)
-      .frame(maxWidth: .infinity)
-      .overlay {
-        Group {
-          if let bannerURL, !bannerURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            EchoMediaImage(
-              source: bannerURL,
-              baseURL: baseURL,
-              accessToken: accessToken,
-              contentMode: .fill
-            ) {
-              fallback()
-            }
-          } else {
-            fallback()
-          }
+    // Fallback stays painted under the image — `Color.clear` + overlay alone
+    // was leaving LazyVStack list cards blank while featured (eager HStack) worked.
+    ZStack {
+      fallback()
+      if let bannerURL, !bannerURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        EchoMediaImage(
+          source: bannerURL,
+          baseURL: baseURL,
+          accessToken: accessToken,
+          contentMode: .fill
+        ) {
+          Color.clear
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
+        .allowsHitTesting(false)
       }
-      .clipped()
+    }
+    .frame(height: height)
+    .frame(maxWidth: .infinity)
+    .clipped()
   }
 }

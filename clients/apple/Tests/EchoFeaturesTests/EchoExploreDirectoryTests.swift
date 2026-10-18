@@ -53,6 +53,25 @@ struct EchoExploreDirectoryTests {
     ])
   }
 
+  @Test("quick filter counts follow the search-matched set")
+  func quickFilterCountsFollowSearch() {
+    let rows = EchoExploreDirectory.listedServers(
+      from: [
+        directory(id: "1", name: "Global Leaders", tags: ["global"]),
+        directory(id: "2", name: "Global Chat", tags: ["global"]),
+        directory(id: "3", name: "Local Club", tags: ["global", "local"]),
+        directory(id: "4", name: "Music Hall", tags: ["music"]),
+      ],
+      joinedIDs: []
+    )
+    let matched = EchoExploreDirectory.filter(
+      rows: rows, query: "leaders", selectedTag: nil)
+    #expect(matched.map(\.name) == ["Global Leaders"])
+    let filters = EchoExploreDirectory.collectQuickFilters(from: matched)
+    #expect(filters.map(\.tag) == ["global"])
+    #expect(filters.first?.count == 1)
+  }
+
   @Test("recommended does not float idle alphabetical shells above live activity")
   func recommendedDoesNotPreferIdleAlpha() {
     let rows = EchoExploreDirectory.listedServers(
@@ -79,6 +98,7 @@ struct EchoExploreDirectoryTests {
     name: String,
     banner: String? = nil,
     description: String? = nil,
+    tags: [String] = [],
     lastVoice: String? = nil,
     lastChat: String? = nil
   ) -> EchoDirectoryServer {
@@ -87,6 +107,7 @@ struct EchoExploreDirectoryTests {
       name: name,
       bannerURL: banner,
       description: description,
+      tags: tags,
       lastVoiceActivityAt: lastVoice,
       lastChatActivityAt: lastChat
     )

@@ -253,6 +253,7 @@ extension View {
       self
       .preferredColorScheme(prefs.preferredColorScheme)
       // Observe generation so this container redraws as soon as theme flips.
+      // Lazy lists also `.id(appearanceGeneration)` so Sunny brown ink can’t stick.
       .opacity(generation >= 0 ? 1 : 1)
   }
 }

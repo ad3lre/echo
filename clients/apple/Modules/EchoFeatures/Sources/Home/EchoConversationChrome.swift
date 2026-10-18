@@ -196,15 +196,28 @@ struct EchoConversationErrorView: View {
 }
 
 struct EchoConversationBackground: View {
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.colorScheme) private var colorScheme
+
   var body: some View {
-    ZStack {
+    let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+    let wash = EchoTheme.forcedVariant == .amoled ? 0.0 : 0.28
+    return ZStack {
       EchoTheme.Color.canvas
-      RadialGradient(
-        colors: [Color.indigo.opacity(0.18), .clear],
-        center: UnitPoint(x: 0.92, y: 0.02),
-        startRadius: 0,
-        endRadius: 360
-      )
+      if wash > 0 {
+        RadialGradient(
+          colors: [EchoTheme.Color.ambientIndigo.opacity(wash), .clear],
+          center: UnitPoint(x: 0.92, y: 0.02),
+          startRadius: 0,
+          endRadius: 360
+        )
+        RadialGradient(
+          colors: [EchoTheme.Color.launchGlowPurple.opacity(0.35), .clear],
+          center: UnitPoint(x: 0.08, y: 0.85),
+          startRadius: 0,
+          endRadius: 300
+        )
+      }
     }
   }
 }

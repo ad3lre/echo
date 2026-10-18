@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 1) Block GitHub pushes that leak GitLab main history (github-push-guard.sh).
-# 2) CI precheck before pushes to non-GitHub remotes (server/ops/scripts/ci-precheck.sh).
-# 3) Mirror GitLab release/1.0.0 → GitHub main when ECHO_RELEASE_MIRROR_NOW=1; otherwise daily cron.
+# 2) Echo product VERSION gate on main → non-GitHub (docs/operations/versioning.md).
+# 3) CI precheck before pushes to non-GitHub remotes (server/ops/scripts/ci-precheck.sh).
+# 4) Mirror GitLab release/1.0.0 → GitHub main when ECHO_RELEASE_MIRROR_NOW=1; otherwise daily cron.
 #
 # See docs/operations/github-release-mirror.md.
 set -euo pipefail
@@ -13,6 +14,7 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 MIRROR_HOUR="${ECHO_RELEASE_MIRROR_HOUR:-23}"
 MIRROR_TZ="${ECHO_RELEASE_MIRROR_TZ:-Europe/Berlin}"
 GUARD="$ROOT/server/ops/scripts/githooks/github-push-guard.sh"
+VERSION_CHECK="$ROOT/server/ops/scripts/check-echo-version-bump.mjs"
 
 ref_updates=$(cat || true)
 
@@ -25,6 +27,22 @@ source "$GUARD"
 
 check_branch_upstream_policy "$ROOT"
 github_push_guard "$remote_name" "$push_url" "$ref_updates" "$ROOT"
+
+# --- Product VERSION gate (GitLab main only; skip GitHub mirror pushes) ---
+if [[ -z "${ECHO_SKIP_VERSION_GATE:-}" ]] && ! is_github_push_remote "$remote_name" "$push_url"; then
+  while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+    [[ -z "${local_ref:-}" ]] && continue
+    [[ "$local_sha" == "$zero" ]] && continue
+    if [[ "$remote_ref" == "refs/heads/main" ]]; then
+      echo "pre-push: checking Echo VERSION bump (skip with ECHO_SKIP_VERSION_GATE=1) …" >&2
+      if [[ ! -f "$VERSION_CHECK" ]]; then
+        echo "pre-push: missing $VERSION_CHECK" >&2
+        exit 1
+      fi
+      bun "$VERSION_CHECK" --from-git "${remote_sha:-$zero}" "$local_sha"
+    fi
+  done <<<"$ref_updates"
+fi
 
 # --- CI precheck (GitLab / other remotes; skip GitHub mirror pushes) ---
 if [[ -z "${ECHO_SKIP_CI_PRECHECK:-}" ]] && ! is_github_push_remote "$remote_name" "$push_url"; then

@@ -52,6 +52,15 @@ enum EchoComposerEmojiImages {
     return placeholder(named: name, size: pointSize)
   }
 
+  /// Seed the attachment cache immediately (e.g. picker already showed this URL).
+  static func warm(token: String, source: String?, apiBaseURL: URL) {
+    guard cache[token] == nil else { return }
+    if let warmed = warmedFromDecodedCache(source: source, apiBaseURL: apiBaseURL) {
+      cache[token] = warmed
+      notifyUpdated(token: token)
+    }
+  }
+
   static func prefetch(
     token: String, source: String?, apiBaseURL: URL, accessToken: String?
   ) {
@@ -213,6 +222,8 @@ extension Notification.Name {
   struct EchoInlineMarkdownEditor: UIViewRepresentable {
     @Binding var text: String
     @Binding var height: CGFloat
+    @Binding var tokenCaretUTF16: Int
+    @Binding var pendingPreferredTokenOffset: Int?
     var apiBaseURL: URL = URL(string: "https://chat-echo.com")!
     var accessToken: String? = nil
     @Environment(\.colorScheme) private var colorScheme
@@ -240,14 +251,21 @@ extension Notification.Name {
       context.coordinator.textView = view
       if context.coordinator.lastColorScheme != colorScheme {
         context.coordinator.lastColorScheme = colorScheme
-        context.coordinator.render(text, in: view)
+        context.coordinator.render(text, in: view, preferredTokenOffset: consumePendingOffset())
         return
       }
       let current = EchoInlineMarkdownStyle.plainText(from: view.attributedText)
       if current != text {
-        context.coordinator.render(text, in: view)
+        context.coordinator.render(
+          text, in: view, preferredTokenOffset: consumePendingOffset())
       }
       context.coordinator.updateHeight(for: view)
+    }
+
+    private func consumePendingOffset() -> Int? {
+      let pending = pendingPreferredTokenOffset
+      if pending != nil { pendingPreferredTokenOffset = nil }
+      return pending
     }
 
     @MainActor
@@ -274,11 +292,18 @@ extension Notification.Name {
         }
       }
 
+      func textViewDidChangeSelection(_ textView: UITextView) {
+        guard !isRendering else { return }
+        parent.tokenCaretUTF16 = EchoInlineMarkdownStyle.tokenUTF16Offset(
+          in: textView.attributedText, displayLocation: textView.selectedRange.location)
+      }
+
       func textViewDidChange(_ textView: UITextView) {
         guard !isRendering else { return }
         let tokenOffset = EchoInlineMarkdownStyle.tokenUTF16Offset(
           in: textView.attributedText, displayLocation: textView.selectedRange.location)
         parent.text = EchoInlineMarkdownStyle.plainText(from: textView.attributedText)
+        parent.tokenCaretUTF16 = tokenOffset
         render(parent.text, in: textView, preferredTokenOffset: tokenOffset)
       }
 
@@ -295,6 +320,7 @@ extension Notification.Name {
         let display = EchoInlineMarkdownStyle.displayUTF16Offset(
           in: view.attributedText, forTokenOffset: tokenOffset)
         view.selectedRange = NSRange(location: display, length: 0)
+        parent.tokenCaretUTF16 = tokenOffset
         view.typingAttributes = EchoInlineMarkdownStyle.baseAttributes
         isRendering = false
         updateHeight(for: view)
@@ -317,6 +343,8 @@ extension Notification.Name {
   struct EchoInlineMarkdownEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var height: CGFloat
+    @Binding var tokenCaretUTF16: Int
+    @Binding var pendingPreferredTokenOffset: Int?
     var apiBaseURL: URL = URL(string: "https://chat-echo.com")!
     var accessToken: String? = nil
     @Environment(\.colorScheme) private var colorScheme
@@ -350,15 +378,23 @@ extension Notification.Name {
       context.coordinator.textView = view
       if context.coordinator.lastColorScheme != colorScheme {
         context.coordinator.lastColorScheme = colorScheme
-        context.coordinator.render(text, in: view)
+        context.coordinator.render(
+          text, in: view, preferredTokenOffset: consumePendingOffset())
         return
       }
       let current = EchoInlineMarkdownStyle.plainText(
         from: view.attributedString())
       if current != text {
-        context.coordinator.render(text, in: view)
+        context.coordinator.render(
+          text, in: view, preferredTokenOffset: consumePendingOffset())
       }
       context.coordinator.updateHeight(for: view)
+    }
+
+    private func consumePendingOffset() -> Int? {
+      let pending = pendingPreferredTokenOffset
+      if pending != nil { pendingPreferredTokenOffset = nil }
+      return pending
     }
 
     @MainActor
@@ -385,12 +421,19 @@ extension Notification.Name {
         }
       }
 
+      func textViewDidChangeSelection(_ notification: Notification) {
+        guard !isRendering, let view = notification.object as? NSTextView else { return }
+        parent.tokenCaretUTF16 = EchoInlineMarkdownStyle.tokenUTF16Offset(
+          in: view.attributedString(), displayLocation: view.selectedRange().location)
+      }
+
       func textDidChange(_ notification: Notification) {
         guard !isRendering, let view = notification.object as? NSTextView else { return }
         let selection = view.selectedRange()
         let tokenOffset = EchoInlineMarkdownStyle.tokenUTF16Offset(
           in: view.attributedString(), displayLocation: selection.location)
         parent.text = EchoInlineMarkdownStyle.plainText(from: view.attributedString())
+        parent.tokenCaretUTF16 = tokenOffset
         render(parent.text, in: view, preferredTokenOffset: tokenOffset)
       }
 
@@ -408,6 +451,7 @@ extension Notification.Name {
         let display = EchoInlineMarkdownStyle.displayUTF16Offset(
           in: view.attributedString(), forTokenOffset: tokenOffset)
         view.setSelectedRange(NSRange(location: display, length: 0))
+        parent.tokenCaretUTF16 = tokenOffset
         view.typingAttributes = EchoInlineMarkdownStyle.baseAttributes
         isRendering = false
         updateHeight(for: view)

@@ -9,15 +9,19 @@ struct EchoNavigationChrome: ViewModifier {
   func body(content: Content) -> some View {
     let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
     let fill = displayPrefs.canvas(colorScheme: colorScheme)
-    content
-      .toolbarBackground(fill, for: .navigationBar)
-      .toolbarBackground(.visible, for: .navigationBar)
-      #if os(iOS)
+    #if os(iOS)
+      content
+        .toolbarBackground(fill, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(
           colorScheme == .dark ? .dark : .light,
           for: .navigationBar
         )
-      #endif
+    #else
+      content
+        .toolbarBackground(fill, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
+    #endif
   }
 }
 

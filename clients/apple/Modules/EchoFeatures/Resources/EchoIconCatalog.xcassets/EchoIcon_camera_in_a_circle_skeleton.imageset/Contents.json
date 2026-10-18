@@ -1,0 +1,16 @@
+{
+  "images": [
+    {
+      "filename": "EchoIcon_camera_in_a_circle_skeleton.svg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "echo",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true,
+    "template-rendering-intent": "template"
+  }
+}

@@ -37,21 +37,22 @@ tree is present on a developer machine.
 
 ## Self-host & operations
 
-| Doc                                                                                        | Purpose                                       |
-| ------------------------------------------------------------------------------------------ | --------------------------------------------- |
-| [operations/linux-vps-deployment.md](operations/linux-vps-deployment.md)                   | VPS / bare-metal deploy                       |
-| [operations/livekit-production.md](operations/livekit-production.md)                       | LiveKit production                            |
-| [infra/livekit-turn.md](infra/livekit-turn.md)                                             | TURN / ICE                                    |
-| [infra/realtime-scaling.md](infra/realtime-scaling.md)                                     | Single-node vs NATS multi-instance            |
-| [operations/media-cdn.md](operations/media-cdn.md)                                         | Media CDN sidecar                             |
-| [operations/chat-video-hls.md](operations/chat-video-hls.md)                               | Chat video HLS worker                         |
-| [operations/voice-e2ee-livekit.md](operations/voice-e2ee-livekit.md)                       | Voice E2EE                                    |
-| [operations/instance-policy.md](operations/instance-policy.md)                             | Instance policy file                          |
-| [operations/PRODUCTION_SECURITY_CHECKLIST.md](operations/PRODUCTION_SECURITY_CHECKLIST.md) | Production security                           |
-| [operations/shipping-gate.md](operations/shipping-gate.md)                                 | Ship / prod gates                             |
-| [operations/ios-passkeys.md](operations/ios-passkeys.md)                                   | iOS passkeys / Universal Links                |
-| [operations/runbooks/](operations/runbooks/)                                               | Backup, Postgres, Socket.IO, incidents        |
-| [operations/github-release-mirror.md](operations/github-release-mirror.md)                 | GitLab `release/1.0.0` → GitHub `main` mirror |
+| Doc                                                                                        | Purpose                                         |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| [operations/linux-vps-deployment.md](operations/linux-vps-deployment.md)                   | VPS / bare-metal deploy                         |
+| [operations/livekit-production.md](operations/livekit-production.md)                       | LiveKit production                              |
+| [infra/livekit-turn.md](infra/livekit-turn.md)                                             | TURN / ICE                                      |
+| [infra/realtime-scaling.md](infra/realtime-scaling.md)                                     | Single-node vs NATS multi-instance              |
+| [operations/media-cdn.md](operations/media-cdn.md)                                         | Media CDN sidecar                               |
+| [operations/chat-video-hls.md](operations/chat-video-hls.md)                               | Chat video HLS worker                           |
+| [operations/voice-e2ee-livekit.md](operations/voice-e2ee-livekit.md)                       | Voice E2EE                                      |
+| [operations/instance-policy.md](operations/instance-policy.md)                             | Instance policy file                            |
+| [operations/PRODUCTION_SECURITY_CHECKLIST.md](operations/PRODUCTION_SECURITY_CHECKLIST.md) | Production security                             |
+| [operations/shipping-gate.md](operations/shipping-gate.md)                                 | Ship / prod gates                               |
+| [operations/ios-passkeys.md](operations/ios-passkeys.md)                                   | iOS passkeys / Universal Links                  |
+| [operations/runbooks/](operations/runbooks/)                                               | Backup, Postgres, Socket.IO, incidents          |
+| [operations/versioning.md](operations/versioning.md)                                       | Product VERSION (major/minor/patch) + push gate |
+| [operations/github-release-mirror.md](operations/github-release-mirror.md)                 | GitLab `release/1.0.0` → GitHub `main` mirror   |
 
 ## Chat formatting (user-facing)
 

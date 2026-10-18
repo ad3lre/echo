@@ -2,11 +2,12 @@ import { ref, computed, watch, type ComputedRef, type Ref } from 'vue';
 import { fetchEchoInvitePreview } from '@/api/echo/invitesAndDirectory';
 import { postEchoJoinWithInviteToken } from '@/api/echo/invitesAndDirectory';
 import type { EchoInvitePreviewDto } from '@/api/echo/types';
+import { isEchoGraphId } from '@/features/layout/ids/echoIds';
 import type { RailTab } from '@/features/layout/mainSurface';
 import {
-  parseAppPathname,
+  normalizePathname,
   RESERVED_TOP_LEVEL_PATH_SLUGS,
-  type EchoParsedPath,
+  stripBasePath,
 } from '@/features/layout/urlNavigation';
 
 const PENDING_INVITE_STORAGE_KEY = 'echo:pendingInvite';
@@ -66,14 +67,35 @@ export function useInviteLandingFlow(deps: {
   // Boot: detect invite slug from URL or sessionStorage
   // ---------------------------------------------------------------------------
 
+  /**
+   * Bare vanity short links only (`/{code}`). Never treat `/channels/{serverId}/…`
+   * guild navigation as an invite — that was spamming join 404s with snowflake ids.
+   */
   function detectInviteFromUrl(): string | null {
     if (typeof window === 'undefined') return null;
-    const parsed = parseAppPathname(window.location.pathname, deps.base);
-    if (parsed.kind !== 'guild') return null;
-    const slug = parsed.serverId.trim();
+    const p = normalizePathname(
+      stripBasePath(window.location.pathname, deps.base),
+    );
+    if (!/^\/[^/]+$/.test(p)) return null;
+    let slug: string;
+    try {
+      slug = decodeURIComponent(p.slice(1)).trim();
+    } catch {
+      return null;
+    }
     if (!slug) return null;
     if (RESERVED_TOP_LEVEL_PATH_SLUGS.has(slug.toLowerCase())) return null;
+    // Snowflake/UUID path segments are server ids, not vanity invite codes.
+    if (isEchoGraphId(slug)) return null;
     return slug;
+  }
+
+  function sanitizePendingInviteCode(code: string | null): string | null {
+    const t = code?.trim() || null;
+    if (!t) return null;
+    if (isEchoGraphId(t)) return null;
+    if (RESERVED_TOP_LEVEL_PATH_SLUGS.has(t.toLowerCase())) return null;
+    return t;
   }
 
   function isSlugJoinedServer(slug: string): boolean {
@@ -107,7 +129,11 @@ export function useInviteLandingFlow(deps: {
    */
   function initFromUrl() {
     const slug = detectInviteFromUrl();
-    const stored = readPendingInvite();
+    const stored = sanitizePendingInviteCode(readPendingInvite());
+    if (readPendingInvite() && !stored) {
+      // Drop stale snowflake/server-id leftovers from older builds.
+      writePendingInvite(null);
+    }
     const code = slug || stored;
     if (!code) return;
 
@@ -128,8 +154,11 @@ export function useInviteLandingFlow(deps: {
   // ---------------------------------------------------------------------------
 
   async function redeemPendingInviteIfNeeded(authToken: string | null) {
-    const code = readPendingInvite();
-    if (!code) return;
+    const code = sanitizePendingInviteCode(readPendingInvite());
+    if (!code) {
+      if (readPendingInvite()) writePendingInvite(null);
+      return;
+    }
 
     // Already a member of the target server?
     if (invitePreview.value?.serverId) {
@@ -172,8 +201,10 @@ export function useInviteLandingFlow(deps: {
     () => deps.isAuthenticated.value && deps.workspaceReady.value,
     (ready) => {
       if (!ready) return;
-      const code = readPendingInvite();
-      if (!code) return;
+      if (!sanitizePendingInviteCode(readPendingInvite())) {
+        if (readPendingInvite()) writePendingInvite(null);
+        return;
+      }
       void redeemPendingInviteIfNeeded(null);
     },
   );

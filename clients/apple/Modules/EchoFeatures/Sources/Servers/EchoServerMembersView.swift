@@ -14,14 +14,31 @@ struct EchoServerMembersView: View {
   @State private var selectedMember: EchoServerMember?
   @State private var fullProfileMember: EchoServerMember?
   @State private var showGuests = false
+  @State private var isSearching = false
+  @State private var searchText = ""
+  @FocusState private var searchFieldFocused: Bool
   @State private var kickTarget: EchoServerMember?
   @State private var banTarget: EchoServerMember?
   @State private var timeoutTarget: EchoServerMember?
 
   private var preferLight: Bool { colorScheme == .light }
   private var sections: [EchoMemberListSection] {
-    model.memberSections(
+    let base = model.memberSections(
       for: server.id, preferLight: preferLight, hideGuests: !showGuests)
+    let needle = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    guard !needle.isEmpty else { return base }
+    return base.compactMap { section in
+      let matched = section.members.filter { memberMatches($0, needle: needle) }
+      guard !matched.isEmpty else { return nil }
+      return EchoMemberListSection(
+        id: section.id,
+        title: section.title,
+        colorHex: section.colorHex,
+        sortKey: section.sortKey,
+        isUnhoisted: section.isUnhoisted,
+        members: matched
+      )
+    }
   }
   private var guestCount: Int {
     model.members(for: server.id).filter(\.isGuest).count
@@ -29,6 +46,7 @@ struct EchoServerMembersView: View {
 
   var body: some View {
     let members = model.members(for: server.id)
+    let filteredEmpty = !members.isEmpty && sections.isEmpty
     NavigationStack {
       Group {
         if model.isLoadingMembers && members.isEmpty {
@@ -42,6 +60,12 @@ struct EchoServerMembersView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if members.isEmpty {
           Text(EchoCopy.string("No members yet."))
+            .font(.system(size: 15, weight: .regular, design: .rounded))
+            .foregroundStyle(EchoTheme.Color.ink(0.48))
+            .padding()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if filteredEmpty {
+          Text(EchoCopy.string("No matching members"))
             .font(.system(size: 15, weight: .regular, design: .rounded))
             .foregroundStyle(EchoTheme.Color.ink(0.48))
             .padding()
@@ -63,14 +87,14 @@ struct EchoServerMembersView: View {
                   Text(section.title.uppercased())
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(EchoTheme.Color.ink(0.42))
-                  Text(EchoCopy.format("— %lld", Int64(section.members.count)))
+                  Text(EchoCopy.format("role_member_count %lld", Int64(section.members.count)))
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(EchoTheme.Color.ink(0.32))
                 }
               }
             }
 
-            if guestCount > 0 {
+            if guestCount > 0, searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
               Section {
                 Button {
                   showGuests.toggle()
@@ -93,6 +117,11 @@ struct EchoServerMembersView: View {
           .scrollContentBackground(.hidden)
         }
       }
+      .safeAreaInset(edge: .top, spacing: 0) {
+        if isSearching {
+          membersSearchField
+        }
+      }
       .background(EchoHomeBackground().ignoresSafeArea())
       .navigationTitle(EchoCopy.string("Members"))
       #if os(iOS)
@@ -101,6 +130,34 @@ struct EchoServerMembersView: View {
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button(EchoCopy.string("Done")) { dismiss() }
+            .font(.system(size: 16, weight: .semibold, design: .rounded))
+            .foregroundStyle(EchoTheme.Color.ink(0.88))
+            .membersToolbarFlatStyle()
+        }
+        ToolbarItem(placement: .primaryAction) {
+          Button {
+            withAnimation(.easeOut(duration: 0.18)) {
+              isSearching.toggle()
+              if isSearching {
+                searchFieldFocused = true
+              } else {
+                searchText = ""
+                searchFieldFocused = false
+              }
+            }
+          } label: {
+            Image(systemName: isSearching ? "xmark" : "magnifyingglass")
+              .font(.system(size: 16, weight: .semibold))
+              .foregroundStyle(EchoTheme.Color.ink(0.88))
+              .frame(width: 28, height: 28)
+              .contentShape(Rectangle())
+          }
+          .membersToolbarFlatStyle()
+          .accessibilityLabel(
+            isSearching
+              ? EchoCopy.string("Dismiss")
+              : EchoCopy.string("Search members")
+          )
         }
       }
       .task { await model.loadMembers(for: server.id) }
@@ -212,6 +269,49 @@ struct EchoServerMembersView: View {
     }
   }
 
+  private var membersSearchField: some View {
+    HStack(spacing: 10) {
+      Image(systemName: "magnifyingglass")
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundStyle(EchoTheme.Color.ink(0.40))
+      TextField(EchoCopy.string("Search members"), text: $searchText)
+        .focused($searchFieldFocused)
+        .textFieldStyle(.plain)
+        .font(.system(size: 15, weight: .regular, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.92))
+        #if os(iOS)
+          .textInputAutocapitalization(.never)
+          .autocorrectionDisabled()
+        #endif
+      if !searchText.isEmpty {
+        Button {
+          searchText = ""
+        } label: {
+          Image(systemName: "xmark.circle.fill")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(EchoTheme.Color.ink(0.35))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(EchoCopy.string("Dismiss"))
+      }
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 9)
+    .background(EchoTheme.Color.ink(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    .padding(.horizontal, 16)
+    .padding(.top, 4)
+    .padding(.bottom, 8)
+    .background(EchoTheme.Color.elevatedMid.opacity(0.92))
+  }
+
+  private func memberMatches(_ member: EchoServerMember, needle: String) -> Bool {
+    if member.name.lowercased().contains(needle) { return true }
+    if let username = member.username?.lowercased(), username.contains(needle) {
+      return true
+    }
+    return false
+  }
+
   @ViewBuilder
   private func memberRow(_ member: EchoServerMember) -> some View {
     Button {
@@ -274,7 +374,7 @@ struct EchoServerMembersView: View {
         Button {
           selectedMember = member
         } label: {
-          Label(EchoCopy.string("Manage roles"), systemImage: "person.badge.key")
+          Label(EchoCopy.string("Manage Roles"), systemImage: "person.badge.key")
         }
       }
       if model.canTimeout(server, targetUserID: member.userID) {
@@ -306,5 +406,17 @@ struct EchoServerMembersView: View {
       !owner.isEmpty
     else { return false }
     return owner == member.userID
+  }
+}
+
+private extension View {
+  /// Flat toolbar chrome — no bordered / glass capsule behind Done + search.
+  @ViewBuilder
+  func membersToolbarFlatStyle() -> some View {
+    #if os(iOS)
+      self.buttonStyle(.borderless)
+    #else
+      self.buttonStyle(.plain)
+    #endif
   }
 }

@@ -1,0 +1,16 @@
+{
+  "images": [
+    {
+      "filename": "EchoIcon_SLIDERS_SIMPLE_STYLED_VERTICAL.svg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "echo",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true,
+    "template-rendering-intent": "template"
+  }
+}

@@ -227,7 +227,7 @@ private struct EchoFriendCandidateRow: View {
       Button(action: onAdd) {
         Group {
           if isSending {
-            ProgressView().tint(EchoTheme.Color.ink(0.85))
+            ProgressView().tint(Color.white.opacity(0.92))
           } else if didSend {
             Image(systemName: "checkmark")
           } else {
@@ -235,10 +235,10 @@ private struct EchoFriendCandidateRow: View {
           }
         }
         .font(.system(size: 14, weight: .semibold))
-        .foregroundStyle(EchoTheme.Color.ink(0.92))
+        .foregroundStyle(didSend ? EchoTheme.Color.ink(0.88) : Color.white.opacity(0.96))
         .frame(width: 36, height: 34)
         .background(
-          didSend ? Color.green.opacity(0.22) : Color.indigo.opacity(0.55),
+          didSend ? Color.green.opacity(0.22) : EchoTheme.Color.indigoDeep,
           in: RoundedRectangle(cornerRadius: 12)
         )
       }

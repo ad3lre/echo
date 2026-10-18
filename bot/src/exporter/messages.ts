@@ -207,6 +207,71 @@ function buildExportedForwardedFrom(
   };
 }
 
+async function exportDiscordMessage(
+  m: Message,
+): Promise<ExportedMessage | null> {
+  const author = resolveExportedAuthor(m);
+  if (!author) return null;
+
+  if (m.poll?.partial) {
+    try {
+      await m.poll.fetch();
+    } catch {
+      // Partial poll data — omit poll from export if still incomplete.
+    }
+  }
+
+  const embeds =
+    m.embeds.length > 0 ? m.embeds.map((e) => e.toJSON()) : undefined;
+
+  const exportedPoll =
+    m.poll && !m.poll.partial ? mapDiscordPollToExported(m.poll) : undefined;
+  const forwardedFrom = buildExportedForwardedFrom(m);
+  const ref = m.reference;
+
+  return {
+    id: m.id,
+    content: m.content,
+    timestamp: m.createdAt.toISOString(),
+    author,
+    ...(embeds ? { embeds } : {}),
+    ...(ref?.messageId
+      ? {
+          messageReference: {
+            messageId: ref.messageId,
+            channelId: ref.channelId ?? m.channelId,
+          },
+        }
+      : {}),
+    attachments: m.attachments.map((a: Attachment) => ({
+      id: a.id,
+      url: (a.url || a.proxyURL || '').trim(),
+      filename: a.name,
+      contentType: a.contentType,
+      size: a.size,
+    })),
+    stickers: [...m.stickers.values()].map((sticker) => ({
+      id: sticker.id,
+      name: sticker.name,
+      format: exportedStickerFormat(sticker),
+      url: sticker.url,
+    })),
+    ...(exportedPoll ? { poll: exportedPoll } : {}),
+    ...(forwardedFrom ? { forwardedFrom } : {}),
+  };
+}
+
+async function resolveTextChannel(client: Client, channelId: string) {
+  const channel = await client.channels.fetch(channelId);
+  if (!channel) {
+    throw new Error(`Channel ${channelId} not found`);
+  }
+  if (!channel.isTextBased()) {
+    throw new Error(`Channel ${channelId} is not a text-based channel`);
+  }
+  return channel;
+}
+
 /**
  * Fetches last N messages from a Discord channel.
  * Requires GuildMessages and MessageContent intents.
@@ -216,69 +281,30 @@ export async function fetchChannelMessages(
   channelId: string,
   limit: number,
 ): Promise<ExportedMessage[]> {
-  const channel = await client.channels.fetch(channelId);
-  if (!channel) {
-    throw new Error(`Channel ${channelId} not found`);
-  }
-
-  if (!channel.isTextBased()) {
-    throw new Error(`Channel ${channelId} is not a text-based channel`);
-  }
+  const channel = await resolveTextChannel(client, channelId);
 
   /** `cache: false` avoids reusing stale partial rows when the bot has cached messages. */
   const messages = await channel.messages.fetch({ limit, cache: false });
 
   const out: ExportedMessage[] = [];
   for (const m of messages.values()) {
-    const author = resolveExportedAuthor(m);
-    if (!author) continue;
-
-    if (m.poll?.partial) {
-      try {
-        await m.poll.fetch();
-      } catch {
-        // Partial poll data — omit poll from export if still incomplete.
-      }
-    }
-
-    const embeds =
-      m.embeds.length > 0 ? m.embeds.map((e) => e.toJSON()) : undefined;
-
-    const exportedPoll =
-      m.poll && !m.poll.partial ? mapDiscordPollToExported(m.poll) : undefined;
-    const forwardedFrom = buildExportedForwardedFrom(m);
-    const ref = m.reference;
-
-    out.push({
-      id: m.id,
-      content: m.content,
-      timestamp: m.createdAt.toISOString(),
-      author,
-      ...(embeds ? { embeds } : {}),
-      ...(ref?.messageId
-        ? {
-            messageReference: {
-              messageId: ref.messageId,
-              channelId: ref.channelId ?? m.channelId,
-            },
-          }
-        : {}),
-      attachments: m.attachments.map((a: Attachment) => ({
-        id: a.id,
-        url: (a.url || a.proxyURL || '').trim(),
-        filename: a.name,
-        contentType: a.contentType,
-        size: a.size,
-      })),
-      stickers: [...m.stickers.values()].map((sticker) => ({
-        id: sticker.id,
-        name: sticker.name,
-        format: exportedStickerFormat(sticker),
-        url: sticker.url,
-      })),
-      ...(exportedPoll ? { poll: exportedPoll } : {}),
-      ...(forwardedFrom ? { forwardedFrom } : {}),
-    });
+    const exported = await exportDiscordMessage(m);
+    if (exported) out.push(exported);
   }
   return out;
+}
+
+/**
+ * Fetch one Discord message by snowflake (for media repair / CDN refresh).
+ * Requires GuildMessages and MessageContent intents.
+ */
+export async function fetchChannelMessage(
+  client: Client,
+  channelId: string,
+  messageId: string,
+): Promise<ExportedMessage | null> {
+  const channel = await resolveTextChannel(client, channelId);
+  // String id always hits the REST API (fresh attachment CDN signatures).
+  const message = await channel.messages.fetch(messageId.trim());
+  return exportDiscordMessage(message);
 }

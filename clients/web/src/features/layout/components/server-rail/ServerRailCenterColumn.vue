@@ -226,7 +226,11 @@ const emit = defineEmits<{
               "
             >
               <img
-                :src="icons.exploreFilled"
+                :src="
+                  activeRailTab === 'explore'
+                    ? icons.exploreFilled
+                    : icons.explore
+                "
                 alt="Explore servers"
                 class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
               />
@@ -354,7 +358,11 @@ const emit = defineEmits<{
               "
             >
               <img
-                :src="icons.exploreFilled"
+                :src="
+                  activeRailTab === 'explore'
+                    ? icons.exploreFilled
+                    : icons.explore
+                "
                 alt="Explore servers"
                 class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
               />
@@ -403,7 +411,11 @@ const emit = defineEmits<{
             ]"
           >
             <img
-              :src="icons.exploreFilled"
+              :src="
+                activeRailTab === 'explore'
+                  ? icons.exploreFilled
+                  : icons.explore
+              "
               alt="Explore servers"
               class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
             />

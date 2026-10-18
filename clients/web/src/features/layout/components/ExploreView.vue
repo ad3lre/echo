@@ -10,6 +10,7 @@ import EchoDropdown from '@/components/EchoDropdown.vue';
 import {
   collectExploreQuickFilters,
   exploreTagDisplayLabel,
+  filterExploreDirectoryRowsBySearch,
   filterExploreDirectoryRowsByTags,
   isExploreDirectoryJoinLockedForGuest,
   normalizeExploreDirectoryTags,
@@ -247,8 +248,13 @@ async function onExploreServerJoinClick(server: ListedServer) {
   });
 }
 
+/** Search-matched directory (ignores selected tag) — drives tag chip counts. */
+const searchMatchedServers = computed(() =>
+  filterExploreDirectoryRowsBySearch(listedServers.value, searchQuery.value),
+);
+
 const quickFilters = computed(() =>
-  collectExploreQuickFilters(listedServers.value),
+  collectExploreQuickFilters(searchMatchedServers.value),
 );
 
 const quickFilterVisibleSlots = computed(() => {
@@ -282,24 +288,23 @@ const hiddenQuickFiltersBatchB = computed(() => {
   return hidden.slice(split);
 });
 
-const featuredServers = computed(() =>
-  sortExploreRecommendedServers(listedServers.value).slice(0, 6),
+const filteredServers = computed(() =>
+  filterExploreDirectoryRowsByTags(
+    searchMatchedServers.value,
+    selectedQuickFilterTag.value ? [selectedQuickFilterTag.value] : [],
+  ),
 );
 
-const filteredServers = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase();
-  const tagFiltered = filterExploreDirectoryRowsByTags(
-    listedServers.value,
-    selectedQuickFilterTag.value ? [selectedQuickFilterTag.value] : [],
-  );
-  if (!query) return tagFiltered;
-  return tagFiltered.filter(
-    (s) =>
-      s.name.toLowerCase().includes(query) ||
-      s.blurb.toLowerCase().includes(query) ||
-      s.descriptionRaw.toLowerCase().includes(query) ||
-      s.tags.some((tag) => tag.includes(query)),
-  );
+/** Featured follows the active search + tag view; empty hides the section. */
+const featuredServers = computed(() =>
+  sortExploreRecommendedServers(filteredServers.value).slice(0, 6),
+);
+
+watch([quickFilters, selectedQuickFilterTag], () => {
+  const sel = selectedQuickFilterTag.value;
+  if (sel && !quickFilters.value.some((f) => f.tag === sel)) {
+    selectedQuickFilterTag.value = null;
+  }
 });
 
 function ageDaysForTrendy(s: ListedServer, listLen: number): number {

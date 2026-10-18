@@ -3,7 +3,8 @@
 Canonical rules: **[docs/overview/agents.md](./docs/overview/agents.md)**.  
 **Repo layout (client vs kit):** **[docs/overview/repo-layout.md](./docs/overview/repo-layout.md)**.  
 **Frontend file placement:** **[docs/overview/code-placement.md](./docs/overview/code-placement.md)** (CI-enforced).  
-**Public docs index:** **[docs/README.md](./docs/README.md)**. Internal plans/reviews: local **`docs-dev/`** (gitignored).
+**Public docs index:** **[docs/README.md](./docs/README.md)**. Internal plans/reviews: local **`docs-dev/`** (gitignored).  
+**Product versioning:** **[docs/operations/versioning.md](./docs/operations/versioning.md)** — before pushing `main`, `bun run version:bump -- patch|minor|major`.
 
 ## GitHub vs GitLab (hard rule)
 

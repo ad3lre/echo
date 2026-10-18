@@ -8,12 +8,19 @@ import SwiftUI
   /// is how mobile web stays instant (`display` / keep-alive) while we stay native.
   struct EchoPersistentTabHost<Content: View>: UIViewControllerRepresentable {
     var isActive: Bool
+    /// Bumped on Style → Theme flips so keep-alive tabs drop stale dark/light bitmaps.
+    var appearanceEpoch: Int = 0
     var content: Content
+
+    func makeCoordinator() -> Coordinator {
+      Coordinator()
+    }
 
     func makeUIViewController(context: Context) -> EchoPersistentTabController<Content> {
       let controller = EchoPersistentTabController(rootView: content)
       controller.view.backgroundColor = .clear
       controller.view.isOpaque = false
+      context.coordinator.appearanceEpoch = appearanceEpoch
       applyVisibility(controller)
       return controller
     }
@@ -21,10 +28,17 @@ import SwiftUI
     func updateUIViewController(
       _ controller: EchoPersistentTabController<Content>, context: Context
     ) {
-      // Inactive tabs stay on their last committed tree (rasterized). Updating
-      // rootView on every shell body pass is what made tab switches feel like
-      // a 1–2s remount — only push SwiftUI updates while visible.
-      if isActive {
+      let appearanceChanged = context.coordinator.appearanceEpoch != appearanceEpoch
+      if appearanceChanged {
+        context.coordinator.appearanceEpoch = appearanceEpoch
+        // Frozen inactive tabs otherwise keep the previous theme’s ink (white
+        // names on light after Dark → Light until you leave and re-enter).
+        controller.view.layer.shouldRasterize = false
+      }
+
+      // Push SwiftUI updates while visible, or whenever appearance changed so
+      // the next show isn’t a stale dark/light snapshot.
+      if isActive || appearanceChanged {
         controller.rootView = content
       }
       applyVisibility(controller)
@@ -58,6 +72,10 @@ import SwiftUI
         }
       }
     }
+
+    final class Coordinator {
+      var appearanceEpoch: Int = 0
+    }
   }
 
   final class EchoPersistentTabController<Content: View>: UIHostingController<Content> {
@@ -80,13 +98,16 @@ import SwiftUI
   /// macOS: plain opacity swap (no UIKit host).
   struct EchoPersistentTabHost<Content: View>: View {
     var isActive: Bool
+    var appearanceEpoch: Int = 0
     var content: Content
 
     var body: some View {
+      let _ = appearanceEpoch
       content
         .opacity(isActive ? 1 : 0)
         .allowsHitTesting(isActive)
         .accessibilityHidden(!isActive)
+        .id(appearanceEpoch)
     }
   }
 #endif

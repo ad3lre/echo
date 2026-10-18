@@ -77,14 +77,14 @@ public struct EchoWorkspaceClient: Sendable {
         type: row.type ?? "text",
         categoryID: row.categoryId ?? "",
         categoryName: row.categoryName ?? "",
+        categoryPosition: row.categoryPosition ?? 0,
         position: row.position ?? 0,
         iconKey: nonempty(row.iconKey)
       )
     }
     .sorted {
-      if $0.categoryName != $1.categoryName {
-        return $0.categoryName.localizedCaseInsensitiveCompare($1.categoryName)
-          == .orderedAscending
+      if $0.categoryPosition != $1.categoryPosition {
+        return $0.categoryPosition < $1.categoryPosition
       }
       if $0.position != $1.position { return $0.position < $1.position }
       return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
@@ -295,6 +295,7 @@ public struct EchoWorkspaceClient: Sendable {
     let type: String?
     let categoryId: String?
     let categoryName: String?
+    let categoryPosition: Int?
     let position: Int?
     let iconKey: String?
   }

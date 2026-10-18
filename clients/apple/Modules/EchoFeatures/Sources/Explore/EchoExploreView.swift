@@ -23,7 +23,8 @@ struct EchoExploreView: View {
   private var activeModel: EchoExploreModel? { model ?? localModel }
 
   var body: some View {
-    NavigationStack {
+    let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+    return NavigationStack {
       Group {
         if let activeModel {
           content(activeModel)
@@ -72,29 +73,63 @@ struct EchoExploreView: View {
     } else if model.servers.isEmpty {
       emptyState
     } else {
-      ScrollView(showsIndicators: false) {
-        // Top-level LazyVStack — a plain VStack was forcing every card to build
-        // on first Explore visit (big tab-switch hitch).
-        // Search + recommended stay first; Featured sits under the filters.
-        LazyVStack(alignment: .leading, spacing: 18) {
-          controlsSection(model)
-          if !model.featured.isEmpty {
-            featuredSection(model)
-          }
-          resultsSection(model)
+      VStack(spacing: 0) {
+        if let joinError = model.joinErrorMessage {
+          joinErrorBanner(joinError, model: model)
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 4)
-        .padding(.bottom, 72)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .contentShape(Rectangle())
-        .simultaneousGesture(
-          TapGesture().onEnded { dismissSearchKeyboard() }
-        )
+        ScrollView(showsIndicators: false) {
+          // Top-level LazyVStack — a plain VStack was forcing every card to build
+          // on first Explore visit (big tab-switch hitch).
+          // Search + recommended stay first; Featured sits under the filters.
+          LazyVStack(alignment: .leading, spacing: 18) {
+            controlsSection(model)
+            if !model.featured.isEmpty {
+              featuredSection(model)
+            }
+            resultsSection(model)
+          }
+          // Theme flips bake into row ink via EchoTheme — recycle lazy rows so
+          // Sunny brown names don’t stick until the user scrolls.
+          .id(displayPrefs.appearanceGeneration)
+          .padding(.horizontal, 18)
+          .padding(.top, 4)
+          .padding(.bottom, 72)
+          .frame(maxWidth: .infinity, alignment: .topLeading)
+          .contentShape(Rectangle())
+          .simultaneousGesture(
+            TapGesture().onEnded { dismissSearchKeyboard() }
+          )
+        }
+        .scrollDismissesKeyboard(.immediately)
+        .refreshable { await model.reload() }
       }
-      .scrollDismissesKeyboard(.immediately)
-      .refreshable { await model.reload() }
     }
+  }
+
+  private func joinErrorBanner(_ message: String, model: EchoExploreModel) -> some View {
+    HStack(alignment: .top, spacing: 10) {
+      Image(systemName: "exclamationmark.circle.fill")
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundStyle(EchoTheme.Color.ink(0.55))
+      Text(message)
+        .font(.system(size: 13, weight: .medium, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.78))
+        .frame(maxWidth: .infinity, alignment: .leading)
+      Button {
+        model.clearJoinError()
+      } label: {
+        Image(systemName: "xmark")
+          .font(.system(size: 12, weight: .bold))
+          .foregroundStyle(EchoTheme.Color.ink(0.45))
+          .frame(width: 28, height: 28)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(EchoCopy.string("Dismiss"))
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .background(EchoTheme.Color.ink(0.08))
   }
 
   private func dismissSearchKeyboard() {
@@ -108,7 +143,7 @@ struct EchoExploreView: View {
 
   private var emptyState: some View {
     VStack(spacing: 10) {
-      Image("EchoTabExplore", bundle: .main)
+      Image("EchoTabExploreFilled", bundle: .main)
         .renderingMode(.template)
         .resizable()
         .scaledToFit()
@@ -344,8 +379,10 @@ struct EchoExploreView: View {
       onOpenServer?(listed.id)
       return
     }
-    if await model.join(listed) {
+    let ok = await model.join(listed)
+    if ok {
       onOpenServer?(listed.id)
     }
+    // Failures surface via `joinErrorBanner` — never silent.
   }
 }

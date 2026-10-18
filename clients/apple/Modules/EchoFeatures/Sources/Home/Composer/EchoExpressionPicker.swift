@@ -358,7 +358,7 @@ struct EchoExpressionPicker: View {
             $0.messageToken == token
           }) {
             Button {
-              onEmoji(token)
+              insertCustomEmoji(custom)
             } label: {
               EchoMediaImage(source: custom.imageURL, baseURL: baseURL, accessToken: accessToken) {
                 Image(systemName: "face.smiling").foregroundStyle(EchoTheme.Color.ink(0.25))
@@ -382,8 +382,7 @@ struct EchoExpressionPicker: View {
       LazyVGrid(columns: emojiColumns, spacing: 6) {
         ForEach(pack.emojis) { emoji in
           Button {
-            model.record(emoji.messageToken)
-            onEmoji(emoji.messageToken)
+            insertCustomEmoji(emoji)
           } label: {
             EchoMediaImage(source: emoji.imageURL, baseURL: baseURL, accessToken: accessToken) {
               Image(systemName: "face.smiling").foregroundStyle(EchoTheme.Color.ink(0.25))
@@ -436,5 +435,15 @@ struct EchoExpressionPicker: View {
     Text(title.uppercased())
       .font(.system(size: 10, weight: .bold, design: .rounded)).tracking(1.2)
       .foregroundStyle(EchoTheme.Color.ink(0.42))
+  }
+
+  private func insertCustomEmoji(_ emoji: EchoCustomEmoji) {
+    let token = emoji.messageToken
+    EchoComposerEmojiImages.warm(
+      token: token, source: emoji.imageURL, apiBaseURL: baseURL)
+    EchoComposerEmojiImages.prefetch(
+      token: token, source: emoji.imageURL, apiBaseURL: baseURL, accessToken: accessToken)
+    model.record(token)
+    onEmoji(token)
   }
 }

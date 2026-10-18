@@ -314,6 +314,12 @@ export async function echoFetch<T>(
       }
       return data as T;
     } catch (e) {
+      // HTTP API failures are already emitted above as warn/error diagnostics.
+      // Only log unexpected transport/parse failures here — otherwise every
+      // handled 4xx (invite 404, permission 403, …) spams the browser console.
+      if (e instanceof EchoApiError) {
+        throw e;
+      }
       const customHeaders = Object.keys(headers).filter(
         (k) =>
           ![

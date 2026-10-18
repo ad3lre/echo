@@ -1,0 +1,16 @@
+{
+  "images": [
+    {
+      "filename": "EchoIcon_TV_SKELETON_TV.svg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "echo",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true,
+    "template-rendering-intent": "template"
+  }
+}

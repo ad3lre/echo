@@ -124,6 +124,10 @@ final class EchoComposerState {
   var panel: EchoComposerPanel?
   var isSending = false
   var errorMessage: String?
+  /// UTF-16 offset into wire `text` for the composer caret (attachments expand to tokens).
+  var tokenCaretUTF16 = 0
+  /// Consumed once by `EchoInlineMarkdownEditor` after a programmatic insert.
+  var pendingPreferredTokenOffset: Int?
 
   var canSend: Bool {
     !isSending
@@ -132,7 +136,14 @@ final class EchoComposerState {
   }
 
   func insertEmoji(_ emoji: String) {
-    text.append(emoji)
+    let insert = emoji
+    guard !insert.isEmpty else { return }
+    let ns = text as NSString
+    let caret = min(max(0, tokenCaretUTF16), ns.length)
+    text = ns.replacingCharacters(in: NSRange(location: caret, length: 0), with: insert)
+    let after = caret + (insert as NSString).length
+    tokenCaretUTF16 = after
+    pendingPreferredTokenOffset = after
   }
 
   func removeAsset(_ id: UUID) {
@@ -184,6 +195,8 @@ final class EchoComposerState {
     poll = nil
     panel = nil
     errorMessage = nil
+    tokenCaretUTF16 = 0
+    pendingPreferredTokenOffset = nil
     if clearReply { replyTo = nil }
   }
 }

@@ -140,7 +140,8 @@ enum EchoInlineMarkdownStyle {
   ) {
     let catalog = EchoCustomEmojiCatalog.shared
     let pointSize = EchoTheme.Typography.composer * 1.25
-    let pattern = #"<a?:([A-Za-z0-9_]{1,64}):([0-9]{5,})>"#
+    // Match web `idTokens.ts`: name/id allow word chars, dots, hyphens (not only digits).
+    let pattern = #"<a?:([^:>]{1,64}):([\w.-]{1,128})>"#
     guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
     let fullRange = NSRange(location: 0, length: result.string.utf16.count)
     let matches = regex.matches(in: result.string, range: fullRange)

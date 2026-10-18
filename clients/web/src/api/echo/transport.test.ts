@@ -89,6 +89,31 @@ describe('echoFetch', () => {
     vi.restoreAllMocks();
   });
 
+  it('does not console.error for expected EchoApiError HTTP failures', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        url: 'http://test/api/v1/echo/invites/x/join',
+        headers: { get: () => null },
+        text: async () =>
+          JSON.stringify({ code: 'NOT_FOUND', message: 'missing' }),
+      }),
+    );
+    await expect(
+      echoFetch(null, '/invites/x/join', { method: 'POST' }),
+    ).rejects.toBeInstanceOf(EchoApiError);
+    expect(consoleError).not.toHaveBeenCalledWith(
+      '[echo][api][network]',
+      expect.anything(),
+    );
+  });
+
   it('rejects successful responses with non-JSON bodies', async () => {
     vi.stubGlobal(
       'fetch',

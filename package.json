@@ -1,6 +1,6 @@
 {
   "name": "echo",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "description": "Echo: A privacy-focused communication platform with real-time chat, voice, and community features.",
   "private": true,
   "engines": {
@@ -25,6 +25,7 @@
     "dev:quick": "cross-env ECHO_DEV_SKIP_SETUP=1 bun run dev",
     "lan:sync": "bun server/ops/scripts/sync-lan-dev.mjs",
     "sync:gitlab-release": "bash server/ops/scripts/sync-gitlab-release-from-github.sh",
+    "version:bump": "bun server/ops/scripts/bump-echo-version.mjs",
     "publish:public-release": "bash server/ops/scripts/publish-public-release.sh",
     "mirror:github-release": "bash server/ops/scripts/mirror-release-to-github.sh",
     "mirror:github-release:install-cron": "bash server/ops/scripts/install-release-mirror-cron.sh",

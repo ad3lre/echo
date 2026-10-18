@@ -145,7 +145,13 @@ struct EchoConversationView: View {
       // cannot dismiss the conversation.
       leadingEdgeStartWidth: 36
     ) {
-      dismiss()
+      // Guild chat: peek the channel list. DMs: leave the thread.
+      // Always dismissing here used to kick users out of the whole server.
+      if let onRequestExit {
+        onRequestExit()
+      } else {
+        dismiss()
+      }
     }
     .task {
       let timeline =
@@ -359,12 +365,11 @@ private struct EchoConversationTimeline: View {
               .tint(EchoTheme.Color.ink(0.78))
               .foregroundStyle(EchoTheme.Color.ink(0.55))
               .frame(maxWidth: .infinity)
-              .padding(.top, 28)
           } else if let errorMessage = model.errorMessage, model.messages.isEmpty {
             EchoConversationErrorView(message: errorMessage) {
               await model.loadInitial()
             }
-            .padding(.top, 28)
+            .frame(maxWidth: .infinity)
           } else if model.messages.isEmpty {
             ContentUnavailableView(
               EchoCopy.string("No messages yet"),
@@ -373,7 +378,6 @@ private struct EchoConversationTimeline: View {
             )
             .foregroundStyle(EchoTheme.Color.ink(0.62))
             .frame(maxWidth: .infinity)
-            .padding(.top, 84)
           } else {
             olderHistoryChrome
 
@@ -415,10 +419,16 @@ private struct EchoConversationTimeline: View {
             }
           }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .scrollTargetLayout()
         .padding(.horizontal, 18)
-        .padding(.vertical, 18)
+        .padding(.vertical, model.messages.isEmpty ? 0 : 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Empty: center “No messages yet”. With history: pin to bottom so short
+        // threads don’t leave a blank band above the composer.
+        .containerRelativeFrame(
+          .vertical,
+          alignment: model.messages.isEmpty ? .center : .bottom
+        )
+        .scrollTargetLayout()
       }
       // `.bottom` is (0.5, 1) — when content is briefly wider than the
       // viewport (lazy LaTeX / markdown measure), that x=0.5 centers the
@@ -426,6 +436,7 @@ private struct EchoConversationTimeline: View {
       .defaultScrollAnchor(.bottomLeading)
       .scrollPosition(id: $scrolledMessageID, anchor: .bottomLeading)
       .scrollDismissesKeyboard(.interactively)
+      .frame(maxHeight: .infinity)
       .onChange(of: scrolledMessageID) { _, messageID in
         let latestID = model.messages.last?.id
         followLatest = messageID == nil || messageID == latestID
@@ -435,19 +446,11 @@ private struct EchoConversationTimeline: View {
       }
       .onChange(of: model.messages.last?.id, initial: true) { _, lastID in
         guard let lastID, followLatest else { return }
-        scrolledMessageID = lastID
-        // LazyVStack often under-measures on the first pass when the thread
-        // is taller than the viewport — re-anchor once layout settles.
-        Task { @MainActor in
-          await Task.yield()
-          guard followLatest, model.messages.last?.id == lastID else { return }
-          scrolledMessageID = lastID
-          var transaction = Transaction()
-          transaction.disablesAnimations = true
-          withTransaction(transaction) {
-            proxy.scrollTo(lastID, anchor: .bottomLeading)
-          }
-        }
+        pinToLatest(lastID, proxy: proxy)
+      }
+      .onChange(of: model.isLoading) { _, loading in
+        guard !loading, followLatest, let lastID = model.messages.last?.id else { return }
+        pinToLatest(lastID, proxy: proxy)
       }
       .onChange(of: scrollTargetMessageID) { _, messageID in
         guard let messageID else { return }
@@ -469,6 +472,22 @@ private struct EchoConversationTimeline: View {
           #endif
         }
       )
+    }
+  }
+
+  private func pinToLatest(_ lastID: String, proxy: ScrollViewProxy) {
+    scrolledMessageID = lastID
+    // LazyVStack often under-measures on the first pass when the thread
+    // is taller than the viewport — re-anchor once layout settles.
+    Task { @MainActor in
+      await Task.yield()
+      guard followLatest, model.messages.last?.id == lastID else { return }
+      scrolledMessageID = lastID
+      var transaction = Transaction()
+      transaction.disablesAnimations = true
+      withTransaction(transaction) {
+        proxy.scrollTo(lastID, anchor: .bottomLeading)
+      }
     }
   }
 

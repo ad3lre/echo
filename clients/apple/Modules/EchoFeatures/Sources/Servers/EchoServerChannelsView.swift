@@ -56,11 +56,12 @@ struct EchoServerChannelsView: View {
   let baseURL: URL
   let userID: String
   var accessToken: String? = nil
+  var onClose: () -> Void = {}
 
   @Environment(\.colorScheme) private var colorScheme
-  @Environment(\.dismiss) private var dismiss
   @Environment(EchoAuthenticationModel.self) private var auth
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(EchoShellChrome.self) private var shellChrome
   @State private var showingMembers = false
   @State private var selectedMemberProfile: EchoUserProfile?
   @State private var selectedGuildChat: EchoGuildChatLaunch?
@@ -73,114 +74,76 @@ struct EchoServerChannelsView: View {
   @State private var listEpoch = 0
   @State private var attention = EchoAttentionSync.shared
 
+  /// Hide shell tabs only while a guild chat is fully focused (immersive).
+  /// Channel list keeps tabs + a leading back control so you aren’t trapped.
+  private var shouldShowShellTabs: Bool {
+    selectedGuildChat == nil || !chatFocused
+  }
+
+  private var canLeaveServerSurface: Bool {
+    selectedGuildChat == nil || !chatFocused
+  }
+
   var body: some View {
     let _ = listEpoch
     let _ = attention.snapshot.unreadCount
     let channels = model.channels(for: server.id).filter(\.isTextLike)
-    GeometryReader { proxy in
-      #if os(iOS)
-        let measured = proxy.safeAreaInsets.top
-        let topInset = measured > 0 ? measured : Self.topSafeAreaInset
-      #else
-        let topInset = max(proxy.safeAreaInsets.top, 0)
-      #endif
-      let width = proxy.size.width
-      // ~22% of the chat stays visible when the channel list is in front.
-      let peekFraction: CGFloat = 0.22
-      let peekOffset = width * (1 - peekFraction)
+    // No GeometryReader around the hero — GR + ignoresSafeArea was parking the
+    // banner mid-screen with a dead black band under the notch.
+    ZStack(alignment: .top) {
+      EchoHomeBackground().ignoresSafeArea()
 
-      ZStack(alignment: .top) {
-        EchoHomeBackground().ignoresSafeArea()
+      VStack(spacing: 0) {
+        serverHero
 
-        VStack(spacing: 0) {
-          serverHero(topInset: topInset)
-
-          ScrollView(showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
-              membersRow
-                .padding(.top, 8)
-                .padding(.bottom, 10)
-
-              membersChannelsSeparator
-
-              channelListContent(channels)
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .padding(.bottom, 40)
+        ScrollView(showsIndicators: false) {
+          LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
+            // Members entry lives in chat chrome for now — keep this list lean.
+            channelListContent(channels)
           }
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+          .frame(maxWidth: .infinity, alignment: .topLeading)
+          .padding(.top, 10)
+          .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // Soften the list under a focused chat; full hit-testing when peeked.
-        .opacity(selectedGuildChat != nil && chatFocused ? 0.35 : 1)
-        .allowsHitTesting(selectedGuildChat == nil || !chatFocused)
-
-        HStack {
-          Spacer(minLength: 0)
-          Button {
-            dismiss()
-          } label: {
-            Image(systemName: "xmark")
-              .font(.system(size: 14, weight: .bold))
-              .foregroundStyle(.white)
-              .frame(width: 40, height: 40)
-              .background(.black.opacity(0.38), in: Circle())
-              .overlay(Circle().stroke(Color.white.opacity(0.18)))
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel(EchoCopy.string("Back"))
-        }
-        .padding(.top, topInset + 8)
-        .padding(.horizontal, 16)
-        .opacity(selectedGuildChat != nil && chatFocused ? 0 : 1)
-        .allowsHitTesting(selectedGuildChat == nil || !chatFocused)
-
-        if let launch = selectedGuildChat {
-          EchoConversationView(
-            conversation: launch.conversation,
-            baseURL: baseURL,
-            userID: userID,
-            callModel: nil,
-            guildContext: EchoGuildConversationContext(
-              server: launch.server,
-              channel: launch.channel
-            ),
-            onRequestExit: {
-              withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.86)) {
-                chatFocused = false
-              }
-            }
-          )
-          .environment(auth)
-          .frame(width: width, height: proxy.size.height)
-          .offset(x: chatFocused ? 0 : peekOffset)
-          .shadow(
-            color: .black.opacity(chatFocused ? 0 : 0.40),
-            radius: 18,
-            x: -6
-          )
-          .allowsHitTesting(chatFocused)
-          .zIndex(3)
-
-          // Peek strip on the trailing edge — tap to bring chat full-width again.
-          if !chatFocused {
-            Color.clear
-              .frame(width: width * peekFraction)
-              .frame(maxHeight: .infinity)
-              .contentShape(Rectangle())
-              .onTapGesture {
-                withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.86)) {
-                  chatFocused = true
-                }
-              }
-              .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-              .zIndex(4)
-          }
-        }
       }
-      .frame(width: width, height: proxy.size.height, alignment: .top)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+      // Bleed the whole column under the notch — applying ignoresSafeArea only
+      // on the hero left a dead band between the banner and Members.
+      .ignoresSafeArea(.container, edges: .top)
+      .opacity(selectedGuildChat != nil && chatFocused ? 0.35 : 1)
+      .allowsHitTesting(selectedGuildChat == nil || !chatFocused)
+
+      Button {
+        leaveToServerList()
+      } label: {
+        Image(systemName: "xmark")
+          .font(.system(size: 15, weight: .bold))
+          .foregroundStyle(.white)
+          .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
+          .frame(width: 40, height: 40)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(EchoCopy.string("Back to servers"))
+      .padding(.top, 8)
+      .padding(.trailing, 14)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+      .safeAreaPadding(.top)
+      .opacity(canLeaveServerSurface ? 1 : 0)
+      .allowsHitTesting(canLeaveServerSurface)
+
+      if let launch = selectedGuildChat {
+        guildChatOverlay(launch)
+      }
     }
-    .ignoresSafeArea(.container, edges: .top)
+    // Leading-edge swipe → server list (channel list / chat peek only).
+    .simultaneousGesture(serverListBackSwipe)
+    .onAppear { syncShellChrome() }
+    .onChange(of: chatFocused) { _, _ in syncShellChrome() }
+    .onDisappear {
+      shellChrome.suppressTabBar = false
+    }
     .sheet(isPresented: $showingMembers) {
       EchoServerMembersView(
         server: server,
@@ -228,64 +191,83 @@ struct EchoServerChannelsView: View {
         chatFocused = true
         Task { await attention.refresh(auth: auth) }
       }
+      syncShellChrome()
     }
   }
 
-  private var membersRow: some View {
-    Button {
-      showingMembers = true
-    } label: {
-      HStack(spacing: 12) {
-        Image(systemName: "person.3.fill")
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(EchoTheme.Color.ink(0.55))
-          .frame(width: 20, height: 20)
-        Text(EchoCopy.string("Members"))
-          .font(.system(size: 16, weight: .medium, design: .rounded))
-          .foregroundStyle(EchoTheme.Color.ink(0.92))
-        Spacer(minLength: 0)
-        Image(systemName: "chevron.right")
-          .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(EchoTheme.Color.ink(0.32))
+  private func syncShellChrome() {
+    // Focused guild chat stays immersive; channel list / peek keep the tab bar.
+    shellChrome.suppressTabBar = !shouldShowShellTabs
+  }
+
+  private func leaveToServerList() {
+    shellChrome.suppressTabBar = false
+    selectedGuildChat = nil
+    chatFocused = true
+    onClose()
+  }
+
+  private var serverListBackSwipe: some Gesture {
+    DragGesture(minimumDistance: 28, coordinateSpace: .local)
+      .onEnded { value in
+        guard canLeaveServerSurface else { return }
+        let fromLeading = value.startLocation.x < 28
+        let pulledRight = value.translation.width > 72
+        let mostlyHorizontal =
+          abs(value.translation.width) > abs(value.translation.height) * 1.15
+        if fromLeading && pulledRight && mostlyHorizontal {
+          leaveToServerList()
+        }
       }
-      .padding(.horizontal, 18)
-      .padding(.vertical, 12)
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
   }
 
-  /// Soft break between Echo chrome (Members) and the server’s own channels.
-  private var membersChannelsSeparator: some View {
-    VStack(spacing: 0) {
-      Rectangle()
-        .fill(EchoTheme.Color.ink(0.08))
-        .frame(height: 1)
-        .padding(.horizontal, 18)
-      Text(EchoCopy.string("Channels"))
-        .font(.system(size: 11, weight: .semibold, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.38))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 18)
-        .padding(.top, 14)
-        .padding(.bottom, 4)
-    }
-  }
+  @ViewBuilder
+  private func guildChatOverlay(_ launch: EchoGuildChatLaunch) -> some View {
+    GeometryReader { proxy in
+      let width = proxy.size.width
+      let peekFraction: CGFloat = 0.22
+      let peekOffset = width * (1 - peekFraction)
+      ZStack {
+        EchoConversationView(
+          conversation: launch.conversation,
+          baseURL: baseURL,
+          userID: userID,
+          callModel: nil,
+          guildContext: EchoGuildConversationContext(
+            server: launch.server,
+            channel: launch.channel
+          ),
+          onRequestExit: {
+            withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.86)) {
+              chatFocused = false
+            }
+          }
+        )
+        .environment(auth)
+        .frame(width: width, height: proxy.size.height)
+        .offset(x: chatFocused ? 0 : peekOffset)
+        .shadow(
+          color: .black.opacity(chatFocused ? 0 : 0.40),
+          radius: 18,
+          x: -6
+        )
+        .allowsHitTesting(chatFocused)
 
-  /// Status-bar / Dynamic Island height. Full-screen covers that ignore the
-  /// top safe area still need this so the banner bleeds under the notch
-  /// without leaving a dead gap above the image.
-  private static var topSafeAreaInset: CGFloat {
-    #if os(iOS)
-      let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-      let windows = scenes.flatMap(\.windows)
-      let inset =
-        windows.first(where: \.isKeyWindow)?.safeAreaInsets.top
-        ?? windows.first?.safeAreaInsets.top
-      return inset ?? 59
-    #else
-      return 0
-    #endif
+        if !chatFocused {
+          Color.clear
+            .frame(width: width * peekFraction)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+              withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.86)) {
+                chatFocused = true
+              }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+        }
+      }
+    }
+    .zIndex(3)
   }
 
   @ViewBuilder
@@ -466,9 +448,10 @@ struct EchoServerChannelsView: View {
     return EchoTheme.Color.ink(0.50)
   }
 
-  private func serverHero(topInset: CGFloat) -> some View {
-    let contentHeight: CGFloat = 112
-    let bannerHeight = topInset + contentHeight
+  /// Tall enough that the title sits below the status bar once the column
+  /// bleeds under the notch (`ignoresSafeArea` on the parent VStack).
+  private var serverHero: some View {
+    let bannerHeight: CGFloat = 168
     return ZStack(alignment: .bottomLeading) {
       EchoServerBannerStrip(
         bannerURL: server.bannerURL,
@@ -504,9 +487,10 @@ struct EchoServerChannelsView: View {
         // Keep the title clear of the trailing close control.
         .padding(.trailing, 52)
         .padding(.horizontal, 16)
-        .padding(.bottom, 16)
+        .padding(.bottom, 14)
     }
     .frame(maxWidth: .infinity)
+    .frame(height: bannerHeight)
   }
 
   private var bannerFallback: some View {

@@ -2,6 +2,7 @@ import EchoDomain
 import SwiftUI
 
 #if os(iOS)
+  import AVFoundation
   import AVKit
 #endif
 
@@ -12,6 +13,8 @@ struct EchoCallView: View {
   @Bindable private var ringtoneStore = EchoCallRingtoneStore.shared
   @State private var showingRingtonePanel = false
   @State private var ringPulse = false
+  /// SF Symbol for the Speaker toggle — follows the active audio route.
+  @State private var outputRouteIcon = "speaker.wave.3.fill"
 
   private var isRinging: Bool {
     model.phase == .incoming || model.phase == .dialing
@@ -207,16 +210,29 @@ struct EchoCallView: View {
           ) { Task { await model.toggleMute() } }
           callButton(
             title: model.isDeafened ? EchoCopy.string("Undeafen") : EchoCopy.string("Deafen"),
-            icon: model.isDeafened ? "speaker.slash.fill" : "speaker.wave.2.fill",
             color: model.isDeafened ? .white : .white.opacity(0.14),
             foreground: model.isDeafened ? .black : .white
-          ) { model.toggleDeafen() }
+          ) {
+            model.toggleDeafen()
+          } icon: {
+            // Headphones = deafen (web/Discord); never reuse the speaker glyph.
+            EchoCallDeafenIcon(
+              deafened: model.isDeafened,
+              foreground: model.isDeafened ? .black : .white
+            )
+          }
           callButton(
             title: EchoCopy.string("Speaker"),
-            icon: model.isSpeakerEnabled ? "speaker.wave.3.fill" : "speaker.wave.2.fill",
             color: model.isSpeakerEnabled ? .white : .white.opacity(0.14),
             foreground: model.isSpeakerEnabled ? .black : .white
-          ) { model.toggleSpeaker() }
+          ) {
+            model.toggleSpeaker()
+            refreshOutputRouteIcon()
+          } icon: {
+            Image(systemName: speakerToggleIcon)
+              .font(.system(size: 22, weight: .semibold))
+              .foregroundStyle(model.isSpeakerEnabled ? Color.black : Color.white)
+          }
         }
 
         HStack(spacing: 18) {
@@ -252,7 +268,33 @@ struct EchoCallView: View {
           color: .red
         ) { Task { await model.end() } }
       }
+      .onAppear { refreshOutputRouteIcon() }
+      #if os(iOS)
+        .onReceive(
+          NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+        ) { _ in
+          refreshOutputRouteIcon()
+        }
+      #endif
     }
+  }
+
+  /// Loudspeaker on → speaker waves; off → glyph for the active route (earpiece,
+  /// headphones, Bluetooth, AirPlay, …).
+  private var speakerToggleIcon: String {
+    if model.isSpeakerEnabled { return "speaker.wave.3.fill" }
+    return outputRouteIcon
+  }
+
+  private func refreshOutputRouteIcon() {
+    #if os(iOS)
+      outputRouteIcon = EchoCallAudioRouteIcon.systemName(
+        for: AVAudioSession.sharedInstance().currentRoute,
+        speakerForced: model.isSpeakerEnabled
+      )
+    #else
+      outputRouteIcon = model.isSpeakerEnabled ? "speaker.wave.3.fill" : "hifispeaker.fill"
+    #endif
   }
 
   private func callButton(
@@ -262,11 +304,23 @@ struct EchoCallView: View {
     foreground: Color = .white,
     action: @escaping () -> Void
   ) -> some View {
+    callButton(title: title, color: color, foreground: foreground, action: action) {
+      Image(systemName: icon)
+        .font(.system(size: 22, weight: .semibold))
+        .foregroundStyle(foreground)
+    }
+  }
+
+  private func callButton<Icon: View>(
+    title: String,
+    color: Color,
+    foreground: Color = .white,
+    action: @escaping () -> Void,
+    @ViewBuilder icon: () -> Icon
+  ) -> some View {
     Button(action: action) {
       VStack(spacing: 8) {
-        Image(systemName: icon)
-          .font(.system(size: 22, weight: .semibold))
-          .foregroundStyle(foreground)
+        icon()
           .frame(width: 62, height: 62)
           .background(color, in: Circle())
         Text(title)
@@ -297,7 +351,69 @@ struct EchoCallView: View {
   }
 }
 
+/// Headphones glyph with a strike when deafened (matches web mute-incoming control).
+private struct EchoCallDeafenIcon: View {
+  let deafened: Bool
+  let foreground: Color
+
+  var body: some View {
+    ZStack {
+      Image(systemName: "headphones")
+        .font(.system(size: 22, weight: .semibold))
+        .foregroundStyle(foreground)
+      if deafened {
+        Capsule(style: .continuous)
+          .fill(foreground)
+          .frame(width: 2.8, height: 30)
+          .rotationEffect(.degrees(-40))
+        // Thin reverse stroke so the slash reads on both light and dark fills.
+        Capsule(style: .continuous)
+          .stroke(deafened ? Color.white.opacity(0.35) : Color.black.opacity(0.25), lineWidth: 0.5)
+          .frame(width: 2.8, height: 30)
+          .rotationEffect(.degrees(-40))
+      }
+    }
+    .accessibilityHidden(true)
+  }
+}
+
 #if os(iOS)
+  enum EchoCallAudioRouteIcon {
+    static func systemName(for route: AVAudioSessionRouteDescription, speakerForced: Bool)
+      -> String
+    {
+      if speakerForced { return "speaker.wave.3.fill" }
+      for output in route.outputs {
+        switch output.portType {
+        case .builtInSpeaker:
+          return "speaker.wave.3.fill"
+        case .builtInReceiver:
+          return "ear"
+        case .headphones, .headsetMic:
+          return "headphones"
+        case .bluetoothA2DP, .bluetoothHFP, .bluetoothLE:
+          return bluetoothGlyph(portName: output.portName)
+        case .airPlay:
+          return "airplayaudio"
+        case .carAudio:
+          return "car.fill"
+        default:
+          continue
+        }
+      }
+      return "ear"
+    }
+
+    private static func bluetoothGlyph(portName: String) -> String {
+      let name = portName.lowercased()
+      if name.contains("airpods max") { return "airpodsmax" }
+      if name.contains("airpods pro") { return "airpodspro" }
+      if name.contains("airpods") { return "airpods" }
+      if name.contains("beats") { return "beats.headphones" }
+      return "waveform.circle.fill"
+    }
+  }
+
   private struct EchoAudioRoutePicker: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
       let view = AVRoutePickerView()

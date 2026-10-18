@@ -104,30 +104,31 @@ enum EchoTheme {
     // MARK: - Surfaces (adaptive + Amoled / Sunny)
 
     /// Primary canvas behind authenticated chat chrome.
-    /// Web: light `#e6ebf4`, dark near-ink, Sunny `#faf3e6`, AMOLED `#000000`.
+    /// Web: light `#e6ebf4`, dark `#0d0812`, Sunny `#faf3e6`, AMOLED `#000000`.
     static var canvas: SwiftUI.Color {
       adaptive(
         light: rgb(0xE6, 0xEB, 0xF4),
-        dark: (0.008, 0.010, 0.016, 1),
+        dark: rgb(0x0D, 0x08, 0x12),
         sunny: rgb(0xFA, 0xF3, 0xE6),
         amoled: rgb(0x00, 0x00, 0x00)
       )
     }
     /// Launch / auth root fill (slightly deeper than canvas).
+    /// Web explore deep `#0e0c14`.
     static var launch: SwiftUI.Color {
       adaptive(
         light: rgb(0xDC, 0xE2, 0xEE),
-        dark: (0.005, 0.007, 0.010, 1),
+        dark: rgb(0x0E, 0x0C, 0x14),
         sunny: rgb(0xF5, 0xEC, 0xD8),
         amoled: rgb(0x00, 0x00, 0x00)
       )
     }
     /// Soft indigo wash used in home/auth ambient gradients.
-    /// Sunny → amber sheen; AMOLED → no purple wash (true black shell).
+    /// Dark → web rail glow indigo; Sunny → amber; AMOLED → none (true black).
     static var ambientIndigo: SwiftUI.Color {
       adaptive(
         light: (0.45, 0.48, 0.82, 0.35),
-        dark: (0.12, 0.16, 0.44, 1),
+        dark: rgb(0x43, 0x36, 0xCB),  // web `--echo-rail-corner-ambient-glow-1` hue
         sunny: (245 / 255, 158 / 255, 11 / 255, 0.22),
         amoled: (0, 0, 0, 0)
       )
@@ -135,7 +136,7 @@ enum EchoTheme {
     static var launchGlowPurple: SwiftUI.Color {
       adaptive(
         light: (0.55, 0.45, 0.92, 0.28),
-        dark: (0.13, 0.08, 0.28, 1),
+        dark: rgb(0x2A, 0x18, 0x48),
         sunny: (251 / 255, 191 / 255, 36 / 255, 0.20),
         amoled: (0, 0, 0, 0)
       )
@@ -143,34 +144,35 @@ enum EchoTheme {
     static var launchGlowBlue: SwiftUI.Color {
       adaptive(
         light: (0.35, 0.50, 0.95, 0.22),
-        dark: (0.04, 0.12, 0.28, 1),
+        dark: rgb(0x08, 0x11, 0x22),  // web `--echo-rail-corner-ambient-glow-2`
         sunny: (217 / 255, 119 / 255, 6 / 255, 0.16),
         amoled: (0, 0, 0, 0)
       )
     }
     /// Elevated panel / sheet fill used across inbox and composer.
-    /// Web: Sunny `#fffdf6`, AMOLED `#0d0d0d`.
+    /// Web dark `--elevated` `#1a1225`; Sunny `#fffdf6`; AMOLED `#0d0d0d`.
     static var elevated: SwiftUI.Color {
       adaptive(
         light: rgb(0xFC, 0xFD, 0xFF),
-        dark: (0.055, 0.058, 0.075, 1),
+        dark: rgb(0x1A, 0x12, 0x25),
         sunny: rgb(0xFF, 0xFD, 0xF6),
         amoled: rgb(0x0D, 0x0D, 0x0D)
       )
     }
-    /// Web: Sunny `#fff8ec`, AMOLED `#070707` (`--surface`).
+    /// Web dark `--surface` `#130c1b`; Sunny `#fff8ec`; AMOLED `#070707`.
     static var elevatedMid: SwiftUI.Color {
       adaptive(
         light: rgb(0xF5, 0xF7, 0xFB),
-        dark: (0.047, 0.051, 0.067, 1),
+        dark: rgb(0x13, 0x0C, 0x1B),
         sunny: rgb(0xFF, 0xF8, 0xEC),
         amoled: rgb(0x07, 0x07, 0x07)
       )
     }
+    /// Web dark DM chrome `#0f0e14`.
     static var elevatedDeep: SwiftUI.Color {
       adaptive(
         light: rgb(0xEE, 0xF2, 0xF8),
-        dark: (0.035, 0.038, 0.052, 1),
+        dark: rgb(0x0F, 0x0E, 0x14),
         sunny: rgb(0xFF, 0xF3, 0xD8),
         amoled: rgb(0x05, 0x05, 0x05)
       )
@@ -178,7 +180,7 @@ enum EchoTheme {
     static var sheetVeil: SwiftUI.Color {
       adaptive(
         light: (0.90, 0.92, 0.96, 0.92),
-        dark: (0.024, 0.027, 0.038, 1),
+        dark: (13 / 255, 8 / 255, 18 / 255, 0.94),
         sunny: (255 / 255, 246 / 255, 224 / 255, 0.96),
         amoled: (0, 0, 0, 0.97)
       )
@@ -300,8 +302,15 @@ enum EchoTheme {
     static let presenceOnline = SwiftUI.Color(red: 0.20, green: 0.86, blue: 0.51)
     static let presenceIdle = SwiftUI.Color(red: 0.96, green: 0.68, blue: 0.22)
     static let presenceDnd = SwiftUI.Color(red: 0.94, green: 0.30, blue: 0.38)
-    /// Mobile tab bar dark chrome fill (near-black ink pool).
-    static let tabBarDarkPool = SwiftUI.Color(red: 0.06, green: 0.07, blue: 0.09)
+    /// Mobile tab bar dark chrome fill — purple ink on Dark, true black on AMOLED.
+    static var tabBarDarkPool: SwiftUI.Color {
+      adaptive(
+        light: rgb(0xE6, 0xEB, 0xF4),
+        dark: rgb(0x0F, 0x0E, 0x14),
+        sunny: rgb(0xFA, 0xF3, 0xE6),
+        amoled: rgb(0x05, 0x05, 0x05)
+      )
+    }
     /// Starred server indicator on server rows.
     static let serverStarAccent = SwiftUI.Color(red: 0.25, green: 0.55, blue: 1.0)
     /// Mention ping dot (web `--server-ping-personal` / #f43f5e).
@@ -374,24 +383,21 @@ enum EchoTheme {
     }
 
     /// Resolves light / dark / optional Sunny / AMOLED tuples.
-    /// When `forcedColorScheme` is set (app runtime), variants apply immediately.
+    /// Always uses a dynamic provider that re-reads `forcedColorScheme` /
+    /// `forcedVariant` at draw time — baking sRGB when forced was set left
+    /// LazyVStack / List rows stuck on Sunny brown ink until they recycled.
     private static func adaptive(
       light: (CGFloat, CGFloat, CGFloat, CGFloat),
       dark: (CGFloat, CGFloat, CGFloat, CGFloat),
       sunny: (CGFloat, CGFloat, CGFloat, CGFloat)? = nil,
       amoled: (CGFloat, CGFloat, CGFloat, CGFloat)? = nil
     ) -> SwiftUI.Color {
-      if let forced = EchoTheme.forcedColorScheme {
-        let c = resolveTuple(
-          light: light, dark: dark, sunny: sunny, amoled: amoled,
-          scheme: forced, variant: EchoTheme.forcedVariant)
-        return SwiftUI.Color(.sRGB, red: c.0, green: c.1, blue: c.2, opacity: c.3)
-      }
       #if os(iOS) || os(tvOS) || os(watchOS)
         return SwiftUI.Color(
           UIColor { traits in
-            let scheme: ColorScheme =
-              traits.userInterfaceStyle == .dark ? .dark : .light
+            let scheme =
+              EchoTheme.forcedColorScheme
+              ?? (traits.userInterfaceStyle == .dark ? ColorScheme.dark : .light)
             let c = resolveTuple(
               light: light, dark: dark, sunny: sunny, amoled: amoled,
               scheme: scheme, variant: EchoTheme.forcedVariant)
@@ -402,7 +408,9 @@ enum EchoTheme {
           NSColor(name: nil) { appearance in
             let isDark =
               appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let scheme: ColorScheme = isDark ? .dark : .light
+            let scheme =
+              EchoTheme.forcedColorScheme
+              ?? (isDark ? ColorScheme.dark : .light)
             let c = resolveTuple(
               light: light, dark: dark, sunny: sunny, amoled: amoled,
               scheme: scheme, variant: EchoTheme.forcedVariant)

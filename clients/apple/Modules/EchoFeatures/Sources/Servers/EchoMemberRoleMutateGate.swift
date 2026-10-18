@@ -74,7 +74,7 @@ enum EchoMemberRoleMutateGate {
   private static func actorHasGlobalGrant(
     _ actorRoleIDs: [String], catalog: [EchoServerRole], manage: Bool
   ) -> Bool {
-    let byID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
+    let byID = Self.roleIndex(catalog)
     for rid in actorRoleIDs {
       guard let role = byID[rid], !role.isEveryone, isGlobalScope(role.roleScope) else {
         continue
@@ -89,7 +89,7 @@ enum EchoMemberRoleMutateGate {
   private static func actorHasCategoryGrant(
     _ actorRoleIDs: [String], catalog: [EchoServerRole], categoryID: String?, manage: Bool
   ) -> Bool {
-    let byID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
+    let byID = Self.roleIndex(catalog)
     for rid in actorRoleIDs {
       guard let role = byID[rid], !role.isEveryone else { continue }
       if (role.roleCategoryID ?? "") != (categoryID ?? "") { continue }
@@ -103,7 +103,7 @@ enum EchoMemberRoleMutateGate {
   private static func topRolePositionGlobal(
     _ userRoleIDs: [String], catalog: [EchoServerRole]
   ) -> Int {
-    let byID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
+    let byID = Self.roleIndex(catalog)
     var max = -1
     for rid in userRoleIDs {
       guard let role = byID[rid], !role.isEveryone else { continue }
@@ -115,7 +115,7 @@ enum EchoMemberRoleMutateGate {
   private static func topRankInCategory(
     _ userRoleIDs: [String], catalog: [EchoServerRole], categoryID: String?
   ) -> Int {
-    let byID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
+    let byID = Self.roleIndex(catalog)
     var max = -1
     for rid in userRoleIDs {
       guard let role = byID[rid], !role.isEveryone else { continue }
@@ -128,13 +128,23 @@ enum EchoMemberRoleMutateGate {
   private static func unionPermissions(
     _ userRoleIDs: [String], catalog: [EchoServerRole]
   ) -> Set<String> {
-    let byID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
+    let byID = Self.roleIndex(catalog)
     var out = Set<String>()
     for rid in userRoleIDs {
       guard let role = byID[rid] else { continue }
       out.formUnion(role.permissions)
     }
     return out
+  }
+
+  /// Duplicate role ids must not fatal — bootstrap quirks used to crash assign.
+  private static func roleIndex(_ catalog: [EchoServerRole]) -> [String: EchoServerRole] {
+    var byID: [String: EchoServerRole] = [:]
+    byID.reserveCapacity(catalog.count)
+    for role in catalog {
+      if byID[role.id] == nil { byID[role.id] = role }
+    }
+    return byID
   }
 
   private static func actorMayGrant(union: Set<String>, role: EchoServerRole) -> Bool {

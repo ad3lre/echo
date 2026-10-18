@@ -8,6 +8,8 @@ struct EchoMainShellView: View {
   let onSignOut: () -> Void
 
   @Environment(EchoAuthenticationModel.self) private var auth
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.colorScheme) private var colorScheme
 
   @State private var selectedTab: EchoMainTab = .home
   @State private var realtime: EchoRealtimeSession
@@ -19,6 +21,7 @@ struct EchoMainShellView: View {
   @State private var serversModel: EchoServersModel?
   /// All tabs hosted after first frame — UIKit `isHidden` keeps switches instant.
   @State private var tabsReady = false
+  @State private var shellChrome = EchoShellChrome()
 
   init(baseURL: URL, userID: String, onSignOut: @escaping () -> Void) {
     self.baseURL = baseURL
@@ -29,31 +32,43 @@ struct EchoMainShellView: View {
   }
 
   var body: some View {
-    ZStack {
+    // Theme flips must reach keep-alive hosts — otherwise Servers/Explore keep
+    // a dark-mode ink snapshot until you leave the tab and come back.
+    let appearanceEpoch = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+    return ZStack {
       // Home always present so first paint isn’t blocked on secondary mounts.
       EchoPersistentTabHost(
         isActive: selectedTab == .home,
+        appearanceEpoch: appearanceEpoch,
         content: EchoHomeView(
           baseURL: baseURL,
           userID: userID,
           realtime: realtime,
           onSignOut: onSignOut
         )
+        // UIHostingController roots do not inherit outer `.environment` —
+        // bake shell knobs into each keep-alive tree (and its covers).
+        .environment(realtime)
+        .environment(shellChrome)
       )
 
       if tabsReady {
         EchoPersistentTabHost(
           isActive: selectedTab == .servers,
+          appearanceEpoch: appearanceEpoch,
           content: EchoServersView(
             baseURL: baseURL,
             userID: userID,
             pendingOpenServerID: $pendingOpenServerID,
             model: serversModel
           )
+          .environment(realtime)
+          .environment(shellChrome)
         )
 
         EchoPersistentTabHost(
           isActive: selectedTab == .explore,
+          appearanceEpoch: appearanceEpoch,
           content: EchoExploreView(
             baseURL: baseURL,
             model: exploreModel,
@@ -62,18 +77,30 @@ struct EchoMainShellView: View {
               selectedTab = .servers
             }
           )
+          .environment(realtime)
+          .environment(shellChrome)
         )
       }
     }
     .transaction { $0.animation = nil }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .environment(realtime)
+    .environment(shellChrome)
     // Tabs paint edge-to-edge under the floating pill — no shell footer band.
     // Each tab owns its own scroll bottom inset for the bar.
     .overlay(alignment: .bottom) {
-      EchoMobileTabBar(selection: $selectedTab, homeBadge: homeBadge)
-        .padding(.bottom, 22)
-        .allowsHitTesting(true)
+      if !shellChrome.suppressTabBar {
+        EchoMobileTabBar(selection: $selectedTab, homeBadge: homeBadge)
+          .padding(.bottom, 22)
+          .allowsHitTesting(true)
+          .transition(.opacity)
+      }
+    }
+    .onChange(of: selectedTab) { _, tab in
+      // Keep-alive hides Servers without running onDisappear — restore chrome.
+      if tab != .servers {
+        shellChrome.suppressTabBar = false
+      }
     }
     .task {
       await bootstrapSecondaryTabs()
@@ -110,7 +137,12 @@ struct EchoMainShellView: View {
     }
     for listed in model.visibleServers.prefix(6) {
       if let icon = listed.server.iconURL { sources.append(icon) }
-      if let banner = listed.server.bannerURL { sources.append(banner) }
+      // Match web bannerFor — list cards fall back to icon when banner is absent.
+      if let banner = listed.server.bannerURL, !banner.isEmpty {
+        sources.append(banner)
+      } else if let icon = listed.server.iconURL {
+        sources.append(icon)
+      }
     }
     var seen = Set<String>()
     let unique = sources.filter { seen.insert($0).inserted }

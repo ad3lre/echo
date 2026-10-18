@@ -54,6 +54,20 @@ if (!prePush.includes('check_branch_upstream_policy')) {
   process.exit(1);
 }
 
+if (!prePush.includes('check-echo-version-bump.mjs')) {
+  console.error(
+    'check-github-remote-policy: pre-push must run check-echo-version-bump.mjs',
+  );
+  process.exit(1);
+}
+
+if (!prePush.includes('ECHO_SKIP_VERSION_GATE')) {
+  console.error(
+    'check-github-remote-policy: pre-push must honor ECHO_SKIP_VERSION_GATE',
+  );
+  process.exit(1);
+}
+
 if (!mirror.includes('GITHUB_BRANCH="${GITHUB_BRANCH:-main}"')) {
   console.error(
     'check-github-remote-policy: mirror-release-to-github.sh must default GITHUB_BRANCH to main',

@@ -131,11 +131,12 @@ Think of the controller as a **traffic manager**, not a decision maker.
 
 ## Operational conventions
 
-| Rule           | Detail                                                                                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tree.md`      | Do not edit manually; regenerate via the project script.                                                                                                                       |
-| Lint and tests | Run in the background when practical to preserve interactive time.                                                                                                             |
-| Client auth    | Session rotation, desktop CORS-simple transport, and socket recycle rules: local `docs-dev/infra/auth/OPTION_A_SESSION_ARCHITECTURE.md` (client-auth-invariants) when present. |
+| Rule            | Detail                                                                                                                                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tree.md`       | Do not edit manually; regenerate via the project script.                                                                                                                                            |
+| Lint and tests  | Run in the background when practical to preserve interactive time.                                                                                                                                  |
+| Client auth     | Session rotation, desktop CORS-simple transport, and socket recycle rules: local `docs-dev/infra/auth/OPTION_A_SESSION_ARCHITECTURE.md` (client-auth-invariants) when present.                      |
+| Product version | Before pushing GitLab `main`, run `bun run version:bump -- patch` (or `minor` / `major`). One bump per push; the pre-push hook refuses otherwise. See [versioning.md](../operations/versioning.md). |
 
 ---
 

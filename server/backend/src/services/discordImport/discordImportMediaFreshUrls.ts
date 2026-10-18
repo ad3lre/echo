@@ -91,6 +91,21 @@ export async function fetchFreshDiscordMediaUrlsForMessage(
   if (!discordChannelId) return new Map();
 
   const botPort = process.env.ECHO_DISCORD_BOT_INTERNAL_PORT || '3005';
+  const oneUrl = `http://localhost:${botPort}/channels/${discordChannelId}/messages/${messageId.trim()}`;
+  const oneResponse = await fetch(oneUrl, {
+    signal: AbortSignal.timeout(DISCORD_BOT_INTERNAL_FETCH_MS),
+    headers: {
+      'x-echo-discord-bot-secret': config.echoDiscordBotWebhookSecret,
+    },
+  });
+  if (oneResponse.ok) {
+    const body = (await oneResponse.json()) as { message?: BotMessage };
+    if (body.message && typeof body.message === 'object') {
+      return collectMessageUrls(body.message);
+    }
+  }
+
+  // Fallback: older bots without single-message route — scan recent history.
   const botUrl = `http://localhost:${botPort}/channels/${discordChannelId}/messages?limit=100`;
   const response = await fetch(botUrl, {
     signal: AbortSignal.timeout(DISCORD_BOT_INTERNAL_FETCH_MS),

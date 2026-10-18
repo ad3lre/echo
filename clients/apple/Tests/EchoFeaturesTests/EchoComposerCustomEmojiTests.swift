@@ -12,6 +12,28 @@ import Testing
 
 @MainActor
 struct EchoComposerCustomEmojiTests {
+  @Test func hyphenatedCustomEmojiNamesBecomeAttachments() {
+    EchoCustomEmojiCatalog.shared.ingest([
+      EchoEmojiPack(
+        id: "pack",
+        name: "Pack",
+        source: "echo",
+        position: 0,
+        emojis: [
+          EchoCustomEmoji(
+            id: "abc-def.123",
+            name: "pepe-laugh",
+            animated: false,
+            imageURL: "https://cdn.example/e.png")
+        ])
+    ])
+    let token = "<:pepe-laugh:abc-def.123>"
+    let attributed = EchoInlineMarkdownStyle.attributed(
+      token, apiBaseURL: URL(string: "https://chat-echo.com")!)
+    #expect(EchoInlineMarkdownStyle.plainText(from: attributed) == token)
+    #expect(attributed.string.contains("\u{FFFC}"))
+  }
+
   @Test func customEmojiTokensBecomeAttachmentsAndRoundTrip() {
     EchoCustomEmojiCatalog.shared.ingest([
       EchoEmojiPack(

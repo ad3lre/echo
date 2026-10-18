@@ -5,6 +5,7 @@ import {
   compareExploreServersWithVoicePriority,
   exploreDirectoryProfileCompletenessScore,
   exploreTagDisplayLabel,
+  filterExploreDirectoryRowsBySearch,
   filterExploreDirectoryRowsByTags,
   isExploreDirectoryJoinLockedForGuest,
   normalizeExploreDirectoryTags,
@@ -44,6 +45,25 @@ describe('exploreDirectoryRows', () => {
       { tag: 'gaming', count: 2 },
       { tag: 'art', count: 1 },
       { tag: 'music', count: 1 },
+    ]);
+  });
+
+  it('tag counts follow the search-matched set (not the full catalog)', () => {
+    const rows = [
+      { name: 'Global Leaders', pfp: '', tags: ['global'], blurb: 'leaders' },
+      { name: 'Global Chat', pfp: '', tags: ['global'], blurb: 'chat' },
+      {
+        name: 'Local Club',
+        pfp: '',
+        tags: ['global', 'local'],
+        blurb: 'local',
+      },
+      { name: 'Music Hall', pfp: '', tags: ['music'], blurb: 'tunes' },
+    ];
+    const matched = filterExploreDirectoryRowsBySearch(rows, 'leaders');
+    expect(matched.map((r) => r.name)).toEqual(['Global Leaders']);
+    expect(collectExploreQuickFilters(matched)).toEqual([
+      { tag: 'global', count: 1 },
     ]);
   });
 

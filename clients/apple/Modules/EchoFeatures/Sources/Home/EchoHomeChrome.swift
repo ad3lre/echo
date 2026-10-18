@@ -10,14 +10,25 @@ struct EchoHomeBackground: View {
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
-    ZStack {
+    let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
+    // Dark gets a stronger indigo wash (web rail glow); AMOLED stays flat black.
+    let wash = EchoTheme.forcedVariant == .amoled ? 0.0 : (colorScheme == .dark ? 0.34 : 0.22)
+    return ZStack {
       displayPrefs.canvas(colorScheme: colorScheme)
-      RadialGradient(
-        colors: [EchoTheme.Color.ambientIndigo.opacity(0.22), .clear],
-        center: UnitPoint(x: 0.88, y: 0.03),
-        startRadius: 0,
-        endRadius: 290
-      )
+      if wash > 0 {
+        RadialGradient(
+          colors: [EchoTheme.Color.ambientIndigo.opacity(wash), .clear],
+          center: UnitPoint(x: 0.88, y: 0.03),
+          startRadius: 0,
+          endRadius: 320
+        )
+        RadialGradient(
+          colors: [EchoTheme.Color.launchGlowBlue.opacity(colorScheme == .dark ? 0.55 : 0.0), .clear],
+          center: UnitPoint(x: 0.12, y: 0.92),
+          startRadius: 0,
+          endRadius: 280
+        )
+      }
     }
   }
 }

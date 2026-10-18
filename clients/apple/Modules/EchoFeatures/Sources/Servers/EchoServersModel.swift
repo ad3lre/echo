@@ -42,7 +42,11 @@ final class EchoServersModel {
 
   var orderedServers: [EchoServerSummary] {
     let _ = starEpoch
-    let byID = Dictionary(uniqueKeysWithValues: servers.map { ($0.id, $0) })
+    var byID: [String: EchoServerSummary] = [:]
+    byID.reserveCapacity(servers.count)
+    for server in servers where byID[server.id] == nil {
+      byID[server.id] = server
+    }
     // Web `serverStore.servers` is API membership order (then optional saved
     // rail order). More Servers only floats pins — do not MRU-reshuffle the
     // iPhone list away from that real order.
@@ -261,11 +265,21 @@ final class EchoServersModel {
   func toggleRole(
     server: EchoServerSummary, targetUserID: String, roleID: String, assign: Bool
   ) async {
+    guard !isRoleMutationBusy else { return }
     guard canMutateRole(
       server: server, targetUserID: targetUserID, roleID: roleID, assign: assign)
     else { return }
     isRoleMutationBusy = true
     memberActionErrorMessage = nil
+    // Optimistic local update first — keeps the role sheet stable if the
+    // network round-trip or a later catalog refresh is noisy.
+    var map = assignmentsByServer[server.id] ?? [:]
+    var set = Set(map[targetUserID] ?? [])
+    let previous = set
+    if assign { set.insert(roleID) } else { set.remove(roleID) }
+    map[targetUserID] = Array(set)
+    assignmentsByServer[server.id] = map
+    roleEpoch &+= 1
     defer { isRoleMutationBusy = false }
     do {
       let token = try await auth.ensureAccessToken()
@@ -276,15 +290,11 @@ final class EchoServersModel {
         try await client.removeMemberRole(
           serverID: server.id, userID: targetUserID, roleID: roleID, accessToken: token)
       }
-      var map = assignmentsByServer[server.id] ?? [:]
-      var set = Set(map[targetUserID] ?? [])
-      if assign { set.insert(roleID) } else { set.remove(roleID) }
-      map[targetUserID] = Array(set)
+    } catch {
+      map[targetUserID] = Array(previous)
       assignmentsByServer[server.id] = map
       roleEpoch &+= 1
-    } catch {
       memberActionErrorMessage = EchoCopy.string("Echo couldn’t update that role.")
-      await loadMembers(for: server.id)
     }
   }
 
