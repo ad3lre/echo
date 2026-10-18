@@ -400,7 +400,7 @@ async function run(): Promise<void> {
         },
         body: JSON.stringify({
           name: 'Pipeline Server Renamed',
-          vanityCode: 'echo',
+          vanityCode: `pipe${Date.now().toString(36)}`,
           description: 'Integration test blurb.',
         }),
       },
@@ -1660,15 +1660,24 @@ async function run(): Promise<void> {
 
     // --- Unknown Channel ---
     const unknownChannelId = randomUUID();
-    const unknownJoin = await new Promise<{ code?: string }>((resolve) => {
-      s1.once('message_failed', (p: any) => resolve(p));
-      s1.emit('joinChannel', unknownChannelId);
-      s1.emit('message', {
-        channelId: unknownChannelId,
-        content: 'fail',
-        id: randomUUID(),
-      });
-    });
+    const unknownJoin = await new Promise<{ code?: string }>(
+      (resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error('timeout unknown channel message_failed')),
+          8000,
+        );
+        s1.once('message_failed', (p: any) => {
+          clearTimeout(timer);
+          resolve(p);
+        });
+        s1.emit('joinChannel', unknownChannelId);
+        s1.emit('message', {
+          channelId: unknownChannelId,
+          content: 'fail',
+          id: randomUUID(),
+        });
+      },
+    );
     assert.equal(unknownJoin.code, 'UNKNOWN_CHANNEL');
 
     s1.disconnect();
