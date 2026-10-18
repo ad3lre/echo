@@ -161,6 +161,14 @@ export type AppLayoutModalsProps = {
     targetUserId: string;
     action: 'kick' | 'ban' | 'timeout';
   }) => void;
+  /** Server Settings → Members: open profile / roles panel for a roster row. */
+  onOpenServerSettingsMember?: (payload: {
+    userId: string;
+    anchorRect?: PopoutAnchorRect | null;
+    rolesPanel?: boolean;
+  }) => void;
+  /** When true, Members shows Manage roles (Echo role assignment). */
+  canAssignMemberRoles?: boolean;
   onUpdateServerSettingsModal: (next: boolean) => void;
   serverSettingsModalInitialSection?: ServerSettingsSection | null;
   onUpdateServerSettingsModalActiveSection?: (
@@ -378,6 +386,8 @@ export const MODALS_INJECT_KEYS = [
   'resolveMemberHighestRole',
   'canModerateMemberAction',
   'onRequestModerateMember',
+  'onOpenServerSettingsMember',
+  'canAssignMemberRoles',
   'onUpdateServerSettingsModal',
   'serverSettingsModalInitialSection',
   'onUpdateServerSettingsModalActiveSection',

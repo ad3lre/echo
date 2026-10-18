@@ -79,6 +79,24 @@ describe('localProfilePersistence', () => {
     });
   });
 
+  it('mergeLocalProfileIntoUser does not blank a real API avatar with empty local pfp', () => {
+    vi.stubGlobal('localStorage', mockLocalStorage());
+    localStorage.setItem(
+      'echo_local_profile_v1',
+      JSON.stringify({ u9: { pfp: '', customStatus: 'yo' } }),
+    );
+    const merged = mergeLocalProfileIntoUser({
+      id: 'u9',
+      name: 'N',
+      pfp: 'https://cdn.example/a.png',
+    });
+    expect(merged).toMatchObject({
+      id: 'u9',
+      pfp: 'https://cdn.example/a.png',
+      customStatus: 'yo',
+    });
+  });
+
   it('mergeLocalProfilesIntoUsers maps list', () => {
     vi.stubGlobal('localStorage', mockLocalStorage());
     expect(mergeLocalProfilesIntoUsers([{ id: 'a' }])).toEqual([{ id: 'a' }]);

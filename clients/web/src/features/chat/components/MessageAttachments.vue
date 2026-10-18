@@ -19,7 +19,7 @@ import MessageStickerBitmap from './MessageStickerBitmap.vue';
 const props = defineProps<{
   message: MessageWithAuthor;
   attachments?: MessageAttachmentPayload[];
-  openImageViewer?: (url: string) => void;
+  openImageViewer?: (url: string, opts?: { storageKey?: string }) => void;
   openDocumentViewer?: (att: MessageAttachmentPayload) => void;
 }>();
 
@@ -132,7 +132,7 @@ function mediaAspectStyle(
       <MessageMediaCollage
         v-if="mediaCollageItems.length"
         :items="mediaCollageItems"
-        @open="(u) => openImageViewer?.(u)"
+        @open="(p) => openImageViewer?.(p.url, { storageKey: p.storageKey })"
       />
       <template
         v-for="(att, attIdx) in attachments"
@@ -194,7 +194,7 @@ function mediaAspectStyle(
     <div v-else-if="message.imageUrl" class="mt-1 max-w-full min-w-0">
       <MessageMediaCollage
         :items="legacyImageItems"
-        @open="(u) => openImageViewer?.(u)"
+        @open="(p) => openImageViewer?.(p.url, { storageKey: p.storageKey })"
       />
     </div>
   </div>

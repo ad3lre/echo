@@ -133,31 +133,24 @@ export function resolveGameServerConnectUrl(mintedUrl?: string | null): string {
 }
 
 /**
- * Voice E2EE v2 (MLS / RFC 9420). When on, voice calls use the MLS group-key
- * protocol with in-band epoch rotation — the same architecture as Discord's
- * DAVE protocol — instead of the legacy static-seed + per-device envelope
- * scheme (which cannot rekey late joiners). On by default; set
- * `VITE_VOICE_E2EE_V2=0` to fall back to the legacy v1 scheme.
+ * @deprecated MLS dual-path flag — ignored. Voice E2EE always uses Element
+ * Call–style per-participant media keys when channel/DM E2EE is required.
  */
-export const VOICE_E2EE_V2_ENABLED: boolean = (() => {
-  const raw = (import.meta.env.VITE_VOICE_E2EE_V2 as string | undefined)
-    ?.trim()
-    .toLowerCase();
-  return !(raw === '0' || raw === 'false' || raw === 'no' || raw === 'off');
-})();
+export const VOICE_E2EE_V2_ENABLED = true;
 
 /**
- * LiveKit E2EE for DM / group-DM ("private") calls. On by default: the client
- * always attempts E2EE key preparation for private calls; the backend's
- * `ECHO_DM_VOICE_E2EE_ENABLED` flag is the source of truth, and when the
- * server reports E2EE disabled the call proceeds with transport encryption
- * only. Set `VITE_DM_VOICE_E2EE=0` to skip client-side preparation entirely.
+ * LiveKit E2EE for DM / group-DM ("private") calls.
+ *
+ * **Off by default:** re-enable after Element Call–style media-key join e2e
+ * passes — see `docs/operations/voice-e2ee-livekit.md` § Status.
+ * Opt in with `VITE_DM_VOICE_E2EE=1` **and** `ECHO_DM_VOICE_E2EE_ENABLED=true`
+ * on the server (both must agree).
  */
 export const DM_VOICE_E2EE_ENABLED: boolean = (() => {
   const raw = (import.meta.env.VITE_DM_VOICE_E2EE as string | undefined)
     ?.trim()
     .toLowerCase();
-  return !(raw === '0' || raw === 'false' || raw === 'no' || raw === 'off');
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
 })();
 
 /**

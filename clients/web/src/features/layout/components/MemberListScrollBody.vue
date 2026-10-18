@@ -4,7 +4,6 @@ import { useVirtualizer } from '@tanstack/vue-virtual';
 import StatusIndicator from '@/components/StatusIndicator.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import ServerOwnerCrownIcon from '@/features/layout/ServerOwnerCrownIcon.vue';
-import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
 import type { MemberRole } from '@/features/member-profile/memberProfiles';
 import { memberRoleIconImgSrc } from '@/features/member-profile/memberRoleIconDisplay';
 import {
@@ -17,20 +16,31 @@ import {
   type MemberListVirtualMember,
 } from '@/features/layout/domain/memberListVirtualRows';
 
-const props = defineProps<{
-  sections: MemberListSection[];
-  serverOwnerId?: string | null;
-  presenceForUser: (user: MemberListUser) => {
-    sortOrder: number;
-    indicatorStatus?: string;
-    indicatorMobileSurface?: boolean;
-    indicatorDiscordOnline?: boolean;
-    isOffline?: boolean;
-    discordOnline?: boolean;
-  };
-  isUserCommunicationTimedOut: (userId: string) => boolean;
-  subtitleTextWithTimeout: (user: MemberListUser) => string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    sections: MemberListSection[];
+    serverOwnerId?: string | null;
+    presenceForUser: (user: MemberListUser) => {
+      sortOrder: number;
+      indicatorStatus?: string;
+      indicatorMobileSurface?: boolean;
+      indicatorDiscordOnline?: boolean;
+      isOffline?: boolean;
+      discordOnline?: boolean;
+    };
+    isUserCommunicationTimedOut: (userId: string) => boolean;
+    subtitleTextWithTimeout: (user: MemberListUser) => string;
+    /** Match MemberList: pad under absolute SearchBar when that chrome is shown. */
+    reserveTopSearchInset?: boolean;
+  }>(),
+  { reserveTopSearchInset: true },
+);
+
+const scrollPadClass = computed(() =>
+  props.reserveTopSearchInset
+    ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-14 custom-scrollbar'
+    : 'flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-3 custom-scrollbar',
+);
 
 const emit = defineEmits<{
   openProfile: [userId: string, event: MouseEvent];
@@ -86,11 +96,7 @@ function memberAt(index: number): MemberListVirtualMember | null {
 </script>
 
 <template>
-  <div
-    ref="scrollParentRef"
-    class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-14 custom-scrollbar"
-    v-scrollbar-on-scroll
-  >
+  <div ref="scrollParentRef" :class="scrollPadClass" v-scrollbar-on-scroll>
     <div
       v-if="useVirtual"
       class="relative w-full"
@@ -143,7 +149,7 @@ function memberAt(index: number): MemberListVirtualMember | null {
               class="member-pfp-clip h-full w-full overflow-hidden rounded-full"
             >
               <PausedGifAvatar
-                :src="safeImageUrl(memberAt(vItem.index)!.user.pfp)"
+                :src="memberAt(vItem.index)!.user.pfp"
                 :alt="memberAt(vItem.index)!.user.name"
                 :session-key="memberAt(vItem.index)!.user.id"
                 img-class="member-pfp block rounded-full object-cover"
@@ -251,7 +257,7 @@ function memberAt(index: number): MemberListVirtualMember | null {
                 class="member-pfp-clip h-full w-full overflow-hidden rounded-full"
               >
                 <PausedGifAvatar
-                  :src="safeImageUrl(user.pfp)"
+                  :src="user.pfp"
                   :alt="user.name"
                   :session-key="user.id"
                   img-class="member-pfp block rounded-full object-cover"

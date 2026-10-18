@@ -123,6 +123,7 @@ describe('app layout context slices wiring', () => {
       dmCallVoiceStripTitle: computed(() => ''),
       channelPanelVoiceChannelId: computed(() => ''),
       channelPanelVoiceChannelName: computed(() => ''),
+      channelPanelVoiceConnectionStatus: computed(() => 'idle' as const),
       channelPanelVcMutedEffective: computed(() => false),
       channelPanelVcDeafenedEffective: computed(() => false),
       channelPanelVcVideoEffective: computed(() => false),

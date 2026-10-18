@@ -573,8 +573,11 @@ server.on('upgrade', (req, socket, head) => {
   });
 });
 
-server.listen(WATCHDOG_PORT, '0.0.0.0', () => {
-  console.log(`[watchdog] Proxy listening on port ${WATCHDOG_PORT}`);
+const WATCHDOG_BIND = process.env.WATCHDOG_BIND || '127.0.0.1';
+server.listen(WATCHDOG_PORT, WATCHDOG_BIND, () => {
+  console.log(
+    `[watchdog] Proxy listening on ${WATCHDOG_BIND}:${WATCHDOG_PORT}`,
+  );
   console.log(`[watchdog] Default target http://${TARGET_HOST}:${TARGET_PORT}`);
   if (hostTargets.size > 0) {
     for (const [host, target] of hostTargets.entries()) {

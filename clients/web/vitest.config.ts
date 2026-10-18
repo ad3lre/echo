@@ -56,6 +56,10 @@ export default defineConfig({
         __dirname,
         '../../server/backend/crypto/src/mls',
       ),
+      '@/services/voice/e2ee': path.resolve(
+        __dirname,
+        '../../server/backend/crypto/src/voice',
+      ),
       '@': path.resolve(__dirname, './src'),
       '@shared/games': path.resolve(
         __dirname,

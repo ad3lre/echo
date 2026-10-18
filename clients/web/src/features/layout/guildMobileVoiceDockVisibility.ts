@@ -3,6 +3,11 @@ import type { VcActivityUiPhase } from '@/features/voice/vcActivityTypes';
 export type GuildMobileVoiceDockVisibilitySnapshot = {
   /** Connected to guild voice on compact mobile (base gate). */
   connected: boolean;
+  /**
+   * Bottom dock is only for the full voice surface. Outside VC view, the
+   * above-header speaker strip owns mute / leave / jump-back controls.
+   */
+  isViewingVoiceChannel: boolean;
   voiceSideChatCollapsed: boolean;
   isSettingsModalOpen: boolean;
   isServerSettingsModalOpen: boolean;
@@ -34,6 +39,7 @@ export function shouldShowGuildMobileVoiceDock(
   snapshot: GuildMobileVoiceDockVisibilitySnapshot,
 ): boolean {
   if (!snapshot.connected) return false;
+  if (!snapshot.isViewingVoiceChannel) return false;
   if (guildMobileVoiceDockObscuredByOverlay(snapshot)) return false;
   return true;
 }

@@ -75,10 +75,10 @@ export function useAppLayoutCallVoiceBridge(
     releaseGuildVoiceIfHeldForDmCall: () =>
       releaseGuildVoiceIfHeldForDmCallRef.value?.(),
     getDmVoiceE2eeMediaKey: async (channelId) => {
-      // Client-side opt-out only (`VITE_DM_VOICE_E2EE=0`): skip key
-      // preparation and connect with transport (DTLS-SRTP) encryption.
-      // Otherwise the backend decides — prepare returns a null key when the
-      // server reports voice E2EE disabled for this conversation.
+      // Default off (`VITE_DM_VOICE_E2EE` unset): skip key preparation and
+      // connect with transport (DTLS-SRTP) only. See voice-e2ee-livekit.md.
+      // When both client + server flags are on, prepare; server still wins if
+      // it reports E2EE disabled for this conversation (null key).
       if (!DM_VOICE_E2EE_ENABLED) {
         return { mediaKey: null, senderDeviceId: '' };
       }

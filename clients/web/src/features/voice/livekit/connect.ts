@@ -3,7 +3,7 @@ import type {
   Room as LKRoom,
   TrackPublishDefaults,
 } from 'livekit-client';
-import { AudioPresets, ExternalE2EEKeyProvider, Room } from 'livekit-client';
+import { AudioPresets, Room } from 'livekit-client';
 import {
   voiceClientDiag,
   voiceClientTrace,
@@ -29,6 +29,7 @@ import { createLiveKitE2eeWorker } from '@/features/voice/livekit/livekitE2eeWor
 import { clearVoiceParticipantE2eeStatus } from '@/features/voice/voiceE2eeEncryptionStatus';
 import { initDesktopNativeAudio, isDesktop } from '@/platform/desktopBridge';
 import type { LiveKitVoiceSessionContext } from '@/features/voice/livekit/context';
+import type { EchoParticipantKeyProvider } from '@/services/voice/e2ee/echoParticipantKeyProvider';
 
 export type ConnectSessionDeps = {
   muteRemoteParticipantsForDeafen: (room: LKRoom) => Promise<void>;
@@ -85,28 +86,54 @@ export function createConnectController(
   function releaseLiveKitE2eeWorker(): void {
     liveKitMlsKeyProvider.value = null;
     clearVoiceParticipantE2eeStatus();
-    stopActiveVoiceMlsSession();
+    stopActiveVoiceMediaKeySession();
     if (!liveKitE2eeWorker.value) return;
     liveKitE2eeWorker.value.terminate();
     liveKitE2eeWorker.value = null;
   }
 
+  function peerIdentitiesExcludingSelf(): string[] {
+    const room = lkRoom.value;
+    if (!room) return [];
+    const selfId = room.localParticipant.identity?.trim() ?? '';
+    const ids: string[] = [];
+    for (const p of room.remoteParticipants.values()) {
+      const id = p.identity?.trim();
+      if (id && id !== selfId) ids.push(id);
+    }
+    return ids;
+  }
+
+  /**
+   * On remote join: rotate our sender key (forward secrecy) and pull the
+   * newcomer's announced key from the media-key inbox.
+   */
   async function installMlsSenderKeyForParticipant(
     identity: string,
   ): Promise<void> {
-    const provider = liveKitMlsKeyProvider.value;
+    const provider =
+      liveKitMlsKeyProvider.value as EchoParticipantKeyProvider | null;
     if (!provider || !activeVoiceE2eeChannelKey.value) return;
     const id = identity.trim();
     if (!id) return;
     try {
-      const { deriveActiveVoiceMlsSenderMediaKey } =
-        await import('@/services/voice/mls/voiceMlsSession');
-      const key = await deriveActiveVoiceMlsSenderMediaKey(id);
-      if (!key) return;
-      await provider.setSenderEpochKey(id, key.raw, key.keyIndex);
+      const { rotateAndAnnounceVoiceMediaKey, pullVoiceMediaKeyInbox } =
+        await import('@/features/voice/voiceE2eePrepare');
+      const peers = peerIdentitiesExcludingSelf();
+      if (!peers.includes(id)) peers.push(id);
+      const rotated = await rotateAndAnnounceVoiceMediaKey({
+        peerUserIds: peers,
+      });
+      if (rotated) {
+        await provider.setSenderKeys(rotated.senderKeys, rotated.keyIndex);
+      }
+      const pulled = await pullVoiceMediaKeyInbox({ senderUserId: id });
+      if (pulled && pulled.senderKeys.size > 0) {
+        await provider.setSenderKeys(pulled.senderKeys, pulled.keyIndex);
+      }
       voiceClientDiag('info', 'voice.client:lk_e2ee_sender_key_installed', {
         identity: id,
-        keyIndex: key.keyIndex,
+        keyIndex: pulled?.keyIndex ?? rotated?.keyIndex ?? 0,
       });
     } catch (e) {
       voiceClientDiag('error', 'voice.client:lk_e2ee_sender_key_failed', {
@@ -117,19 +144,16 @@ export function createConnectController(
   }
 
   async function rotateEpochKey(epochKey: EchoMlsEpochKeyInput): Promise<void> {
-    const provider = liveKitMlsKeyProvider.value;
+    const provider =
+      liveKitMlsKeyProvider.value as EchoParticipantKeyProvider | null;
     if (!provider) return;
     try {
       if (epochKey.senderKeys && epochKey.senderKeys.size > 0) {
-        await provider.setEpochKeys(epochKey.senderKeys, epochKey.keyIndex);
+        await provider.setSenderKeys(epochKey.senderKeys, epochKey.keyIndex);
       } else {
         const selfId = lkRoom.value?.localParticipant.identity?.trim();
         if (selfId) {
-          await provider.setSenderEpochKey(
-            selfId,
-            epochKey.raw,
-            epochKey.keyIndex,
-          );
+          await provider.setSenderKey(selfId, epochKey.raw, epochKey.keyIndex);
         }
       }
       voiceClientDiag('info', 'voice.client:lk_e2ee_epoch_rotated', {
@@ -143,16 +167,10 @@ export function createConnectController(
     }
   }
 
-  /**
-   * End the MLS group session when the room tears down, so the remaining
-   * deterministic committer removes us (forward secrecy) and the E2EE badge
-   * state clears. Guarded by the lightweight active-state ref so the ts-mls
-   * chunk is only loaded when an MLS session actually exists.
-   */
-  function stopActiveVoiceMlsSession(): void {
+  function stopActiveVoiceMediaKeySession(): void {
     if (!activeVoiceE2eeChannelKey.value) return;
-    void import('@/services/voice/mls/voiceMlsSession')
-      .then((m) => m.stopVoiceMlsSession())
+    void import('@/features/voice/voiceE2eePrepare')
+      .then((m) => m.stopVoiceMediaKeySession())
       .catch(() => {});
   }
 
@@ -242,28 +260,26 @@ export function createConnectController(
 
       let encryption:
         | {
-            keyProvider:
-              | ExternalE2EEKeyProvider
-              | import('@/services/voice/mls/echoMlsKeyProvider').EchoMlsKeyProvider;
+            keyProvider: EchoParticipantKeyProvider;
             worker: Worker;
           }
         | undefined;
 
-      const mlsInput =
+      const e2eeInput: EchoVoiceE2eeConnectInput | null =
         e2eeMediaKey && !(e2eeMediaKey instanceof ArrayBuffer)
           ? (e2eeMediaKey as EchoVoiceE2eeConnectInput)
-          : null;
-      const legacyKey =
-        e2eeMediaKey instanceof ArrayBuffer ? e2eeMediaKey : null;
+          : e2eeMediaKey instanceof ArrayBuffer && e2eeMediaKey.byteLength > 0
+            ? { initialKey: e2eeMediaKey, keyIndex: 0 }
+            : null;
 
-      if (mlsInput && mlsInput.initialKey.byteLength > 0) {
-        const { EchoMlsKeyProvider } =
-          await import('@/services/voice/mls/echoMlsKeyProvider');
-        const keyProvider = new EchoMlsKeyProvider();
-        if (mlsInput.senderKeys && mlsInput.senderKeys.size > 0) {
-          await keyProvider.setEpochKeys(
-            mlsInput.senderKeys,
-            mlsInput.keyIndex,
+      if (e2eeInput && e2eeInput.initialKey.byteLength > 0) {
+        const { EchoParticipantKeyProvider } =
+          await import('@/services/voice/e2ee/echoParticipantKeyProvider');
+        const keyProvider = new EchoParticipantKeyProvider();
+        if (e2eeInput.senderKeys && e2eeInput.senderKeys.size > 0) {
+          await keyProvider.setSenderKeys(
+            e2eeInput.senderKeys,
+            e2eeInput.keyIndex,
           );
         } else {
           const selfId = (() => {
@@ -277,10 +293,10 @@ export function createConnectController(
             }
           })();
           if (selfId) {
-            await keyProvider.setSenderEpochKey(
+            await keyProvider.setSenderKey(
               selfId,
-              mlsInput.initialKey,
-              mlsInput.keyIndex,
+              e2eeInput.initialKey,
+              e2eeInput.keyIndex,
             );
           }
         }
@@ -292,17 +308,6 @@ export function createConnectController(
         }
         liveKitE2eeWorker.value = worker;
         liveKitMlsKeyProvider.value = keyProvider;
-        encryption = { keyProvider, worker };
-      } else if (legacyKey && legacyKey.byteLength > 0) {
-        const keyProvider = new ExternalE2EEKeyProvider();
-        await keyProvider.setKey(legacyKey);
-        const worker = createLiveKitE2eeWorker();
-        createdWorker = worker;
-        if (myGen !== connectGeneration.value) {
-          worker.terminate();
-          throw new VoiceConnectSupersededError();
-        }
-        liveKitE2eeWorker.value = worker;
         encryption = { keyProvider, worker };
       }
 

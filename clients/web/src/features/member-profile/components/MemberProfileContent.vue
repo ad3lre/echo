@@ -10,6 +10,7 @@ import ProfileVoiceActivityWidget from './ProfileVoiceActivityWidget.vue';
 import ProfileVcActivityWidget from './ProfileVcActivityWidget.vue';
 import { useProfileOngoingVcActivity } from '@/features/member-profile/useProfileOngoingVcActivity';
 import ProfileBioText from './ProfileBioText.vue';
+import DiscordOriginMark from '@/features/discord/DiscordOriginMark.vue';
 import {
   memberPopoutRoleAccentColor,
   memberPopoutRoleChipStyle,
@@ -265,6 +266,10 @@ defineExpose({
             >
               {{ profile.displayName }}
             </h3>
+            <DiscordOriginMark
+              v-if="profile.isDiscordShadow"
+              label="Discord profile (not on Echo)"
+            />
             <div
               v-if="badgesForNameRow.length || showFriendsBadge"
               class="flex min-w-0 shrink-0 flex-wrap items-center gap-1.5"

@@ -6,6 +6,12 @@ type StageBlockArgs = Parameters<typeof useStageVcActivityBlock>[0];
  * Wraps each VC-activity opener with the stage-block guard (a stage channel
  * cannot launch activities), so the shell can hand presentational components
  * the guarded `*OnVoice` variants.
+ *
+ * Also jumps the main surface to the connected voice channel when needed.
+ * Activity UI mounts whenever `vcActivityUi.phase !== 'closed'` (not only while
+ * CallView is already on screen), so openers set phase synchronously — waiting
+ * on `nextTick` / async chunk load left the picker looking like a no-op when
+ * the user was browsing text with a sidebar-only voice session.
  */
 export function useAppLayoutVcActivityGuards(
   deps: Pick<
@@ -15,6 +21,8 @@ export function useAppLayoutVcActivityGuards(
     | 'vcActivityUi'
     | 'closeVcActivity'
   > & {
+    /** Jump main surface to the connected guild VC when not already viewing it. */
+    ensureViewingConnectedVoiceChannel?: () => void;
     openVcActivityPicker: () => void;
     openVcActivityYoutubeBrowse: () => void;
     openVcActivityWordle: () => void;
@@ -40,47 +48,63 @@ export function useAppLayoutVcActivityGuards(
     closeVcActivity: deps.closeVcActivity,
   });
 
+  function guardOpenWithVoiceSurface<T extends (...args: never[]) => unknown>(
+    fn: T,
+  ): T {
+    const stageGuarded = guardVcActivityOpen(fn);
+    return ((...args: Parameters<T>) => {
+      deps.ensureViewingConnectedVoiceChannel?.();
+      return stageGuarded(...args);
+    }) as T;
+  }
+
   return {
-    openVcActivityPickerOnVoice: guardVcActivityOpen(deps.openVcActivityPicker),
-    openVcActivityYoutubeBrowseOnVoice: guardVcActivityOpen(
+    openVcActivityPickerOnVoice: guardOpenWithVoiceSurface(
+      deps.openVcActivityPicker,
+    ),
+    openVcActivityYoutubeBrowseOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityYoutubeBrowse,
     ),
-    openVcActivityWordleOnVoice: guardVcActivityOpen(deps.openVcActivityWordle),
-    openVcActivityHangmanOnVoice: guardVcActivityOpen(
+    openVcActivityWordleOnVoice: guardOpenWithVoiceSurface(
+      deps.openVcActivityWordle,
+    ),
+    openVcActivityHangmanOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityHangman,
     ),
-    openVcActivitySkrigglesOnVoice: guardVcActivityOpen(
+    openVcActivitySkrigglesOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivitySkriggles,
     ),
-    openVcActivityTicTacToeOnVoice: guardVcActivityOpen(
+    openVcActivityTicTacToeOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityTicTacToe,
     ),
-    openVcActivityOpenGuessrOnVoice: guardVcActivityOpen(
+    openVcActivityOpenGuessrOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityOpenGuessr,
     ),
-    openVcActivitySkribblIoOnVoice: guardVcActivityOpen(
+    openVcActivitySkribblIoOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivitySkribblIo,
     ),
-    openVcActivityGarticPhoneOnVoice: guardVcActivityOpen(
+    openVcActivityGarticPhoneOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityGarticPhone,
     ),
-    openVcActivityKrunkerOnVoice: guardVcActivityOpen(
+    openVcActivityKrunkerOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityKrunker,
     ),
-    openVcActivityCodenamesOnVoice: guardVcActivityOpen(
+    openVcActivityCodenamesOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityCodenames,
     ),
-    openVcActivityRichupOnVoice: guardVcActivityOpen(deps.openVcActivityRichup),
-    openVcActivityGooberDashOnVoice: guardVcActivityOpen(
+    openVcActivityRichupOnVoice: guardOpenWithVoiceSurface(
+      deps.openVcActivityRichup,
+    ),
+    openVcActivityGooberDashOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityGooberDash,
     ),
-    openVcActivitySmashKartsOnVoice: guardVcActivityOpen(
+    openVcActivitySmashKartsOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivitySmashKarts,
     ),
-    openVcActivityClusterRushOnVoice: guardVcActivityOpen(
+    openVcActivityClusterRushOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityClusterRush,
     ),
-    openVcActivityWatchTogetherOnVoice: guardVcActivityOpen(
+    openVcActivityWatchTogetherOnVoice: guardOpenWithVoiceSurface(
       deps.openVcActivityWatchTogether,
     ),
   };

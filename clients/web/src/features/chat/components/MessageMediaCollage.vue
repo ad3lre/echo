@@ -8,7 +8,9 @@ import {
 import MessageMediaCollageCell from './MessageMediaCollageCell.vue';
 
 const props = defineProps<{ items: CollageSourceItem[] }>();
-const emit = defineEmits<{ open: [url: string] }>();
+const emit = defineEmits<{
+  open: [payload: { url: string; storageKey?: string }];
+}>();
 
 const plan = computed(() => planMediaCollage(props.items));
 
@@ -29,7 +31,12 @@ const boxStyle = computed(() =>
       :fit="cell.fit"
       :overflow-count="cell.overflowCount"
       :style="{ gridColumn: cell.gridColumn, gridRow: cell.gridRow }"
-      @open="emit('open', cell.item.url)"
+      @open="
+        emit('open', {
+          url: cell.item.url,
+          storageKey: cell.item.storageKey,
+        })
+      "
     />
   </div>
 </template>

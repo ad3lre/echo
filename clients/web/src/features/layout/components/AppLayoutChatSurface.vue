@@ -17,7 +17,6 @@ import { getActivePinia, storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/features/dev/devSettings';
 import AppLayoutChatHeader from '@/features/layout/components/AppLayoutChatHeader.vue';
 import AppLayoutPinsDropdown from '@/features/layout/components/AppLayoutPinsDropdown.vue';
-import GuildVoiceFloatingSpeakerPill from '@/features/layout/components/GuildVoiceFloatingSpeakerPill.vue';
 import GuildVoiceStreamPip from '@/features/layout/components/GuildVoiceStreamPip.vue';
 /**
  * Main-surface views render one at a time (voice / forum / paper / DM are mutually
@@ -124,6 +123,23 @@ const chatCtx = computed(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deliberately loose: child layout components keep their own prop contracts over this merged inject+props bag
   return o as any;
 });
+
+/** Activities mount via VoiceSection even when CallView is not the active surface. */
+const vcActivitySurfaceOpen = computed(() => {
+  const ui = chatCtx.value.vcActivityUi as MaybeRef<{ phase?: string } | null>;
+  return unref(ui)?.phase !== 'closed' && unref(ui)?.phase != null;
+});
+
+// Prefetch CallView shell while connected so Activities is not a cold async mount.
+watch(
+  () => chatCtx.value.currentVoiceChannelId as string | null | undefined,
+  (id) => {
+    if (!id?.trim()) return;
+    void import('@/features/layout/components/AppLayoutVoiceSection.vue');
+    void import('@/features/voice/components/VcActivityStage.vue');
+  },
+  { immediate: true },
+);
 
 const searchPanel = inject(APP_LAYOUT_SEARCH_PANEL_KEY, null);
 
@@ -531,7 +547,8 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
       <AppLayoutVoiceSection
         v-if="
           chatCtx.callOverlay.type === 'serverVoice' ||
-          chatCtx.mainSurface.type === 'serverVoice'
+          chatCtx.mainSurface.type === 'serverVoice' ||
+          vcActivitySurfaceOpen
         "
         :is-viewing-voice-channel="chatCtx.isViewingVoiceChannel"
         :current-voice-channel-id="chatCtx.currentVoiceChannelId"
@@ -968,7 +985,6 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
       </div>
     </div>
 
-    <GuildVoiceFloatingSpeakerPill />
     <GuildVoiceStreamPip />
 
     <AppLayoutDmSidePanel

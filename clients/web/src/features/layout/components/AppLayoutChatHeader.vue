@@ -9,7 +9,10 @@ import {
   type ComputedRef,
   type Ref,
 } from 'vue';
-import type { MainSurface } from '@/features/layout/mainSurface';
+import {
+  isEmptyGuildChatSurface,
+  type MainSurface,
+} from '@/features/layout/mainSurface';
 import SearchBar from '@/features/chat/components/SearchBar.vue';
 import MobileSearchModal from '@/features/chat/components/MobileSearchModal.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -419,6 +422,11 @@ const headerActiveChannel = computed((): ChannelSummary | null => {
   return channels.find((c) => c.id === cid) ?? null;
 });
 
+/** Empty guild: no active channel, but still need compact escape chrome (back / channels). */
+const emptyGuildChatSurface = computed(() =>
+  isEmptyGuildChatSurface((props as { mainSurface?: MainSurface }).mainSurface),
+);
+
 const showChatHeaderChrome = computed(() => {
   if (isDmHubSurface.value) return false;
   const p = props as {
@@ -431,10 +439,34 @@ const showChatHeaderChrome = computed(() => {
   if (p.isInDMChat && p.dmCallFullscreen && activeDmThreadCallUi.value) {
     return false;
   }
+  if (p.isViewingVoiceChannel) return false;
   const ch = headerActiveChannel.value;
-  if (!ch || p.isViewingVoiceChannel) return false;
+  if (!ch) {
+    // No channel selected (empty server / deleted last channel): keep the header
+    // so compact shells still expose Back → channel list / server list.
+    return emptyGuildChatSurface.value && !p.isInDMMode;
+  }
   if (!p.isInDMMode) return true;
   return !!(p.isInDMChat && p.dmActiveTab === 'messages');
+});
+
+const headerTitleText = computed(() => {
+  const p = props as {
+    isInDMMode?: boolean;
+    dmActiveTab?: string;
+    selectedServerName?: string;
+    getChannelDisplayName?: (name: string) => string;
+  };
+  if (p.isInDMMode && p.dmActiveTab === 'friends') return 'Friends';
+  if (p.isInDMMode && p.dmActiveTab === 'notifications') return 'Notifications';
+  const ch = headerActiveChannel.value;
+  if (ch) {
+    return p.getChannelDisplayName?.(ch.name) ?? ch.name;
+  }
+  if (emptyGuildChatSurface.value) {
+    return p.selectedServerName?.trim() || 'Server';
+  }
+  return '';
 });
 
 const activeDmThreadCallUi = computed<ActiveDmThreadCallUi | null>(
@@ -1223,7 +1255,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           isCompactShell &&
           !compactGuildSplitNav &&
           !isViewingVoiceChannel &&
-          headerActiveChannel
+          (headerActiveChannel || emptyGuildChatSurface)
         "
         type="button"
         class="dm-header-action-btn -ml-0.5 shrink-0"
@@ -1307,7 +1339,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         >{{ leadingEmoji }}</span
       >
       <img
-        v-else
+        v-else-if="headerActiveChannel"
         :src="
           leadingChannelRasterIconUrl || getChannelIcon(headerActiveChannel)
         "
@@ -1336,15 +1368,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             aria-label="Open profile"
             @click="callOpenExtendedProfileModalForUserId(dmPartnerUser.id)"
           >
-            {{
-              isInDMMode && dmActiveTab === 'friends'
-                ? 'Friends'
-                : isInDMMode && dmActiveTab === 'notifications'
-                  ? 'Notifications'
-                  : headerActiveChannel
-                    ? getChannelDisplayName(headerActiveChannel.name)
-                    : ''
-            }}
+            {{ headerTitleText }}
           </button>
           <button
             v-else-if="
@@ -1359,15 +1383,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             aria-label="Edit group name"
             @click="callOpenGroupNameActionFromHeader"
           >
-            {{
-              isInDMMode && dmActiveTab === 'friends'
-                ? 'Friends'
-                : isInDMMode && dmActiveTab === 'notifications'
-                  ? 'Notifications'
-                  : headerActiveChannel
-                    ? getChannelDisplayName(headerActiveChannel.name)
-                    : ''
-            }}
+            {{ headerTitleText }}
           </button>
           <span
             v-else
@@ -1379,15 +1395,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
                 ? 'text-fg-subtle'
                 : ''
             "
-            >{{
-              isInDMMode && dmActiveTab === 'friends'
-                ? 'Friends'
-                : isInDMMode && dmActiveTab === 'notifications'
-                  ? 'Notifications'
-                  : headerActiveChannel
-                    ? getChannelDisplayName(headerActiveChannel.name)
-                    : ''
-            }}</span
+            >{{ headerTitleText }}</span
           >
         </div>
         <div

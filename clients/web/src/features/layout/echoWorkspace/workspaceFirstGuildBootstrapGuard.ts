@@ -8,6 +8,14 @@ export type WorkspaceFirstGuildBootstrapGuardInput = {
   activeChannelId: string;
   echoDmThreadIds?: ReadonlySet<string> | null;
   dmCallWithUserId?: string | null;
+  /**
+   * Peer selected for a 1:1 DM (including while `/dm/open` is in flight). Bootstrap
+   * must not yank back to a guild while this is set — `selectServer('echo')` alone
+   * is what makes hydrate eligible to steal.
+   */
+  selectedDMUserId?: string | null;
+  /** True while `/dm/open` is resolving (optimistic shell / empty-state race). */
+  isOpeningDmThread?: boolean;
   isDmThreadId: (channelId: string) => boolean;
 };
 
@@ -17,6 +25,8 @@ export type WorkspaceFirstGuildBootstrapGuardResult = {
   legacyDmShell: boolean;
   inEchoDmSet: boolean;
   inDmCall: boolean;
+  hasSelectedDmUser: boolean;
+  openingDmThread: boolean;
   cid: string | null;
 };
 
@@ -28,14 +38,23 @@ export function workspaceFirstGuildBootstrapGuard(
   const legacyDmShell = cid ? input.isDmThreadId(cid) : false;
   const inEchoDmSet = input.echoDmThreadIds?.has(cid) ?? false;
   const inDmCall = Boolean(input.dmCallWithUserId?.trim());
+  const hasSelectedDmUser = Boolean(input.selectedDMUserId?.trim());
+  const openingDmThread = input.isOpeningDmThread === true;
   const skipFirstGuildBootstrap =
-    inDmRail || legacyDmShell || inEchoDmSet || inDmCall;
+    inDmRail ||
+    legacyDmShell ||
+    inEchoDmSet ||
+    inDmCall ||
+    hasSelectedDmUser ||
+    openingDmThread;
   return {
     skipFirstGuildBootstrap,
     inDmRail,
     legacyDmShell,
     inEchoDmSet,
     inDmCall,
+    hasSelectedDmUser,
+    openingDmThread,
     cid: cid || null,
   };
 }

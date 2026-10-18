@@ -80,6 +80,8 @@ export type EchoWorkspaceHydrateParams = {
   mergeEchoBlockedFromApi?: (blockedUserIds: string[]) => void;
   echoDmThreadIds?: Ref<Set<string>>;
   dmCallWithUserId?: Ref<string | null>;
+  selectedDMUserId?: Ref<string | null>;
+  isOpeningDmThread?: Ref<boolean>;
   refreshEchoRoleData: () => Promise<void>;
   syncEchoPresenceFromApi?: () => void;
   ensureAuthUserInMockUsers: () => void;
@@ -194,6 +196,8 @@ export async function runEchoWorkspaceHydrateFromApi(
         getFirstTextChannelId: p.getFirstTextChannelId,
         echoDmThreadIds: p.echoDmThreadIds?.value ?? null,
         dmCallWithUserId: p.dmCallWithUserId?.value ?? null,
+        selectedDMUserId: p.selectedDMUserId?.value ?? null,
+        isOpeningDmThread: p.isOpeningDmThread?.value === true,
         logSource: SHELL_SOURCE,
       });
     }

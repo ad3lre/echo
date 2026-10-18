@@ -80,13 +80,21 @@ export function overwriteLocalProfileFromAuthUser(user: {
 }
 
 /** Merge stored overrides into a user row (mock / offline). */
-export function mergeLocalProfileIntoUser<T extends { id: string }>(
-  user: T,
-): T {
+export function mergeLocalProfileIntoUser<
+  T extends { id: string; pfp?: string },
+>(user: T): T {
   const map = loadLocalProfileMap();
   const o = map[user.id];
   if (!o) return user;
-  return { ...user, ...o };
+  const merged = { ...user, ...o } as T;
+  // Never let a blank local pfp wipe a real auth/API avatar (stale local cache
+  // then gets re-persisted and the rail stays empty until storage is cleared).
+  const localPfp = typeof o.pfp === 'string' ? o.pfp.trim() : undefined;
+  const apiPfp = typeof user.pfp === 'string' ? user.pfp.trim() : '';
+  if (localPfp === '' && apiPfp) {
+    (merged as { pfp?: string }).pfp = user.pfp;
+  }
+  return merged;
 }
 
 export function mergeLocalProfilesIntoUsers<T extends { id: string }>(

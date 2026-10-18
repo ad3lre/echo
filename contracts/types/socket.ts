@@ -84,18 +84,20 @@ export type EchoWorkspaceEventKind =
   /** Discord VC roster mirror snapshot for display-only voice channels. */
   | 'discord_voice_mirror_roster'
   /**
-   * Voice E2EE media epoch was superseded (guild: participant join/leave; DM/guild: room finished).
-   * Clients must obtain new key material before publishing again.
+   * Voice E2EE media epoch was superseded (legacy v1 path; kept for old clients).
+   * Prefer `voice_media_key` for Element Call–style per-participant keys.
    */
   | 'voice_e2ee_epoch_superseded'
   /**
-   * Voice E2EE v2 (MLS / RFC 9420): a new handshake message (commit / proposal /
-   * welcome) was appended to a voice channel's MLS delivery log. This is a
-   * notify-to-pull signal — clients in the call fetch
-   * `/voice/mls/messages?since=<seq>` and apply messages in `seq` order, then
-   * rotate the LiveKit media key in-band (no reconnect).
+   * @deprecated MLS delivery notify — retained for socket typing during migration.
    */
   | 'voice_mls_message'
+  /**
+   * Voice E2EE: a participant announced (or rotated) their LiveKit media key.
+   * Notify-to-pull — recipients fetch `/voice/e2ee/media-keys` and install the
+   * sender key on the LiveKit key provider (no reconnect).
+   */
+  | 'voice_media_key'
   /**
    * Immediate voice channel roster mutation pushed to all guild members on the
    * persistent socket connection (Discord-Gateway-style VOICE_STATE_UPDATE).
@@ -191,6 +193,16 @@ export type EchoWorkspaceEvent = {
     /** Set for `welcome` (and other addressed) messages — the intended recipient. */
     recipientUserId?: string;
     recipientDeviceId?: string;
+  };
+  /**
+   * Present when kind === 'voice_media_key'. Opaque notify only — pull inbox
+   * for LibSignal-wrapped sender keys. Never contains key material.
+   */
+  voiceMediaKey?: {
+    serverId: string;
+    channelId: string;
+    senderUserId: string;
+    keyIndex: number;
   };
   /** Present when kind === 'paper_document_updated'. */
   paperDocument?: PaperDocumentPayload;

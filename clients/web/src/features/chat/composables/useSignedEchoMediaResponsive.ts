@@ -40,12 +40,25 @@ export function useSignedEchoMediaResponsive(
   async function refresh(forceRefresh = false): Promise<void> {
     const raw = safeImageUrl(toValue(url));
     const id = ++requestId;
-    const signed = await resolveSignedEchoMediaUrl({
-      url: raw,
-      storageKey: toValue(opts.storageKey),
-      scope: opts.scope,
-      forceRefresh,
-    });
+    // Don't leave avatars waiting forever if the signer stalls — paint the
+    // unsigned URL (or fail over to initials via the img error/timeout path).
+    const SIGN_TIMEOUT_MS = 4_000;
+    let signed: string;
+    try {
+      signed = await Promise.race([
+        resolveSignedEchoMediaUrl({
+          url: raw,
+          storageKey: toValue(opts.storageKey),
+          scope: opts.scope,
+          forceRefresh,
+        }),
+        new Promise<string>((resolve) => {
+          setTimeout(() => resolve(raw), SIGN_TIMEOUT_MS);
+        }),
+      ]);
+    } catch {
+      signed = raw;
+    }
     if (id !== requestId) return;
     const storageKey = toValue(opts.storageKey);
     if (echoMediaUrlSupportsVariants(signed, storageKey)) {

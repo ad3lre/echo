@@ -1,0 +1,10 @@
+/* Dynamic hue monogram placeholders (LimitedGifImg avatar fallback). */
+.avatar-monogram {
+  background: hsl(var(--avatar-monogram-hue, 210) 35% 28%);
+  color: hsl(var(--avatar-monogram-hue, 210) 80% 92%);
+}
+
+[data-theme='light'] .avatar-monogram {
+  background: hsl(var(--avatar-monogram-hue, 210) 42% 86%);
+  color: hsl(var(--avatar-monogram-hue, 210) 40% 28%);
+}

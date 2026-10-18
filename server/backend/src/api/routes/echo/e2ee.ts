@@ -196,7 +196,7 @@ export default async function echoE2eeRoutes(
         reply,
         410,
         'E2EE_CHAT_REMOVED',
-        'Encrypted chat messages are no longer supported. Voice channels and calls use end-to-end encryption by default.',
+        'Encrypted chat messages are no longer supported. Voice E2EE is optional (see channel settings / DM call flags).',
       );
     },
   );

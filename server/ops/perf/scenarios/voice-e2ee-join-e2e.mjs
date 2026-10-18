@@ -151,7 +151,8 @@ async function main() {
   if (await channelRow.isVisible({ timeout: 5000 }).catch(() => false)) {
     await channelRow.click({ timeout: 30_000 });
   } else {
-    // Fallback: join via the same REST + MLS path the client uses before LiveKit mint.
+    // Fallback: REST join + LiveKit mint (media keys are peer-distributed;
+    // mint no longer requires MLS/epoch prepare).
     const joined = await page.evaluate(
       async ({ csrf, serverId, channelId }) => {
         const headers = {
@@ -165,26 +166,6 @@ async function main() {
         if (voiceJoin.status !== 204) {
           return { ok: false, step: 'voice_join', status: voiceJoin.status };
         }
-        const gi = await fetch(
-          `/api/v1/echo/servers/${serverId}/channels/${channelId}/voice/mls/group-info`,
-          { credentials: 'include' },
-        );
-        const giJson = await gi.json();
-        if (!giJson.enabled) return { ok: false, step: 'mls_disabled' };
-        if (!giJson.groupInfo) {
-          const init = await fetch(
-            `/api/v1/echo/servers/${serverId}/channels/${channelId}/voice/mls/init`,
-            {
-              method: 'POST',
-              credentials: 'include',
-              headers,
-              body: JSON.stringify({ groupInfo: 'e2e-opaque-group-info' }),
-            },
-          );
-          if (!init.ok) {
-            return { ok: false, step: 'mls_init', status: init.status };
-          }
-        }
         const mint = await fetch(
           `/api/v1/echo/servers/${serverId}/channels/${channelId}/voice/livekit-session`,
           { method: 'POST', credentials: 'include', headers, body: '{}' },
@@ -196,6 +177,10 @@ async function main() {
             status: mint.status,
             body: await mint.text(),
           };
+        }
+        const session = await mint.json();
+        if (!session?.voiceE2ee?.required) {
+          return { ok: false, step: 'e2ee_not_required' };
         }
         return { ok: true };
       },

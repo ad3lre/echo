@@ -16,7 +16,11 @@ import {
   navStateFromRefs,
   applyNavStateToRefs,
 } from '@/features/layout/navigationReducer';
-import type { MainSurface, NavState } from '@/features/layout/mainSurface';
+import {
+  isDmThreadId,
+  type MainSurface,
+  type NavState,
+} from '@/features/layout/mainSurface';
 import { logShellNav } from '@/features/layout/shellNavDebugLog';
 import { normalizeBrowserPathParsed } from '@/features/layout/urlNavigationLocationNormalize';
 import {
@@ -40,6 +44,7 @@ import {
 } from '@/features/layout/urlNavigation';
 import { isEchoGraphId } from '@/features/layout/ids/echoIds';
 import { dmPeerUserIdFromChannelId } from '@/features/dm/buildDmPanelUserList';
+import { shouldSkipGuildPathReapply } from '@/features/layout/composables/shell/shouldSkipGuildPathReapply';
 
 export interface UseUrlNavigationSyncOptions {
   base: string;
@@ -471,6 +476,7 @@ export function useUrlNavigationSync(opts: UseUrlNavigationSyncOptions) {
       () => opts.workspace.categoriesByServer.value,
       opts.activeChannelId,
       () => opts.serverStore.selectedServerId,
+      opts.selectedDMUserId,
     ],
     () => {
       if (!opts.workspaceReady.value || !initialNavigationApplied.value) return;
@@ -479,6 +485,28 @@ export function useUrlNavigationSync(opts: UseUrlNavigationSyncOptions) {
       if (!urlGuild) return;
       if (opts.activeChannelId.value === urlGuild.channelId) return;
       if (opts.serverStore.selectedServerId !== urlGuild.serverId) return;
+      if (
+        shouldSkipGuildPathReapply({
+          selectedDMUserId: opts.selectedDMUserId.value,
+          activeChannelId: opts.activeChannelId.value,
+          selectedServerId: opts.serverStore.selectedServerId,
+          echoDmThreadIds: opts.echoDmThreadIds.value,
+        })
+      ) {
+        logShellNav(
+          'useUrlNavigationSync',
+          'skip_reapply_guild_path_dm_intent',
+          {
+            urlChannelId: urlGuild.channelId,
+            activeChannelId: opts.activeChannelId.value,
+            selectedDMUserId: opts.selectedDMUserId.value,
+            dmThread:
+              isDmThreadId(opts.activeChannelId.value) ||
+              opts.echoDmThreadIds.value.has(opts.activeChannelId.value),
+          },
+        );
+        return;
+      }
       const cats = opts.workspace.categoriesByServer.value[urlGuild.serverId];
       if (!cats?.length) return;
       const inRawTree = cats.some((c) =>

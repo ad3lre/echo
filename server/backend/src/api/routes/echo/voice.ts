@@ -11,10 +11,7 @@ import {
   applyEchoVoiceModerationAction,
   canUserSpeakInStageChannel,
   cancelEchoStageSpeakRequest,
-  getActiveVoiceE2eeEpoch,
   getEchoChannelVoiceE2eeEnabled,
-  getMlsGroupInfo,
-  userHasVoiceE2eeEnvelopeForJoin,
   insertEchoAudit,
   joinEchoVoiceChannel,
   leaveEchoVoiceChannel,
@@ -390,29 +387,6 @@ export default async function echoVoiceRoutes(
       }
       const roomName = liveKitRoomName(serverId, channelId);
       const uid = getAuthUser(req).id;
-      const logE2eeMintRejected = async (code: string) => {
-        // Keep the REST voice-participant row: the client runs MLS / epoch
-        // prepare after a 409 and must stay in `echo_voice_participants` for
-        // `actorInVoiceChannel` guards on MLS init/commit.
-        const auditId = await insertEchoAudit(
-          pool,
-          serverId,
-          uid,
-          'voice.join_e2ee_rejected',
-          'channel',
-          channelId,
-          { code },
-        );
-        publishEchoWorkspaceEvent(
-          fastify,
-          {
-            kind: 'workspace_invalidated',
-            version: auditId,
-            serverId,
-          },
-          { serverId },
-        );
-      };
       const modRow = await pool.query(
         `SELECT server_muted, server_deafened FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
         [serverId, uid],
@@ -439,58 +413,13 @@ export default async function echoVoiceRoutes(
           ? Boolean(modRow.rows[0].server_deafened)
           : false,
       });
+      // Element Call–style media keys are peer-distributed; mint only reports
+      // whether this channel requires LiveKit frame E2EE (no epoch/MLS gate).
       const voiceE2eeRequired = await getEchoChannelVoiceE2eeEnabled(
         pool,
         serverId,
         channelId,
       );
-      const activeEpoch = voiceE2eeRequired
-        ? await getActiveVoiceE2eeEpoch(pool, serverId, channelId)
-        : null;
-      /**
-       * MLS (v2, RFC 9420) satisfies the E2EE join requirement: the client
-       * creates or externally joins the channel's MLS group during its prepare
-       * step (before this mint), and derives media keys from the group's epoch
-       * secret — there are no server-distributed envelopes to verify. The
-       * legacy v1 epoch/envelope checks below only apply when no MLS group
-       * exists for this channel (old clients).
-       */
-      const mlsGroupActive =
-        voiceE2eeRequired &&
-        (await getMlsGroupInfo(pool, serverId, channelId)) !== null;
-      if (voiceE2eeRequired && !mlsGroupActive) {
-        if (!activeEpoch) {
-          await logE2eeMintRejected('VOICE_E2EE_EPOCH_REQUIRED');
-          return sendError(
-            reply,
-            409,
-            'VOICE_E2EE_EPOCH_REQUIRED',
-            'End-to-end encrypted voice requires a call key. Create an epoch before connecting.',
-          );
-        }
-        const isCreator = activeEpoch.createdByUserId === uid;
-        if (!isCreator) {
-          const e2eeDeviceId =
-            typeof req.body?.e2eeDeviceId === 'string'
-              ? req.body.e2eeDeviceId.trim()
-              : '';
-          const hasEnvelope = await userHasVoiceE2eeEnvelopeForJoin(
-            pool,
-            activeEpoch.id,
-            uid,
-            e2eeDeviceId || null,
-          );
-          if (!hasEnvelope) {
-            await logE2eeMintRejected('VOICE_E2EE_ENVELOPE_MISSING');
-            return sendError(
-              reply,
-              409,
-              'VOICE_E2EE_ENVELOPE_MISSING',
-              'No encrypted key material for your account. Wait for the key distributor or refresh.',
-            );
-          }
-        }
-      }
 
       const pfpMeta = pfpForLiveKitParticipantMetadata(
         getAuthUser(req).pfp ?? '',
@@ -549,7 +478,7 @@ export default async function echoVoiceRoutes(
         bitrateBps,
         voiceE2ee: {
           required: voiceE2eeRequired,
-          epochId: voiceE2eeRequired ? (activeEpoch?.id ?? null) : null,
+          epochId: null,
         },
       });
     },

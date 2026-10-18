@@ -80,6 +80,7 @@ type VoiceSliceKeys =
   | 'dmCallVoiceStripTitle'
   | 'channelPanelVoiceChannelId'
   | 'channelPanelVoiceChannelName'
+  | 'channelPanelVoiceConnectionStatus'
   | 'channelPanelVcMutedEffective'
   | 'channelPanelVcDeafenedEffective'
   | 'channelPanelVcVideoEffective'

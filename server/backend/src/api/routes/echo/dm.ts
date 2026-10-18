@@ -17,9 +17,6 @@ import {
   removeEchoGroupDmMember,
   userMayJoinDmLiveKitRoom,
   echoDmVoiceE2eeRequired,
-  getActiveVoiceE2eeEpoch,
-  getMlsGroupInfo,
-  userHasVoiceE2eeEnvelopeForJoin,
 } from '../../../domain/echoStore';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { config } from '../../../config';
@@ -628,53 +625,9 @@ export default async function echoDmRoutes(
           'You cannot join a call in this conversation.',
         );
       }
+      // Element Call–style media keys are peer-distributed; mint only reports
+      // whether DM voice E2EE is required (no epoch/MLS gate).
       const voiceE2eeRequired = await echoDmVoiceE2eeRequired(pool, channelId);
-      const activeEpoch = await getActiveVoiceE2eeEpoch(
-        pool,
-        ECHO_DM_REALM_SERVER_ID,
-        channelId,
-      );
-      /**
-       * MLS (v2) satisfies the E2EE requirement — the client joins the
-       * channel's MLS group during prepare (before this mint) and derives keys
-       * from the group epoch secret. Legacy v1 epoch/envelope checks apply
-       * only when no MLS group exists (old clients).
-       */
-      const mlsGroupActive =
-        voiceE2eeRequired &&
-        (await getMlsGroupInfo(pool, ECHO_DM_REALM_SERVER_ID, channelId)) !==
-          null;
-      if (voiceE2eeRequired && !mlsGroupActive) {
-        if (!activeEpoch) {
-          return sendError(
-            reply,
-            409,
-            'VOICE_E2EE_EPOCH_REQUIRED',
-            'End-to-end encrypted voice requires a call key. Create an epoch before connecting.',
-          );
-        }
-        const isCreator = activeEpoch.createdByUserId === uid;
-        if (!isCreator) {
-          const e2eeDeviceId =
-            typeof req.body?.e2eeDeviceId === 'string'
-              ? req.body.e2eeDeviceId.trim()
-              : '';
-          const hasEnvelope = await userHasVoiceE2eeEnvelopeForJoin(
-            pool,
-            activeEpoch.id,
-            uid,
-            e2eeDeviceId || null,
-          );
-          if (!hasEnvelope) {
-            return sendError(
-              reply,
-              409,
-              'VOICE_E2EE_ENVELOPE_MISSING',
-              'No encrypted key material for your account. Wait for the call creator or refresh.',
-            );
-          }
-        }
-      }
       const roomName = liveKitRoomName(ECHO_DM_REALM_SERVER_ID, channelId);
       const pfpMeta = pfpForLiveKitParticipantMetadata(
         getAuthUser(req).pfp ?? '',
@@ -693,7 +646,7 @@ export default async function echoDmRoutes(
         roomName,
         voiceE2ee: {
           required: voiceE2eeRequired,
-          epochId: voiceE2eeRequired ? (activeEpoch?.id ?? null) : null,
+          epochId: null,
         },
       });
     },

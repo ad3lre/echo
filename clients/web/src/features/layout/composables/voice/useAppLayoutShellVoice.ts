@@ -30,6 +30,7 @@ import { isEchoGraphId } from '@/features/layout/ids/echoIds';
 import type { AppLayoutDmCallsVoiceBinding } from '../dm/useAppLayoutDmCalls';
 import { runVoiceJoinMediaPreflightInteractive } from '@/features/voice/voiceJoinMediaPreflightFlow';
 import { dispatchVoiceJoinPrepareMicTest } from '@/audio/echoVoiceMicTestBridge';
+import { ensureEchoVoiceCaptureAudioSession } from '@/audio/echoSoundAudioSession';
 import { EchoApiError } from '@/api/echo/transport';
 import {
   requestGuildVoiceDiscordMirrorModal,
@@ -43,6 +44,20 @@ import type {
   VcActivityUiState,
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
+import type { LiveKitRoomState } from '@/features/voice/livekitVoiceRoom.types';
+
+/** Sidebar strip status while joining before LiveKit reports a room state. */
+export type GuildVoiceJoinUiPhase =
+  | { status: 'idle' }
+  | {
+      status: 'awaiting_mic' | 'connecting';
+      channelId: string;
+      channelName: string;
+    };
+
+export type ChannelPanelVoiceConnectionStatus =
+  | LiveKitRoomState
+  | 'awaiting_mic';
 
 export type UseAppLayoutShellVoiceDeps = {
   authSession: AuthSessionStore;
@@ -422,9 +437,36 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     return true;
   });
 
+  /** Sidebar join stages before `currentVoiceChannelId` is set (mic prompt → LiveKit). */
+  const guildVoiceJoinUi = ref<GuildVoiceJoinUiPhase>({ status: 'idle' });
+  let guildVoiceJoinGeneration = 0;
+
+  function clearGuildVoiceJoinUi() {
+    guildVoiceJoinUi.value = { status: 'idle' };
+  }
+
+  function setGuildVoiceJoinUi(
+    status: 'awaiting_mic' | 'connecting',
+    channelId: string,
+    channelName: string,
+  ) {
+    guildVoiceJoinUi.value = { status, channelId, channelName };
+  }
+
+  /** Cancel an in-flight sidebar join (strip leave / superseded join). */
+  function cancelGuildVoiceJoinInFlight() {
+    guildVoiceJoinGeneration += 1;
+    clearGuildVoiceJoinUi();
+  }
+
   const channelPanelVoiceChannelId = computed((): string | null => {
     const g = currentVoiceChannelId.value?.trim();
     if (g) return g;
+    const joining = guildVoiceJoinUi.value;
+    if (joining.status !== 'idle') {
+      const id = joining.channelId.trim();
+      if (id) return id;
+    }
     const tid = dmCallVoiceStripThreadId.value?.trim();
     if (channelPanelVoiceTransportUsesDmCall.value && tid) return tid;
     return null;
@@ -434,11 +476,28 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     if (currentVoiceChannelId.value?.trim()) {
       return currentVoiceChannelName.value;
     }
+    const joining = guildVoiceJoinUi.value;
+    if (joining.status !== 'idle') {
+      return joining.channelName;
+    }
     if (channelPanelVoiceTransportUsesDmCall.value) {
       return dmCallVoiceStripTitle.value;
     }
     return '';
   });
+
+  const channelPanelVoiceConnectionStatus = computed(
+    (): ChannelPanelVoiceConnectionStatus => {
+      const joining = guildVoiceJoinUi.value;
+      if (joining.status === 'awaiting_mic') return 'awaiting_mic';
+      if (joining.status === 'connecting') {
+        const lk = liveKitState.value;
+        if (lk === 'connected' || lk === 'error') return lk;
+        return 'connecting';
+      }
+      return liveKitState.value;
+    },
+  );
 
   const channelPanelVcMutedEffective = computed(() =>
     channelPanelVoiceTransportUsesDmCall.value
@@ -558,29 +617,46 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
       });
       return;
     }
-    let joinWithoutMic = false;
+    const joinGen = ++guildVoiceJoinGeneration;
     if (micTestListenDeafenActive.value) {
       dispatchVoiceJoinPrepareMicTest();
       setMicTestListenDeafen(false);
     }
+    // Safari: leave SFX `transient` session before any LiveKit / mic work.
+    ensureEchoVoiceCaptureAudioSession();
+    setGuildVoiceJoinUi('awaiting_mic', payload.channelId, payload.channelName);
     if (!vcMuted.value) {
       const preflight = await runVoiceJoinMediaPreflightInteractive();
-      if (preflight === 'cancelled') return;
+      if (joinGen !== guildVoiceJoinGeneration) return;
+      if (preflight === 'cancelled') {
+        clearGuildVoiceJoinUi();
+        return;
+      }
       if (preflight === 'join_muted') {
         onChannelPanelVcMuted(true);
-        joinWithoutMic = true;
       }
     }
+    if (joinGen !== guildVoiceJoinGeneration) return;
     if (dmCallWithUserId.value) {
       await endDmCall();
     }
-    activeChannelId.value = payload.channelId;
+    if (joinGen !== guildVoiceJoinGeneration) return;
+    // Stay on the current main surface; CallView opens only on a later click
+    // once `currentVoiceChannelId` matches (already-in-VC branch above).
+    setGuildVoiceJoinUi('connecting', payload.channelId, payload.channelName);
     try {
       await joinVoiceSession(payload);
+      if (joinGen !== guildVoiceJoinGeneration) {
+        // A newer join owns the transport queue; do not disconnect it.
+        return;
+      }
+      clearGuildVoiceJoinUi();
       if (isCompactGuildTriPane.value) {
         voiceSideChatCollapsed.value = true;
       }
     } catch (e) {
+      if (joinGen !== guildVoiceJoinGeneration) return;
+      clearGuildVoiceJoinUi();
       if (e instanceof EchoApiError) {
         requestGuildVoiceJoinApiDeniedModal(e);
       } else {
@@ -597,18 +673,10 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
           },
         });
       }
-      const fallback = getFirstTextChannelId(categoriesForServer.value);
-      if (fallback) {
-        logShellNav(
-          'handleJoinVoiceNavigation',
-          'join_failed_fallback_channel',
-          {
-            fallback,
-            was: activeChannelId.value,
-          },
-        );
-        activeChannelId.value = fallback;
-      }
+      logShellNav('handleJoinVoiceNavigation', 'join_failed_keep_surface', {
+        channelId: targetId,
+        activeChannelId: activeChannelId.value,
+      });
     }
   }
 
@@ -617,6 +685,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
   }
 
   function handleLeaveVoiceNavigation() {
+    cancelGuildVoiceJoinInFlight();
     const ch = findChannelContextById(activeChannelId.value)?.channel;
     if (ch?.type === 'voice' || ch?.type === 'stage') {
       logShellNav(
@@ -631,7 +700,10 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
   }
 
   async function handleChannelVoicePanelLeave() {
-    if (currentVoiceChannelId.value?.trim()) {
+    if (
+      guildVoiceJoinUi.value.status !== 'idle' ||
+      currentVoiceChannelId.value?.trim()
+    ) {
       handleLeaveVoiceNavigation();
     } else if (dmCallWithUserId.value?.trim()) {
       await leaveDmCallVoice();
@@ -790,6 +862,8 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     channelPanelVoiceTransportUsesDmCall,
     channelPanelVoiceChannelId,
     channelPanelVoiceChannelName,
+    channelPanelVoiceConnectionStatus,
+    guildVoiceJoinUi,
     channelPanelVcMutedEffective,
     channelPanelVcDeafenedEffective,
     channelPanelVcVideoEffective,

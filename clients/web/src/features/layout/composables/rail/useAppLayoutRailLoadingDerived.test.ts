@@ -306,4 +306,88 @@ describe('useAppLayoutRailLoadingDerived', () => {
     });
     expect(isChannelPanelSwitchLoading.value).toBe(false);
   });
+
+  it('keeps message skeletons after settle until an active channel resolves', () => {
+    const serverStore = reactive({
+      selectedServerId: 'srv1' as string | null,
+    });
+    const workspace = mockWorkspace({
+      initialLoadInFlight: false,
+      initialLoadSettled: true,
+      fromApi: true,
+      categoriesByServer: {
+        srv1: [{ id: 'cat', name: 'General', channels: [{ id: 'ch1' }] }],
+      },
+      messages: {},
+    });
+    const { isMessageSurfaceSwitchLoading } = useAppLayoutRailLoadingDerived({
+      immediateShellSwitchPending: ref(false),
+      activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+      serverStore: serverStore as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['serverStore'],
+      workspace: workspace as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['workspace'],
+      activeChannelId: ref(''),
+    });
+    expect(isMessageSurfaceSwitchLoading.value).toBe(true);
+  });
+
+  it('stops message skeletons when the loaded guild tree has no channels', () => {
+    const serverStore = reactive({
+      selectedServerId: 'srv1' as string | null,
+    });
+    const workspace = mockWorkspace({
+      initialLoadInFlight: false,
+      initialLoadSettled: true,
+      fromApi: true,
+      categoriesByServer: {
+        srv1: [{ id: 'cat', name: 'General', channels: [] }],
+      },
+      messages: {},
+    });
+    const { isMessageSurfaceSwitchLoading } = useAppLayoutRailLoadingDerived({
+      immediateShellSwitchPending: ref(false),
+      activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+      serverStore: serverStore as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['serverStore'],
+      workspace: workspace as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['workspace'],
+      activeChannelId: ref(''),
+    });
+    expect(isMessageSurfaceSwitchLoading.value).toBe(false);
+  });
+
+  it('keeps empty-tree skeletons during boot even after initialLoadInFlight clears', () => {
+    const serverStore = reactive({
+      selectedServerId: 'srv1' as string | null,
+    });
+    // fromApi painted an empty [] and in-flight cleared, but boot latch has not
+    // settled yet — this is the flash users read as "No channels to show".
+    const workspace = mockWorkspace({
+      loading: false,
+      fromApi: true,
+      initialLoadInFlight: false,
+      initialLoadSettled: false,
+      categoriesByServer: { srv1: [] },
+      messages: {},
+    });
+    const { isChannelPanelSwitchLoading, isMessageSurfaceSwitchLoading } =
+      useAppLayoutRailLoadingDerived({
+        immediateShellSwitchPending: ref(false),
+        activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+        serverStore: serverStore as unknown as Parameters<
+          typeof useAppLayoutRailLoadingDerived
+        >[0]['serverStore'],
+        workspace: workspace as unknown as Parameters<
+          typeof useAppLayoutRailLoadingDerived
+        >[0]['workspace'],
+        activeChannelId: ref(''),
+      });
+    expect(isChannelPanelSwitchLoading.value).toBe(true);
+    expect(isMessageSurfaceSwitchLoading.value).toBe(true);
+  });
 });

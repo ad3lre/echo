@@ -15,7 +15,7 @@ import type {
   UseLiveKitVoiceRoomOptions,
   VideoQualityPreset,
 } from '@/features/voice/livekitVoiceRoom.types';
-import type { EchoMlsKeyProvider } from '@/services/voice/mls/echoMlsKeyProvider';
+import type { EchoParticipantKeyProvider } from '@/services/voice/e2ee/echoParticipantKeyProvider';
 import type { VoiceDataReceiveHandlers } from '@/features/voice/livekit/livekitVoiceDataChannel';
 import { buildRemoteParticipantTrackInfoFromPublications } from '@/features/voice/livekit/livekitRemoteParticipantTrackInfo';
 import type {
@@ -101,7 +101,7 @@ export type LiveKitVoiceSessionContext = {
   connectGeneration: Ref<number>;
   connectAbortTarget: ShallowRef<LKRoom | null>;
   liveKitE2eeWorker: ShallowRef<Worker | null>;
-  liveKitMlsKeyProvider: ShallowRef<EchoMlsKeyProvider | null>;
+  liveKitMlsKeyProvider: ShallowRef<EchoParticipantKeyProvider | null>;
   applyVcAudioQueued: Ref<Promise<void>>;
   lastVcAudioOpts: Ref<{ muted: boolean; deafened: boolean }>;
   krispAsyncRejectionCleanup: Ref<(() => void) | null>;

@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
   isTrustedMediaUrl,
   safeImageUrl,
 } from '@/features/layout/display/safeImageUrl';
 import { icons } from '@/assets/icons';
-import { ROLE_HIERARCHY } from '@/features/member-profile/memberProfiles';
+import {
+  getPopoutAnchorRect,
+  ROLE_HIERARCHY,
+  type PopoutAnchorRect,
+} from '@/features/member-profile/memberProfiles';
 import { memberRoleIconImgSrc } from '@/features/member-profile/memberRoleIconDisplay';
 import { selectPresence } from '@/features/layout/presence';
 import { copyToClipboard } from '@/features/chat/copyToClipboard';
@@ -33,6 +37,13 @@ type SettingsResolvedMemberRole = {
   isUnhoistedBucket?: boolean;
 };
 
+export type ServerSettingsOpenMemberPayload = {
+  userId: string;
+  anchorRect?: PopoutAnchorRect | null;
+  /** Open the member popout directly on the role assignment panel. */
+  rolesPanel?: boolean;
+};
+
 const props = defineProps<{
   members: ServerSettingsMemberRow[];
   currentUserId?: string | null;
@@ -48,12 +59,40 @@ const props = defineProps<{
     targetUserId: string;
     action: 'kick' | 'ban' | 'timeout';
   }) => void;
+  /** Open member profile / roles panel (member list popout). */
+  onOpenMember?: (payload: ServerSettingsOpenMemberPayload) => void;
+  /** When true, show Manage roles for Echo members (not import placeholders). */
+  canAssignMemberRoles?: boolean;
 }>();
 
 const searchQuery = ref('');
 const membersTab = ref<'echo' | 'ghosts'>('echo');
 const copyFeedbackId = ref<string | null>(null);
+const openMenuUserId = ref<string | null>(null);
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+function closeMemberMenu() {
+  openMenuUserId.value = null;
+}
+
+function onDocumentPointerDown(ev: PointerEvent) {
+  if (!openMenuUserId.value) return;
+  const t = ev.target;
+  if (!(t instanceof Element)) {
+    closeMemberMenu();
+    return;
+  }
+  if (t.closest('[data-ss-member-menu]')) return;
+  closeMemberMenu();
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointerDown, true);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown, true);
+  if (copyTimer) clearTimeout(copyTimer);
+});
 
 const q = computed(() => searchQuery.value.trim().toLowerCase());
 
@@ -241,11 +280,55 @@ function requestModerate(
   action: 'kick' | 'ban' | 'timeout',
 ) {
   if (!canAct(m, action)) return;
+  closeMemberMenu();
   props.onRequestModerateMember?.({ targetUserId: m.id, action });
+}
+
+function canOpenMember(m: ServerSettingsMemberRow): boolean {
+  return !!props.onOpenMember && !m.isDiscordShadow;
+}
+
+function canManageRolesFor(m: ServerSettingsMemberRow): boolean {
+  return (
+    !!props.canAssignMemberRoles &&
+    !!props.onOpenMember &&
+    !m.isDiscordShadow &&
+    !m.isGuest
+  );
+}
+
+function hasModActions(m: ServerSettingsMemberRow): boolean {
+  return canAct(m, 'kick') || canAct(m, 'timeout') || canAct(m, 'ban');
+}
+
+function openMember(
+  m: ServerSettingsMemberRow,
+  ev: Event,
+  opts?: { rolesPanel?: boolean },
+) {
+  if (opts?.rolesPanel) {
+    if (!canManageRolesFor(m)) return;
+  } else if (!canOpenMember(m)) {
+    return;
+  }
+  closeMemberMenu();
+  const anchorTarget =
+    (ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null) ??
+    (ev.target instanceof HTMLElement ? ev.target : null);
+  props.onOpenMember?.({
+    userId: m.id,
+    anchorRect: getPopoutAnchorRect(anchorTarget, 'generic'),
+    rolesPanel: opts?.rolesPanel === true,
+  });
+}
+
+function toggleMemberMenu(userId: string) {
+  openMenuUserId.value = openMenuUserId.value === userId ? null : userId;
 }
 
 async function copyUserId(id: string) {
   const ok = await copyToClipboard(id);
+  closeMemberMenu();
   if (ok) {
     copyFeedbackId.value = id;
     if (copyTimer) clearTimeout(copyTimer);
@@ -258,8 +341,10 @@ async function copyUserId(id: string) {
   window.prompt('Copy user ID:', id);
 }
 
-const MOD_ICON =
-  'server-settings-members__mod-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-elevated hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-border disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent';
+const ACTION_BTN =
+  'inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-border';
+const ICON_BTN =
+  'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-border';
 </script>
 
 <template>
@@ -364,95 +449,160 @@ const MOD_ICON =
             <div
               v-else
               class="server-settings-members__row flex flex-wrap items-center gap-3 rounded-xl px-3 py-3.5 [-webkit-tap-highlight-color:transparent] sm:px-4"
+              :class="{
+                'server-settings-members__row--interactive': canOpenMember(
+                  item.m,
+                ),
+              }"
             >
-              <img
-                :src="safeImageUrl(item.m.pfp)"
-                alt=""
-                class="h-9 w-9 shrink-0 rounded-full bg-glass-1 object-cover"
-              />
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <PausedGifAvatar
-                    v-if="roleIconSrcForUser(item.m.id)"
-                    :src="roleIconSrcForUser(item.m.id)"
-                    alt=""
-                    :session-key="`ss-role-${item.m.id}`"
-                    wrapper-class="relative h-4 w-4 shrink-0 overflow-hidden"
-                    img-class="h-4 w-4 shrink-0 rounded object-cover ring-1 ring-white/10"
-                  />
-                  <span class="truncate font-semibold text-fg-strong">{{
-                    item.m.name
-                  }}</span>
-                  <ServerOwnerCrownIcon
-                    v-if="ownerId && item.m.id === ownerId"
-                  />
-                  <span
-                    v-if="currentUserId && item.m.id === currentUserId"
-                    class="server-settings-members__meta-tag shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-fg-soft"
-                  >
-                    You
-                  </span>
-                  <span
-                    v-if="item.m.isGuest"
-                    class="server-settings-members__meta-tag shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-fg-soft"
-                  >
-                    Guest
-                  </span>
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                :disabled="!canOpenMember(item.m)"
+                :title="canOpenMember(item.m) ? 'Open profile' : undefined"
+                @click="openMember(item.m, $event)"
+              >
+                <img
+                  :src="safeImageUrl(item.m.pfp)"
+                  alt=""
+                  class="h-9 w-9 shrink-0 rounded-full bg-glass-1 object-cover"
+                />
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <PausedGifAvatar
+                      v-if="roleIconSrcForUser(item.m.id)"
+                      :src="roleIconSrcForUser(item.m.id)"
+                      alt=""
+                      :session-key="`ss-role-${item.m.id}`"
+                      wrapper-class="relative h-4 w-4 shrink-0 overflow-hidden"
+                      img-class="h-4 w-4 shrink-0 rounded object-cover ring-1 ring-white/10"
+                    />
+                    <span class="truncate font-semibold text-fg-strong">{{
+                      item.m.name
+                    }}</span>
+                    <ServerOwnerCrownIcon
+                      v-if="ownerId && item.m.id === ownerId"
+                    />
+                    <span
+                      v-if="currentUserId && item.m.id === currentUserId"
+                      class="server-settings-members__meta-tag shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-fg-soft"
+                    >
+                      You
+                    </span>
+                    <span
+                      v-if="item.m.isGuest"
+                      class="server-settings-members__meta-tag shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-fg-soft"
+                    >
+                      Guest
+                    </span>
+                  </div>
+                  <div class="mt-0.5 text-xs text-fg-subtle">
+                    {{ statusLabel(item.m.status) }}
+                    <span v-if="roleFor(item.m.id)?.name" class="text-fg-soft">
+                      · {{ roleFor(item.m.id)?.name }}
+                    </span>
+                  </div>
                 </div>
-                <div class="mt-0.5 text-xs text-fg-subtle">
-                  {{ statusLabel(item.m.status) }}
-                </div>
-              </div>
+              </button>
 
               <div
-                class="flex shrink-0 flex-wrap items-center justify-end gap-1"
+                class="relative flex shrink-0 flex-wrap items-center justify-end gap-1"
+                data-ss-member-menu
               >
                 <button
+                  v-if="canManageRolesFor(item.m)"
                   type="button"
-                  class="rounded-lg px-2 py-1 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-border"
-                  @click="copyUserId(item.m.id)"
+                  :class="ACTION_BTN"
+                  title="Manage roles"
+                  @click="openMember(item.m, $event, { rolesPanel: true })"
                 >
-                  {{ copyFeedbackId === item.m.id ? 'Copied' : 'Copy ID' }}
+                  <img
+                    :src="icons.shield"
+                    alt=""
+                    class="h-3.5 w-3.5 opacity-90 filter invert"
+                  />
+                  Roles
                 </button>
                 <button
                   type="button"
-                  :class="MOD_ICON"
-                  title="Kick member"
-                  :disabled="!canAct(item.m, 'kick')"
-                  @click="requestModerate(item.m, 'kick')"
+                  :class="ICON_BTN"
+                  title="More actions"
+                  aria-label="More actions"
+                  :aria-expanded="openMenuUserId === item.m.id"
+                  @click.stop="toggleMemberMenu(item.m.id)"
                 >
                   <img
-                    :src="icons.logOut"
+                    :src="icons.moreVertical"
                     alt=""
                     class="h-4 w-4 opacity-90 filter invert"
                   />
                 </button>
-                <button
-                  type="button"
-                  :class="MOD_ICON"
-                  title="Timeout member"
-                  :disabled="!canAct(item.m, 'timeout')"
-                  @click="requestModerate(item.m, 'timeout')"
+                <div
+                  v-if="openMenuUserId === item.m.id"
+                  class="server-settings-members__menu absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-border bg-[var(--bg)] py-1 shadow-xl"
+                  role="menu"
                 >
-                  <img
-                    :src="icons.stopwatch"
-                    alt=""
-                    class="h-4 w-4 opacity-90 filter invert"
-                  />
-                </button>
-                <button
-                  type="button"
-                  :class="MOD_ICON"
-                  title="Ban member"
-                  :disabled="!canAct(item.m, 'ban')"
-                  @click="requestModerate(item.m, 'ban')"
-                >
-                  <img
-                    :src="icons.banUser"
-                    alt=""
-                    class="h-4 w-4 opacity-90 filter invert"
-                  />
-                </button>
+                  <button
+                    v-if="canOpenMember(item.m)"
+                    type="button"
+                    class="server-settings-members__menu-item"
+                    role="menuitem"
+                    @click="openMember(item.m, $event)"
+                  >
+                    View profile
+                  </button>
+                  <button
+                    v-if="canManageRolesFor(item.m)"
+                    type="button"
+                    class="server-settings-members__menu-item"
+                    role="menuitem"
+                    @click="openMember(item.m, $event, { rolesPanel: true })"
+                  >
+                    Manage roles
+                  </button>
+                  <button
+                    type="button"
+                    class="server-settings-members__menu-item"
+                    role="menuitem"
+                    @click="copyUserId(item.m.id)"
+                  >
+                    {{
+                      copyFeedbackId === item.m.id
+                        ? 'Copied ID'
+                        : 'Copy user ID'
+                    }}
+                  </button>
+                  <template v-if="hasModActions(item.m)">
+                    <div class="my-1 border-t border-border" role="separator" />
+                    <button
+                      type="button"
+                      class="server-settings-members__menu-item"
+                      role="menuitem"
+                      :disabled="!canAct(item.m, 'kick')"
+                      @click="requestModerate(item.m, 'kick')"
+                    >
+                      Kick
+                    </button>
+                    <button
+                      type="button"
+                      class="server-settings-members__menu-item"
+                      role="menuitem"
+                      :disabled="!canAct(item.m, 'timeout')"
+                      @click="requestModerate(item.m, 'timeout')"
+                    >
+                      Timeout
+                    </button>
+                    <button
+                      type="button"
+                      class="server-settings-members__menu-item server-settings-members__menu-item--danger"
+                      role="menuitem"
+                      :disabled="!canAct(item.m, 'ban')"
+                      @click="requestModerate(item.m, 'ban')"
+                    >
+                      Ban
+                    </button>
+                  </template>
+                </div>
               </div>
             </div>
           </template>
@@ -501,53 +651,65 @@ const MOD_ICON =
                 {{ statusLabel(m.status) }}
               </div>
             </div>
-            <div class="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            <div
+              class="relative flex shrink-0 flex-wrap items-center justify-end gap-1"
+              data-ss-member-menu
+            >
               <button
                 type="button"
-                class="rounded-lg px-2 py-1 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                :class="ACTION_BTN"
                 @click="copyUserId(m.id)"
               >
                 {{ copyFeedbackId === m.id ? 'Copied' : 'Copy ID' }}
               </button>
               <button
+                v-if="hasModActions(m)"
                 type="button"
-                :class="MOD_ICON"
-                title="Kick member"
-                :disabled="!canAct(m, 'kick')"
-                @click="requestModerate(m, 'kick')"
+                :class="ICON_BTN"
+                title="More actions"
+                aria-label="More actions"
+                :aria-expanded="openMenuUserId === m.id"
+                @click.stop="toggleMemberMenu(m.id)"
               >
                 <img
-                  :src="icons.logOut"
+                  :src="icons.moreVertical"
                   alt=""
                   class="h-4 w-4 opacity-90 filter invert"
                 />
               </button>
-              <button
-                type="button"
-                :class="MOD_ICON"
-                title="Timeout member"
-                :disabled="!canAct(m, 'timeout')"
-                @click="requestModerate(m, 'timeout')"
+              <div
+                v-if="openMenuUserId === m.id"
+                class="server-settings-members__menu absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-border bg-[var(--bg)] py-1 shadow-xl"
+                role="menu"
               >
-                <img
-                  :src="icons.stopwatch"
-                  alt=""
-                  class="h-4 w-4 opacity-90 filter invert"
-                />
-              </button>
-              <button
-                type="button"
-                :class="MOD_ICON"
-                title="Ban member"
-                :disabled="!canAct(m, 'ban')"
-                @click="requestModerate(m, 'ban')"
-              >
-                <img
-                  :src="icons.banUser"
-                  alt=""
-                  class="h-4 w-4 opacity-90 filter invert"
-                />
-              </button>
+                <button
+                  type="button"
+                  class="server-settings-members__menu-item"
+                  role="menuitem"
+                  :disabled="!canAct(m, 'kick')"
+                  @click="requestModerate(m, 'kick')"
+                >
+                  Kick
+                </button>
+                <button
+                  type="button"
+                  class="server-settings-members__menu-item"
+                  role="menuitem"
+                  :disabled="!canAct(m, 'timeout')"
+                  @click="requestModerate(m, 'timeout')"
+                >
+                  Timeout
+                </button>
+                <button
+                  type="button"
+                  class="server-settings-members__menu-item server-settings-members__menu-item--danger"
+                  role="menuitem"
+                  :disabled="!canAct(m, 'ban')"
+                  @click="requestModerate(m, 'ban')"
+                >
+                  Ban
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -570,7 +732,8 @@ const MOD_ICON =
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .server-settings-members__row:hover {
+  .server-settings-members__row:hover,
+  .server-settings-members__row--interactive:hover {
     background-color: color-mix(in srgb, white 4.5%, transparent);
   }
 }
@@ -585,11 +748,44 @@ const MOD_ICON =
   border-radius: 0 !important;
 }
 
+.server-settings-members__menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--fg-soft);
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease;
+}
+
+.server-settings-members__menu-item:hover:not(:disabled) {
+  background-color: color-mix(in srgb, white 6%, transparent);
+  color: var(--fg);
+}
+
+.server-settings-members__menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.server-settings-members__menu-item--danger:hover:not(:disabled) {
+  color: var(--echo-palette-f87171-1a75);
+}
+
 :global([data-theme='light'] .server-settings-members__role-header) {
   background-color: transparent;
 }
 
 :global([data-theme='light'] .server-settings-members__row:hover) {
   background-color: color-mix(in srgb, black 4%, transparent);
+}
+
+:global(
+  [data-theme='light'] .server-settings-members__menu-item:hover:not(:disabled)
+) {
+  background-color: color-mix(in srgb, black 5%, transparent);
 }
 </style>

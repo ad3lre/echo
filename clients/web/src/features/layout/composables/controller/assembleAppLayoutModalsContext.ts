@@ -92,6 +92,10 @@ export function assembleModalsInviteAndServerSettings(
     resolveMemberHighestRole: deps.memberListResolveHighestRole,
     canModerateMemberAction: deps.canModerateMemberActionInServer,
     onRequestModerateMember: deps.handleModerateUser,
+    onOpenServerSettingsMember: deps.openServerSettingsMember,
+    canAssignMemberRoles: computed(
+      () => unref(deps.memberListRoleManagement)?.enabled === true,
+    ),
     onUpdateServerSettingsModal: deps.onServerSettingsModalUpdate,
     serverSettingsModalInitialSection: deps.serverSettingsModalInitialSection,
     onUpdateServerSettingsModalActiveSection:

@@ -591,10 +591,15 @@ export function useAppLayoutProfilesDomain(deps: {
           badges: normalizePublicBadges(workspaceUserBadges(ro, du)),
         };
       }
+      const nameFromRoster =
+        ro && typeof ro.name === 'string' ? ro.name.trim() : '';
+      const pfpFromRoster =
+        ro && typeof ro.pfp === 'string' ? ro.pfp.trim() : '';
       return {
         id,
-        name: 'Unknown',
-        pfp: '',
+        name: nick || nameFromRoster || 'Unknown',
+        ...(nick ? { nickname: nick } : {}),
+        pfp: pfpFromRoster,
         status: undefined as string | undefined,
         ...(isGuest ? { isGuest: true as const } : {}),
         badges: normalizePublicBadges(workspaceUserBadges(ro, undefined)),
@@ -681,29 +686,136 @@ export function useAppLayoutProfilesDomain(deps: {
     });
   });
 
+  /**
+   * Channel panel (incl. VC participant rows) must resolve **server-wide** identity.
+   * Do not reuse {@link memberListUsers}: that list drops members who cannot see
+   * the active text channel, which made VC rows flip to Unknown / skeleton pfp
+   * whenever you navigated to a channel they lack access to.
+   */
   const usersForChannelPanel = computed(() => {
-    const m = memberListUsers.value;
-    if (m.length > 0) return m;
+    const sid = serverStore.selectedServerId;
     const authU = authSession.backendUser;
-    return workspace.users.value.map((u: DomainUser) => {
-      const isSelf = !!(authU?.id && u.id === authU.id);
-      const status = resolveDomainUserPresence(
-        u.id,
-        u.status,
-        `channel-panel-domain:${u.id}`,
-      ).status;
-      return {
-        id: u.id,
-        name: u.name,
-        ...(u.username ? { username: u.username } : {}),
-        pfp: u.pfp,
-        status,
-        customStatus: isSelf
-          ? (authU?.customStatus ?? u.customStatus)
-          : u.customStatus,
-        badges: normalizePublicBadges(u.badges),
-      };
-    });
+    if (!sid || sid === 'echo') {
+      return workspace.users.value.map((u: DomainUser) => {
+        const isSelf = !!(authU?.id && u.id === authU.id);
+        const status = resolveDomainUserPresence(
+          u.id,
+          u.status,
+          `channel-panel-domain:${u.id}`,
+        ).status;
+        return {
+          id: u.id,
+          name: u.name,
+          ...(u.username ? { username: u.username } : {}),
+          pfp: u.pfp,
+          status,
+          customStatus: isSelf
+            ? (authU?.customStatus ?? u.customStatus)
+            : u.customStatus,
+          badges: normalizePublicBadges(u.badges),
+        };
+      });
+    }
+
+    let memberIds = workspace.serverMemberIds.value[sid] ?? [];
+    if (memberIds.length === 0) {
+      const roster = workspaceMembersByServer.value[sid];
+      if (roster?.length) {
+        memberIds = roster.map((m) => m.userId).filter(Boolean);
+      }
+    }
+    const me = authU?.id;
+    if (memberIds.length === 0 && me) {
+      const joined = workspace.servers.value.some(
+        (s: { id: string }) => s.id === sid,
+      );
+      if (joined) memberIds = [me];
+    }
+
+    const uMap = usersById.value;
+    const nicks = workspace.serverMemberNicknames?.value?.[sid] ?? {};
+    const roster = workspaceMembersByServer.value[sid];
+    const rosterById = new Map(
+      (roster ?? []).map((m) => [m.userId, m] as const),
+    );
+
+    if (memberIds.length === 0) {
+      return workspace.users.value.map((u: DomainUser) => {
+        const isSelf = !!(authU?.id && u.id === authU.id);
+        const status = resolveDomainUserPresence(
+          u.id,
+          u.status,
+          `channel-panel-domain:${u.id}`,
+        ).status;
+        return {
+          id: u.id,
+          name: u.name,
+          ...(u.username ? { username: u.username } : {}),
+          pfp: u.pfp,
+          status,
+          customStatus: isSelf
+            ? (authU?.customStatus ?? u.customStatus)
+            : u.customStatus,
+          badges: normalizePublicBadges(u.badges),
+        };
+      });
+    }
+
+    return memberIds
+      .filter((id: string) => {
+        const u = uMap.get(id);
+        const ro = rosterById.get(id);
+        const isDiscordShadow =
+          ro?.isDiscordShadow === true ||
+          (!!u &&
+            typeof u === 'object' &&
+            'isDiscordShadow' in u &&
+            (u as { isDiscordShadow?: boolean }).isDiscordShadow === true);
+        return !isDiscordShadow;
+      })
+      .map((id: string) => {
+        const u = uMap.get(id);
+        const ro = rosterById.get(id);
+        const nick = nicks[id]?.trim();
+        const isGuest = ro?.isGuest === true || (!!u && u.isGuest === true);
+        if (u) {
+          const du = u;
+          const isSelf = !!(me && du.id === me && authU?.id === me);
+          const status = resolveDomainUserPresence(
+            du.id,
+            du.status,
+            `channel-panel-domain:${du.id}`,
+          ).status;
+          const rosterPfp =
+            ro && typeof ro.pfp === 'string' ? ro.pfp.trim() : '';
+          return {
+            id: du.id,
+            name: nick || du.name,
+            ...(nick ? { nickname: nick } : {}),
+            ...(du.username ? { username: du.username } : {}),
+            pfp: du.pfp?.trim() || rosterPfp,
+            status,
+            customStatus: isSelf
+              ? (authU?.customStatus ?? du.customStatus)
+              : du.customStatus,
+            ...(isGuest ? { isGuest: true as const } : {}),
+            badges: normalizePublicBadges(workspaceUserBadges(ro, du)),
+          };
+        }
+        const nameFromRoster =
+          ro && typeof ro.name === 'string' ? ro.name.trim() : '';
+        const pfpFromRoster =
+          ro && typeof ro.pfp === 'string' ? ro.pfp.trim() : '';
+        return {
+          id,
+          name: nick || nameFromRoster || 'Unknown',
+          ...(nick ? { nickname: nick } : {}),
+          pfp: pfpFromRoster,
+          status: undefined as string | undefined,
+          ...(isGuest ? { isGuest: true as const } : {}),
+          badges: normalizePublicBadges(workspaceUserBadges(ro, undefined)),
+        };
+      });
   });
 
   async function removeFriend(userId: string) {

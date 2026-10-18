@@ -12,7 +12,7 @@ import echoVoice from './echo/voice';
 import echoGameServer from './echo/gameServer';
 import echoStageYoutube from './echo/stageYoutube';
 import echoVoiceE2ee from './echo/voiceE2ee';
-import echoMls from './echo/mls';
+import echoVoiceMediaKeys from './echo/voiceMediaKeys';
 import echoE2ee from './echo/e2ee';
 import echoVcActivities from './echo/vcActivities';
 import echoRoles from './echo/roles';
@@ -89,7 +89,7 @@ export default async function echoRoutes(
       await secured.register(echoStageYoutube);
     }
     await secured.register(echoVoiceE2ee);
-    await secured.register(echoMls);
+    await secured.register(echoVoiceMediaKeys);
     await secured.register(echoE2ee);
     await secured.register(echoVcActivities);
     await secured.register(echoRoles);

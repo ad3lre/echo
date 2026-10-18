@@ -268,9 +268,17 @@ struct EchoMessageComposer: View {
           : type?.conforms(to: .movie) == true
             ? "video"
             : type?.conforms(to: .audio) == true ? "audio" : "document"
+        let normalized =
+          kind == "image"
+          ? EchoComposerImageUploadNormalize.jpegCompatibleUpload(
+            data: data, filename: url.lastPathComponent, mimeType: mimeType)
+          : (data, url.lastPathComponent, mimeType)
         state.assets.append(
           EchoComposerAsset(
-            data: data, filename: url.lastPathComponent, mimeType: mimeType, kind: kind))
+            data: normalized.data,
+            filename: normalized.filename,
+            mimeType: normalized.mimeType,
+            kind: kind))
       }
       state.poll = nil
       state.selectedGIF = nil

@@ -286,9 +286,13 @@ const lastTextSegmentIndex = computed(() => {
 
 const needsTrailingTextInput = computed(() => {
   const segments = parsedInputSegments.value;
-  return (
-    segments.length > 0 && segments[segments.length - 1]?.type === 'filter'
-  );
+  if (segments.length === 0) return false;
+  const last = segments[segments.length - 1];
+  if (last?.type !== 'filter') return false;
+  // While any inline filter value is being edited (`from:…`), that tag mounts
+  // its own <input>. A trailing "Search" field beside it is the dual-bar mess.
+  if (activeInlineFilter.value) return false;
+  return true;
 });
 
 const showSearchPlaceholder = computed(
@@ -867,6 +871,12 @@ onBeforeUnmount(() => {
   caret-color: var(--text);
 }
 
+.search-bar-input:focus,
+.search-bar-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .search-filter-dropdown-inner {
   position: relative;
   z-index: 1;
@@ -883,6 +893,12 @@ onBeforeUnmount(() => {
 
 .search-composite-input {
   border-radius: 0.375rem;
+  outline: none;
+}
+
+.search-composite-input:focus-within {
+  outline: none;
+  box-shadow: none;
 }
 
 .search-text-segment {
@@ -903,9 +919,10 @@ onBeforeUnmount(() => {
   line-height: 1.25rem;
 }
 
-.search-filter-tag--active {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+/* Soft cue only while the nested value field is focused — not a permanent
+ * accessibility-looking box around the whole chip while editing. */
+.search-filter-tag--active:focus-within {
+  border-color: color-mix(in srgb, var(--border) 85%, transparent);
 }
 
 .search-filter-tag__key {
@@ -928,8 +945,15 @@ onBeforeUnmount(() => {
   background: transparent;
   padding: 0;
   outline: none;
+  box-shadow: none;
   caret-color: var(--text);
   font: inherit;
+}
+
+.search-filter-tag__value-input:focus,
+.search-filter-tag__value-input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .search-filter-tag__remove {
@@ -956,8 +980,12 @@ onBeforeUnmount(() => {
   >
     <!-- Composite input: embedded filter tags + free-text segments -->
     <div
-      class="search-composite-input relative flex h-full flex-1 flex-wrap items-center gap-x-0.5 gap-y-1 px-3 py-1.5 min-w-0"
-      :class="mobilePanelLayout ? 'min-h-[2.75rem]' : ''"
+      class="search-composite-input relative flex h-full flex-1 items-center gap-x-0.5 gap-y-1 px-3 py-1.5 min-w-0"
+      :class="
+        mobilePanelLayout
+          ? 'min-h-[2.75rem] flex-wrap'
+          : 'flex-nowrap overflow-x-auto'
+      "
       @focusin="onCompositeShellFocusIn"
     >
       <span

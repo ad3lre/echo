@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import { useLimitedGifPlayback } from '@/features/chat/useLimitedGifPlayback';
 import { useSignedEchoMediaResponsive } from '@/features/chat/composables/useSignedEchoMediaResponsive';
@@ -12,7 +12,14 @@ import {
   requiresBundledMediaFallback,
   safeImageUrl,
 } from '@/features/layout/display/safeImageUrl';
+import {
+  avatarInitialsFromName,
+  avatarMonogramHue,
+} from '@/features/layout/display/avatarMonogram';
 import MediaUnavailablePanel from '@/features/chat/components/MediaUnavailablePanel.vue';
+
+/** Hung CDN / sign requests must not leave avatars pulsing forever. */
+const AVATAR_LOAD_TIMEOUT_MS = 8_000;
 
 /** How the GIF is laid out inside the wrapper (see template). */
 function layoutModeFromImgClass(
@@ -88,6 +95,26 @@ const loadFailed = ref(false);
 const imageLoaded = ref(false);
 const responsiveVariantFailed = ref(false);
 const signedUrlRefreshAttempted = ref(false);
+let avatarLoadTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function clearAvatarLoadTimeout() {
+  if (avatarLoadTimeout != null) {
+    clearTimeout(avatarLoadTimeout);
+    avatarLoadTimeout = null;
+  }
+}
+
+function armAvatarLoadTimeout() {
+  clearAvatarLoadTimeout();
+  if (props.unavailableVariant !== 'avatar') return;
+  if (loadFailed.value || imageLoaded.value) return;
+  avatarLoadTimeout = setTimeout(() => {
+    avatarLoadTimeout = null;
+    if (!imageLoaded.value) {
+      loadFailed.value = true;
+    }
+  }, AVATAR_LOAD_TIMEOUT_MS);
+}
 
 function onImgError(event: Event) {
   // Responsive variants are an optimization. If a variant is missing or its
@@ -120,10 +147,12 @@ function onImgError(event: Event) {
     return;
   }
   loadFailed.value = true;
+  clearAvatarLoadTimeout();
 }
 
 function onImgLoad() {
   imageLoaded.value = true;
+  clearAvatarLoadTimeout();
   emit('load');
 }
 
@@ -131,11 +160,21 @@ const missingFallbackResolved = computed(
   () => props.missingFallbackSrc?.trim() || icons.usersAvatar,
 );
 
+const preferAvatarMonogramOverBundledIcon = computed(
+  () =>
+    props.unavailableVariant === 'avatar' && !props.missingFallbackSrc?.trim(),
+);
+
 /** Logical URL passed to GIF/static decode — avoids treating “no URL” like a network failure. */
 const effectiveImageUrl = computed(() => {
   const trimmed = props.src?.trim() ?? '';
-  if (!trimmed) return '';
+  if (!trimmed) {
+    // Avatars: initials monogram instead of a generic people icon / skeleton.
+    if (preferAvatarMonogramOverBundledIcon.value) return '';
+    return missingFallbackResolved.value;
+  }
   if (requiresBundledMediaFallback(trimmed)) {
+    if (preferAvatarMonogramOverBundledIcon.value) return '';
     return missingFallbackResolved.value;
   }
   return trimmed;
@@ -146,6 +185,10 @@ onMounted(() => {
   reducedMotion.value = window.matchMedia(
     '(prefers-reduced-motion: reduce)',
   ).matches;
+});
+
+onUnmounted(() => {
+  clearAvatarLoadTimeout();
 });
 
 const fallbackHref = computed(() =>
@@ -240,17 +283,49 @@ watch(
     imageLoaded.value = false;
     responsiveVariantFailed.value = false;
     signedUrlRefreshAttempted.value = false;
+    armAvatarLoadTimeout();
   },
 );
 
-const showAvatarSkeleton = computed(
+watch(
   () =>
-    props.unavailableVariant === 'avatar' &&
-    !loadFailed.value &&
-    (!safeUrl.value || !imageLoaded.value),
+    [
+      props.unavailableVariant,
+      safeUrl.value,
+      imageLoaded.value,
+      loadFailed.value,
+    ] as const,
+  () => {
+    if (
+      props.unavailableVariant === 'avatar' &&
+      safeUrl.value &&
+      !imageLoaded.value &&
+      !loadFailed.value
+    ) {
+      armAvatarLoadTimeout();
+    } else if (imageLoaded.value || loadFailed.value || !safeUrl.value) {
+      clearAvatarLoadTimeout();
+    }
+  },
+  { immediate: true },
 );
 
-const avatarSkeletonRadiusClass = computed(() => {
+/** Initials under the image while loading / when pfp is missing or failed. */
+const showAvatarMonogram = computed(
+  () =>
+    props.unavailableVariant === 'avatar' &&
+    (loadFailed.value || !safeUrl.value || !imageLoaded.value),
+);
+
+const avatarMonogramInitials = computed(() =>
+  avatarInitialsFromName(props.alt),
+);
+
+const avatarMonogramHueValue = computed(() =>
+  avatarMonogramHue(props.sessionKey?.trim() || props.alt),
+);
+
+const avatarSlotRadiusClass = computed(() => {
   const ic = props.imgClass ?? '';
   if (/\brounded-full\b/.test(ic)) return 'rounded-full';
   if (/\brounded-3xl\b/.test(ic)) return 'rounded-3xl';
@@ -262,7 +337,7 @@ const avatarSkeletonRadiusClass = computed(() => {
 
 const resolvedImgClass = computed(() => {
   const base = props.imgClass?.trim() ?? '';
-  if (!showAvatarSkeleton.value || !safeUrl.value) return base;
+  if (!showAvatarMonogram.value || !safeUrl.value) return base;
   return [base, 'opacity-0'].filter(Boolean).join(' ');
 });
 
@@ -290,7 +365,7 @@ const mergedWrapperClass = computed(() => {
   const needsRelative =
     layoutMode.value === 'intrinsic-contain' ||
     layoutMode.value === 'fill-cover' ||
-    showAvatarSkeleton.value;
+    showAvatarMonogram.value;
   if (needsRelative) {
     return ['relative', base].filter(Boolean).join(' ');
   }
@@ -316,19 +391,22 @@ const imgReferrerPolicy = 'no-referrer';
     @mouseleave="onMouseLeave"
   >
     <div
-      v-if="showAvatarSkeleton"
-      class="avatar-img-skeleton absolute inset-0 z-0"
-      :class="avatarSkeletonRadiusClass"
+      v-if="showAvatarMonogram"
+      class="avatar-monogram absolute inset-0 z-0 flex items-center justify-center"
+      :class="avatarSlotRadiusClass"
+      :style="{ '--avatar-monogram-hue': String(avatarMonogramHueValue) }"
       aria-hidden="true"
-    />
+    >
+      <span class="avatar-monogram__text">{{ avatarMonogramInitials }}</span>
+    </div>
     <MediaUnavailablePanel
-      v-if="loadFailed"
-      :variant="unavailableVariant === 'avatar' ? 'avatar' : 'default'"
+      v-if="loadFailed && unavailableVariant !== 'avatar'"
+      variant="default"
       :headline="mediaUnavailableHeadline"
       :detail="mediaUnavailableDetail"
       :href="fallbackHref"
     />
-    <template v-else-if="!isGif && safeUrl">
+    <template v-if="!loadFailed && !isGif && safeUrl">
       <img
         :src="staticRasterSrc"
         :srcset="staticRasterSrcset || undefined"
@@ -345,7 +423,7 @@ const imgReferrerPolicy = 'no-referrer';
       />
     </template>
     <!-- CDN GIF fast path: single native animated img (Discord-style). -->
-    <template v-else-if="preferNativePlayback && safeUrl">
+    <template v-else-if="!loadFailed && preferNativePlayback && safeUrl">
       <img
         :src="safeUrl"
         :alt="alt"
@@ -360,7 +438,9 @@ const imgReferrerPolicy = 'no-referrer';
       />
     </template>
     <!-- Pre-sized parent + absolute layers: avoids CLS when poster/animated swap or static PNG differs. -->
-    <template v-else-if="layoutMode === 'absolute-stack' && safeUrl">
+    <template
+      v-else-if="!loadFailed && layoutMode === 'absolute-stack' && safeUrl"
+    >
       <!-- Keep the poster visible under the animated layer while the GIF decodes (avoids hover flash). -->
       <img
         :src="staticFrame ?? safeUrl"
@@ -389,7 +469,7 @@ const imgReferrerPolicy = 'no-referrer';
         @load="onImgLoad"
       />
     </template>
-    <template v-else-if="layoutMode === 'fill-cover' && safeUrl">
+    <template v-else-if="!loadFailed && layoutMode === 'fill-cover' && safeUrl">
       <img
         aria-hidden="true"
         :src="safeUrl"
@@ -430,7 +510,7 @@ const imgReferrerPolicy = 'no-referrer';
         @load="onImgLoad"
       />
     </template>
-    <template v-else-if="safeUrl">
+    <template v-else-if="!loadFailed && safeUrl">
       <img
         aria-hidden="true"
         :src="safeUrl"
@@ -475,25 +555,17 @@ const imgReferrerPolicy = 'no-referrer';
 </template>
 
 <style scoped lang="scss">
-.avatar-img-skeleton {
-  background: color-mix(in srgb, var(--text) 11%, transparent);
-  animation: avatar-img-skeleton-pulse 1.4s ease-in-out infinite;
+.avatar-monogram {
+  container-type: size;
+  overflow: hidden;
+  user-select: none;
 }
 
-@keyframes avatar-img-skeleton-pulse {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 0.85;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .avatar-img-skeleton {
-    animation: none;
-    opacity: 0.6;
-  }
+.avatar-monogram__text {
+  font-size: max(0.5rem, 37.5cqmin);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 </style>

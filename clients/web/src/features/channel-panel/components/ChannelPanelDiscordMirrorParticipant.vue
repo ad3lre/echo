@@ -4,6 +4,10 @@ import {
   isTrustedMediaUrl,
   safeImageUrl,
 } from '@/features/layout/display/safeImageUrl';
+import {
+  avatarInitialsFromName,
+  avatarMonogramHue,
+} from '@/features/layout/display/avatarMonogram';
 
 /**
  * Read-only roster row for a Discord voice mirror participant. Mirrors the
@@ -30,29 +34,11 @@ const hasAvatar = computed(() => isTrustedMediaUrl(props.avatar));
 
 const avatarSrc = computed(() => safeImageUrl(props.avatar));
 
-/** Up to two letters from the visible name (skipping leading non-letters/digits). */
-const initials = computed(() => {
-  const name = displayName.value;
-  const parts = name
-    .split(/\s+/u)
-    .map((p) => p.replace(/^[^\p{L}\p{N}]+/u, ''))
-    .filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) {
-    return parts[0]!.slice(0, 2).toUpperCase();
-  }
-  return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-});
+const initials = computed(() => avatarInitialsFromName(displayName.value));
 
-/** Stable hue per Discord user id so monograms don't all look the same. */
-const monogramHue = computed(() => {
-  const id = props.discordUserId || displayName.value;
-  let h = 0;
-  for (let i = 0; i < id.length; i++) {
-    h = (h * 31 + id.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h) % 360;
-});
+const monogramHue = computed(() =>
+  avatarMonogramHue(props.discordUserId || displayName.value),
+);
 </script>
 
 <template>

@@ -52,6 +52,17 @@ function openChannelSheet() {
   emit('update:channelSheetOpen', true);
 }
 
+/**
+ * Closing the channel sheet with no active channel used to leave the guild chat
+ * surface with no header/back control. Return to the server list instead.
+ */
+function onChannelSheetClose() {
+  emit('update:channelSheetOpen', false);
+  if (!activeChannelId.value?.trim()) {
+    emit('update:stack', 'list');
+  }
+}
+
 function closeMembers() {
   emit('update:membersVisible', false);
 }
@@ -98,7 +109,7 @@ function closeMembers() {
     </template>
     <MobileChannelSheet
       :open="channelSheetOpen && stack === 'guild'"
-      @close="emit('update:channelSheetOpen', false)"
+      @close="onChannelSheetClose"
       @channel-selected="emit('update:channelSheetOpen', false)"
     />
   </div>

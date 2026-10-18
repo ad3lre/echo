@@ -30,7 +30,7 @@ describe('useAppBootGate', () => {
     scope.stop();
   });
 
-  it('starts gated and fast-reveals after fastRevealMs for progressive loading', async () => {
+  it('holds a session boot until workspace settles (no 600ms empty-shell flash)', async () => {
     const settled = ref(false);
     const { api, scope } = run({
       hasSession: true,
@@ -41,29 +41,27 @@ describe('useAppBootGate', () => {
     });
     expect(api.showBootGate.value).toBe(true);
 
-    vi.advanceTimersByTime(599);
+    vi.advanceTimersByTime(600);
     expect(api.showBootGate.value).toBe(true);
-    vi.advanceTimersByTime(1);
-    expect(api.showBootGate.value).toBe(false);
 
     settled.value = true;
     await nextTick();
-    vi.advanceTimersByTime(30_000);
     expect(api.showBootGate.value).toBe(false);
     scope.stop();
   });
 
-  it('starts gated and fast-reveals for warm-painted content', () => {
+  it('session boot still force-reveals at safety timeout if settle never arrives', () => {
     const { api, scope } = run({
-      hasSession: false,
-      warmPainted: true,
+      hasSession: true,
+      warmPainted: false,
       initialLoadSettled: ref(false),
-      timeoutMs: 30_000,
+      timeoutMs: 3000,
       fastRevealMs: 600,
     });
     expect(api.showBootGate.value).toBe(true);
-
-    vi.advanceTimersByTime(600);
+    vi.advanceTimersByTime(2999);
+    expect(api.showBootGate.value).toBe(true);
+    vi.advanceTimersByTime(1);
     expect(api.showBootGate.value).toBe(false);
     scope.stop();
   });

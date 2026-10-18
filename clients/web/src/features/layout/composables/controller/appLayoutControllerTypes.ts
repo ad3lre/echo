@@ -840,6 +840,10 @@ export interface AppLayoutControllerContext {
   dmCallVoiceStripTitle: ComputedRef<string>;
   channelPanelVoiceChannelId: ComputedRef<string | null>;
   channelPanelVoiceChannelName: ComputedRef<string>;
+  /** Sidebar strip status including join phases before LiveKit connects. */
+  channelPanelVoiceConnectionStatus: ComputedRef<
+    'idle' | 'awaiting_mic' | 'connecting' | 'connected' | 'error'
+  >;
   channelPanelVcMutedEffective: ComputedRef<boolean>;
   channelPanelVcDeafenedEffective: ComputedRef<boolean>;
   channelPanelVcVideoEffective: ComputedRef<boolean>;

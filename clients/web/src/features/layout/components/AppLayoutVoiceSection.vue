@@ -364,16 +364,6 @@ const stageSpeakerByUserId = computed(
   () => voiceUiChannel.value?.voiceStageSpeakerByUserId ?? {},
 );
 
-// Warm voice call chunks only when voice UI is active (keeps startup tests/paths light).
-watchEffect(() => {
-  if (!props.isViewingVoiceChannel) return;
-  void import('@/features/voice/CallView.vue');
-  if (isStageChannel.value) {
-    void import('@/features/voice/components/StageCallView.vue');
-    void import('@/features/voice/components/StageVcLobby.vue');
-  }
-});
-
 const channelIconResolver = useChannelIconResolver(
   toRef(() => props.selectedServerId ?? undefined),
 );
@@ -397,14 +387,26 @@ const voiceSideChatTitle = computed(() => {
 });
 
 const voiceChannelActivityLabel = computed(() => {
-  if (!props.effectiveActiveChannel) return 'Voice channel';
-  const name = props.getChannelDisplayName(props.effectiveActiveChannel.name);
+  const ch = voiceUiChannel.value ?? props.effectiveActiveChannel;
+  if (!ch) return 'Voice channel';
+  const name = props.getChannelDisplayName(ch.name);
   return name ? name : 'Voice channel';
 });
 
 const vcActivitySurfaceOpen = computed(
   () => unref(props.vcActivityUi).phase !== 'closed',
 );
+
+// Warm voice call / activity chunks when voice UI or activities are active.
+watchEffect(() => {
+  if (!props.isViewingVoiceChannel && !vcActivitySurfaceOpen.value) return;
+  void import('@/features/voice/CallView.vue');
+  void import('@/features/voice/components/VcActivityStage.vue');
+  if (isStageChannel.value) {
+    void import('@/features/voice/components/StageCallView.vue');
+    void import('@/features/voice/components/StageVcLobby.vue');
+  }
+});
 
 const echoSession = useEchoSessionStore();
 const { upcomingEventsByServerId } = storeToRefs(echoSession);
@@ -516,7 +518,13 @@ const voiceSectionDockPadStyle = computed(() => {
 </script>
 
 <template>
-  <template v-if="isViewingVoiceChannel">
+  <!--
+    Show whenever the user is on the VC surface *or* an activity is open.
+    Sidebar-only / minimized voice leaves `isViewingVoiceChannel` false; the
+    activities opener still sets phase=pick, and this branch must mount so
+    VcActivityStage can render (ChatSurface also keys off phase !== closed).
+  -->
+  <template v-if="isViewingVoiceChannel || vcActivitySurfaceOpen">
     <!-- No pt-12: glass channel header is hidden in voice mode; CallView supplies its own title bar. -->
     <div
       class="voice-section-root flex min-h-0 min-w-0 flex-1 flex-col"
@@ -609,33 +617,6 @@ const voiceSectionDockPadStyle = computed(() => {
               class="h-3.5 w-3.5 brightness-0 invert"
             />
             <span>Back</span>
-          </button>
-          <button
-            v-if="
-              isCompactMobileGuild &&
-              onMinimizeVoiceView &&
-              !vcActivitySurfaceOpen &&
-              !stageShowLobby
-            "
-            type="button"
-            class="absolute right-3 top-[calc(env(safe-area-inset-top,0px)+0.45rem)] z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
-            aria-label="Browse chat while in voice"
-            title="Browse chat"
-            @click="onMinimizeVoiceView()"
-          >
-            <svg
-              class="h-3.5 w-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M18 15l-6-6-6 6" />
-            </svg>
-            <span>Chat</span>
           </button>
           <StageVcLobby
             v-if="stageShowLobby && voiceUiChannel"
@@ -937,6 +918,20 @@ const voiceSectionDockPadStyle = computed(() => {
           <div
             class="voice-side-chat-header voice-side-chat-header--mobile flex w-full min-w-0 max-w-full shrink-0 items-center justify-start gap-2 self-stretch px-3 py-2"
           >
+            <button
+              v-if="onMobileBackToChannels"
+              type="button"
+              class="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-1.5 text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
+              aria-label="Back to channels"
+              title="Back to channels"
+              @click="onMobileBackToChannels()"
+            >
+              <img
+                :src="icons.arrowLeft"
+                alt=""
+                class="h-4 w-4 opacity-90 filter invert"
+              />
+            </button>
             <span
               class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-glass-1"
             >
@@ -959,22 +954,12 @@ const voiceSectionDockPadStyle = computed(() => {
             >
             <button
               type="button"
-              class="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg-soft"
-              aria-label="Close voice chat"
-              title="Close voice chat"
+              class="ml-auto inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
+              aria-label="Back to voice"
+              title="Back to voice"
               @click="toggleVoiceSideChat"
             >
-              <svg
-                class="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
+              Voice
             </button>
           </div>
           <ChatView

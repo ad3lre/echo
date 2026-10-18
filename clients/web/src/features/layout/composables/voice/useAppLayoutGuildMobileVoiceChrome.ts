@@ -223,6 +223,7 @@ function createGuildMobileDockChrome(
   const showGuildMobileVoiceDock = computed(() =>
     shouldShowGuildMobileVoiceDock({
       connected: guildMobileVoiceConnected.value,
+      isViewingVoiceChannel: unref(deps.isViewingVoiceChannel),
       voiceSideChatCollapsed: unref(deps.voiceSideChatCollapsed),
       isSettingsModalOpen: unref(deps.isSettingsModalOpen),
       isServerSettingsModalOpen: unref(deps.isServerSettingsModalOpen),
@@ -242,18 +243,11 @@ function createGuildMobileDockChrome(
 
   const voiceMobileDockReservePxComputed = computed(() => {
     if (!showGuildMobileVoiceDock.value) return 0;
-    if (unref(deps.isViewingVoiceChannel)) return 72;
-    return 0;
+    return 72;
   });
 
-  const mainContentVcDockBottomPadClass = computed(() => {
-    if (!showGuildMobileVoiceDock.value) return '';
-    if (unref(deps.isViewingVoiceChannel)) return '';
-    if (unref(deps.useCompactPhoneTabShell)) {
-      return 'main-content-area--phone-voice-dock-reserve';
-    }
-    return 'pb-[7.5rem]';
-  });
+  /** Bottom dock only mounts on the VC surface now — no chat-column pad needed. */
+  const mainContentVcDockBottomPadClass = computed(() => '');
 
   const guildMobileVoiceDockCanUseVideo = computed(() => {
     if (

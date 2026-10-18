@@ -45,6 +45,8 @@ function wireEchoLifecycle(
     mergeEchoBlockedFromApi: phase1.mergeEchoBlockedFromApi,
     dmCallWithUserId: callVoiceLayout.dmCallWithUserId,
     echoDmThreadIds: phase1.echoDmThreadIds,
+    selectedDMUserId: phase1.selectedDMUserId,
+    isOpeningDmThread: phase1.isOpeningDmThread,
   });
   callVoiceLayout.assignHydrateEchoFromApi(echoLifecycle.hydrateEchoFromApi);
   useAppLayoutDmThreadInboxSort({
@@ -82,6 +84,8 @@ function wireGuestAndGroupDm(
     getFirstTextChannelId: phase1.getFirstTextChannelId,
     echoDmThreadIds: phase1.echoDmThreadIds,
     dmCallWithUserId: phase1.dmCallWithUserIdForShellLog,
+    selectedDMUserId: phase1.selectedDMUserId,
+    isOpeningDmThread: phase1.isOpeningDmThread,
     openAuthModal: phase1.openAuthModal,
   });
   return { openGroupDmOnServerImpl, guestBootstrap };

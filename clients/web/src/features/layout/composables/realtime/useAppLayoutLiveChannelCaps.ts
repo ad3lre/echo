@@ -24,6 +24,37 @@ export function useAppLayoutLiveChannelCaps(deps: {
   let deferredCapabilitiesRefresh: ReturnType<
     typeof scheduleDeferredTask
   > | null = null;
+  /** Last seen refresh key — bumps from `permission_invalidated` must not idle-wait. */
+  let lastRefreshKey = refreshKey?.value ?? 0;
+
+  function fetchCapsForChannel(channelId: string) {
+    const ac = new AbortController();
+    channelCapabilitiesAbort = ac;
+    void fetchEchoChannelCapabilities(
+      authSession.accessToken ?? '',
+      channelId,
+      {
+        signal: ac.signal,
+      },
+    )
+      .then((caps) => {
+        if (activeChannelId.value !== channelId) return;
+        liveChannelCapabilities.value = caps;
+      })
+      .catch((e) => {
+        if (ac.signal.aborted) return;
+        if (activeChannelId.value !== channelId) return;
+        liveChannelCapabilities.value = null;
+        reportPrimaryFlowFailure('liveChannelCapabilities', e, {
+          channelId,
+        });
+      })
+      .finally(() => {
+        if (channelCapabilitiesAbort === ac) {
+          channelCapabilitiesAbort = null;
+        }
+      });
+  }
 
   watch(
     () =>
@@ -32,7 +63,7 @@ export function useAppLayoutLiveChannelCaps(deps: {
         activeChannelId.value,
         refreshKey?.value ?? 0,
       ] as const,
-    ([isAuthenticated, channelId]) => {
+    ([isAuthenticated, channelId, key]) => {
       deferredCapabilitiesRefresh?.cancel();
       deferredCapabilitiesRefresh = null;
       channelCapabilitiesAbort?.abort();
@@ -40,37 +71,21 @@ export function useAppLayoutLiveChannelCaps(deps: {
       // Cookie sessions often have no `accessToken` in the store; `echoFetch` uses credentials either way.
       if (!isAuthenticated || !channelId || !isEchoGraphId(channelId)) {
         liveChannelCapabilities.value = null;
+        lastRefreshKey = key;
+        return;
+      }
+      const permissionRefresh = key !== lastRefreshKey;
+      lastRefreshKey = key;
+      // Channel switch: defer to keep boot/wire calm. Permission socket bumps:
+      // fetch ASAP so send/view gating matches server without a full reload.
+      if (permissionRefresh) {
+        fetchCapsForChannel(channelId);
         return;
       }
       deferredCapabilitiesRefresh = scheduleDeferredTask(
         () => {
           deferredCapabilitiesRefresh = null;
-          const ac = new AbortController();
-          channelCapabilitiesAbort = ac;
-          void fetchEchoChannelCapabilities(
-            authSession.accessToken ?? '',
-            channelId,
-            {
-              signal: ac.signal,
-            },
-          )
-            .then((caps) => {
-              if (activeChannelId.value !== channelId) return;
-              liveChannelCapabilities.value = caps;
-            })
-            .catch((e) => {
-              if (ac.signal.aborted) return;
-              if (activeChannelId.value !== channelId) return;
-              liveChannelCapabilities.value = null;
-              reportPrimaryFlowFailure('liveChannelCapabilities', e, {
-                channelId,
-              });
-            })
-            .finally(() => {
-              if (channelCapabilitiesAbort === ac) {
-                channelCapabilitiesAbort = null;
-              }
-            });
+          fetchCapsForChannel(channelId);
         },
         {
           timeoutMs: 1500,

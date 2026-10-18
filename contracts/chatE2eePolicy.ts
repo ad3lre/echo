@@ -4,7 +4,7 @@
  */
 
 export const CHAT_E2EE_REMOVED_DETAIL =
-  'Encrypted chat messages are no longer supported. Voice uses end-to-end encryption by default.';
+  'Encrypted chat messages are no longer supported. Voice E2EE is optional (guild channel setting; DM calls off by default until MLS calling is stable).';
 
 export const LEGACY_ENCRYPTED_CHAT_MESSAGE_PLACEHOLDER =
   '[Encrypted message — chat encryption is no longer available]';

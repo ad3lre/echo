@@ -24,6 +24,8 @@
 }
 
 .rail-profile__avatar--away-speaking::after {
+  /* Instant speak ring — matches local mic without CSS fade-in lag. */
+  transition: none;
   border-color: var(--echo-palette-rgb-16-185-129-0p88-eadd);
   box-shadow:
     0 0 0 2px var(--echo-palette-rgb-16-185-129-0p2-1448),

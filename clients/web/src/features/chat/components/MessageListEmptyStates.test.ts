@@ -11,6 +11,7 @@ import MessageListEmptyStates from './MessageListEmptyStates.vue';
 
 type EmptyStatesProps = {
   showNoServersYet: boolean;
+  showNoChannelsHint?: boolean;
   showEmptyChannelHint: boolean;
   showDiscordImportWidget: boolean;
   onOpenExplore?: () => void;
@@ -53,6 +54,19 @@ describe('MessageListEmptyStates', () => {
       container?.querySelector('[aria-label="No messages in this channel"]')
         ?.textContent,
     ).toContain('No messages here yet');
+  });
+
+  it('renders the no-channels hint copy', () => {
+    mountStates({
+      showNoServersYet: false,
+      showNoChannelsHint: true,
+      showEmptyChannelHint: false,
+      showDiscordImportWidget: false,
+    });
+    expect(
+      container?.querySelector('[aria-label="No channels to show"]')
+        ?.textContent,
+    ).toContain('No channels to show');
   });
 
   it('renders the no-servers CTA', () => {

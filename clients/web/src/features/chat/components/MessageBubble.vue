@@ -271,7 +271,10 @@ const composerInsertUserMention =
     COMPOSER_INSERT_USER_MENTION_KEY,
     null,
   );
-const openImageViewer = inject<(url: string) => void>('openImageViewer');
+const openImageViewer =
+  inject<(url: string, opts?: { storageKey?: string }) => void>(
+    'openImageViewer',
+  );
 const openDocumentViewer = inject<
   ((att: MessageAttachmentPayload) => void) | undefined
 >('openDocumentViewer', undefined);

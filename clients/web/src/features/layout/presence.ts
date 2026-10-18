@@ -162,9 +162,14 @@ export function selectSelfPresence(input: {
   mobileSurface?: boolean;
 }): PresenceSelection {
   const userId = typeof input.userId === 'string' ? input.userId.trim() : '';
-  const liveStatus = userId
+  const liveRaw = userId
     ? input.authoritativeStatusesByUserId?.[userId]
     : undefined;
+  // Blank overlay entries must not block session status (`'' ?? session` stays '').
+  const liveStatus =
+    typeof liveRaw === 'string' && liveRaw.trim().length > 0
+      ? liveRaw
+      : undefined;
   return selectPresence({
     authoritativeStatus: liveStatus ?? input.sessionStatus,
     rowStatus: input.rowStatus,

@@ -44,6 +44,7 @@ function clearBackendSingletonsForRestart() {
   clearRequireCacheBySubstring([
     `${path.sep}backend${path.sep}src${path.sep}config.`,
     `${path.sep}backend${path.sep}src${path.sep}services${path.sep}echoEmojiAsset.`,
+    `${path.sep}backend${path.sep}src${path.sep}services${path.sep}httpRateLimitStore.`,
     `${path.sep}backend${path.sep}src${path.sep}services${path.sep}uploads${path.sep}localUploadDisk.`,
     `${path.sep}backend${path.sep}src${path.sep}services${path.sep}uploads${path.sep}s3UploadPresign.`,
     `${path.sep}backend${path.sep}src${path.sep}bootstrap${path.sep}`,
@@ -80,6 +81,9 @@ async function run(): Promise<void> {
     ECHO_BACKEND_STORAGE: 'postgres',
     ECHO_LOCAL_UPLOAD_DIR: uploadRoot,
     ECHO_LOCAL_UPLOADS: 'true',
+    // In-memory @fastify/rate-limit — avoid shared Redis client races with
+    // enableOfflineQueue:false (Stream isn't writeable before ready).
+    REDIS_URL: undefined,
     ECHO_S3_BUCKET: undefined,
     ECHO_S3_REGION: undefined,
     ECHO_S3_ACCESS_KEY: undefined,

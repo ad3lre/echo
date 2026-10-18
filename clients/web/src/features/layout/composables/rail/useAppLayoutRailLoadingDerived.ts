@@ -84,9 +84,34 @@ export function useAppLayoutRailLoadingDerived(opts: {
     return (opts.workspace.messages.value[cid]?.length ?? 0) > 0;
   }
 
+  function guildTreeHasChannels(serverId: string): boolean {
+    const cats = opts.workspace.categoriesByServer.value[serverId] ?? [];
+    return cats.some((c) => (c.channels?.length ?? 0) > 0);
+  }
+
+  /**
+   * First-boot empty guild tree: `fromApi` can land an empty `[]` before channels
+   * hydrate, and `isGuildShellSettling` clears once `initialLoadInFlight` flips
+   * false — which flashes "No channels to show" / "No messages here yet". Keep
+   * skeletons until the boot latch settles *or* a real channel appears.
+   */
+  const isBootEmptyGuildTreeLoading = computed(() => {
+    if (!isBootInitialLoadSettling.value) return false;
+    if (opts.activeRailTab.value !== 'servers') return false;
+    const sid = opts.serverStore.selectedServerId?.trim();
+    if (!sid || sid === 'echo') return true;
+    if (
+      !isGuildChannelTreeLoaded(opts.workspace.categoriesByServer.value, sid)
+    ) {
+      return true;
+    }
+    return !guildTreeHasChannels(sid);
+  });
+
   const isChannelPanelSwitchLoading = computed(() => {
     if (isInitialWorkspaceLoading.value) return true;
     if (isGuildShellSettlingRef.value) return true;
+    if (isBootEmptyGuildTreeLoading.value) return true;
     const sid = opts.serverStore.selectedServerId?.trim();
     if (
       sid &&
@@ -107,12 +132,35 @@ export function useAppLayoutRailLoadingDerived(opts: {
     // shell settling — do not cover them with a generic skeleton overlay.
     if (activeChannelHasCachedMessages()) return false;
     if (isGuildShellSettlingRef.value) return true;
+    if (isBootEmptyGuildTreeLoading.value) return true;
     // Boot window: skeleton an empty/unresolved message surface (any rail) so the
     // empty-state copy never flashes before the channel + its history resolve.
     if (isBootInitialLoadSettling.value) {
       const bootCid = opts.activeChannelId.value.trim();
       if (!bootCid) return true;
       return (opts.workspace.messages.value[bootCid]?.length ?? 0) === 0;
+    }
+    // After settle, the active channel can still be unresolved for a tick (URL /
+    // nav restore). Keep skeletons — never flash "No messages here yet" with no cid.
+    // Exception: a loaded guild tree with zero channels is a real empty state
+    // (not mid-hydrate) — stop skeletonizing so empty chrome + back can paint.
+    if (
+      opts.activeRailTab.value === 'servers' &&
+      !opts.activeChannelId.value.trim()
+    ) {
+      const sid = opts.serverStore.selectedServerId?.trim();
+      if (
+        sid &&
+        sid !== 'echo' &&
+        isGuildChannelTreeLoaded(
+          opts.workspace.categoriesByServer.value,
+          sid,
+        ) &&
+        !guildTreeHasChannels(sid)
+      ) {
+        return false;
+      }
+      return true;
     }
     if (!isServerRailFastSwitchPending.value) return false;
     const cid = opts.activeChannelId.value.trim();

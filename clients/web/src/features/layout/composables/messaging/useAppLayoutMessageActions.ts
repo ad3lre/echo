@@ -127,6 +127,10 @@ interface UseAppLayoutMessageActionsOptions {
     userId: string,
   ) => boolean | Promise<boolean>;
   recordReaction: (emoji: string) => void;
+  /**
+   * Still accepted for call-site compatibility. Jump-to-message no longer clears
+   * search — results stay open until the user dismisses them.
+   */
   clearSearch: () => void;
   onSelectServerForChannel: (serverId: string) => void;
   onOpenServerChannel?: (serverId: string, channelId: string) => void;
@@ -168,7 +172,6 @@ export function useAppLayoutMessageActions(
     submitEchoPollVote,
     toggleReaction,
     recordReaction,
-    clearSearch,
     onSelectServerForChannel,
     onOpenServerChannel,
     onSelectDmUser,
@@ -258,7 +261,8 @@ export function useAppLayoutMessageActions(
   function handleGoToMessage(channelId: string, messageId: string) {
     leaveDmNotificationsSubviewForJump();
     handleGoToChannel(channelId);
-    clearSearch();
+    // Keep search query + results open when jumping from a hit — clearing here
+    // made the results panel vanish on every click (unexpected for desktop search).
     void (async () => {
       await nextTick();
       if (prefetchEchoMessage) {

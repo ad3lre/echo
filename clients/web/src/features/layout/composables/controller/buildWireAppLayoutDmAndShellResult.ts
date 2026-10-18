@@ -267,7 +267,7 @@ function pickRolesSlice(p: Parts) {
 function pickEchoDmSlice(p: Parts) {
   const e = p.echoDm;
   return {
-    _isOpeningDmThread: e._isOpeningDmThread,
+    isOpeningDmThread: e.isOpeningDmThread,
     activeChannelContext: e.activeChannelContext,
     applyVcYoutubeWatchTogetherRemoteOnVoice:
       e.applyVcYoutubeWatchTogetherRemoteOnVoice,

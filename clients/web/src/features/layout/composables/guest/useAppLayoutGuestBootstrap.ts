@@ -24,6 +24,8 @@ export type UseAppLayoutGuestBootstrapDeps = {
   ) => string;
   echoDmThreadIds: Ref<Set<string>>;
   dmCallWithUserId: Ref<string | null>;
+  selectedDMUserId?: Ref<string | null>;
+  isOpeningDmThread?: Ref<boolean>;
   openAuthModal: (opts?: {
     entry?: 'social' | 'echo';
     passkey?: boolean;
@@ -61,6 +63,8 @@ export function useAppLayoutGuestBootstrap(
     getFirstTextChannelId: deps.getFirstTextChannelId,
     echoDmThreadIds: deps.echoDmThreadIds,
     dmCallWithUserId: deps.dmCallWithUserId,
+    selectedDMUserId: deps.selectedDMUserId,
+    isOpeningDmThread: deps.isOpeningDmThread,
     onEchoMessageFailedGuest: guestSession.onEchoMessageFailedGuest,
     openAuthModal: deps.openAuthModal,
   });

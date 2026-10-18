@@ -67,11 +67,19 @@ export function buildEchoMediaVariantUrl(
 /** Default responsive widths for chat collage / inline attachment thumbnails. */
 export const ECHO_CHAT_MEDIA_RESPONSIVE_WIDTHS = [320, 640] as const;
 
+/**
+ * Fullscreen image viewer: large WebP variants so HEIC (and other) originals
+ * decode in browsers that cannot show the raw object bytes.
+ */
+export const ECHO_CHAT_MEDIA_VIEWER_WIDTHS = [1280, 1920, 2560] as const;
+
 /** Default responsive widths for avatar slots (member list, message author, etc.). */
 export const ECHO_AVATAR_RESPONSIVE_WIDTHS = [64, 128, 256] as const;
 
 export const ECHO_CHAT_MEDIA_COLLAGE_SIZES = '(max-width: 640px) 50vw, 320px';
 
 export const ECHO_CHAT_MEDIA_SINGLE_SIZES = '(max-width: 640px) 100vw, 640px';
+
+export const ECHO_CHAT_MEDIA_VIEWER_SIZES = '100vw';
 
 export const ECHO_AVATAR_SIZES = '(max-width: 480px) 48px, 128px';

@@ -40,7 +40,18 @@ export function createAppLayoutVoiceE2eeEpochSupersededHandler(deps: {
   };
 }
 
-export function createAppLayoutVoiceMlsMessageHandler(deps: {
+/** @deprecated MLS path — no-op retained so socket wiring compiles during cutover. */
+export function createAppLayoutVoiceMlsMessageHandler(_deps: {
+  currentVoiceChannelId: Ref<string | null | undefined>;
+  dmLiveKitJoinChannelId: Ref<string | null | undefined>;
+  getLiveKitVoiceApi: () => LiveKitVoiceRoomApi | null | undefined;
+}): (payload: EchoWorkspaceEvent) => void {
+  return () => {
+    /* MLS delivery removed — use voice_media_key */
+  };
+}
+
+export function createAppLayoutVoiceMediaKeyHandler(deps: {
   currentVoiceChannelId: Ref<string | null | undefined>;
   dmLiveKitJoinChannelId: Ref<string | null | undefined>;
   getLiveKitVoiceApi: () => LiveKitVoiceRoomApi | null | undefined;
@@ -51,26 +62,24 @@ export function createAppLayoutVoiceMlsMessageHandler(deps: {
     const guildVc = deps.currentVoiceChannelId.value?.trim();
     const dmVc = deps.dmLiveKitJoinChannelId.value?.trim();
     if (guildVc !== cid && dmVc !== cid) return;
+    const senderUserId = payload.voiceMediaKey?.senderUserId?.trim();
     void (async () => {
-      const {
-        activeVoiceMlsChannelKey,
-        reconcileVoiceMlsSession,
-        syncVoiceMlsSession,
-      } = await import('@/services/voice/mls/voiceMlsSession');
-      const key = activeVoiceMlsChannelKey();
-      if (!key) return;
       try {
-        const applied = await syncVoiceMlsSession(key);
-        if (applied) {
-          await deps.getLiveKitVoiceApi()?.rotateEpochKey(applied);
-        }
-        const reconciled = await reconcileVoiceMlsSession(key);
-        if (reconciled) {
-          await deps.getLiveKitVoiceApi()?.rotateEpochKey(reconciled);
+        const { pullVoiceMediaKeyInbox } =
+          await import('@/features/voice/voiceE2eePrepare');
+        const pulled = await pullVoiceMediaKeyInbox(
+          senderUserId ? { senderUserId } : undefined,
+        );
+        if (pulled && pulled.senderKeys.size > 0) {
+          await deps.getLiveKitVoiceApi()?.rotateEpochKey({
+            raw: pulled.senderKeys.values().next().value as ArrayBuffer,
+            keyIndex: pulled.keyIndex,
+            senderKeys: pulled.senderKeys,
+          });
         }
       } catch (e) {
-        voiceClientDiag('warn', 'voice.client:mls_sync_failed', {
-          channelKey: key,
+        voiceClientDiag('warn', 'voice.client:media_key_sync_failed', {
+          channelId: cid,
           err: e instanceof Error ? e.message : String(e),
         });
         dispatchAppToast(

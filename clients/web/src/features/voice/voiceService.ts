@@ -101,7 +101,10 @@ export type VoiceServiceDeps = {
     channelId: string,
     forceE2ee?: boolean,
   ) => Promise<VoiceE2eePrepareFnResult>;
-  /** DM call: LibSignal-wrapped media key epoch (voice E2EE, always on). */
+  /**
+   * DM call: LibSignal/MLS media key when DM voice E2EE is enabled.
+   * Default off — see `DM_VOICE_E2EE_ENABLED` / voice-e2ee-livekit.md.
+   */
   getDmVoiceE2eeMediaKey?: (
     channelId: string,
   ) => Promise<VoiceE2eePrepareFnResult>;
@@ -221,31 +224,7 @@ export function createVoiceService({
           channelId,
           code: e.body.code,
         });
-        // Prefer an in-place MLS sync when a session is already live for this
-        // DM — avoids stopVoiceMlsSession() leave/rejoin churn on every 409.
-        let reused = false;
-        try {
-          const { activeVoiceMlsChannelKey, syncVoiceMlsSession } =
-            await import('@/services/voice/mls/voiceMlsSession');
-          const key = activeVoiceMlsChannelKey();
-          if (key === `dm:${channelId}`) {
-            const synced = await syncVoiceMlsSession(key);
-            if (synced?.raw) {
-              prepared = {
-                mediaKey: synced.raw,
-                senderDeviceId: prepared.senderDeviceId,
-                keyIndex: synced.keyIndex,
-                senderKeys: synced.senderKeys,
-              };
-              reused = true;
-            }
-          }
-        } catch {
-          /* fall through to full prepare */
-        }
-        if (!reused) {
-          prepared = normalizeVoiceE2eePrepare(await e2eePrepare(channelId));
-        }
+        prepared = normalizeVoiceE2eePrepare(await e2eePrepare(channelId));
         const retryOpts = prepared.senderDeviceId
           ? { e2eeDeviceId: prepared.senderDeviceId }
           : undefined;
@@ -331,6 +310,9 @@ export function createVoiceService({
                 }
               })(),
             });
+            const { ensureEchoVoiceCaptureAudioSession } =
+              await import('@/audio/echoSoundAudioSession');
+            ensureEchoVoiceCaptureAudioSession();
             await liveKit.connect(
               session.url,
               session.token,

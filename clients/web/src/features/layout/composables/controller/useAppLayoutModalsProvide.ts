@@ -82,6 +82,13 @@ export type AppLayoutModalsProvideDeps = {
   memberListResolveHighestRole: Ctx['resolveMemberHighestRole'];
   canModerateMemberActionInServer: Ctx['canModerateMemberAction'];
   handleModerateUser: Ctx['onRequestModerateMember'];
+  openServerSettingsMember: (payload: {
+    userId: string;
+    anchorRect?:
+      | import('@/features/member-profile/memberProfiles').PopoutAnchorRect
+      | null;
+    rolesPanel?: boolean;
+  }) => void;
   onServerSettingsModalUpdate: Ctx['onUpdateServerSettingsModal'];
   serverSettingsModalInitialSection: Ctx['serverSettingsModalInitialSection'];
   onServerSettingsModalActiveSectionUpdate: Ctx['onUpdateServerSettingsModalActiveSection'];

@@ -3,7 +3,7 @@ import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import type { MessageRequestEntry } from '@/features/layout/echoWorkspace/types';
 import type { useAuthSessionStore } from '@/features/auth/authSession';
 import type { useServerStore } from '@/features/layout/server';
-import type { DmSubView } from '@/features/layout/mainSurface';
+import type { DmSubView, RailTab } from '@/features/layout/mainSurface';
 import { isEchoAuthUserId, isEchoGraphId } from '@/features/layout/ids/echoIds';
 import { echoDmChannelIdForPeerUser } from '@/features/dm/buildDmPanelUserList';
 import { clientOnlyDmOpenShellIdForPeerUser } from '@/features/dm/dmOpenShellChannelId';
@@ -83,6 +83,11 @@ export function useAppLayoutOpenDmThread(deps: {
   activeChannelId: Ref<string>;
   echoDmPeerByChannelId: Ref<Map<string, string>>;
   echoDmThreadIds: Ref<Set<string>>;
+  /**
+   * Claim DM rail immediately so bootstrap / URL reapply / guild tree rewrite
+   * treat this as a DM intent even before `/dm/open` returns.
+   */
+  activeRailTab?: Ref<RailTab>;
   /** Live message buckets (shared with `useEchoHistory` / `useSocket`); optional for tests. */
   messages?: Ref<Record<string, RawMessage[]>>;
   /** Pending request threads so accepting friendship keeps visible history. */
@@ -103,6 +108,7 @@ export function useAppLayoutOpenDmThread(deps: {
     activeChannelId,
     echoDmPeerByChannelId,
     echoDmThreadIds,
+    activeRailTab,
     messages,
     messageRequests,
     isCompactShell,
@@ -116,11 +122,40 @@ export function useAppLayoutOpenDmThread(deps: {
   /** True while `/dm/open` is resolving so UI can show loading instead of empty-state copy. */
   const isOpeningDmThread = ref(false);
 
+  function claimDmNavigation() {
+    if (activeRailTab) {
+      activeRailTab.value = 'dm';
+    }
+    serverStore.selectServer('echo');
+  }
+
+  function stillOwnsOpen(userId: string, seq: number): boolean {
+    return seq === openDmSeq && selectedDMUserId.value === userId;
+  }
+
+  function registerOptimisticDmThread(channelId: string, userId: string) {
+    const cid = channelId.trim();
+    if (!cid || !isEchoGraphId(cid)) return;
+    if (!echoDmPeerByChannelId.value.has(cid)) {
+      const m = new Map(echoDmPeerByChannelId.value);
+      m.set(cid, userId);
+      echoDmPeerByChannelId.value = m;
+    }
+    if (!echoDmThreadIds.value.has(cid)) {
+      const s = new Set(echoDmThreadIds.value);
+      s.add(cid);
+      echoDmThreadIds.value = s;
+    }
+  }
+
   function applyResolvedDirectDmChannel(
     userId: string,
     channelId: string,
     dmShellId: string,
   ): string {
+    // Re-assert DM ownership: hydrate/bootstrap may have stolen the guild selection
+    // while `/dm/open` was in flight if an older guard missed this intent.
+    claimDmNavigation();
     activeChannelId.value = channelId;
     if (messages) {
       relocateChannelMessages(messages, dmShellId, channelId);
@@ -159,7 +194,7 @@ export function useAppLayoutOpenDmThread(deps: {
     selectedDMUserId.value = userId;
     dmActiveTab.value = 'messages';
     selectedMessageRequestId.value = null;
-    serverStore.selectServer('echo');
+    claimDmNavigation();
     pfpBarExpanded.value = false;
     if (isCompactShell?.value && isDMPanelOpen?.value) {
       isDMPanelOpen.value = false;
@@ -189,6 +224,17 @@ export function useAppLayoutOpenDmThread(deps: {
       // `deriveMainSurface` only treats `dm-*` / persisted thread ids as an open DM; without this,
       // `activeChannelId` stays on the prior channel until `/dm/open` returns and the main pane
       // incorrectly shows `dmMessagesIdle` for the whole request.
+      // Capture hydrated membership *before* optimistic registration so peer-map-only ids still
+      // call `/dm/open`, while bootstrap / URL reapply still see the graph id as a DM thread.
+      const skipOpenBecauseHydrated =
+        !!persistedPeerChannelId &&
+        isKnownPersistedDirectDmThread(
+          persistedPeerChannelId,
+          echoDmThreadIds.value,
+        );
+      if (persistedPeerChannelId) {
+        registerOptimisticDmThread(persistedPeerChannelId, userId);
+      }
       activeChannelId.value = persistedPeerChannelId ?? dmShellId;
       dbgReadState(
         persistedPeerChannelId
@@ -199,18 +245,12 @@ export function useAppLayoutOpenDmThread(deps: {
           : { dmShellId },
       );
 
-      if (
-        persistedPeerChannelId &&
-        isKnownPersistedDirectDmThread(
-          persistedPeerChannelId,
-          echoDmThreadIds.value,
-        )
-      ) {
+      if (skipOpenBecauseHydrated && persistedPeerChannelId) {
         dbgReadState('dm_open_skip_hydrated', {
           userId,
           channelId: persistedPeerChannelId,
         });
-        if (seq !== openDmSeq || selectedDMUserId.value !== userId) {
+        if (!stillOwnsOpen(userId, seq)) {
           return null;
         }
         return applyResolvedDirectDmChannel(
@@ -234,7 +274,7 @@ export function useAppLayoutOpenDmThread(deps: {
           userId,
           channelId: channelId ?? null,
         });
-        if (seq !== openDmSeq || selectedDMUserId.value !== userId) {
+        if (!stillOwnsOpen(userId, seq)) {
           return null;
         }
         if (channelId) {
@@ -242,7 +282,8 @@ export function useAppLayoutOpenDmThread(deps: {
         }
         // Keep the optimistic DM shell selected so the user does not snap back
         // to an unrelated server channel when `/dm/open` returns no channel id.
-        if (seq === openDmSeq && selectedDMUserId.value === userId) {
+        if (stillOwnsOpen(userId, seq)) {
+          claimDmNavigation();
           activeChannelId.value = dmShellId;
           dbgReadState('dm_open_no_channel_keep_shell', { dmShellId });
         } else {
@@ -265,6 +306,7 @@ export function useAppLayoutOpenDmThread(deps: {
         // Preserve DM visual context on request failure instead of bouncing to
         // the previously selected server channel.
         if (selectedDMUserId.value === userId) {
+          claimDmNavigation();
           activeChannelId.value = dmShellId;
           dbgReadState('dm_open_fail_keep_shell', {
             dmShellId,
@@ -286,7 +328,7 @@ export function useAppLayoutOpenDmThread(deps: {
       }
     }
 
-    if (seq !== openDmSeq || selectedDMUserId.value !== userId) {
+    if (!stillOwnsOpen(userId, seq)) {
       return null;
     }
     activeChannelId.value = dmShellId;

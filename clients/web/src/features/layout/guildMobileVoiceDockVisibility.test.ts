@@ -7,6 +7,7 @@ import {
 
 const base: GuildMobileVoiceDockVisibilitySnapshot = {
   connected: true,
+  isViewingVoiceChannel: true,
   voiceSideChatCollapsed: true,
   isSettingsModalOpen: false,
   isServerSettingsModalOpen: false,
@@ -19,7 +20,7 @@ const base: GuildMobileVoiceDockVisibilitySnapshot = {
 };
 
 describe('shouldShowGuildMobileVoiceDock', () => {
-  it('shows when connected and no overlay is open', () => {
+  it('shows when connected on the voice surface with no overlay', () => {
     expect(shouldShowGuildMobileVoiceDock(base)).toBe(true);
   });
 
@@ -27,6 +28,15 @@ describe('shouldShowGuildMobileVoiceDock', () => {
     expect(shouldShowGuildMobileVoiceDock({ ...base, connected: false })).toBe(
       false,
     );
+  });
+
+  it('hides when browsing outside the voice channel view', () => {
+    expect(
+      shouldShowGuildMobileVoiceDock({
+        ...base,
+        isViewingVoiceChannel: false,
+      }),
+    ).toBe(false);
   });
 
   it('hides when voice chat overlay is open', () => {

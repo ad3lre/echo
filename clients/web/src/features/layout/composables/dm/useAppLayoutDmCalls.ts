@@ -48,7 +48,10 @@ import type {
 } from '@/features/voice/useLiveKitVoiceRoom';
 import { emitDiagnostic, newTraceId } from '@/observability/sessionDiagnostics';
 import { getChannelIndex } from '@/features/chat/domain/channelMessageIndex';
-import { dispatchAppToastDetail } from '@/features/layout/failures/controllerMissingAction';
+import {
+  clearIncomingCallAppToast,
+  dispatchAppToastDetail,
+} from '@/features/layout/failures/controllerMissingAction';
 import { runVoiceJoinMediaPreflightInteractive } from '@/features/voice/voiceJoinMediaPreflightFlow';
 import { dmPeerUserIdFromChannelId } from '@/features/dm/buildDmPanelUserList';
 import { openEchoDirectDmChannel } from '@/features/dm/echoDmCommandFacade';
@@ -1453,6 +1456,8 @@ export function useAppLayoutDmCalls(deps: {
     if (b?.liveKitVoiceApi && b.liveKitState.value === 'connected') {
       void b.stopVcScreenShare();
     }
+    // Peer-ended / local teardown must drop the ring toast without Decline.
+    clearIncomingCallAppToast();
     dmCallSignal.value = null;
     dmCallInviteSentChannelId.value = '';
     dmCallWithUserId.value = null;

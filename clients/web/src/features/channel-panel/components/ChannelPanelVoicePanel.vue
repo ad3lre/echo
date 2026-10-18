@@ -10,7 +10,12 @@ const props = defineProps<{
   currentVoiceChannelName: string;
   currentVoiceChannelLimitUi?: VoiceChannelUserLimitUi | null;
   vcNetworkGood: boolean;
-  vcConnectionStatus?: 'idle' | 'connecting' | 'connected' | 'error';
+  vcConnectionStatus?:
+    | 'idle'
+    | 'awaiting_mic'
+    | 'connecting'
+    | 'connected'
+    | 'error';
   isVcSettingsOpen: boolean;
   vcOutputListOpen: boolean;
   vcInputListOpen: boolean;
@@ -84,6 +89,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'toggle-network-popup'): void;
+  (e: 'open-voice-activities'): void;
 }>();
 
 const voiceSliderMax = computed(() => props.voiceSliderMax ?? 100);
@@ -121,8 +127,22 @@ const isNetworkPopupOpen = ref(false);
 const layoutChat = inject(LAYOUT_CHAT_SURFACE_KEY, null);
 
 function openVoiceActivities() {
-  const host = layoutChat as { openVcActivityPicker?: () => void } | null;
-  host?.openVcActivityPicker?.();
+  const host = layoutChat as {
+    openVcActivityPicker?: (() => void) | { value?: () => void };
+  } | null;
+  const open = host?.openVcActivityPicker;
+  const fn =
+    typeof open === 'function'
+      ? open
+      : typeof open?.value === 'function'
+        ? open.value
+        : null;
+  if (fn) {
+    fn();
+    return;
+  }
+  // Fallback if chat-surface inject is missing (wrong provide tree / HMR).
+  emit('open-voice-activities');
 }
 
 function toggleNetworkPopup() {
@@ -132,6 +152,8 @@ function toggleNetworkPopup() {
 
 const statusLabel = computed(() => {
   switch (props.vcConnectionStatus) {
+    case 'awaiting_mic':
+      return 'Waiting for microphone…';
     case 'connecting':
       return 'Connecting…';
     case 'error':
@@ -147,6 +169,7 @@ const statusLabel = computed(() => {
 
 const statusLabelClass = computed(() => {
   switch (props.vcConnectionStatus) {
+    case 'awaiting_mic':
     case 'connecting':
       return 'vc-voice-status-label--warn';
     case 'error':
@@ -162,6 +185,7 @@ const statusLabelClass = computed(() => {
 
 const networkIconClass = computed(() => {
   switch (props.vcConnectionStatus) {
+    case 'awaiting_mic':
     case 'connecting':
       return 'vc-network-warn';
     case 'error':
@@ -216,7 +240,11 @@ function formatBitrate(kbps: number): string {
                 class="vc-icon vc-icon-network h-4 w-4 shrink-0"
                 :class="[
                   networkIconClass,
-                  { 'vc-icon-pulse': vcConnectionStatus === 'connecting' },
+                  {
+                    'vc-icon-pulse':
+                      vcConnectionStatus === 'connecting' ||
+                      vcConnectionStatus === 'awaiting_mic',
+                  },
                 ]"
               />
               <span

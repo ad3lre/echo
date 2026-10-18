@@ -223,7 +223,7 @@ export type AppLayoutLeftChromeProps = {
   /** Guild channel list voice strip (guild VC or DM call transport when on servers rail). */
   guildVoiceChannelId: string | null;
   guildVoiceChannelName: string;
-  liveKitState?: 'idle' | 'connecting' | 'connected' | 'error';
+  liveKitState?: 'idle' | 'awaiting_mic' | 'connecting' | 'connected' | 'error';
   liveKitNetworkStats?: {
     latencyMs: number;
     jitterMs: number;

@@ -423,7 +423,12 @@ export function createWorkspaceState(): WorkspaceStateApi {
       fromApi.value = true;
       apiError.value = null;
       auth.applyRestoredProfile(user);
-      writeWorkspaceSessionCache(user.id, state);
+      /* Shell (`memberDetail=none`) has no roster — do not overwrite a warm
+       * session cache that already has members (would empty Settings → Members
+       * until the deferred roster rewrite lands). */
+      if (state.membersByServer) {
+        writeWorkspaceSessionCache(user.id, state);
+      }
       /* Cap boot fan-out: URL channel is already prefetched; warm other heads and
        * member roster only after the first paint window so history wins the wire. */
       const bootToken = token;

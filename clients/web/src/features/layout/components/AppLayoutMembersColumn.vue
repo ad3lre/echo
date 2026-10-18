@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, unref, watch } from 'vue';
+import { computed, inject, ref, unref, watch } from 'vue';
 import type { MaybeRef } from 'vue';
 import MemberList from '@/features/layout/components/MemberList.vue';
 import SearchBar from '@/features/chat/components/SearchBar.vue';
@@ -12,6 +12,7 @@ import {
   countMemberListGuests,
   filterMemberListUsersForPanel,
 } from '@/features/layout/composables/members/memberListGuestFilter';
+import { useEchoWorkspace } from '@/features/layout/echoWorkspace/useEchoWorkspace';
 
 /** Props optional when `LAYOUT_MEMBERS_COLUMN_KEY` is provided from `AppLayout`. */
 const props = defineProps<
@@ -245,6 +246,21 @@ const resolvedSearchScopeHint = computed(() => {
   }
   return props.searchScopeHint ?? '';
 });
+
+const workspace = useEchoWorkspace();
+
+/**
+ * Chat header chrome is hidden until an active channel resolves
+ * (`showChatHeaderChrome` requires a channel). The members column used to keep
+ * its SearchBar anyway — orphan top-right search on an empty shell. Only show
+ * search once boot has settled *and* there is a channel to search in.
+ */
+const showMembersSearchHeader = computed(
+  () => workspace.initialLoadSettled.value && !!effectiveActiveChannel.value,
+);
+
+/** True while search is focused / has query — header may grow past one row. */
+const searchHeaderEngaged = ref(false);
 </script>
 
 <template>
@@ -252,11 +268,19 @@ const resolvedSearchScopeHint = computed(() => {
     v-if="isVisible"
     class="members-column relative flex min-w-0 flex-col overflow-hidden"
   >
+    <!--
+      In-flow (not absolute): filter tags / composite input can grow without
+      clipping over MEMBERS or stacking on a second trailing search field.
+      Chat header keeps search when this column is collapsed; when open, this
+      is the desktop search surface (same SearchBar, not a mobile modal).
+    -->
     <div
-      class="chat-header-glass pointer-events-auto absolute top-0 left-0 right-0 z-20 flex h-12 min-w-0 flex-shrink-0 items-center gap-2 px-4"
+      v-if="showMembersSearchHeader"
+      class="chat-header-glass pointer-events-auto relative z-20 flex min-h-12 min-w-0 flex-shrink-0 items-center gap-2 px-4"
+      :class="searchHeaderEngaged ? 'h-auto py-1.5' : 'h-12'"
     >
       <div
-        class="search-input-wrapper relative flex h-full min-w-0 flex-1 items-end"
+        class="search-input-wrapper relative flex h-full min-w-0 flex-1 items-center"
       >
         <SearchBar
           :model-value="resolvedSearchText ?? ''"
@@ -280,6 +304,7 @@ const resolvedSearchScopeHint = computed(() => {
           @clear-search="resolvedClearSearch"
           @go-to-page="resolvedGoToSearchPage"
           @go-to-message="resolvedHandleGoToMessage"
+          @engaged-change="searchHeaderEngaged = $event"
           :search-loading="resolvedSearchLoading"
           :search-error="resolvedSearchError"
           :search-scope-hint="resolvedSearchScopeHint"
@@ -288,6 +313,7 @@ const resolvedSearchScopeHint = computed(() => {
     </div>
     <MemberList
       class="min-w-0 flex-1"
+      :reserve-top-search-inset="false"
       :users="memberListUsersForPanel"
       :show-guests="memberListShowGuests"
       :guest-count="memberListGuestCount"

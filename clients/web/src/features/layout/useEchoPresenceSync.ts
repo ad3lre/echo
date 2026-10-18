@@ -33,6 +33,17 @@ export function useEchoPresenceSync(deps: {
   function syncEchoPresenceFromApi() {
     if (!authSession.isAuthenticated) return;
     const token = authSession.accessToken?.trim() ?? '';
+    const selfId = authSession.backendUser?.id?.trim();
+    const selfStatus = authSession.backendUser?.status;
+    // Seed self from session immediately so the rail / Settings do not flash
+    // "Unknown" for the signed-in user while the presence batch is in flight.
+    if (
+      selfId &&
+      typeof selfStatus === 'string' &&
+      isValidEchoPresenceStatus(selfStatus)
+    ) {
+      echoSession.patchPresence(selfId, selfStatus);
+    }
     const ids = collectPresenceCandidateUserIds({
       authUserId: authSession.backendUser?.id,
       workspaceUserIds: workspace.users.value.map((u) => u.id),

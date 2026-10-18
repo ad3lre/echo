@@ -136,6 +136,7 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     currentVoiceChannelName: ctx.currentVoiceChannelName,
     channelPanelVoiceChannelId: ctx.channelPanelVoiceChannelId,
     channelPanelVoiceChannelName: ctx.channelPanelVoiceChannelName,
+    channelPanelVoiceConnectionStatus: ctx.channelPanelVoiceConnectionStatus,
     channelPanelVcMutedEffective: ctx.channelPanelVcMutedEffective,
     channelPanelVcDeafenedEffective: ctx.channelPanelVcDeafenedEffective,
     channelPanelVcVideoEffective: ctx.channelPanelVcVideoEffective,

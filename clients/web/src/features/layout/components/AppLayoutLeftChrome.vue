@@ -29,6 +29,7 @@ import { storeToRefs } from 'pinia';
 import { copyToClipboard } from '@/features/chat/copyToClipboard';
 import { linkTokenUser } from '@/features/layout/ids/idTokens';
 import {
+  LAYOUT_CHAT_SURFACE_KEY,
   LAYOUT_LEFT_CHROME_KEY,
   LAYOUT_SERVER_RAIL_ACTIONS_KEY,
   type LayoutLeftChromeHostHandlers,
@@ -622,6 +623,7 @@ const emit = defineEmits<{
   'channel-delete-category': [payload: { categoryId: string }];
   'channel-open-notification-settings': [];
   'channel-open-voice-audio-settings': [];
+  'channel-open-voice-activities': [];
   'channel-leave-server': [serverId: string];
   'channel-mark-read': [channelId: string];
   'guild-event-rsvp': [
@@ -957,6 +959,18 @@ function fireChannelOpenVoiceAudioSettings() {
   if (h?.onChannelOpenVoiceAudioSettings) h.onChannelOpenVoiceAudioSettings();
   else emit('channel-open-voice-audio-settings');
 }
+
+const layoutChatSurface = inject(LAYOUT_CHAT_SURFACE_KEY, null);
+
+function fireChannelOpenVoiceActivities() {
+  const open = layoutChatSurface?.openVcActivityPicker;
+  const fn = unref(open as MaybeRef<(() => void) | undefined>);
+  if (typeof fn === 'function') {
+    fn();
+    return;
+  }
+  emit('channel-open-voice-activities');
+}
 function fireChannelMarkRead(channelId: string) {
   const h = host();
   if (h?.onChannelMarkRead) h.onChannelMarkRead(channelId);
@@ -1242,6 +1256,7 @@ function onMoreServersPinServer(payload: {
         @delete-category="fireChannelDeleteCategory($event)"
         @open-notification-settings="fireChannelOpenNotificationSettings"
         @open-voice-audio-settings="fireChannelOpenVoiceAudioSettings"
+        @open-voice-activities="fireChannelOpenVoiceActivities"
         @leave-server="fireChannelLeaveServer($event)"
         @mark-read="fireChannelMarkRead($event)"
         @guild-event-rsvp="fireGuildEventRsvp($event)"
@@ -1356,6 +1371,7 @@ function onMoreServersPinServer(payload: {
           @update:guild-vc-screenshare="fireChannelUpdateVcScreenshare($event)"
           @leave-guild-voice="fireChannelLeaveVoice"
           @open-guild-voice-audio-settings="fireChannelOpenVoiceAudioSettings"
+          @open-guild-voice-activities="fireChannelOpenVoiceActivities"
           :on-guild-vc-strip-participant-context-menu="
             onGuildVcStripParticipantContextMenu
           "
@@ -1534,6 +1550,7 @@ function onMoreServersPinServer(payload: {
           @update:guild-vc-screenshare="fireChannelUpdateVcScreenshare($event)"
           @leave-guild-voice="fireChannelLeaveVoice"
           @open-guild-voice-audio-settings="fireChannelOpenVoiceAudioSettings"
+          @open-guild-voice-activities="fireChannelOpenVoiceActivities"
           :on-guild-vc-strip-participant-context-menu="
             onGuildVcStripParticipantContextMenu
           "
@@ -1635,6 +1652,7 @@ function onMoreServersPinServer(payload: {
         @delete-category="fireChannelDeleteCategory($event)"
         @open-notification-settings="fireChannelOpenNotificationSettings"
         @open-voice-audio-settings="fireChannelOpenVoiceAudioSettings"
+        @open-voice-activities="fireChannelOpenVoiceActivities"
         @leave-server="fireChannelLeaveServer($event)"
         @mark-read="fireChannelMarkRead($event)"
         @guild-event-rsvp="fireGuildEventRsvp($event)"

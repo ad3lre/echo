@@ -74,7 +74,6 @@ import {
 import { primaryVcActivityPresenceKind } from '@/features/voice/vcActivityJoin';
 import { isVcServerGamePhase } from '@/features/games/vcServerGamePhases';
 import { resolveVcGameRoomChannelId } from '@/features/games/resolveVcGameRoomChannelId';
-import { VOICE_E2EE_V2_ENABLED } from '@/config';
 // `voiceMlsSession` pulls in the ts-mls crypto stack; dynamically imported at the
 // voice-reconcile handler below so it stays off the first-paint AppLayout chunk.
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
@@ -1330,36 +1329,32 @@ export function useServerVoiceSession(deps: {
   }
 
   /**
-   * Voice E2EE v2: when a participant leaves the SFU, update the MLS authorized
-   * roster and — if this client is the deterministic committer — remove the
-   * departed member, rotating the media key in-band for forward secrecy.
+   * Voice E2EE: when a participant leaves, rotate our sender media key and
+   * re-announce to remaining peers (forward secrecy without MLS).
    */
   function maybeReconcileVoiceMlsAfterLeave(departedIdentity: string): void {
-    if (!VOICE_E2EE_V2_ENABLED) return;
     void (async () => {
-      const {
-        activeVoiceMlsChannelKey,
-        reconcileVoiceMlsSession,
-        setVoiceMlsAuthorizedUserIds,
-      } = await import('@/services/voice/mls/voiceMlsSession');
-      const key = activeVoiceMlsChannelKey();
-      if (!key) return;
+      const { activeVoiceE2eeChannelKey } =
+        await import('@/features/voice/voiceE2eeActiveState');
+      if (!activeVoiceE2eeChannelKey.value) return;
       const departed = departedIdentity.trim();
-      const ids = new Set<string>();
+      const peers: string[] = [];
       const self = currentUser.value?.id?.trim();
-      if (self) ids.add(self);
       for (const pid of lkRoom.remoteParticipants.value.keys()) {
         const t = pid.trim();
-        if (t && t !== departed) ids.add(t);
+        if (t && t !== departed && t !== self) peers.push(t);
       }
-      setVoiceMlsAuthorizedUserIds(key, [...ids]);
       try {
-        const reconciled = await reconcileVoiceMlsSession(key);
-        if (reconciled) {
-          await lkRoom.rotateEpochKey(reconciled);
+        const { rotateAndAnnounceVoiceMediaKey } =
+          await import('@/features/voice/voiceE2eePrepare');
+        const rotated = await rotateAndAnnounceVoiceMediaKey({
+          peerUserIds: peers,
+        });
+        if (rotated) {
+          await lkRoom.rotateEpochKey(rotated);
         }
       } catch {
-        /* another member may commit instead; next event recovers */
+        /* socket pull / next join recovers */
       }
     })();
   }
@@ -2355,18 +2350,10 @@ export function useServerVoiceSession(deps: {
     if (ch && ch.type !== 'voice' && ch.type !== 'stage') {
       return { mediaKey: null, senderDeviceId: '' };
     }
-    // MLS (v2): always prepare before session mint — the server's group-info
-    // endpoint is the source of truth (`enabled: false` for plain channels).
-    // Gating on the workspace cache caused a race: stale `voiceE2eeEnabled`
-    // skipped prepare, mint returned 409, and the retry was still flaky.
-    // Legacy v1: only touch envelope machinery when the channel is E2EE or the
-    // orchestrator's retry set `forceE2ee` after a 409 from session mint.
-    const runMlsPrepare = VOICE_E2EE_V2_ENABLED;
-    const runLegacyPrepare =
-      !runMlsPrepare && (forceE2ee || ch?.voiceE2eeEnabled === true);
-    if (!runMlsPrepare && !runLegacyPrepare) {
-      return { mediaKey: null, senderDeviceId: '' };
-    }
+    // Always attempt Element Call–style media-key prepare for voice/stage.
+    // Server `VOICE_E2EE_DISABLED` is the source of truth (avoids stale
+    // workspace `voiceE2eeEnabled` skipping keys on an E2EE channel).
+    void forceE2ee;
     // Guild E2EE: the epoch creator must already be a member of
     // `echo_voice_participants` (backend `assertActorInVoiceChannelForEpochCreate`),
     // but the LiveKit session mint — which normally inserts that row — runs only

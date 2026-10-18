@@ -108,11 +108,10 @@ interface AppConfig {
    */
   readonly serperRefreshFailureMaxCount: number;
   /**
-   * LiveKit E2EE for DM / group-DM ("private") voice calls. On by default:
-   * clients join a per-call MLS group (RFC 9420) and derive frame-encryption
-   * keys from the group epoch secret, so the SFU only ever sees ciphertext.
-   * Set `ECHO_DM_VOICE_E2EE_ENABLED=false` to fall back to transport-only
-   * (DTLS-SRTP) encryption for private calls.
+   * LiveKit E2EE for DM / group-DM ("private") voice calls.
+   * **Off by default** until Element Call–style media-key join e2e is
+   * validated — see `docs/operations/voice-e2ee-livekit.md`. Opt in with
+   * `ECHO_DM_VOICE_E2EE_ENABLED=true` (and matching `VITE_DM_VOICE_E2EE=1`).
    */
   readonly dmVoiceE2eeEnabled: boolean;
   /**
@@ -760,7 +759,8 @@ export const config: AppConfig = {
     const raw = (process.env.ECHO_DM_VOICE_E2EE_ENABLED ?? '')
       .trim()
       .toLowerCase();
-    return !(raw === '0' || raw === 'false' || raw === 'no' || raw === 'off');
+    // Default OFF — see dmVoiceE2eeEnabled JSDoc / voice-e2ee-livekit.md.
+    return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
   })(),
   honchoEnabled: (() => {
     const raw = (process.env.HONCHO_ENABLED ?? '').trim().toLowerCase();

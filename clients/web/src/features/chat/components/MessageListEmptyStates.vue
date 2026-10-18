@@ -4,6 +4,7 @@ import DiscordChannelImportWidget from '@/features/chat/components/DiscordChanne
 
 defineProps<{
   showNoServersYet: boolean;
+  showNoChannelsHint?: boolean;
   showEmptyChannelHint: boolean;
   showDiscordImportWidget: boolean;
   onOpenExplore?: () => void;
@@ -49,6 +50,36 @@ const emit = defineEmits<{
     >
       Explore servers
     </button>
+  </div>
+  <div
+    v-else-if="showNoChannelsHint"
+    class="message-list-empty flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-4 text-center"
+    role="status"
+    aria-label="No channels to show"
+  >
+    <div
+      class="message-list-empty__icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+      aria-hidden="true"
+    >
+      <svg
+        class="h-7 w-7 text-muted"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12"
+        />
+      </svg>
+    </div>
+    <p class="text-base font-semibold text-foreground">No channels to show</p>
+    <p class="mt-2 max-w-sm text-sm leading-relaxed text-muted">
+      Nothing in this server is visible with your current roles, or the server
+      has no channels yet.
+    </p>
   </div>
   <div
     v-else-if="showEmptyChannelHint"

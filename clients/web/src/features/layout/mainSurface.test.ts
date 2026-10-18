@@ -3,6 +3,7 @@ import {
   deriveHasGuildChannelChrome,
   deriveHasPaperDocumentChrome,
   deriveMainSurface,
+  isEmptyGuildChatSurface,
   type DeriveContext,
   type MainSurface,
   type NavState,
@@ -302,6 +303,25 @@ describe('deriveHasPaperDocumentChrome', () => {
     expect(
       deriveHasPaperDocumentChrome({ type: 'serverText', channelId: 'c1' }),
     ).toBe(false);
+  });
+});
+
+describe('isEmptyGuildChatSurface', () => {
+  it('true only for serverText with empty channel id', () => {
+    expect(isEmptyGuildChatSurface({ type: 'serverText', channelId: '' })).toBe(
+      true,
+    );
+    expect(
+      isEmptyGuildChatSurface({ type: 'serverText', channelId: '  ' }),
+    ).toBe(true);
+    expect(
+      isEmptyGuildChatSurface({ type: 'serverText', channelId: 'c1' }),
+    ).toBe(false);
+    expect(
+      isEmptyGuildChatSurface({ type: 'serverVoice', channelId: '' }),
+    ).toBe(false);
+    expect(isEmptyGuildChatSurface({ type: 'explore' })).toBe(false);
+    expect(isEmptyGuildChatSurface(null)).toBe(false);
   });
 });
 

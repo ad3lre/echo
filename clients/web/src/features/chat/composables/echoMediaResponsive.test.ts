@@ -26,4 +26,15 @@ describe('echoMediaResponsive', () => {
       }),
     ).toBe(legacy);
   });
+
+  it('allows WebP variants for HEIC object keys (iPhone uploads)', () => {
+    const heic =
+      'https://media.echo.example/v1/o/echo/chat/u1/Photo.heic?t=token';
+    expect(echoMediaUrlSupportsVariants(heic)).toBe(true);
+    expect(
+      buildEchoMediaVariantUrl(heic, {
+        width: 2560,
+      }),
+    ).toBe(`${heic}&w=2560&f=webp`);
+  });
 });

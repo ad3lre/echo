@@ -369,4 +369,134 @@ describe('useAppLayoutOpenDmThread', () => {
     expect(selectedDMUserId.value).toBe(userA);
     expect(activeChannelId.value).toBe(`dm-${userA}`);
   });
+
+  it('claims DM rail immediately and re-asserts echo on resolve', async () => {
+    vi.mocked(openEchoDirectDmChannel).mockResolvedValue(dmChannelA);
+
+    const selectedDMUserId = ref<string | null>(null);
+    const dmActiveTab = ref<DmSubView>('messages');
+    const selectedMessageRequestId = ref<string | null>(null);
+    const pfpBarExpanded = ref(false);
+    const activeChannelId = ref('guild-channel');
+    const activeRailTab = ref<'servers' | 'explore' | 'dm'>('servers');
+    const echoDmPeerByChannelId = ref(new Map<string, string>());
+    const echoDmThreadIds = ref(new Set<string>());
+    const selectServer = vi.fn();
+
+    const { onSelectDmUser } = useAppLayoutOpenDmThread({
+      selectedDMUserId,
+      dmActiveTab,
+      selectedMessageRequestId,
+      serverStore: { selectServer } as never,
+      pfpBarExpanded,
+      authSession: {
+        accessToken: 'token',
+        isAuthenticated: true,
+      } as never,
+      activeChannelId,
+      echoDmPeerByChannelId,
+      echoDmThreadIds,
+      activeRailTab,
+    });
+
+    const openPromise = onSelectDmUser(userA);
+    expect(activeRailTab.value).toBe('dm');
+    expect(selectServer).toHaveBeenCalledWith('echo');
+
+    await openPromise;
+    expect(activeRailTab.value).toBe('dm');
+    expect(
+      selectServer.mock.calls.filter((c) => c[0] === 'echo').length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(activeChannelId.value).toBe(dmChannelA);
+  });
+
+  it('does not apply a late /dm/open after the user leaves the DM peer', async () => {
+    let finish!: (value: string) => void;
+    vi.mocked(openEchoDirectDmChannel).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+
+    const selectedDMUserId = ref<string | null>(null);
+    const dmActiveTab = ref<DmSubView>('messages');
+    const selectedMessageRequestId = ref<string | null>(null);
+    const pfpBarExpanded = ref(false);
+    const activeChannelId = ref('guild-channel');
+    const echoDmPeerByChannelId = ref(new Map<string, string>());
+    const echoDmThreadIds = ref(new Set<string>());
+
+    const { onSelectDmUser } = useAppLayoutOpenDmThread({
+      selectedDMUserId,
+      dmActiveTab,
+      selectedMessageRequestId,
+      serverStore: { selectServer: vi.fn() } as never,
+      pfpBarExpanded,
+      authSession: {
+        accessToken: 'token',
+        isAuthenticated: true,
+      } as never,
+      activeChannelId,
+      echoDmPeerByChannelId,
+      echoDmThreadIds,
+    });
+
+    const openPromise = onSelectDmUser(userA);
+    await nextTick();
+    selectedDMUserId.value = null;
+    activeChannelId.value = 'guild-channel';
+
+    finish(dmChannelA);
+    await openPromise;
+    await flushMicrotasks();
+
+    expect(activeChannelId.value).toBe('guild-channel');
+    expect(echoDmPeerByChannelId.value.get(dmChannelA)).toBeUndefined();
+  });
+
+  it('registers peer-map graph ids into the DM thread set before /dm/open settles', async () => {
+    let finish!: (value: string) => void;
+    vi.mocked(openEchoDirectDmChannel).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+
+    const selectedDMUserId = ref<string | null>(null);
+    const dmActiveTab = ref<DmSubView>('messages');
+    const selectedMessageRequestId = ref<string | null>(null);
+    const pfpBarExpanded = ref(false);
+    const activeChannelId = ref('start');
+    const echoDmPeerByChannelId = ref(
+      new Map<string, string>([[dmChannelA, userA]]),
+    );
+    const echoDmThreadIds = ref(new Set<string>());
+
+    const { onSelectDmUser } = useAppLayoutOpenDmThread({
+      selectedDMUserId,
+      dmActiveTab,
+      selectedMessageRequestId,
+      serverStore: { selectServer: vi.fn() } as never,
+      pfpBarExpanded,
+      authSession: {
+        accessToken: 'token',
+        isAuthenticated: true,
+      } as never,
+      activeChannelId,
+      echoDmPeerByChannelId,
+      echoDmThreadIds,
+    });
+
+    const openPromise = onSelectDmUser(userA);
+    await nextTick();
+    expect(echoDmThreadIds.value.has(dmChannelA)).toBe(true);
+    expect(activeChannelId.value).toBe(dmChannelA);
+    expect(openEchoDirectDmChannel).toHaveBeenCalledTimes(1);
+
+    finish(dmChannelA);
+    await openPromise;
+  });
 });

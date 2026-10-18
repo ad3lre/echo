@@ -66,7 +66,8 @@ describe('useAppLayoutMessageActions goToMessage (search/pins / registry path)',
     });
 
     expect(activeChannelId.value).toBe(channelId);
-    expect(clearSearch).toHaveBeenCalled();
+    // Jumping to a hit must not wipe the open search session.
+    expect(clearSearch).not.toHaveBeenCalled();
   });
 
   it('opens guild channel via workspace server id (avoids mis-parsing UUID as serverId-local)', async () => {

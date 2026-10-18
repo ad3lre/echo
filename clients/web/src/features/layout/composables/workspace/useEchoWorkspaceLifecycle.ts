@@ -32,6 +32,8 @@ export function useEchoWorkspaceLifecycle(deps: {
   mergeEchoBlockedFromApi?: (blockedUserIds: string[]) => void;
   dmCallWithUserId?: Ref<string | null>;
   echoDmThreadIds?: Ref<Set<string>>;
+  selectedDMUserId?: Ref<string | null>;
+  isOpeningDmThread?: Ref<boolean>;
 }) {
   const echoSession = useEchoSessionStore();
   const vm = createEchoWorkspaceLifecycleController({

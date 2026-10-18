@@ -5,6 +5,8 @@ export const ECHO_WORKSPACE_SOCKET_REFRESH_KINDS = new Set<string>([
   'workspace_invalidated',
   'channel_tree_changed',
   'permission_invalidated',
+  /** Role create/delete/reorder/assignments — channel visibility can change. */
+  'role_graph_changed',
   'server_updated',
   'membership_changed',
 ]);
@@ -23,8 +25,10 @@ export type WorkspaceSocketEventHandlerDeps = {
   onDiscordVoiceMirrorRoster?: (payload: EchoWorkspaceEvent) => void;
   /** LiveKit voice E2EE epoch invalidated — disconnect / prompt rejoin. */
   onVoiceE2eeEpochSuperseded?: (payload: EchoWorkspaceEvent) => void;
-  /** Voice E2EE v2 (MLS): new handshake message appended — pull, apply, rotate key in-band. */
+  /** @deprecated MLS — retained for typing during cutover. */
   onVoiceMlsMessage?: (payload: EchoWorkspaceEvent) => void;
+  /** Element Call–style media key announce — pull inbox and install sender keys. */
+  onVoiceMediaKey?: (payload: EchoWorkspaceEvent) => void;
   /**
    * Voice roster delta — apply in-place to cached workspace without a full hydrate.
    * Not called if the payload has no `voiceRosterDelta` field.
@@ -99,6 +103,11 @@ export function createWorkspaceSocketEventHandler(
       deps.onVoiceMlsMessage?.(payload);
       return;
     }
+    if (payload.kind === 'voice_media_key') {
+      deps.noteWorkspaceEventVersion(payload.version);
+      deps.onVoiceMediaKey?.(payload);
+      return;
+    }
     if (!deps.noteWorkspaceEventVersion(payload.version)) return;
     if (!ECHO_WORKSPACE_SOCKET_REFRESH_KINDS.has(payload.kind)) return;
 
@@ -109,10 +118,17 @@ export function createWorkspaceSocketEventHandler(
     ) {
       void deps.onWorkspaceInvalidated();
     }
+    // Permission / role graph changes need a snappy channel-tree refresh so
+    // clients do not sit on stale VIEW_CHANNEL until a manual reload.
+    const delay =
+      payload.kind === 'permission_invalidated' ||
+      payload.kind === 'role_graph_changed'
+        ? Math.min(debounceMs, 50)
+        : debounceMs;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
       void deps.hydrateEchoFromApi();
-    }, debounceMs);
+    }, delay);
   };
 }

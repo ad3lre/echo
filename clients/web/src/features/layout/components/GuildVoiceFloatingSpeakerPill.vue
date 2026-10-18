@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, inject, onMounted, onUnmounted, ref, unref } from 'vue';
+import {
+  computed,
+  inject,
+  onMounted,
+  onUnmounted,
+  ref,
+  unref,
+  watch,
+} from 'vue';
 import {
   LAYOUT_CHAT_SURFACE_KEY,
   type LayoutChatSurfaceContext,
@@ -8,6 +16,8 @@ import { useSpeakingState } from '@/features/layout/composables/voice/useSpeakin
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { icons } from '@/assets/icons';
 import { resolveCallTileAvatarUrl } from '@/features/layout/display/avatarDisplay';
+
+type SpeakerPerson = { id: string; name: string; pfp: string };
 
 const layout = inject(
   LAYOUT_CHAT_SURFACE_KEY,
@@ -19,6 +29,8 @@ const narrowViewport = ref(
   typeof window !== 'undefined' ? window.innerWidth < 768 : false,
 );
 const expanded = ref(false);
+/** Stick on the last person who spoke so the bar doesn’t thrash name/width. */
+const lastSpeaker = ref<SpeakerPerson | null>(null);
 
 function syncNarrowViewport() {
   if (typeof window === 'undefined') return;
@@ -38,19 +50,33 @@ onUnmounted(() => {
   }
 });
 
+const voiceChannelId = computed(() =>
+  String(unref(layout?.currentVoiceChannelId) ?? '').trim(),
+);
+
 const visible = computed(() => {
   if (!narrowViewport.value) return false;
   if (!layout) return false;
-  const vid = String(unref(layout.currentVoiceChannelId) ?? '').trim();
-  if (!vid) return false;
+  if (!voiceChannelId.value) return false;
   if (unref(layout.isViewingVoiceChannel)) return false;
   return true;
 });
 
-const dominant = computed(() => {
+watch(voiceChannelId, (id, prev) => {
+  if (id !== prev) {
+    lastSpeaker.value = null;
+    expanded.value = false;
+  }
+});
+
+watch(visible, (v) => {
+  if (!v) expanded.value = false;
+});
+
+const liveDominant = computed((): SpeakerPerson | null => {
   if (!layout) return null;
   const participants = (unref(layout.activeVoiceChannelParticipants) ??
-    []) as Array<{ id: string; name: string; pfp: string }>;
+    []) as SpeakerPerson[];
   const selfId = String(unref(localUserId) ?? '').trim();
   const sm = { ...unref(speakingMap) };
   let bestId: string | null = null;
@@ -73,19 +99,50 @@ const dominant = computed(() => {
   return p ?? { id: bestId, name: 'Someone', pfp: '' };
 });
 
-const isSpeaking = computed(() => !!dominant.value);
+watch(
+  liveDominant,
+  (d) => {
+    if (!d) return;
+    const prev = lastSpeaker.value;
+    if (
+      prev &&
+      prev.id === d.id &&
+      prev.name === d.name &&
+      prev.pfp === d.pfp
+    ) {
+      return;
+    }
+    lastSpeaker.value = { id: d.id, name: d.name, pfp: d.pfp };
+  },
+  { immediate: true },
+);
+
+const displayPerson = computed(() => liveDominant.value ?? lastSpeaker.value);
+
+const isSpeaking = computed(() => !!liveDominant.value);
 
 const voiceChannelName = computed(() => {
-  const ch = unref(layout?.effectiveActiveChannel) as
-    | { name?: string }
-    | null
-    | undefined;
   const getName = unref(layout?.getChannelDisplayName) as
     | ((name?: string) => string)
     | undefined;
-  const raw = ch?.name ?? 'Voice';
-  return getName?.(raw) ?? raw;
+  const voiceId = voiceChannelId.value;
+  const channels = (unref(layout?.allChannels) ?? []) as Array<{
+    id?: string;
+    name?: string;
+  }>;
+  if (voiceId) {
+    const match = channels.find((c) => c.id === voiceId);
+    if (match?.name) return getName?.(match.name) ?? match.name;
+  }
+  return 'Voice';
 });
+
+const primaryLabel = computed(
+  () => displayPerson.value?.name?.trim() || voiceChannelName.value,
+);
+
+const muted = computed(() => Boolean(unref(layout?.vcMuted)));
+const deafened = computed(() => Boolean(unref(layout?.vcDeafened)));
 
 function toggleExpanded() {
   expanded.value = !expanded.value;
@@ -98,7 +155,7 @@ function collapseIfExpanded() {
 function goToVoiceChannel() {
   collapseIfExpanded();
   if (!layout) return;
-  const vid = String(unref(layout.currentVoiceChannelId) ?? '').trim();
+  const vid = voiceChannelId.value;
   if (!vid) return;
   const openServerSurfaceForChannel = unref(
     (layout as { openServerSurfaceForChannel?: unknown })
@@ -118,20 +175,18 @@ function goToVoiceChannel() {
 
 function toggleMute() {
   if (!layout) return;
-  const muted = Boolean(unref(layout.vcMuted));
   const setMuted = unref(layout.onGuildChannelVcMuted) as
     | ((next: boolean) => void)
     | undefined;
-  setMuted?.(!muted);
+  setMuted?.(!muted.value);
 }
 
 function toggleDeafen() {
   if (!layout) return;
-  const deafened = Boolean(unref(layout.vcDeafened));
   const setDeafened = unref(layout.onGuildChannelVcDeafened) as
     | ((next: boolean) => void)
     | undefined;
-  setDeafened?.(!deafened);
+  setDeafened?.(!deafened.value);
 }
 
 function leaveVoice() {
@@ -145,153 +200,166 @@ function leaveVoice() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div
-      v-if="visible"
-      class="guild-vc-island-host pointer-events-none fixed inset-x-0 top-0 z-[95] flex justify-center"
-      :style="{ paddingTop: 'max(0.5rem, env(safe-area-inset-top, 0px))' }"
-    >
-      <!-- Backdrop tap target when expanded -->
+  <div
+    v-if="visible"
+    class="guild-vc-speaker-bar-host shrink-0"
+    :class="{
+      'guild-vc-speaker-bar-host--expanded': expanded,
+      'guild-vc-speaker-bar-host--speaking': isSpeaking,
+    }"
+  >
+    <button
+      v-if="expanded"
+      type="button"
+      class="guild-vc-speaker-bar__backdrop"
+      aria-label="Close voice controls"
+      @click="collapseIfExpanded"
+    />
+
+    <div class="guild-vc-speaker-bar">
       <button
-        v-if="expanded"
         type="button"
-        class="guild-vc-island-backdrop pointer-events-auto fixed inset-0 z-[-1] border-0 bg-scrim-1"
-        aria-label="Close voice controls"
-        @click="collapseIfExpanded"
-      />
-
-      <div
-        class="guild-vc-island pointer-events-auto"
-        :class="{
-          'guild-vc-island--expanded': expanded,
-          'guild-vc-island--speaking': isSpeaking,
-        }"
+        class="guild-vc-speaker-bar__main"
+        :aria-expanded="expanded"
+        aria-label="Voice session indicator"
+        @click="toggleExpanded"
       >
-        <button
-          type="button"
-          class="guild-vc-island__bubble"
-          :aria-expanded="expanded"
-          aria-label="Voice session indicator"
-          @click="toggleExpanded"
-        >
-          <div class="guild-vc-island__avatar-wrap">
-            <template v-if="dominant">
-              <PausedGifAvatar
-                :src="resolveCallTileAvatarUrl(dominant.pfp, dominant.id)"
-                :alt="dominant.name"
-                :session-key="dominant.id"
-                img-class="h-full w-full rounded-full object-cover"
-              />
-            </template>
-            <div
-              v-else
-              class="flex h-full w-full items-center justify-center rounded-full bg-accent/15"
-            >
-              <img
-                :src="icons.mic"
-                alt=""
-                class="guild-vc-island__glyph h-4 w-4"
-              />
-            </div>
-          </div>
-
-          <Transition name="island-label">
-            <div v-if="!expanded" class="guild-vc-island__label min-w-0">
-              <span class="guild-vc-island__name truncate">
-                {{ dominant?.name ?? voiceChannelName }}
-              </span>
-              <span
-                class="guild-vc-island__status truncate"
-                :class="{ 'guild-vc-island__status--live': isSpeaking }"
-              >
-                {{ isSpeaking ? 'Speaking' : 'In voice' }}
-              </span>
-            </div>
-          </Transition>
-
-          <Transition name="island-label">
+        <div class="guild-vc-speaker-bar__avatar-wrap">
+          <template v-if="displayPerson">
+            <PausedGifAvatar
+              :src="
+                resolveCallTileAvatarUrl(displayPerson.pfp, displayPerson.id)
+              "
+              :alt="displayPerson.name"
+              :session-key="displayPerson.id"
+              img-class="h-full w-full rounded-full object-cover"
+            />
             <span
-              v-if="expanded"
-              class="guild-vc-island__expanded-title truncate"
-            >
-              {{ voiceChannelName }}
-            </span>
-          </Transition>
-        </button>
-
-        <Transition name="island-controls">
-          <div
-            v-if="expanded"
-            class="guild-vc-island__controls"
-            role="toolbar"
-            aria-label="Voice controls"
-          >
-            <button
-              type="button"
-              class="guild-vc-island__ctrl"
-              :title="unref(layout?.vcMuted) ? 'Unmute' : 'Mute'"
-              :aria-label="unref(layout?.vcMuted) ? 'Unmute' : 'Mute'"
-              @click.stop="toggleMute"
-            >
-              <img
-                :src="icons.mic"
-                alt=""
-                class="guild-vc-island__glyph h-4 w-4"
-              />
-            </button>
-            <button
-              type="button"
-              class="guild-vc-island__ctrl"
-              :title="unref(layout?.vcDeafened) ? 'Undeafen' : 'Deafen'"
-              :aria-label="unref(layout?.vcDeafened) ? 'Undeafen' : 'Deafen'"
-              @click.stop="toggleDeafen"
-            >
-              <img
-                :src="icons.headphones"
-                alt=""
-                class="guild-vc-island__glyph h-4 w-4"
-              />
-            </button>
-            <button
-              type="button"
-              class="guild-vc-island__ctrl guild-vc-island__ctrl--accent"
-              title="Open voice channel"
-              aria-label="Open voice channel"
-              @click.stop="goToVoiceChannel"
-            >
-              <svg
-                class="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                <polyline points="10 17 15 12 10 7" />
-                <line x1="15" y1="12" x2="3" y2="12" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="guild-vc-island__ctrl guild-vc-island__ctrl--danger"
-              title="Leave voice"
-              aria-label="Leave voice"
-              @click.stop="leaveVoice"
-            >
-              <img
-                :src="icons.logOut"
-                alt=""
-                class="guild-vc-island__glyph h-4 w-4"
-              />
-            </button>
+              v-if="isSpeaking"
+              class="guild-vc-speaker-bar__speak-ring"
+              aria-hidden="true"
+            />
+          </template>
+          <div v-else class="guild-vc-speaker-bar__glyph-fallback">
+            <img
+              :src="icons.mic"
+              alt=""
+              class="guild-vc-speaker-bar__glyph h-4 w-4"
+            />
           </div>
-        </Transition>
-      </div>
+        </div>
+
+        <div class="guild-vc-speaker-bar__copy min-w-0">
+          <span class="guild-vc-speaker-bar__name truncate">
+            {{ primaryLabel }}
+          </span>
+          <span
+            class="guild-vc-speaker-bar__status truncate"
+            :class="{ 'guild-vc-speaker-bar__status--live': isSpeaking }"
+          >
+            {{ isSpeaking ? 'Speaking' : 'In voice' }}
+            <template v-if="displayPerson"> · {{ voiceChannelName }} </template>
+          </span>
+        </div>
+
+        <span class="guild-vc-speaker-bar__chevron" aria-hidden="true">
+          <svg
+            class="h-4 w-4"
+            :class="{ 'guild-vc-speaker-bar__chevron-icon--open': expanded }"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </span>
+      </button>
+
+      <Transition name="speaker-controls">
+        <div
+          v-if="expanded"
+          class="guild-vc-speaker-bar__controls"
+          role="toolbar"
+          aria-label="Voice controls"
+        >
+          <button
+            type="button"
+            class="guild-vc-speaker-bar__ctrl"
+            :class="{ 'guild-vc-speaker-bar__ctrl--on': muted }"
+            :title="muted ? 'Unmute' : 'Mute'"
+            :aria-label="muted ? 'Unmute' : 'Mute'"
+            @click.stop="toggleMute"
+          >
+            <img
+              :src="icons.mic"
+              alt=""
+              class="guild-vc-speaker-bar__glyph h-5 w-5"
+            />
+            <span class="guild-vc-speaker-bar__ctrl-label">{{
+              muted ? 'Unmute' : 'Mute'
+            }}</span>
+          </button>
+          <button
+            type="button"
+            class="guild-vc-speaker-bar__ctrl"
+            :class="{ 'guild-vc-speaker-bar__ctrl--on': deafened }"
+            :title="deafened ? 'Undeafen' : 'Deafen'"
+            :aria-label="deafened ? 'Undeafen' : 'Deafen'"
+            @click.stop="toggleDeafen"
+          >
+            <img
+              :src="icons.headphones"
+              alt=""
+              class="guild-vc-speaker-bar__glyph h-5 w-5"
+            />
+            <span class="guild-vc-speaker-bar__ctrl-label">{{
+              deafened ? 'Undeafen' : 'Deafen'
+            }}</span>
+          </button>
+          <button
+            type="button"
+            class="guild-vc-speaker-bar__ctrl guild-vc-speaker-bar__ctrl--accent"
+            title="Open voice channel"
+            aria-label="Open voice channel"
+            @click.stop="goToVoiceChannel"
+          >
+            <svg
+              class="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <polyline points="10 17 15 12 10 7" />
+              <line x1="15" y1="12" x2="3" y2="12" />
+            </svg>
+            <span class="guild-vc-speaker-bar__ctrl-label">Open</span>
+          </button>
+          <button
+            type="button"
+            class="guild-vc-speaker-bar__ctrl guild-vc-speaker-bar__ctrl--danger"
+            title="Leave voice"
+            aria-label="Leave voice"
+            @click.stop="leaveVoice"
+          >
+            <img
+              :src="icons.logOut"
+              alt=""
+              class="guild-vc-speaker-bar__glyph h-5 w-5"
+            />
+            <span class="guild-vc-speaker-bar__ctrl-label">Leave</span>
+          </button>
+        </div>
+      </Transition>
     </div>
-  </Teleport>
+  </div>
 </template>
 
 <style

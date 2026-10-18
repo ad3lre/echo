@@ -98,6 +98,11 @@
     inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p08-350e);
 }
 .call-tile--speaking {
+  /* Instant speak chrome — don't ease in behind local mic onset. */
+  transition:
+    transform 0.15s ease,
+    border-color 0s,
+    box-shadow 0s;
   border-color: var(--echo-palette-3ba55d-fc59) !important;
   box-shadow:
     0 0 0 1px var(--echo-palette-3ba55d-fc59),

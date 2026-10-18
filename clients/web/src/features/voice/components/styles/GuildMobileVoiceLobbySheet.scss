@@ -1,38 +1,27 @@
-/* Sheet surface — glass + subtle border at top edge only */
+/* Sheet surface — theme tokens so light / dark / AMOLED all land correctly. */
 .vc-lobby-sheet {
-  background:
-    radial-gradient(
-      circle at 60% 0%,
-      var(--echo-palette-rgba-100-80-180-0p12-d448) 0%,
-      transparent 55%
-    ),
-    linear-gradient(
-      180deg,
-      var(--echo-palette-rgba-22-16-36-0p97-fb85) 0%,
-      var(--echo-palette-rgba-13-10-22-0p99-3bf9) 100%
-    );
-  backdrop-filter: blur(32px) saturate(1.4);
-  -webkit-backdrop-filter: blur(32px) saturate(1.4);
+  background: color-mix(in srgb, var(--elevated) 94%, var(--bg));
+  backdrop-filter: blur(28px) saturate(1.2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.2);
   box-shadow:
-    0 -1px 0 0 var(--echo-palette-rgba-255-255-255-0p08-350e),
-    0 -24px 80px var(--echo-palette-rgba-0-0-0-0p7-d0e4);
+    0 -1px 0 0 color-mix(in srgb, var(--border) 70%, transparent),
+    0 -20px 64px color-mix(in srgb, black 55%, transparent);
 }
 
 :global([data-theme='light'] .vc-lobby-sheet) {
-  background:
-    radial-gradient(
-      circle at 56% 0%,
-      var(--echo-palette-rgba-99-102-241-0p09-1f45) 0%,
-      transparent 58%
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--elevated) 96%, white 4%) 0%,
-      color-mix(in srgb, var(--elevated) 98%, transparent) 100%
-    );
+  background: color-mix(in srgb, var(--elevated) 97%, white 3%);
   box-shadow:
     0 -1px 0 0 color-mix(in srgb, var(--border) 72%, transparent),
     0 -20px 58px color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+:global(
+  html[data-theme='dark'][data-echo-dark-variant='amoled'] .vc-lobby-sheet
+) {
+  background: var(--bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 -1px 0 0 color-mix(in srgb, white 8%, transparent);
 }
 
 :global([data-theme='dark'] .vc-lobby-glyph) {
@@ -44,7 +33,7 @@
   opacity: 0.78;
 }
 
-/* Join button — vivid green glow pill */
+/* Join — single primary CTA */
 .vc-lobby-join-btn {
   background: linear-gradient(
     135deg,
@@ -53,7 +42,7 @@
   );
   box-shadow:
     0 0 0 1px var(--echo-palette-rgba-34-197-94-0p25-6c64),
-    0 6px 28px var(--echo-palette-rgba-34-197-94-0p3-1253),
+    0 6px 24px var(--echo-palette-rgba-34-197-94-0p28-1253),
     inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p18-ff34);
 }
 .vc-lobby-join-btn:not(:disabled):hover {
@@ -62,23 +51,40 @@
     var(--echo-palette-4ade80-5f1c) 0%,
     var(--echo-palette-22c55e-8b8f) 100%
   );
-  box-shadow:
-    0 0 0 1px var(--echo-palette-rgba-74-222-128-0p35-da4d),
-    0 8px 32px var(--echo-palette-rgba-34-197-94-0p4-fbdc),
-    inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p22-b452);
 }
 .vc-lobby-join-btn:not(:disabled):active {
   transform: scale(0.985);
 }
 
-.vc-lobby-mini-btn {
-  background: color-mix(in srgb, white 8%, transparent);
-  box-shadow: inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p1-d371);
+:global(
+  html[data-theme='dark'][data-echo-dark-variant='amoled'] .vc-lobby-join-btn
+) {
+  box-shadow:
+    0 0 0 1px var(--echo-palette-rgba-34-197-94-0p25-6c64),
+    inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p12-ff34);
 }
-.vc-lobby-mini-btn:hover {
-  background: color-mix(in srgb, white 13%, transparent);
+
+/* Quiet icon strip — equal weight, no competing second CTA */
+.vc-lobby-icon-btn {
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  color: var(--fg-soft);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.12s ease;
 }
-.vc-lobby-mini-btn--active {
+.vc-lobby-icon-btn:hover {
+  background: color-mix(in srgb, var(--fg) 11%, transparent);
+  color: var(--fg);
+}
+.vc-lobby-icon-btn:active {
+  transform: scale(0.96);
+}
+.vc-lobby-icon-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+}
+.vc-lobby-icon-btn--active {
   background: color-mix(
     in srgb,
     var(--echo-palette-rgb-244-63-94-84c0) 18%,
@@ -87,41 +93,22 @@
   color: var(--echo-palette-rgb-254-205-211-0p95-83ee);
 }
 
-.vc-lobby-secondary-btn {
-  background: color-mix(in srgb, white 8%, transparent);
-  color: var(--muted);
-  box-shadow: inset 0 1px 0 var(--echo-palette-rgba-255-255-255-0p08-350e);
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease,
-    transform 0.12s ease;
-}
-
-.vc-lobby-secondary-btn:hover {
-  background: color-mix(in srgb, white 14%, transparent);
-  color: var(--text);
-}
-
-.vc-lobby-secondary-btn:active {
-  transform: scale(0.99);
-}
-
-.vc-lobby-secondary-btn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  outline-offset: 2px;
-}
-
-:global([data-theme='light'] .vc-lobby-secondary-btn) {
+:global([data-theme='light'] .vc-lobby-icon-btn) {
   background: color-mix(in srgb, var(--elevated) 82%, white 18%);
-  color: var(--fg-soft);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 68%, transparent),
-    0 1px 0 color-mix(in srgb, var(--border) 70%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 60%, transparent);
 }
 
-:global([data-theme='light'] .vc-lobby-secondary-btn:hover) {
-  background: color-mix(in srgb, var(--elevated) 74%, white 26%);
-  color: var(--fg);
+:global(
+  html[data-theme='dark'][data-echo-dark-variant='amoled'] .vc-lobby-icon-btn
+) {
+  background: color-mix(in srgb, white 8%, transparent);
+}
+
+:global(
+  html[data-theme='dark'][data-echo-dark-variant='amoled']
+    .vc-lobby-icon-btn:hover
+) {
+  background: color-mix(in srgb, white 12%, transparent);
 }
 
 /* Enter / leave */

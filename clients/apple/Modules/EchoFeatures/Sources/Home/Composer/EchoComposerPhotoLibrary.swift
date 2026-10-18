@@ -109,12 +109,20 @@ final class EchoComposerPhotoLibrary {
           continuation.resume(throwing: error)
         } else if let data {
           let mimeType = Self.mimeType(for: uti)
-          let extensionName = mimeType == "image/png" ? "png" : mimeType == "image/heic" ? "heic" : "jpg"
+          let extensionName =
+            mimeType == "image/png"
+            ? "png"
+            : mimeType == "image/heic" || mimeType == "image/heif" ? "heic" : "jpg"
+          let rawName = "Photo-\(UUID().uuidString.prefix(8)).\(extensionName)"
+          // Web cannot decode HEIC in `<img>`; upload JPEG so lightbox + other
+          // clients work without requiring CDN WebP variants.
+          let normalized = EchoComposerImageUploadNormalize.jpegCompatibleUpload(
+            data: data, filename: rawName, mimeType: mimeType)
           continuation.resume(
             returning: EchoComposerAsset(
-              data: data,
-              filename: "Photo-\(UUID().uuidString.prefix(8)).\(extensionName)",
-              mimeType: mimeType,
+              data: normalized.data,
+              filename: normalized.filename,
+              mimeType: normalized.mimeType,
               kind: "image",
               sourcePhotoID: item.id))
         } else {

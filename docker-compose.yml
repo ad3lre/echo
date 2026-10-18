@@ -10,7 +10,8 @@ services:
     image: postgres:16-alpine
     container_name: echo-postgres
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      # Loopback only — DOCKER-USER DROP is defense-in-depth, not the primary control.
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-echo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-echo_dev}
@@ -35,7 +36,7 @@ services:
     image: nats:2.11.16-alpine@sha256:47169454fd238c3bd104f9947a6f84c1fb4713cd89ebf29da541ce53358fc298
     container_name: echo-nats
     ports:
-      - '${NATS_PORT:-4222}:4222'
+      - '127.0.0.1:${NATS_PORT:-4222}:4222'
 
   # Local SMTP capture for dev: point Echo at localhost:1025 (see ECHO_SMTP_* in .env.example).
   # Web UI: http://localhost:8025
@@ -43,8 +44,8 @@ services:
     image: axllent/mailpit:latest
     container_name: echo-mailpit
     ports:
-      - '${MAILPIT_SMTP_PORT:-1025}:1025'
-      - '${MAILPIT_UI_PORT:-8025}:8025'
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
     healthcheck:
       test:
         [

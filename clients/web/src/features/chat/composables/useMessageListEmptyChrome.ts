@@ -44,12 +44,24 @@ export function useMessageListEmptyChrome(
       options.channelType() === 'text',
   );
 
+  /** Selected guild with no channel (empty tree / nothing visible). */
+  const showNoChannelsHint = computed(
+    () =>
+      options.isEmpty.value &&
+      !options.showLoadingSkeleton.value &&
+      !options.guildShellSettling() &&
+      !showNoServersYet.value &&
+      !options.hasChannel() &&
+      !options.dmHistoryIntro(),
+  );
+
   const showEmptyChannelHint = computed(
     () =>
       options.isEmpty.value &&
       !options.showLoadingSkeleton.value &&
       !options.guildShellSettling() &&
       !showNoServersYet.value &&
+      !showNoChannelsHint.value &&
       !discordMessageImportEligible.value &&
       !options.dmHistoryIntro(),
   );
@@ -60,6 +72,7 @@ export function useMessageListEmptyChrome(
       !options.showLoadingSkeleton.value &&
       !options.guildShellSettling() &&
       !showNoServersYet.value &&
+      !showNoChannelsHint.value &&
       discordMessageImportEligible.value,
   );
 
@@ -76,6 +89,7 @@ export function useMessageListEmptyChrome(
   const showsBlockingEmptyChrome = computed(
     () =>
       showNoServersYet.value ||
+      showNoChannelsHint.value ||
       showEmptyChannelHint.value ||
       showDiscordImportWidget.value,
   );
@@ -93,6 +107,7 @@ export function useMessageListEmptyChrome(
 
   return {
     showNoServersYet,
+    showNoChannelsHint,
     discordMessageImportEligible,
     showEmptyChannelHint,
     showDiscordImportWidget,

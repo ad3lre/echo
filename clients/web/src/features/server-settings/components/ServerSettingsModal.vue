@@ -92,6 +92,20 @@ const props = withDefaults(
       targetUserId: string;
       action: 'kick' | 'ban' | 'timeout';
     }) => void;
+    onOpenMember?: (payload: {
+      userId: string;
+      anchorRect?: {
+        top: number;
+        left: number;
+        right: number;
+        bottom: number;
+        width: number;
+        height: number;
+        source?: string;
+      } | null;
+      rolesPanel?: boolean;
+    }) => void;
+    canAssignMemberRoles?: boolean;
     /** Deep-link / URL-driven section (e.g. `?guild_section=`). */
     initialSection?: ServerSettingsSection | null;
     /** Echo: show Structure tab + channel tree (MANAGE_CHANNELS / create-channel capability). */
@@ -878,6 +892,10 @@ async function onModerationPatch(patch: {
                   :resolve-highest-role="props.resolveMemberHighestRole"
                   :can-moderate-member-action="props.canModerateMemberAction"
                   :on-request-moderate-member="props.onRequestModerateMember"
+                  :on-open-member="props.onOpenMember"
+                  :can-assign-member-roles="
+                    props.canAssignMemberRoles ?? props.canManageRoles
+                  "
                 />
 
                 <ServerSettingsRolesSection

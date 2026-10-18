@@ -15,6 +15,7 @@ import {
   subscribeAppToasts,
   dispatchAppToast,
   ECHO_CHAT_COMPOSER_FOCUS_EVENT,
+  ECHO_APP_TOAST_CLEAR_INCOMING_CALL_EVENT,
   type AppToastSeverity,
   type AppToastAction,
   type AppToastDetail,
@@ -654,6 +655,11 @@ export function useAppToastController(
     return action.label;
   }
 
+  function onClearIncomingCallToast() {
+    if (appToast.value?.variant !== 'incoming_call') return;
+    clearAppToastOnly();
+  }
+
   function disposeAppToastSideEffects() {
     unsubscribeAppToastsFn?.();
     unsubscribeAppToastsFn = null;
@@ -665,6 +671,10 @@ export function useAppToastController(
     window.removeEventListener(
       ECHO_CHAT_COMPOSER_FOCUS_EVENT,
       onChatComposerFocusForToast,
+    );
+    window.removeEventListener(
+      ECHO_APP_TOAST_CLEAR_INCOMING_CALL_EVENT,
+      onClearIncomingCallToast,
     );
     if (appToastViewportMetricsRaf !== 0) {
       window.cancelAnimationFrame(appToastViewportMetricsRaf);
@@ -713,6 +723,10 @@ export function useAppToastController(
     window.addEventListener(
       ECHO_CHAT_COMPOSER_FOCUS_EVENT,
       onChatComposerFocusForToast,
+    );
+    window.addEventListener(
+      ECHO_APP_TOAST_CLEAR_INCOMING_CALL_EVENT,
+      onClearIncomingCallToast,
     );
 
     syncAppToastVisualViewportInsetsNow();

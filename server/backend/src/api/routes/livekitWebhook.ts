@@ -6,6 +6,7 @@ import { getPgPool } from '../../db/pg';
 import { sendError } from '../errors';
 import { parseLiveKitRoomName } from '../../services/livekit/livekitAdapter';
 import {
+  clearVoiceMediaKeysForChannel,
   echoDmVoiceE2eeRequired,
   getEchoChannelVoiceE2eeEnabled,
   insertEchoAudit,
@@ -312,6 +313,7 @@ export default async function livekitWebhookRoutes(
             channelId,
           );
           await resetMlsGroupForChannel(pool, serverId, channelId);
+          await clearVoiceMediaKeysForChannel(pool, serverId, channelId);
           if (n > 0) publishVoiceE2eeEpochSuperseded();
         }
       }
@@ -475,6 +477,7 @@ export default async function livekitWebhookRoutes(
               channelId,
             );
             await resetMlsGroupForChannel(pool, serverId, channelId);
+            await clearVoiceMediaKeysForChannel(pool, serverId, channelId);
           }
         } else if (
           await getEchoChannelVoiceE2eeEnabled(pool, serverId, channelId)
@@ -485,6 +488,7 @@ export default async function livekitWebhookRoutes(
             channelId,
           );
           await resetMlsGroupForChannel(pool, serverId, channelId);
+          await clearVoiceMediaKeysForChannel(pool, serverId, channelId);
         }
         if (superseded > 0) publishVoiceE2eeEpochSuperseded();
       }

@@ -21,6 +21,10 @@ export type ApplyWorkspaceBootstrapServerNavParams = {
   echoDmThreadIds?: ReadonlySet<string> | null;
   /** Peer id of an in-progress DM call, if any. */
   dmCallWithUserId?: string | null;
+  /** Peer selected for a 1:1 DM / in-flight `/dm/open` — see bootstrap guard. */
+  selectedDMUserId?: string | null;
+  /** True while `/dm/open` is resolving. */
+  isOpeningDmThread?: boolean;
   /** Debug label so the caller's shell-nav traces stay distinguishable. */
   logSource?: string;
 };
@@ -48,6 +52,8 @@ export function applyWorkspaceBootstrapServerNav(
     activeChannelId: p.activeChannelId.value ?? '',
     echoDmThreadIds: p.echoDmThreadIds ?? null,
     dmCallWithUserId: p.dmCallWithUserId ?? null,
+    selectedDMUserId: p.selectedDMUserId ?? null,
+    isOpeningDmThread: p.isOpeningDmThread === true,
     isDmThreadId,
   });
 
@@ -57,6 +63,8 @@ export function applyWorkspaceBootstrapServerNav(
       legacyDmShell: guard.legacyDmShell,
       inEchoDmSet: guard.inEchoDmSet,
       inDmCall: guard.inDmCall,
+      hasSelectedDmUser: guard.hasSelectedDmUser,
+      openingDmThread: guard.openingDmThread,
       cid: guard.cid,
     });
     return;

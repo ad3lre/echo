@@ -20,6 +20,10 @@ const GuildMobileVoiceLobbySheet = defineAsyncComponent(
 const GuildMobileVoiceDock = defineAsyncComponent(
   () => import('@/features/voice/components/GuildMobileVoiceDock.vue'),
 );
+const GuildVoiceFloatingSpeakerPill = defineAsyncComponent(
+  () =>
+    import('@/features/layout/components/GuildVoiceFloatingSpeakerPill.vue'),
+);
 const GuestDisplayNameModal = defineAsyncComponent(
   () => import('@/features/auth/components/GuestDisplayNameModal.vue'),
 );
@@ -223,6 +227,7 @@ const {
   _currentVoiceChannelName,
   channelPanelVoiceChannelId,
   channelPanelVoiceChannelName,
+  channelPanelVoiceConnectionStatus,
   channelPanelVcMutedEffective,
   channelPanelVcDeafenedEffective,
   channelPanelVcVideoEffective,
@@ -1301,6 +1306,7 @@ useAppLayoutModalsProvide({
   memberListResolveHighestRole,
   canModerateMemberActionInServer,
   handleModerateUser,
+  openServerSettingsMember: openMemberProfileFromMemberColumn,
   onServerSettingsModalUpdate,
   serverSettingsModalInitialSection,
   onServerSettingsModalActiveSectionUpdate,
@@ -1688,7 +1694,7 @@ const {
   categoriesForServer,
   activeChannelId,
   channelPanelVoiceChannelName,
-  liveKitState,
+  liveKitState: channelPanelVoiceConnectionStatus,
   liveKitNetworkStats,
   liveKitRoom,
   getRemoteParticipantVolume,
@@ -1855,6 +1861,10 @@ const { mainContentAreaEl } = useAppLayoutMainWidthCollapse({
     />
 
     <AppToastShell :layout-context="appToastLayoutContext" />
+
+    <!-- Above-header guild VC strip (mobile): last speaker + quick controls.
+         Mounted at shell root so it stays visible on servers/DM lists too. -->
+    <GuildVoiceFloatingSpeakerPill />
 
     <template v-if="useCompactGuildSplitShell">
       <CompactGuildSplitShell class="relative min-h-0 flex-1">

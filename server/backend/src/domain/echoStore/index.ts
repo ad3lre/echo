@@ -416,6 +416,15 @@ export {
 } from './voice/voiceE2ee';
 
 export {
+  announceVoiceMediaKeys,
+  listVoiceMediaKeyInbox,
+  clearVoiceMediaKeysForChannel,
+  type AnnounceVoiceMediaKeyResult,
+  type VoiceMediaKeyEnvelopeInput,
+  type VoiceMediaKeyEnvelopeRow,
+} from './voice/voiceMediaKeys';
+
+export {
   mlsGroupIdHex,
   authorizeVoiceMlsAccess,
   publishMlsKeyPackages,

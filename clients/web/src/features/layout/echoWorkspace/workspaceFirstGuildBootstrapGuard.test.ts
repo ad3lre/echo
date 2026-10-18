@@ -71,6 +71,31 @@ describe('workspaceFirstGuildBootstrapGuard', () => {
     expect(r.inDmCall).toBe(true);
   });
 
+  it('skips when a DM peer is selected (in-flight /dm/open)', () => {
+    isDmThreadId.mockReturnValue(false);
+    const r = workspaceFirstGuildBootstrapGuard({
+      activeRailTab: 'servers',
+      activeChannelId: '1492135186257805312',
+      echoDmThreadIds: new Set(),
+      selectedDMUserId: '11111111-1111-4111-8111-111111111111',
+      isDmThreadId,
+    });
+    expect(r.skipFirstGuildBootstrap).toBe(true);
+    expect(r.hasSelectedDmUser).toBe(true);
+  });
+
+  it('skips while opening a DM thread', () => {
+    isDmThreadId.mockReturnValue(false);
+    const r = workspaceFirstGuildBootstrapGuard({
+      activeRailTab: 'servers',
+      activeChannelId: 'dm-user-1',
+      isOpeningDmThread: true,
+      isDmThreadId,
+    });
+    expect(r.skipFirstGuildBootstrap).toBe(true);
+    expect(r.openingDmThread).toBe(true);
+  });
+
   it('trims channel id and call user id for checks', () => {
     isDmThreadId.mockImplementation((id) => id === 'x');
     const r = workspaceFirstGuildBootstrapGuard({

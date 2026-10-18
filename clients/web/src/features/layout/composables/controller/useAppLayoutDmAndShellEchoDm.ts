@@ -1,10 +1,11 @@
-import { computed, ref, shallowRef, watch, type Ref } from 'vue';
+import { computed, nextTick, ref, shallowRef, watch, type Ref } from 'vue';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import type { WorkspaceRosterUserRow } from '@/features/layout/echoWorkspace/workspaceRoster';
 import { useAppLayoutEchoDmState } from '@/features/layout/composables/dm/useAppLayoutEchoDmState';
 import { useEchoDmPeerProfileHydration } from '../dm/useEchoDmPeerProfileHydration';
 import { useAppLayoutEffectiveChannel } from '../shell/useAppLayoutEffectiveChannel';
 import { useAppLayoutVcActivityGuards } from '../voice/useAppLayoutVcActivityGuards';
+import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { useAppLayoutActiveChannelNavigation } from '../shell/useAppLayoutActiveChannelNavigation';
 import { useAppLayoutOpenDmThread } from '../dm/useAppLayoutOpenDmThread';
 import { createSelectDmUserWithShadowGuard } from '@/features/dm/createSelectDmUserWithShadowGuard';
@@ -61,7 +62,7 @@ function wireEffectiveChannelAndVcGuards(
   roles: AppLayoutDmAndShellRolesTree,
   echoDmState: ReturnType<typeof useAppLayoutEchoDmState>,
 ) {
-  const { uiState } = session;
+  const { uiState, serverStore, workspace, selectServerViaStore } = session;
   const effective = useAppLayoutEffectiveChannel({
     activeChannelId: uiState.activeChannelId,
     findChannelContextById: roles.findChannelContextById,
@@ -71,11 +72,34 @@ function wireEffectiveChannelAndVcGuards(
     echoDmThreadIds: echoDmState.echoDmThreadIds,
     groupDMs: uiState.groupDMs,
   });
+  function ensureViewingConnectedVoiceChannel() {
+    const vid = uiState.currentVoiceChannelId.value?.trim();
+    if (!vid) return;
+    // Activities mount inside CallView, which only exists while the main surface
+    // is on that voice channel. Also re-select the owning guild — DM/Explore /
+    // another server leaves findChannelContextById empty so isViewingVoiceChannel
+    // stays false and the picker appears to do nothing.
+    const sid = resolveEchoServerIdContainingChannel(
+      vid,
+      workspace.categoriesByServer.value,
+    );
+    if (sid && serverStore.selectedServerId !== sid) {
+      selectServerViaStore(sid);
+    }
+    if (uiState.activeRailTab.value !== 'servers') {
+      uiState.activeRailTab.value = 'servers';
+    }
+    if (uiState.activeChannelId.value?.trim() !== vid) {
+      uiState.activeChannelId.value = vid;
+    }
+  }
+
   const vcGuards = useAppLayoutVcActivityGuards({
     isViewingVoiceChannel: effective.isViewingVoiceChannel,
     effectiveActiveChannel: effective.effectiveActiveChannel,
     vcActivityUi: uiState.vcActivityUi,
     closeVcActivity: uiState.closeVcActivity,
+    ensureViewingConnectedVoiceChannel,
     openVcActivityPicker: uiState.openVcActivityPicker,
     openVcActivityYoutubeBrowse: uiState.openVcActivityYoutubeBrowse,
     openVcActivityWordle: uiState.openVcActivityWordle,
@@ -145,28 +169,28 @@ function wireDmThreadSelection(
       echoDmThreadIds: echoDmState.echoDmThreadIds,
       findChannelContextById: roles.findChannelContextById,
     });
-  const { onSelectDmUser, isOpeningDmThread: _isOpeningDmThread } =
-    useAppLayoutOpenDmThread({
-      selectedDMUserId: uiState.selectedDMUserId,
-      dmActiveTab: uiState.dmActiveTab,
-      selectedMessageRequestId: uiState.selectedMessageRequestId,
-      serverStore: session.serverStore,
-      pfpBarExpanded: uiState.pfpBarExpanded,
-      authSession: session.authSession,
-      activeChannelId: uiState.activeChannelId,
-      echoDmPeerByChannelId: echoDmState.echoDmPeerByChannelId,
-      echoDmThreadIds: echoDmState.echoDmThreadIds,
-      messages: session.workspace.messages,
-      messageRequests: session.workspace.messageRequests,
-      isCompactShell: session.isCompactShell,
-      isDMPanelOpen: uiState.isDMPanelOpen,
-      onGuestDmBlocked: () => session.openGuestUpgradeForDmRef.value?.(),
-    });
+  const { onSelectDmUser, isOpeningDmThread } = useAppLayoutOpenDmThread({
+    selectedDMUserId: uiState.selectedDMUserId,
+    dmActiveTab: uiState.dmActiveTab,
+    selectedMessageRequestId: uiState.selectedMessageRequestId,
+    serverStore: session.serverStore,
+    pfpBarExpanded: uiState.pfpBarExpanded,
+    authSession: session.authSession,
+    activeChannelId: uiState.activeChannelId,
+    echoDmPeerByChannelId: echoDmState.echoDmPeerByChannelId,
+    echoDmThreadIds: echoDmState.echoDmThreadIds,
+    activeRailTab: uiState.activeRailTab,
+    messages: session.workspace.messages,
+    messageRequests: session.workspace.messageRequests,
+    isCompactShell: session.isCompactShell,
+    isDMPanelOpen: uiState.isDMPanelOpen,
+    onGuestDmBlocked: () => session.openGuestUpgradeForDmRef.value?.(),
+  });
   const hiddenDmInboxStore = useHiddenDmInboxStore();
   return {
     handleActiveChannelChangeNavigation,
     onSelectDmUser,
-    _isOpeningDmThread,
+    isOpeningDmThread,
     selectDmUser: createSelectDmUserWithShadowGuard({
       users: () => session.workspace.users.value,
       onSelectDmUser,

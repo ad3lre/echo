@@ -190,6 +190,7 @@ function pickCallVoiceChannelPanelFields(v: CallVoiceBag) {
     channelPanelVcVideoEffective: v.channelPanelVcVideoEffective,
     channelPanelVoiceChannelId: v.channelPanelVoiceChannelId,
     channelPanelVoiceChannelName: v.channelPanelVoiceChannelName,
+    channelPanelVoiceConnectionStatus: v.channelPanelVoiceConnectionStatus,
     dmCallVoiceStripThreadId: v.dmCallVoiceStripThreadId,
     dmCallVoiceStripTitle: v.dmCallVoiceStripTitle,
     handleChannelVoicePanelLeave: v.handleChannelVoicePanelLeave,

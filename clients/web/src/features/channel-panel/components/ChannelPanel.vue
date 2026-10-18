@@ -198,7 +198,7 @@ const props = defineProps<{
     contextVoiceChannelId?: string;
   }) => void;
   onMessageUser?: (userId: string) => void;
-  liveKitState?: 'idle' | 'connecting' | 'connected' | 'error';
+  liveKitState?: 'idle' | 'awaiting_mic' | 'connecting' | 'connected' | 'error';
   liveKitNetworkStats?: {
     latencyMs: number;
     jitterMs: number;
@@ -217,6 +217,8 @@ const props = defineProps<{
    */
   voiceSessionParticipants?: Array<{
     id: string;
+    name?: string;
+    pfp?: string;
     muted: boolean;
     deafened: boolean;
     streaming: boolean;
@@ -312,12 +314,27 @@ function onCategoryReorder(payload: {
 }
 
 function getUserById(id: string) {
-  return props.users.find((u) => u.id === id);
+  const fromUsers = props.users.find((u) => u.id === id);
+  const live = props.voiceSessionParticipants?.find((p) => p.id === id);
+  const liveName = live?.name?.trim() ?? '';
+  const livePfp = live?.pfp?.trim() ?? '';
+  const userName = fromUsers?.name?.trim() ?? '';
+  const userPfp = fromUsers?.pfp?.trim() ?? '';
+  // Prefer workspace identity; fill gaps from the live voice session row so
+  // observing a VC does not depend on the active text channel's member filter.
+  if (fromUsers || live) {
+    return {
+      id,
+      name: userName || liveName || fromUsers?.name || live?.name || '',
+      pfp: userPfp || livePfp || fromUsers?.pfp || live?.pfp || '',
+    };
+  }
+  return undefined;
 }
 
 /** SFU-only identities (workspace snapshot lag) still need a row label in the channel tree. */
 function voiceParticipantLabel(channelId: string, userId: string) {
-  const u = props.users.find((x) => x.id === userId);
+  const u = getUserById(userId);
   if (u?.name?.trim()) return u.name;
   if (
     props.liveKitState === 'connected' &&
@@ -604,6 +621,7 @@ const emit = defineEmits<{
   'update:vcScreenshare': [value: boolean];
   'join-voice': [payload: { channelId: string; channelName: string }];
   'open-voice-lobby': [payload: { channelId: string; channelName: string }];
+  'open-voice-activities': [];
   'leave-voice': [];
   invite: [payload?: { voiceChannelId: string; voiceChannelName?: string }];
   'open-server-settings': [];
@@ -675,11 +693,12 @@ function onChannelRowClick(channel: ChannelWithParticipants) {
     // first fires an async voiceService.onLeaveVoice() that calls
     // liveKit.disconnect() → increments connectGeneration, which silently
     // aborts the new channel's connection mid-flight (stale-gen check).
+    // Join is sidebar-only: do not switch main surface to CallView until the
+    // user clicks this VC again after they are connected.
     emit('join-voice', {
       channelId: channel.id,
       channelName: getChannelDisplayName(channel.name),
     });
-    emit('update:activeChannelId', channel.id);
     return;
   }
   emit('update:activeChannelId', channel.id);
@@ -1378,6 +1397,7 @@ function forwardInvite(payload?: {
           @update:vc-screenshare="emit('update:vcScreenshare', $event)"
           @leave-voice="emit('leave-voice')"
           @open-voice-audio-settings="emit('open-voice-audio-settings')"
+          @open-voice-activities="emit('open-voice-activities')"
         />
       </template>
     </div>

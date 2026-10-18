@@ -7,6 +7,7 @@ import {
   echoCameraPermissionDeniedHint,
   echoMicPermissionDeniedHint,
 } from '@/features/voice/mediaPermissionHints';
+import { ensureEchoVoiceCaptureAudioSession } from '@/audio/echoSoundAudioSession';
 
 export class VoiceJoinMediaPreflightError extends Error {
   override readonly name = 'VoiceJoinMediaPreflightError';
@@ -177,6 +178,8 @@ async function getUserMediaAudioProbe(): Promise<MediaStream> {
       'Voice calls must run in a browser with microphone support.',
     );
   }
+  // Safari: SFX may have set audioSession to `transient`, which rejects capture.
+  ensureEchoVoiceCaptureAudioSession();
   const md = navigator.mediaDevices;
   if (typeof md?.getUserMedia === 'function') {
     const attempts: MediaStreamConstraints[] = [
@@ -220,6 +223,34 @@ async function getUserMediaAudioProbe(): Promise<MediaStream> {
   throwMicrophoneApiUnavailable();
 }
 
+async function enumerateMediaDevicesOnce(): Promise<MediaDeviceInfo[] | null> {
+  const mdEnum = navigator.mediaDevices;
+  if (typeof mdEnum?.enumerateDevices !== 'function') {
+    return null;
+  }
+  try {
+    return await mdEnum.enumerateDevices();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * After a successful mic probe, Safari (and some WebViews) can briefly report
+ * zero `audioinput` devices. Capture already proved a mic exists — do not fail
+ * the join for an empty enumerate list.
+ */
+async function resolveDevicesAfterMicProbe(): Promise<
+  MediaDeviceInfo[] | null
+> {
+  let devices = await enumerateMediaDevicesOnce();
+  if (!devices) return null;
+  if (devices.some((d) => d.kind === 'audioinput')) return devices;
+  await new Promise<void>((r) => setTimeout(r, 50));
+  devices = await enumerateMediaDevicesOnce();
+  return devices;
+}
+
 /**
  * @throws {VoiceJoinMediaPreflightError} When mic permission or hardware is unusable, or when
  *   the browser lists `audiooutput` devices but none are present (wired output expected).
@@ -235,25 +266,14 @@ export async function assertVoiceJoinMediaReady(): Promise<void> {
     stopStream(stream);
   }
 
-  const mdEnum = navigator.mediaDevices;
-  if (typeof mdEnum?.enumerateDevices !== 'function') {
+  const devices = await resolveDevicesAfterMicProbe();
+  if (!devices) {
+    // Probe succeeded; enumeration unavailable or failed — treat mic as ready.
     return;
   }
 
-  let devices: MediaDeviceInfo[];
-  try {
-    devices = await mdEnum.enumerateDevices();
-  } catch {
-    return;
-  }
-
-  const inputs = devices.filter((d) => d.kind === 'audioinput');
-  if (inputs.length === 0) {
-    throw new VoiceJoinMediaPreflightError(
-      'No microphone device was detected after permission was granted.',
-    );
-  }
-
+  // Successful getUserMedia already proved an input exists. Empty `audioinput`
+  // after grant is a known Safari race — do not surface "Join muted".
   const hasOutputKind = devices.some((d) => d.kind === 'audiooutput');
   if (!hasOutputKind) {
     // Safari and some environments omit `audiooutput` from enumeration; mic check is the gate.

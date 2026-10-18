@@ -97,7 +97,18 @@ const props = defineProps<{
   showGuests?: boolean;
   /** Total guest members on the server (including hidden rows). */
   guestCount?: number;
+  /**
+   * Reserve top padding under the absolute members-column SearchBar.
+   * False when that search chrome is hidden (empty shell / no active channel).
+   */
+  reserveTopSearchInset?: boolean;
 }>();
+
+const listScrollPadClass = computed(() =>
+  props.reserveTopSearchInset === false
+    ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-3 custom-scrollbar'
+    : 'flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-14 custom-scrollbar',
+);
 
 const emit = defineEmits<{
   'update:collapsed': [value: boolean];
@@ -490,10 +501,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
       class="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col bg-transparent"
     >
       <template v-if="showMemberSkeleton">
-        <div
-          class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-14 custom-scrollbar"
-          v-scrollbar-on-scroll
-        >
+        <div :class="listScrollPadClass" v-scrollbar-on-scroll>
           <div
             v-for="sk in skeletonSections"
             :key="sk.key"
@@ -534,6 +542,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
         :presence-for-user="presenceForUser"
         :is-user-communication-timed-out="isUserCommunicationTimedOut"
         :subtitle-text-with-timeout="subtitleTextWithTimeout"
+        :reserve-top-search-inset="reserveTopSearchInset !== false"
         @open-profile="handleOpenProfile"
         @member-context-menu="handleMemberContextMenu"
       />

@@ -76,6 +76,16 @@ describe('selectSelfPresence', () => {
       }).status,
     ).toBe('idle');
   });
+
+  it('falls back to session status when the live overlay entry is blank', () => {
+    expect(
+      selectSelfPresence({
+        userId: 'u1',
+        authoritativeStatusesByUserId: { u1: '' },
+        sessionStatus: 'online',
+      }).status,
+    ).toBe('online');
+  });
 });
 
 describe('resolveMessageAuthorPresenceStatus', () => {

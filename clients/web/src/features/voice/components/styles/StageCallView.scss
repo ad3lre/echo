@@ -75,6 +75,8 @@
 }
 
 .stage-tile--speaking {
+  /* Instant speak ring — avoid 150ms ease lagging behind local mic. */
+  transition: none;
   border-color: var(--echo-palette-3ba55d-fc59);
   box-shadow:
     0 0 0 1px var(--echo-palette-3ba55d-fc59),

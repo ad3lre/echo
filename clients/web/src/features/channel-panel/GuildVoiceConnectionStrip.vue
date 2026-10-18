@@ -87,7 +87,7 @@ const props = defineProps<{
   vcVideo?: boolean;
   vcScreenshare?: boolean;
   canUseVideo?: boolean;
-  liveKitState?: 'idle' | 'connecting' | 'connected' | 'error';
+  liveKitState?: 'idle' | 'awaiting_mic' | 'connecting' | 'connected' | 'error';
   liveKitNetworkStats?: {
     latencyMs: number;
     jitterMs: number;
@@ -121,6 +121,7 @@ const emit = defineEmits<{
   'update:vcScreenshare': [value: boolean];
   'leave-voice': [];
   'open-voice-audio-settings': [];
+  'open-voice-activities': [];
 }>();
 
 function findVoiceChannelRowInProps(
@@ -214,7 +215,7 @@ function openVoiceAudioSettingsFromVc() {
 }
 
 const vcConnectionStatus = computed<
-  'connecting' | 'connected' | 'error' | 'idle'
+  'awaiting_mic' | 'connecting' | 'connected' | 'error' | 'idle'
 >(() => {
   return props.liveKitState ?? 'idle';
 });
@@ -449,6 +450,7 @@ function stageAudienceMediaToast() {
       :toggle-vc-settings="toggleVcSettings"
       :on-open-voice-audio-settings="openVoiceAudioSettingsFromVc"
       :focus-guild-voice-channel-in-sidebar="focusGuildVoiceChannelInSidebar"
+      @open-voice-activities="emit('open-voice-activities')"
     />
   </div>
 </template>

@@ -65,10 +65,18 @@ describe('useMessageListEmptyChrome', () => {
   it('shows the empty-channel hint for a loaded empty guild channel', () => {
     const { api } = mountChrome({ hasChannel: true });
     expect(api.showEmptyChannelHint.value).toBe(true);
+    expect(api.showNoChannelsHint.value).toBe(false);
     expect(api.showsBlockingEmptyChrome.value).toBe(true);
     expect(api.showNoServersYet.value).toBe(false);
     expect(api.showDiscordImportWidget.value).toBe(false);
     expect(api.showDmHistoryIntro.value).toBe(false);
+  });
+
+  it('shows the no-channels hint when the guild has no active channel', () => {
+    const { api } = mountChrome({ hasChannel: false });
+    expect(api.showNoChannelsHint.value).toBe(true);
+    expect(api.showEmptyChannelHint.value).toBe(false);
+    expect(api.showsBlockingEmptyChrome.value).toBe(true);
   });
 
   it('shows no-servers chrome instead of the empty-channel hint', () => {
@@ -80,6 +88,7 @@ describe('useMessageListEmptyChrome', () => {
 
   it('shows Discord import instead of the empty-channel hint', () => {
     const { api } = mountChrome({
+      hasChannel: true,
       serverId: 's1',
       canShowDiscordChannelImport: true,
       isDiscordImportedServer: true,
@@ -88,6 +97,7 @@ describe('useMessageListEmptyChrome', () => {
     });
     expect(api.showDiscordImportWidget.value).toBe(true);
     expect(api.showEmptyChannelHint.value).toBe(false);
+    expect(api.showNoChannelsHint.value).toBe(false);
     expect(api.discordMessageImportEligible.value).toBe(true);
   });
 

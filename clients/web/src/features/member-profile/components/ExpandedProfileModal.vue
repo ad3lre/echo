@@ -14,6 +14,7 @@ import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { serverGuildIconDisplayUrl } from '@/features/layout/display/serverGuildIconDisplayUrl';
 import ProfileBannerMedia from './ProfileBannerMedia.vue';
 import { icons } from '@/assets/icons';
+import DiscordOriginMark from '@/features/discord/DiscordOriginMark.vue';
 import { profileBannerRefractionBackdropStyle } from '@/features/member-profile/profileBannerGradientFromImage';
 import UserProfileMoreMenu from './UserProfileMoreMenu.vue';
 import ProfileUserBadges from './ProfileUserBadges.vue';
@@ -459,6 +460,15 @@ function onOverlayClick() {
                   class="pointer-events-none absolute inset-0 z-[2] bg-scrim-2"
                   aria-hidden="true"
                 />
+                <div
+                  v-if="profile.isDiscordShadow"
+                  class="absolute bottom-2 right-2 z-[12]"
+                >
+                  <DiscordOriginMark
+                    label="Discord profile (not on Echo)"
+                    size="md"
+                  />
+                </div>
               </div>
             </div>
 
@@ -510,39 +520,19 @@ function onOverlayClick() {
                         <div
                           v-if="
                             profile.badges?.length ||
-                            profile.isDiscordShadow ||
                             friendshipUi.kind === 'friend'
                           "
-                          class="flex shrink-0 items-center gap-2"
+                          class="flex shrink-0 items-center gap-1.5"
                         >
-                          <div
-                            v-if="
-                              profile.badges?.length ||
-                              friendshipUi.kind === 'friend'
-                            "
-                            class="flex shrink-0 items-center gap-1.5"
-                          >
-                            <ProfileUserBadges
-                              v-if="profile.badges?.length"
-                              :badges="profile.badges"
-                              size="sm"
-                              class="shrink-0"
-                            />
-                            <ProfileFriendHeartBadge
-                              v-if="friendshipUi.kind === 'friend'"
-                            />
-                          </div>
-                          <div
-                            v-if="profile.isDiscordShadow"
-                            class="flex shrink-0 items-center gap-1 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-indigo-400 ring-1 ring-indigo-500/25"
-                          >
-                            <img
-                              :src="icons.explore"
-                              alt=""
-                              class="h-2.5 w-2.5"
-                            />
-                            Discord
-                          </div>
+                          <ProfileUserBadges
+                            v-if="profile.badges?.length"
+                            :badges="profile.badges"
+                            size="sm"
+                            class="shrink-0"
+                          />
+                          <ProfileFriendHeartBadge
+                            v-if="friendshipUi.kind === 'friend'"
+                          />
                         </div>
                       </div>
                       <div class="ep-username-row">

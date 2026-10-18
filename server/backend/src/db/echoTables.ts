@@ -1596,6 +1596,30 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     ON echo_mls_messages (server_id, channel_id, recipient_user_id, seq)
     WHERE recipient_user_id IS NOT NULL;
   `);
+  // Element Call–style per-participant media keys (opaque LibSignal wraps).
+  // Replaces MLS epoch exporters for LiveKit frame E2EE key distribution.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_voice_media_key_envelopes (
+      server_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
+      sender_user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      sender_device_id TEXT NOT NULL,
+      key_index INT NOT NULL,
+      recipient_user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      recipient_device_id TEXT NOT NULL,
+      ciphertext TEXT NOT NULL,
+      envelope JSONB NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (
+        server_id, channel_id, sender_user_id, key_index,
+        recipient_user_id, recipient_device_id
+      )
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_voice_media_key_inbox_idx
+    ON echo_voice_media_key_envelopes (server_id, channel_id, recipient_user_id, key_index DESC);
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_vc_activity_opens (
       activity_key TEXT PRIMARY KEY,

@@ -158,15 +158,28 @@ function avatarUrl(p: { id: string; pfp: string }) {
             </div>
           </div>
 
-          <!-- sticky actions -->
+          <!-- sticky actions: one primary Join + quiet trailing icons -->
           <div
-            class="vc-lobby-actions shrink-0 px-5 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+            class="vc-lobby-actions shrink-0 border-t border-border/60 px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
           >
-            <div class="grid grid-cols-[3rem_1fr_3rem] items-center gap-2.5">
+            <button
+              type="button"
+              class="vc-lobby-join-btn flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl text-[15px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-35"
+              :disabled="!canJoin"
+              @click="emit('join')"
+            >
+              <img
+                :src="icons.volumeUp"
+                alt=""
+                class="h-[18px] w-[18px] brightness-0 invert"
+              />
+              Join voice
+            </button>
+            <div class="mt-3 flex items-center justify-end gap-2">
               <button
                 type="button"
-                class="vc-lobby-mini-btn inline-flex h-12 w-12 items-center justify-center rounded-2xl text-fg-soft transition hover:text-fg"
-                :class="props.isMuted ? 'vc-lobby-mini-btn--active' : ''"
+                class="vc-lobby-icon-btn inline-flex h-11 w-11 items-center justify-center rounded-xl"
+                :class="props.isMuted ? 'vc-lobby-icon-btn--active' : ''"
                 :aria-label="
                   props.isMuted ? 'Unmute microphone' : 'Mute microphone'
                 "
@@ -174,13 +187,13 @@ function avatarUrl(p: { id: string; pfp: string }) {
                 @click="emit('toggleMute', !props.isMuted)"
               >
                 <span
-                  class="relative inline-flex h-[22px] w-[22px] items-center justify-center"
+                  class="relative inline-flex h-[20px] w-[20px] items-center justify-center"
                 >
                   <img
                     :src="icons.mic"
                     alt=""
-                    class="vc-lobby-glyph h-[17px] w-[17px]"
-                    :class="props.isMuted ? 'opacity-60' : 'opacity-95'"
+                    class="vc-lobby-glyph h-4 w-4"
+                    :class="props.isMuted ? 'opacity-60' : 'opacity-90'"
                   />
                   <span
                     v-if="props.isMuted"
@@ -191,43 +204,31 @@ function avatarUrl(p: { id: string; pfp: string }) {
               </button>
               <button
                 type="button"
-                class="vc-lobby-join-btn flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl text-[15px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-35"
-                :disabled="!canJoin"
-                @click="emit('join')"
+                class="vc-lobby-icon-btn inline-flex h-11 w-11 items-center justify-center rounded-xl"
+                aria-label="Open chat without joining"
+                title="Chat"
+                @click="emit('chat')"
               >
                 <img
-                  :src="icons.volumeUp"
+                  :src="icons.message"
                   alt=""
-                  class="h-[18px] w-[18px] brightness-0 invert"
+                  class="vc-lobby-glyph h-4 w-4 opacity-90"
                 />
-                Join voice
               </button>
               <button
                 type="button"
-                class="vc-lobby-mini-btn inline-flex h-12 w-12 items-center justify-center rounded-2xl text-fg-soft transition hover:text-fg"
+                class="vc-lobby-icon-btn inline-flex h-11 w-11 items-center justify-center rounded-xl"
                 aria-label="Voice settings"
-                title="Voice settings"
+                title="Settings"
                 @click="emit('openAudioSettings')"
               >
                 <img
                   :src="icons.settings"
                   alt=""
-                  class="vc-lobby-glyph h-[18px] w-[18px]"
+                  class="vc-lobby-glyph h-4 w-4 opacity-90"
                 />
               </button>
             </div>
-            <button
-              type="button"
-              class="vc-lobby-secondary-btn mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-[14px] font-semibold"
-              @click="emit('chat')"
-            >
-              <img
-                :src="icons.message"
-                alt=""
-                class="vc-lobby-glyph h-[15px] w-[15px] opacity-75"
-              />
-              Open chat without joining
-            </button>
           </div>
         </div>
       </div>

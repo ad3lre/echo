@@ -233,7 +233,10 @@
         var(--vc-speak-glow) calc(var(--speak-strength) * 60%),
         transparent
       );
-  transition: box-shadow 0.1s ease-out;
+  /* Instant on/off — local speaking is already client-side; a 100ms ease
+   * made the ring feel late relative to the mic. Strength still updates
+   * every frame via --speak-strength. */
+  transition: none;
 }
 
 [data-theme='light'] .vc-speaking-ring::after {

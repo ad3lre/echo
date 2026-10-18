@@ -243,4 +243,19 @@ describe('buildMessageWithAuthor', () => {
       status: 'online',
     });
   });
+
+  it('falls back to message authorAvatar when roster pfp is blank', () => {
+    const msg: RawMessage = {
+      id: 'm1',
+      authorId: 'u1',
+      timestamp: 't',
+      content: 'x',
+      authorAvatar: 'https://cdn.test/face.png',
+    };
+    const lookup = new Map<string, UserForAuthor>([
+      ['u1', { id: 'u1', name: 'Com Echo', pfp: '', status: 'online' }],
+    ]);
+    const row = buildMessageWithAuthor(msg, lookup, {});
+    expect(row.author.avatar).toBe('https://cdn.test/face.png');
+  });
 });

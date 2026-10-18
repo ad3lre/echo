@@ -325,6 +325,7 @@ function minimalAssembleDeps(): AssembleAppLayoutContextDeps {
       dmCallVoiceStripTitle: c(''),
       channelPanelVoiceChannelId: c(''),
       channelPanelVoiceChannelName: c(''),
+      channelPanelVoiceConnectionStatus: c('idle' as const),
       channelPanelVcMutedEffective: c(false),
       channelPanelVcDeafenedEffective: c(false),
       channelPanelVcVideoEffective: c(false),

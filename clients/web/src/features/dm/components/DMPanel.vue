@@ -191,7 +191,12 @@ const props = defineProps<{
   guildVcVideo?: boolean;
   guildVcScreenshare?: boolean;
   guildVoiceCanUseVideo?: boolean;
-  guildVoiceLiveKitState?: 'idle' | 'connecting' | 'connected' | 'error';
+  guildVoiceLiveKitState?:
+    | 'idle'
+    | 'awaiting_mic'
+    | 'connecting'
+    | 'connected'
+    | 'error';
   guildVoiceLiveKitNetworkStats?: {
     latencyMs: number;
     jitterMs: number;
@@ -258,6 +263,7 @@ const emit = defineEmits<{
   'update:guild-vc-screenshare': [value: boolean];
   'leave-guild-voice': [];
   'open-guild-voice-audio-settings': [];
+  'open-guild-voice-activities': [];
   /** Notifications filter state updates. */
   'update:dm-notifications-read-preset': [preset: NotificationReadPreset];
   'update:dm-notifications-source-key': [key: string];
@@ -1506,6 +1512,7 @@ watch(
           @update:vc-screenshare="emit('update:guild-vc-screenshare', $event)"
           @leave-voice="emit('leave-guild-voice')"
           @open-voice-audio-settings="emit('open-guild-voice-audio-settings')"
+          @open-voice-activities="emit('open-guild-voice-activities')"
         />
       </div>
 

@@ -342,6 +342,13 @@ export default defineConfig(({ mode }) => {
           ),
         },
         {
+          find: '@/services/voice/e2ee',
+          replacement: path.resolve(
+            __dirname,
+            '../../server/backend/crypto/src/voice',
+          ),
+        },
+        {
           find: '@',
           replacement: path.resolve(__dirname, './src'),
         },

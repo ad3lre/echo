@@ -59,10 +59,45 @@ describe('createWorkspaceSocketEventHandler', () => {
       refreshEchoSocialFromApi: vi.fn(async () => undefined),
     });
 
-    handler({ kind: 'role_graph_changed', version: '1' });
+    handler({ kind: 'unrelated_event_kind' as never, version: '1' });
 
     expect(bump).not.toHaveBeenCalled();
     expect(hydrate).not.toHaveBeenCalled();
+  });
+
+  it('hydrates on role_graph_changed (visibility can change)', () => {
+    const hydrate = vi.fn(async () => undefined);
+    const bump = vi.fn();
+    const handler = createWorkspaceSocketEventHandler({
+      noteWorkspaceEventVersion: () => true,
+      bumpLiveChannelCapabilities: bump,
+      hydrateEchoFromApi: hydrate,
+      refreshEchoSocialFromApi: vi.fn(async () => undefined),
+      debounceMs: 200,
+    });
+
+    handler({ kind: 'role_graph_changed', version: '1' });
+    expect(bump).toHaveBeenCalledTimes(1);
+    expect(hydrate).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(50);
+    expect(hydrate).toHaveBeenCalledTimes(1);
+  });
+
+  it('hydrates permission_invalidated faster than the default debounce', () => {
+    const hydrate = vi.fn(async () => undefined);
+    const handler = createWorkspaceSocketEventHandler({
+      noteWorkspaceEventVersion: () => true,
+      bumpLiveChannelCapabilities: vi.fn(),
+      hydrateEchoFromApi: hydrate,
+      refreshEchoSocialFromApi: vi.fn(async () => undefined),
+      debounceMs: 200,
+    });
+
+    handler({ kind: 'permission_invalidated', version: '1' });
+    vi.advanceTimersByTime(49);
+    expect(hydrate).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(hydrate).toHaveBeenCalledTimes(1);
   });
 
   it('bumps capabilities and debounces hydrate for refresh kinds', () => {

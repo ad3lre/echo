@@ -9,9 +9,16 @@ import {
 import { dispatchAppToast } from '@/features/layout/failures/controllerMissingAction';
 import { openExternal } from '@/platform/desktopBridge';
 import { loadImageViewerPreferences } from '@/features/settings/imageViewerPreferences';
+import { useSignedEchoMediaResponsive } from '@/features/chat/composables/useSignedEchoMediaResponsive';
+import {
+  ECHO_CHAT_MEDIA_VIEWER_SIZES,
+  ECHO_CHAT_MEDIA_VIEWER_WIDTHS,
+} from '@/features/chat/composables/echoMediaResponsive';
 
 export interface ImageItem {
   url: string;
+  /** Echo upload storage key — improves signing / CDN WebP variants (e.g. HEIC). */
+  storageKey?: string;
   isGif?: boolean;
 }
 
@@ -60,6 +67,19 @@ const didDrag = ref(false);
 const currentImage = ref<ImageItem | null>(null);
 const canGoPrev = ref(false);
 const canGoNext = ref(false);
+
+/** Same stack as chat thumbnails: sign + large WebP variant (fixes iPhone HEIC). */
+const displayMedia = useSignedEchoMediaResponsive(
+  () => currentImage.value?.url ?? '',
+  {
+    storageKey: () => currentImage.value?.storageKey,
+    widths: ECHO_CHAT_MEDIA_VIEWER_WIDTHS,
+    sizes: ECHO_CHAT_MEDIA_VIEWER_SIZES,
+    fallbackWidth: 2560,
+  },
+);
+
+const displaySrc = computed(() => displayMedia.src.value.trim());
 
 function updateState() {
   currentImage.value = props.images[currentIndex.value] ?? null;
@@ -295,12 +315,17 @@ function handleClickOutside(e: MouseEvent) {
   menuOpen.value = false;
 }
 
+function mediaUrlForActions(): string {
+  return displaySrc.value || currentImage.value?.url?.trim() || '';
+}
+
 async function downloadImage() {
   const img = currentImage.value;
-  if (!img?.url) return;
+  const fetchUrl = mediaUrlForActions();
+  if (!img?.url || !fetchUrl) return;
   closeMenu();
   try {
-    const res = await fetch(img.url, { mode: 'cors' });
+    const res = await fetch(fetchUrl, { mode: 'cors', credentials: 'include' });
     if (!res.ok) {
       throw new Error(`download failed: HTTP ${res.status}`);
     }
@@ -313,31 +338,31 @@ async function downloadImage() {
     a.click();
     URL.revokeObjectURL(url);
   } catch {
-    void openExternal(img.url);
+    void openExternal(fetchUrl);
   }
 }
 
 function copyImageLink() {
-  const img = currentImage.value;
-  if (!img?.url) return;
+  const link = mediaUrlForActions();
+  if (!link) return;
   closeMenu();
-  void copyToClipboard(img.url);
+  void copyToClipboard(link);
 }
 
 async function copyImageToClipboard() {
-  const img = currentImage.value;
-  if (!img?.url) return;
-  const ok = await copyImageFromUrl(img.url);
+  const fetchUrl = mediaUrlForActions();
+  if (!fetchUrl) return;
+  const ok = await copyImageFromUrl(fetchUrl);
   closeMenu();
   if (ok) dispatchAppToast('Image copied', 'info');
   else dispatchAppToast('Could not copy image', 'warning');
 }
 
 function openInBrowser() {
-  const img = currentImage.value;
-  if (!img?.url) return;
+  const link = mediaUrlForActions();
+  if (!link) return;
   closeMenu();
-  void openExternal(img.url);
+  void openExternal(link);
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -690,6 +715,7 @@ onUnmounted(() => {
             <LimitedGifImg
               v-if="currentImage.isGif"
               :src="currentImage.url"
+              :storage-key="currentImage.storageKey"
               :session-key="`${currentIndex}-${currentImage.url}`"
               alt="GIF"
               wrapper-class="relative inline-block max-w-full max-h-full"
@@ -697,11 +723,14 @@ onUnmounted(() => {
               :respect-reduced-motion="true"
             />
             <img
-              v-else
-              :src="currentImage.url"
+              v-else-if="displaySrc"
+              :src="displaySrc"
+              :srcset="displayMedia.srcset.value || undefined"
+              :sizes="displayMedia.sizes"
               alt="Image"
               class="img-no-drag viewer-image select-none pointer-events-none"
               draggable="false"
+              @error="() => void displayMedia.refresh(true)"
               @dragstart.prevent
               @drag.prevent
             />

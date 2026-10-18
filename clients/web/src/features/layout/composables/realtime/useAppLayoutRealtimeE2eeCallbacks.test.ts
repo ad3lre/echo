@@ -20,10 +20,18 @@ describe('createAppLayoutVoiceE2eeEpochSupersededHandler', () => {
       voiceChannelId: 'dm-channel-1',
     } as never);
 
-    await vi.waitFor(() => {
-      expect(disconnect).toHaveBeenCalledTimes(1);
-      expect(dmLiveKitJoinChannelId.value).toBeNull();
-      expect(rejoinDmCallVoice).toHaveBeenCalledTimes(1);
-    });
+    for (
+      let i = 0;
+      i < 50 &&
+      (disconnect.mock.calls.length < 1 ||
+        dmLiveKitJoinChannelId.value !== null ||
+        rejoinDmCallVoice.mock.calls.length < 1);
+      i++
+    ) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    expect(disconnect).toHaveBeenCalledTimes(1);
+    expect(dmLiveKitJoinChannelId.value).toBeNull();
+    expect(rejoinDmCallVoice).toHaveBeenCalledTimes(1);
   });
 });

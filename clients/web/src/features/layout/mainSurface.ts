@@ -132,6 +132,16 @@ export function deriveHasGuildChannelChrome(surface: MainSurface): boolean {
   );
 }
 
+/**
+ * Selected guild with no resolvable channel (empty tree, or last channel deleted).
+ * Compact/phone chrome must still render a back affordance for this surface.
+ */
+export function isEmptyGuildChatSurface(
+  surface: MainSurface | null | undefined,
+): boolean {
+  return surface?.type === 'serverText' && !surface.channelId.trim();
+}
+
 /** Paper channel uses document-native chrome instead of chat header. */
 export function deriveHasPaperDocumentChrome(surface: MainSurface): boolean {
   return surface.type === 'serverPaper';

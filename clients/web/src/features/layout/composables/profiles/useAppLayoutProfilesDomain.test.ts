@@ -208,6 +208,25 @@ describe('useAppLayoutProfilesDomain', () => {
     });
   });
 
+  it('keeps channel-panel users server-wide (not filtered by active channel access)', () => {
+    const { domain } = createDomain();
+    // memberListUsers drops u3 (not in accessibleMemberUserIds); channel panel must keep them
+    // so VC participant rows still resolve name/pfp while viewing a restricted text channel.
+    expect(
+      domain.memberListUsers.value.map((m: { id: string }) => m.id),
+    ).toEqual(['self', 'u1']);
+    const panel = domain.usersForChannelPanel.value;
+    expect(panel.map((m: { id: string }) => m.id).sort()).toEqual([
+      'self',
+      'u1',
+      'u3',
+    ]);
+    expect(panel.find((m: { id: string }) => m.id === 'u3')).toMatchObject({
+      name: 'Beta',
+      pfp: 'b.png',
+    });
+  });
+
   it('accepts and declines incoming friend requests by request id', () => {
     const { domain, deps } = createDomain();
     domain.handleExpandedProfileAcceptIncomingFriendRequest('u3');

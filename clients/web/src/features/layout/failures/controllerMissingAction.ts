@@ -2,6 +2,17 @@ import { reportPrimaryFlowFailure } from '@/features/layout/failures/primaryFlow
 
 export const ECHO_APP_TOAST_EVENT = 'echo-app-toast';
 
+/** Clear an `incoming_call` toast without treating it as Decline. */
+export const ECHO_APP_TOAST_CLEAR_INCOMING_CALL_EVENT =
+  'echo-app-toast-clear-incoming-call';
+
+export function clearIncomingCallAppToast(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent(ECHO_APP_TOAST_CLEAR_INCOMING_CALL_EVENT),
+  );
+}
+
 /** `detail: { focused: boolean }` — composer focus raises the toast's bottom inset so it clears the input bar. */
 export const ECHO_CHAT_COMPOSER_FOCUS_EVENT = 'echo:chat-composer-focus';
 

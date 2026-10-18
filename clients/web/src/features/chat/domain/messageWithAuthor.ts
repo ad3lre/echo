@@ -218,11 +218,16 @@ export function buildMessageWithAuthor(
   const user = lookup.get(msg.authorId);
   const st = resolveAuthorStatus(user, msg.authorId, presenceByUserId);
   const shadow = msg.authorIsDiscordShadow === true;
+  // Prefer roster pfp; if the workspace row is blank (common for sparse
+  // hydrates), fall back to the avatar stamped on the message itself so chat
+  // doesn't show an empty monogram while history clearly has a face.
+  const rosterPfp = user?.pfp?.trim() ?? '';
+  const messagePfp = msg.authorAvatar?.trim() ?? '';
   const author: MessageAuthor = user
     ? {
         id: user.id,
         name: user.name,
-        avatar: user.pfp,
+        avatar: rosterPfp || messagePfp,
         status: st,
         ...(typeof user.timeZone === 'string' && user.timeZone.trim()
           ? { timeZone: user.timeZone.trim() }
@@ -232,7 +237,7 @@ export function buildMessageWithAuthor(
     : {
         id: msg.authorId,
         name: msg.authorDisplayName?.trim() || 'Unknown',
-        avatar: msg.authorAvatar?.trim() ?? '',
+        avatar: messagePfp,
         ...(st ? { status: st } : {}),
         ...(shadow ? { isDiscordShadow: true } : {}),
       };

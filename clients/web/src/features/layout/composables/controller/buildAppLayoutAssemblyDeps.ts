@@ -155,6 +155,7 @@ export function buildAppLayoutAssemblyDeps(
       dmCallVoiceStripTitle: $.dmCallVoiceStripTitle,
       channelPanelVoiceChannelId: $.channelPanelVoiceChannelId,
       channelPanelVoiceChannelName: $.channelPanelVoiceChannelName,
+      channelPanelVoiceConnectionStatus: $.channelPanelVoiceConnectionStatus,
       channelPanelVcMutedEffective: $.channelPanelVcMutedEffective,
       channelPanelVcDeafenedEffective: $.channelPanelVcDeafenedEffective,
       channelPanelVcVideoEffective: $.channelPanelVcVideoEffective,

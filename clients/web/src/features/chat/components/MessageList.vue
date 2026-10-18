@@ -321,8 +321,8 @@ const isEmpty = computed(() => canonicalOrderedIds.value.length === 0);
 const suppressListUntilInitialAnchor = ref(false);
 
 const {
-  showLoadingSkeleton,
-  showInitialLoadOverlay,
+  showLoadingSkeleton: showHistoryLoadingSkeleton,
+  showInitialLoadOverlay: showHistoryInitialLoadOverlay,
   markListPresentationReady,
   disarmInitialAnchorOverlaySafety,
   beginChannelTransition,
@@ -341,8 +341,27 @@ const {
   readSavedViewport: (cid) => readMessageListViewport(cid),
 });
 
+/**
+ * Boot / rail / DM-open loading from AppLayout (`surfaceSwitchLoading`) used to
+ * only drive a 2px top bar. Without folding it into the message skeleton, empty
+ * copy ("No messages here yet") paints for the whole hydrate window — the flash
+ * users see on refresh. Prefer longer skeleton over empty-state lies.
+ */
+const showLoadingSkeleton = computed(
+  () =>
+    showHistoryLoadingSkeleton.value ||
+    (!!props.transitionLoading && isEmpty.value),
+);
+
+const showInitialLoadOverlay = computed(
+  () =>
+    showHistoryInitialLoadOverlay.value ||
+    (!!props.transitionLoading && isEmpty.value),
+);
+
 const {
   showNoServersYet,
+  showNoChannelsHint,
   discordMessageImportEligible,
   showEmptyChannelHint,
   showDiscordImportWidget,
@@ -1744,6 +1763,7 @@ defineExpose({
       <MessageListEmptyStates
         v-if="showsBlockingEmptyChrome"
         :show-no-servers-yet="showNoServersYet"
+        :show-no-channels-hint="showNoChannelsHint"
         :show-empty-channel-hint="showEmptyChannelHint"
         :show-discord-import-widget="showDiscordImportWidget"
         :on-open-explore="onOpenExplore"
@@ -1914,6 +1934,7 @@ defineExpose({
       :list-ui-blocked="
         showInitialLoadOverlay ||
         showNoServersYet ||
+        showNoChannelsHint ||
         showEmptyChannelHint ||
         showDiscordImportWidget
       "

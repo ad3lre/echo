@@ -19,7 +19,7 @@ export const SECTION_COPY: Record<ServerSettingsSection, string> = {
   Events: "Schedule community events and track who's going.",
   Structure:
     'Reorder categories and channels in a simple list. This mirrors the sidebar drag order and is handy on touch devices.',
-  Members: 'Members, import placeholders, moderation.',
+  Members: 'Members, roles, profiles, import placeholders, moderation.',
   Roles:
     'Review the role ladder, member distribution, and default permissions at a glance.',
   Emoji: 'Manage emoji and sticker packs for the composer picker.',

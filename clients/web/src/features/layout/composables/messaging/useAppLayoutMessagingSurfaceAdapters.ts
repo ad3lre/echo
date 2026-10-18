@@ -157,9 +157,12 @@ function watchSelectedServerMembers(phase2: Phase2) {
     selectedServerId: phase2.selectedServerIdRef,
   });
   watch(
-    phase2.selectedServerIdRef,
-    (sid) => {
-      if (sid && sid !== 'echo') {
+    [
+      phase2.selectedServerIdRef,
+      () => phase2.authSession.isAuthenticated,
+    ] as const,
+    ([sid, authed]) => {
+      if (authed && sid && sid !== 'echo') {
         void fetchMembersForServer(sid);
       }
     },

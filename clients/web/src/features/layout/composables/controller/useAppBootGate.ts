@@ -3,15 +3,13 @@ import { onScopeDispose, ref, watch, type Ref } from 'vue';
 /**
  * Boot gate for the first app paint.
  *
- * DECISION: Show the app shell immediately with skeleton states rather than
- * holding a full-screen splash. This reduces perceived load time from ~9s to
- * ~1-2s while actual data hydrates in the background.
+ * Returning users (hasSession): hold the gate until workspace `initialLoadSettled`
+ * (or safety timeout). Fast-revealing the chrome at ~600ms before trees/messages
+ * hydrate is what paints "No channels to show" / "No messages here yet" and the
+ * orphan members search — Fluxer avoids that by keeping AppSkeleton until ready.
  *
- * The gate now only shows briefly (max 800ms) to prevent a flash of unstyled
- * content, then reveals the app shell with skeleton placeholders.
- *
- * For users without a session (login page), we show the gate briefly to let
- * the auth shell render, then fade it out.
+ * No-session / login: still fast-reveal so the auth shell is not stuck behind
+ * a long opaque gate.
  */
 export function useAppBootGate(deps: {
   /** A session token was present at boot (returning / logged-in user). */
@@ -22,41 +20,39 @@ export function useAppBootGate(deps: {
   initialLoadSettled: Ref<boolean>;
   /** Defensive cap (ms) after which the gate reveals regardless. */
   timeoutMs: number;
-  /** Fast reveal timeout for progressive loading experience (ms). */
+  /** Fast reveal for auth / progressive shells without a session (ms). */
   fastRevealMs?: number;
 }): { showBootGate: Ref<boolean> } {
   const {
     hasSession,
-    warmPainted,
+    warmPainted: _warmPainted,
     initialLoadSettled,
     timeoutMs,
     fastRevealMs = 800,
   } = deps;
+  void _warmPainted;
 
-  // Always start with gate visible to prevent FOUC, but reveal quickly
   const showBootGate = ref(true);
 
   const reveal = () => {
     showBootGate.value = false;
   };
 
-  // Fast reveal for progressive loading: show app shell with skeletons
-  // instead of waiting for full data hydration
-  const fastRevealTimer = setTimeout(reveal, fastRevealMs);
+  // Authenticated boots wait for settle; only auth/login uses fast reveal.
+  // warmPainted still waits for settle so empty-cache lies do not flash.
+  const useFastReveal = !hasSession;
+  const fastRevealTimer = useFastReveal
+    ? setTimeout(reveal, fastRevealMs)
+    : null;
 
-  // Safety: ensure we always reveal even if something goes wrong
   const safetyTimer = setTimeout(reveal, timeoutMs);
 
-  // For warm-painted sessions, we could hide even faster, but the fastRevealMs
-  // already handles this well
   const stop = watch(
     initialLoadSettled,
     (settled) => {
       if (settled) {
-        // Fast loads can settle before fastRevealMs; reveal now so we do not
-        // clear the pending timers without ever hiding the gate.
         reveal();
-        clearTimeout(fastRevealTimer);
+        if (fastRevealTimer) clearTimeout(fastRevealTimer);
         clearTimeout(safetyTimer);
       }
     },
@@ -65,7 +61,7 @@ export function useAppBootGate(deps: {
 
   onScopeDispose(() => {
     stop();
-    clearTimeout(fastRevealTimer);
+    if (fastRevealTimer) clearTimeout(fastRevealTimer);
     clearTimeout(safetyTimer);
   });
 

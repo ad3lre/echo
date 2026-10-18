@@ -13,6 +13,7 @@ import { wireRealtimeSessionPostSocket } from './useAppLayoutRealtimeSessionPost
 import {
   createAppLayoutVoiceE2eeEpochSupersededHandler,
   createAppLayoutVoiceMlsMessageHandler,
+  createAppLayoutVoiceMediaKeyHandler,
 } from './useAppLayoutRealtimeE2eeCallbacks';
 import { useAppLayoutPinsIntegration } from '../messaging/useAppLayoutPinsIntegration';
 import { useAppLayoutRealtimeHostWiring } from './useAppLayoutRealtimeHostWiring';
@@ -115,6 +116,11 @@ function wireHost(
         deps.reconnectGuildVoiceAfterE2eeRotation,
     }),
     onVoiceMlsMessage: createAppLayoutVoiceMlsMessageHandler({
+      currentVoiceChannelId: deps.currentVoiceChannelId,
+      dmLiveKitJoinChannelId: deps.dmLiveKitJoinChannelId,
+      getLiveKitVoiceApi: deps.getLiveKitVoiceApi,
+    }),
+    onVoiceMediaKey: createAppLayoutVoiceMediaKeyHandler({
       currentVoiceChannelId: deps.currentVoiceChannelId,
       dmLiveKitJoinChannelId: deps.dmLiveKitJoinChannelId,
       getLiveKitVoiceApi: deps.getLiveKitVoiceApi,

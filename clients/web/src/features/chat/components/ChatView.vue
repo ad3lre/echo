@@ -490,24 +490,53 @@ const imageViewerIndex = ref(0);
 /** When the clicked URL is not in `imageList` (encoding drift, etc.), show this single image. */
 const imageViewerFallback = ref<ImageItem[] | null>(null);
 
+/** Map attachment URL → storageKey from currently loaded messages (for CDN signing). */
+function storageKeyByImageUrlFromRows(
+  msgs: readonly {
+    attachments?: Array<{ url?: string; storageKey?: string }> | null;
+  }[],
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const m of msgs) {
+    const atts = m.attachments;
+    if (!Array.isArray(atts)) continue;
+    for (const att of atts) {
+      const u = att?.url?.trim();
+      const key = att?.storageKey?.trim();
+      if (u && key && !map.has(u)) map.set(u, key);
+    }
+  }
+  return map;
+}
+
 /** All in-channel images for the viewer: legacy `imageUrl` + sticker images + attachment images (deduped). */
 const imageList = computed<ImageItem[]>(() => {
+  const msgs = activeChannelMessageRows.value;
+  const keysByUrl = storageKeyByImageUrlFromRows(msgs);
   const cid = props.activeChannel?.id?.trim();
   if (cid) {
     const fromIndex = messageReadFacade.getChannelImageUrls(cid).value;
     return fromIndex.map((url) => ({
       url,
       isGif: isLikelyGifUrl(url),
+      storageKey: keysByUrl.get(url),
     }));
   }
-  const msgs = activeChannelMessageRows.value;
   const out: ImageItem[] = [];
   const seen = new Set<string>();
-  function pushUrl(url: string | undefined, isGif: boolean) {
+  function pushUrl(
+    url: string | undefined,
+    isGif: boolean,
+    storageKey?: string,
+  ) {
     const u = url?.trim();
     if (!u || seen.has(u)) return;
     seen.add(u);
-    out.push({ url: u, isGif });
+    out.push({
+      url: u,
+      isGif,
+      storageKey: storageKey?.trim() || keysByUrl.get(u),
+    });
   }
   for (const m of msgs) {
     if (m.imageUrl) {
@@ -526,7 +555,7 @@ const imageList = computed<ImageItem[]>(() => {
       if (!att?.url || att.kind === 'video' || att.kind === 'document')
         continue;
       const gif = att.kind === 'gif' || isLikelyGifUrl(att.url);
-      pushUrl(att.url, gif);
+      pushUrl(att.url, gif, att.storageKey);
     }
   }
   return out;
@@ -542,15 +571,24 @@ watch(imageViewerOpen, (open) => {
   if (!open) imageViewerFallback.value = null;
 });
 
-function openImageViewer(imageUrl: string) {
+function openImageViewer(imageUrl: string, opts?: { storageKey?: string }) {
   const url = imageUrl.trim();
   if (!url) return;
+  const storageKey = opts?.storageKey?.trim() || undefined;
   const idx = imageList.value.findIndex((i) => i.url === url);
   if (idx >= 0) {
-    imageViewerFallback.value = null;
+    if (storageKey && !imageList.value[idx]?.storageKey) {
+      imageViewerFallback.value = imageList.value.map((item, i) =>
+        i === idx ? { ...item, storageKey } : item,
+      );
+    } else {
+      imageViewerFallback.value = null;
+    }
     imageViewerIndex.value = idx;
   } else {
-    imageViewerFallback.value = [{ url, isGif: isLikelyGifUrl(url) }];
+    imageViewerFallback.value = [
+      { url, isGif: isLikelyGifUrl(url), storageKey },
+    ];
     imageViewerIndex.value = 0;
   }
   imageViewerOpen.value = true;

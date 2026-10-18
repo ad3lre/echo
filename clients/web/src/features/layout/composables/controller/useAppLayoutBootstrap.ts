@@ -35,6 +35,10 @@ export function useAppLayoutBootstrap(deps: {
   echoDmThreadIds?: Ref<Set<string>>;
   /** Peer id of an in-progress DM call, if any. */
   dmCallWithUserId?: Ref<string | null>;
+  /** Selected 1:1 DM peer (incl. in-flight open) — bootstrap must not steal. */
+  selectedDMUserId?: Ref<string | null>;
+  /** True while `/dm/open` is resolving. */
+  isOpeningDmThread?: Ref<boolean>;
   onEchoMessageFailedGuest: (ev: Event) => void;
   /** After password reset deep link / session flag, open Echo login. */
   openAuthModal?: (opts?: {
@@ -56,6 +60,8 @@ export function useAppLayoutBootstrap(deps: {
     getFirstTextChannelId,
     echoDmThreadIds,
     dmCallWithUserId,
+    selectedDMUserId,
+    isOpeningDmThread,
     onEchoMessageFailedGuest,
   } = deps;
 
@@ -160,6 +166,8 @@ export function useAppLayoutBootstrap(deps: {
           getFirstTextChannelId,
           echoDmThreadIds: echoDmThreadIds?.value ?? null,
           dmCallWithUserId: dmCallWithUserId?.value ?? null,
+          selectedDMUserId: selectedDMUserId?.value ?? null,
+          isOpeningDmThread: isOpeningDmThread?.value === true,
         });
         return;
       }

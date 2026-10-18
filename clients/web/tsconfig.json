@@ -19,6 +19,8 @@
       "@/services/e2ee/*": ["../../server/backend/crypto/src/e2ee/*"],
       "@/services/voice/mls": ["../../server/backend/crypto/src/mls"],
       "@/services/voice/mls/*": ["../../server/backend/crypto/src/mls/*"],
+      "@/services/voice/e2ee": ["../../server/backend/crypto/src/voice"],
+      "@/services/voice/e2ee/*": ["../../server/backend/crypto/src/voice/*"],
       "@shared/games": ["../../server/activities/cores/games"],
       "@shared/games/*": ["../../server/activities/cores/games/*"],
       "@shared/vcActivityCatalog": [

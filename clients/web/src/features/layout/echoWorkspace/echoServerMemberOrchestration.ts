@@ -21,11 +21,16 @@ export function createEchoServerMemberOrchestration(
     if (!serverId || serverId === 'echo') return;
     if (inFlight.has(serverId)) return;
 
-    const token = authSession.accessToken?.trim() ?? '';
-    if (!token) {
-      dbgMemberList('fetchMembersForServer SKIP (no token)', { serverId });
+    // Cookie-session BFF: `echoFetch` ignores the token string. Do not gate on
+    // `accessToken` (often null after setSession) or per-server member rescue
+    // never runs and Settings → Members stays empty until deferred roster/reload.
+    if (!authSession.isAuthenticated) {
+      dbgMemberList('fetchMembersForServer SKIP (not authenticated)', {
+        serverId,
+      });
       return;
     }
+    const token = authSession.accessToken?.trim() || '__session__';
 
     inFlight.add(serverId);
     try {

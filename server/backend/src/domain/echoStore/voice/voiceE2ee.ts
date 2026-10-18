@@ -69,9 +69,10 @@ export async function getEchoChannelVoiceE2eeEnabled(
 
 /**
  * Whether this DM / group-DM voice call must use LiveKit E2EE.
- * Gated by `config.dmVoiceE2eeEnabled` (default on): when disabled, private
- * calls skip epoch/envelope requirements entirely and connect like regular
- * (transport-encrypted) voice.
+ * Gated by `config.dmVoiceE2eeEnabled` (default **off** until Element Call–
+ * style media-key calling is validated — see
+ * `docs/operations/voice-e2ee-livekit.md`): when disabled, private calls use
+ * transport encryption (DTLS-SRTP) only.
  */
 export async function echoDmVoiceE2eeRequired(
   pool: pg.Pool,

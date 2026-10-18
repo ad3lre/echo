@@ -1,6 +1,6 @@
 /**
- * E2E: DM voice LiveKit session mint accepts an MLS group (v2) on
- * `echo_dm_realm` and rejects mint before MLS init when DM E2EE is required.
+ * E2E: DM voice LiveKit session mint reports E2EE required without gating on
+ * MLS/epochs (Element Call–style media keys are peer-distributed).
  *
  * Run: bun server/backend/src/domain/echoStore/voice/echo.dmVoiceE2eeMls.integration.ts
  */
@@ -8,7 +8,6 @@ import assert from 'node:assert/strict';
 import { config } from '../../../config';
 import { ensureEchoTables } from '../../../db/echoTables';
 import { getPgPool } from '../../../db/pg';
-import { ECHO_DM_REALM_SERVER_ID } from '../social/dmThreads';
 import { buildEchoTestApp } from '../../../tests/helpers/echoTestApp';
 
 type Auth = { csrfToken: string; sid: string; userId: string };
@@ -21,7 +20,7 @@ async function registerUser(baseUrl: string, username: string): Promise<Auth> {
       username,
       password: 'password123',
       email: `${username}@echo.test`,
-      displayName: 'DM MLS E2E',
+      displayName: 'DM MediaKey E2E',
     }),
   });
   const regBody = await reg.text();
@@ -71,14 +70,13 @@ async function main(): Promise<void> {
   const stamp = Date.now().toString(36);
 
   try {
-    const a = await registerUser(baseUrl, `dmmls_a_${stamp}`);
-    const b = await registerUser(baseUrl, `dmmls_b_${stamp}`);
+    const a = await registerUser(baseUrl, `dmkey_a_${stamp}`);
+    const b = await registerUser(baseUrl, `dmkey_b_${stamp}`);
 
-    // Shared server membership unlocks /dm/open without a friend request.
     const srv = await fetch(`${baseUrl}/api/v1/echo/servers`, {
       method: 'POST',
       headers: authHeaders(a),
-      body: JSON.stringify({ name: 'DM MLS Shared' }),
+      body: JSON.stringify({ name: 'DM MediaKey Shared' }),
     });
     const srvBody = await srv.text();
     assert.equal(srv.status, 201, srvBody);
@@ -99,37 +97,7 @@ async function main(): Promise<void> {
     const { channelId } = JSON.parse(openBody) as { channelId: string };
     assert.ok(channelId?.trim(), 'dm channelId');
 
-    const mintBefore = await fetch(
-      `${baseUrl}/api/v1/echo/dm/channels/${encodeURIComponent(channelId)}/voice/livekit-session`,
-      { method: 'POST', headers: authHeaders(a), body: '{}' },
-    );
-    const mintBeforeBody = await mintBefore.text();
-    assert.equal(mintBefore.status, 409, mintBeforeBody);
-    const beforeJson = JSON.parse(mintBeforeBody) as { code?: string };
-    assert.equal(beforeJson.code, 'VOICE_E2EE_EPOCH_REQUIRED');
-
-    const mlsInit = await fetch(
-      `${baseUrl}/api/v1/echo/dm/channels/${encodeURIComponent(channelId)}/voice/mls/init`,
-      {
-        method: 'POST',
-        headers: authHeaders(a),
-        body: JSON.stringify({ groupInfo: 'opaque-dm-group-info-e2e' }),
-      },
-    );
-    const mlsInitBody = await mlsInit.text();
-    assert.equal(mlsInit.status, 200, mlsInitBody);
-    const initJson = JSON.parse(mlsInitBody) as { created?: boolean };
-    assert.equal(initJson.created, true);
-
-    const groupInfo = await pool.query(
-      `SELECT group_info FROM echo_mls_groups WHERE server_id = $1 AND channel_id = $2 LIMIT 1`,
-      [ECHO_DM_REALM_SERVER_ID, channelId],
-    );
-    assert.ok(
-      groupInfo.rows[0]?.group_info,
-      'MLS group info stored for DM channel',
-    );
-
+    // Mint must succeed without MLS/epoch prepare — keys are peer-distributed.
     const mintA = await fetch(
       `${baseUrl}/api/v1/echo/dm/channels/${encodeURIComponent(channelId)}/voice/livekit-session`,
       { method: 'POST', headers: authHeaders(a), body: '{}' },
@@ -140,11 +108,12 @@ async function main(): Promise<void> {
       token?: string;
       url?: string;
       roomName?: string;
-      voiceE2ee?: { required?: boolean };
+      voiceE2ee?: { required?: boolean; epochId?: string | null };
     };
     assert.ok(sessionA.token?.trim(), 'caller livekit token');
     assert.ok(sessionA.url?.trim(), 'caller livekit url');
     assert.equal(sessionA.voiceE2ee?.required, true);
+    assert.equal(sessionA.voiceE2ee?.epochId ?? null, null);
 
     const mintB = await fetch(
       `${baseUrl}/api/v1/echo/dm/channels/${encodeURIComponent(channelId)}/voice/livekit-session`,

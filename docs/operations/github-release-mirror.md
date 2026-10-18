@@ -2,11 +2,11 @@
 
 **Policy:** Day-to-day pushes go to GitLab (`origin`). The public GitHub repo [`ad3lre/echo`](https://github.com/ad3lre/echo) carries **`main` only** — a squashed timeline mirrored from GitLab **`release/1.0.0`**. Other branches must not be pushed to GitHub from this workflow.
 
-| Remote / branch | Role |
-| --- | --- |
-| GitLab `origin/main` | Internal day-to-day history |
+| Remote / branch               | Role                                      |
+| ----------------------------- | ----------------------------------------- |
+| GitLab `origin/main`          | Internal day-to-day history               |
 | GitLab `origin/release/1.0.0` | Public publish line (one commit per ship) |
-| GitHub `main` | Public mirror of `origin/release/1.0.0` |
+| GitHub `main`                 | Public mirror of `origin/release/1.0.0`   |
 
 GitHub `main` is **not** GitLab `main`. Public SHAs stay different; internal per-commit history must never become reachable from GitHub.
 

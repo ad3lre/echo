@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+/** @vitest-environment happy-dom */
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { ref, shallowRef } from 'vue';
-import { createConnectController } from './connect';
 import type { LiveKitVoiceSessionContext } from './context';
 
 const roomControl = vi.hoisted(() => ({
@@ -23,15 +23,12 @@ vi.mock('livekit-client', () => {
     }
 
     async disconnect(): Promise<void> {}
-
     on(): void {}
-
     async startAudio(): Promise<void> {}
   }
 
   return {
     AudioPresets: { musicHighQuality: {} },
-    ExternalE2EEKeyProvider: class {},
     Room: MockRoom,
   };
 });
@@ -41,6 +38,27 @@ vi.mock('@/platform/desktopBridge', () => ({
   initDesktopNativeAudio: vi.fn(async () => {}),
   isDesktop: () => false,
 }));
+
+vi.mock('@/features/voice/livekit/livekitE2eeWorker', () => ({
+  createLiveKitE2eeWorker: () => ({
+    terminate: () => {},
+    postMessage: () => {},
+  }),
+}));
+
+vi.mock('@/services/voice/e2ee/echoParticipantKeyProvider', () => ({
+  EchoParticipantKeyProvider: class {
+    async setSenderKey() {}
+    async setSenderKeys() {}
+  },
+  ECHO_VOICE_KEYRING_SIZE: 16,
+}));
+
+let createConnectController: typeof import('./connect').createConnectController;
+
+beforeAll(async () => {
+  ({ createConnectController } = await import('./connect'));
+});
 
 function makeContext() {
   const clearLocalVoiceUiState = vi.fn();
@@ -110,7 +128,10 @@ describe('createConnectController', () => {
     });
 
     const first = controller.connect('wss://voice.example/a', 'token-a');
-    await vi.waitFor(() => expect(roomControl.connect).toHaveBeenCalledOnce());
+    for (let i = 0; i < 50 && roomControl.connect.mock.calls.length < 1; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    expect(roomControl.connect).toHaveBeenCalledOnce();
     const second = controller.connect('wss://voice.example/b', 'token-b');
 
     await expect(second).resolves.toBeUndefined();

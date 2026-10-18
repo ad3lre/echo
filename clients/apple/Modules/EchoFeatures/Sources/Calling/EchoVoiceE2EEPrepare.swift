@@ -24,8 +24,8 @@ protocol EchoVoiceE2EEPreparing: Sendable {
   ) async throws -> EchoVoiceE2EEPrepareResult
 }
 
-/// Runs Echo's ts-mls group create/join inside an offscreen WKWebView so Apple
-/// derives the same media keys as the web client.
+/// Runs Element Call–style media-key prepare inside an offscreen WKWebView so
+/// Apple derives the same LiveKit sender keys as the web client.
 struct EchoVoiceE2EEMlsPreparer: EchoVoiceE2EEPreparing {
   let baseURL: URL
 
@@ -50,8 +50,8 @@ struct EchoVoiceE2EEMlsPreparer: EchoVoiceE2EEPreparing {
         authorizedUserIDs: authorized,
         baseURL: baseURL)
     } catch {
-      // When the server disables voice E2EE, mlsGroupClient throws a disabled
-      // error — treat that as "no material" so transport-only calls proceed.
+      // When the server disables voice E2EE, prepare returns/throws disabled —
+      // treat that as "no material" so transport-only calls proceed.
       let message = error.localizedDescription.lowercased()
       if message.contains("voice e2ee is not enabled") || message.contains("voice_e2ee_disabled") {
         return EchoVoiceE2EEPrepareResult(encryption: nil, deviceID: deviceID)

@@ -61,10 +61,12 @@ function createMembersColumnGates(deps: AppLayoutMembersActivityDeps) {
   });
 
   const memberListUsersResolved = computed(() => unref(deps.memberListUsers));
+  /**
+   * Keep the Settings roster visible while roles bootstrap. Blanking it made
+   * Members look empty until reload; role labels can resolve a tick later.
+   */
   const serverSettingsMemberUsersResolved = computed(() =>
-    isEchoServerRoleHierarchyPending.value
-      ? []
-      : unref(deps.serverSettingsMemberUsers),
+    unref(deps.serverSettingsMemberUsers),
   );
   const memberListResolveHighestRoleResolved = computed(() =>
     isEchoServerRoleHierarchyPending.value

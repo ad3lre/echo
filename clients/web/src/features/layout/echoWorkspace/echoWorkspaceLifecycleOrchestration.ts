@@ -37,6 +37,8 @@ export type CreateEchoWorkspaceLifecycleControllerDeps = {
   mergeEchoBlockedFromApi?: (blockedUserIds: string[]) => void;
   dmCallWithUserId?: Ref<string | null>;
   echoDmThreadIds?: Ref<Set<string>>;
+  selectedDMUserId?: Ref<string | null>;
+  isOpeningDmThread?: Ref<boolean>;
 };
 
 export function createEchoWorkspaceLifecycleController(
@@ -57,6 +59,8 @@ export function createEchoWorkspaceLifecycleController(
     mergeEchoBlockedFromApi,
     dmCallWithUserId,
     echoDmThreadIds,
+    selectedDMUserId,
+    isOpeningDmThread,
   } = deps;
 
   const echoWorkspaceError = ref<string | null>(null);
@@ -141,6 +145,8 @@ export function createEchoWorkspaceLifecycleController(
       mergeEchoBlockedFromApi,
       echoDmThreadIds,
       dmCallWithUserId,
+      selectedDMUserId,
+      isOpeningDmThread,
       refreshEchoRoleData,
       syncEchoPresenceFromApi,
       ensureAuthUserInMockUsers,
