@@ -79,6 +79,12 @@ async function pollMutualFriendsVisible(
 }
 
 async function run(): Promise<void> {
+  const watchdog = setTimeout(() => {
+    console.error('echo.pipeline.integration: watchdog timeout (120s)');
+    process.exit(1);
+  }, 120_000);
+  watchdog.unref?.();
+
   let enabled = false;
   let pool: Awaited<ReturnType<typeof getEchoStore>>['pool'] = null;
   try {
@@ -110,6 +116,7 @@ async function run(): Promise<void> {
   const { baseUrl, close } = await buildEchoTestApp();
   const u1 = `pipe_u1_${Date.now().toString(36)}`;
   const u2 = `pipe_u2_${Date.now().toString(36)}`;
+  console.log('echo.pipeline.integration: app ready', baseUrl);
 
   try {
     const reg1 = await fetch(`${baseUrl}/api/v1/auth/register`, {
@@ -124,6 +131,7 @@ async function run(): Promise<void> {
     });
     const reg1Body = await reg1.text();
     assert.equal(reg1.status, 201, reg1Body);
+    console.log('echo.pipeline.integration: registered u1');
     const t1 = JSON.parse(reg1Body) as {
       user: { id: string };
       csrfToken: string;
@@ -133,6 +141,8 @@ async function run(): Promise<void> {
       ?.split(';')
       .find((c) => c.trim().startsWith('echo_sid='))
       ?.split('=')[1];
+    assert.ok(t1Sid, 'u1 session cookie missing');
+    assert.ok(t1.csrfToken, 'u1 csrf missing');
 
     const reg2 = await fetch(`${baseUrl}/api/v1/auth/register`, {
       method: 'POST',
@@ -1682,8 +1692,10 @@ async function run(): Promise<void> {
 
     s1.disconnect();
     s2.disconnect();
+    clearTimeout(watchdog);
     console.log('echo.pipeline.integration: ok');
   } finally {
+    clearTimeout(watchdog);
     await close();
   }
 }
