@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, toRef, watch } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import type { EventRsvpStatus } from '@/features/server-events/rsvpUi';
@@ -49,13 +50,17 @@ const locationLabel = computed(() => {
   const e = ev.value;
   if (!e) return '';
   if (e.channelId)
-    return e.channelName ? `#${e.channelName}` : 'Linked channel';
+    return e.channelName
+      ? `#${e.channelName}`
+      : echoT('b05.eventDetail.linkedChannel');
   if (e.customLocation) return e.customLocation;
-  return 'No location set';
+  return echoT('b05.eventDetail.noLocation');
 });
 
 const openLocationLabel = computed(() =>
-  locationKind.value === 'channel' ? 'Open channel' : 'Open location',
+  locationKind.value === 'channel'
+    ? echoT('b05.eventDetail.openChannel')
+    : echoT('b05.eventDetail.openLocation'),
 );
 
 function formatDateRange(): string {
@@ -95,11 +100,19 @@ function formatDateRange(): string {
 
 const dateRange = computed(formatDateRange);
 
+const goingText = computed(() =>
+  ev.value?.goingCount === 1
+    ? echoT('b05.eventDetail.personGoing')
+    : echoT('b05.eventDetail.peopleGoing'),
+);
+
 const goingSummary = computed(() => {
   const e = ev.value;
   if (!e) return '';
-  const base = `${e.goingCount} ${e.goingCount === 1 ? 'person' : 'people'} going`;
-  return e.maxAttendees ? `${base} · ${e.maxAttendees} max` : base;
+  const base = `${e.goingCount} ${goingText.value}`;
+  return e.maxAttendees
+    ? `${base} ${echoT('b05.eventDetail.maxSuffix', { n: e.maxAttendees })}`
+    : base;
 });
 
 const pendingRsvp = ref<EventRsvpStatus | null>(null);
@@ -150,7 +163,7 @@ function onOpenLocation() {
       <button
         type="button"
         class="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/55"
-        aria-label="Close"
+        :aria-label="echoT('b05.eventDetail.close')"
         @click="close"
       >
         <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true">
@@ -275,10 +288,11 @@ function onOpenLocation() {
         <!-- Going -->
         <p class="mt-3 text-[12px] text-fg-soft">
           <span class="font-semibold text-foreground">{{ ev.goingCount }}</span>
-          {{ ev.goingCount === 1 ? 'person' : 'people' }} going<template
-            v-if="ev.maxAttendees"
-          >
-            · {{ ev.maxAttendees }} max</template
+          {{ goingText
+          }}<template v-if="ev.maxAttendees">
+            {{
+              echoT('b05.eventDetail.maxSuffix', { n: ev.maxAttendees })
+            }}</template
           >
         </p>
 

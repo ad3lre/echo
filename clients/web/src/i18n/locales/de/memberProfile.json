@@ -1,0 +1,20 @@
+{
+  "message": "Nachricht",
+  "call": "Anrufen",
+  "addFriend": "Freund hinzufügen",
+  "removeFriend": "Freund entfernen",
+  "block": "Blockieren",
+  "unblock": "Blockierung aufheben",
+  "kick": "Kicken",
+  "ban": "Sperren",
+  "timeout": "Timeout",
+  "roles": "Rollen",
+  "note": "Notiz",
+  "copyUserId": "Nutzer-ID kopieren",
+  "viewProfile": "Profil ansehen",
+  "editProfile": "Profil bearbeiten",
+  "memberSince": "Mitglied seit",
+  "joinedServer": "Server beigetreten",
+  "status": "Status",
+  "customStatus": "Benutzerdefinierter Status"
+}

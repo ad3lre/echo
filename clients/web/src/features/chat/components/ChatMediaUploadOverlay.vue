@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { ChatMediaUploadProgressEvent } from '@/api/echoClient';
 
@@ -9,18 +10,20 @@ const props = defineProps<{
 const progressDescription = computed(() => {
   const { phase, kind } = props.state;
   if (phase === 'preparing') {
-    return kind === 'image' ? 'Preparing image' : 'Preparing file';
+    return kind === 'image'
+      ? echoT('b44.upload.preparingImage')
+      : echoT('b44.upload.preparingFile');
   }
   if (phase === 'checking') {
-    return 'Checking upload';
+    return echoT('b44.upload.checking');
   }
   if (phase === 'uploading') {
-    return 'Uploading';
+    return echoT('chat.status.uploading');
   }
   if (phase === 'finishing') {
-    return 'Finalizing';
+    return echoT('b44.upload.finalizing');
   }
-  return 'Complete';
+  return echoT('b44.upload.complete');
 });
 
 const showDeterminateBar = computed(
@@ -36,7 +39,7 @@ const barWidthPercent = computed(() => {
 });
 
 const fileLabel = computed(() => {
-  const name = props.state.fileName.trim() || 'Attachment';
+  const name = props.state.fileName.trim() || echoT('chat.labels.attachment');
   return name.length > 56 ? `${name.slice(0, 52)}…` : name;
 });
 
@@ -87,7 +90,9 @@ const mediaKindLabel = computed(() => {
         :aria-valuemin="showDeterminateBar ? 0 : undefined"
         :aria-valuemax="showDeterminateBar ? 100 : undefined"
         :aria-label="
-          showDeterminateBar ? `Upload ${barWidthPercent}%` : 'Upload progress'
+          showDeterminateBar
+            ? echoT('b44.upload.percent', { percent: barWidthPercent })
+            : echoT('b44.upload.progress')
         "
       >
         <div

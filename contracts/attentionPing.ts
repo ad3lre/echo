@@ -167,7 +167,7 @@ export type ServerPingBubbleDisplay = {
 };
 
 /** Same ordering as Echo read cursors (numeric snowflakes vs lexicographic UUIDs). */
-function compareEchoTimelineIds(a: string, b: string): number {
+export function compareEchoTimelineIds(a: string, b: string): number {
   if (a === b) return 0;
   if (!a) return -1;
   if (!b) return 1;
@@ -193,6 +193,23 @@ export function resolveEchoUnreadUpperBoundMessageId(
   if (latest) return latest;
   const first = summary.firstUnreadMessageId?.trim() ?? '';
   if (first && summary.unreadCount === 1) return first;
+  return '';
+}
+
+/**
+ * Message id to use for mention-inbox stubs / hydration.
+ * Prefers `latestUnreadMentionMessageId` (the actual @ping). Falls back to the
+ * unread upper bound only when there is exactly one unread — otherwise
+ * `latestUnreadMessageId` is often a newer non-mention (Discord bridge).
+ */
+export function resolveEchoUnreadMentionMessageId(
+  summary: EchoAttentionChannelSummary,
+): string {
+  const mention = summary.latestUnreadMentionMessageId?.trim() ?? '';
+  if (mention) return mention;
+  if (summary.unreadCount === 1) {
+    return resolveEchoUnreadUpperBoundMessageId(summary);
+  }
   return '';
 }
 

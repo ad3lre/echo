@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import MessageEmbedRemoteImg from './MessageEmbedRemoteImg.vue';
 
@@ -72,20 +73,22 @@ function onImageReady() {
       :disabled="!canFill || uploading"
       :aria-label="
         uploading
-          ? `Uploading image for ${aspectW}:${aspectH} slot`
+          ? echoT('chatB.imageSlot.ariaUploading', { w: aspectW, h: aspectH })
           : canFill
-            ? `Add image to ${aspectW}:${aspectH} slot`
-            : `Image slot ${aspectW}:${aspectH}`
+            ? echoT('chatB.imageSlot.ariaAdd', { w: aspectW, h: aspectH })
+            : echoT('chatB.imageSlot.ariaSlot', { w: aspectW, h: aspectH })
       "
       @click="onClick"
     >
       <span class="text-xs font-semibold uppercase tracking-wide">
-        Image {{ aspectW }}:{{ aspectH }}
+        {{ echoT('chatB.imageSlot.label', { w: aspectW, h: aspectH }) }}
       </span>
-      <span v-if="uploading" class="mt-1 text-[11px]">Uploading…</span>
-      <span v-else-if="canFill" class="mt-1 text-[11px]"
-        >Click to add image</span
-      >
+      <span v-if="uploading" class="mt-1 text-[11px]">{{
+        echoT('chatB.imageSlot.uploading')
+      }}</span>
+      <span v-else-if="canFill" class="mt-1 text-[11px]">{{
+        echoT('chatB.imageSlot.add')
+      }}</span>
     </button>
     <div
       v-else

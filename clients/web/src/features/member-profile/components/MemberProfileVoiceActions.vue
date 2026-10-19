@@ -5,6 +5,7 @@ import {
   type LayoutChatSurfaceContext,
 } from '@/features/layout/layoutInjectionKeys';
 import { icons } from '@/assets/icons';
+import { echoT } from '@/i18n';
 /** Matches `features/voice` `VcModerateAction` without importing voice internals. */
 type VcModerateAction =
   | 'serverMute'
@@ -124,7 +125,7 @@ function onVolumeInput(e: Event) {
   <section
     v-if="visible && participant"
     class="member-profile-voice-actions border-t border-border px-4 py-3"
-    aria-label="Voice chat actions"
+    :aria-label="echoT('b38.vact.chatActions')"
   >
     <div
       class="mb-2.5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
@@ -134,7 +135,7 @@ function onVolumeInput(e: Event) {
         alt=""
         class="member-profile-voice-actions__glyph h-3.5 w-3.5 opacity-80"
       />
-      In voice with you
+      {{ echoT('b38.vact.inVoice') }}
     </div>
 
     <div
@@ -151,7 +152,7 @@ function onVolumeInput(e: Event) {
             alt=""
             class="member-profile-voice-actions__glyph h-3.5 w-3.5 opacity-80"
           />
-          Their volume
+          {{ echoT('b38.vact.theirVolume') }}
         </span>
         <span class="tabular-nums">{{ Math.round(volumeDraft) }}%</span>
       </div>
@@ -161,7 +162,7 @@ function onVolumeInput(e: Event) {
         min="0"
         max="200"
         :value="volumeDraft"
-        aria-label="Participant volume"
+        :aria-label="echoT('b38.vact.participantVolume')"
         @input="onVolumeInput"
       />
     </div>
@@ -170,7 +171,7 @@ function onVolumeInput(e: Event) {
       v-if="showModeration"
       class="flex flex-wrap gap-2"
       role="group"
-      aria-label="Voice moderation"
+      :aria-label="echoT('b38.vact.moderation')"
     >
       <button
         v-if="canMod('serverMute')"
@@ -183,7 +184,11 @@ function onVolumeInput(e: Event) {
           alt=""
           class="member-profile-voice-actions__glyph h-3.5 w-3.5"
         />
-        {{ participant.serverMuted ? 'Unmute' : 'Mute' }}
+        {{
+          participant.serverMuted
+            ? echoT('b38.vact.unmute')
+            : echoT('b38.vact.mute')
+        }}
       </button>
       <button
         v-if="canMod('serverDeafen')"
@@ -196,7 +201,11 @@ function onVolumeInput(e: Event) {
           alt=""
           class="member-profile-voice-actions__glyph h-3.5 w-3.5"
         />
-        {{ participant.serverDeafened ? 'Undeafen' : 'Deafen' }}
+        {{
+          participant.serverDeafened
+            ? echoT('b38.vact.undeafen')
+            : echoT('b38.vact.deafen')
+        }}
       </button>
       <button
         v-if="participant.video && canMod('stopCamera')"
@@ -209,7 +218,7 @@ function onVolumeInput(e: Event) {
           alt=""
           class="member-profile-voice-actions__glyph h-3.5 w-3.5"
         />
-        Stop camera
+        {{ echoT('b38.vact.stopCamera') }}
       </button>
       <button
         v-if="participant.streaming && canMod('stopScreenShare')"
@@ -222,7 +231,7 @@ function onVolumeInput(e: Event) {
           alt=""
           class="member-profile-voice-actions__glyph h-3.5 w-3.5"
         />
-        Stop share
+        {{ echoT('b38.vact.stopShare') }}
       </button>
       <button
         v-if="canMod('disconnect')"
@@ -235,7 +244,7 @@ function onVolumeInput(e: Event) {
           alt=""
           class="member-profile-voice-actions__glyph h-3.5 w-3.5"
         />
-        Disconnect
+        {{ echoT('b38.vact.disconnect') }}
       </button>
     </div>
   </section>

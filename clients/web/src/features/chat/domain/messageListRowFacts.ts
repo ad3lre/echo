@@ -128,7 +128,7 @@ export function resolveReplyTargetForRow(
     ...indexed,
     author: {
       id: indexed.authorId,
-      name: message.replyTo?.authorName ?? 'Unknown',
+      name: message.replyTo?.authorName ?? echoT('chat.labels.unknown'),
       avatar: message.replyTo?.authorAvatar ?? '',
     },
   } as MessageWithAuthorRow;

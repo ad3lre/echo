@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, toRef } from 'vue';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import { useChannelWebhooksPanel } from '@/features/channel-settings/useChannelWebhooksPanel';
@@ -45,13 +46,11 @@ function formatDate(iso: string) {
 <template>
   <div class="max-w-2xl space-y-6 pb-4">
     <p class="channel-settings-hint text-[15px] leading-relaxed">
-      Incoming webhooks let external services post messages to this channel with
-      a secret URL (Discord-style). Anyone with the URL can send messages — keep
-      it private.
+      {{ echoT('b31.webhooks.intro') }}
     </p>
 
     <p v-if="!canUse" class="text-sm text-muted">
-      Sign in with a full account to manage webhooks.
+      {{ echoT('b31.webhooks.signIn') }}
     </p>
 
     <p v-else-if="error" class="text-sm text-red-500">{{ error }}</p>
@@ -61,11 +60,11 @@ function formatDate(iso: string) {
       class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-3"
     >
       <div class="text-sm font-semibold text-fg">
-        Copy this now — the token is only shown once
+        {{ echoT('b31.webhooks.copyNow') }}
       </div>
       <div class="space-y-1">
         <div class="text-xs font-medium uppercase tracking-wide text-muted">
-          Webhook URL
+          {{ echoT('b31.webhooks.url') }}
         </div>
         <div
           class="break-all rounded-lg bg-glass px-3 py-2 font-mono text-xs text-fg"
@@ -77,12 +76,12 @@ function formatDate(iso: string) {
           class="mt-1 rounded-lg border border-border bg-glass-1 px-3 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
           @click="copyText('URL', reveal.url)"
         >
-          Copy URL
+          {{ echoT('b31.webhooks.copyUrl') }}
         </button>
       </div>
       <div class="space-y-1">
         <div class="text-xs font-medium uppercase tracking-wide text-muted">
-          Token
+          {{ echoT('b31.webhooks.token') }}
         </div>
         <div
           class="break-all rounded-lg bg-glass px-3 py-2 font-mono text-xs text-fg"
@@ -94,7 +93,7 @@ function formatDate(iso: string) {
           class="mt-1 rounded-lg border border-border bg-glass-1 px-3 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
           @click="copyText('token', reveal.token)"
         >
-          Copy token
+          {{ echoT('b31.webhooks.copyToken') }}
         </button>
       </div>
       <button
@@ -102,17 +101,19 @@ function formatDate(iso: string) {
         class="text-sm text-muted underline"
         @click="reveal = null"
       >
-        Dismiss
+        {{ echoT('b31.webhooks.dismiss') }}
       </button>
     </div>
 
     <div class="rounded-xl border border-border bg-glass p-4 space-y-3">
-      <div class="channel-settings-section-label">New webhook</div>
+      <div class="channel-settings-section-label">
+        {{ echoT('b31.webhooks.new') }}
+      </div>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div class="min-w-0 flex-1">
-          <label class="text-xs text-muted" for="echo-new-webhook-name"
-            >Name</label
-          >
+          <label class="text-xs text-muted" for="echo-new-webhook-name">{{
+            echoT('b31.webhooks.name')
+          }}</label>
           <input
             id="echo-new-webhook-name"
             v-model="newName"
@@ -129,16 +130,26 @@ function formatDate(iso: string) {
           :disabled="!canUse || creating || loading"
           @click="onCreate"
         >
-          {{ creating ? 'Creating…' : 'Create webhook' }}
+          {{
+            creating
+              ? echoT('b31.webhooks.creating')
+              : echoT('b31.webhooks.create')
+          }}
         </button>
       </div>
     </div>
 
     <div>
-      <div class="channel-settings-section-label mb-2">Existing webhooks</div>
-      <p v-if="loading" class="text-sm text-muted">Loading…</p>
+      <div class="channel-settings-section-label mb-2">
+        {{ echoT('b31.webhooks.existing') }}
+      </div>
+      <p v-if="loading" class="text-sm text-muted">
+        {{ echoT('b31.webhooks.loading') }}
+      </p>
       <ul v-else-if="webhooks.length === 0" class="text-sm text-muted">
-        No webhooks yet.
+        {{
+          echoT('b31.webhooks.none')
+        }}
       </ul>
       <ul v-else class="space-y-3">
         <li
@@ -152,9 +163,16 @@ function formatDate(iso: string) {
               {{ w.id }}
             </div>
             <div class="mt-1 text-xs text-muted">
-              Created {{ formatDate(w.createdAt) }}
+              {{
+                echoT('b31.webhooks.created', { date: formatDate(w.createdAt) })
+              }}
               <span v-if="w.lastUsedAt">
-                · Last used {{ formatDate(w.lastUsedAt) }}</span
+                ·
+                {{
+                  echoT('b31.webhooks.lastUsed', {
+                    date: formatDate(w.lastUsedAt),
+                  })
+                }}</span
               >
             </div>
           </div>
@@ -164,14 +182,14 @@ function formatDate(iso: string) {
               class="rounded-lg border border-border bg-glass-1 px-3 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
               @click="onRegenerate(w)"
             >
-              Regenerate token
+              {{ echoT('b31.webhooks.regenerate') }}
             </button>
             <button
               type="button"
               class="echo-destructive-action rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
               @click="onDelete(w)"
             >
-              Delete
+              {{ echoT('b31.webhooks.delete') }}
             </button>
           </div>
         </li>

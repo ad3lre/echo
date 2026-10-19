@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref } from 'vue';
 import CameraPreview from '@/features/voice/CameraPreview.vue';
 import EchoDropdown from '@/components/EchoDropdown.vue';
@@ -46,15 +47,14 @@ function close() {
           id="vc-camera-setup-title"
           class="mb-1 text-sm font-semibold text-fg"
         >
-          Camera setup
+          {{ echoT('b44.vcCamera.title') }}
         </h2>
         <p class="mb-3 text-xs leading-relaxed text-fg-subtle">
-          Pick a camera from the list to preview and grant access. Video quality
-          is configured in Settings &rarr; Voice &amp; Video.
+          {{ echoT('b44.vcCamera.help') }}
         </p>
         <EchoDropdown
           :model-value="selectedDeviceId || 'default'"
-          label="Camera"
+          :label="echoT('b44.vcCamera.camera')"
           :options="cameraDevices"
           class="mb-3"
           @update:model-value="selectDevice($event)"
@@ -70,14 +70,14 @@ function close() {
             class="rounded-lg px-3 py-1.5 text-sm text-fg-soft transition-colors hover:bg-glass-hover"
             @click="close"
           >
-            Cancel
+            {{ echoT('b44.vcCamera.cancel') }}
           </button>
           <button
             type="button"
             class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             @click="emit('confirm')"
           >
-            Start video
+            {{ echoT('b44.vcCamera.start') }}
           </button>
         </div>
       </div>

@@ -72,8 +72,28 @@ struct EchoSettingsAndCopyTests {
     #expect(EchoSettingsRoute.account.externalProviderID == nil)
   }
 
-  @Test func localeOptionsIncludeSpanish() {
+  @Test func localeOptionsIncludeSpanishBrazilianPortugueseAndGerman() {
+    #expect(EchoLocaleOptions.languages.contains(where: { $0.0 == "de" && $0.1 == "Deutsch" }))
     #expect(EchoLocaleOptions.languages.contains(where: { $0.0 == "es" }))
+    #expect(
+      EchoLocaleOptions.languages.contains(where: {
+        $0.0 == "pt-BR" && $0.1 == "Português (Brasil)"
+      }))
+    for (identifier, _) in EchoLocaleOptions.languages {
+      #expect(EchoAppLocale.supportedIdentifiers.contains(identifier))
+    }
+  }
+
+  @Test func appLocaleMapsStoredIdentifiersToSwiftUILocales() {
+    #expect(EchoAppLocale.storageKey == "echo.settings.locale")
+    #expect(EchoAppLocale.supportedIdentifiers == ["en-US", "en-GB", "es", "pt-BR", "de"])
+    #expect(EchoAppLocale.swiftUILocale(from: "en-GB").identifier == "en-GB")
+    #expect(EchoAppLocale.swiftUILocale(from: "es").language.languageCode?.identifier == "es")
+    let pt = EchoAppLocale.swiftUILocale(from: "pt-BR")
+    #expect(pt.language.languageCode?.identifier == "pt")
+    #expect(pt.region?.identifier == "BR")
+    #expect(EchoAppLocale.swiftUILocale(from: "de").language.languageCode?.identifier == "de")
+    #expect(EchoAppLocale.swiftUILocale(from: "xx").identifier == "en-US")
   }
 
   @Test func echoCopyFormatSubstitutesArguments() {

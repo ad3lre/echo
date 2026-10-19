@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import LimitedGifImg from '@/components/LimitedGifImg.vue';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
@@ -11,7 +12,7 @@ const props = withDefaults(
     positionY: number;
     sessionKey: string;
   }>(),
-  { title: 'Reposition banner' },
+  {},
 );
 
 const emit = defineEmits<{
@@ -104,10 +105,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
         <header class="flex items-center justify-between gap-3 px-5 py-4">
           <div class="min-w-0">
             <div class="truncate text-sm font-semibold text-fg">
-              {{ title }}
+              {{ title || echoT('srvSettingsB.banner.title') }}
             </div>
             <div class="mt-0.5 text-xs text-fg-subtle">
-              Drag up or down to choose what shows in the cut.
+              {{ echoT('srvSettingsB.banner.hint') }}
             </div>
           </div>
           <button
@@ -115,7 +116,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
             class="rounded-lg px-3 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-white"
             @click="close"
           >
-            Close
+            {{ echoT('srvSettingsB.banner.close') }}
           </button>
         </header>
 
@@ -164,7 +165,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
               class="rounded-xl bg-glass-1 px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-2"
               @click="reset"
             >
-              Reset
+              {{ echoT('srvSettingsB.banner.reset') }}
             </button>
             <div class="flex items-center gap-2">
               <button
@@ -172,14 +173,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                 class="rounded-xl bg-glass-1 px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-2"
                 @click="close"
               >
-                Cancel
+                {{ echoT('srvSettingsB.banner.cancel') }}
               </button>
               <button
                 type="button"
                 class="rounded-xl bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-400"
                 @click="save"
               >
-                Save
+                {{ echoT('srvSettingsB.banner.save') }}
               </button>
             </div>
           </div>

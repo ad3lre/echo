@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { permissionGroupLabel } from '@/i18n/labels';
+import { echoT } from '@/i18n';
 import type { ComponentPublicInstance } from 'vue';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
@@ -304,31 +306,33 @@ function onLinkedRolesDisclosureChange(event: Event) {
   linkedRolesDisclosureOpen.value = (event.target as HTMLInputElement).checked;
 }
 
-const ROLE_TYPE_UI_OPTIONS: {
-  label: string;
-  value: EchoRoleType;
-  iconSrc: string;
-  title: string;
-}[] = [
+const ROLE_TYPE_UI_OPTIONS = computed<
   {
-    label: 'Mixed',
+    label: string;
+    value: EchoRoleType;
+    iconSrc: string;
+    title: string;
+  }[]
+>(() => [
+  {
+    label: echoT('b00.roles.type.mixed'),
     value: 'mixed',
     iconSrc: icons.sliders,
-    title: 'Mixed — compact roles (color, permissions, list)',
+    title: echoT('b00.roles.type.mixedTitle'),
   },
   {
-    label: 'Authority',
+    label: echoT('b00.roles.type.authority'),
     value: 'authority',
     iconSrc: icons.shield,
-    title: 'Authority — hidden from most members; still grants permissions',
+    title: echoT('b00.roles.type.authorityTitle'),
   },
   {
-    label: 'Visual',
+    label: echoT('b00.roles.type.visual'),
     value: 'visual',
     iconSrc: icons.imageGallery,
-    title: 'Visual — cosmetic only; no permission grants',
+    title: echoT('b00.roles.type.visualTitle'),
   },
-];
+]);
 
 const selectedEchoRoleType = computed(
   () => (props.selectedRole?.roleType ?? 'mixed') as EchoRoleType,
@@ -342,10 +346,10 @@ const isAuthorityRole = computed(
   () => props.selectedRole?.roleType === 'authority',
 );
 
-const LINK_DIRECTION_OPTIONS = [
-  { label: 'One-way', value: 'one' },
-  { label: 'Two-way', value: 'two' },
-];
+const LINK_DIRECTION_OPTIONS = computed(() => [
+  { label: echoT('b00.roles.oneWay'), value: 'one' },
+  { label: echoT('b00.roles.twoWay'), value: 'two' },
+]);
 
 function roleLabelForLink(roleId: string) {
   return props.roleManagerRoles.find((r) => r.id === roleId)?.name ?? roleId;
@@ -365,7 +369,7 @@ const roleLinkPickOptions = computed(() => {
 });
 
 const roleLinkPickDropdownOptions = computed(() => [
-  { label: 'Choose role…', value: '' },
+  { label: echoT('b00.roles.chooseRole'), value: '' },
   ...roleLinkPickOptions.value.map((r) => ({ label: r.name, value: r.id })),
 ]);
 
@@ -438,7 +442,7 @@ async function onQuickAddMember(userId: string) {
     await props.assignMemberToRole(userId, roleId);
   } catch (e) {
     quickAddError.value =
-      e instanceof Error ? e.message : 'Could not add member to this role.';
+      e instanceof Error ? e.message : echoT('b00.roles.addMemberFailed');
   } finally {
     quickAddBusyUserId.value = null;
   }
@@ -614,7 +618,7 @@ const showCategorySettingsPanel = computed(
 );
 
 const roleCategoryDropdownOptions = computed(() => [
-  { label: 'None', value: '' },
+  { label: echoT('b00.roles.none'), value: '' },
   ...props.echoRoleCategories.map((c) => ({
     label: c.name,
     value: c.id,
@@ -756,7 +760,7 @@ onUnmounted(() => {
             :value="props.roleManagerSearchQuery"
             class="roles-toolbar-search min-w-0 flex-1"
             type="text"
-            placeholder="Search roles"
+            :placeholder="echoT('b00.roles.searchRoles')"
             @input="
               $emit(
                 'update:roleManagerSearchQuery',
@@ -769,7 +773,7 @@ onUnmounted(() => {
             v-if="!props.echoRolesLocked"
             type="button"
             class="roles-toolbar-add"
-            title="Create role"
+            :title="echoT('b00.roles.createRole')"
             @click="
               props.createRole(`New Role ${props.roleManagerRoles.length + 1}`)
             "
@@ -794,7 +798,7 @@ onUnmounted(() => {
             @dragover.prevent
             @drop.prevent="onDropRoleOnCategoryTab($event, 'all')"
           >
-            All
+            {{ echoT('b00.roles.all') }}
             <span class="ml-1 text-fg-subtle">{{
               props.roleManagerRoles.length
             }}</span>
@@ -822,7 +826,7 @@ onUnmounted(() => {
             v-if="!props.echoRolesLocked"
             type="button"
             class="rounded-full px-3 py-1.5 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
-            title="New role category"
+            :title="echoT('b00.roles.newRoleCategory')"
             @click="props.createRoleCategory()"
           >
             +
@@ -865,10 +869,10 @@ onUnmounted(() => {
                   </div>
                   <div class="min-w-0">
                     <div class="truncate text-sm font-semibold text-fg">
-                      Category settings
+                      {{ echoT('b00.roles.categorySettings') }}
                     </div>
                     <div class="truncate text-[11px] text-fg-subtle">
-                      Rename or delete this category
+                      {{ echoT('b00.roles.categorySettingsHint') }}
                     </div>
                   </div>
                 </div>
@@ -877,9 +881,13 @@ onUnmounted(() => {
                 v-if="props.filteredRoleManagerRoles.length === 0"
                 class="px-3 py-8 text-center text-sm text-fg-subtle"
               >
-                No roles in this category. Open
-                <span class="text-fg-soft">All</span>, drag a role onto this
-                tab, or create a role.
+                <i18n-t keypath="b00.roles.emptyCategory" scope="global">
+                  <template #all
+                    ><span class="text-fg-soft">{{
+                      echoT('b00.roles.all')
+                    }}</span></template
+                  >
+                </i18n-t>
               </div>
               <button
                 v-for="role in props.filteredRoleManagerRoles"
@@ -1003,16 +1011,21 @@ onUnmounted(() => {
               @click="scrollToRolesListPanel"
             >
               <span class="text-base leading-none" aria-hidden="true">←</span>
-              Roles list
+              {{ echoT('b00.roles.rolesList') }}
             </button>
           </div>
           <div class="shrink-0">
             <div class="text-lg font-bold text-fg-strong">
-              Category settings
+              {{ echoT('b00.roles.categorySettings') }}
             </div>
             <p class="mt-1 text-sm text-fg-subtle">
-              Names save immediately. Role list changes use
-              <span class="text-fg-soft">Save changes</span> below.
+              <i18n-t keypath="b00.roles.namesSaveHint" scope="global">
+                <template #save
+                  ><span class="text-fg-soft">{{
+                    echoT('serverSettingsUi.saveChanges')
+                  }}</span></template
+                >
+              </i18n-t>
             </p>
           </div>
           <div
@@ -1020,7 +1033,9 @@ onUnmounted(() => {
           >
             <div class="server-settings-role-fields">
               <div class="server-settings-role-field">
-                <label class="settings-label">Name</label>
+                <label class="settings-label">{{
+                  echoT('b00.roles.name')
+                }}</label>
                 <input
                   :value="props.categorySettingsNameDraft"
                   class="server-input server-input--borderless w-full"
@@ -1037,11 +1052,10 @@ onUnmounted(() => {
               <label class="role-permission-row roles-display-option">
                 <div>
                   <div class="font-medium text-fg">
-                    Expose in self-assign channel
+                    {{ echoT('b00.roles.exposeSelfAssign') }}
                   </div>
                   <div class="text-xs text-fg-subtle">
-                    Self-selectable roles in this category appear automatically
-                    in the self-assignable roles widget when enabled.
+                    {{ echoT('b00.roles.exposeSelfAssignHint') }}
                   </div>
                 </div>
                 <input
@@ -1058,10 +1072,11 @@ onUnmounted(() => {
                 />
               </label>
               <div class="server-settings-role-field">
-                <label class="settings-label">Default role template</label>
+                <label class="settings-label">{{
+                  echoT('b00.roles.defaultTemplate')
+                }}</label>
                 <p class="mb-2 text-[11px] leading-snug text-fg-subtle">
-                  New roles and synced roles in this category inherit these
-                  settings (permissions, display, scope, and type).
+                  {{ echoT('b00.roles.defaultTemplateHint') }}
                 </p>
                 <div class="space-y-2 rounded-xl bg-glass-1 p-3">
                   <label
@@ -1080,7 +1095,7 @@ onUnmounted(() => {
                         })
                       "
                     />
-                    Display separately (hoist)
+                    {{ echoT('b00.roles.hoist') }}
                   </label>
                   <label
                     class="inline-flex items-center gap-2 text-xs text-fg-soft"
@@ -1098,7 +1113,7 @@ onUnmounted(() => {
                         })
                       "
                     />
-                    Default on join
+                    {{ echoT('b00.roles.defaultOnJoin') }}
                   </label>
                   <label
                     class="inline-flex items-center gap-2 text-xs text-fg-soft"
@@ -1120,7 +1135,7 @@ onUnmounted(() => {
                         })
                       "
                     />
-                    Global manage/assign scope
+                    {{ echoT('b00.roles.globalScope') }}
                   </label>
                 </div>
                 <div class="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1156,7 +1171,9 @@ onUnmounted(() => {
                   @click="props.saveRoleCategorySettings()"
                 >
                   {{
-                    props.categorySettingsSaving ? 'Saving…' : 'Save category'
+                    props.categorySettingsSaving
+                      ? echoT('b00.roles.saving')
+                      : echoT('b00.roles.saveCategory')
                   }}
                 </button>
                 <button
@@ -1165,7 +1182,7 @@ onUnmounted(() => {
                   :disabled="props.categorySettingsSaving"
                   @click="props.deleteActiveRoleCategory()"
                 >
-                  Delete category
+                  {{ echoT('b00.roles.deleteCategory') }}
                 </button>
               </div>
             </div>
@@ -1183,7 +1200,7 @@ onUnmounted(() => {
               @click="scrollToRolesListPanel"
             >
               <span class="text-base leading-none" aria-hidden="true">←</span>
-              Roles list
+              {{ echoT('b00.roles.rolesList') }}
             </button>
           </div>
           <div class="flex shrink-0 items-center justify-between gap-4">
@@ -1246,8 +1263,8 @@ onUnmounted(() => {
                 >
                   {{
                     props.selectedRole.id === props.previewedRoleId
-                      ? 'Previewing this role'
-                      : 'Preview as role'
+                      ? echoT('b00.roles.previewingRole')
+                      : echoT('b00.roles.previewAsRole')
                   }}
                 </button>
                 <button
@@ -1258,7 +1275,7 @@ onUnmounted(() => {
                     $emit('update:roleMenuOpen', false);
                   "
                 >
-                  Delete role
+                  {{ echoT('b00.roles.deleteRole') }}
                 </button>
               </div>
             </div>
@@ -1276,7 +1293,7 @@ onUnmounted(() => {
                 "
                 @click="$emit('update:roleEditorTab', 'display')"
               >
-                Overview
+                {{ echoT('b00.roles.overview') }}
               </button>
               <button
                 v-if="!isVisualRole"
@@ -1289,7 +1306,7 @@ onUnmounted(() => {
                 "
                 @click="$emit('update:roleEditorTab', 'permissions')"
               >
-                Permissions
+                {{ echoT('b00.roles.permissions') }}
               </button>
               <button
                 type="button"
@@ -1301,7 +1318,7 @@ onUnmounted(() => {
                 "
                 @click="$emit('update:roleEditorTab', 'members')"
               >
-                Members
+                {{ echoT('b00.roles.members') }}
               </button>
               <button
                 v-if="!isVisualRole"
@@ -1312,7 +1329,7 @@ onUnmounted(() => {
                 "
                 @click="permissionPreviewModalOpen = true"
               >
-                Preview
+                {{ echoT('b00.roles.preview') }}
               </button>
             </div>
           </div>
@@ -1325,7 +1342,9 @@ onUnmounted(() => {
               class="server-settings-role-fields"
             >
               <div class="server-settings-role-field">
-                <label class="settings-label">Name</label>
+                <label class="settings-label">{{
+                  echoT('b00.roles.name')
+                }}</label>
                 <div class="flex items-stretch gap-2">
                   <RoleIconPickerField
                     v-if="!isPinnedBottomEchoRole(props.selectedRole)"
@@ -1363,7 +1382,7 @@ onUnmounted(() => {
                 <EchoDropdown
                   :model-value="props.selectedRole.roleCategoryId ?? ''"
                   :options="roleCategoryDropdownOptions"
-                  label="Category"
+                  :label="echoT('b00.roles.category')"
                   surface="server"
                   borderless
                   teleport-menu
@@ -1376,8 +1395,7 @@ onUnmounted(() => {
                   "
                 />
                 <p class="text-[11px] leading-snug text-fg-subtle">
-                  Categories organize this list. Drag roles within a tab to
-                  reorder. Save changes to sync.
+                  {{ echoT('b00.roles.categoriesHelp') }}
                 </p>
               </div>
               <div
@@ -1402,12 +1420,10 @@ onUnmounted(() => {
                       )
                     "
                   />
-                  <span>Manage and assign roles in all categories</span>
+                  <span>{{ echoT('b00.roles.manageAllCategories') }}</span>
                 </label>
                 <p class="text-[11px] leading-snug text-fg-subtle">
-                  When off, members with this role can only manage or assign
-                  roles in the same category (unless they also hold a global
-                  role).
+                  {{ echoT('b00.roles.manageAllCategoriesHint') }}
                 </p>
               </div>
               <div
@@ -1417,7 +1433,7 @@ onUnmounted(() => {
                 <label
                   id="server-settings-role-type-label"
                   class="settings-label"
-                  >Role type</label
+                  >{{ echoT('b00.roles.roleType') }}</label
                 >
                 <EchoSegmentedControl
                   class="w-full min-w-0"
@@ -1430,20 +1446,20 @@ onUnmounted(() => {
                   "
                 />
                 <p class="text-[11px] leading-snug text-fg-subtle">
-                  Mixed matches the compact role model. Authority stays off the
-                  public role list for members without Manage Roles. Visual is
-                  cosmetic only (no permission grants).
+                  {{ echoT('b00.roles.roleTypeHint') }}
                 </p>
               </div>
               <template v-if="isMixedRole || isVisualRole">
                 <template v-if="isMixedRole">
                   <div class="server-settings-role-field roles-display-color">
                     <div class="flex items-center justify-between gap-3">
-                      <label class="settings-label">Color</label>
+                      <label class="settings-label">{{
+                        echoT('b00.roles.color')
+                      }}</label>
                       <label
                         class="inline-flex items-center gap-2 text-xs text-fg-soft"
                       >
-                        <span>Split dark/light</span>
+                        <span>{{ echoT('b00.roles.splitDarkLight') }}</span>
                         <input
                           type="checkbox"
                           class="server-toggle"
@@ -1465,10 +1481,10 @@ onUnmounted(() => {
                         <button
                           type="button"
                           class="roles-color-rect roles-color-rect--custom"
-                          title="Custom color"
+                          :title="echoT('b00.roles.customColor')"
                           @click="props.openRoleCustomPanel('single')"
                         >
-                          Custom
+                          {{ echoT('b00.roles.custom') }}
                         </button>
                         <div
                           class="roles-color-rect roles-color-rect--selected"
@@ -1515,7 +1531,7 @@ onUnmounted(() => {
                             alt=""
                             class="h-3.5 w-3.5 opacity-85 filter invert"
                           />
-                          <span>Color Dark</span>
+                          <span>{{ echoT('b00.roles.colorDark') }}</span>
                         </label>
                         <div class="mt-2 roles-color-layout">
                           <div class="roles-color-left">
@@ -1524,7 +1540,7 @@ onUnmounted(() => {
                               class="roles-color-rect roles-color-rect--custom"
                               @click="props.openRoleCustomPanel('dark')"
                             >
-                              Custom
+                              {{ echoT('b00.roles.custom') }}
                             </button>
                             <div
                               class="roles-color-rect roles-color-rect--selected"
@@ -1575,7 +1591,7 @@ onUnmounted(() => {
                             alt=""
                             class="h-3.5 w-3.5 opacity-85 filter invert"
                           />
-                          <span>Color Light</span>
+                          <span>{{ echoT('b00.roles.colorLight') }}</span>
                         </label>
                         <div class="mt-2 roles-color-layout">
                           <div class="roles-color-left">
@@ -1584,7 +1600,7 @@ onUnmounted(() => {
                               class="roles-color-rect roles-color-rect--custom"
                               @click="props.openRoleCustomPanel('light')"
                             >
-                              Custom
+                              {{ echoT('b00.roles.custom') }}
                             </button>
                             <div
                               class="roles-color-rect roles-color-rect--selected"
@@ -1647,7 +1663,7 @@ onUnmounted(() => {
                             :value="props.roleHexInput"
                             class="roles-custom-hex"
                             type="text"
-                            placeholder="#RRGGBB, rgb(...), hsl(...)"
+                            :placeholder="echoT('b00.roles.hexPh')"
                             @input="
                               $emit(
                                 'update:roleHexInput',
@@ -1908,16 +1924,18 @@ onUnmounted(() => {
                 </template>
                 <template v-else-if="isVisualRole">
                   <div class="server-settings-role-field roles-display-color">
-                    <label class="settings-label">Color</label>
+                    <label class="settings-label">{{
+                      echoT('b00.roles.color')
+                    }}</label>
                     <div class="mt-2 roles-color-layout">
                       <div class="roles-color-left">
                         <button
                           type="button"
                           class="roles-color-rect roles-color-rect--custom"
-                          title="Custom color"
+                          :title="echoT('b00.roles.customColor')"
                           @click="props.openRoleCustomPanel('single')"
                         >
-                          Custom
+                          {{ echoT('b00.roles.custom') }}
                         </button>
                         <div
                           class="roles-color-rect roles-color-rect--selected"
@@ -1956,8 +1974,7 @@ onUnmounted(() => {
                       </div>
                     </div>
                     <p class="mt-3 text-xs leading-relaxed text-fg-subtle">
-                      Visual roles only change how this role looks in the UI;
-                      they never grant server permission flags.
+                      {{ echoT('b00.roles.visualHint') }}
                     </p>
                   </div>
                 </template>
@@ -1966,7 +1983,7 @@ onUnmounted(() => {
                   <label class="role-permission-row roles-display-option">
                     <div>
                       <div class="font-medium text-fg">
-                        Display role separately in member list
+                        {{ echoT('b00.roles.displaySeparately') }}
                       </div>
                     </div>
                     <input
@@ -1986,11 +2003,10 @@ onUnmounted(() => {
                   >
                     <div>
                       <div class="font-medium text-fg">
-                        Default role — assign to new members
+                        {{ echoT('b00.roles.defaultRoleAssign') }}
                       </div>
                       <div class="text-xs text-fg-subtle">
-                        Everyone already has @members; use this for extra roles
-                        (for example Member).
+                        {{ echoT('b00.roles.defaultRoleHint') }}
                       </div>
                     </div>
                     <input
@@ -2010,12 +2026,12 @@ onUnmounted(() => {
                       id="linked-roles-section-title"
                       class="settings-subtitle"
                     >
-                      Linked roles
+                      {{ echoT('b00.roles.linkedRoles') }}
                     </div>
                     <label class="role-permission-row roles-display-option">
                       <div>
                         <div class="font-medium text-fg">
-                          Link other roles when this one is assigned
+                          {{ echoT('b00.roles.linkOthers') }}
                         </div>
                         <div
                           v-if="!linkedRolesDisclosureOpen"
@@ -2032,7 +2048,7 @@ onUnmounted(() => {
                             }}
                           </template>
                           <template v-else>
-                            Optional — also assign other roles automatically.
+                            {{ echoT('b00.roles.linkOptional') }}
                           </template>
                         </div>
                       </div>
@@ -2049,14 +2065,21 @@ onUnmounted(() => {
                       id="linked-roles-panel"
                       class="space-y-3"
                       role="group"
-                      aria-label="Linked role picker and list"
+                      :aria-label="echoT('b00.roles.linkedPicker')"
                     >
                       <p class="text-xs text-fg-subtle">
-                        When this role is assigned, also assign the roles below.
-                        <span class="text-fg-subtle">One-way</span> applies from
-                        this role only;
-                        <span class="text-fg-subtle">two-way</span> mirrors when
-                        the other role is assigned alone.
+                        <i18n-t keypath="b00.roles.linkExplain" scope="global">
+                          <template #oneWay
+                            ><span class="text-fg-subtle">{{
+                              echoT('b00.roles.oneWay')
+                            }}</span></template
+                          >
+                          <template #twoWay
+                            ><span class="text-fg-subtle">{{
+                              echoT('b00.roles.twoWayLower')
+                            }}</span></template
+                          >
+                        </i18n-t>
                       </p>
                       <ul
                         v-if="(props.selectedRole.linkedRoles ?? []).length"
@@ -2093,15 +2116,15 @@ onUnmounted(() => {
                             :disabled="props.echoRolesLocked"
                             @click="props.removeSelectedRoleLink(Number(idx))"
                           >
-                            Remove
+                            {{ echoT('b00.roles.remove') }}
                           </button>
                         </li>
                       </ul>
                       <div class="flex flex-wrap items-end gap-2">
                         <label class="flex min-w-[10rem] flex-1 flex-col gap-1">
-                          <span class="text-xs text-fg-subtle"
-                            >Also assign</span
-                          >
+                          <span class="text-xs text-fg-subtle">{{
+                            echoT('b00.roles.alsoAssign')
+                          }}</span>
                           <EchoDropdown
                             v-model="linkAddRoleId"
                             :options="roleLinkPickDropdownOptions"
@@ -2118,7 +2141,9 @@ onUnmounted(() => {
                           />
                         </label>
                         <label class="flex min-w-[8rem] flex-col gap-1">
-                          <span class="text-xs text-fg-subtle">Link type</span>
+                          <span class="text-xs text-fg-subtle">{{
+                            echoT('b00.roles.linkType')
+                          }}</span>
                           <EchoDropdown
                             v-model="linkAddDirection"
                             :options="LINK_DIRECTION_OPTIONS"
@@ -2141,7 +2166,7 @@ onUnmounted(() => {
                           "
                           @click="submitAddRoleLink"
                         >
-                          Add
+                          {{ echoT('b00.roles.add') }}
                         </button>
                       </div>
                     </div>
@@ -2149,7 +2174,7 @@ onUnmounted(() => {
                   <label class="role-permission-row roles-display-option">
                     <div>
                       <div class="font-medium text-fg">
-                        Allow anyone to mention role
+                        {{ echoT('b00.roles.allowMention') }}
                       </div>
                     </div>
                     <input
@@ -2167,9 +2192,7 @@ onUnmounted(() => {
               </template>
               <template v-else-if="isAuthorityRole">
                 <p class="text-xs leading-relaxed text-fg-subtle">
-                  Authority roles skip color and visibility styling. They stay
-                  hidden from members who cannot manage roles while still
-                  contributing permission grants (see the Permissions tab).
+                  {{ echoT('b00.roles.authorityHint') }}
                 </p>
               </template>
             </div>
@@ -2179,7 +2202,9 @@ onUnmounted(() => {
               class="space-y-5"
             >
               <template v-if="!isVisualRole">
-                <div class="settings-subtitle">Permissions</div>
+                <div class="settings-subtitle">
+                  {{ echoT('b00.roles.permissions') }}
+                </div>
                 <div v-for="group in ROLE_PERMISSION_GROUPS" :key="group">
                   <div
                     v-if="
@@ -2189,7 +2214,7 @@ onUnmounted(() => {
                     "
                     class="settings-subtitle"
                   >
-                    {{ group }}
+                    {{ permissionGroupLabel(group) }}
                   </div>
                   <div
                     v-if="
@@ -2222,8 +2247,7 @@ onUnmounted(() => {
                 </div>
               </template>
               <p v-else class="text-sm leading-relaxed text-fg-soft">
-                Visual roles never grant server permissions in Echo, so there is
-                nothing to configure here.
+                {{ echoT('b00.roles.visualNoPerms') }}
               </p>
             </div>
 
@@ -2231,7 +2255,9 @@ onUnmounted(() => {
               <div
                 class="flex flex-wrap items-center justify-between gap-y-2 gap-x-3"
               >
-                <div class="settings-subtitle shrink-0">Members</div>
+                <div class="settings-subtitle shrink-0">
+                  {{ echoT('b00.roles.members') }}
+                </div>
                 <button
                   v-if="
                     props.roleQuickAddEnabled &&
@@ -2254,7 +2280,7 @@ onUnmounted(() => {
                       class="h-3 w-3 brightness-0 invert opacity-95"
                     />
                   </span>
-                  Add members
+                  {{ echoT('b00.roles.addMembers') }}
                 </button>
               </div>
               <div
@@ -2289,7 +2315,7 @@ onUnmounted(() => {
                 v-else
                 class="mt-3 rounded-xl bg-glass-1 px-3 py-3 text-sm text-fg-soft"
               >
-                No members currently use this role.
+                {{ echoT('b00.roles.noMembers') }}
               </div>
             </div>
           </div>
@@ -2298,7 +2324,7 @@ onUnmounted(() => {
     </div>
 
     <div v-if="props.roleManagerDirty" class="roles-change-bar shrink-0">
-      <div class="text-sm text-fg-soft">You have unsaved role changes.</div>
+      <div class="text-sm text-fg-soft">{{ echoT('b00.roles.unsaved') }}</div>
       <div
         v-if="props.roleSaveError"
         class="echo-error-banner mt-2 rounded-lg px-3 py-2 text-sm"
@@ -2312,7 +2338,7 @@ onUnmounted(() => {
           :disabled="props.roleSaveLoading"
           @click="props.discardRoleManagerChanges"
         >
-          Discard
+          {{ echoT('b00.roles.discard') }}
         </button>
         <button
           type="button"
@@ -2320,7 +2346,7 @@ onUnmounted(() => {
           :disabled="props.roleSaveLoading"
           @click="props.saveRoleManagerChanges()"
         >
-          Save changes
+          {{ echoT('serverSettingsUi.saveChanges') }}
         </button>
       </div>
     </div>
@@ -2345,12 +2371,12 @@ onUnmounted(() => {
               id="permission-preview-modal-title"
               class="text-base font-semibold text-foreground"
             >
-              Permission preview
+              {{ echoT('b00.roles.permPreview') }}
             </h2>
             <button
               type="button"
               class="rounded-lg px-2 py-1 text-lg leading-none text-muted transition-colors hover:bg-glass-tint hover:text-foreground"
-              aria-label="Close"
+              :aria-label="echoT('b00.roles.close')"
               @click="permissionPreviewModalOpen = false"
             >
               ×
@@ -2360,8 +2386,7 @@ onUnmounted(() => {
             class="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4"
           >
             <p class="mb-4 text-sm text-muted">
-              Effective permissions for your account (server fold, then category
-              and channel layers). Requires manage roles or manage server.
+              {{ echoT('b00.roles.permPreviewHint') }}
             </p>
             <ServerSettingsPermissionPreviewSection
               v-if="props.echoServerIdForPermissionPreview"
@@ -2370,7 +2395,7 @@ onUnmounted(() => {
               :users="props.allUsers"
             />
             <p v-else class="text-sm text-muted">
-              Server context is not available for permission preview.
+              {{ echoT('b00.roles.noServerContext') }}
             </p>
           </div>
         </div>
@@ -2397,12 +2422,12 @@ onUnmounted(() => {
               id="default-on-join-warning-title"
               class="text-base font-semibold text-foreground"
             >
-              High permissions on default role
+              {{ echoT('b00.roles.highPerms') }}
             </h2>
             <button
               type="button"
               class="rounded-lg px-2 py-1 text-lg leading-none text-muted transition-colors hover:bg-glass-tint hover:text-foreground"
-              aria-label="Close"
+              :aria-label="echoT('b00.roles.close')"
               @click="cancelDefaultOnJoinHighRisk"
             >
               ×
@@ -2412,10 +2437,7 @@ onUnmounted(() => {
             class="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-4"
           >
             <p class="text-sm text-muted">
-              This role has elevated permissions. If it is assigned to every new
-              member automatically, everyone joining will receive those
-              capabilities—including moderation or server management, if
-              enabled.
+              {{ echoT('b00.roles.highPermsBody') }}
             </p>
             <ul
               v-if="defaultOnJoinRiskLabels.length"
@@ -2426,8 +2448,7 @@ onUnmounted(() => {
               </li>
             </ul>
             <p class="mt-3 text-sm text-muted">
-              Only continue if this is intentional (for example a private staff
-              server).
+              {{ echoT('b00.roles.highPermsConfirm') }}
             </p>
           </div>
           <div
@@ -2438,14 +2459,14 @@ onUnmounted(() => {
               class="rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-glass-tint hover:text-foreground"
               @click="cancelDefaultOnJoinHighRisk"
             >
-              Cancel
+              {{ echoT('b00.roles.cancel') }}
             </button>
             <button
               type="button"
               class="rounded-lg bg-amber-600/90 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-600"
               @click="confirmDefaultOnJoinHighRisk"
             >
-              Assign to new members anyway
+              {{ echoT('b00.roles.assignAnyway') }}
             </button>
           </div>
         </div>
@@ -2473,7 +2494,7 @@ onUnmounted(() => {
                 id="quick-add-role-members-title"
                 class="truncate text-base font-semibold text-foreground"
               >
-                Add members
+                {{ echoT('b00.roles.addMembers') }}
               </h2>
               <p
                 v-if="props.selectedRole"
@@ -2491,22 +2512,22 @@ onUnmounted(() => {
             <button
               type="button"
               class="rounded-lg px-2 py-1 text-lg leading-none text-muted transition-colors hover:bg-glass-tint hover:text-foreground"
-              aria-label="Close"
+              :aria-label="echoT('b00.roles.close')"
               @click="quickAddMembersModalOpen = false"
             >
               ×
             </button>
           </div>
           <div class="border-b border-border px-5 py-3">
-            <label class="sr-only" for="quick-add-role-members-search"
-              >Search members</label
-            >
+            <label class="sr-only" for="quick-add-role-members-search">{{
+              echoT('b00.roles.searchMembers')
+            }}</label>
             <input
               id="quick-add-role-members-search"
               v-model="quickAddSearchQuery"
               type="search"
               autocomplete="off"
-              placeholder="Search members…"
+              :placeholder="echoT('b00.roles.searchMembersPh')"
               class="server-input server-input--borderless w-full text-sm"
             />
           </div>
@@ -2546,7 +2567,7 @@ onUnmounted(() => {
                   disabled
                   class="cursor-default rounded-lg bg-glass-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
                 >
-                  Added
+                  {{ echoT('b00.roles.added') }}
                 </button>
                 <button
                   v-else
@@ -2558,12 +2579,16 @@ onUnmounted(() => {
                   }"
                   @click="onQuickAddMember(m.id)"
                 >
-                  {{ quickAddBusyUserId === m.id ? 'Adding…' : 'Add' }}
+                  {{
+                    quickAddBusyUserId === m.id
+                      ? echoT('b00.roles.adding')
+                      : echoT('b00.roles.add')
+                  }}
                 </button>
               </li>
             </ul>
             <p v-else class="px-2 py-8 text-center text-sm text-muted">
-              No members match your search.
+              {{ echoT('b00.roles.noMembersMatch') }}
             </p>
           </div>
         </div>
@@ -2599,15 +2624,16 @@ onUnmounted(() => {
                 id="role-category-sync-title"
                 class="text-lg font-bold text-fg-strong"
               >
-                Sync with category
+                {{ echoT('b00.roles.syncWithCategory') }}
               </h3>
               <p class="mt-2 text-sm leading-relaxed text-fg-subtle">
-                Move this role into
-                <span class="font-semibold text-fg">{{
-                  roleCategorySyncCategoryName
-                }}</span
-                >. Choose whether it should inherit that category’s defaults or
-                keep its current permissions and display settings.
+                <i18n-t keypath="b00.roles.syncMoveBody" scope="global">
+                  <template #category
+                    ><span class="font-semibold text-fg">{{
+                      roleCategorySyncCategoryName
+                    }}</span></template
+                  >
+                </i18n-t>
               </p>
             </div>
           </div>
@@ -2634,13 +2660,12 @@ onUnmounted(() => {
                   alt=""
                   class="echo-ink-icon h-5 w-5 shrink-0 opacity-85"
                 />
-                <span class="text-sm font-semibold text-fg"
-                  >Keep current settings</span
-                >
+                <span class="text-sm font-semibold text-fg">{{
+                  echoT('b00.roles.keepCurrent')
+                }}</span>
               </span>
               <span class="text-xs leading-relaxed text-fg-subtle">
-                Leave this role’s permissions, color, and display options as
-                they are.
+                {{ echoT('b00.roles.keepCurrentHint') }}
               </span>
             </button>
             <button
@@ -2661,16 +2686,18 @@ onUnmounted(() => {
                   alt=""
                   class="echo-ink-icon h-5 w-5 shrink-0 opacity-85"
                 />
-                <span class="text-sm font-semibold text-fg"
-                  >Sync with category</span
-                >
+                <span class="text-sm font-semibold text-fg">{{
+                  echoT('b00.roles.syncWithCategory')
+                }}</span>
               </span>
               <span class="text-xs leading-relaxed text-fg-subtle">
-                Apply
-                <span class="font-medium text-fg-soft">{{
-                  roleCategorySyncCategoryName
-                }}</span>
-                defaults for permissions and display.
+                <i18n-t keypath="b00.roles.syncApply" scope="global">
+                  <template #category
+                    ><span class="font-medium text-fg-soft">{{
+                      roleCategorySyncCategoryName
+                    }}</span></template
+                  >
+                </i18n-t>
               </span>
             </button>
           </div>
@@ -2680,7 +2707,7 @@ onUnmounted(() => {
               class="rounded-lg px-3 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
               @click="props.cancelRoleCategorySync?.()"
             >
-              Cancel
+              {{ echoT('b00.roles.cancel') }}
             </button>
             <button
               type="button"
@@ -2688,7 +2715,7 @@ onUnmounted(() => {
               :disabled="roleCategorySyncSelection === null"
               @click="confirmRoleCategorySyncChoice"
             >
-              Confirm
+              {{ echoT('b00.roles.confirm') }}
             </button>
           </div>
         </div>
@@ -2717,7 +2744,7 @@ onUnmounted(() => {
             role="menuitem"
             @click="contextMenuRemoveFromCategory"
           >
-            Remove from category
+            {{ echoT('b00.roles.removeFromCategory') }}
           </button>
           <button
             type="button"
@@ -2725,7 +2752,7 @@ onUnmounted(() => {
             role="menuitem"
             @click="contextMenuDeleteRole"
           >
-            Delete role
+            {{ echoT('b00.roles.deleteRole') }}
           </button>
         </div>
       </template>

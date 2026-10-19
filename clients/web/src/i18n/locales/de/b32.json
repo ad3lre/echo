@@ -1,0 +1,119 @@
+{
+  "bw": {
+    "saveFailed": "Speichern fehlgeschlagen",
+    "intro": "Wähle eine Voreinstellung, um Nachrichten mit unangemessener Sprache automatisch zu filtern, oder passe an, welche Kategorien aktiv sind und welche Aktion jeweils ausgeführt wird.",
+    "needManage": "Du brauchst „Server verwalten“, um den Wortfilter zu bearbeiten.",
+    "loading": "Konfiguration wird geladen…",
+    "filterLevel": "Filterstufe",
+    "categories": "Kategorien",
+    "customWords": "Eigene Wörter",
+    "customWordsHelp": "Füge weitere Wörter oder Ausdrücke zum Filtern hinzu (eins pro Zeile). Diese werden unabhängig von den Kategorieeinstellungen immer blockiert.",
+    "exemptRoles": "Ausgenommene Rollen",
+    "exemptHelp": "Mitglieder mit einer dieser Rollen umgehen den Wortfilter komplett. Admins und Personen mit „Server verwalten“ bzw. „Nachrichten verwalten“ sind immer ausgenommen.",
+    "noRoles": "Keine Rollen verfügbar.",
+    "noChanges": "Keine ungespeicherten Änderungen.",
+    "saving": "Wird gespeichert…",
+    "save": "Änderungen speichern",
+    "switchCustom": "Wechsle zu {custom}, um einzelne Kategorien und Aktionen zu ändern.",
+    "placeholder": "schimpfwort\nanderer ausdruck",
+    "preset": {
+      "off": "Aus",
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "custom": "Benutzerdefiniert"
+    },
+    "presetDesc": {
+      "off": "Es werden keine Wörter gefiltert.",
+      "low": "Nur Beleidigungen aus Hassrede und sexuelle Inhalte werden gefiltert.",
+      "medium": "Hassrede, sexuelle Inhalte und Schimpfwörter werden gefiltert.",
+      "high": "Alle Kategorien werden gefiltert.",
+      "custom": "Wähle, welche Kategorien aktiv sind und welche Aktion jeweils ausgeführt wird."
+    },
+    "cat": {
+      "profanity": "Schimpfwörter",
+      "slurs": "Hassrede & Beleidigungen",
+      "sexual_content": "Sexuelle Inhalte",
+      "insults": "Beleidigungen"
+    },
+    "catDesc": {
+      "profanity": "Gängige Flüche und vulgäre Sprache.",
+      "slurs": "Rassistische, ethnische und identitätsbezogene Beleidigungen.",
+      "sexual_content": "Sexuell explizite Begriffe und Ausdrücke.",
+      "insults": "Persönliche Angriffe und herabwürdigende Sprache."
+    },
+    "action": {
+      "block_message": "Nachricht blockieren",
+      "delete_message": "Nachricht löschen",
+      "timeout_5m": "Timeout (5 Min.)",
+      "timeout_60m": "Timeout (1 Stunde)",
+      "warn_dm": "Per Direktnachricht verwarnen"
+    }
+  },
+  "sd": {
+    "detecting": "Ausfall wird erkannt…",
+    "checkingNow": "Wird jetzt geprüft…",
+    "avgRecovery": "Ø Wiederherstellung",
+    "typicalRecovery": "Typische Wiederherstellung",
+    "defaultHint": "Standardwert, bis wir aus deinen Wiederverbindungen lernen",
+    "pastWindow": "Über dem üblichen Wiederherstellungszeitraum – Verbindung wird weiter aufgebaut",
+    "title": "Der Echo-Server ist derzeit nicht erreichbar",
+    "body": "Wir versuchen es in Echtzeit erneut und verbinden uns automatisch wieder, sobald der Dienst wieder läuft.",
+    "downtime": "Ausfallzeit",
+    "lastCheck": "Letzte Zustandsprüfung",
+    "checkingStatus": "Serverstatus wird geprüft…",
+    "waiting": "Warten auf Wiederherstellung…",
+    "checkAgain": "Jetzt erneut prüfen",
+    "refresh": "App neu laden",
+    "ago": "vor {duration}",
+    "basedOnOne": "Basierend auf {count} früheren Ausfall auf diesem Gerät",
+    "basedOnMany": "Basierend auf {count} früheren Ausfällen auf diesem Gerät",
+    "typicalWindow": "Typischer Zeitraum etwa {duration}",
+    "remaining": "Noch etwa {rem} s gegenüber typischen {est} s",
+    "progressAria": "Wiederherstellungsfortschritt im Vergleich zum typischen Zeitraum von {est} Sekunden"
+  },
+  "ep": {
+    "copied": "„{name}“ wurde als neues Emoji-Pack kopiert.",
+    "maxPacks": "Du kannst nur {max} Packs speichern.",
+    "copyFail": "Dieses Pack konnte nicht kopiert werden.",
+    "replaced": "„{target}“ wurde durch „{name}“ ersetzt.",
+    "replaceFail": "Dieses Pack konnte nicht ersetzt werden.",
+    "packFallback": "Pack",
+    "searchEmoji": "Emoji und Sticker suchen...",
+    "searchIcons": "Symbole suchen...",
+    "search": "Suchen...",
+    "pickerContent": "Auswahlinhalt",
+    "emoji": "Emoji",
+    "icons": "Symbole",
+    "noMatch": "Keine Emojis oder Sticker passend zu „{query}“",
+    "packActions": "Aktionen für Emoji-Pack",
+    "copyWhole": "Ganzes Pack kopieren",
+    "limit": "Pack-Limit erreicht ({max}). Ersetze ein gespeichertes Pack:",
+    "replace": "Ersetzen: {name}",
+    "cancel": "Abbrechen"
+  },
+  "pv": {
+    "updatedOne": "Jemand hat den Absatz aktualisiert, den du bearbeitest",
+    "updatedMany": "Jemand hat {count} Absätze aktualisiert, die du bearbeitest",
+    "saveFailed": "Speichern fehlgeschlagen: {error}",
+    "askedRelease": "{owner} wurde gebeten, diesen Absatz freizugeben",
+    "accessSent": "Zugriffsanfrage gesendet",
+    "stillLoading": "Dokument wird noch geladen",
+    "copiedText": "Dokumenttext kopiert",
+    "couldNotCopy": "Konnte nicht kopiert werden",
+    "viewNoEdit": "Du kannst dieses Dokument ansehen, aber nicht bearbeiten.",
+    "viewNoComment": "Du kannst dieses Dokument ansehen, aber keine Kommentare hinzufügen.",
+    "postFail": "Kommentar konnte nicht gepostet werden",
+    "updateFail": "Kommentar konnte nicht aktualisiert werden",
+    "deleteFail": "Kommentar konnte nicht gelöscht werden",
+    "retry": "Erneut versuchen"
+  },
+  "mm": {
+    "moreOptions": "Weitere Optionen",
+    "directMention": "Direkt erwähnen",
+    "unfriend": "Freundschaft beenden",
+    "report": "Nutzer melden",
+    "block": "Nutzer blockieren",
+    "unblock": "Nutzer entblocken"
+  }
+}

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { MessageAttachmentPayload } from '@shared/types';
 import { observeChatMediaRetentionVisible } from '@/features/chat/composables/useChatMediaRetentionTouch';
@@ -39,7 +40,9 @@ const sizeLabel = computed(() => formatBytes(props.attachment.fileSize));
 const displayName = computed(
   () =>
     props.attachment.filename?.trim() ||
-    (isPdf.value ? 'Document.pdf' : 'Document'),
+    (isPdf.value
+      ? echoT('b43.docAttachment.docPdf')
+      : echoT('chat.labels.document')),
 );
 
 const saveLinkAttrs = computed(() =>
@@ -80,7 +83,7 @@ const pdfPreviewSrc = computed(() => props.attachment.url?.trim() ?? '');
       v-if="isPdf && pdfPreviewSrc"
       type="button"
       class="chat-focus-ring shrink-0 self-start border-0 bg-transparent p-0 text-left"
-      :title="`Preview ${displayName}`"
+      :title="echoT('b43.docAttachment.preview', { name: displayName })"
       @click="emit('open')"
     >
       <PdfFirstPagePreview
@@ -126,17 +129,17 @@ const pdfPreviewSrc = computed(() => props.attachment.url?.trim() ?? '');
           :download="saveLinkAttrs.download"
           :target="saveLinkAttrs.target"
           :rel="saveLinkAttrs.rel"
-          :title="`Download ${displayName}`"
+          :title="echoT('b43.docAttachment.download', { name: displayName })"
           @click.stop
         >
-          Save
+          {{ echoT('b43.docAttachment.save') }}
         </a>
         <button
           type="button"
           class="chat-focus-ring rounded-md border border-accent/40 bg-accent/15 px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/25"
           @click="emit('open')"
         >
-          View
+          {{ echoT('b43.docAttachment.view') }}
         </button>
       </div>
     </div>

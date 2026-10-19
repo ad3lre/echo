@@ -6,9 +6,12 @@ import SwiftUI
 /// Keys live in `Resources/Localizable.xcstrings`. Prefer `EchoCopy.text` /
 /// `EchoCopy.string` over raw English literals so new languages can ship without
 /// hunting through views.
+///
+/// Lookups use `EchoAppLocale.preferredLocale` so the in-app language picker
+/// (not only the system language) drives String Catalog resolution.
 enum EchoCopy {
   static func string(_ key: String.LocalizationValue) -> String {
-    String(localized: key, bundle: .module)
+    String(localized: key, bundle: .module, locale: EchoAppLocale.preferredLocale)
   }
 
   /// Runtime catalog lookup (route titles, dynamic keys already present in xcstrings).
@@ -17,11 +20,11 @@ enum EchoCopy {
   }
 
   static func format(_ key: String.LocalizationValue, _ args: CVarArg...) -> String {
-    let template = String(localized: key, bundle: .module)
-    return String(format: template, locale: .current, arguments: args)
+    let template = String(localized: key, bundle: .module, locale: EchoAppLocale.preferredLocale)
+    return String(format: template, locale: EchoAppLocale.preferredLocale, arguments: args)
   }
 
   static func text(_ key: String.LocalizationValue) -> Text {
-    Text(String(localized: key, bundle: .module))
+    Text(string(key))
   }
 }

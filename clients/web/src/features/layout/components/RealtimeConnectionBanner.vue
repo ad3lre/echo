@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import {
   REALTIME_BANNER_CONNECTED_HOLD_MS,
@@ -10,7 +11,9 @@ const { state } = useRealtimeConnectionBanner({
 });
 
 const statusLabel = computed(() =>
-  state.value === 'reconnecting' ? 'Reconnecting' : 'Connected',
+  state.value === 'reconnecting'
+    ? echoT('layout.realtime.reconnecting')
+    : echoT('layout.realtime.connected'),
 );
 
 const showLabel = computed(() => state.value === 'reconnecting');

@@ -1,4 +1,5 @@
 ﻿<script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   defineAsyncComponent,
@@ -391,7 +392,9 @@ onMounted(() => {
     v-if="m.moderationModalOpen"
     :model-value="m.moderationModalOpen"
     :action="m.moderationAction"
-    :target-user-name="m.moderationTargetUser?.name ?? 'Member'"
+    :target-user-name="
+      m.moderationTargetUser?.name ?? echoT('b44.layoutModals.member')
+    "
     :target-user-pfp="m.moderationTargetUser?.pfp"
     :server-name="m.moderationServerName"
     :can-delete-recent-messages="m.moderationCanPurgeBanMessages === true"
@@ -411,7 +414,9 @@ onMounted(() => {
   <JoinServerConfirmModal
     v-if="m.isJoinServerConfirmModalOpen"
     :model-value="m.isJoinServerConfirmModalOpen"
-    :server-name="m.joinServerConfirmPreview?.serverName ?? 'Server'"
+    :server-name="
+      m.joinServerConfirmPreview?.serverName ?? echoT('b44.layoutModals.server')
+    "
     :icon-url="m.joinServerConfirmPreview?.iconUrl"
     :banner-url="m.joinServerConfirmPreview?.bannerUrl"
     :description="m.joinServerConfirmPreview?.description"

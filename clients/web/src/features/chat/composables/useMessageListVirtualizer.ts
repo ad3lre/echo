@@ -27,6 +27,7 @@ import { buildMessageRowRevisionKey } from '@/features/chat/domain/messageRowRev
 import {
   buildInitialMeasurementsCacheForChannel,
   getCachedMessageRowHeightPx,
+  trySpliceVirtualMeasurementsCache,
 } from '@/features/chat/domain/messageRowHeightStore';
 import { resolveMessageListInitialOffsetPx } from '@/features/chat/domain/messageListInitialOffset';
 import { readMessageListViewport } from '@/features/chat/composables/messageListViewportStorage';
@@ -258,15 +259,53 @@ function watchMeasurementsCache(
   estimateState: EstimateState,
   cache: ShallowRef<VirtualItem[]>,
 ) {
+  let prevChannelId: string | undefined;
+  let prevVirtualIds: readonly string[] = [];
+
   watch(
-    () =>
-      [
-        options.getChannelId(),
-        options.virtualizerOrderedIds.value.length,
-        options.displayOrderedIds.value.join('\u001e'),
-      ] as const,
     () => {
-      cache.value = rebuildMeasurementsCache(options, estimateState);
+      const virtualIds = options.virtualizerOrderedIds.value;
+      const displayIds = options.displayOrderedIds.value;
+      const vLen = virtualIds.length;
+      const dLen = displayIds.length;
+      // Cheap edge fingerprint — avoid O(n) id joins on every reactive tick.
+      return [
+        options.getChannelId(),
+        vLen,
+        vLen > 0 ? virtualIds[0] : '',
+        vLen > 1 ? virtualIds[1] : '',
+        vLen > 0 ? virtualIds[vLen - 1] : '',
+        vLen > 1 ? virtualIds[vLen - 2] : '',
+        dLen,
+        dLen > 0 ? displayIds[0] : '',
+        dLen > 0 ? displayIds[dLen - 1] : '',
+      ] as const;
+    },
+    () => {
+      const channelId = options.getChannelId();
+      const nextVirtualIds = options.virtualizerOrderedIds.value;
+      const estimateAt = (index: number) =>
+        estimateMessageRowSize(estimateState, index);
+
+      if (
+        channelId !== prevChannelId ||
+        prevVirtualIds.length === 0 ||
+        cache.value.length === 0
+      ) {
+        cache.value = rebuildMeasurementsCache(options, estimateState);
+      } else {
+        const spliced = trySpliceVirtualMeasurementsCache(
+          prevVirtualIds,
+          nextVirtualIds,
+          cache.value,
+          estimateAt,
+        );
+        cache.value =
+          spliced ?? rebuildMeasurementsCache(options, estimateState);
+      }
+
+      prevChannelId = channelId;
+      prevVirtualIds = nextVirtualIds.slice();
     },
     { immediate: true },
   );

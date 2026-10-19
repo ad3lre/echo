@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import { icons } from '@/assets/icons';
 import { postDiscordChannelImportMessages } from '@/features/chat/ingest/postDiscordChannelImportMessages';
@@ -28,7 +29,7 @@ async function handleImport() {
   if (loading.value) return;
   const token = authSession.accessToken?.trim() ?? '';
   if (!authSession.isAuthenticated) {
-    error.value = 'You must be logged in to import messages.';
+    error.value = echoT('b40.discordImport.loginRequired');
     return;
   }
   loading.value = true;
@@ -42,7 +43,7 @@ async function handleImport() {
     emit('imported', res.importedCount);
   } catch (err) {
     error.value =
-      err instanceof Error ? err.message : 'Failed to import messages';
+      err instanceof Error ? err.message : echoT('b40.discordImport.failed');
   } finally {
     loading.value = false;
   }
@@ -53,7 +54,7 @@ async function handleImport() {
   <div
     class="discord-channel-import flex max-w-md flex-col items-center px-2 text-center"
     role="region"
-    aria-label="Import Discord message history"
+    :aria-label="echoT('b40.discordImport.aria')"
   >
     <div
       class="discord-channel-import__icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -67,16 +68,14 @@ async function handleImport() {
     </div>
 
     <p class="text-base font-semibold text-foreground">
-      Import recent Discord messages
+      {{ echoT('b40.discordImport.title') }}
     </p>
     <p class="mt-2 max-w-sm text-sm leading-relaxed text-muted">
       <template v-if="channelLabel">
-        This channel came from Discord. You can copy the last 90 messages into
-        {{ channelLabel }}.
+        {{ echoT('b40.discordImport.descInto', { channel: channelLabel }) }}
       </template>
       <template v-else>
-        This channel came from Discord. You can copy the last 90 messages here
-        to preserve recent history.
+        {{ echoT('b40.discordImport.descHere') }}
       </template>
     </p>
 
@@ -99,12 +98,12 @@ async function handleImport() {
         class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-foreground/15 border-t-foreground/65"
         aria-hidden="true"
       />
-      <span v-if="loading">Importing…</span>
-      <span v-else>Import last 90 messages</span>
+      <span v-if="loading">{{ echoT('b40.discordImport.importing') }}</span>
+      <span v-else>{{ echoT('b40.discordImport.button') }}</span>
     </button>
 
     <p class="mt-4 max-w-sm text-xs leading-relaxed text-muted">
-      Authors without a linked Discord account show as placeholder profiles.
+      {{ echoT('b40.discordImport.note') }}
     </p>
   </div>
 </template>

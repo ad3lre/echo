@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import type { MeDiscordLinkedProfile } from '@/api/meClient';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
@@ -40,7 +41,7 @@ const {
 async function onImportProfileIntoEcho() {
   const ok = await importFromDiscord();
   if (ok) {
-    dispatchAppToast('Profile updated from Discord.', 'info');
+    dispatchAppToast(echoT('b36.discordLink.profileUpdated'), 'info');
     void refresh();
   }
 }
@@ -66,22 +67,27 @@ type DiscordDetailRow = { label: string; value: string; mono?: boolean };
 function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
   return [
     {
-      label: 'Display name',
+      label: echoT('b36.discordLink.displayName'),
       value: profile.globalName?.trim() || profile.username || '—',
     },
-    { label: 'Username', value: `@${profile.username}` },
+    { label: echoT('b36.discordLink.username'), value: `@${profile.username}` },
     { label: 'Discord ID', value: profile.discordUserId, mono: true },
     {
-      label: 'Email from Discord',
-      value: profile.emailPresent ? 'Shared with Echo' : 'Not shared',
+      label: echoT('b36.discordLink.emailFromDiscord'),
+      value: profile.emailPresent
+        ? echoT('b36.discordLink.sharedWithEcho')
+        : echoT('settingsUi.notShared'),
     },
-    { label: 'Subscription', value: discordPremiumLabel(profile.premiumType) },
     {
-      label: 'Servers (visible to the app)',
+      label: echoT('b36.discordLink.subscription'),
+      value: discordPremiumLabel(profile.premiumType),
+    },
+    {
+      label: echoT('b36.discordLink.servers'),
       value: discordCountLabel(profile.guildCount),
     },
     {
-      label: 'Connected services',
+      label: echoT('b36.discordLink.connectedServices'),
       value: discordCountLabel(profile.connectionsCount),
     },
   ];
@@ -91,10 +97,12 @@ function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
 <template>
   <div class="settings-discord-root w-full min-w-0 max-w-5xl">
     <div v-if="echoSyncCapabilities.isMockDataMode" class="text-sm text-muted">
-      Preview mode doesn’t use a live account, so Discord can’t be linked here.
+      {{ echoT('b36.discordLink.previewMode') }}
     </div>
 
-    <div v-else-if="loading" class="text-sm text-muted">Loading…</div>
+    <div v-else-if="loading" class="text-sm text-muted">
+      {{ echoT('settingsUi.loading') }}
+    </div>
 
     <div v-else class="flex flex-col gap-6">
       <p v-if="actionError" class="text-sm text-red-400/90">
@@ -224,7 +232,7 @@ function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
               >
                 {{
                   profileImportBusy
-                    ? 'Importing…'
+                    ? echoT('b36.discordLink.importing')
                     : discordImportProfileIntoEchoCta()
                 }}
               </button>
@@ -241,7 +249,11 @@ function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
             :disabled="connectBusy"
             @click="onConnect"
           >
-            {{ connectBusy ? 'Opening Discord…' : discordConnectCta() }}
+            {{
+              connectBusy
+                ? echoT('b36.discordLink.openingDiscord')
+                : discordConnectCta()
+            }}
           </button>
         </div>
       </template>

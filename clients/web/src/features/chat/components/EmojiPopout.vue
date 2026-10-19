@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   ref,
@@ -139,19 +140,19 @@ function savePackAsNew() {
     UIErrorBus.emit({
       context: 'emoji-pack-copy',
       severity: 'info',
-      userMessage: `Copied "${cat.name}" as a new emoji pack.`,
+      userMessage: echoT('b32.ep.copied', { name: cat.name }),
     });
   } else if (result === 'full') {
     UIErrorBus.emit({
       context: 'emoji-pack-copy',
       severity: 'error',
-      userMessage: `You can only save ${userLibrary.maxPacks} packs.`,
+      userMessage: echoT('b32.ep.maxPacks', { max: userLibrary.maxPacks }),
     });
   } else {
     UIErrorBus.emit({
       context: 'emoji-pack-copy',
       severity: 'error',
-      userMessage: 'Could not copy this pack.',
+      userMessage: echoT('b32.ep.copyFail'),
     });
   }
   closePackCopyMenu();
@@ -161,19 +162,23 @@ function replaceSavedPack(replacePackId: string) {
   const cat = contextPackCategory.value;
   if (!cat) return;
   const targetName =
-    savedUserPacks.value.find((p) => p.id === replacePackId)?.name ?? 'pack';
+    savedUserPacks.value.find((p) => p.id === replacePackId)?.name ??
+    echoT('b32.ep.packFallback');
   const result = userLibrary.saveEmojiPackFromCategory(cat, { replacePackId });
   if (result === 'replaced') {
     UIErrorBus.emit({
       context: 'emoji-pack-copy',
       severity: 'info',
-      userMessage: `Replaced "${targetName}" with "${cat.name}".`,
+      userMessage: echoT('b32.ep.replaced', {
+        target: targetName,
+        name: cat.name,
+      }),
     });
   } else {
     UIErrorBus.emit({
       context: 'emoji-pack-copy',
       severity: 'error',
-      userMessage: 'Could not replace that pack.',
+      userMessage: echoT('b32.ep.replaceFail'),
     });
   }
   closePackCopyMenu();
@@ -230,9 +235,9 @@ const searchInputModel = computed({
 });
 
 const searchPlaceholder = computed(() => {
-  if (pickerTab.value === 'emoji') return 'Search emoji and stickers...';
-  if (pickerTab.value === 'icons') return 'Search icons...';
-  return 'Search...';
+  if (pickerTab.value === 'emoji') return echoT('b32.ep.searchEmoji');
+  if (pickerTab.value === 'icons') return echoT('b32.ep.searchIcons');
+  return echoT('b32.ep.search');
 });
 
 const emojiSearchResults = computed<EmojiEntry[]>(() => {
@@ -430,7 +435,7 @@ function handleInsert(entry: EmojiEntry) {
         <div
           class="flex items-center gap-1 px-2 pb-1.5"
           role="tablist"
-          aria-label="Picker content"
+          :aria-label="echoT('b32.ep.pickerContent')"
         >
           <button
             type="button"
@@ -451,7 +456,7 @@ function handleInsert(entry: EmojiEntry) {
               schedulePopoutPositionUpdate();
             "
           >
-            Emoji
+            {{ echoT('b32.ep.emoji') }}
           </button>
           <button
             type="button"
@@ -472,7 +477,7 @@ function handleInsert(entry: EmojiEntry) {
               schedulePopoutPositionUpdate();
             "
           >
-            Icons
+            {{ echoT('b32.ep.icons') }}
           </button>
         </div>
         <div v-if="pickerTab === 'emoji'" class="flex flex-1 min-h-0">
@@ -524,7 +529,7 @@ function handleInsert(entry: EmojiEntry) {
               v-if="searchQuery.trim() && renderedCategories.length === 0"
               class="py-8 text-center text-sm text-muted"
             >
-              No emojis or stickers match "{{ searchQuery.trim() }}"
+              {{ echoT('b32.ep.noMatch', { query: searchQuery.trim() }) }}
             </div>
           </div>
         </div>
@@ -549,7 +554,7 @@ function handleInsert(entry: EmojiEntry) {
         top: `${packMenuPosition.top}px`,
       }"
       role="menu"
-      aria-label="Emoji pack actions"
+      :aria-label="echoT('b32.ep.packActions')"
       @contextmenu.prevent
     >
       <div
@@ -565,11 +570,11 @@ function handleInsert(entry: EmojiEntry) {
         role="menuitem"
         @click="savePackAsNew"
       >
-        Copy whole pack
+        {{ echoT('b32.ep.copyWhole') }}
       </button>
 
       <div v-else class="px-3 py-2 text-xs text-fg-subtle">
-        Pack limit reached ({{ userLibrary.maxPacks }}). Replace a saved pack:
+        {{ echoT('b32.ep.limit', { max: userLibrary.maxPacks }) }}
       </div>
       <template v-if="!canSaveNewUserPack">
         <button
@@ -580,7 +585,7 @@ function handleInsert(entry: EmojiEntry) {
           role="menuitem"
           @click="replaceSavedPack(p.id)"
         >
-          Replace: {{ p.name }}
+          {{ echoT('b32.ep.replace', { name: p.name }) }}
         </button>
       </template>
 
@@ -591,7 +596,7 @@ function handleInsert(entry: EmojiEntry) {
         role="menuitem"
         @click="closePackCopyMenu"
       >
-        Cancel
+        {{ echoT('b32.ep.cancel') }}
       </button>
     </div>
   </Teleport>

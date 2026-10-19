@@ -292,6 +292,13 @@ export type EchoAttentionChannelSummary = {
   firstUnreadMessageId?: string;
   latestUnreadMessageId?: string;
   latestUnreadMessageAt?: string;
+  /**
+   * Newest unread message that actually pings the viewer (mention or reply-to-self).
+   * Distinct from `latestUnreadMessageId`, which is simply the newest unread and may
+   * be a non-mention that arrived after the @ping (common on Discord-bridged channels).
+   * Mention-inbox stubs / hydration must prefer this id.
+   */
+  latestUnreadMentionMessageId?: string;
   serverId?: string;
   peerUserId?: string;
   pingKind?: EchoAttentionPingKind;

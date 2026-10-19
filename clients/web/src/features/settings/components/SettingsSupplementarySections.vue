@@ -8,7 +8,7 @@ import {
   removeEchoPlusInterest,
   type EchoPlusInterestTier,
 } from '@/api/authClient';
-import { echoT } from '@/i18n';
+import { echoT, type EchoUiLocale } from '@/i18n';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import SettingsDiscordLinkSection from '@/features/settings/components/SettingsDiscordLinkSection.vue';
@@ -188,6 +188,18 @@ const activeInvoices = computed(() =>
     ? props.invoices
     : subscriptionInvoicesForPlan(currentPlan.value),
 );
+const SUBSCRIPTION_TEXT_KEYS: Record<string, string> = {
+  'Current plan': 'panes.subs.currentPlan',
+  Renewal: 'panes.subs.renewal',
+  'Included seats': 'panes.subs.includedSeats',
+  'Perks unlocked': 'panes.subs.perksUnlocked',
+  Upgrade: 'panes.subs.upgrade',
+  Paid: 'panes.subs.paid',
+};
+function subscriptionText(text: string): string {
+  const key = SUBSCRIPTION_TEXT_KEYS[text];
+  return key ? echoT(key) : text;
+}
 const plusMarkUrl = ECHO_PLAN_MARK_URL.plus;
 const blackMarkUrl = ECHO_PLAN_MARK_URL.black;
 const heroMarkUrl = computed(() => echoPlanMarkUrl(currentPlan.value));
@@ -215,7 +227,7 @@ const keybindRows = computed(() =>
   })),
 );
 const formattedNowPreview = computed(() => {
-  const locale = props.form.uiLanguage as 'en-US' | 'en-GB';
+  const locale = props.form.uiLanguage as EchoUiLocale;
   if (!locale || !props.form.timezone)
     return formatDateTimeWithPreferences(new Date());
   return formatDateTimeForSelection(locale, props.form.timezone, new Date());
@@ -238,14 +250,14 @@ function updateBinding(actionId: KeybindActionId, e: KeyboardEvent) {
   }
   const next = eventToBindingString(e);
   if (!next || next === 'Ctrl' || next === 'Shift' || next === 'Alt') {
-    keybindError.value = 'Use at least one non-modifier key.';
+    keybindError.value = echoT('panes.keybinds.needNonModifier');
     return;
   }
   const conflict = (Object.keys(keybindMap.value) as KeybindActionId[]).find(
     (id) => id !== actionId && keybindMap.value[id] === next,
   );
   if (conflict) {
-    keybindError.value = 'That shortcut is already assigned to another action.';
+    keybindError.value = echoT('panes.keybinds.conflict');
     return;
   }
   keybindMap.value = saveKeybindMap({ [actionId]: next });
@@ -280,9 +292,11 @@ function setImageViewerWheelScrollPans(next: boolean) {
     class="flex flex-col gap-4"
   >
     <div class="settings-card rounded-2xl p-5">
-      <div class="settings-label">Data Rights</div>
+      <div class="settings-label">
+        {{ echoT('panes.dataPrivacy.dataRights') }}
+      </div>
       <p class="mt-2 text-sm text-fg-soft">
-        Access and deletion controls for your Echo account data.
+        {{ echoT('panes.dataPrivacy.dataRightsDesc') }}
       </p>
       <div class="mt-4 flex flex-col gap-3">
         <button
@@ -292,16 +306,19 @@ function setImageViewerWheelScrollPans(next: boolean) {
           @click="downloadMyDataExport"
         >
           <span>
-            <span class="block text-sm font-semibold text-foreground"
-              >Download all my data</span
-            >
-            <span class="block text-sm text-muted"
-              >Exports your account, sessions, friends, blocks, and DM metadata
-              as JSON.</span
-            >
+            <span class="block text-sm font-semibold text-foreground">{{
+              echoT('panes.dataPrivacy.downloadAll')
+            }}</span>
+            <span class="block text-sm text-muted">{{
+              echoT('panes.dataPrivacy.downloadAllDesc')
+            }}</span>
           </span>
           <span class="text-xs font-semibold text-fg-soft">
-            {{ dataExportInFlight ? 'Preparing…' : 'Export' }}
+            {{
+              dataExportInFlight
+                ? echoT('panes.dataPrivacy.preparing')
+                : echoT('panes.dataPrivacy.export')
+            }}
           </span>
         </button>
         <button
@@ -311,16 +328,19 @@ function setImageViewerWheelScrollPans(next: boolean) {
           @click="openAccountRemovalModal"
         >
           <span>
-            <span class="block text-sm font-semibold text-foreground"
-              >Request account and data removal</span
-            >
-            <span class="block text-sm text-muted"
-              >Permanently deletes your account and associated personal
-              data.</span
-            >
+            <span class="block text-sm font-semibold text-foreground">{{
+              echoT('panes.dataPrivacy.requestRemoval')
+            }}</span>
+            <span class="block text-sm text-muted">{{
+              echoT('panes.dataPrivacy.requestRemovalDesc')
+            }}</span>
           </span>
           <span class="text-xs font-semibold text-red-600">
-            {{ removalInFlight ? 'Removing…' : 'Delete' }}
+            {{
+              removalInFlight
+                ? echoT('panes.dataPrivacy.removing')
+                : echoT('panes.dataPrivacy.delete')
+            }}
           </span>
         </button>
       </div>
@@ -338,30 +358,29 @@ function setImageViewerWheelScrollPans(next: boolean) {
         class="w-full max-w-md rounded-2xl border border-red-400/30 bg-surface p-5 shadow-2xl"
       >
         <h3 id="remove-account-title" class="text-lg font-bold text-red-600">
-          Confirm Account & Data Removal
+          {{ echoT('panes.dataPrivacy.confirmTitle') }}
         </h3>
         <p class="mt-2 text-sm text-fg-soft">
-          This permanently deletes your Echo account and personal data. This
-          action cannot be undone.
+          {{ echoT('panes.dataPrivacy.confirmDesc') }}
         </p>
 
         <label
           class="mt-4 block text-xs font-semibold uppercase tracking-wide text-fg-soft"
         >
-          Password
+          {{ echoT('panes.dataPrivacy.password') }}
           <input
             v-model="removalPassword"
             type="password"
             autocomplete="current-password"
             class="settings-input mt-2"
-            placeholder="Enter your password"
+            :placeholder="echoT('panes.dataPrivacy.enterPassword')"
           />
         </label>
 
         <label
           class="mt-3 block text-xs font-semibold uppercase tracking-wide text-fg-soft"
         >
-          Type DELETE to confirm
+          {{ echoT('panes.dataPrivacy.typeDelete') }}
           <input
             v-model="removalConfirmText"
             type="text"
@@ -381,7 +400,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
             :disabled="removalInFlight"
             @click="closeAccountRemovalModal"
           >
-            Cancel
+            {{ echoT('panes.dataPrivacy.cancel') }}
           </button>
           <button
             type="button"
@@ -389,7 +408,11 @@ function setImageViewerWheelScrollPans(next: boolean) {
             :disabled="removalInFlight"
             @click="confirmAccountRemoval"
           >
-            {{ removalInFlight ? 'Removing…' : 'Permanently Delete' }}
+            {{
+              removalInFlight
+                ? echoT('panes.dataPrivacy.removing')
+                : echoT('panes.dataPrivacy.permanentlyDelete')
+            }}
           </button>
         </div>
       </div>
@@ -399,13 +422,13 @@ function setImageViewerWheelScrollPans(next: boolean) {
   <div v-else-if="activeSection === 'Keybinds'" class="flex flex-col gap-4">
     <div class="settings-card rounded-2xl p-5">
       <div class="flex items-center justify-between gap-3">
-        <div class="settings-label">Keyboard Shortcuts</div>
+        <div class="settings-label">{{ echoT('panes.keybinds.title') }}</div>
         <button
           type="button"
           class="rounded-lg px-3 py-1.5 text-xs font-semibold bg-glass-1 text-fg-soft hover:bg-glass-2"
           @click="resetDefaults"
         >
-          Reset defaults
+          {{ echoT('panes.keybinds.resetDefaults') }}
         </button>
       </div>
       <div class="mt-4 flex flex-col gap-3">
@@ -431,7 +454,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
           >
             {{
               editingActionId === bind.id
-                ? 'Press new shortcut…'
+                ? echoT('panes.keybinds.pressNew')
                 : bind.binding || '—'
             }}
           </button>
@@ -440,31 +463,31 @@ function setImageViewerWheelScrollPans(next: boolean) {
           {{ keybindError }}
         </p>
         <p class="text-xs text-muted">
-          Click a shortcut and press a new key combo to change it.
+          {{ echoT('panes.keybinds.clickHint') }}
         </p>
       </div>
     </div>
 
     <div class="settings-card rounded-2xl p-5">
-      <div class="settings-label">Image viewer</div>
+      <div class="settings-label">
+        {{ echoT('panes.keybinds.imageViewer') }}
+      </div>
       <p class="mt-2 text-sm text-fg-soft">
-        Choose how scroll wheel and trackpad gestures behave while viewing an
-        image.
+        {{ echoT('panes.keybinds.imageViewerDesc') }}
       </p>
       <div class="mt-4">
         <div class="settings-toggle">
           <span>
-            <span class="block text-sm font-semibold text-foreground"
-              >Scroll to pan</span
-            >
+            <span class="block text-sm font-semibold text-foreground">{{
+              echoT('panes.keybinds.scrollToPan')
+            }}</span>
             <span class="block text-sm text-muted">
-              Two-finger scroll moves the image; pinch to zoom. Turn off to use
-              scroll to zoom instead (classic).
+              {{ echoT('panes.keybinds.scrollToPanDesc') }}
             </span>
           </span>
           <SettingsPillSwitch
             :model-value="imageViewerPrefs.wheelScrollPans"
-            ariaLabel="Scroll to pan in image viewer"
+            :ariaLabel="echoT('panes.keybinds.scrollToPanAria')"
             @update:model-value="setImageViewerWheelScrollPans"
           />
         </div>
@@ -479,31 +502,38 @@ function setImageViewerWheelScrollPans(next: boolean) {
     <div class="settings-card rounded-2xl p-6">
       <EchoDropdown
         v-model="form.uiLanguage"
-        label="App Language"
+        :label="echoT('panes.timeLang.appLanguage')"
         :options="languageOptions"
       />
       <div class="mt-6">
         <EchoDropdown
           v-model="form.timezone"
-          label="Timezone"
+          :label="echoT('panes.timeLang.timezone')"
           :options="timezoneOptions"
           :searchable="true"
         />
       </div>
     </div>
     <div class="settings-card rounded-2xl p-6 flex flex-col gap-3">
-      <div class="settings-label">Current Preview</div>
+      <div class="settings-label">
+        {{ echoT('panes.timeLang.currentPreview') }}
+      </div>
       <div class="text-2xl font-bold text-foreground">
         {{ formattedNowPreview }}
       </div>
       <p class="text-sm text-muted">
-        Message timestamps and date labels now follow these preferences across
-        Echo.
+        {{ echoT('panes.timeLang.previewDesc') }}
       </p>
       <div class="settings-panel rounded-xl p-4 text-sm text-fg-soft">
-        <div><span class="text-muted">Locale:</span> {{ form.uiLanguage }}</div>
+        <div>
+          <span class="text-muted">{{ echoT('panes.timeLang.locale') }}</span>
+          {{ form.uiLanguage }}
+        </div>
         <div class="mt-1">
-          <span class="text-muted">Timezone:</span> {{ form.timezone }}
+          <span class="text-muted">{{
+            echoT('panes.timeLang.timezoneColon')
+          }}</span>
+          {{ form.timezone }}
         </div>
       </div>
     </div>
@@ -536,7 +566,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
         >
           {{
             echoPlusInterestSubmitting
-              ? 'Saving…'
+              ? echoT('panes.plans.saving')
               : echoT('settings.echoPlusInterest.notifyCta')
           }}
         </button>
@@ -564,7 +594,9 @@ function setImageViewerWheelScrollPans(next: boolean) {
             v-if="heroMarkUrl"
             :src="heroMarkUrl"
             class="premium-hero__mark premium-hero__mark--active h-14 w-14 sm:h-16 sm:w-16"
-            :alt="currentPlan === 'black' ? 'Echo Black' : 'Echo+'"
+            :alt="
+              currentPlan === 'black' ? echoT('settingsUi.echoBlack') : 'Echo+'
+            "
             width="64"
             height="64"
             decoding="async"
@@ -598,13 +630,12 @@ function setImageViewerWheelScrollPans(next: boolean) {
         <h2
           class="premium-hero__title text-3xl font-extrabold tracking-tight sm:text-4xl"
         >
-          Upgrade your Echo
+          {{ echoT('panes.plans.upgradeYour') }}
         </h2>
         <p
           class="premium-hero__lede mx-auto mt-3 max-w-lg text-sm leading-relaxed"
         >
-          Unlock higher quality, bigger uploads, more customization, and premium
-          perks. Pick the plan that fits you.
+          {{ echoT('panes.plans.lede') }}
         </p>
 
         <div
@@ -623,7 +654,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
             "
             @click="!echoPlusLocked && (billingCycle = 'monthly')"
           >
-            Monthly
+            {{ echoT('panes.plans.monthly') }}
           </button>
           <button
             type="button"
@@ -638,7 +669,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
             "
             @click="!echoPlusLocked && (billingCycle = 'yearly')"
           >
-            Yearly
+            {{ echoT('panes.plans.yearly') }}
             <span
               class="ml-1 font-extrabold text-[color:var(--set-positive-label-fg)]"
               >-20%</span
@@ -700,7 +731,11 @@ function setImageViewerWheelScrollPans(next: boolean) {
               : 'cursor-default bg-glass-1 text-fg-subtle opacity-60'
           "
         >
-          {{ currentPlan === 'free' ? 'Current Plan' : 'Included' }}
+          {{
+            currentPlan === 'free'
+              ? echoT('panes.plans.currentPlan')
+              : echoT('panes.plans.included')
+          }}
         </button>
       </div>
 
@@ -803,14 +838,14 @@ function setImageViewerWheelScrollPans(next: boolean) {
         >
           {{
             currentPlan === 'plus'
-              ? 'Current Plan'
+              ? echoT('panes.plans.currentPlan')
               : echoPlusLocked
                 ? isInterestedInTier('plus')
-                  ? "You're on the list"
+                  ? echoT('settings.echoPlusInterest.onList')
                   : echoPlusInterestSubmitting
-                    ? 'Saving…'
+                    ? echoT('panes.plans.saving')
                     : echoT('settings.echoPlusInterest.interestedCta')
-                : 'Upgrade to Echo+'
+                : echoT('panes.plans.upgradeToPlus')
           }}
         </button>
       </div>
@@ -910,14 +945,14 @@ function setImageViewerWheelScrollPans(next: boolean) {
         >
           {{
             currentPlan === 'black'
-              ? 'Current Plan'
+              ? echoT('panes.plans.currentPlan')
               : echoPlusLocked
                 ? isInterestedInTier('black')
-                  ? "You're on the list"
+                  ? echoT('settings.echoPlusInterest.onList')
                   : echoPlusInterestSubmitting
-                    ? 'Saving…'
+                    ? echoT('panes.plans.saving')
                     : echoT('settings.echoPlusInterest.interestedCta')
-                : 'Go Black'
+                : echoT('panes.plans.goBlack')
           }}
         </button>
       </div>
@@ -925,7 +960,9 @@ function setImageViewerWheelScrollPans(next: boolean) {
 
     <!-- Comparison highlights -->
     <div class="settings-card rounded-2xl p-6">
-      <div class="settings-label mb-5">Why upgrade?</div>
+      <div class="settings-label mb-5">
+        {{ echoT('panes.plans.whyUpgrade') }}
+      </div>
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div class="premium-why-card rounded-xl p-5">
           <div class="mb-3 flex items-center gap-3">
@@ -946,10 +983,12 @@ function setImageViewerWheelScrollPans(next: boolean) {
                 />
               </svg>
             </div>
-            <div class="text-sm font-bold text-foreground">Bigger uploads</div>
+            <div class="text-sm font-bold text-foreground">
+              {{ echoT('panes.plans.biggerUploads') }}
+            </div>
           </div>
           <p class="text-xs leading-relaxed text-muted">
-            Share files up to 8 GB. No more compressing before sending.
+            {{ echoT('panes.plans.biggerUploadsDesc') }}
           </p>
         </div>
 
@@ -973,11 +1012,11 @@ function setImageViewerWheelScrollPans(next: boolean) {
               </svg>
             </div>
             <div class="text-sm font-bold text-foreground">
-              Crystal-clear streaming
+              {{ echoT('panes.plans.crystalStreaming') }}
             </div>
           </div>
           <p class="text-xs leading-relaxed text-muted">
-            Stream at up to 4K @ 60 FPS with studio-grade audio quality.
+            {{ echoT('panes.plans.crystalStreamingDesc') }}
           </p>
         </div>
 
@@ -1001,12 +1040,11 @@ function setImageViewerWheelScrollPans(next: boolean) {
               </svg>
             </div>
             <div class="text-sm font-bold text-foreground">
-              Full customization
+              {{ echoT('panes.plans.fullCustomization') }}
             </div>
           </div>
           <p class="text-xs leading-relaxed text-muted">
-            Unlock premium themes, profile effects, and true custom mode on
-            Black.
+            {{ echoT('panes.plans.fullCustomizationDesc') }}
           </p>
         </div>
 
@@ -1029,10 +1067,12 @@ function setImageViewerWheelScrollPans(next: boolean) {
                 />
               </svg>
             </div>
-            <div class="text-sm font-bold text-foreground">Larger groups</div>
+            <div class="text-sm font-bold text-foreground">
+              {{ echoT('panes.plans.largerGroups') }}
+            </div>
           </div>
           <p class="text-xs leading-relaxed text-muted">
-            Bring up to 250 people into a single group conversation.
+            {{ echoT('panes.plans.largerGroupsDesc') }}
           </p>
         </div>
 
@@ -1056,7 +1096,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
               </svg>
             </div>
             <div class="text-sm font-bold text-foreground">
-              Studio-grade audio
+              {{ echoT('panes.plans.studioAudio') }}
             </div>
           </div>
           <p class="text-xs leading-relaxed text-muted">
@@ -1083,11 +1123,12 @@ function setImageViewerWheelScrollPans(next: boolean) {
                 />
               </svg>
             </div>
-            <div class="text-sm font-bold text-foreground">Early access</div>
+            <div class="text-sm font-bold text-foreground">
+              {{ echoT('panes.plans.earlyAccess') }}
+            </div>
           </div>
           <p class="text-xs leading-relaxed text-muted">
-            Echo Black members get first look at new features before everyone
-            else.
+            {{ echoT('panes.plans.earlyAccessDesc') }}
           </p>
         </div>
       </div>
@@ -1105,7 +1146,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
       <img
         :src="heroMarkUrl"
         class="premium-hero__mark premium-hero__mark--active h-12 w-12 shrink-0"
-        :alt="currentPlan === 'black' ? 'Echo Black' : 'Echo+'"
+        :alt="currentPlan === 'black' ? echoT('settingsUi.echoBlack') : 'Echo+'"
         width="48"
         height="48"
         decoding="async"
@@ -1113,16 +1154,18 @@ function setImageViewerWheelScrollPans(next: boolean) {
       />
       <div>
         <div class="settings-label">
-          {{ currentPlan === 'black' ? 'Echo Black' : 'Echo+' }}
+          {{
+            currentPlan === 'black' ? echoT('settingsUi.echoBlack') : 'Echo+'
+          }}
         </div>
         <p class="mt-1 text-sm text-fg-soft">
-          Your subscription perks are active on this account.
+          {{ echoT('panes.plans.perksActive') }}
         </p>
       </div>
     </div>
     <div class="grid gap-4 lg:grid-cols-2">
       <div class="settings-card rounded-2xl p-5">
-        <div class="settings-label">Subscription Timeline</div>
+        <div class="settings-label">{{ echoT('panes.plans.timeline') }}</div>
         <div class="mt-4 flex flex-col gap-3">
           <div
             v-for="item in activeSubscriptionTimeline"
@@ -1132,7 +1175,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
             <div
               class="text-xs font-semibold uppercase tracking-[0.18em] text-muted"
             >
-              {{ item.label }}
+              {{ subscriptionText(item.label) }}
             </div>
             <div class="mt-2 text-sm text-fg">{{ item.value }}</div>
           </div>
@@ -1140,7 +1183,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
       </div>
     </div>
     <div v-if="activeInvoices.length" class="settings-card rounded-2xl p-5">
-      <div class="settings-label">Invoices</div>
+      <div class="settings-label">{{ echoT('panes.plans.invoices') }}</div>
       <div class="mt-4 overflow-hidden rounded-xl border border-border">
         <div
           v-for="invoice in activeInvoices"
@@ -1151,7 +1194,7 @@ function setImageViewerWheelScrollPans(next: boolean) {
           <div class="text-fg-soft">{{ invoice.date }}</div>
           <div class="text-fg-soft">{{ invoice.amount }}</div>
           <div class="text-[color:var(--set-positive-label-fg)]">
-            {{ invoice.status }}
+            {{ subscriptionText(invoice.status) }}
           </div>
         </div>
       </div>
@@ -1160,18 +1203,18 @@ function setImageViewerWheelScrollPans(next: boolean) {
 
   <div v-else-if="activeSection === 'Advanced'" class="flex flex-col gap-6">
     <div class="settings-card rounded-2xl p-5">
-      <div class="settings-label">Developer</div>
+      <div class="settings-label">{{ echoT('panes.advanced.developer') }}</div>
       <p class="mt-2 text-sm text-fg-soft">
-        Shows internal IDs and diagnostics on this device only.
+        {{ echoT('panes.advanced.developerDesc') }}
       </p>
       <button
         type="button"
         class="settings-toggle mt-4"
         @click="devSettings.setDevModeIdsEnabled(!devModeIdsEnabled)"
       >
-        <span class="text-sm font-semibold text-foreground"
-          >Developer Mode — this device only</span
-        >
+        <span class="text-sm font-semibold text-foreground">{{
+          echoT('panes.advanced.developerMode')
+        }}</span>
         <span
           :class="
             devModeIdsEnabled ? 'toggle-pill toggle-pill--on' : 'toggle-pill'
@@ -1180,21 +1223,18 @@ function setImageViewerWheelScrollPans(next: boolean) {
       </button>
     </div>
     <div class="settings-card rounded-2xl p-5">
-      <div class="settings-label">Bug Hunter</div>
+      <div class="settings-label">{{ echoT('panes.advanced.bugHunter') }}</div>
       <p class="mt-2 text-sm text-fg-soft">
-        When enabled, Echo records detailed technical activity on this device
-        only (socket traffic, API calls, and where you are in the app). Use the
-        bug report button on the rail to send a report; the last few minutes of
-        traces are included. Turning this off clears the buffer.
+        {{ echoT('panes.advanced.bugHunterDesc') }}
       </p>
       <button
         type="button"
         class="settings-toggle mt-4"
         @click="bugHunter.setBugHunterEnabled(!bugHunterEnabled)"
       >
-        <span class="text-sm font-semibold text-foreground"
-          >Bug Hunter mode (this device only)</span
-        >
+        <span class="text-sm font-semibold text-foreground">{{
+          echoT('panes.advanced.bugHunterMode')
+        }}</span>
         <span
           :class="
             bugHunterEnabled ? 'toggle-pill toggle-pill--on' : 'toggle-pill'

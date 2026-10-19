@@ -1,0 +1,74 @@
+{
+  "dmIntro": {
+    "mutualOne": "{count} gemeinsamer Server",
+    "mutualMany": "{count} gemeinsame Server",
+    "aria": "Einleitung zum Direktnachrichten-Verlauf"
+  },
+  "channelAc": {
+    "forum": "Forumkanal",
+    "text": "Textkanal",
+    "none": "Keine Kanäle gefunden"
+  },
+  "audio": {
+    "clickReveal": "— Klicken zum Anzeigen",
+    "unavailable": "Audio nicht verfügbar"
+  },
+  "reactionHover": {
+    "countOne": "{count} Reaktion",
+    "countMany": "{count} Reaktionen",
+    "more": "+{count} weitere",
+    "aria": "Reaktionsdetails",
+    "you": "Du"
+  },
+  "imageSlot": {
+    "ariaUploading": "Bild für {w}:{h}-Platz wird hochgeladen",
+    "ariaAdd": "Bild zum {w}:{h}-Platz hinzufügen",
+    "ariaSlot": "Bildplatz {w}:{h}",
+    "label": "Bild {w}:{h}",
+    "uploading": "Wird hochgeladen…",
+    "add": "Klicken, um ein Bild hinzuzufügen"
+  },
+  "discordComponents": {
+    "displayOnlyNamed": "Die Schaltfläche „{label}“ dient in Echo nur zur Anzeige (custom_id: {id}).",
+    "displayOnly": "Diese Schaltfläche dient in Echo nur zur Anzeige."
+  },
+  "mediaUnavailable": {
+    "detail": "Diese Datei konnte nicht geladen werden. Sie fehlt möglicherweise, wurde verschoben oder ist nicht mehr zugänglich."
+  },
+  "typing": {
+    "one": "{name} schreibt gerade",
+    "two": "{a} und {b} schreiben gerade",
+    "many": "Mehrere Personen schreiben gerade"
+  },
+  "historySkeleton": {
+    "loading": "Nachrichten werden geladen"
+  },
+  "pdfPreview": {
+    "renderFail": "PDF-Vorschau konnte nicht dargestellt werden."
+  },
+  "mdPreview": {
+    "title": "Markdown-Vorschau"
+  },
+  "discordBadge": {
+    "from": "Von Discord"
+  },
+  "seekBar": {
+    "aria": "Suchen"
+  },
+  "waveform": {
+    "aria": "Audio-Wellenform"
+  },
+  "sendPending": {
+    "aria": "Wird gesendet"
+  },
+  "mentionAc": {
+    "none": "Keine Treffer gefunden"
+  },
+  "emojiPopover": {
+    "noMatch": "Keine Emojis passen zu „{query}“"
+  },
+  "reactionsRow": {
+    "byOne": "Reaktion von {count} Person",
+    "byMany": "Reaktion von {count} Personen"
+  }
+}

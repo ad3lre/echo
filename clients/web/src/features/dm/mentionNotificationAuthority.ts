@@ -1,10 +1,11 @@
+import { echoT } from '@/i18n';
 import type { EchoAttentionChannelSummary, MentionKind } from '@shared/types';
 import type { ServerNotificationLevel } from '@/features/server-notifications/types';
 import {
   applyAttentionNotificationLevel,
   isDmChannelMentionUnread,
   isServerChannelUnreadForPingBubble,
-  resolveEchoUnreadUpperBoundMessageId,
+  resolveEchoUnreadMentionMessageId,
 } from '@shared/attentionPing';
 import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
 import { hasChannelMessageInBucket } from '@/features/chat/domain/channelMessageAuthority';
@@ -15,7 +16,9 @@ import {
 } from '@/features/dm/collectDmMentionNotifications';
 
 /** Preview text for inbox rows waiting on background message hydrate. */
-export const MENTION_NOTIFICATION_STUB_PREVIEW = 'Loading mention…';
+export const MENTION_NOTIFICATION_STUB_PREVIEW = echoT(
+  'chat.status.loadingMention',
+);
 
 /** Preview text when background hydrate could not load the mention body. */
 export const MENTION_NOTIFICATION_FAILED_PREVIEW =
@@ -151,7 +154,9 @@ export function buildAttentionStubMentionRows(input: {
         : isDmChannelMentionUnread(summary, effectiveRead ?? null);
     if (!unreadPing) continue;
 
-    const messageId = resolveEchoUnreadUpperBoundMessageId(summary);
+    // Prefer the actual @ping id — latestUnread is often a newer non-mention
+    // on Discord-bridged channels and produces unresolvable "Could not load…" stubs.
+    const messageId = resolveEchoUnreadMentionMessageId(summary);
     if (!messageId || hasChannelMessageInBucket(channelId, messageId)) continue;
 
     rows.push({
@@ -216,8 +221,9 @@ export function collectMentionNotificationsFromAuthority(input: {
 
   // Channels that already have a hydrated mention row from the local cache (e.g. a
   // live Discord bridge `message` socket event) must not also get an attention stub.
-  // The stub anchor is `latestUnreadMessageId`, which is often a newer non-mention
-  // message — it can never resolve and surfaces as "Could not load this mention…".
+  // Stubs prefer `latestUnreadMentionMessageId`; without it, multi-unread channels
+  // skip stubbing so a wrong `latestUnreadMessageId` cannot surface as
+  // "Could not load this mention…".
   const channelsWithResolvedMentionRows = new Set<string>();
   for (const row of fromMessages) {
     if (row.preview === MENTION_NOTIFICATION_STUB_PREVIEW) continue;

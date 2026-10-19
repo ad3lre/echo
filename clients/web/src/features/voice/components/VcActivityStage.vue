@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   onErrorCaptured,
@@ -476,7 +477,7 @@ const activityRegionLabel = computed(() => {
   if (p === 'tic_tac_toe') return 'Tic Tac Echo';
   if (p === 'codenames') return 'Echoed Names';
   if (isVcIframeEmbedPhase(p)) return vcIframeEmbedTitle(p);
-  if (p === 'watch_together') return 'Watch Together';
+  if (p === 'watch_together') return echoT('voiceChrome.watchTogether');
   return 'YouTube watch together';
 });
 
@@ -707,19 +708,25 @@ function revealChannelListFromActivity() {
         v-if="showRevealChannelListInActivityHeader"
         type="button"
         class="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg sm:px-2"
-        :aria-label="compactLayout ? 'Show channels' : 'Show channel list'"
-        :title="compactLayout ? 'Show channels' : 'Show channel list'"
+        :aria-label="
+          compactLayout ? 'Show channels' : echoT('voiceChrome.showChannelList')
+        "
+        :title="
+          compactLayout ? 'Show channels' : echoT('voiceChrome.showChannelList')
+        "
         @click="revealChannelListFromActivity"
       >
-        <span class="hidden sm:inline">Show channel list</span>
+        <span class="hidden sm:inline">{{
+          echoT('voiceChrome.showChannelList')
+        }}</span>
         <span class="sm:hidden">Channels</span>
       </button>
       <div
         v-if="st.phase === 'pick'"
         class="min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight"
-        title="Activities"
+        :title="echoT('voiceChrome.activities')"
       >
-        Activities
+        {{ echoT('voiceChrome.activities') }}
       </div>
       <button
         v-else-if="focusGuildVoiceChannelInSidebar"
@@ -741,8 +748,8 @@ function revealChannelListFromActivity() {
         v-if="voiceSideChatCollapsed && !compactLayout"
         type="button"
         class="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg sm:px-2"
-        aria-label="Reopen chat"
-        title="Reopen chat"
+        :aria-label="echoT('voiceChrome.reopenChat')"
+        :title="echoT('voiceChrome.reopenChat')"
         @click="expandVoiceSideChat()"
       >
         <svg
@@ -759,7 +766,9 @@ function revealChannelListFromActivity() {
             d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
           />
         </svg>
-        <span class="hidden sm:inline">Reopen chat</span>
+        <span class="hidden sm:inline">{{
+          echoT('voiceChrome.reopenChat')
+        }}</span>
       </button>
       <button
         v-if="showVcFullscreenControl"

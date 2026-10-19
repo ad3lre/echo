@@ -1,0 +1,20 @@
+{
+  "message": "Mensagem",
+  "call": "Ligar",
+  "addFriend": "Adicionar amigo",
+  "removeFriend": "Remover amigo",
+  "block": "Bloquear",
+  "unblock": "Desbloquear",
+  "kick": "Expulsar",
+  "ban": "Banir",
+  "timeout": "Castigo",
+  "roles": "Cargos",
+  "note": "Nota",
+  "copyUserId": "Copiar ID do usuário",
+  "viewProfile": "Ver perfil",
+  "editProfile": "Editar perfil",
+  "memberSince": "Membro desde",
+  "joinedServer": "Entrou no servidor",
+  "status": "Status",
+  "customStatus": "Status personalizado"
+}

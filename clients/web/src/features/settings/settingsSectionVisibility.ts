@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type { AuthUserPublic } from '@/api/authClient';
 import type { SettingsSection } from '@/features/settings/types';
 import {

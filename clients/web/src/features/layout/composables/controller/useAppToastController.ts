@@ -9,7 +9,7 @@ import {
   type Ref,
 } from 'vue';
 import { storeToRefs } from 'pinia';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import { useSimpleContextMenu } from '@/features/layout/useSimpleContextMenu';
 import {
   subscribeAppToasts,

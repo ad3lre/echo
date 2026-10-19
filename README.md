@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <strong>Echo</strong> — open, privacy-minded chat, voice, and communities.<br>
-  Self-host it, fork it (AGPL), or ship a product you control end-to-end.
+  <strong>Echo</strong> — a real Discord alternative: chat, voice, and communities.<br>
+  Use it at <a href="https://chat-echo.com">chat-echo.com</a> · learn more at <a href="https://app-echo.net">app-echo.net</a> · or self-host / fork (AGPL).
 </p>
 
 <p align="center">
@@ -22,7 +22,16 @@
 
 # Echo
 
-Echo is a full-stack platform for **communities**: realtime **chat**, **voice and video** (LiveKit), servers and channels, DMs, roles, and the workflows people expect from a modern team or social space—without treating your community as ad inventory.
+Echo is a full-stack **Discord alternative** for communities: realtime **chat**, **voice and video** (LiveKit), servers and channels, DMs, roles, and the workflows people expect from a modern team or social space—without treating your community as ad inventory.
+
+**Hosted product (live today):**
+
+|                   |                                        |
+| ----------------- | -------------------------------------- |
+| App               | [chat-echo.com](https://chat-echo.com) |
+| Marketing & legal | [app-echo.net](https://app-echo.net)   |
+
+This repository is the same stack that powers those sites. You can join the hosted service, run your own instance, or fork under AGPL—same product either way.
 
 ## Quick start
 
@@ -46,9 +55,10 @@ Full setup, PR checks, and maintainer notes: **[docs/DEVELOPMENT.md](./docs/DEVE
 
 ## Why Echo
 
+- **A working product, not a demo** — the hosted app at [chat-echo.com](https://chat-echo.com) is a full Discord-style community platform; this repo is what runs it.
 - **Privacy and consent by design** — clear boundaries for data, sessions, and what the server may assume about users.
-- **You own your deployment** — no mandatory third-party control plane; configure auth, storage, voice, and edge for your threat model.
 - **Realtime-first** — chat and presence are first-class; voice/video follow a documented LiveKit path with production checklists in-repo.
+- **Self-host when you want control** — no mandatory third-party control plane; configure auth, storage, voice, and edge for your threat model (see [operator setup](#getting-started-operators) and [VPS deploy](./docs/operations/linux-vps-deployment.md)).
 - **Engineering guardrails** — contract and security tests, RBAC and snowflake guards in CI, observability hooks, [shipping gate](./docs/operations/shipping-gate.md), [production security checklist](./docs/operations/PRODUCTION_SECURITY_CHECKLIST.md).
 - **Installable where users are** — **PWA** for the web and **native Apple apps** in [`clients/apple/`](./clients/apple/).
 

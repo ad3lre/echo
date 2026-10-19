@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -66,10 +67,12 @@ const displayInitial = computed(() => {
 <template>
   <div class="settings-youtube-root w-full min-w-0 max-w-5xl">
     <div v-if="echoSyncCapabilities.isMockDataMode" class="text-sm text-muted">
-      Preview mode doesn’t use a live account, so YouTube can’t be linked here.
+      {{ echoT('b21.youtube.preview') }}
     </div>
 
-    <div v-else-if="loading" class="text-sm text-muted">Loading…</div>
+    <div v-else-if="loading" class="text-sm text-muted">
+      {{ echoT('settingsUi.loading') }}
+    </div>
 
     <div v-else class="flex flex-col gap-6">
       <SettingsIntegrationPrivacyNotice />
@@ -89,14 +92,21 @@ const displayInitial = computed(() => {
         v-if="state && !oauthConfigured && !hasStreamKey"
         class="max-w-2xl text-sm leading-relaxed text-muted"
       >
-        YouTube live isn’t enabled on this Echo server yet. An admin needs to
-        set
-        <code class="font-mono text-xs">GOOGLE_OAUTH_*</code> and
-        <code class="font-mono text-xs">YOUTUBE_OAUTH_REDIRECT_URI</code> for
-        channel linking, or you can still use a stream key once the server can
-        store encrypted credentials (<code class="font-mono text-xs"
-          >ECHO_DISCORD_TOKEN_ENCRYPTION_KEY</code
-        >).
+        <i18n-t keypath="b21.youtube.notEnabled" tag="span" scope="global">
+          <template #oauth
+            ><code class="font-mono text-xs">GOOGLE_OAUTH_*</code></template
+          >
+          <template #redirect
+            ><code class="font-mono text-xs"
+              >YOUTUBE_OAUTH_REDIRECT_URI</code
+            ></template
+          >
+          <template #encKey
+            ><code class="font-mono text-xs"
+              >ECHO_DISCORD_TOKEN_ENCRYPTION_KEY</code
+            ></template
+          >
+        </i18n-t>
       </p>
 
       <div
@@ -158,7 +168,7 @@ const displayInitial = computed(() => {
                 v-if="activeMode === 'oauth' && stageLiveStreamingConfigured"
                 class="mt-1 text-xs text-[color:var(--set-positive-label-fg)]"
               >
-                Used for stage go-live
+                {{ echoT('b21.youtube.usedForGoLive') }}
               </p>
               <p
                 v-else-if="
@@ -166,7 +176,7 @@ const displayInitial = computed(() => {
                 "
                 class="mt-1 text-xs text-amber-200/80"
               >
-                Linked, but stage go-live needs LiveKit egress on this server
+                {{ echoT('b21.youtube.linkedNeedsEgress') }}
               </p>
             </div>
           </div>
@@ -185,7 +195,7 @@ const displayInitial = computed(() => {
               :disabled="disconnectBusy"
               @click="onDisconnectOAuth"
             >
-              Unlink channel
+              {{ echoT('b21.youtube.unlinkChannel') }}
             </button>
           </div>
         </template>
@@ -200,7 +210,7 @@ const displayInitial = computed(() => {
             class="mt-4 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-accent-fg hover:opacity-90"
             @click="props.navigateToSection('Google')"
           >
-            Open Google settings
+            {{ echoT('b21.youtube.openGoogleSettings') }}
           </button>
         </template>
 
@@ -211,7 +221,11 @@ const displayInitial = computed(() => {
             :disabled="connectBusy"
             @click="onConnect"
           >
-            {{ connectBusy ? 'Opening Google…' : youtubeConnectCta() }}
+            {{
+              connectBusy
+                ? echoT('settingsUi.openingGoogle')
+                : youtubeConnectCta()
+            }}
           </button>
         </template>
       </div>
@@ -233,19 +247,23 @@ const displayInitial = computed(() => {
               {{ youtubeStreamKeySavedLabel() }}
             </p>
             <p class="mt-1 text-xs text-muted">
-              Saved
               {{
-                new Date(state.streamKey.savedAt).toLocaleString(undefined, {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
+                echoT('b21.youtube.savedAt', {
+                  date: new Date(state.streamKey.savedAt).toLocaleString(
+                    undefined,
+                    {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    },
+                  ),
                 })
-              }}. Echo cannot display the key again.
+              }}
             </p>
             <p
               v-if="activeMode === 'stream_key' && stageLiveStreamingConfigured"
               class="mt-2 text-xs text-[color:var(--set-positive-label-fg)]"
             >
-              Used for stage go-live
+              {{ echoT('b21.youtube.usedForGoLive') }}
             </p>
             <p
               v-else-if="
@@ -253,11 +271,10 @@ const displayInitial = computed(() => {
               "
               class="mt-2 text-xs text-amber-200/80"
             >
-              Saved, but stage go-live needs LiveKit egress on this server
+              {{ echoT('b21.youtube.savedNeedsEgress') }}
             </p>
             <p v-else-if="hasOAuthLink" class="mt-2 text-xs text-muted">
-              Channel link takes priority for go-live. Revoke the channel link
-              to use this stream key on stages.
+              {{ echoT('b21.youtube.channelLinkPriority') }}
             </p>
           </div>
           <p class="mt-4 max-w-xl text-sm text-muted">
@@ -270,7 +287,9 @@ const displayInitial = computed(() => {
             @click="onRevokeStreamKey"
           >
             {{
-              streamKeyRevokeBusy ? 'Revoking…' : youtubeStreamKeyRevokeCta()
+              streamKeyRevokeBusy
+                ? echoT('b21.youtube.revoking')
+                : youtubeStreamKeyRevokeCta()
             }}
           </button>
         </template>
@@ -282,7 +301,7 @@ const displayInitial = computed(() => {
           <label
             class="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted"
           >
-            RTMP server (optional)
+            {{ echoT('b21.youtube.rtmpOptional') }}
             <input
               v-model="streamKeyServerUrl"
               type="text"
@@ -294,12 +313,12 @@ const displayInitial = computed(() => {
           <label
             class="mt-3 block text-xs font-semibold uppercase tracking-wide text-muted"
           >
-            Stream key
+            {{ echoT('b21.youtube.streamKey') }}
             <input
               v-model="streamKeyInput"
               type="password"
               class="settings-input mt-2 font-mono text-xs"
-              placeholder="Paste from YouTube Studio"
+              :placeholder="echoT('settingsUi.pasteFromYoutubeStudio')"
               autocomplete="off"
             />
           </label>
@@ -308,8 +327,7 @@ const displayInitial = computed(() => {
           >
             <input v-model="streamKeyConfirm" type="checkbox" class="mt-1" />
             <span>
-              I understand Echo will encrypt this key and I won’t be able to
-              view it again in Settings. I can revoke and enter a new key later.
+              {{ echoT('b21.youtube.confirm') }}
             </span>
           </label>
           <button
@@ -318,7 +336,11 @@ const displayInitial = computed(() => {
             :disabled="streamKeyBusy"
             @click="onSaveStreamKey"
           >
-            {{ streamKeyBusy ? 'Saving…' : youtubeStreamKeySaveCta() }}
+            {{
+              streamKeyBusy
+                ? echoT('b21.youtube.saving')
+                : youtubeStreamKeySaveCta()
+            }}
           </button>
         </template>
       </div>

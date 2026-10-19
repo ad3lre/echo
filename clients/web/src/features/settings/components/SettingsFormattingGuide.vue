@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import { FORMATTING_GUIDE_TABS } from '@/features/settings/formattingGuideDocs';
 import { parseMessageContent } from '@/features/chat/markdown/useMarkdown';
@@ -17,7 +18,7 @@ const latexPreviewHtml = computed(() => {
 <template>
   <SettingsDocTabbedView
     root-class="settings-formatting-guide"
-    ariaLabel="Message formatting guide"
+    :ariaLabel="echoT('b31.guide.ariaLabel')"
     :tabs="FORMATTING_GUIDE_TABS"
   >
     <template #after="{ activeTabId }">
@@ -25,9 +26,11 @@ const latexPreviewHtml = computed(() => {
         v-if="activeTabId === 'latex'"
         class="settings-formatting-guide__preview mt-6 border-t border-[var(--border)] pt-5"
       >
-        <h3 class="mb-2 text-sm font-semibold text-foreground">Live preview</h3>
+        <h3 class="mb-2 text-sm font-semibold text-foreground">
+          {{ echoT('b31.guide.livePreview') }}
+        </h3>
         <p class="mb-3 text-sm text-muted">
-          Rendered the same way as chat messages (KaTeX + sanitizer).
+          {{ echoT('b31.guide.rendered') }}
         </p>
         <div
           class="message-content legal-md-preview rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm"

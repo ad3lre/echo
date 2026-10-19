@@ -1,0 +1,50 @@
+{
+  "friends": {
+    "title": "Amigos",
+    "backToMessages": "Voltar às mensagens",
+    "tabAll": "Todos",
+    "tabOnline": "Online",
+    "tabPending": "Pendentes",
+    "addFriend": "Adicionar amigo",
+    "add": "Adicionar",
+    "noMatchAll": "Nenhum amigo ou solicitação corresponde à sua busca.",
+    "incoming": "Recebida",
+    "wantsFriend": "Quer ser seu amigo",
+    "accept": "Aceitar",
+    "decline": "Recusar",
+    "outgoing": "Enviada",
+    "awaiting": "Aguardando resposta",
+    "cancel": "Cancelar",
+    "noMatchOnline": "Nenhum amigo online corresponde à sua busca.",
+    "noMatchPending": "Nenhuma solicitação pendente corresponde à sua busca.",
+    "pendingRequests": "Solicitações pendentes",
+    "suggestions": "As sugestões são os cadastros mais recentes do Echo. Busque por nome de exibição ou nome de usuário para encontrar alguém específico.",
+    "searchPlaceholder": "Buscar por nome ou nome de usuário",
+    "noMatchEcho": "Nenhum usuário do Echo corresponde à sua busca.",
+    "noProfile": "Sem perfil",
+    "sendRequest": "Enviar solicitação",
+    "viewProfile": "Ver perfil de {name}",
+    "message": "Enviar mensagem para {name}",
+    "someone": "Alguém"
+  },
+  "rail": {
+    "directMessages": "Mensagens diretas",
+    "servers": "Servidores",
+    "exploreServers": "Explorar servidores",
+    "reportBug": "Relatar um bug",
+    "loginOrRegister": "Entrar ou cadastrar-se",
+    "logIn": "Entrar",
+    "explorePublic": "Explorar servidores públicos",
+    "continue": "Continuar",
+    "signIn": "Entrar",
+    "showChannels": "Mostrar canais",
+    "showMembers": "Mostrar membros",
+    "showDirectMessages": "Mostrar mensagens diretas"
+  },
+  "camera": {
+    "chooseCamera": "Escolha uma câmera para iniciar a pré-visualização",
+    "denied": "Acesso à câmera negado. Verifique as permissões do navegador.",
+    "notFound": "Nenhuma câmera encontrada.",
+    "error": "Erro de câmera: {message}"
+  }
+}

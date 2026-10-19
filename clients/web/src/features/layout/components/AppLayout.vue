@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import AppLayoutLeftChrome from '@/features/layout/components/AppLayoutLeftChrome.vue';
 import AppLayoutGuildModals from '@/features/layout/components/AppLayoutGuildModals.vue';
 import AppLayoutMembersColumn from '@/features/layout/components/AppLayoutMembersColumn.vue';
@@ -684,7 +685,7 @@ const {
   inviteLandingLoading,
   inviteLandingError,
   inviteLandingPersistBeforeOAuth,
-} = useAppLayoutController();
+} = layoutController;
 
 /* Info-banner notices (email verification / guest upgrade / Discord export).
  * Placed before the LAYOUT_MODALS_KEY provide because onGuestUpgradeSignInFromSettings
@@ -1846,7 +1847,7 @@ const { mainContentAreaEl } = useAppLayoutMainWidthCollapse({
     <a
       href="#echo-main-content"
       class="echo-skip-link sr-only focus:not-sr-only"
-      >Skip to messages</a
+      >{{ echoT('b41.appLayout.skip') }}</a
     >
 
     <!-- Navigation announcer: announces active channel/server context on navigation.

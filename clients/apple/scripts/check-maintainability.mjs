@@ -7,7 +7,7 @@
  * - Thin Apps/ composition roots
  * - Color literals only in the theme / welcome-art allowlist
  * - Raw English Text/Button/Label/TextField copy must use EchoCopy
- * - String Catalog must cover `en` + `es` for every key
+ * - String Catalog must cover `en` + `es` + `pt-BR` + `de` for every key
  * - Module import direction (Domain/Persistence stay UI-free)
  * - No debug print() in production sources
  *
@@ -218,17 +218,21 @@ export function checkAppleMaintainability(opts = {}) {
       const parsed = JSON.parse(fs.readFileSync(catalog, 'utf8'));
       const entries = parsed.strings ?? {};
       let missingEs = 0;
+      let missingPtBr = 0;
+      let missingDe = 0;
       let missingEn = 0;
       for (const [key, entry] of Object.entries(entries)) {
         const locs = entry?.localizations ?? {};
         if (!locs.en?.stringUnit?.value) missingEn += 1;
         if (!locs.es?.stringUnit?.value) missingEs += 1;
+        if (!locs['pt-BR']?.stringUnit?.value) missingPtBr += 1;
+        if (!locs.de?.stringUnit?.value) missingDe += 1;
       }
-      if (missingEn || missingEs) {
+      if (missingEn || missingEs || missingPtBr || missingDe) {
         violations.push({
           kind: 'catalog-locale-coverage',
           rel: 'Modules/EchoFeatures/Resources/Localizable.xcstrings',
-          detail: `${Object.keys(entries).length} keys; missing en=${missingEn}, es=${missingEs} (require en + es)`,
+          detail: `${Object.keys(entries).length} keys; missing en=${missingEn}, es=${missingEs}, pt-BR=${missingPtBr}, de=${missingDe} (require en + es + pt-BR + de)`,
         });
       }
     } catch (error) {

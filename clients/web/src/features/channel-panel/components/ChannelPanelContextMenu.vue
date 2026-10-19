@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, type ComponentPublicInstance } from 'vue';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import type { ChannelWithParticipants } from '@/features/channel-panel/useChannelPanelVoiceState';
 import { ECHO_SIMPLE_CONTEXT_MENU_ATTR } from '@/features/layout/useSimpleContextMenu';
 
@@ -187,8 +188,8 @@ const emit = defineEmits<{
           {{
             panelContext.channel.type === 'voice' ||
             panelContext.channel.type === 'stage'
-              ? 'Join voice channel'
-              : 'Open channel'
+              ? echoT('b22.cpm.joinVoice')
+              : echoT('b22.cpm.openChannel')
           }}
         </button>
         <button
@@ -202,7 +203,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Invite people
+          {{ echoT('channelPanel.invitePeople') }}
         </button>
         <button
           v-if="channelCanMarkRead"
@@ -216,7 +217,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Mark as read
+          {{ echoT('channelPanel.markAsRead') }}
         </button>
         <button
           v-if="rowCanManageChannel(panelContext.channel)"
@@ -230,7 +231,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Channel settings
+          {{ echoT('channelPanel.channelSettings') }}
         </button>
         <!-- @click + requestAppConfirmFromContextMenu in parent; do not close menu before confirm -->
         <button
@@ -245,7 +246,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Delete channel
+          {{ echoT('channelPanel.deleteChannel') }}
         </button>
         <div class="my-1 h-px bg-glass-2" role="separator" />
         <button
@@ -268,7 +269,7 @@ const emit = defineEmits<{
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy channel ID
+          {{ echoT('b22.cpm.copyChannelId') }}
         </button>
         <button
           type="button"
@@ -289,7 +290,7 @@ const emit = defineEmits<{
               d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
             />
           </svg>
-          Copy link
+          {{ echoT('channelPanel.copyLink') }}
         </button>
       </template>
 
@@ -307,7 +308,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Create channel
+          {{ echoT('channelPanel.createChannel') }}
         </button>
         <button
           v-if="canCreateChannels"
@@ -321,7 +322,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Category settings
+          {{ echoT('b22.cpm.categorySettings') }}
         </button>
         <!-- @click + requestAppConfirmFromContextMenu in parent; do not close menu before confirm -->
         <button
@@ -336,7 +337,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Delete category
+          {{ echoT('b22.cpm.deleteCategory') }}
         </button>
         <div
           v-if="canCreateChannels"
@@ -362,7 +363,7 @@ const emit = defineEmits<{
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy category name
+          {{ echoT('b22.cpm.copyCategoryName') }}
         </button>
         <button
           v-if="devModeIdsEnabled"
@@ -384,7 +385,7 @@ const emit = defineEmits<{
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy server ID
+          {{ echoT('b22.cpm.copyServerId') }}
         </button>
       </template>
 
@@ -401,7 +402,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Profile
+          {{ echoT('b22.cpm.profile') }}
         </button>
         <button
           v-if="showVcMentionInChat && !vcContextIsSelf"
@@ -415,7 +416,7 @@ const emit = defineEmits<{
             aria-hidden="true"
             >@</span
           >
-          Direct mention
+          {{ echoT('b22.cpm.directMention') }}
         </button>
         <button
           v-if="!vcContextIsSelf && onMessageUser"
@@ -429,7 +430,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Message
+          {{ echoT('b22.cpm.message') }}
         </button>
         <div v-if="vcMenuCanMove && !vcContextIsSelf">
           <button
@@ -439,7 +440,7 @@ const emit = defineEmits<{
             :aria-expanded="moveVcSubmenuOpen ? 'true' : 'false'"
             @click="moveVcSubmenuOpen = !moveVcSubmenuOpen"
           >
-            <span class="flex-1">Move to…</span>
+            <span class="flex-1">{{ echoT('b22.cpm.moveTo') }}</span>
             <span class="text-fg-subtle text-xs" aria-hidden="true">{{
               moveVcSubmenuOpen ? '▾' : '▸'
             }}</span>
@@ -473,7 +474,7 @@ const emit = defineEmits<{
             v-else-if="moveVcSubmenuOpen && !(vcMoveTargets?.length ?? 0)"
             class="px-3 py-2 text-xs text-fg-subtle"
           >
-            No other voice channels
+            {{ echoT('b22.cpm.noOtherVoice') }}
           </div>
         </div>
         <div
@@ -489,7 +490,7 @@ const emit = defineEmits<{
               alt=""
               class="echo-menu-item-icon echo-menu-item-icon--img h-3.5 w-3.5 opacity-80 filter invert"
             />
-            Their volume
+            {{ echoT('b22.cpm.theirVolume') }}
           </div>
           <div class="mt-2 flex items-center gap-2">
             <input
@@ -498,7 +499,7 @@ const emit = defineEmits<{
               min="0"
               max="200"
               :value="vcVolDraft"
-              aria-label="Participant volume"
+              :aria-label="echoT('b22.cpm.participantVolume')"
               @input="onVcParticipantVolumeInput"
             />
             <span
@@ -527,7 +528,7 @@ const emit = defineEmits<{
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy user ID
+          {{ echoT('b22.cpm.copyUserId') }}
         </button>
         <div
           v-if="
@@ -544,7 +545,7 @@ const emit = defineEmits<{
           "
           class="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--menu-item-destructive-fg)]"
         >
-          Voice
+          {{ echoT('b22.cpm.voice') }}
         </div>
         <button
           v-if="
@@ -563,7 +564,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Invite to speak
+          {{ echoT('b22.cpm.inviteToSpeak') }}
         </button>
         <button
           v-if="
@@ -582,7 +583,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-60 filter invert"
           />
-          Move to audience
+          {{ echoT('b22.cpm.moveToAudience') }}
         </button>
         <button
           v-if="vcContextShowVoiceMod && vcMenuCanMute"
@@ -596,7 +597,9 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          {{ vcMenuServerMuted ? 'Unmute' : 'Mute' }}
+          {{
+            vcMenuServerMuted ? echoT('b22.cpm.unmute') : echoT('b22.cpm.mute')
+          }}
         </button>
         <button
           v-if="vcContextShowVoiceMod && vcMenuCanDeafen"
@@ -610,7 +613,11 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          {{ vcMenuServerDeafened ? 'Undeafen' : 'Deafen' }}
+          {{
+            vcMenuServerDeafened
+              ? echoT('b22.cpm.undeafen')
+              : echoT('b22.cpm.deafen')
+          }}
         </button>
         <button
           v-if="vcContextShowVoiceMod && vcMenuCanDisconnect"
@@ -632,7 +639,7 @@ const emit = defineEmits<{
               d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
             />
           </svg>
-          Disconnect
+          {{ echoT('b22.cpm.disconnect') }}
         </button>
         <div
           v-if="vcContextShowVoiceMod && canModerateUser"
@@ -659,7 +666,7 @@ const emit = defineEmits<{
               d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
             />
           </svg>
-          Kick from server
+          {{ echoT('b22.cpm.kick') }}
         </button>
         <button
           v-if="vcContextShowVoiceMod && canModerateUser"
@@ -681,7 +688,7 @@ const emit = defineEmits<{
               d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
             />
           </svg>
-          Ban from server
+          {{ echoT('b22.cpm.ban') }}
         </button>
         <button
           v-if="vcContextShowVoiceMod && canModerateUser"
@@ -703,7 +710,11 @@ const emit = defineEmits<{
               d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          {{ vcContextTargetTimedOut ? 'Remove timeout' : 'Timeout (1h)' }}
+          {{
+            vcContextTargetTimedOut
+              ? echoT('b22.cpm.removeTimeout')
+              : echoT('b22.cpm.timeout1h')
+          }}
         </button>
       </template>
     </div>

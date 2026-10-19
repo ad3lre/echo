@@ -11,11 +11,33 @@
     "titleDefault": "Could not join voice",
     "noPermissionMessage": "You do not have permission to connect to this voice channel.",
     "joinInDiscordTitle": "Join in Discord",
-    "joinInDiscordMessage": "This channel mirrors Discord voice activity only — join voice in Discord."
+    "joinInDiscordMessage": "This channel mirrors Discord voice activity only — join voice in Discord.",
+    "connectFailedNetwork": "Could not connect to voice. Check the network and try again.",
+    "communicationTimeoutBlocked": "You are in a communication timeout in this server and cannot join voice until it ends."
   },
   "guestExploreJoin": {
     "title": "Can't join from Explore with this account",
     "messageDefault": "This account type can't join servers from the public Explore directory. Create a free Echo account with email to join listed communities, or use an invite link from a member.",
     "messageWithHint": "{hint}\n\nTo join listed servers from the directory, create a free Echo account with email (upgrade from your profile or the guest banner). You can still join a community if someone sends you an invite link."
+  },
+  "messageFailed": {
+    "rateLimit": "Too many actions. Wait a moment and try again.",
+    "slowmode": "Slowmode is on for this channel. Wait before editing or sending.",
+    "spamFilter": "Spam filter blocked that message. Wait a bit and try again.",
+    "communicationTimeout": "You are in a communication timeout in this server.",
+    "mentionBroadcastForbidden": "You cannot mention {'@'}everyone or {'@'}active in this channel.",
+    "forbidden": "You don't have permission to do that.",
+    "unauthenticated": "Sign in again, then retry.",
+    "persistFailed": "Echo could not save your change. Try again.",
+    "e2eeStorageUnavailable": "Private message storage is not available on this server yet. Regular messages still work.",
+    "e2eeUnknownDevice": "This device is not set up for private messages. Check Settings → Account.",
+    "e2eeDeviceRevoked": "This device was removed from private messaging.",
+    "e2eeEnvelopeTooLarge": "That private message was too large to send.",
+    "validation": "That change was rejected.",
+    "unknownChannel": "This channel is no longer available.",
+    "idempotencyExpired": "That action expired. Try again.",
+    "guestLimit": "Create an account to send messages.",
+    "guestAbuseCooldown": "Action temporarily blocked. Try again later.",
+    "default": "Something didn't work. Try again."
   }
 }

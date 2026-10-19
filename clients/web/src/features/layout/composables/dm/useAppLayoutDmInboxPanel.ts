@@ -170,8 +170,10 @@ export function useAppLayoutDmInboxPanel(deps: {
     dmInboxEntriesForPanel,
   );
 
+  // Activity-id maps already move when DM traffic lands — avoid deep-watching the
+  // entire workspace.messages tree (background guild channels were waking this).
   watch(
-    [workspace.messages, echoDmLastActivityAtMsByChannelId],
+    [echoDmLastActivityAtMsByChannelId, echoDmLastActivityIdByChannelId],
     () => {
       const selfId = currentUserIdForSocket.value?.trim() ?? '';
       if (!selfId) return;
@@ -182,7 +184,6 @@ export function useAppLayoutDmInboxPanel(deps: {
         echoDmLastActivityIdByChannelId: echoDmLastActivityIdByChannelId.value,
       });
     },
-    { deep: true },
   );
 
   /**

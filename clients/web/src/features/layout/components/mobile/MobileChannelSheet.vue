@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, unref } from 'vue';
 import ChannelPanel from '@/features/channel-panel/components/ChannelPanel.vue';
 import { LAYOUT_LEFT_CHROME_KEY } from '@/features/layout/layoutInjectionKeys';
@@ -50,7 +51,7 @@ function fireChannelInvite(payload?: {
     lc.value?.onChannelInvite
       ? () => lc.value?.onChannelInvite?.(payload)
       : undefined,
-    'Invite is unavailable. Refresh and try again.',
+    echoT('layout.mobile.inviteUnavailable'),
   );
 }
 
@@ -59,7 +60,7 @@ function fireChannelOpenServerSettings() {
     lc.value?.onChannelOpenServerSettings
       ? () => lc.value?.onChannelOpenServerSettings?.()
       : undefined,
-    'Server settings are unavailable. Refresh and try again.',
+    echoT('layout.mobile.serverSettingsUnavailable'),
   );
 }
 
@@ -68,7 +69,7 @@ function fireChannelOpenNotificationSettings() {
     lc.value?.onChannelOpenNotificationSettings
       ? () => lc.value?.onChannelOpenNotificationSettings?.()
       : undefined,
-    'Notification settings are unavailable. Refresh and try again.',
+    echoT('layout.mobile.notificationSettingsUnavailable'),
   );
 }
 
@@ -77,7 +78,7 @@ function fireChannelOpenVoiceAudioSettings() {
     lc.value?.onChannelOpenVoiceAudioSettings
       ? () => lc.value?.onChannelOpenVoiceAudioSettings?.()
       : undefined,
-    'Voice settings are unavailable. Refresh and try again.',
+    echoT('layout.mobile.voiceSettingsUnavailable'),
   );
 }
 </script>
@@ -89,12 +90,12 @@ function fireChannelOpenVoiceAudioSettings() {
       class="mobile-channel-sheet fixed inset-0 z-50 flex"
       role="dialog"
       aria-modal="true"
-      aria-label="Channels"
+      :aria-label="echoT('layout.mobile.channels')"
     >
       <button
         type="button"
         class="mobile-channel-sheet__backdrop absolute inset-0 bg-black/50"
-        aria-label="Close channels"
+        :aria-label="echoT('layout.mobile.closeChannels')"
         @click="emit('close')"
       />
       <aside
@@ -104,14 +105,16 @@ function fireChannelOpenVoiceAudioSettings() {
           class="flex shrink-0 items-center justify-between border-b border-border px-4 py-3"
         >
           <h2 class="truncate text-base font-bold text-foreground">
-            {{ unref(lc.selectedServer)?.name ?? 'Channels' }}
+            {{
+              unref(lc.selectedServer)?.name ?? echoT('layout.mobile.channels')
+            }}
           </h2>
           <button
             type="button"
             class="rounded-lg px-2 py-1 text-sm font-semibold text-fg-soft hover:bg-glass-1 hover:text-foreground"
             @click="emit('close')"
           >
-            Done
+            {{ echoT('layout.mobile.done') }}
           </button>
         </div>
         <ChannelPanel

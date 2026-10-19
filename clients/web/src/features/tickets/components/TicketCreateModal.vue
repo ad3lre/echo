@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, computed, onMounted } from 'vue';
 import { useServerTicketsStore } from '@/features/tickets/serverTickets';
 import type { EchoTicketConfig } from '@shared/types/ticket';
@@ -40,11 +41,11 @@ async function submit() {
   error.value = null;
 
   if (!subject.value.trim()) {
-    error.value = 'Subject is required';
+    error.value = echoT('b35.ticket.subjectRequired');
     return;
   }
   if (config.value?.requireCategory && !selectedCategory.value) {
-    error.value = 'Please select a category';
+    error.value = echoT('b35.ticket.categoryRequired');
     return;
   }
 
@@ -63,7 +64,7 @@ async function submit() {
     emit('ticket-created', { id: ticket.id, channelId: ticket.channelId });
     close();
   } else {
-    error.value = ticketStore.lastError || 'Failed to create ticket';
+    error.value = ticketStore.lastError || echoT('b35.ticket.failed');
   }
   submitting.value = false;
 }
@@ -74,24 +75,25 @@ async function submit() {
     <div v-if="modelValue" class="ticket-modal-overlay" @click.self="close">
       <div class="ticket-modal">
         <div class="ticket-modal__header">
-          <h2 class="ticket-modal__title">Create a Ticket</h2>
+          <h2 class="ticket-modal__title">{{ echoT('b35.ticket.title') }}</h2>
           <button class="ticket-modal__close" @click="close">&times;</button>
         </div>
 
         <div class="ticket-modal__body">
           <p class="ticket-modal__intro">
-            Submit a report or inquiry. A private channel will be created where
-            you can communicate with the server team.
+            {{ echoT('b35.ticket.intro') }}
           </p>
 
           <div v-if="error" class="ticket-modal__error">{{ error }}</div>
 
           <div class="ticket-modal__field">
-            <label class="ticket-modal__label">Subject *</label>
+            <label class="ticket-modal__label">{{
+              echoT('b35.ticket.subject')
+            }}</label>
             <input
               v-model="subject"
               class="ticket-modal__input"
-              placeholder="Brief description of your issue"
+              :placeholder="echoT('b35.ticket.subjectPh')"
               maxlength="200"
             />
           </div>
@@ -148,7 +150,7 @@ async function submit() {
               v-model="answers[field.id]"
               class="ticket-modal__select"
             >
-              <option value="">Select...</option>
+              <option value="">{{ echoT('b35.ticket.select') }}</option>
               <option
                 v-for="opt in field.options ?? []"
                 :key="opt"
@@ -161,13 +163,19 @@ async function submit() {
         </div>
 
         <div class="ticket-modal__footer">
-          <button class="ticket-modal__cancel" @click="close">Cancel</button>
+          <button class="ticket-modal__cancel" @click="close">
+            {{ echoT('b35.ticket.cancel') }}
+          </button>
           <button
             class="ticket-modal__submit"
             :disabled="submitting"
             @click="submit"
           >
-            {{ submitting ? 'Creating...' : 'Create Ticket' }}
+            {{
+              submitting
+                ? echoT('b35.ticket.creating')
+                : echoT('b35.ticket.create')
+            }}
           </button>
         </div>
       </div>

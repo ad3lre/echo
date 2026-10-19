@@ -1,0 +1,43 @@
+{
+  "voiceJoin": {
+    "titleFull": "Canal de voz cheio",
+    "titleNoConnect": "Não é possível conectar à voz",
+    "titleNoView": "Canal indisponível",
+    "titleTimeout": "Timeout de comunicação",
+    "titleBanned": "Não é possível usar voz",
+    "titleNotMember": "Não é membro",
+    "titleNotFound": "Canal de voz indisponível",
+    "titleE2eeFailed": "Falha na configuração de privacidade da voz",
+    "titleDefault": "Não foi possível entrar na voz",
+    "noPermissionMessage": "Você não tem permissão para conectar a este canal de voz.",
+    "joinInDiscordTitle": "Entrar no Discord",
+    "joinInDiscordMessage": "Este canal apenas espelha a atividade de voz do Discord — entre na voz pelo Discord.",
+    "connectFailedNetwork": "Não foi possível conectar à voz. Verifique a rede e tente novamente.",
+    "communicationTimeoutBlocked": "Você está em um período de silenciamento neste servidor e não pode entrar na voz até ele terminar."
+  },
+  "guestExploreJoin": {
+    "title": "Não é possível entrar pelo Explorar com esta conta",
+    "messageDefault": "Este tipo de conta não pode entrar em servidores pelo diretório público Explorar. Crie uma conta Echo gratuita com e-mail para entrar nas comunidades listadas, ou use um link de convite de um membro.",
+    "messageWithHint": "{hint}\n\nPara entrar em servidores listados no diretório, crie uma conta Echo gratuita com e-mail (atualize pelo perfil ou pelo banner de convidado). Você ainda pode entrar em uma comunidade se alguém enviar um link de convite."
+  },
+  "messageFailed": {
+    "rateLimit": "Ações demais. Aguarde um momento e tente novamente.",
+    "slowmode": "O modo lento está ativado neste canal. Aguarde antes de editar ou enviar.",
+    "spamFilter": "O filtro de spam bloqueou essa mensagem. Aguarde um pouco e tente novamente.",
+    "communicationTimeout": "Você está em um período de silenciamento neste servidor.",
+    "mentionBroadcastForbidden": "Você não pode mencionar {'@'}everyone ou {'@'}active neste canal.",
+    "forbidden": "Você não tem permissão para fazer isso.",
+    "unauthenticated": "Entre novamente e tente de novo.",
+    "persistFailed": "O Echo não conseguiu salvar sua alteração. Tente novamente.",
+    "e2eeStorageUnavailable": "O armazenamento de mensagens privadas ainda não está disponível neste servidor. As mensagens normais continuam funcionando.",
+    "e2eeUnknownDevice": "Este dispositivo não está configurado para mensagens privadas. Verifique Configurações → Conta.",
+    "e2eeDeviceRevoked": "Este dispositivo foi removido das mensagens privadas.",
+    "e2eeEnvelopeTooLarge": "Essa mensagem privada era grande demais para ser enviada.",
+    "validation": "Essa alteração foi rejeitada.",
+    "unknownChannel": "Este canal não está mais disponível.",
+    "idempotencyExpired": "Essa ação expirou. Tente novamente.",
+    "guestLimit": "Crie uma conta para enviar mensagens.",
+    "guestAbuseCooldown": "Ação bloqueada temporariamente. Tente novamente mais tarde.",
+    "default": "Algo deu errado. Tente novamente."
+  }
+}

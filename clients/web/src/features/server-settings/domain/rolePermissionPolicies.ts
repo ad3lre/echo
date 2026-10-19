@@ -4,6 +4,7 @@ import type {
   RolePermissions,
 } from '@/features/server-settings/types';
 import { ROLE_PERMISSION_DEFS } from '@/features/server-settings/types';
+import { rolePermissionLabel } from '@/i18n/labels';
 
 /** Permissions that warrant a warning before auto-assigning a role to new members. */
 const DEFAULT_ON_JOIN_HIGH_RISK_KEYS: readonly RolePermissionKey[] = [
@@ -22,15 +23,13 @@ export function labelsForEnabledRiskyDefaultOnJoinPermissions(
   permissions: RolePermissions,
 ): string[] {
   if (permissions.administrator) {
-    const def = ROLE_PERMISSION_DEFS.find((d) => d.key === 'administrator');
-    return [def?.label ?? 'administrator'];
+    return [rolePermissionLabel('administrator')];
   }
   const labels: string[] = [];
   for (const key of DEFAULT_ON_JOIN_HIGH_RISK_KEYS) {
     if (key === 'administrator') continue;
     if (permissions[key]) {
-      const def = ROLE_PERMISSION_DEFS.find((d) => d.key === key);
-      labels.push(def?.label ?? key);
+      labels.push(rolePermissionLabel(key));
     }
   }
   return labels;

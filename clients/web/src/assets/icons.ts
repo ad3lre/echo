@@ -1,41 +1,12 @@
 import type { EchoChannelType } from '@shared/types';
-import iconHashtag from './icons/hashtag.svg?url';
-import { iconEcho, iconEchoRounded } from './branding';
-import iconVolumeUp from './icons/volume up.svg?url';
-import iconUsersAvatar from './icons/Users avatar.svg?url';
-import iconMic from './icons/mic.svg?url';
-import iconHeadphones from './icons/headphones.svg?url';
-import iconPhoneCall from './icons/phone-call.svg?url';
-import iconSettings from './icons/settings.svg?url';
-import iconPlus from './icons/plus.svg?url';
-import iconLogIn from './icons/log in.svg?url';
-import iconList from './icons/list.svg?url';
-import iconArrowLeft from './icons/arrow-left-straight.svg?url';
+import { criticalIconUrls, iconsCritical } from './iconsCritical';
 import iconGif from './icons/GIF.svg?url';
 import iconGifLight from './icons/GIF-light.svg?url';
 import iconEmotes from './icons/Emotes.svg?url';
 import iconEmotesLight from './icons/Emotes-light.svg?url';
 import iconEmotesServerNav from './icons/Emotes-server-nav.svg?url';
-import iconSearch from './icons/SEARCH-NORMAL.svg?url';
 import iconSliders from './icons/sliders.svg?url';
-import iconMessage from './icons/message.svg?url';
-import iconMessageFilled from './icons/message-filled.svg?url';
-import iconMessageAlt from './icons/MESSAGE-STYLED-RIGHT-ALIGNMENT-SEMI.svg?url';
-import iconMore from './icons/more information.svg?url';
-import iconMoreVertical from './icons/MORE-INFORMATION-DOTS-SEPERATED-VERTICALLY.svg?url';
-import iconFriendAdd from './icons/USER-AVATAR-PLUSSY.svg?url';
-import iconFriendAdded from './icons/USER-AVATAR-CORRECT.svg?url';
-import iconCameraOn from './icons/camera-on.svg?url';
-import iconDesktop from './icons/desktop.svg?url';
-import iconStream from './icons/stream.svg?url';
-import iconLogOut from './icons/log out.svg?url';
-import iconExplore from './icons/rocket-outline.svg?url';
-import iconExploreFilled from './icons/rocket-filled.svg?url';
-import iconCommunity from './icons/multiple-users-silhouette.svg?url';
-import iconCommunityFilled from './icons/multiple-users-silhouette-filled.svg?url';
-import iconBellSchool from './icons/bell-school.svg?url';
 import iconLaptopCode from './icons/laptop code.svg?url';
-import iconCamera from './icons/camera.svg?url';
 import iconMusicNote from './icons/music note.svg?url';
 import iconSpeedometer from './icons/speedometer.svg?url';
 import iconCrown from './icons/crown.svg?url';
@@ -50,44 +21,27 @@ export const iconYoutubeSvgPath =
 import iconTelescope from './icons/telescope.svg?url';
 import iconRocketLaunch from './icons/rocket launch.svg?url';
 import iconMugHot from './icons/mug-hot.svg?url';
-import iconSofa from './icons/sofa.svg?url';
-import iconPuzzle from './icons/puzzle.svg?url';
 import iconGlobe from './icons/globe.svg?url';
 import iconLeaf from './icons/leaf.svg?url';
 import iconImageGallery from './icons/image gallery.svg?url';
-import iconFolder from './icons/folder.svg?url';
 import iconHeart from './icons/heart.svg?url';
-import iconThumbtack from './icons/thumbtack.svg?url';
-import iconProfileView from './icons/USER-AVATAR-IDENTIFY.svg?url';
 import iconSun from './icons/sun.svg?url';
 import iconMoon from './icons/moon.svg?url';
-import iconNotificationsOff from './icons/notifications-off.svg?url';
-import iconBanUser from './icons/ban user.svg?url';
-import iconShield from './icons/shield.svg?url';
-import iconTrash from './icons/trash.svg?url';
-import iconPen from './icons/pen.svg?url';
 import iconCreditCard from './icons/credit card.svg?url';
-import iconStopwatch from './icons/stopwatch.svg?url';
 import iconUserBlock from './icons/user-block.svg?url';
 import iconYoutube from './icons/youtube.svg?url';
 import iconGoogle from './icons/google.svg?url';
 import iconImageRemove from './icons/IMAGE-REMOVE.svg?url';
 import iconDiscordStage from './icons/discord-stage.svg?url';
 import iconDiscordMark from './icons/discord-mark.svg?url';
-import iconChatLock from './icons/chat-lock.svg?url';
-import iconFile from './icons/file.svg?url';
 import iconLifeRing from './icons/life ring.svg?url';
-import iconUserTag from './icons/USER-AVATAR-TAG.svg?url';
 import iconSparkle from './icons/sparkle.svg?url';
 import iconMathCalculator from './icons/math-calculator.svg?url';
 import iconHobbyGameController from './icons/hobby-game-controller.svg?url';
 import iconHobbyTrophy from './icons/hobby-trophy.svg?url';
 import { getIconFilenameByUrl, getIconUrlByFilename } from './iconCatalog';
-import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
 import {
   type ChannelIconEmojiUrlLookup,
-  isEchoChannelIconImageUrlKey,
-  parseCustomEmojiChannelIconKey,
   resolveChannelIconRasterUrl,
 } from '@/features/layout/channels/channelIconKeys';
 
@@ -99,75 +53,47 @@ export {
   channelIconKeyUsesSvgInvertFilter,
 } from '@/features/layout/channels/channelIconKeys';
 
+export { iconsCritical } from './iconsCritical';
+export type { AppIconCriticalKey } from './iconsCritical';
+
+const {
+  volumeUp: iconVolumeUp,
+  usersAvatar: iconUsersAvatar,
+  message: iconMessage,
+  messageAlt: iconMessageAlt,
+  bellSchool: iconBellSchool,
+  camera: iconCamera,
+  sofa: iconSofa,
+  file: iconFile,
+  userTag: iconUserTag,
+  puzzle: iconPuzzle,
+  list: iconList,
+} = criticalIconUrls;
+
 export const icons = {
-  echoRounded: iconEchoRounded ?? '',
-  echo: iconEcho ?? '',
-  hashtag: iconHashtag ?? '',
-  volumeUp: iconVolumeUp ?? '',
-  usersAvatar: iconUsersAvatar ?? '',
-  mic: iconMic ?? '',
-  headphones: iconHeadphones ?? '',
-  phoneCall: iconPhoneCall ?? '',
-  settings: iconSettings ?? '',
-  plus: iconPlus ?? '',
-  logIn: iconLogIn ?? '',
-  list: iconList ?? '',
-  /** Back / return (e.g. mobile channel header) */
-  arrowLeft: iconArrowLeft ?? '',
+  ...iconsCritical,
   gif: iconGif ?? '',
   /** Light shell — tuned pill/ink (composer toolbar). */
   gifLight: iconGifLight ?? '',
   emotes: iconEmotes ?? '',
   emotesLight: iconEmotesLight ?? '',
   emotesServerNav: iconEmotesServerNav ?? '',
-  search: iconSearch ?? '',
   sliders: iconSliders ?? '',
-  message: iconMessage ?? '',
-  messageFilled: iconMessageFilled ?? '',
-  messageAlt: iconMessageAlt ?? '',
-  more: iconMore ?? '',
-  /** Vertical ⋮ — overflow / profile menus */
-  moreVertical: iconMoreVertical ?? '',
-  friendAdd: iconFriendAdd ?? '',
-  friendAdded: iconFriendAdded ?? '',
-  cameraOn: iconCameraOn ?? '',
-  desktop: iconDesktop ?? '',
-  stream: iconStream ?? '',
-  logOut: iconLogOut ?? '',
-  explore: iconExplore ?? '',
-  exploreFilled: iconExploreFilled ?? '',
-  community: iconCommunity ?? '',
-  communityFilled: iconCommunityFilled ?? '',
-  bellSchool: iconBellSchool ?? '',
   laptopCode: iconLaptopCode ?? '',
-  camera: iconCamera ?? '',
   musicNote: iconMusicNote ?? '',
   speedometer: iconSpeedometer ?? '',
   crown: iconCrown ?? '',
   telescope: iconTelescope ?? '',
   rocketLaunch: iconRocketLaunch ?? '',
   mugHot: iconMugHot ?? '',
-  sofa: iconSofa ?? '',
-  puzzle: iconPuzzle ?? '',
   globe: iconGlobe ?? '',
-  /** Server access / closed community (distinct from Audit Log list icon). */
-  chatLock: iconChatLock ?? '',
   leaf: iconLeaf ?? '',
   imageGallery: iconImageGallery ?? '',
-  folder: iconFolder ?? '',
   /** Saved media favorites (GIF & image popout). */
   heart: iconHeart ?? '',
-  thumbtack: iconThumbtack ?? '',
-  profileView: iconProfileView ?? '',
   sun: iconSun ?? '',
   moon: iconMoon ?? '',
-  notificationsOff: iconNotificationsOff ?? '',
-  banUser: iconBanUser ?? '',
-  shield: iconShield ?? '',
-  trash: iconTrash ?? '',
-  pen: iconPen ?? '',
   creditCard: iconCreditCard ?? '',
-  stopwatch: iconStopwatch ?? '',
   block: iconUserBlock ?? '',
   /** YouTube play mark (channel icon picker + links). */
   youtube: iconYoutube ?? '',
@@ -177,12 +103,8 @@ export const icons = {
   discordStage: iconDiscordStage ?? '',
   /** Legacy “Clyde” mark — OAuth / Discord sync (distinct from stage-channel glyph). */
   discordMark: iconDiscordMark ?? '',
-  /** Paper channel default glyph. */
-  file: iconFile ?? '',
   /** Support / ticket system (server settings). */
   lifeRing: iconLifeRing ?? '',
-  /** Self-assignable roles (server settings). */
-  userTag: iconUserTag ?? '',
   /** Sticker packs (server settings). */
   sparkle: iconSparkle ?? '',
 };
@@ -577,9 +499,4 @@ export function getChannelIcon(
   return defaultChannelGlyphUrl(channel.type);
 }
 
-export function getChannelDisplayName(name: string): string {
-  if (!name) return '';
-  const trimmed = name.trim();
-  if (trimmed === 'self-assignable-roles') return 'Self-assignable roles';
-  return trimmed;
-}
+export { getChannelDisplayName } from '@/assets/channelDisplayName';

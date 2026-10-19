@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, toRef } from 'vue';
 import { storeToRefs } from 'pinia';
 import { icons } from '@/assets/icons';
@@ -161,7 +162,7 @@ defineExpose({
           <div
             class="inline-flex max-w-[calc(100%-1.25rem)] flex-wrap items-center justify-center gap-1.5 rounded-xl bg-scrim-2 px-2 py-2 ring-1 ring-border"
             role="group"
-            aria-label="Banner options"
+            :aria-label="echoT('panes.profile.bannerOptions')"
           >
             <input
               ref="bannerFileInputRef"
@@ -173,7 +174,7 @@ defineExpose({
             <button
               type="button"
               class="chat-focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg bg-glass-2 px-2.5 text-xs font-medium text-fg transition-colors hover:bg-glass-hover"
-              title="Change banner"
+              :title="echoT('panes.profile.changeBanner')"
               @click.stop="pickBannerImage"
             >
               <img
@@ -181,13 +182,13 @@ defineExpose({
                 alt=""
                 class="h-4 w-4 shrink-0 opacity-90"
               />
-              Change banner
+              {{ echoT('panes.profile.changeBanner') }}
             </button>
             <button
               v-if="hasBannerImage"
               type="button"
               class="chat-focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg bg-glass-2 px-2.5 text-xs font-medium text-fg transition-colors hover:bg-glass-hover"
-              title="Reposition banner"
+              :title="echoT('panes.profile.repositionBanner')"
               @click.stop="openBannerReposition"
             >
               <img
@@ -195,13 +196,13 @@ defineExpose({
                 alt=""
                 class="h-4 w-4 shrink-0 opacity-90"
               />
-              Reposition
+              {{ echoT('panes.profile.reposition') }}
             </button>
             <button
               v-if="hasBannerImage"
               type="button"
               class="chat-focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg bg-glass-2 px-2.5 text-xs font-medium text-[color:var(--menu-item-destructive-fg)] transition-colors hover:bg-glass-hover"
-              title="Remove banner"
+              :title="echoT('panes.profile.removeBanner')"
               @click.stop="removeBannerImage"
             >
               <img
@@ -209,7 +210,7 @@ defineExpose({
                 alt=""
                 class="h-4 w-4 shrink-0 opacity-90"
               />
-              Remove
+              {{ echoT('panes.profile.remove') }}
             </button>
           </div>
         </div>
@@ -234,7 +235,7 @@ defineExpose({
           >
             <PausedGifAvatar
               :src="safeImageUrl(form.pfp || currentUser?.pfp)"
-              :alt="currentUser?.name ?? 'Current user'"
+              :alt="currentUser?.name ?? echoT('panes.profile.currentUser')"
               :session-key="String(currentUser?.id ?? 'settings-avatar')"
               :static-only="false"
               img-class="rounded-3xl object-cover"
@@ -268,9 +269,9 @@ defineExpose({
         <div ref="profileCardRef" class="flex flex-col gap-1.5">
           <!-- Display name -->
           <div class="flex flex-col">
-            <span v-if="!isProfileLocked" class="settings-label mb-1"
-              >Display name</span
-            >
+            <span v-if="!isProfileLocked" class="settings-label mb-1">{{
+              echoT('panes.profile.displayName')
+            }}</span>
             <div
               v-if="!isEditingName"
               role="button"
@@ -294,9 +295,9 @@ defineExpose({
 
           <!-- User handle -->
           <div class="flex flex-col">
-            <span v-if="!isProfileLocked" class="settings-label mb-1"
-              >User handle</span
-            >
+            <span v-if="!isProfileLocked" class="settings-label mb-1">{{
+              echoT('panes.profile.userHandle')
+            }}</span>
             <div
               v-if="!isEditingUsername"
               role="button"
@@ -339,7 +340,9 @@ defineExpose({
 
           <!-- Bio -->
           <div class="flex flex-col">
-            <div class="settings-label mb-1">About Me</div>
+            <div class="settings-label mb-1">
+              {{ echoT('panes.profile.aboutMe') }}
+            </div>
             <div
               v-if="!isEditingBio"
               role="button"
@@ -354,7 +357,9 @@ defineExpose({
                 :text="form.bio"
                 body-class="text-sm leading-6 text-fg-soft"
               />
-              <p v-else class="text-sm leading-6 text-fg-soft">No bio set.</p>
+              <p v-else class="text-sm leading-6 text-fg-soft">
+                {{ echoT('panes.profile.noBio') }}
+              </p>
             </div>
             <textarea
               v-else
@@ -372,7 +377,7 @@ defineExpose({
               type="button"
               class="primary-btn rounded-xl px-6 py-2.5 text-sm font-semibold"
             >
-              Edit Profile
+              {{ echoT('panes.profile.editProfile') }}
             </button>
           </template>
           <template v-else>
@@ -381,14 +386,14 @@ defineExpose({
               type="button"
               class="success-btn rounded-xl px-6 py-2.5 text-sm font-semibold"
             >
-              Save Changes
+              {{ echoT('panes.profile.saveChanges') }}
             </button>
             <button
               @click="handleReset"
               type="button"
               class="settings-action rounded-xl px-6 py-2.5 text-sm font-medium"
             >
-              Reset
+              {{ echoT('panes.profile.reset') }}
             </button>
           </template>
         </div>
@@ -402,20 +407,22 @@ defineExpose({
               :style="profileBannerFallbackLayerStyle(form.bannerColor)"
               aria-hidden="true"
             />
-            <span class="text-xs text-fg-soft">Banner color from avatar</span>
+            <span class="text-xs text-fg-soft">{{
+              echoT('panes.profile.bannerFromAvatar')
+            }}</span>
             <button
               type="button"
               class="rounded-md bg-glass-2 px-2 py-1 text-[11px] font-medium text-fg-soft hover:bg-glass-3"
               @click="useSolidBannerFallback"
             >
-              Use solid color
+              {{ echoT('panes.profile.useSolid') }}
             </button>
           </template>
           <label
             v-else
             class="inline-flex cursor-pointer items-center gap-2 text-xs text-fg-soft hover:text-fg"
           >
-            <span>Fallback color</span>
+            <span>{{ echoT('panes.profile.fallbackColor') }}</span>
             <input
               v-model="form.bannerColor"
               type="color"
@@ -435,10 +442,10 @@ defineExpose({
           >
             {{
               discordImportBusy
-                ? 'Importing...'
+                ? echoT('panes.profile.importing')
                 : discordLinked
-                  ? 'Import profile from Discord'
-                  : 'Connect Discord to import profile'
+                  ? echoT('panes.profile.importFromDiscord')
+                  : echoT('panes.profile.connectDiscord')
             }}
           </button>
           <span
@@ -453,7 +460,7 @@ defineExpose({
 
     <BannerRepositionModal
       v-model="bannerRepositionOpen"
-      title="Reposition profile banner"
+      :title="echoT('panes.profile.repositionProfileBanner')"
       :image-url="form.bannerImage"
       :position-y="form.bannerPositionY"
       :session-key="`${String(currentUser?.id ?? 'me')}-settings-banner-reposition`"
@@ -462,10 +469,11 @@ defineExpose({
 
     <!-- Banner effects (separate from "Edit Profile" card) -->
     <div class="settings-card rounded-2xl p-6">
-      <div class="settings-label mb-4">Banner effects</div>
+      <div class="settings-label mb-4">
+        {{ echoT('panes.profile.bannerEffects') }}
+      </div>
       <p class="mb-4 text-xs text-fg-subtle leading-relaxed">
-        Blur and blackout match the channel header look for servers. You can
-        combine them with refraction.
+        {{ echoT('panes.profile.bannerEffectsDesc') }}
       </p>
       <div class="banner-effects-grid">
         <button
@@ -484,10 +492,12 @@ defineExpose({
               />
             </span>
             <span class="banner-effect-widget__copy">
-              <span class="banner-effect-widget__title">Blur banner</span>
-              <span class="banner-effect-widget__subtitle"
-                >Frosted softness</span
-              >
+              <span class="banner-effect-widget__title">{{
+                echoT('panes.profile.blurBanner')
+              }}</span>
+              <span class="banner-effect-widget__subtitle">{{
+                echoT('panes.profile.frosted')
+              }}</span>
             </span>
           </span>
           <span
@@ -514,8 +524,12 @@ defineExpose({
               />
             </span>
             <span class="banner-effect-widget__copy">
-              <span class="banner-effect-widget__title">Blackout</span>
-              <span class="banner-effect-widget__subtitle">Depth contrast</span>
+              <span class="banner-effect-widget__title">{{
+                echoT('panes.profile.blackout')
+              }}</span>
+              <span class="banner-effect-widget__subtitle">{{
+                echoT('panes.profile.depth')
+              }}</span>
             </span>
           </span>
           <span
@@ -538,8 +552,12 @@ defineExpose({
               <img :src="icons.sun" alt="" class="banner-effect-widget__icon" />
             </span>
             <span class="banner-effect-widget__copy">
-              <span class="banner-effect-widget__title">Refraction</span>
-              <span class="banner-effect-widget__subtitle">Ambient glow</span>
+              <span class="banner-effect-widget__title">{{
+                echoT('panes.profile.refraction')
+              }}</span>
+              <span class="banner-effect-widget__subtitle">{{
+                echoT('panes.profile.ambient')
+              }}</span>
             </span>
           </span>
           <span
@@ -561,23 +579,24 @@ defineExpose({
       <div
         class="settings-card max-w-md w-full rounded-2xl p-6 shadow-2xl border border-border"
       >
-        <h4 class="text-xl font-bold text-foreground">Reset Profile?</h4>
+        <h4 class="text-xl font-bold text-foreground">
+          {{ echoT('panes.profile.resetQ') }}
+        </h4>
         <p class="mt-2 text-sm text-muted leading-6">
-          This will discard all unsaved changes and restore your last saved
-          profile state.
+          {{ echoT('panes.profile.resetDesc') }}
         </p>
         <div class="mt-6 flex items-center justify-end gap-3">
           <button
             @click="showResetConfirm = false"
             class="settings-action rounded-xl px-4 py-2 text-sm font-medium"
           >
-            Cancel
+            {{ echoT('panes.profile.cancel') }}
           </button>
           <button
             @click="confirmReset"
             class="danger-btn rounded-xl px-4 py-2 text-sm font-semibold"
           >
-            Confirm Reset
+            {{ echoT('panes.profile.confirmReset') }}
           </button>
         </div>
       </div>

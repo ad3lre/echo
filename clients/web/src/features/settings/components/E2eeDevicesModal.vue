@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import QRCode from 'qrcode';
 import { useAuthSessionStore } from '@/features/auth/authSession';
@@ -95,8 +96,7 @@ async function startLinkNewDevice(): Promise<void> {
   activePairingId.value = null;
   try {
     const tok = authSession.accessToken;
-    if (!tok?.trim())
-      throw new Error('You must be signed in to start pairing.');
+    if (!tok?.trim()) throw new Error(echoT('b20.e2ee.errSignedInPairing'));
     const { pairingId, pairingSecret } = await startDevicePairingSession(tok);
     activePairingId.value = pairingId;
     activePairingSecret.value = pairingSecret;
@@ -120,7 +120,7 @@ async function completeLinkFromTrustedDevice(): Promise<void> {
     const tok = authSession.accessToken;
     const uid = authSession.backendUser?.id?.trim();
     if (!tok?.trim() || !uid)
-      throw new Error('You must be signed in on the trusted device.');
+      throw new Error(echoT('b20.e2ee.errSignedInTrusted'));
     const raw = pairingTrustedField.value.trim();
     const parsed =
       parsePairingPayloadFromQr(raw) ??
@@ -131,7 +131,7 @@ async function completeLinkFromTrustedDevice(): Promise<void> {
         return { pairingId: id, pairingSecret: '' };
       })();
     if (!parsed?.pairingId || !parsed.pairingSecret) {
-      throw new Error('Paste the full QR payload (includes secret).');
+      throw new Error(echoT('b20.e2ee.errPasteFullSecret'));
     }
     await respondDevicePairingFromQr(tok, parsed, uid);
     pairingTrustedField.value = '';
@@ -149,15 +149,14 @@ async function finishNewDeviceImport(): Promise<void> {
   try {
     const tok = authSession.accessToken;
     const uid = authSession.backendUser?.id?.trim();
-    if (!tok?.trim() || !uid)
-      throw new Error('You must be signed in on the new device.');
+    if (!tok?.trim() || !uid) throw new Error(echoT('b20.e2ee.errSignedInNew'));
     const raw = pairingLinkField.value.trim();
     const parsed =
       parsePairingPayloadFromQr(raw) ??
       parsePairingPayloadFromQr(`echo://e2ee-pair/${raw}`) ??
       null;
     if (!parsed) {
-      throw new Error('Paste the full QR payload from the trusted device.');
+      throw new Error(echoT('b20.e2ee.errPasteFullTrusted'));
     }
     await completeDevicePairingAsNewDevice({
       token: tok,
@@ -173,9 +172,7 @@ async function finishNewDeviceImport(): Promise<void> {
     } catch (e) {
       reportPrimaryFlowFailure('e2ee.pairing_post_import_hook_failed', e, {});
       error.value =
-        e instanceof Error
-          ? e.message
-          : 'Imported session keys, but follow-up registration failed. Try Refresh or sign out and in.';
+        e instanceof Error ? e.message : echoT('b20.e2ee.errImportedFollowUp');
     }
     await refresh();
   } catch (e) {
@@ -197,18 +194,17 @@ async function finishNewDeviceImport(): Promise<void> {
       class="relative w-[min(560px,92vw)] rounded-xl border border-border bg-[var(--echo-modal-bg)] p-4 text-foreground shadow-2xl"
     >
       <div class="flex items-center justify-between gap-3">
-        <div class="text-sm font-semibold">Encryption devices</div>
+        <div class="text-sm font-semibold">{{ echoT('b20.e2ee.title') }}</div>
         <button
           class="rounded-md px-2 py-1 text-sm text-fg-soft hover:bg-glass-hover"
           @click="close"
         >
-          Close
+          {{ echoT('b20.e2ee.close') }}
         </button>
       </div>
 
       <div class="mt-2 text-xs text-fg-soft">
-        New devices must be explicitly approved. Revoking a device removes its
-        ability to receive future encrypted messages from this account.
+        {{ echoT('b20.e2ee.approvalNote') }}
       </div>
 
       <div
@@ -216,31 +212,27 @@ async function finishNewDeviceImport(): Promise<void> {
         class="mt-3 rounded-lg border border-border bg-glass-1 p-3 text-[11px] leading-relaxed text-fg-soft"
       >
         <div class="font-semibold text-fg">
-          Encryption fingerprint (this device)
+          {{ echoT('b20.e2ee.fingerprintTitle') }}
         </div>
         <p class="mt-1">
-          Echo uses trust-on-first-use: the first time you message someone, your
-          clients learn each other’s keys automatically. Compare this
-          fingerprint with your contact in person or over a trusted channel if
-          you want stronger assurance.
+          {{ echoT('b20.e2ee.tofu') }}
         </p>
         <p class="mt-2 break-all font-mono text-[10px] text-fg">
           {{ safetyNumberLocal }}
         </p>
         <p class="mt-2 text-fg-subtle">
-          If your contact reinstalls Echo or registers a new device, their
-          fingerprint may change — treat that like a new key.
+          {{ echoT('b20.e2ee.fingerprintChange') }}
         </p>
       </div>
 
       <div
         class="mt-4 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-100/90"
       >
-        <div class="font-semibold text-amber-50">Link a new browser (QR)</div>
+        <div class="font-semibold text-amber-50">
+          {{ echoT('b20.e2ee.linkBrowser') }}
+        </div>
         <p class="mt-1 text-[11px] leading-snug text-amber-100/80">
-          Anyone who can approve the pairing on your trusted session can copy
-          your encrypted session material to this account. Only start pairing
-          when you control both devices.
+          {{ echoT('b20.e2ee.linkWarning') }}
         </p>
         <div class="mt-2 flex flex-wrap gap-2">
           <button
@@ -249,13 +241,13 @@ async function finishNewDeviceImport(): Promise<void> {
             :disabled="pairingBusy"
             @click="void startLinkNewDevice()"
           >
-            Show QR on this device
+            {{ echoT('b20.e2ee.showQr') }}
           </button>
         </div>
         <div v-if="pairingQrDataUrl" class="mt-2 flex items-start gap-3">
           <img
             :src="pairingQrDataUrl"
-            alt="Pairing QR"
+            :alt="echoT('b20.e2ee.pairingQrAlt')"
             class="rounded bg-white p-1"
             width="220"
             height="220"
@@ -273,9 +265,9 @@ async function finishNewDeviceImport(): Promise<void> {
               }}
             </div>
             <label class="block">
-              <span class="text-fg-soft"
-                >Trusted device — paste QR text or approve id</span
-              >
+              <span class="text-fg-soft">{{
+                echoT('b20.e2ee.trustedPaste')
+              }}</span>
               <textarea
                 v-model="pairingTrustedField"
                 rows="2"
@@ -289,12 +281,12 @@ async function finishNewDeviceImport(): Promise<void> {
               :disabled="pairingBusy"
               @click="void completeLinkFromTrustedDevice()"
             >
-              Upload encrypted transfer (trusted)
+              {{ echoT('b20.e2ee.uploadTransfer') }}
             </button>
             <label class="block pt-2">
-              <span class="text-fg-soft"
-                >New device — paste same QR after trusted upload</span
-              >
+              <span class="text-fg-soft">{{
+                echoT('b20.e2ee.newDevicePaste')
+              }}</span>
               <textarea
                 v-model="pairingLinkField"
                 rows="2"
@@ -308,7 +300,7 @@ async function finishNewDeviceImport(): Promise<void> {
               :disabled="pairingBusy"
               @click="void finishNewDeviceImport()"
             >
-              Import session (new device)
+              {{ echoT('b20.e2ee.importSession') }}
             </button>
           </div>
         </div>
@@ -322,9 +314,11 @@ async function finishNewDeviceImport(): Promise<void> {
       </div>
 
       <div class="mt-3">
-        <div v-if="loading" class="text-xs text-fg-soft">Loading…</div>
+        <div v-if="loading" class="text-xs text-fg-soft">
+          {{ echoT('settingsUi.loading') }}
+        </div>
         <div v-else-if="devices.length === 0" class="text-xs text-fg-soft">
-          No devices registered yet.
+          {{ echoT('b20.e2ee.noDevices') }}
         </div>
         <ul v-else class="space-y-2">
           <li
@@ -337,10 +331,19 @@ async function finishNewDeviceImport(): Promise<void> {
                 {{ d.deviceId }}
               </div>
               <div class="mt-0.5 text-[11px] text-fg-subtle">
-                Protocol device #{{ d.protocolDeviceId ?? 1 }} · Added
-                {{ new Date(d.createdAt).toLocaleString() }}
+                {{
+                  echoT('b20.e2ee.deviceMeta', {
+                    id: d.protocolDeviceId ?? 1,
+                    date: new Date(d.createdAt).toLocaleString(),
+                  })
+                }}
                 <span v-if="d.revokedAt">
-                  · Revoked {{ new Date(d.revokedAt).toLocaleString() }}</span
+                  ·
+                  {{
+                    echoT('b20.e2ee.revokedAt', {
+                      date: new Date(d.revokedAt).toLocaleString(),
+                    })
+                  }}</span
                 >
               </div>
             </div>
@@ -349,7 +352,7 @@ async function finishNewDeviceImport(): Promise<void> {
               :disabled="!!d.revokedAt"
               @click="revoke(d.deviceId)"
             >
-              Revoke
+              {{ echoT('b20.e2ee.revoke') }}
             </button>
           </li>
         </ul>
@@ -360,7 +363,7 @@ async function finishNewDeviceImport(): Promise<void> {
           class="rounded-md border border-border bg-glass-1 px-2.5 py-1.5 text-xs text-fg-soft hover:bg-glass-hover"
           @click="refresh"
         >
-          Refresh
+          {{ echoT('b20.e2ee.refresh') }}
         </button>
       </div>
     </div>

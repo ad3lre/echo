@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { Embed } from '@shared/types';
 import { echoJumpErrorMessage } from '@shared/echoJumpEmbedErrors';
@@ -84,8 +85,8 @@ async function openFallbackLink() {
     :aria-busy="loading"
     :aria-label="
       hasError
-        ? 'Message link preview unavailable'
-        : 'Echo message link preview'
+        ? echoT('b43.jumpEmbed.unavailableAria')
+        : echoT('b43.jumpEmbed.aria')
     "
   >
     <div class="flex min-w-0">
@@ -99,7 +100,11 @@ async function openFallbackLink() {
         <div
           class="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle"
         >
-          {{ hasError ? 'Echo · link unavailable' : 'Echo · message link' }}
+          {{
+            hasError
+              ? echoT('b43.jumpEmbed.headerError')
+              : echoT('b43.jumpEmbed.header')
+          }}
         </div>
 
         <div
@@ -119,7 +124,7 @@ async function openFallbackLink() {
           @click="onClick"
         >
           <div class="text-[15px] font-semibold leading-snug text-fg">
-            {{ cardEmbed.title || '#channel' }}
+            {{ cardEmbed.title || echoT('b43.jumpEmbed.channel') }}
           </div>
           <div
             v-if="cardEmbed.author?.name"
@@ -143,7 +148,7 @@ async function openFallbackLink() {
 
         <div v-else-if="hasError" class="mt-1">
           <div class="text-[15px] font-semibold leading-snug text-fg">
-            {{ cardEmbed.title || 'Message link' }}
+            {{ cardEmbed.title || echoT('b43.jumpEmbed.linkTitle') }}
           </div>
           <p class="mt-1 text-xs leading-snug text-[#f23f43]">
             {{ errorMessage }}
@@ -156,7 +161,7 @@ async function openFallbackLink() {
             rel="noopener noreferrer"
             @click.prevent="openFallbackLink"
           >
-            Open original link
+            {{ echoT('b43.jumpEmbed.openOriginal') }}
           </a>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ref } from 'vue';
+import { ref, shallowRef } from 'vue';
 import type { EchoWorkspaceState } from '@/api/echoClient';
 import {
   applyVoiceRosterDeltaToEchoSession,
@@ -11,6 +11,10 @@ import {
   workspaceSnapshotMemberDataEqual,
   type EchoWorkspaceSessionApplyRefs,
 } from '@/features/layout/echoWorkspace/workspaceSession';
+import {
+  emptyVoiceEphemeralMap,
+  ingestVoiceEphemeralFromCategories,
+} from '@/features/layout/echoWorkspace/workspaceVoiceEphemeral';
 
 function createSessionRefs(): EchoWorkspaceSessionApplyRefs {
   return {
@@ -21,6 +25,7 @@ function createSessionRefs(): EchoWorkspaceSessionApplyRefs {
     lastOnlineAtByUserId: ref({}),
     servers: ref([]),
     categoriesByServer: ref({}),
+    voiceEphemeralByChannelId: shallowRef(emptyVoiceEphemeralMap()),
     discoverableServers: ref([]),
     messages: ref({}),
     serverMemberIds: ref({}),
@@ -279,6 +284,26 @@ describe('workspaceSession domain', () => {
               id: 'voice-1',
               name: 'Voice',
               type: 'voice',
+            },
+            {
+              id: 'stage-1',
+              name: 'Stage',
+              type: 'stage',
+            },
+          ],
+        },
+      ],
+    };
+    refs.voiceEphemeralByChannelId.value = ingestVoiceEphemeralFromCategories({
+      [serverId]: [
+        {
+          id: 'cat',
+          name: 'Voice',
+          channels: [
+            {
+              id: 'voice-1',
+              name: 'Voice',
+              type: 'voice',
               voiceParticipantIds: ['u1'],
             },
             {
@@ -291,7 +316,7 @@ describe('workspaceSession domain', () => {
           ],
         },
       ],
-    };
+    });
 
     applyVoiceRosterDeltaToEchoSession(refs, {
       action: 'move',
@@ -304,10 +329,17 @@ describe('workspaceSession domain', () => {
       occurredAt: new Date().toISOString(),
     });
 
-    const stage = refs.categoriesByServer.value[serverId]?.[0]?.channels.find(
-      (c) => c.id === 'stage-1',
-    );
-    expect(stage?.voiceParticipantIds).toEqual(['u1']);
-    expect(stage?.voiceStageSpeakerByUserId).toEqual({ u1: true });
+    // Structural tree stays clean of voice fields.
+    const stageStructural = refs.categoriesByServer.value[
+      serverId
+    ]?.[0]?.channels.find((c) => c.id === 'stage-1');
+    expect(stageStructural?.voiceParticipantIds).toBeUndefined();
+
+    const stageEphemeral = refs.voiceEphemeralByChannelId.value.get('stage-1');
+    expect(stageEphemeral?.participantIds).toEqual(['u1']);
+    expect(stageEphemeral?.stageSpeakerByUserId).toEqual({ u1: true });
+    expect(
+      refs.voiceEphemeralByChannelId.value.get('voice-1')?.participantIds,
+    ).toEqual([]);
   });
 });

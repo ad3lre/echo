@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, nextTick, onUnmounted } from 'vue';
 import type { Editor } from '@tiptap/core';
 import type { PaperPageLayout } from '@/features/paper/composables/usePaperPageLayout';
@@ -23,25 +24,25 @@ const show = computed(
   () => props.visible !== false && !!ed.value && ed.value.isActive('image'),
 );
 
-const widthOptions: EchoDropdownOption[] = [
+const widthOptions = computed<EchoDropdownOption[]>(() => [
   { label: '25%', value: '25%' },
   { label: '50%', value: '50%' },
   { label: '75%', value: '75%' },
   { label: '100%', value: '100%' },
-  { label: 'Auto', value: '' },
-];
+  { label: echoT('b37.pif.auto'), value: '' },
+]);
 
-const alignOptions: EchoDropdownOption[] = [
-  { label: 'Left', value: 'left' },
-  { label: 'Center', value: 'center' },
-  { label: 'Right', value: 'right' },
-];
+const alignOptions = computed<EchoDropdownOption[]>(() => [
+  { label: echoT('b37.pif.left'), value: 'left' },
+  { label: echoT('b37.pif.center'), value: 'center' },
+  { label: echoT('b37.pif.right'), value: 'right' },
+]);
 
-const wrapOptions: EchoDropdownOption[] = [
-  { label: 'None', value: 'none' },
-  { label: 'Left', value: 'left' },
-  { label: 'Right', value: 'right' },
-];
+const wrapOptions = computed<EchoDropdownOption[]>(() => [
+  { label: echoT('b37.pif.none'), value: 'none' },
+  { label: echoT('b37.pif.left'), value: 'left' },
+  { label: echoT('b37.pif.right'), value: 'right' },
+]);
 
 const currentWidth = computed(() => {
   const attrs = ed.value?.getAttributes('image');
@@ -94,7 +95,7 @@ const barStyle = computed(() => {
     class="paper-format-bar paper-image-format-bar pointer-events-none fixed bottom-20 z-40"
     :style="barStyle"
     role="toolbar"
-    aria-label="Image formatting"
+    :aria-label="echoT('b37.pif.format')"
   >
     <div
       class="pointer-events-auto flex items-center gap-1 overflow-x-auto overflow-y-visible rounded-full border border-border px-2 py-1 shadow-lg backdrop-blur-md"
@@ -103,7 +104,7 @@ const barStyle = computed(() => {
       <EchoDropdown
         :model-value="currentWidth"
         :options="widthOptions"
-        label="Width"
+        :label="echoT('b37.pif.width')"
         compact
         @update:model-value="setWidth"
       />
@@ -113,7 +114,7 @@ const barStyle = computed(() => {
       <EchoDropdown
         :model-value="currentAlign"
         :options="alignOptions"
-        label="Align"
+        :label="echoT('b37.pif.align')"
         compact
         @update:model-value="setAlign"
       />
@@ -123,7 +124,7 @@ const barStyle = computed(() => {
       <EchoDropdown
         :model-value="currentWrap"
         :options="wrapOptions"
-        label="Wrap"
+        :label="echoT('b37.pif.wrap')"
         compact
         @update:model-value="setWrap"
       />

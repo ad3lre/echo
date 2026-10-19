@@ -1,0 +1,88 @@
+{
+  "moreServers": {
+    "menu": {
+      "serverOptions": "Opções do servidor",
+      "viewInfo": "Ver informações do servidor",
+      "invite": "Convidar pessoas",
+      "unpin": "Remover da barra",
+      "pin": "Fixar na barra",
+      "widgetFolder": "Pasta de widget",
+      "leave": "Sair do servidor",
+      "editFolder": "Editar pasta…",
+      "newFolder": "Nova pasta…",
+      "deleteFolder": "Excluir pasta…"
+    },
+    "compact": {
+      "dropIntoFolderGroup": "Soltar na pasta de widget",
+      "pinned": "Fixado na barra",
+      "emptyFolder": "Vazia — arraste um servidor para cá.",
+      "dropInto": "Soltar em {name}",
+      "serverTitle": "{name} — arraste para mover · clique com o botão direito para opções da pasta",
+      "folderAria": {
+        "expanded": "{name}, {count} servidores. Clique para recolher.",
+        "collapsed": "{name}, {count} servidores. Clique para expandir."
+      },
+      "folderTitle": {
+        "expanded": "{name} — {count} servidor(es). Clique para recolher; arraste para reordenar a pasta.",
+        "collapsed": "{name} — {count} servidor(es). Clique para expandir; arraste para reordenar a pasta."
+      }
+    }
+  },
+  "dmSection": {
+    "acceptFriend": "Aceitar pedido de amizade",
+    "cancelFriend": "Cancelar pedido de amizade",
+    "sendFriend": "Enviar pedido de amizade",
+    "thisUser": "este usuário",
+    "selectConversation": "Selecione uma conversa das suas DMs ou abra Amigos para começar a conversar.",
+    "channelLoadFailed": "Não foi possível carregar este canal.",
+    "viewLoadFailed": "Algo deu errado ao carregar esta visualização.",
+    "backToChannels": "Voltar aos canais",
+    "historyIntro": "Este é o início do seu histórico de mensagens diretas com {name}."
+  },
+  "msgReq": {
+    "title": "Solicitações de mensagem",
+    "selectHint": "Selecione uma solicitação na barra lateral para revisar a conversa, responder se necessário e depois aceitar, ignorar ou denunciar.",
+    "single": "Solicitação de mensagem",
+    "back": "Voltar às mensagens",
+    "accept": "Aceitar",
+    "ignore": "Ignorar",
+    "notFriends": "Ainda não são amigos",
+    "canReply": "Você pode responder antes de aceitar",
+    "reviewHint": "Revise a conversa primeiro. Aceitar move este tópico para suas mensagens diretas normais, enquanto Ignorar remove a solicitação da sua fila."
+  },
+  "poll": {
+    "voteOne": "{count} voto",
+    "voteMany": "{count} votos",
+    "totalOne": "{count} voto no total",
+    "totalMany": "{count} votos no total",
+    "you": "Você",
+    "option": "Opção da enquete",
+    "hidden": "Resultados ocultos até você votar",
+    "viewVoters": "Ver quem votou",
+    "voteInDiscord": "Votar no Discord",
+    "whoVoted": "Quem votou",
+    "close": "Fechar",
+    "votesByAnswer": "Votos por resposta",
+    "noVotes": "Nenhum voto nesta opção ainda"
+  },
+  "chatView": {
+    "backToForum": "Voltar ao fórum",
+    "onThisPage": "Nesta página",
+    "markdownPreview": "Pré-visualização de Markdown",
+    "collapsePreview": "Recolher pré-visualização",
+    "ageRestricted": "Canal com restrição de idade",
+    "nsfwNotice": "Este canal está marcado como NSFW. Ao continuar, você confirma que tem 18 anos ou mais e opta por ver conteúdo potencialmente adulto.",
+    "goBack": "Voltar",
+    "enterChannel": "Entrar no canal"
+  },
+  "fsStream": {
+    "previewPaused": "Pré-visualização pausada para economizar CPU e bateria",
+    "stillSharing": "Você ainda está compartilhando. Clique em qualquer lugar ou use o botão para mostrar a pré-visualização novamente.",
+    "showPreview": "Mostrar pré-visualização",
+    "unmute": "Reativar áudio da transmissão",
+    "mute": "Silenciar áudio da transmissão",
+    "pip": "Imagem em imagem",
+    "closeFullscreen": "Fechar tela cheia",
+    "theirVolume": "Volume do participante"
+  }
+}

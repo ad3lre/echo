@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { Ref } from 'vue';
 import { icons } from '@/assets/icons';
@@ -26,31 +27,33 @@ const accessMode = computed((): ServerAccessMode => {
   return 'private';
 });
 
-const modes: Array<{
-  id: ServerAccessMode;
-  label: string;
-  hint: string;
-  icon: string;
-}> = [
-  {
-    id: 'public',
-    label: 'Public',
-    hint: 'Listed on Explore; anyone can discover and join from there.',
-    icon: icons.globe,
-  },
-  {
-    id: 'invite_only',
-    label: 'Invite only',
-    hint: 'Hidden from Explore; people can still join with a vanity or invite link.',
-    icon: icons.communityFilled,
-  },
-  {
-    id: 'private',
-    label: 'Private',
-    hint: 'Hidden from Explore; invite links cannot add new members.',
-    icon: icons.chatLock,
-  },
-];
+const modes = computed(
+  (): Array<{
+    id: ServerAccessMode;
+    label: string;
+    hint: string;
+    icon: string;
+  }> => [
+    {
+      id: 'public',
+      label: echoT('b36.access.public'),
+      hint: echoT('b36.access.publicHint'),
+      icon: icons.globe,
+    },
+    {
+      id: 'invite_only',
+      label: echoT('b36.access.inviteOnly'),
+      hint: echoT('b36.access.inviteOnlyHint'),
+      icon: icons.communityFilled,
+    },
+    {
+      id: 'private',
+      label: echoT('b36.access.private'),
+      hint: echoT('b36.access.privateHint'),
+      icon: icons.chatLock,
+    },
+  ],
+);
 
 function selectMode(id: ServerAccessMode) {
   if (!props.canManageServer || id === accessMode.value) return;
@@ -61,23 +64,25 @@ function selectMode(id: ServerAccessMode) {
 <template>
   <div class="server-settings-sections--flat server-settings-panel-root pb-8">
     <section class="settings-section-stack">
-      <div class="settings-subtitle mb-1">Who can join</div>
+      <div class="settings-subtitle mb-1">
+        {{ echoT('b36.access.whoCanJoin') }}
+      </div>
       <p class="mb-4 text-sm text-fg-subtle">
-        Choose how new members discover and enter this server.
+        {{ echoT('b36.access.whoCanJoinHint') }}
       </p>
 
       <div
         v-if="!canManageServer"
         class="rounded-xl bg-glass-2/60 px-4 py-3 text-sm text-muted"
       >
-        You don’t have permission to change access settings.
+        {{ echoT('b36.access.noPermission') }}
       </div>
 
       <template v-else>
         <div
           class="access-mode-segmented relative grid grid-cols-3 gap-1 rounded-2xl p-1"
           role="radiogroup"
-          aria-label="Server access level"
+          :aria-label="echoT('b36.access.levelAria')"
         >
           <button
             v-for="m in modes"
@@ -110,9 +115,11 @@ function selectMode(id: ServerAccessMode) {
     </section>
 
     <section class="settings-section-stack">
-      <div class="settings-subtitle mb-1">Join applications</div>
+      <div class="settings-subtitle mb-1">
+        {{ echoT('b36.access.joinApplications') }}
+      </div>
       <p class="mb-4 text-sm text-fg-subtle">
-        Optional waitlist and questionnaire for people joining your server.
+        {{ echoT('b36.access.joinApplicationsHint') }}
       </p>
       <ServerSettingsApplicationsSection
         :server-id="serverId"

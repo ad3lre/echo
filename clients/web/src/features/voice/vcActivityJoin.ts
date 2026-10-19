@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { watch, type Ref } from 'vue';
 import {
   WATCH_TOGETHER_VC_ACTIVITY_ENABLED,
@@ -59,9 +60,9 @@ export function vcActivityJoinLabel(kind: VcActivityPresenceKind): string {
     case 'youtube':
       return 'YouTube';
     case 'watch_together':
-      return 'Watch Together';
+      return echoT('voiceChrome.watchTogether');
     case 'activities':
-      return 'Activities';
+      return echoT('voiceChrome.activities');
     case 'wordle':
       return 'Wordline';
     case 'hangman':

@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { computed, type Ref } from 'vue';
 
 export type PaperConnectionPhase =
@@ -28,7 +29,9 @@ export function usePaperSession(opts: {
       case 'synced':
         return 'All changes saved';
       case 'syncing':
-        return opts.saveRetrying?.value ? 'Retrying save…' : 'Saving…';
+        return opts.saveRetrying?.value
+          ? 'Retrying save…'
+          : echoT('paperUi.saving');
       case 'conflict':
         return 'Updated elsewhere — showing latest version';
       default:

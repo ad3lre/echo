@@ -1,0 +1,93 @@
+{
+  "settings": {
+    "sections": {
+      "Profile": "Profile",
+      "Account": "Account",
+      "Friends": "Friends",
+      "Terms & policies": "Terms & policies",
+      "Report abuse": "Report abuse",
+      "Formatting guide": "Formatting guide",
+      "Discord": "Discord",
+      "Google": "Google",
+      "YouTube": "YouTube",
+      "Log out": "Log out",
+      "Data & Privacy": "Data & Privacy",
+      "Style": "Style",
+      "Accessibility": "Accessibility",
+      "Voice & Video": "Voice & Video",
+      "Notifications": "Notifications",
+      "Sounds": "Sounds",
+      "Keybinds": "Keybinds",
+      "Time & Language": "Time & Language",
+      "Echo+": "Echo+",
+      "Subscriptions": "Subscriptions",
+      "Advanced": "Advanced"
+    },
+    "groups": {
+      "User": "User",
+      "Legal": "Legal",
+      "External apps": "External apps",
+      "App": "App",
+      "Payment": "Payment",
+      "Session": "Session"
+    }
+  },
+  "server": {
+    "sections": {
+      "Overview": "Overview",
+      "Events": "Events",
+      "Structure": "Structure",
+      "Members": "Members",
+      "Roles": "Roles",
+      "Emoji": "Emoji",
+      "Discord": "Discord",
+      "Security": "Security",
+      "Access": "Access",
+      "Tickets": "Tickets",
+      "Self-assignable Roles": "Self-assignable Roles",
+      "Banned Words": "Banned Words",
+      "Moderation": "Moderation",
+      "Audit Log": "Audit Log",
+      "Bans": "Bans",
+      "Danger Zone": "Danger Zone"
+    },
+    "groups": {
+      "General": "General",
+      "Community": "Community",
+      "Integrations": "Integrations",
+      "Access": "Access",
+      "Moderation": "Moderation",
+      "Danger zone": "Danger zone"
+    }
+  },
+  "audit": {
+    "tabs": {
+      "All": "All",
+      "Join / leave": "Join / leave",
+      "Message changes": "Message changes",
+      "Mod: user actions": "Mod: user actions",
+      "Mod: general actions": "Mod: general actions"
+    }
+  },
+  "permissionGroups": {
+    "General": "General",
+    "Expressions": "Expressions",
+    "Invites": "Invites",
+    "Profile": "Profile",
+    "Moderation": "Moderation",
+    "Paper": "Paper",
+    "Voice": "Voice",
+    "Advanced": "Advanced",
+    "Messaging": "Messaging",
+    "Media": "Media",
+    "Mentions": "Mentions",
+    "Polls": "Polls",
+    "Access": "Access",
+    "Media & links": "Media & links",
+    "Reactions & emoji": "Reactions & emoji",
+    "Apps & commands": "Apps & commands",
+    "Threads": "Threads",
+    "Voice moderation": "Voice moderation",
+    "Activities & events": "Activities & events"
+  }
+}

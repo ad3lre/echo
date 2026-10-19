@@ -1,0 +1,94 @@
+{
+  "voiceMirror": {
+    "title": "Discord voice mirror",
+    "desc": "Show who is connected on Discord for the linked voice channel. Echo stays display-only — join voice in Discord.",
+    "signIn": "Sign in to configure voice mirror.",
+    "guest": "Not available for guest sessions.",
+    "toggle": "Mirror Discord voice roster for this channel",
+    "loadErr": "Could not load voice mirror settings.",
+    "saveErr": "Could not save voice mirror settings.",
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "save": "Save"
+  },
+  "iconPicker": {
+    "channelIcon": "Channel icon",
+    "chooseChannelIcon": "Choose channel icon",
+    "searchEmoji": "Search emoji…",
+    "searchIcons": "Search icons…",
+    "icons": "Icons",
+    "emoji": "Emoji",
+    "loadingEmoji": "Loading emoji",
+    "loadingEmojiEllipsis": "Loading emoji…",
+    "untrusted": "This emoji cannot be used as the channel icon (untrusted or invalid image URL).",
+    "noEmojiMatch": "No emojis match \"{query}\""
+  },
+  "events": {
+    "upcoming": "Upcoming server events",
+    "slides": "Event slides",
+    "goingLabel": "Going",
+    "started": "Started",
+    "startingMoments": "Starting in moments",
+    "checkItOut": "Check it out",
+    "goThere": "Go there",
+    "details": "Details",
+    "openChannel": "Open channel",
+    "startsInDH": "Starts in {d}d {h}h",
+    "startsInHM": "Starts in {h}h {m}m",
+    "startsInMS": "Starts in {m}m {s}s",
+    "openEvent": "Open event {title}",
+    "goingCount": "going"
+  },
+  "bubble": {
+    "requestAccess": "Request access",
+    "bold": "Bold",
+    "italic": "Italic",
+    "link": "Link",
+    "comment": "Comment",
+    "insertLink": "Insert link",
+    "isEditing": "{owner} is editing"
+  },
+  "folderModal": {
+    "folderName": "Folder name",
+    "placeholder": "e.g. Communities, Work, Favorites",
+    "cancel": "Cancel",
+    "newTitle": "New widget folder",
+    "editTitle": "Edit widget folder",
+    "createSub": "Group Extra servers on this device. Drag icons to reorder, or right-click in compact view to assign servers.",
+    "editSub": "Rename or delete this folder. Guild memberships are unchanged — only this local grouping is removed.",
+    "defaultName": "New folder",
+    "countOne": "{count} server in this folder — drag icons in the panel to add, remove, or reorder.",
+    "countMany": "{count} servers in this folder — drag icons in the panel to add, remove, or reorder.",
+    "confirmDeleteMsg": "Delete “{name}”? Servers stay in Extra servers; only the folder grouping is removed.",
+    "confirmDelete": "Confirm delete",
+    "deleteFolder": "Delete folder",
+    "createFolder": "Create folder",
+    "save": "Save"
+  },
+  "assignMenu": {
+    "remove": "Remove from folder",
+    "move": "Move to folder",
+    "searchFolders": "Search folders",
+    "searchFoldersEllipsis": "Search folders…",
+    "moveTo": "Move to “{name}”",
+    "noMatch": "No folders match your search.",
+    "noOther": "No other folders to move into.",
+    "newFolder": "New folder with this server…"
+  },
+  "memberList": {
+    "timeout": "Communication timeout",
+    "timedOut": "Timed out",
+    "roleColor": "{name} role color"
+  },
+  "fontPicker": {
+    "search": "Search fonts",
+    "useDocFont": "Use document font",
+    "noMatch": "No fonts match",
+    "mixed": "Mixed",
+    "font": "Font",
+    "fontLabel": "Font: {label}"
+  },
+  "appLayout": {
+    "skip": "Skip to messages"
+  }
+}

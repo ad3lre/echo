@@ -1,0 +1,20 @@
+{
+  "options": {
+    "all": {
+      "label": "Todas as mensagens",
+      "description": "Receba notificações quando alguém enviar uma mensagem neste servidor."
+    },
+    "mentions": {
+      "label": "Menções e menções diretas",
+      "description": "Notificar para {'@'}você, respostas e pings em massa como {'@'}everyone, {'@'}here, {'@'}channel ou menções de cargo."
+    },
+    "mentions_direct": {
+      "label": "Somente menções diretas",
+      "description": "Somente quando você for mencionado pessoalmente com {'@'}, não via {'@'}everyone, {'@'}here, {'@'}channel ou cargos."
+    },
+    "none": {
+      "label": "Nada",
+      "description": "Sem alertas push ou de desktop deste servidor (ainda aparece no app)."
+    }
+  }
+}

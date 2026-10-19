@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { echoT } from '@/i18n';
 import { exploreTagDisplayLabel } from '@/features/layout/exploreDirectoryRows';
 
 const MAX_TAGS = 8;
@@ -205,7 +206,9 @@ function onFocusout(event: FocusEvent) {
         :value="draft"
         type="text"
         class="min-w-[6rem] flex-1 bg-transparent px-1 py-1 text-sm text-foreground outline-none placeholder:text-muted"
-        :placeholder="tags.length ? '' : 'Type a tag, then Enter'"
+        :placeholder="
+          tags.length ? '' : echoT('srvSettingsB.emojiTags.placeholder')
+        "
         autocomplete="off"
         role="combobox"
         :aria-expanded="showSuggestions"
@@ -213,9 +216,9 @@ function onFocusout(event: FocusEvent) {
         @keydown="onKeydown"
         @input="onInput"
       />
-      <span v-else class="px-1 py-1 text-xs text-muted"
-        >Maximum {{ MAX_TAGS }} tags</span
-      >
+      <span v-else class="px-1 py-1 text-xs text-muted">{{
+        echoT('srvSettingsB.emojiTags.max', { n: MAX_TAGS })
+      }}</span>
     </div>
     <div
       v-if="showSuggestions"

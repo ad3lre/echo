@@ -256,6 +256,11 @@ function applyIncrementalChange(
   }
   applyInPlacePatches(state, curr, patchIndices);
   rememberPrev(state, curr);
+  if (patchIndices.size > 0) {
+    state.options.onPatchedRows(
+      [...patchIndices].map((i) => curr.ids[i]!).filter(Boolean),
+    );
+  }
   const dur = nowMs() - startedAtMs;
   messageListScrollMetricsApi()?.noteRowPresentationRebuild(dur);
   if (messageListDebugEnabled() && dur > 5) {
@@ -286,8 +291,9 @@ function onInputsChanged(
     curr.ids,
   );
   if (shouldDeferDuringUserScroll(state, curr, struct)) {
+    // Defer work until scroll settles — do not seed every ordered id into the
+    // invalidation drain (that + a 32-id budget left most rows stale forever).
     state.pendingRefreshAfterScroll = true;
-    state.invalidation.invalidate('message_entity', curr.ids, curr.ids, true);
     return;
   }
   if (struct.kind === 'full') {
@@ -300,37 +306,40 @@ function onInputsChanged(
 }
 
 function patchDirtyIdsAfterScroll(state: PresentationState): void {
-  const dirtyIds = state.invalidation.drain(false);
-  if (dirtyIds.length === 0) return;
-  const curr = readInputs(state.options);
-  const arr = state.rows.value;
-  if (arr.length !== curr.ids.length) return;
-  const idToIndex = new Map(curr.ids.map((id, i) => [id, i]));
-  const patchIndices = new Set<number>();
-  for (const id of dirtyIds) {
-    const i = idToIndex.get(id);
-    if (i != null) patchIndices.add(i);
-  }
-  for (const i of collectMessageListRowFactsPatchIndices(
-    curr.ids,
-    curr.messages,
-    curr.entities,
-    new Set(dirtyIds),
-  )) {
-    patchIndices.add(i);
-  }
-  applyInPlacePatches(state, curr, patchIndices);
-  for (const i of patchIndices) {
-    const id = curr.ids[i];
-    if (!id) continue;
-    state.fingerprints.set(
-      id,
-      fingerprintMessageListRowFactsInputs(id, curr.messages, curr.entities),
+  // Drain until empty so settle never stops at drainBudgetPerPass (default 32).
+  for (;;) {
+    const dirtyIds = state.invalidation.drain(false);
+    if (dirtyIds.length === 0) return;
+    const curr = readInputs(state.options);
+    const arr = state.rows.value;
+    if (arr.length !== curr.ids.length) return;
+    const idToIndex = new Map(curr.ids.map((id, i) => [id, i]));
+    const patchIndices = new Set<number>();
+    for (const id of dirtyIds) {
+      const i = idToIndex.get(id);
+      if (i != null) patchIndices.add(i);
+    }
+    for (const i of collectMessageListRowFactsPatchIndices(
+      curr.ids,
+      curr.messages,
+      curr.entities,
+      new Set(dirtyIds),
+    )) {
+      patchIndices.add(i);
+    }
+    applyInPlacePatches(state, curr, patchIndices);
+    for (const i of patchIndices) {
+      const id = curr.ids[i];
+      if (!id) continue;
+      state.fingerprints.set(
+        id,
+        fingerprintMessageListRowFactsInputs(id, curr.messages, curr.entities),
+      );
+    }
+    state.options.onPatchedRows(
+      [...patchIndices].map((i) => curr.ids[i]!).filter(Boolean),
     );
   }
-  state.options.onPatchedRows(
-    [...patchIndices].map((i) => curr.ids[i]!).filter(Boolean),
-  );
 }
 
 function flushPendingAfterScrollSettle(state: PresentationState): void {
@@ -338,6 +347,17 @@ function flushPendingAfterScrollSettle(state: PresentationState): void {
   state.pendingRefreshAfterScroll = false;
   state.invalidation.flushDeferredToImmediate();
   patchDirtyIdsAfterScroll(state);
+  // Full incremental reconcile — covers entity edits deferred without per-id seeds.
+  const curr = readInputs(state.options);
+  const struct = describeOrderedIdsStructuralChange(
+    state.prevOrderedIds,
+    curr.ids,
+  );
+  if (struct.kind === 'full') {
+    applyFullRebuild(state, curr);
+    return;
+  }
+  applyIncrementalChange(state, curr, struct, nowMs());
 }
 
 function readInputs(

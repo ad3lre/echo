@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   inject,
@@ -378,16 +379,16 @@ const isDmSearchMobileOpen = ref(false);
 const dmMobileSearchTitle = computed(() => {
   if (isGroupDmThread.value) {
     const name = activeGroupDM.value?.name?.trim();
-    if (name) return `Search ${name}`;
+    if (name) return echoT('b01.searchNamed', { name });
   } else if (dmPartnerUser.value?.name?.trim()) {
-    return `Search ${dmPartnerUser.value.name.trim()}`;
+    return echoT('b01.searchNamed', { name: dmPartnerUser.value.name.trim() });
   }
-  return 'Search conversation';
+  return echoT('b01.searchConversation');
 });
 
 const dmMobileSearchPlaceholder = computed(() => {
-  if (isGroupDmThread.value) return 'Search in group';
-  return 'Search in conversation';
+  if (isGroupDmThread.value) return echoT('b01.searchInGroup');
+  return echoT('b01.searchInConversation');
 });
 
 /** Close full-screen mobile search when jumping to a result (modal would otherwise obscure chat). */
@@ -457,14 +458,15 @@ const headerTitleText = computed(() => {
     selectedServerName?: string;
     getChannelDisplayName?: (name: string) => string;
   };
-  if (p.isInDMMode && p.dmActiveTab === 'friends') return 'Friends';
-  if (p.isInDMMode && p.dmActiveTab === 'notifications') return 'Notifications';
+  if (p.isInDMMode && p.dmActiveTab === 'friends') return echoT('b01.friends');
+  if (p.isInDMMode && p.dmActiveTab === 'notifications')
+    return echoT('b01.notifications');
   const ch = headerActiveChannel.value;
   if (ch) {
     return p.getChannelDisplayName?.(ch.name) ?? ch.name;
   }
   if (emptyGuildChatSurface.value) {
-    return p.selectedServerName?.trim() || 'Server';
+    return p.selectedServerName?.trim() || echoT('b01.server');
   }
   return '';
 });
@@ -1156,11 +1158,11 @@ const dmCallQuarterGlanceName = computed(() => {
   };
   if (g.id === p.currentUser?.id) return p.currentUser?.name ?? 'You';
   if (g.id === p.dmPartnerUser?.id) {
-    return p.dmPartnerUser?.name ?? 'Participant';
+    return p.dmPartnerUser?.name ?? echoT('b01.participant');
   }
   return (
     p.dmCallCallViewParticipants?.find((r) => r.id === g.id)?.name ??
-    'Participant'
+    echoT('b01.participant')
   );
 });
 
@@ -1187,7 +1189,10 @@ function onQuarterGlanceContextMenu(event: MouseEvent) {
   const g = dmCallQuarterGlance.value;
   if (!g?.id || g.isLocal) return;
   openQuarterCallProfileMenu(
-    { id: g.id, name: dmCallQuarterGlanceName.value || 'Participant' },
+    {
+      id: g.id,
+      name: dmCallQuarterGlanceName.value || echoT('b01.participant'),
+    },
     event,
   );
 }
@@ -1259,8 +1264,16 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         "
         type="button"
         class="dm-header-action-btn -ml-0.5 shrink-0"
-        :title="isCompactPhoneShell ? 'Back' : 'Back to channel list'"
-        :aria-label="isCompactPhoneShell ? 'Back' : 'Back to channel list'"
+        :title="
+          isCompactPhoneShell
+            ? echoT('b01.back')
+            : echoT('b01.backToChannelList')
+        "
+        :aria-label="
+          isCompactPhoneShell
+            ? echoT('b01.back')
+            : echoT('b01.backToChannelList')
+        "
         @click="
           isCompactPhoneShell
             ? mobileShellNav?.mobileShellGoBack()
@@ -1279,8 +1292,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         "
         type="button"
         class="shrink-0 rounded-full focus:outline-none"
-        title="Open profile"
-        aria-label="Open profile"
+        :title="echoT('b01.openProfile')"
+        :aria-label="echoT('b01.openProfile')"
         @click="callOpenExtendedProfileModalForUserId(dmPartnerUser.id)"
       >
         <div class="relative h-8 w-8 flex-shrink-0">
@@ -1288,7 +1301,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           <div class="relative z-0 h-full w-full overflow-hidden rounded-full">
             <PausedGifAvatar
               :src="safeImageUrl(dmPartnerUser.pfp || icons.usersAvatar)"
-              :alt="dmPartnerUser.name || 'User'"
+              :alt="dmPartnerUser.name || echoT('b01.user')"
               :session-key="dmPartnerUser.id ?? 'dm-partner'"
               img-class="rounded-full object-cover"
             />
@@ -1308,8 +1321,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         "
         type="button"
         class="shrink-0 rounded-full focus:outline-none"
-        title="Change group icon"
-        aria-label="Change group icon"
+        :title="echoT('b01.changeGroupIcon')"
+        :aria-label="echoT('b01.changeGroupIcon')"
         @click="callOpenGroupIconSettingsFromHeader"
       >
         <div
@@ -1317,7 +1330,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         >
           <PausedGifAvatar
             :src="safeImageUrl(activeGroupDM.pfp || icons.usersAvatar)"
-            :alt="activeGroupDM?.name || 'Group DM'"
+            :alt="activeGroupDM?.name || echoT('b01.groupDm')"
             :session-key="activeGroupDM?.id ?? 'group-dm'"
             img-class="rounded-full object-cover"
           />
@@ -1344,7 +1357,9 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           leadingChannelRasterIconUrl || getChannelIcon(headerActiveChannel)
         "
         :alt="
-          headerActiveChannel?.type === 'voice' ? 'Voice channel' : 'Channel'
+          headerActiveChannel?.type === 'voice'
+            ? echoT('b01.voiceChannel')
+            : echoT('b01.channel')
         "
         class="chat-header-leading-icon"
         :class="{
@@ -1364,8 +1379,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             type="button"
             class="chat-focus-ring block w-full max-w-full min-w-0 min-h-0 truncate text-left font-semibold"
             :class="dmPartnerPresence.isOffline ? 'text-fg-subtle' : ''"
-            title="Open profile"
-            aria-label="Open profile"
+            :title="echoT('b01.openProfile')"
+            :aria-label="echoT('b01.openProfile')"
             @click="callOpenExtendedProfileModalForUserId(dmPartnerUser.id)"
           >
             {{ headerTitleText }}
@@ -1379,8 +1394,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             "
             type="button"
             class="chat-focus-ring block w-full max-w-full min-w-0 min-h-0 truncate text-left font-semibold"
-            title="Edit group name"
-            aria-label="Edit group name"
+            :title="echoT('b01.editGroupName')"
+            :aria-label="echoT('b01.editGroupName')"
             @click="callOpenGroupNameActionFromHeader"
           >
             {{ headerTitleText }}
@@ -1411,11 +1426,11 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           <button
             type="button"
             class="chat-focus-ring shrink-0 rounded-md bg-glass-2 px-2 py-0.5 text-[10px] font-semibold text-fg transition-colors hover:bg-glass-hover"
-            title="Leave role preview"
-            aria-label="Leave role preview"
+            :title="echoT('b01.leaveRolePreview')"
+            :aria-label="echoT('b01.leaveRolePreview')"
             @click="clearRolePreview"
           >
-            Exit
+            {{ echoT('b01.exit') }}
           </button>
         </div>
         <div
@@ -1436,8 +1451,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-if="isCompactPhoneShell && !isInDMChat"
             type="button"
             class="dm-header-action-btn"
-            title="Show channels"
-            aria-label="Show channels"
+            :title="echoT('b01.showChannels')"
+            :aria-label="echoT('b01.showChannels')"
             @click="expandChannels"
           >
             <img :src="icons.list" alt="" class="dm-header-action-icon" />
@@ -1451,8 +1466,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             "
             type="button"
             class="dm-header-action-btn"
-            title="Show channels"
-            aria-label="Show channels"
+            :title="echoT('b01.showChannels')"
+            :aria-label="echoT('b01.showChannels')"
             @click="expandChannels"
           >
             <img :src="icons.list" alt="" class="dm-header-action-icon" />
@@ -1465,9 +1480,15 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             "
             type="button"
             class="dm-header-action-btn dm-header-action-btn--member-toggle"
-            :title="compactGuildTriPaneNav ? 'Open members' : 'Show members'"
+            :title="
+              compactGuildTriPaneNav
+                ? echoT('b01.openMembers')
+                : echoT('b01.showMembers')
+            "
             :aria-label="
-              compactGuildTriPaneNav ? 'Open members' : 'Show members'
+              compactGuildTriPaneNav
+                ? echoT('b01.openMembers')
+                : echoT('b01.showMembers')
             "
             @click="expandMembers"
           >
@@ -1485,8 +1506,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         "
         type="button"
         class="ml-1 inline-flex items-center gap-1 rounded-full border border-border bg-glass-1 px-2.5 py-1 text-[11px] font-medium text-fg-soft hover:bg-glass-hover"
-        title="View group"
-        aria-label="View group"
+        :title="echoT('b01.viewGroup')"
+        :aria-label="echoT('b01.viewGroup')"
         @click="callOpenGroupOverviewShortcutFromHeader"
       >
         <img
@@ -1494,7 +1515,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           alt=""
           class="h-4 w-4 shrink-0 dm-header-action-icon"
         />
-        <span>View group</span>
+        <span>{{ echoT('b01.viewGroup') }}</span>
       </button>
 
       <!-- Server search: in header only when members column is collapsed on desktop. On compact shell, search lives in the members column only (avoids duplicate header + members search). -->
@@ -1526,7 +1547,11 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           :total-results="searchResultMessagesCount"
           :current-page="searchResultPage"
           :total-pages="totalPages"
-          :placeholder="`Search ${selectedServerName ?? ''}`.trim() || 'Search'"
+          :placeholder="
+            selectedServerName
+              ? echoT('b01.searchNamed', { name: selectedServerName })
+              : echoT('b01.search')
+          "
           :reserved-right-px="0"
           @update:model-value="onSearchInput"
           @add-filter="addFilter"
@@ -1543,8 +1568,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           v-else
           type="button"
           class="dm-header-action-btn shrink-0"
-          title="Search"
-          aria-label="Search"
+          :title="echoT('b01.search')"
+          :aria-label="echoT('b01.search')"
           @click="isServerSearchMobileOpen = true"
         >
           <img :src="icons.search" alt="" class="dm-header-action-icon" />
@@ -1564,10 +1589,14 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             type="button"
             class="dm-header-action-btn dm-header-action-btn--call"
             :title="
-              localDmCallTargetsDirectThread ? 'Leave call' : 'Start call'
+              localDmCallTargetsDirectThread
+                ? echoT('b01.leaveCall')
+                : echoT('b01.startCall')
             "
             :aria-label="
-              localDmCallTargetsDirectThread ? 'Leave call' : 'Start call'
+              localDmCallTargetsDirectThread
+                ? echoT('b01.leaveCall')
+                : echoT('b01.startCall')
             "
             @click="
               localDmCallTargetsDirectThread
@@ -1595,8 +1624,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             :ref="pinsButtonRefDm"
             type="button"
             class="dm-header-action-btn"
-            title="Pinned messages"
-            aria-label="Pinned messages"
+            :title="echoT('b01.pinnedMessages')"
+            :aria-label="echoT('b01.pinnedMessages')"
             aria-haspopup="true"
             :aria-expanded="isPinsDropdownOpen"
             @click="togglePinsDropdown"
@@ -1606,8 +1635,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           <button
             type="button"
             class="dm-header-action-btn"
-            title="Create group"
-            aria-label="Create group"
+            :title="echoT('b01.createGroup')"
+            :aria-label="echoT('b01.createGroup')"
             @click="() => openGroupDMModal()"
           >
             <img :src="icons.community" alt="" class="dm-header-action-icon" />
@@ -1616,8 +1645,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-if="hasProfileOverviewAction && !isCompactShell"
             type="button"
             class="dm-header-action-btn"
-            title="Profile overview"
-            aria-label="Profile overview"
+            :title="echoT('b01.profileOverview')"
+            :aria-label="echoT('b01.profileOverview')"
             @click="callOpenExpandedProfilePanelForUserId(dmPartnerUser.id)"
           >
             <img
@@ -1644,7 +1673,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             :total-results="searchResultMessagesCount"
             :current-page="searchResultPage"
             :total-pages="totalPages"
-            placeholder="Search in conversation"
+            :placeholder="echoT('b01.searchInConversation')"
             :reserved-right-px="360"
             :dropdown-gap-px="0"
             @update:model-value="onSearchInput"
@@ -1659,8 +1688,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-else
             type="button"
             class="dm-header-action-btn shrink-0"
-            title="Search"
-            aria-label="Search"
+            :title="echoT('b01.search')"
+            :aria-label="echoT('b01.search')"
             @click="isDmSearchMobileOpen = true"
           >
             <img :src="icons.search" alt="" class="dm-header-action-icon" />
@@ -1675,9 +1704,15 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-if="!showDmCallQuarterChrome && showGroupDmCallButton"
             type="button"
             class="dm-header-action-btn dm-header-action-btn--call"
-            :title="localDmCallTargetsGroupThread ? 'Leave call' : 'Start call'"
+            :title="
+              localDmCallTargetsGroupThread
+                ? echoT('b01.leaveCall')
+                : echoT('b01.startCall')
+            "
             :aria-label="
-              localDmCallTargetsGroupThread ? 'Leave call' : 'Start call'
+              localDmCallTargetsGroupThread
+                ? echoT('b01.leaveCall')
+                : echoT('b01.startCall')
             "
             @click="
               localDmCallTargetsGroupThread
@@ -1705,8 +1740,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             :ref="pinsButtonRefDm"
             type="button"
             class="dm-header-action-btn"
-            title="Pinned messages"
-            aria-label="Pinned messages"
+            :title="echoT('b01.pinnedMessages')"
+            :aria-label="echoT('b01.pinnedMessages')"
             aria-haspopup="true"
             :aria-expanded="isPinsDropdownOpen"
             @click="togglePinsDropdown"
@@ -1717,8 +1752,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-if="activeGroupDM"
             type="button"
             class="dm-header-action-btn"
-            title="Add members"
-            aria-label="Add members"
+            :title="echoT('b01.addMembers')"
+            :aria-label="echoT('b01.addMembers')"
             @click="
               openGroupDMModal({
                 preselectedIds: activeGroupMemberIds.filter(
@@ -1741,8 +1776,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             "
             type="button"
             class="group-ellipsis-btn dm-header-action-btn"
-            title="More options"
-            aria-label="More options"
+            :title="echoT('b01.moreOptions')"
+            :aria-label="echoT('b01.moreOptions')"
             :aria-expanded="groupEllipsisMenuOpen"
             aria-haspopup="true"
             @click.stop="
@@ -1779,7 +1814,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             :total-results="searchResultMessagesCount"
             :current-page="searchResultPage"
             :total-pages="totalPages"
-            placeholder="Search in conversation"
+            :placeholder="echoT('b01.searchInConversation')"
             :reserved-right-px="360"
             :dropdown-gap-px="0"
             @update:model-value="onSearchInput"
@@ -1797,8 +1832,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-else
             type="button"
             class="dm-header-action-btn shrink-0"
-            title="Search"
-            aria-label="Search"
+            :title="echoT('b01.search')"
+            :aria-label="echoT('b01.search')"
             @click="isDmSearchMobileOpen = true"
           >
             <img :src="icons.search" alt="" class="dm-header-action-icon" />
@@ -1813,9 +1848,9 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
       <div
         v-if="activeDmThreadCallUi?.voiceE2ee"
         class="rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-emerald-700 dark:text-emerald-300"
-        title="Voice and shared video use end-to-end encryption for this chat (LiveKit E2EE). Requires a current web browser or Echo desktop with WebRTC insertable streams."
+        :title="echoT('b01.e2eeTitle')"
       >
-        Encrypted voice
+        {{ echoT('b01.encryptedVoice') }}
       </div>
       <div
         v-if="isGroupDM && activeGroupCallMembers.length"
@@ -1956,7 +1991,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
                 ? {
                     id: activeDmThreadCallUi?.glassPeer?.id ?? '',
                     name:
-                      activeDmThreadCallUi?.glassPeer?.name ?? 'Participant',
+                      activeDmThreadCallUi?.glassPeer?.name ??
+                      echoT('b01.participant'),
                   }
                 : {
                     id:
@@ -1966,7 +2002,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
                     name:
                       dmPartnerUser?.name ??
                       activeDmThreadCallUi?.glassPeer?.name ??
-                      'Participant',
+                      echoT('b01.participant'),
                   },
               $event,
             )
@@ -1990,11 +2026,11 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
               "
               :alt="
                 isGroupDmThread && activeGroupDM
-                  ? activeGroupDM.name || 'Group DM'
+                  ? activeGroupDM.name || echoT('b01.groupDm')
                   : dmPartnerUser?.name ||
                     activeDmThreadCallUi?.glassPeer?.name ||
                     activeGroupDM?.name ||
-                    'Group DM'
+                    echoT('b01.groupDm')
               "
               :session-key="
                 isGroupDmThread && activeGroupDM
@@ -2079,17 +2115,17 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-if="dmCallCanAnswerIncoming"
             type="button"
             class="rounded-full bg-emerald-500 px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-400"
-            title="Answer call"
-            aria-label="Answer call"
+            :title="echoT('b01.answerCall')"
+            :aria-label="echoT('b01.answerCall')"
             @click="answerDmCall()"
           >
-            Answer
+            {{ echoT('b01.answer') }}
           </button>
           <button
             type="button"
             class="dm-call-on-glass-btn dm-call-on-glass-btn--leave"
-            title="Decline call"
-            aria-label="Decline call"
+            :title="echoT('b01.declineCall')"
+            :aria-label="echoT('b01.declineCall')"
             @click="declineDmCall()"
           >
             <img :src="icons.logOut" alt="" class="app-inline-icon h-4 w-4" />
@@ -2097,8 +2133,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           <button
             type="button"
             class="dm-call-on-glass-btn"
-            title="Full screen"
-            aria-label="Full screen"
+            :title="echoT('b01.fullScreen')"
+            :aria-label="echoT('b01.fullScreen')"
             @click="onSetDmCallFullscreen(true)"
           >
             <svg
@@ -2121,21 +2157,29 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             type="button"
             class="rounded-full bg-emerald-500 px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-400"
             :title="
-              activeDmThreadCallUi?.visualOnly ? 'Join call' : 'Rejoin voice'
+              activeDmThreadCallUi?.visualOnly
+                ? echoT('b01.joinCall')
+                : echoT('b01.rejoinVoice')
             "
             :aria-label="
-              activeDmThreadCallUi?.visualOnly ? 'Join call' : 'Rejoin voice'
+              activeDmThreadCallUi?.visualOnly
+                ? echoT('b01.joinCall')
+                : echoT('b01.rejoinVoice')
             "
             @click="rejoinDmCallVoice()"
           >
-            {{ activeDmThreadCallUi?.visualOnly ? 'Join' : 'Rejoin' }}
+            {{
+              activeDmThreadCallUi?.visualOnly
+                ? echoT('b01.join')
+                : echoT('b01.rejoin')
+            }}
           </button>
           <button
             v-if="activeDmThreadCallUi?.visualOnly !== true"
             type="button"
             class="dm-call-on-glass-btn"
-            title="Full screen"
-            aria-label="Full screen"
+            :title="echoT('b01.fullScreen')"
+            :aria-label="echoT('b01.fullScreen')"
             @click="onSetDmCallFullscreen(true)"
           >
             <svg
@@ -2158,8 +2202,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             "
             type="button"
             class="dm-call-on-glass-btn"
-            title="Audio settings"
-            aria-label="Audio settings"
+            :title="echoT('b01.audioSettings')"
+            :aria-label="echoT('b01.audioSettings')"
             @click="onOpenVoiceAudioSettings()"
           >
             <img :src="icons.settings" alt="" class="app-inline-icon h-4 w-4" />
@@ -2168,8 +2212,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-if="activeDmThreadCallUi?.visualOnly !== true"
             type="button"
             class="dm-call-on-glass-btn dm-call-on-glass-btn--leave"
-            title="End call"
-            aria-label="End call"
+            :title="echoT('b01.endCall')"
+            :aria-label="echoT('b01.endCall')"
             @click="endDmCall()"
           >
             <img :src="icons.logOut" alt="" class="app-inline-icon h-4 w-4" />
@@ -2190,8 +2234,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
               'dm-call-on-glass-btn--active': dmCallVideo,
               'dm-call-on-glass-btn--video-on': dmCallVideo,
             }"
-            title="Video"
-            aria-label="Video"
+            :title="echoT('b01.video')"
+            :aria-label="echoT('b01.video')"
             @click="onToggleDmCallVideo"
           >
             <img :src="icons.cameraOn" alt="" class="app-inline-icon h-4 w-4" />
@@ -2203,8 +2247,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
               'dm-call-on-glass-btn--active': dmCallScreenshare,
               'dm-call-on-glass-btn--screenshare-on': dmCallScreenshare,
             }"
-            title="Share screen"
-            aria-label="Share screen"
+            :title="echoT('b01.shareScreen')"
+            :aria-label="echoT('b01.shareScreen')"
             @click="onToggleDmCallScreenshare"
           >
             <img :src="icons.desktop" alt="" class="app-inline-icon h-4 w-4" />
@@ -2216,8 +2260,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             :class="{
               'dm-call-on-glass-btn--active': quarterCallStreamOverlayActive,
             }"
-            title="View stream"
-            aria-label="View stream"
+            :title="echoT('b01.viewStream')"
+            :aria-label="echoT('b01.viewStream')"
             @click="onQuarterCallShowStream"
           >
             <img
@@ -2230,8 +2274,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             type="button"
             class="dm-call-on-glass-btn"
             :class="{ 'dm-call-on-glass-btn--active': dmCallMuted }"
-            title="Mute"
-            aria-label="Mute"
+            :title="echoT('b01.mute')"
+            :aria-label="echoT('b01.mute')"
             @click="onToggleDmCallMuted"
           >
             <span class="relative inline-flex">
@@ -2252,8 +2296,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             type="button"
             class="dm-call-on-glass-btn"
             :class="{ 'dm-call-on-glass-btn--active': dmCallDeafened }"
-            title="Deafen"
-            aria-label="Deafen"
+            :title="echoT('b01.deafen')"
+            :aria-label="echoT('b01.deafen')"
             @click="onToggleDmCallDeafened"
           >
             <span class="relative inline-flex">
@@ -2273,8 +2317,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           <button
             type="button"
             class="dm-call-on-glass-btn"
-            title="Full screen"
-            aria-label="Full screen"
+            :title="echoT('b01.fullScreen')"
+            :aria-label="echoT('b01.fullScreen')"
             @click="onSetDmCallFullscreen(true)"
           >
             <svg
@@ -2294,8 +2338,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-if="onOpenVoiceAudioSettings"
             type="button"
             class="dm-call-on-glass-btn"
-            title="Audio settings"
-            aria-label="Audio settings"
+            :title="echoT('b01.audioSettings')"
+            :aria-label="echoT('b01.audioSettings')"
             @click="onOpenVoiceAudioSettings()"
           >
             <img :src="icons.settings" alt="" class="app-inline-icon h-4 w-4" />
@@ -2303,8 +2347,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           <button
             type="button"
             class="dm-call-on-glass-btn dm-call-on-glass-btn--leave"
-            title="Leave call"
-            aria-label="Leave call"
+            :title="echoT('b01.leaveCall')"
+            :aria-label="echoT('b01.leaveCall')"
             @click="leaveDmCallVoice()"
           >
             <img :src="icons.logOut" alt="" class="app-inline-icon h-4 w-4" />
@@ -2331,7 +2375,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           role="menuitem"
           @click="callOpenGroupSettingsFromEllipsis"
         >
-          Group settings
+          {{ echoT('b01.groupSettings') }}
         </button>
         <button
           type="button"
@@ -2339,7 +2383,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           role="menuitem"
           @click="callLeaveGroupDm"
         >
-          Leave group
+          {{ echoT('b01.leaveGroup') }}
         </button>
       </div>
     </Teleport>
@@ -2374,7 +2418,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             aria-hidden="true"
             >@</span
           >
-          Mention
+          {{ echoT('b01.mention') }}
         </button>
         <div
           v-if="quarterCallMenuHasVolumeControl()"
@@ -2388,7 +2432,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
               alt=""
               class="app-inline-icon h-3.5 w-3.5 shrink-0 opacity-80"
             />
-            Their volume
+            {{ echoT('b01.theirVolume') }}
           </p>
           <button
             type="button"
@@ -2399,12 +2443,16 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             :aria-pressed="quarterCallMenuMuted"
             :title="
               quarterCallMenuMuted
-                ? 'Restore their audio for you'
-                : 'Mute their audio for you only'
+                ? echoT('b01.restoreTheirAudio')
+                : echoT('b01.muteTheirAudio')
             "
             @click="toggleQuarterCallMuteForMe"
           >
-            {{ quarterCallMenuMuted ? 'Unmute for me' : 'Mute for me' }}
+            {{
+              quarterCallMenuMuted
+                ? echoT('b01.unmuteForMe')
+                : echoT('b01.muteForMe')
+            }}
           </button>
         </div>
         <div
@@ -2418,7 +2466,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             max="200"
             step="1"
             :value="quarterCallMenuVolumeDraft"
-            aria-label="Participant volume"
+            :aria-label="echoT('b01.participantVolume')"
             @input="onQuarterCallVolumeInput"
           />
           <span
@@ -2432,7 +2480,11 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
 
     <MobileSearchModal
       v-if="isCompactShell && isServerSearchMobileOpen"
-      :title="`Search ${selectedServerName ?? ''}`.trim() || 'Search'"
+      :title="
+        selectedServerName
+          ? echoT('b01.searchNamed', { name: selectedServerName })
+          : echoT('b01.search')
+      "
       :model-value="searchText"
       :filter-chips="filterChips"
       :channels="searchFilterChannels"
@@ -2442,7 +2494,11 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
       :total-results="searchResultMessagesCount"
       :current-page="searchResultPage"
       :total-pages="totalPages"
-      :placeholder="`Search ${selectedServerName ?? ''}`.trim() || 'Search'"
+      :placeholder="
+        selectedServerName
+          ? echoT('b01.searchNamed', { name: selectedServerName })
+          : echoT('b01.search')
+      "
       :search-loading="searchLoading"
       :search-error="searchError"
       :search-scope-hint="searchScopeHint"

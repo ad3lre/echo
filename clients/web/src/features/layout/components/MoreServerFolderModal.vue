@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, toRef } from 'vue';
+import { echoT } from '@/i18n';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useAutofocusOnOpen } from '@/features/layout/useAutofocusOnOpen';
 
@@ -31,20 +32,23 @@ useFocusTrap(modalRef, toRef(props, 'modelValue'));
 useAutofocusOnOpen(toRef(props, 'modelValue'), nameInputRef);
 
 const title = computed(() =>
-  props.mode === 'create' ? 'New widget folder' : 'Edit widget folder',
+  props.mode === 'create'
+    ? echoT('b41.folderModal.newTitle')
+    : echoT('b41.folderModal.editTitle'),
 );
 
 const subtitle = computed(() =>
   props.mode === 'create'
-    ? 'Group Extra servers on this device. Drag icons to reorder, or right-click in compact view to assign servers.'
-    : 'Rename or delete this folder. Guild memberships are unchanged — only this local grouping is removed.',
+    ? echoT('b41.folderModal.createSub')
+    : echoT('b41.folderModal.editSub'),
 );
 
 watch(
   () => [props.modelValue, props.mode, props.initialName] as const,
   ([open]) => {
     if (!open) return;
-    name.value = props.initialName?.trim() || 'New folder';
+    name.value =
+      props.initialName?.trim() || echoT('b41.folderModal.defaultName');
     confirmDelete.value = false;
   },
   { immediate: true },
@@ -94,7 +98,7 @@ function submitDelete() {
           <span
             class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-fg-subtle"
           >
-            Folder name
+            {{ echoT('b41.folderModal.folderName') }}
           </span>
           <input
             ref="nameInputRef"
@@ -102,7 +106,7 @@ function submitDelete() {
             type="text"
             maxlength="48"
             class="msf-name-input w-full rounded-lg border border-border px-3 py-2.5 text-sm text-fg outline-none transition focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-            placeholder="e.g. Communities, Work, Favorites"
+            :placeholder="echoT('b41.folderModal.placeholder')"
             @keydown.enter.prevent="submitSave"
           />
         </label>
@@ -111,16 +115,21 @@ function submitDelete() {
           v-if="mode === 'edit' && serverCount > 0"
           class="mt-3 text-xs text-fg-subtle"
         >
-          {{ serverCount }} server{{ serverCount === 1 ? '' : 's' }} in this
-          folder — drag icons in the panel to add, remove, or reorder.
+          {{
+            echoT(
+              serverCount === 1
+                ? 'b41.folderModal.countOne'
+                : 'b41.folderModal.countMany',
+              { count: serverCount },
+            )
+          }}
         </p>
 
         <div
           v-if="mode === 'edit' && confirmDelete"
           class="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-fg"
         >
-          Delete “{{ initialName }}”? Servers stay in Extra servers; only the
-          folder grouping is removed.
+          {{ echoT('b41.folderModal.confirmDeleteMsg', { name: initialName }) }}
         </div>
 
         <div class="mt-6 flex flex-wrap items-center justify-end gap-2">
@@ -130,10 +139,14 @@ function submitDelete() {
             class="msf-btn msf-btn--danger mr-auto"
             @click="submitDelete"
           >
-            {{ confirmDelete ? 'Confirm delete' : 'Delete folder' }}
+            {{
+              confirmDelete
+                ? echoT('b41.folderModal.confirmDelete')
+                : echoT('b41.folderModal.deleteFolder')
+            }}
           </button>
           <button type="button" class="msf-btn msf-btn--ghost" @click="close">
-            Cancel
+            {{ echoT('b41.folderModal.cancel') }}
           </button>
           <button
             type="button"
@@ -141,7 +154,11 @@ function submitDelete() {
             :disabled="!name.trim()"
             @click="submitSave"
           >
-            {{ mode === 'create' ? 'Create folder' : 'Save' }}
+            {{
+              mode === 'create'
+                ? echoT('b41.folderModal.createFolder')
+                : echoT('b41.folderModal.save')
+            }}
           </button>
         </div>
       </div>

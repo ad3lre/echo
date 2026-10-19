@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import { reloadEchoApp } from '@/platform/reloadEchoApp';
 
@@ -18,10 +19,10 @@ const errorDetail = computed(() => {
   const m = props.error?.message?.trim();
   if (!m) return null;
   if (/^Async component timed out after \d+ms\.$/.test(m)) {
-    return 'The download took too long and was stopped. Check your network and try again.';
+    return echoT('layout.loadError.timeout');
   }
   if (/Failed to fetch|Load failed|network/i.test(m)) {
-    return 'We could not reach the server to load this part of the app. Check your connection.';
+    return echoT('layout.loadError.unreachable');
   }
   return null;
 });
@@ -34,16 +35,17 @@ const errorDetail = computed(() => {
     aria-live="assertive"
   >
     <div class="echo-app-load-error__inner">
-      <p class="echo-app-load-error__title">Couldn’t load Echo</p>
+      <p class="echo-app-load-error__title">
+        {{ echoT('layout.loadError.title') }}
+      </p>
       <p v-if="errorDetail" class="echo-app-load-error__detail">
         {{ errorDetail }}
       </p>
       <p v-else class="echo-app-load-error__detail">
-        Something went wrong while loading the app. Try refreshing, or come back
-        in a moment.
+        {{ echoT('layout.loadError.generic') }}
       </p>
       <button type="button" class="echo-app-load-error__retry" @click="reload">
-        Refresh page
+        {{ echoT('common.refreshPage') }}
       </button>
     </div>
   </div>

@@ -1,0 +1,114 @@
+{
+  "sidebar": {
+    "kicker": "Kanal",
+    "typeTitle": "Kanaltyp",
+    "voiceChannel": "Sprachkanal",
+    "forumChannel": "Forum-Kanal",
+    "textChannel": "Textkanal",
+    "settings": "Einstellungen",
+    "serverDesc": "Konfiguriere diesen Kanal für {serverName}."
+  },
+  "common": {
+    "close": "Schließen",
+    "syncWithCategory": "Mit Kategorie synchronisieren",
+    "off": "Aus"
+  },
+  "slowmodeOptions": {
+    "0": "Aus",
+    "5": "5 Sekunden",
+    "10": "10 Sekunden",
+    "15": "15 Sekunden",
+    "30": "30 Sekunden",
+    "60": "1 Minute",
+    "300": "5 Minuten",
+    "600": "10 Minuten",
+    "900": "15 Minuten",
+    "3600": "1 Stunde",
+    "21600": "6 Stunden",
+    "86400": "24 Stunden"
+  },
+  "autoDeleteOptions": {
+    "off": "Aus",
+    "86400": "1 Tag",
+    "604800": "7 Tage",
+    "2592000": "30 Tage"
+  },
+
+  "overview": {
+    "name": "Name",
+    "category": "Kategorie",
+    "namePlaceholder": "kanalname",
+    "slowmode": "Langsammodus",
+    "slowmodeHint": "Wartezeit zwischen Nachrichten pro Mitglied.",
+    "nsfw": "Altersbeschränkt (NSFW)",
+    "nsfwHint": "Mitglieder müssen ihr Alter bestätigen, bevor sie den Kanal sehen.",
+    "nsfwAria": "Altersbeschränkter Kanal"
+  },
+  "paper": {
+    "title": "Paper",
+    "hint": "Gemeinsames Dokument mit Live-Zusammenarbeit und Randkommentaren.",
+    "allowComments": "Randkommentare erlauben",
+    "showAuthors": "Autorennamen am Rand anzeigen",
+    "shareVisibility": "Sichtbarkeit beim Teilen",
+    "shareVisibilityHint": "Wer dieses Paper über einen Freigabelink öffnen kann.",
+    "serverMembers": "Servermitglieder (RBAC)",
+    "authorsOnly": "Nur Autoren",
+    "anyoneWithLink": "Jeder mit Link"
+  },
+  "voice": {
+    "userLimit": "Nutzerlimit",
+    "bitrate": "Bitrate",
+    "useServerDefault": "Server-Standard verwenden",
+    "useServerDefaultAria": "Standard-Bitrate des Servers verwenden",
+    "e2ee": "Ende-zu-Ende-Verschlüsselung",
+    "e2eeHint": "LiveKit E2EE für Sprache und Kamera. Keine Aufnahme, Transkription oder Audio-Bots.",
+    "e2eeAria": "Ende-zu-Ende-Verschlüsselung für Sprache",
+    "bitrateHint": "Wenn aus, kannst du unten {min}–{max} kbps wählen.",
+    "default": "Standard",
+    "kbps": "{value} kbit/s"
+  },
+
+  "format": {
+    "defaultText": "Standard-Nachrichtentext",
+    "enforcement": "Durchsetzung",
+    "soft": "Weich",
+    "hard": "Hart",
+    "softHint": "Nutzer können den Standardtext löschen oder bearbeiten.",
+    "hardHint": "Das Präfix bleibt am Anfang der Eingabe und muss in gesendeten Nachrichten vorkommen.",
+    "intro": "Dieser Text wird für alle im Kanal in das Nachrichtenfeld eingefügt. Nutze {soft}, wenn er ein entfernbarer Standard sein soll, oder {hard}, um ihn als festes Präfix beizubehalten (wird auch beim Senden erzwungen)."
+  },
+  "forum": {
+    "managePost": "Beitrag verwalten (anheften, sperren, archivieren, Tags)",
+    "managePostHint": "Erlaubt dem Autor, Anheften, Sperren, Archivieren und Tags zu ändern, ohne „Kanal verwalten“ für den Beitrag zu haben.",
+    "deleteOwn": "Eigenen Beitrag löschen",
+    "deleteOwnHint": "Erlaubt dem Autor, den gesamten Beitragskanal (Thread) zu löschen.",
+    "deleteOthers": "Nachrichten anderer in seinem Beitrag löschen",
+    "deleteOthersHint": "Wie eingeschränkte Nachrichtenmoderation, nur im eigenen Thread.",
+    "intro": "Mitglieder, die einen Beitrag starten, erhalten diese Extras nur für {own} Thread. Serverrollen und Kanalberechtigungen gelten weiterhin für alles andere.",
+    "own": "ihren eigenen"
+  },
+  "danger": {
+    "intro": "Diese Aktionen sind heikel und möglicherweise nicht rückgängig zu machen. Geh vorsichtig vor.",
+    "autoDelete": "Nachrichten automatisch löschen",
+    "autoDeleteHint": "Entfernt Nachrichten, die älter als der Aufbewahrungszeitraum sind. Bei Synchronisierung gilt die Einstellung der Kategorie. Gelöschte Nachrichten bleiben 14 Tage in der Datenbank, bevor sie endgültig entfernt werden.",
+    "inherited": "Von der Kategorie übernommen: {value}",
+    "retention": "Aufbewahrung",
+    "deleteChannel": "Kanal löschen",
+    "deleteDesc": "{name} endgültig löschen. Alle Nachrichten in diesem Kanal werden entfernt. Das kann nicht rückgängig gemacht werden."
+  },
+  "perm": {
+    "paperNote": "Berechtigungen gelten, wenn die Sichtbarkeit beim Teilen auf {mode} steht. Ändere die Sichtbarkeit im Tab „Übersicht“, um die Berechtigungssteuerung zu aktivieren.",
+    "syncHint": "Wenn aktiviert, übernimmt dieser Kanal die Überschreibungen der Kategorie {category}. Deaktiviere es, um kanalspezifische Regeln für Rollen oder einzelne Mitglieder festzulegen.",
+    "inheriting": "Dieser Kanal übernimmt derzeit die Berechtigungen von {category}. Deaktiviere die Synchronisierung, um kanalspezifische Überschreibungen hinzuzufügen.",
+    "defaultsHint": "Wenn aktiviert, nutzt dieser Kanal die Standards von {category} (in den Kategorieeinstellungen bearbeiten). Deaktiviere es, um Überschreibungen nur für diesen Kanal festzulegen.",
+    "showingDefaults": "Standards für {category} werden angezeigt – bearbeite sie über das Zahnrad dieser Kategorie in der Seitenleiste. Entferne oben den Haken bei „Synchronisieren“, um nur diesen Kanal zu überschreiben."
+  },
+  "footer": {
+    "changesApply": "Änderungen werden beim Speichern übernommen.",
+    "cancel": "Abbrechen"
+  },
+  "confirm": {
+    "title": "Kanal „{label}“ löschen?",
+    "message": "Das kann nicht rückgängig gemacht werden.\n\nAlle Nachrichten in diesem Kanal werden aus dem Mock entfernt."
+  }
+}

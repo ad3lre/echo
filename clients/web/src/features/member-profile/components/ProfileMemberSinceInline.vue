@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { isGuildMemberProfileContext } from '@/features/member-profile/memberProfiles';
@@ -54,7 +55,9 @@ const guildIconAlt = computed(() => {
         d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"
       />
     </svg>
-    <span class="profile-member-since-inline__label">Member since</span>
+    <span class="profile-member-since-inline__label">{{
+      echoT('memberProfile.memberSince')
+    }}</span>
     <span class="profile-member-since-inline__date">{{ date }}</span>
   </div>
 </template>

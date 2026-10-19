@@ -1,0 +1,22 @@
+{
+  "createChannel": "Kanal erstellen",
+  "createCategory": "Kategorie erstellen",
+  "channelSettings": "Kanaleinstellungen",
+  "invitePeople": "Leute einladen",
+  "notificationSettings": "Benachrichtigungseinstellungen",
+  "markAsRead": "Als gelesen markieren",
+  "editChannel": "Kanal bearbeiten",
+  "deleteChannel": "Kanal löschen",
+  "cloneChannel": "Kanal klonen",
+  "copyLink": "Link kopieren",
+  "copyId": "ID kopieren",
+  "muteChannel": "Kanal stummschalten",
+  "unmuteChannel": "Stummschaltung des Kanals aufheben",
+  "textChannel": "Textkanal",
+  "voiceChannel": "Sprachkanal",
+  "stageChannel": "Stage-Kanal",
+  "forumChannel": "Forum-Kanal",
+  "category": "Kategorie",
+  "noChannels": "Noch keine Kanäle",
+  "searchChannels": "Kanäle durchsuchen"
+}

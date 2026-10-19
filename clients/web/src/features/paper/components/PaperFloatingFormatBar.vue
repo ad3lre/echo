@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import type { Editor } from '@tiptap/core';
 import type { usePaperImageUpload } from '@/features/paper/composables/usePaperImageUpload';
@@ -77,7 +78,7 @@ const barStyle = computed(() => {
 });
 
 const fontSizeDisplay = computed(() => {
-  if (fmt.value.fontSizeMixed) return 'Mixed';
+  if (fmt.value.fontSizeMixed) return echoT('b16.paperFormat.mixed');
   if (fmt.value.fontSizePx != null) {
     return String(fmt.value.fontSizePx);
   }
@@ -92,12 +93,17 @@ const fontSizeStepKeyHint =
 
 const fontSizeTitle = computed(() => {
   if (fmt.value.fontSizeMixed) {
-    return `Font size: mixed · ${fontSizeStepKeyHint}`;
+    return echoT('b16.paperFormat.fontSizeMixedTitle', {
+      hint: fontSizeStepKeyHint,
+    });
   }
   const px = fmt.value.fontSizePx;
   return px != null
-    ? `Font size: ${px}px · ${fontSizeStepKeyHint}`
-    : `Font size · ${fontSizeStepKeyHint}`;
+    ? echoT('b16.paperFormat.fontSizePxTitle', {
+        px,
+        hint: fontSizeStepKeyHint,
+      })
+    : echoT('b16.paperFormat.fontSizeTitle', { hint: fontSizeStepKeyHint });
 });
 
 const letterSpacingSliderModel = computed({
@@ -125,11 +131,11 @@ const lineHeightSliderLabel = computed(() =>
   formatLineHeightLabel(fmt.value.lineHeight, fmt.value.lineHeightMixed),
 );
 
-const textOutlinePresetOptions: EchoDropdownOption[] = [
-  { label: 'Off', value: '' },
-  { label: 'Thin', value: 'thin' },
-  { label: 'Medium', value: 'medium' },
-];
+const textOutlinePresetOptions = computed<EchoDropdownOption[]>(() => [
+  { label: echoT('b16.paperFormat.off'), value: '' },
+  { label: echoT('b16.paperFormat.thin'), value: 'thin' },
+  { label: echoT('b16.paperFormat.medium'), value: 'medium' },
+]);
 
 const fontSizePresetOptions = computed<EchoDropdownOption[]>(() =>
   PAPER_FONT_SIZE_PRESETS.map((px) => ({
@@ -281,10 +287,21 @@ function onImageUrlConfirm(src: string) {
   if (!editor || !src) return;
   imageUrlError.value = null;
   if (!props.imageUpload.insertImageUrl(editor, src)) {
-    imageUrlError.value = 'That URL is not allowed for images.';
+    imageUrlError.value = echoT('b16.paperFormat.urlNotAllowed');
     imageUrlDialogOpen.value = true;
   }
 }
+
+function markTitle(label: string, state: TriState) {
+  return state === 'mixed'
+    ? echoT('b16.paperFormat.markMixedTitle', { label })
+    : label;
+}
+
+const alignLabel = computed(() => {
+  const a = fmt.value.textAlign === 'mixed' ? 'left' : fmt.value.textAlign;
+  return echoT('b16.paperFormat.align.' + a);
+});
 
 function triBtnClass(state: TriState) {
   if (state === 'mixed') {
@@ -416,7 +433,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
     class="paper-format-bar paper-floating-format-bar pointer-events-none fixed bottom-6 z-40"
     :style="barStyle"
     role="toolbar"
-    aria-label="Formatting"
+    :aria-label="echoT('b16.paperFormat.formatting')"
   >
     <div
       class="pointer-events-auto flex max-w-[min(100vw-1.5rem,56rem)] items-center gap-0.5 overflow-x-auto overflow-y-visible rounded-full border border-border px-1.5 py-1 shadow-lg backdrop-blur-md"
@@ -437,7 +454,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         <button
           type="button"
           class="paper-format-size-step"
-          aria-label="Decrease font size"
+          :aria-label="echoT('b16.paperFormat.decreaseFontSize')"
           :disabled="!canDecreaseFontSize"
           @mousedown.prevent="stepFontSize('down')"
         >
@@ -447,9 +464,11 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
           type="text"
           class="paper-format-size-input"
           :readonly="fmt.fontSizeMixed"
-          :placeholder="fmt.fontSizeMixed ? 'Mixed' : 'px'"
+          :placeholder="
+            fmt.fontSizeMixed ? echoT('b16.paperFormat.mixed') : 'px'
+          "
           :value="fontSizeDisplay"
-          aria-label="Font size in pixels"
+          :aria-label="echoT('b16.paperFormat.fontSizePx')"
           @change="onFontSizeInput"
         />
         <PaperFormatPresetMenu
@@ -464,7 +483,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         <button
           type="button"
           class="paper-format-size-step"
-          aria-label="Increase font size"
+          :aria-label="echoT('b16.paperFormat.increaseFontSize')"
           :disabled="!canIncreaseFontSize"
           @mousedown.prevent="stepFontSize('up')"
         >
@@ -473,7 +492,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
       </div>
 
       <PaperColorControl
-        label="Text color"
+        :label="echoT('b16.paperFormat.textColor')"
         :color="fmtColors.textColor"
         :mixed="fmtColors.textMixed"
         :is-default="fmtColors.textIsDefault"
@@ -485,7 +504,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
       />
 
       <PaperColorControl
-        label="Highlight"
+        :label="echoT('b16.paperFormat.highlight')"
         variant="highlight"
         :color="fmtColors.highlightColor"
         :mixed="fmtColors.highlightMixed"
@@ -501,8 +520,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         type="button"
         class="paper-format-btn"
         :class="{ 'paper-format-btn--active': fmt.textAlign !== 'left' }"
-        :title="`Align: ${fmt.textAlign === 'mixed' ? 'left' : fmt.textAlign} (click to cycle)`"
-        aria-label="Cycle alignment"
+        :title="echoT('b16.paperFormat.alignTitle', { align: alignLabel })"
+        :aria-label="echoT('b16.paperFormat.cycleAlignment')"
         @click="cycleAlign"
       >
         <svg
@@ -560,8 +579,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
       <button
         type="button"
         :class="triBtnClass(fmt.bold)"
-        :title="`Bold${fmt.bold === 'mixed' ? ': mixed' : ''}`"
-        aria-label="Bold"
+        :title="markTitle(echoT('b16.paperFormat.bold'), fmt.bold)"
+        :aria-label="echoT('b16.paperFormat.bold')"
         @click="runMarkToggle('toggleBold')"
       >
         <svg
@@ -578,8 +597,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
       <button
         type="button"
         :class="triBtnClass(fmt.italic)"
-        :title="`Italic${fmt.italic === 'mixed' ? ': mixed' : ''}`"
-        aria-label="Italic"
+        :title="markTitle(echoT('b16.paperFormat.italic'), fmt.italic)"
+        :aria-label="echoT('b16.paperFormat.italic')"
         @click="runMarkToggle('toggleItalic')"
       >
         <svg
@@ -597,8 +616,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
       <button
         type="button"
         :class="triBtnClass(fmt.strike)"
-        :title="`Strikethrough${fmt.strike === 'mixed' ? ': mixed' : ''}`"
-        aria-label="Strikethrough"
+        :title="markTitle(echoT('b16.paperFormat.strikethrough'), fmt.strike)"
+        :aria-label="echoT('b16.paperFormat.strikethrough')"
         @click="runMarkToggle('toggleStrike')"
       >
         <svg
@@ -622,8 +641,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
       <button
         type="button"
         class="paper-format-btn paper-format-divider--hide-sm"
-        title="Insert image"
-        aria-label="Insert image"
+        :title="echoT('b16.paperFormat.insertImage')"
+        :aria-label="echoT('b16.paperFormat.insertImage')"
         :disabled="imageUpload.uploading.value"
         @click="onPickImage()"
       >
@@ -646,8 +665,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
           btnActive(!!ed?.isActive('bulletList')),
           'paper-format-divider--hide-sm',
         ]"
-        title="Bullet list"
-        aria-label="Bullet list"
+        :title="echoT('b16.paperFormat.bulletList')"
+        :aria-label="echoT('b16.paperFormat.bulletList')"
         @click="runListToggle('toggleBulletList')"
       >
         <svg
@@ -670,8 +689,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         <button
           type="button"
           class="paper-format-btn"
-          title="More"
-          aria-label="More formatting"
+          :title="echoT('b16.paperFormat.more')"
+          :aria-label="echoT('b16.paperFormat.moreFormatting')"
           :aria-expanded="moreMenuOpen"
           @mousedown.prevent
           @click="moreMenuOpen = !moreMenuOpen"
@@ -704,7 +723,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
                 closeMoreMenu();
               "
             >
-              Link…
+              {{ echoT('b16.paperFormat.link') }}
             </button>
             <button
               type="button"
@@ -715,7 +734,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
                 closeMoreMenu();
               "
             >
-              Upload image
+              {{ echoT('b16.paperFormat.uploadImage') }}
             </button>
             <button
               type="button"
@@ -725,13 +744,13 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
                 closeMoreMenu();
               "
             >
-              Image from URL…
+              {{ echoT('b16.paperFormat.imageFromUrl') }}
             </button>
             <div class="my-1 border-t border-border" />
             <div class="px-2 pb-2" @click.stop>
               <PaperTypographySlider
                 v-model="letterSpacingSliderModel"
-                label="Letter spacing"
+                :label="echoT('b16.paperFormat.letterSpacing')"
                 :min="PAPER_LETTER_SPACING_RANGE.min"
                 :max="PAPER_LETTER_SPACING_RANGE.max"
                 :step="PAPER_LETTER_SPACING_RANGE.step"
@@ -743,7 +762,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
             <div class="px-2 pb-2" @click.stop>
               <PaperTypographySlider
                 v-model="lineHeightSliderModel"
-                label="Line height"
+                :label="echoT('b16.paperFormat.lineHeight')"
                 :min="PAPER_LINE_HEIGHT_RANGE.min"
                 :max="PAPER_LINE_HEIGHT_RANGE.max"
                 :step="PAPER_LINE_HEIGHT_RANGE.step"
@@ -755,7 +774,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
             <div
               class="paper-heading-item paper-heading-item--disabled text-xs text-fg-subtle"
             >
-              Text outline
+              {{ echoT('b16.paperFormat.textOutline') }}
             </div>
             <div class="flex gap-1 px-2 pb-2">
               <button
@@ -792,7 +811,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
                   closeMoreMenu();
                 "
               >
-                ← Outdent
+                {{ echoT('b16.paperFormat.outdent') }}
               </button>
               <button
                 type="button"
@@ -803,7 +822,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
                   closeMoreMenu();
                 "
               >
-                Indent →
+                {{ echoT('b16.paperFormat.indent') }}
               </button>
             </div>
           </div>
@@ -817,8 +836,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
       <button
         type="button"
         class="paper-format-btn paper-format-divider--hide-sm"
-        title="Undo"
-        aria-label="Undo"
+        :title="echoT('b16.paperFormat.undo')"
+        :aria-label="echoT('b16.paperFormat.undo')"
         :disabled="!ed?.can().undo()"
         @click="runUndo()"
       >
@@ -846,8 +865,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
 
   <PaperPromptDialog
     :open="linkDialogOpen"
-    title="Insert link"
-    label="URL"
+    :title="echoT('b16.paperFormat.insertLink')"
+    :label="echoT('b16.paperFormat.url')"
     placeholder="https://"
     :initial-value="(ed?.getAttributes('link').href as string) ?? 'https://'"
     @confirm="onLinkConfirm"
@@ -855,8 +874,8 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
   />
   <PaperPromptDialog
     :open="imageUrlDialogOpen"
-    title="Image from URL"
-    label="Image URL"
+    :title="echoT('b16.paperFormat.imageFromUrlTitle')"
+    :label="echoT('b16.paperFormat.imageUrl')"
     placeholder="https://"
     :error="imageUrlError"
     @confirm="onImageUrlConfirm"

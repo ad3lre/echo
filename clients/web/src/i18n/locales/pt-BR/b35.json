@@ -1,0 +1,77 @@
+{
+  "voiceMirror": {
+    "loadError": "Não foi possível carregar as configurações do espelho de voz.",
+    "saveError": "Não foi possível salvar as configurações do espelho de voz.",
+    "title": "Espelho de voz do Discord",
+    "desc": "Quando ativado, o Echo mostra listas ao vivo de participantes de voz do Discord para os canais de voz desta categoria. A entrada por voz no Echo continua desativada — use o Discord para participar da voz.",
+    "signIn": "Entre para configurar o espelho de voz.",
+    "guest": "Não disponível para sessões de convidado.",
+    "enable": "Espelhar a atividade de voz do Discord nesta categoria",
+    "catId": "ID da categoria do Discord (filtro opcional)",
+    "catIdPh": "Deixe vazio para espelhar todos os canais de voz do Discord nesta categoria do Echo",
+    "catIdHelp": "Quando definido, apenas os canais de voz do Discord sob este ID de categoria do Discord são espelhados nesta categoria do Echo. Modo desenvolvedor → clique com o botão direito na categoria do Discord → Copiar ID."
+  },
+  "common": {
+    "loading": "Carregando…",
+    "saving": "Salvando…",
+    "save": "Salvar"
+  },
+  "ytLive": {
+    "badge": "YouTube ao vivo",
+    "openStream": "Abrir transmissão",
+    "goLive": "Transmitir ao vivo no YouTube",
+    "modHint": "Um moderador com Gerenciar Canais pode iniciar a transmissão ao vivo no YouTube.",
+    "layoutTitle": "Layout do programa enviado ao YouTube",
+    "grid": "Grade",
+    "spotlight": "Destaque",
+    "screen": "Tela primeiro",
+    "end": "Encerrar transmissão"
+  },
+  "lobby": {
+    "close": "Fechar",
+    "voiceChannel": "Canal de voz",
+    "voice": "Voz",
+    "empty": "Ninguém aqui ainda — seja o primeiro.",
+    "join": "Entrar na voz",
+    "unmuteMic": "Reativar microfone",
+    "muteMic": "Silenciar microfone",
+    "unmute": "Reativar som",
+    "mute": "Silenciar",
+    "openChat": "Abrir o chat sem entrar",
+    "chat": "Chat",
+    "settings": "Configurações"
+  },
+  "ticket": {
+    "subjectRequired": "O assunto é obrigatório",
+    "categoryRequired": "Selecione uma categoria",
+    "failed": "Falha ao criar o ticket",
+    "title": "Criar um ticket",
+    "intro": "Envie uma denúncia ou dúvida. Um canal privado será criado para você conversar com a equipe do servidor.",
+    "subject": "Assunto *",
+    "subjectPh": "Breve descrição do seu problema",
+    "select": "Selecione...",
+    "cancel": "Cancelar",
+    "creating": "Criando...",
+    "create": "Criar ticket"
+  },
+  "ringtone": {
+    "waiting": "Música de espera",
+    "choose": "Escolher toque",
+    "none": "Nenhum toque disponível",
+    "label": "Toque",
+    "unmute": "Reativar toque",
+    "vol": "Vol",
+    "closePicker": "Fechar seletor de toques"
+  },
+  "bubble": {
+    "newerFormat": "Esta mensagem usa um formato mais recente e não pôde ser exibida.",
+    "cannotDisplay": "Não foi possível exibir esta mensagem.",
+    "noImageToCopy": "Nenhuma imagem para copiar",
+    "deleteTitle": "Excluir esta mensagem?",
+    "firstUnread": "Primeira mensagem não lida",
+    "new": "Novas",
+    "seeMore": "Ver mais",
+    "forwarded": "Encaminhada",
+    "jump": "Ir para a mensagem"
+  }
+}

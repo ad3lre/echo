@@ -25,8 +25,7 @@ onMounted(async () => {
   const token = readVerificationTokenFromLocation();
   if (!token) {
     busy.value = false;
-    errorMessage.value =
-      'This verification link is missing a token. Open the latest email from Echo or request a new link from Settings.';
+    errorMessage.value = echoT('auth.verifyPage.missingToken');
     return;
   }
   try {
@@ -39,9 +38,7 @@ onMounted(async () => {
   } catch (e) {
     busy.value = false;
     errorMessage.value =
-      e instanceof Error
-        ? e.message
-        : 'Verification failed. The link may have expired.';
+      e instanceof Error ? e.message : echoT('auth.verifyPage.failed');
   }
 });
 
@@ -54,16 +51,16 @@ const homeHref =
 <template>
   <div class="verify-page">
     <div class="verify-card">
-      <h1 class="verify-title">Verify your email</h1>
+      <h1 class="verify-title">{{ echoT('auth.verifyPage.title') }}</h1>
       <p v-if="busy" class="verify-lead" role="status">
-        Confirming your address…
+        {{ echoT('auth.verifyPage.confirming') }}
       </p>
       <template v-else>
         <p v-if="errorMessage" class="verify-error" role="alert">
           {{ errorMessage }}
         </p>
         <p class="verify-lead">
-          <a :href="homeHref">Return to Echo</a>
+          <a :href="homeHref">{{ echoT('auth.actions.returnToEcho') }}</a>
         </p>
       </template>
     </div>

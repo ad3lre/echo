@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  channelPermissionLabel,
+  messageAutoDeleteOptionLabel,
+  permissionGroupLabel,
+} from '@/i18n/labels';
+import { echoT } from '@/i18n';
 import { computed, ref, watch, toRef } from 'vue';
 import type { ChannelPermissionKey } from '@shared/types';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
@@ -17,7 +23,6 @@ import type {
   PermissionOverwriteRowDraft,
 } from '@/features/channel-settings/types';
 import {
-  CATEGORY_TAB_COPY,
   getCategoryPermissionDefsForUi,
   stripHiddenChannelPermissionPartial,
   groupChannelPermissionDefs,
@@ -70,6 +75,12 @@ const permissionGroupsList = computed(() =>
 );
 const echoPermissionDefs = computed(() =>
   getCategoryPermissionDefsForUi().filter((def) => def.group !== 'Threads'),
+);
+const autoDeleteDropdownOptions = computed(() =>
+  MESSAGE_AUTO_DELETE_OPTIONS.map((o) => ({
+    value: o.value,
+    label: messageAutoDeleteOptionLabel(o.value),
+  })),
 );
 
 function syncFromProps() {
@@ -294,9 +305,11 @@ async function confirmDeleteCategory() {
   const label = props.categorySettings.name;
   const n = channelCount.value;
   const ok = await requestAppConfirm({
-    title: `Delete category “${label}”?`,
-    message: `Delete this category and all ${n} channel${n === 1 ? '' : 's'} inside it? This cannot be undone.`,
-    confirmLabel: 'Delete category',
+    title: echoT('b23.cat.confirmTitle', { label }),
+    message: echoT(n === 1 ? 'b23.cat.confirmOne' : 'b23.cat.confirmMany', {
+      n,
+    }),
+    confirmLabel: echoT('b23.cat.deleteCategory'),
     danger: true,
   });
   if (!ok) return;
@@ -327,7 +340,7 @@ async function confirmDeleteCategory() {
             <div
               class="text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-soft"
             >
-              Category
+              {{ echoT('b23.cat.category') }}
             </div>
             <h2
               id="category-settings-title"
@@ -336,7 +349,7 @@ async function confirmDeleteCategory() {
               {{ categoryName || categorySettings.name }}
             </h2>
             <p class="mt-1 text-sm text-muted">
-              Defaults for channels that sync with this category.
+              {{ echoT('b23.cat.sidebarDesc') }}
             </p>
           </div>
 
@@ -344,7 +357,7 @@ async function confirmDeleteCategory() {
             <div
               class="category-settings-sidebar-kicker px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
             >
-              Settings
+              {{ echoT('b23.cat.settings') }}
             </div>
             <div class="flex flex-col gap-1">
               <button
@@ -362,7 +375,7 @@ async function confirmDeleteCategory() {
                     class="h-4 w-4 shrink-0 object-contain server-settings-inline-icon"
                   />
                   <span class="truncate">{{
-                    CATEGORY_TAB_COPY[tab].title
+                    echoT(`b23.tab.${tab}.title`)
                   }}</span>
                 </div>
               </button>
@@ -378,7 +391,7 @@ async function confirmDeleteCategory() {
               <div
                 class="text-xs font-semibold uppercase tracking-[0.18em] text-fg-soft"
               >
-                Category
+                {{ echoT('b23.cat.category') }}
               </div>
               <div class="mt-2 flex items-center gap-3">
                 <img
@@ -387,11 +400,11 @@ async function confirmDeleteCategory() {
                   class="h-6 w-6 shrink-0 object-contain server-settings-inline-icon"
                 />
                 <h3 class="text-3xl font-bold text-foreground">
-                  {{ CATEGORY_TAB_COPY[activeTab].title }}
+                  {{ echoT(`b23.tab.${activeTab}.title`) }}
                 </h3>
               </div>
               <p class="mt-2 max-w-2xl text-sm text-muted">
-                {{ CATEGORY_TAB_COPY[activeTab].description }}
+                {{ echoT(`b23.tab.${activeTab}.desc`) }}
               </p>
             </div>
 
@@ -400,7 +413,7 @@ async function confirmDeleteCategory() {
               class="close-btn category-settings-close-btn shrink-0 rounded-lg px-3 py-2 text-sm font-semibold transition-colors"
               @click="close"
             >
-              Close
+              {{ echoT('b23.cat.close') }}
             </button>
           </div>
 
@@ -412,10 +425,14 @@ async function confirmDeleteCategory() {
                 class="server-settings-panel-root server-settings-overview--borderless category-overview-flat pb-6"
               >
                 <section class="overview-stack space-y-4">
-                  <h4 class="overview-stack-heading">Basics</h4>
+                  <h4 class="overview-stack-heading">
+                    {{ echoT('b23.cat.basics') }}
+                  </h4>
                   <div>
-                    <label class="settings-label" for="category-settings-name"
-                      >Category name</label
+                    <label
+                      class="settings-label"
+                      for="category-settings-name"
+                      >{{ echoT('b23.cat.name') }}</label
                     >
                     <input
                       id="category-settings-name"
@@ -436,22 +453,21 @@ async function confirmDeleteCategory() {
               >
                 <div class="max-w-lg space-y-8">
                   <p class="channel-settings-hint text-[15px] leading-relaxed">
-                    These actions are sensitive and may be irreversible. Proceed
-                    carefully.
+                    {{ echoT('b23.cat.sensitive') }}
                   </p>
 
                   <section class="space-y-3">
-                    <div class="settings-label">Auto-delete messages</div>
+                    <div class="settings-label">
+                      {{ echoT('b23.cat.autoDelete') }}
+                    </div>
                     <p class="channel-settings-hint mt-1.5 w-full min-w-0">
-                      Messages in channels that sync with this category are
-                      removed after this period. Deleted content stays in the
-                      database for 14 days for compliance, then is purged.
+                      {{ echoT('b23.cat.autoDeleteHint') }}
                     </p>
                     <div class="channel-settings-dropdowns mt-3 w-full min-w-0">
                       <EchoDropdown
                         v-model="autoDeleteAfterSecondsStr"
-                        :options="MESSAGE_AUTO_DELETE_OPTIONS"
-                        label="Retention"
+                        :options="autoDeleteDropdownOptions"
+                        :label="echoT('b23.cat.retention')"
                         menu-match-trigger-width
                       />
                     </div>
@@ -464,12 +480,10 @@ async function confirmDeleteCategory() {
                       <div
                         class="category-settings-danger-heading text-sm font-semibold"
                       >
-                        Delete category
+                        {{ echoT('b23.cat.deleteCategory') }}
                       </div>
                       <p class="mt-1 text-sm text-fg-soft">
-                        Permanently delete this category and all channels inside
-                        it. Message history for those channels in the mock will
-                        be removed.
+                        {{ echoT('b23.cat.deleteDesc') }}
                       </p>
                     </div>
                     <button
@@ -477,7 +491,7 @@ async function confirmDeleteCategory() {
                       class="danger-btn danger-btn--strong shrink-0 self-start sm:self-center"
                       @click="confirmDeleteCategory"
                     >
-                      Delete category
+                      {{ echoT('b23.cat.deleteCategory') }}
                     </button>
                   </div>
                 </div>
@@ -509,7 +523,7 @@ async function confirmDeleteCategory() {
                     class="mb-4 w-full last:mb-0"
                   >
                     <div class="settings-subtitle px-3 pt-3 pb-2">
-                      {{ group }}
+                      {{ permissionGroupLabel(group) }}
                     </div>
                     <div
                       class="roles-permissions-list flex w-full flex-col gap-0.5"
@@ -527,7 +541,11 @@ async function confirmDeleteCategory() {
                           />
                           <span
                             class="min-w-0 flex-1 pt-1 text-sm leading-snug text-fg"
-                            >{{ def.label }}</span
+                            >{{
+                              channelPermissionLabel(def.key, {
+                                group: def.group,
+                              })
+                            }}</span
                           >
                         </div>
                         <input
@@ -556,8 +574,7 @@ async function confirmDeleteCategory() {
                   "
                 />
                 <div v-else class="text-sm text-fg-soft px-1">
-                  Discord chat sync is available when this category belongs to a
-                  server.
+                  {{ echoT('b23.cat.chatSyncUnavail') }}
                 </div>
               </div>
 
@@ -572,8 +589,7 @@ async function confirmDeleteCategory() {
                   :category-id="categorySettings.categoryId"
                 />
                 <div v-else class="text-sm text-fg-soft px-1">
-                  Voice mirror is available when this category belongs to a
-                  server.
+                  {{ echoT('b23.cat.voiceMirrorUnavail') }}
                 </div>
               </div>
             </Transition>
@@ -584,7 +600,7 @@ async function confirmDeleteCategory() {
             class="roles-change-bar mt-4 shrink-0 border-t border-border pt-4"
           >
             <div class="text-sm text-fg-subtle">
-              Changes apply when you save.
+              {{ echoT('b23.cat.changesApply') }}
             </div>
             <div class="flex gap-2">
               <button
@@ -592,7 +608,7 @@ async function confirmDeleteCategory() {
                 class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
                 @click="close"
               >
-                Cancel
+                {{ echoT('b23.cat.cancel') }}
               </button>
               <button
                 type="button"
@@ -600,7 +616,7 @@ async function confirmDeleteCategory() {
                 :disabled="!canSave"
                 @click="save"
               >
-                Save changes
+                {{ echoT('serverSettingsUi.saveChanges') }}
               </button>
             </div>
           </div>

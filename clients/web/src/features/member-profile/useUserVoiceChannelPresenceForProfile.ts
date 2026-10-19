@@ -1,5 +1,7 @@
 import { computed, type MaybeRefOrGetter, toValue } from 'vue';
+import { useEchoSessionStore } from '@/features/layout/echoSession';
 import { useEchoWorkspace } from '@/features/layout/echoWorkspace/useEchoWorkspace';
+import { mergeVoiceEphemeralIntoCategoriesByServer } from '@/features/layout/echoWorkspace/workspaceVoiceEphemeral';
 import { useServerStore } from '@/features/layout/server';
 import {
   findUserVoicePresences,
@@ -13,6 +15,7 @@ export function useUserVoiceChannelPresenceForProfile(
   userId: MaybeRefOrGetter<string | undefined | null>,
 ) {
   const workspace = useEchoWorkspace();
+  const echoSession = useEchoSessionStore();
   const serverStore = useServerStore();
 
   return computed<UserVoiceChannelPresence[]>(() => {
@@ -20,8 +23,12 @@ export function useUserVoiceChannelPresenceForProfile(
     const trimmed = typeof id === 'string' ? id.trim() : '';
     if (!trimmed) return [];
     const selected = serverStore.selectedServerId?.trim();
+    const categoriesByServer = mergeVoiceEphemeralIntoCategoriesByServer(
+      workspace.categoriesByServer.value as Record<string, never>,
+      echoSession.voiceEphemeralByChannelId,
+    );
     return findUserVoicePresences(trimmed, {
-      categoriesByServer: workspace.categoriesByServer.value as Record<
+      categoriesByServer: categoriesByServer as Record<
         string,
         {
           channels?: Array<{

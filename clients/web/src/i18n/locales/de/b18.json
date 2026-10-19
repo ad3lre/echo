@@ -1,0 +1,98 @@
+{
+  "report": {
+    "title": {
+      "general": "An Trust & Safety melden",
+      "default": "Melden"
+    },
+    "subtitle": {
+      "anon": "Unser Team prüft jede Meldung.",
+      "general": "Suche nach der Person oder dem Inhalt, die/den du melden möchtest. Bei Bedarf kannst du auch IDs manuell eingeben.",
+      "user": "Du meldest {name}. Unser Team prüft jede Meldung.",
+      "message": "Du meldest eine Nachricht von {name}."
+    },
+    "signIn": "Melde dich an, um eine Meldung abzusenden.",
+    "toast": {
+      "submitted": "Meldung gesendet. Danke dir."
+    },
+    "error": {
+      "submit": "Meldung konnte nicht gesendet werden."
+    },
+    "submittedTitle": "Meldung gesendet",
+    "submittedBody": "Danke dir – unser Trust &amp; Safety-Team wird sie prüfen.",
+    "close": "Schließen",
+    "card": {
+      "reporting": "Gemeldet wird",
+      "messagePreview": "Nachrichtenvorschau"
+    },
+    "typeLabel": "Meldungsart",
+    "reportSomeone": "Jemanden melden",
+    "reportMessage": "Eine Nachricht melden",
+    "search": {
+      "users": "Freunde und Mitglieder suchen…",
+      "messages": "Nachrichten in diesem Kanal suchen…",
+      "channels": "Kanäle suchen…"
+    },
+    "change": "Ändern",
+    "friend": "Freund",
+    "noPeople": "Keine Personen gefunden. Probier einen anderen Namen oder nutze die manuelle Eingabe unten.",
+    "changeChannel": "Kanal ändern",
+    "noChannels": "Keine passenden Kanäle. Öffne zuerst einen Server oder nutze die manuelle Eingabe unten.",
+    "pickDifferent": "Andere Nachricht auswählen",
+    "noMessages": "In diesem Kanal sind noch keine Nachrichten geladen. Scrolle im Chat, um den Verlauf zu laden, oder nutze die manuelle Eingabe unten.",
+    "hideManual": "Manuelle Eingabe ausblenden",
+    "userId": "Benutzer-ID",
+    "pasteUserId": "Benutzer-ID einfügen",
+    "messageId": "Nachrichten-ID",
+    "pasteMessageId": "Nachrichten-ID einfügen",
+    "channelId": "Kanal-ID",
+    "pasteChannelId": "Kanal-ID einfügen",
+    "category": "Kategorie",
+    "details": "Weitere Details",
+    "optional": "(optional)",
+    "placeholder": "Erzähl uns, was passiert ist",
+    "cancel": "Abbrechen",
+    "someone": "jemand",
+    "fallback": {
+      "user": "Benutzer",
+      "message": "Nachricht"
+    },
+    "submitting": "Wird gesendet…",
+    "cantFind": "Du findest die Person nicht? IDs manuell eingeben"
+  },
+  "stage": {
+    "toast": {
+      "requestSent": "Sprechanfrage gesendet. Ein Moderator kann dich auf die Bühne einladen.",
+      "fallbackErr": "Das hat nicht geklappt. Versuch es noch einmal.",
+      "cancelled": "Sprechanfrage zurückgezogen.",
+      "cancelFail": "Abbrechen nicht möglich"
+    },
+    "audience": "Du bist im Publikum",
+    "raiseHand": "Heb die Hand, um Moderatoren um das Mikrofon zu bitten.",
+    "cancelRequest": "Anfrage zurückziehen",
+    "requestToSpeak": "Sprechen anfragen",
+    "requestsToSpeak": "Sprechanfragen",
+    "invite": "Einladen",
+    "deny": "Ablehnen",
+    "empty": "Die Bühne ist leer",
+    "emptyHint": "Sei der Erste, der beitritt – Moderatoren können oben auf YouTube live gehen.",
+    "noSpeakers": "Noch keine Sprecher",
+    "noSpeakersHint": "Moderatoren können Zuhörer zum Sprechen einladen oder oben in der Leiste einen YouTube-Livestream starten.",
+    "you": "Du",
+    "speaker": "Sprecher",
+    "requestedToSpeak": "Hat Sprechen angefragt",
+    "quickMention": "Schnell erwähnen",
+    "inviteToSpeak": "Zum Sprechen einladen",
+    "moveToAudience": "Ins Publikum verschieben",
+    "unmute": "Stummschaltung aufheben",
+    "mute": "Stummschalten",
+    "turnOffCamera": "Kamera ausschalten",
+    "stopScreenShare": "Bildschirmfreigabe beenden",
+    "couldNotRequest": "Sprechanfrage nicht möglich: {msg}",
+    "speakersListening": "{count} {speakers} · {listening} hören zu",
+    "speaker1": "Sprecher",
+    "speakerN": "Sprecher",
+    "goToChannel": "{name} – Zum Kanal",
+    "limitTitle": "{count} von {limit} Benutzern auf der Bühne",
+    "openProfile": "Profil von {name} öffnen"
+  }
+}

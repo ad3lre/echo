@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import { icons } from '@/assets/icons';
 import { formatMediaTime } from '@/features/chat/composables/media/mediaPlayerFormat';
@@ -105,7 +106,9 @@ function onVolumeInput(ev: Event): void {
       <button
         type="button"
         class="echo-media-controls__btn chat-focus-ring"
-        :aria-label="isPlaying ? 'Pause' : 'Play'"
+        :aria-label="
+          isPlaying ? echoT('b42.media.pause') : echoT('b42.media.play')
+        "
         @click="emit('toggle-play')"
       >
         <svg
@@ -141,7 +144,7 @@ function onVolumeInput(ev: Event): void {
         <button
           type="button"
           class="echo-media-controls__btn echo-media-controls__btn--speed chat-focus-ring"
-          aria-label="Playback speed"
+          :aria-label="echoT('b42.media.playbackSpeed')"
           :aria-expanded="speedOpen"
           @click="toggleSpeedOpen"
         >
@@ -151,7 +154,7 @@ function onVolumeInput(ev: Event): void {
           v-show="speedOpen"
           class="echo-media-controls__speed-pop"
           role="menu"
-          aria-label="Playback speed"
+          :aria-label="echoT('b42.media.playbackSpeed')"
         >
           <button
             v-for="rate in MEDIA_PLAYBACK_RATES"
@@ -175,7 +178,9 @@ function onVolumeInput(ev: Event): void {
         <button
           type="button"
           class="echo-media-controls__btn chat-focus-ring"
-          :aria-label="muted ? 'Unmute' : 'Volume'"
+          :aria-label="
+            muted ? echoT('b42.media.unmute') : echoT('b42.media.volume')
+          "
           :aria-expanded="volumeOpen"
           @click="toggleVolumeOpen"
         >
@@ -190,7 +195,7 @@ function onVolumeInput(ev: Event): void {
           v-show="volumeOpen"
           class="echo-media-controls__volume-pop"
           role="group"
-          aria-label="Volume"
+          :aria-label="echoT('b42.media.volume')"
         >
           <input
             type="range"
@@ -199,7 +204,7 @@ function onVolumeInput(ev: Event): void {
             max="100"
             :value="volumePercent"
             :style="volumeSliderStyle"
-            aria-label="Volume level"
+            :aria-label="echoT('b42.media.volumeLevel')"
             @input="onVolumeInput"
           />
         </div>
@@ -210,7 +215,7 @@ function onVolumeInput(ev: Event): void {
         :href="downloadHref"
         :download="downloadName || undefined"
         class="echo-media-controls__btn echo-media-controls__btn--download chat-focus-ring"
-        aria-label="Download original video"
+        :aria-label="echoT('b42.media.downloadOriginal')"
         rel="noopener noreferrer"
         @click.stop
       >
@@ -234,7 +239,11 @@ function onVolumeInput(ev: Event): void {
         v-if="showFullscreen && canFullscreen"
         type="button"
         class="echo-media-controls__btn chat-focus-ring"
-        :aria-label="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+        :aria-label="
+          isFullscreen
+            ? echoT('b42.media.exitFullscreen')
+            : echoT('b42.media.fullscreen')
+        "
         @click="emit('toggle-fullscreen')"
       >
         <svg

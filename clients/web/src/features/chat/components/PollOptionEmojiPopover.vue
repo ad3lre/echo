@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   computed,
@@ -156,7 +157,9 @@ onUnmounted(() => {
           ? 'bg-surface hover:bg-glass-hover'
           : 'bg-surface text-muted opacity-50 grayscale hover:bg-glass-hover hover:opacity-70'
       "
-      :title="modelValue ? 'Change emoji' : 'Add emoji'"
+      :title="
+        modelValue ? echoT('b44.pollEmoji.change') : echoT('b44.pollEmoji.add')
+      "
       @click="open()"
     >
       <span
@@ -179,7 +182,7 @@ onUnmounted(() => {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search emoji..."
+            :placeholder="echoT('chat.search.emoji')"
             class="mx-2 mt-2 mb-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted transition-[box-shadow,border-color] focus-visible:ring-2 focus-visible:ring-accent/30 backdrop-blur-sm"
           />
           <div class="flex flex-1 min-h-0 overflow-hidden">
@@ -227,7 +230,9 @@ onUnmounted(() => {
                 v-if="searchQuery.trim() && renderedCategories.length === 0"
                 class="py-8 text-center text-sm text-muted"
               >
-                No emojis match "{{ searchQuery.trim() }}"
+                {{
+                  echoT('b44.pollEmoji.noMatch', { query: searchQuery.trim() })
+                }}
               </div>
             </div>
           </div>
@@ -237,7 +242,7 @@ onUnmounted(() => {
             class="mx-2 mb-2 mt-0 rounded py-1.5 text-xs text-muted hover:text-foreground hover:bg-glass-hover transition-colors shrink-0"
             @click="removeEmoji"
           >
-            Remove emoji
+            {{ echoT('b44.pollEmoji.remove') }}
           </button>
         </div>
       </div>

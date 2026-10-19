@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import { clampMenuToViewport } from '@/features/layout/useContextMenuPosition';
 import LimitedGifImg from '@/components/LimitedGifImg.vue';
@@ -14,6 +15,11 @@ import {
   ECHO_CHAT_MEDIA_VIEWER_SIZES,
   ECHO_CHAT_MEDIA_VIEWER_WIDTHS,
 } from '@/features/chat/composables/echoMediaResponsive';
+import {
+  clampImageViewerZoom,
+  IMAGE_VIEWER_INITIAL_ZOOM,
+  zoomPanTowardFocal,
+} from '@/features/chat/composables/imageViewerZoom';
 
 export interface ImageItem {
   url: string;
@@ -32,7 +38,9 @@ const menuStyle = computed(() => ({
   top: `${menuPosition.value.top}px`,
 }));
 
-const safeZoom = computed(() => (Number.isFinite(zoom.value) ? zoom.value : 1));
+const safeZoom = computed(() =>
+  Number.isFinite(zoom.value) ? zoom.value : IMAGE_VIEWER_INITIAL_ZOOM,
+);
 const safePos = computed(() => ({
   x: Number.isFinite(pos.value.x) ? pos.value.x : 0,
   y: Number.isFinite(pos.value.y) ? pos.value.y : 0,
@@ -49,13 +57,13 @@ const emit = defineEmits<{
 }>();
 
 const currentIndex = ref(0);
-const zoom = ref(1);
+const zoom = ref(IMAGE_VIEWER_INITIAL_ZOOM);
 const pos = ref({ x: 0, y: 0 });
 const isDragging = ref(false);
 
 const MAX_PAN = 4000;
-/** Pan only when meaningfully zoomed (avoids float edge cases around 1). */
-const MIN_ZOOM_FOR_PAN = 1.001;
+/** Pan only when zoomed past the initial fit level. */
+const MIN_ZOOM_FOR_PAN = IMAGE_VIEWER_INITIAL_ZOOM + 0.001;
 const dragStart = ref({ x: 0, y: 0, posX: 0, posY: 0 });
 /** Pointer id used for active pan (setPointerCapture on `containerRef`). */
 const dragPointerId = ref<number | null>(null);
@@ -106,7 +114,7 @@ function goNext() {
 }
 
 function resetZoom() {
-  zoom.value = 1;
+  zoom.value = IMAGE_VIEWER_INITIAL_ZOOM;
   pos.value = { x: 0, y: 0 };
 }
 
@@ -119,34 +127,52 @@ function clampPos() {
   };
 }
 
-function zoomIn() {
-  zoom.value = Math.min(zoom.value + 0.25, 4);
-}
-
-function zoomOut() {
-  zoom.value = Math.max(zoom.value - 0.25, 0.25);
-  // Drift position towards center when zooming out
-  pos.value = {
-    x: (Number.isFinite(pos.value.x) ? pos.value.x : 0) * 0.6,
-    y: (Number.isFinite(pos.value.y) ? pos.value.y : 0) * 0.6,
+/** Focal point in container coords → offset from container center. */
+function focalFromClient(
+  clientX: number,
+  clientY: number,
+): { focalX: number; focalY: number } {
+  const el = containerRef.value;
+  if (!el) return { focalX: 0, focalY: 0 };
+  const rect = el.getBoundingClientRect();
+  return {
+    focalX: clientX - (rect.left + rect.width / 2),
+    focalY: clientY - (rect.top + rect.height / 2),
   };
+}
+
+function setZoomAt(nextZoom: number, focalX: number, focalY: number): void {
+  const prev = safeZoom.value;
+  const next = clampImageViewerZoom(nextZoom);
+  if (next === prev) return;
+  pos.value = zoomPanTowardFocal({
+    prevZoom: prev,
+    nextZoom: next,
+    posX: safePos.value.x,
+    posY: safePos.value.y,
+    focalX,
+    focalY,
+  });
+  zoom.value = next;
   clampPos();
 }
 
-function applyPinchZoom(deltaY: number) {
-  const prev = zoom.value;
-  const next = Math.max(0.25, Math.min(4, prev * Math.exp(-deltaY * 0.002)));
-  zoom.value = next;
-  if (next < prev) {
-    pos.value = {
-      x: (Number.isFinite(pos.value.x) ? pos.value.x : 0) * 0.98,
-      y: (Number.isFinite(pos.value.y) ? pos.value.y : 0) * 0.98,
-    };
-  }
-  if (next <= 1) {
-    pos.value = { x: 0, y: 0 };
-  }
-  clampPos();
+function zoomIn(focalX = 0, focalY = 0) {
+  setZoomAt(safeZoom.value + 0.25, focalX, focalY);
+}
+
+function zoomOut(focalX = 0, focalY = 0) {
+  setZoomAt(safeZoom.value - 0.25, focalX, focalY);
+}
+
+function applyPinchZoom(deltaY: number, clientX?: number, clientY?: number) {
+  const prev = safeZoom.value;
+  const next = clampImageViewerZoom(prev * Math.exp(-deltaY * 0.002));
+  const focal =
+    clientX != null && clientY != null
+      ? focalFromClient(clientX, clientY)
+      : { focalX: 0, focalY: 0 };
+  setZoomAt(next, focal.focalX, focal.focalY);
 }
 
 function applyWheelPan(deltaX: number, deltaY: number) {
@@ -162,11 +188,12 @@ function onWheel(e: WheelEvent) {
   e.preventDefault();
 
   const { wheelScrollPans } = loadImageViewerPreferences();
+  const { focalX, focalY } = focalFromClient(e.clientX, e.clientY);
 
   if (wheelScrollPans) {
     // Browsers map trackpad pinch to ctrl/meta + wheel; plain two-finger scroll pans.
     if (e.ctrlKey || e.metaKey) {
-      applyPinchZoom(e.deltaY);
+      applyPinchZoom(e.deltaY, e.clientX, e.clientY);
       return;
     }
     applyWheelPan(e.deltaX, e.deltaY);
@@ -174,11 +201,11 @@ function onWheel(e: WheelEvent) {
   }
 
   if (e.ctrlKey || e.metaKey) {
-    applyPinchZoom(e.deltaY);
+    applyPinchZoom(e.deltaY, e.clientX, e.clientY);
     return;
   }
-  if (e.deltaY < 0) zoomIn();
-  else if (e.deltaY > 0) zoomOut();
+  if (e.deltaY < 0) zoomIn(focalX, focalY);
+  else if (e.deltaY > 0) zoomOut(focalX, focalY);
 }
 
 function clearPanPointerCapture() {
@@ -261,9 +288,10 @@ function onContainerClick(e: MouseEvent) {
   close();
 }
 
-function onContainerDoubleClick() {
-  if (safeZoom.value <= 1) {
-    zoom.value = 2;
+function onContainerDoubleClick(e: MouseEvent) {
+  if (safeZoom.value <= IMAGE_VIEWER_INITIAL_ZOOM + 0.001) {
+    const { focalX, focalY } = focalFromClient(e.clientX, e.clientY);
+    setZoomAt(2, focalX, focalY);
   } else {
     resetZoom();
   }
@@ -354,8 +382,8 @@ async function copyImageToClipboard() {
   if (!fetchUrl) return;
   const ok = await copyImageFromUrl(fetchUrl);
   closeMenu();
-  if (ok) dispatchAppToast('Image copied', 'info');
-  else dispatchAppToast('Could not copy image', 'warning');
+  if (ok) dispatchAppToast(echoT('chat.status.imageCopied'), 'info');
+  else dispatchAppToast(echoT('chat.status.couldNotCopyImage'), 'warning');
 }
 
 function openInBrowser() {
@@ -455,8 +483,8 @@ onUnmounted(() => {
         <button
           type="button"
           class="p-2 rounded-full transition-colors"
-          aria-label="Download"
-          title="Download"
+          :aria-label="echoT('chat.actions.download')"
+          :title="echoT('chat.actions.download')"
           @click="downloadImage"
         >
           <svg
@@ -478,10 +506,10 @@ onUnmounted(() => {
             ref="menuTriggerRef"
             type="button"
             class="p-2 rounded-full transition-colors"
-            aria-label="More options"
+            :aria-label="echoT('chat.actions.moreOptions')"
             aria-haspopup="menu"
             :aria-expanded="menuOpen"
-            title="More options"
+            :title="echoT('chat.actions.moreOptions')"
             @click="toggleMenu"
           >
             <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -515,7 +543,7 @@ onUnmounted(() => {
                     d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                   />
                 </svg>
-                Copy image
+                {{ echoT('b42.imageViewer.copyImage') }}
               </button>
               <button
                 type="button"
@@ -535,7 +563,7 @@ onUnmounted(() => {
                     d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
                   />
                 </svg>
-                Copy image link
+                {{ echoT('b42.imageViewer.copyImageLink') }}
               </button>
               <button
                 type="button"
@@ -555,7 +583,7 @@ onUnmounted(() => {
                     d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                   />
                 </svg>
-                Open in browser
+                {{ echoT('chat.actions.openInBrowser') }}
               </button>
             </div>
           </Teleport>
@@ -563,8 +591,8 @@ onUnmounted(() => {
         <button
           type="button"
           class="p-2 rounded-full transition-colors"
-          aria-label="Close"
-          title="Close"
+          :aria-label="echoT('b42.imageViewer.close')"
+          :title="echoT('b42.imageViewer.close')"
           @click="close"
         >
           <svg
@@ -588,7 +616,7 @@ onUnmounted(() => {
         v-if="canGoPrev"
         type="button"
         class="viewer-nav-btn absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-lg"
-        aria-label="Previous"
+        :aria-label="echoT('b42.imageViewer.previous')"
         @click="goPrev"
       >
         <svg
@@ -611,7 +639,7 @@ onUnmounted(() => {
         v-if="canGoNext"
         type="button"
         class="viewer-nav-btn absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-lg"
-        aria-label="Next"
+        :aria-label="echoT('b42.imageViewer.next')"
         @click="goNext"
       >
         <svg
@@ -636,8 +664,8 @@ onUnmounted(() => {
         <button
           type="button"
           class="p-2 rounded-lg transition-colors"
-          aria-label="Zoom out"
-          @click="zoomOut"
+          :aria-label="echoT('chat.actions.zoomOut')"
+          @click="zoomOut()"
         >
           <svg
             class="w-5 h-5"
@@ -659,8 +687,8 @@ onUnmounted(() => {
         <button
           type="button"
           class="p-2 rounded-lg transition-colors"
-          aria-label="Zoom in"
-          @click="zoomIn"
+          :aria-label="echoT('chat.actions.zoomIn')"
+          @click="zoomIn()"
         >
           <svg
             class="w-5 h-5"
@@ -685,7 +713,7 @@ onUnmounted(() => {
         {{ currentIndex + 1 }} / {{ images.length }}
       </div>
 
-      <!-- Image container: fills viewport, image fits at 100% zoom (compact) -->
+      <!-- Image container: CSS contain at scale 1; open at INITIAL_ZOOM (slightly out). -->
       <div
         ref="containerRef"
         class="viewer-no-drag flex-1 min-h-0 min-w-0 relative overflow-hidden cursor-grab touch-none"
@@ -717,7 +745,7 @@ onUnmounted(() => {
               :src="currentImage.url"
               :storage-key="currentImage.storageKey"
               :session-key="`${currentIndex}-${currentImage.url}`"
-              alt="GIF"
+              :alt="echoT('b42.imageViewer.gif')"
               wrapper-class="relative inline-block max-w-full max-h-full"
               img-class="img-no-drag viewer-image select-none pointer-events-none"
               :respect-reduced-motion="true"
@@ -727,7 +755,7 @@ onUnmounted(() => {
               :src="displaySrc"
               :srcset="displayMedia.srcset.value || undefined"
               :sizes="displayMedia.sizes"
-              alt="Image"
+              :alt="echoT('b42.imageViewer.image')"
               class="img-no-drag viewer-image select-none pointer-events-none"
               draggable="false"
               @error="() => void displayMedia.refresh(true)"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { ensureIconCatalogLoaded } from '@/assets/iconCatalog';
 import {
@@ -214,7 +215,7 @@ onUnmounted(() => {
       class="icon-picker-scroll flex min-h-0 flex-1 items-center justify-center overflow-hidden px-2 py-2"
       role="status"
       aria-live="polite"
-      aria-label="Loading icon catalog"
+      :aria-label="echoT('b43.iconPicker.loading')"
     >
       <svg
         class="echo-ios-spinner"
@@ -265,7 +266,10 @@ onUnmounted(() => {
                 }"
                 :title="
                   group.variants.length > 1
-                    ? `${group.label} (${group.variants.length} variants) — click to expand`
+                    ? echoT('b43.iconPicker.expand', {
+                        label: group.label,
+                        count: group.variants.length,
+                      })
                     : group.label
                 "
                 @click="onFamilyClick(group)"

@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import {
   GUILD_SETTINGS_SECTION_GROUPS,
   type GuildSettingsGroup,

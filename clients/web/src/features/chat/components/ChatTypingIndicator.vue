@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import { useChannelTypingStore } from '@/features/chat/channelTyping';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
@@ -42,12 +43,15 @@ const label = computed(() => {
   const n = users.length;
   if (n === 0) return '';
   if (n === 1) {
-    return `${users[0]!.displayName} is typing`;
+    return echoT('chatB.typing.one', { name: users[0]!.displayName });
   }
   if (n === 2) {
-    return `${users[0]!.displayName} and ${users[1]!.displayName} are typing`;
+    return echoT('chatB.typing.two', {
+      a: users[0]!.displayName,
+      b: users[1]!.displayName,
+    });
   }
-  return 'Several people are typing';
+  return echoT('chatB.typing.many');
 });
 </script>
 

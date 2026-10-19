@@ -2,6 +2,7 @@ import type pg from 'pg';
 import {
   applyAttentionNotificationLevel,
   classifyAttentionPingKind,
+  compareEchoTimelineIds,
   mergeAttentionPingKinds,
   resolveEffectiveChannelNotificationLevel,
 } from '../../../../../../contracts/attentionPing';
@@ -48,6 +49,18 @@ function parseMentions(raw: unknown): MentionEntity[] {
       typeof (item as MentionEntity).kind === 'string' &&
       typeof (item as MentionEntity).label === 'string',
   );
+}
+
+/** Keep the newest timeline id when classifying mention-inbox anchors. */
+function newerTimelineId(
+  current: string | undefined,
+  candidate: string,
+): string {
+  const next = candidate.trim();
+  if (!next) return current?.trim() ?? '';
+  const prev = current?.trim() ?? '';
+  if (!prev) return next;
+  return compareEchoTimelineIds(next, prev) > 0 ? next : prev;
 }
 
 export async function buildEchoAttentionSnapshot(
@@ -175,8 +188,9 @@ export async function buildEchoAttentionSnapshot(
     });
   }
 
-  // Build per-channel ping kinds from the bounded mention scan.
+  // Build per-channel ping kinds + newest self-pinging mention id from the scan.
   const pingKindByChannel = new Map<string, EchoAttentionPingKind | null>();
+  const latestMentionIdByChannel = new Map<string, string>();
   for (const row of mentionRows) {
     const channelId = row.channel_id;
     const serverId = serverChannelToServerId.get(channelId);
@@ -199,6 +213,12 @@ export async function buildEchoAttentionSnapshot(
         classified,
       ),
     );
+    if (classified) {
+      latestMentionIdByChannel.set(
+        channelId,
+        newerTimelineId(latestMentionIdByChannel.get(channelId), row.id),
+      );
+    }
   }
 
   for (const row of replyToSelfRows) {
@@ -217,6 +237,12 @@ export async function buildEchoAttentionSnapshot(
         classified,
       ),
     );
+    if (classified) {
+      latestMentionIdByChannel.set(
+        channelId,
+        newerTimelineId(latestMentionIdByChannel.get(channelId), row.id),
+      );
+    }
   }
 
   for (const agg of aggregates) {
@@ -226,12 +252,18 @@ export async function buildEchoAttentionSnapshot(
       current.pingKind ?? null,
       pingKindByChannel.get(agg.channel_id) ?? null,
     );
+    const mentionMessageId = latestMentionIdByChannel
+      .get(agg.channel_id)
+      ?.trim();
     channelAttentionSeed.set(agg.channel_id, {
       ...current,
       unreadCount: agg.unread_count,
       firstUnreadMessageId: agg.first_unread_message_id ?? undefined,
       latestUnreadMessageId: agg.latest_unread_message_id ?? undefined,
       latestUnreadMessageAt: agg.latest_unread_created_at ?? undefined,
+      ...(mentionMessageId
+        ? { latestUnreadMentionMessageId: mentionMessageId }
+        : {}),
       ...(pingKind ? { pingKind } : {}),
     });
   }
@@ -310,6 +342,7 @@ export async function buildEchoSingleChannelAttention(
   if (!agg || agg.unread_count === 0) return base;
 
   let pingKind: EchoAttentionPingKind | null = null;
+  let latestMentionMessageId = '';
   if (opts.serverId) {
     const prof = await getEchoUserPublicProfileRow(pool, userId);
     const classifyViewer = {
@@ -320,22 +353,27 @@ export async function buildEchoSingleChannelAttention(
     };
     const level = opts.notificationLevel ?? 'mentions';
     for (const row of mentionRows) {
-      pingKind = mergeAttentionPingKinds(
-        pingKind,
-        applyAttentionNotificationLevel(
-          level,
-          classifyAttentionPingKind(
-            parseMentions(row.mentions),
-            classifyViewer,
-          ),
-        ),
+      const classified = applyAttentionNotificationLevel(
+        level,
+        classifyAttentionPingKind(parseMentions(row.mentions), classifyViewer),
       );
+      pingKind = mergeAttentionPingKinds(pingKind, classified);
+      if (classified) {
+        latestMentionMessageId = newerTimelineId(
+          latestMentionMessageId,
+          row.id,
+        );
+      }
     }
-    if (replyToSelfRows.length > 0) {
-      pingKind = mergeAttentionPingKinds(
-        pingKind,
-        applyAttentionNotificationLevel(level, 'personal'),
-      );
+    for (const row of replyToSelfRows) {
+      const classified = applyAttentionNotificationLevel(level, 'personal');
+      pingKind = mergeAttentionPingKinds(pingKind, classified);
+      if (classified) {
+        latestMentionMessageId = newerTimelineId(
+          latestMentionMessageId,
+          row.id,
+        );
+      }
     }
   }
 
@@ -345,6 +383,9 @@ export async function buildEchoSingleChannelAttention(
     firstUnreadMessageId: agg.first_unread_message_id ?? undefined,
     latestUnreadMessageId: agg.latest_unread_message_id ?? undefined,
     latestUnreadMessageAt: agg.latest_unread_created_at ?? undefined,
+    ...(latestMentionMessageId
+      ? { latestUnreadMentionMessageId: latestMentionMessageId }
+      : {}),
     ...(pingKind ? { pingKind } : {}),
   };
 }
@@ -422,7 +463,10 @@ export async function buildEchoChannelAttentionFanoutDeltas(
     string,
     Awaited<ReturnType<typeof getEchoUserPublicProfileRow>>
   >();
-  const mentionRowsByUserId = new Map<string, unknown[]>();
+  const mentionRowsByUserId = new Map<
+    string,
+    { id: string; mentions: unknown }[]
+  >();
   let replyingUserIds = new Set<string>();
   if (isGuild && unreadUserIds.length > 0) {
     const profileBatches: string[][] = [];
@@ -438,7 +482,7 @@ export async function buildEchoChannelAttentionFanoutDeltas(
     ]);
     for (const row of mentionRows) {
       const rows = mentionRowsByUserId.get(row.user_id) ?? [];
-      rows.push(row.mentions);
+      rows.push({ id: row.id, mentions: row.mentions });
       mentionRowsByUserId.set(row.user_id, rows);
     }
     replyingUserIds = new Set(replying);
@@ -466,33 +510,44 @@ export async function buildEchoChannelAttentionFanoutDeltas(
       continue;
     }
     let pingKind: EchoAttentionPingKind | null = null;
+    let latestMentionMessageId = '';
     if (isGuild) {
       const profile = profileRowsByUserId.get(userId);
       const level = notificationLevelByUserId[userId] ?? 'mentions';
       const memberRoleIds = new Set(roleIdsByUserId[userId] ?? []);
-      for (const mentions of mentionRowsByUserId.get(userId) ?? []) {
-        pingKind = mergeAttentionPingKinds(
-          pingKind,
-          applyAttentionNotificationLevel(
-            level,
-            classifyAttentionPingKind(parseMentions(mentions), {
-              userId,
-              ...(profile?.username?.trim()
-                ? { username: profile.username.trim() }
-                : {}),
-              ...(profile?.name?.trim()
-                ? { displayName: profile.name.trim() }
-                : {}),
-              memberRoleIds,
-            }),
-          ),
+      for (const row of mentionRowsByUserId.get(userId) ?? []) {
+        const classified = applyAttentionNotificationLevel(
+          level,
+          classifyAttentionPingKind(parseMentions(row.mentions), {
+            userId,
+            ...(profile?.username?.trim()
+              ? { username: profile.username.trim() }
+              : {}),
+            ...(profile?.name?.trim()
+              ? { displayName: profile.name.trim() }
+              : {}),
+            memberRoleIds,
+          }),
         );
+        pingKind = mergeAttentionPingKinds(pingKind, classified);
+        if (classified) {
+          latestMentionMessageId = newerTimelineId(
+            latestMentionMessageId,
+            row.id,
+          );
+        }
       }
       if (replyingUserIds.has(userId)) {
-        pingKind = mergeAttentionPingKinds(
-          pingKind,
-          applyAttentionNotificationLevel(level, 'personal'),
-        );
+        const classified = applyAttentionNotificationLevel(level, 'personal');
+        pingKind = mergeAttentionPingKinds(pingKind, classified);
+        // Reply-to-self scan is existence-only in fanout; the newest unread is
+        // the best available anchor when no mention entity row classified.
+        if (classified && !latestMentionMessageId) {
+          latestMentionMessageId =
+            agg.latest_unread_message_id?.trim() ??
+            agg.first_unread_message_id?.trim() ??
+            '';
+        }
       }
     }
     const channelAttention: EchoAttentionChannelSummary = {
@@ -504,6 +559,9 @@ export async function buildEchoChannelAttentionFanoutDeltas(
       firstUnreadMessageId: agg.first_unread_message_id ?? undefined,
       latestUnreadMessageId: agg.latest_unread_message_id ?? undefined,
       latestUnreadMessageAt: agg.latest_unread_created_at ?? undefined,
+      ...(latestMentionMessageId
+        ? { latestUnreadMentionMessageId: latestMentionMessageId }
+        : {}),
       ...(pingKind ? { pingKind } : {}),
     };
     out.push({ userId, lastReadMessageId, channelAttention });

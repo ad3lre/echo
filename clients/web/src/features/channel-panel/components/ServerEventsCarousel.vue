@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   nextTick,
@@ -128,16 +129,16 @@ function countdownLabel(startsAtIso: string): string {
   const t = new Date(startsAtIso).getTime();
   if (Number.isNaN(t)) return '';
   const diff = t - nowMs.value;
-  if (diff <= 0) return 'Started';
+  if (diff <= 0) return echoT('b41.events.started');
   const sec = Math.floor(diff / 1000);
   const d = Math.floor(sec / 86400);
   const h = Math.floor((sec % 86400) / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  if (d > 0) return `Starts in ${d}d ${h}h`;
-  if (h > 0) return `Starts in ${h}h ${m}m`;
-  if (m > 0) return `Starts in ${m}m ${s}s`;
-  return 'Starting in moments';
+  if (d > 0) return echoT('b41.events.startsInDH', { d, h });
+  if (h > 0) return echoT('b41.events.startsInHM', { h, m });
+  if (m > 0) return echoT('b41.events.startsInMS', { m, s });
+  return echoT('b41.events.startingMoments');
 }
 
 function isEventLive(ev: EchoWorkspaceEventSummary): boolean {
@@ -154,8 +155,13 @@ function hasEventLocation(ev: EchoWorkspaceEventSummary): boolean {
 function locationCtaLabel(ev: EchoWorkspaceEventSummary): string {
   const live = isEventLive(ev);
   const customOnly = !ev.channelId?.trim() && !!ev.customLocation?.trim();
-  if (live) return customOnly ? 'Check it out' : 'Go there';
-  return customOnly ? 'Details' : 'Open channel';
+  if (live)
+    return customOnly
+      ? echoT('b41.events.checkItOut')
+      : echoT('b41.events.goThere');
+  return customOnly
+    ? echoT('b41.events.details')
+    : echoT('b41.events.openChannel');
 }
 
 function scrollToIndex(i: number, smooth: boolean) {
@@ -271,7 +277,7 @@ const hasAny = computed(
   <section
     v-if="hasAny"
     class="server-events-root border-b border-border/80 px-2 pb-2 pt-1"
-    aria-label="Upcoming server events"
+    :aria-label="echoT('b41.events.upcoming')"
   >
     <!-- Answered “going”: compact, static strip (no snap carousel / auto-advance). -->
     <div v-if="goingEvents.length" class="mb-2 space-y-1.5">
@@ -280,7 +286,7 @@ const hasAny = computed(
         :key="`going-${ev.id}`"
         role="button"
         tabindex="0"
-        :aria-label="`Open event ${ev.title}`"
+        :aria-label="echoT('b41.events.openEvent', { title: ev.title })"
         class="flex min-h-0 cursor-pointer items-stretch gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/8 pl-2 pr-2 py-1.5 shadow-[inset_3px_0_0_rgba(16,185,129,0.75)] transition-colors hover:bg-emerald-500/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
         @click="onOpenDetail(ev)"
         @keydown.enter.prevent="onOpenDetail(ev)"
@@ -312,7 +318,7 @@ const hasAny = computed(
           <p
             class="text-[10px] font-bold uppercase tracking-wide text-emerald-400"
           >
-            Going
+            {{ echoT('b41.events.goingLabel') }}
           </p>
           <p class="text-[11px] font-medium text-accent">
             {{ countdownLabel(ev.startsAt) }}
@@ -357,7 +363,7 @@ const hasAny = computed(
           data-event-slide
           role="button"
           tabindex="0"
-          :aria-label="`Open event ${ev.title}`"
+          :aria-label="echoT('b41.events.openEvent', { title: ev.title })"
           class="server-events-carousel__slide flex min-w-0 cursor-pointer flex-col gap-2 rounded-2xl border border-border bg-glass-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm transition-colors hover:border-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
           :class="[
             layoutSingle
@@ -405,7 +411,7 @@ const hasAny = computed(
               <span class="font-medium text-foreground">{{
                 ev.goingCount
               }}</span>
-              going
+              {{ echoT('b41.events.goingCount') }}
             </p>
             <div class="flex flex-wrap items-center gap-1.5">
               <button
@@ -449,7 +455,7 @@ const hasAny = computed(
                   <span class="font-medium text-foreground">{{
                     ev.goingCount
                   }}</span>
-                  going
+                  {{ echoT('b41.events.goingCount') }}
                 </p>
               </div>
             </div>
@@ -486,7 +492,7 @@ const hasAny = computed(
         v-if="!layoutSingle && pendingRsvpEvents.length > 1"
         class="mt-1 flex justify-center gap-1"
         role="tablist"
-        aria-label="Event slides"
+        :aria-label="echoT('b41.events.slides')"
       >
         <span
           v-for="(ev, i) in pendingRsvpEvents"

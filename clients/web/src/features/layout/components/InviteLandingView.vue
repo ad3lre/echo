@@ -52,14 +52,9 @@ function formatMemberCount(count: number): string {
 function mapOauthError(err: unknown): string {
   if (err instanceof AuthApiError) {
     if (err.body.code === 'NOT_CONFIGURED')
-      return (
-        err.body.message ||
-        "This sign-in method isn't available on this server."
-      );
+      return err.body.message || echoT('b25.invite.errNotConfigured');
     if (err.body.code === 'NOT_AVAILABLE')
-      return (
-        err.body.message || "That isn't available right now. Try again later."
-      );
+      return err.body.message || echoT('b25.invite.errNotAvailable');
     return translateApiErrorBody(err.body);
   }
   if (err instanceof Error) return err.message;
@@ -95,13 +90,13 @@ function onGoogleClick() {
   <div
     class="invite-landing flex h-full min-h-[100dvh] w-full flex-col overflow-x-hidden overflow-y-auto bg-surface lg:min-h-0 lg:bg-[var(--echo-chat-view-bg)]"
     role="region"
-    aria-label="Server invite"
+    :aria-label="echoT('b25.invite.regionLabel')"
   >
     <div v-if="showMobileBack" class="flex shrink-0 px-4 pt-3">
       <button
         type="button"
         class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
-        aria-label="Back"
+        :aria-label="echoT('b25.invite.back')"
         @click="$emit('back')"
       >
         <img
@@ -109,7 +104,7 @@ function onGoogleClick() {
           alt=""
           class="h-4 w-4 shrink-0 opacity-90 brightness-0 invert"
         />
-        <span>Back</span>
+        <span>{{ echoT('b25.invite.back') }}</span>
       </button>
     </div>
 
@@ -119,7 +114,7 @@ function onGoogleClick() {
       <!-- Loading state -->
       <div v-if="loading" class="flex flex-col items-center gap-4">
         <div class="invite-landing__spinner" />
-        <p class="text-sm text-muted">Loading invite...</p>
+        <p class="text-sm text-muted">{{ echoT('b25.invite.loading') }}</p>
       </div>
 
       <!-- Error state -->
@@ -143,7 +138,9 @@ function onGoogleClick() {
             />
           </svg>
         </div>
-        <h1 class="text-2xl font-bold text-foreground">Invalid Invite</h1>
+        <h1 class="text-2xl font-bold text-foreground">
+          {{ echoT('b25.invite.invalid') }}
+        </h1>
         <p class="text-base text-muted">{{ error }}</p>
       </div>
 
@@ -192,7 +189,7 @@ function onGoogleClick() {
           class="flex w-full flex-col items-center gap-3 px-6 pb-6 pt-3 text-center"
         >
           <p class="text-sm font-medium uppercase tracking-wider text-muted">
-            You've been invited to join
+            {{ echoT('b25.invite.invitedToJoin') }}
           </p>
           <h1
             class="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl"
@@ -213,7 +210,11 @@ function onGoogleClick() {
                 class="inline-block h-2 w-2 rounded-full bg-[var(--echo-presence-online)]"
               />
               {{ formatMemberCount(memberCount) }}
-              {{ memberCount === 1 ? 'member' : 'members' }}
+              {{
+                memberCount === 1
+                  ? echoT('b25.invite.member')
+                  : echoT('b25.invite.members')
+              }}
             </span>
             <span v-if="requiresApplication" class="flex items-center gap-1.5">
               <svg
@@ -230,7 +231,7 @@ function onGoogleClick() {
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              Application required
+              {{ echoT('b25.invite.applicationRequired') }}
             </span>
           </div>
 
@@ -248,7 +249,7 @@ function onGoogleClick() {
               class="inline-block h-7 w-7 rounded-full border-2 border-surface object-cover"
             />
             <span v-if="topMembers.length > 5" class="ml-2 text-xs text-muted">
-              +{{ topMembers.length - 5 }} more
+              {{ echoT('b25.invite.moreCount', { n: topMembers.length - 5 }) }}
             </span>
           </div>
         </div>
@@ -259,20 +260,20 @@ function onGoogleClick() {
         <!-- Auth section -->
         <div class="flex w-full flex-col gap-4 px-6 py-6">
           <p class="text-center text-sm font-medium text-muted">
-            Sign in to accept this invite
+            {{ echoT('b25.invite.signInToAccept') }}
           </p>
 
           <!-- OAuth pills -->
           <div
             class="flex w-full flex-wrap items-stretch justify-center gap-2"
             role="group"
-            aria-label="Quick sign-in"
+            :aria-label="echoT('b25.invite.quickSignIn')"
           >
             <button
               type="button"
               class="invite-landing__sso-pill invite-landing__sso-pill--discord"
               :disabled="oauthBusy"
-              aria-label="Continue with Discord"
+              :aria-label="echoT('b25.invite.continueDiscord')"
               @click="onDiscordClick"
             >
               <svg
@@ -292,7 +293,7 @@ function onGoogleClick() {
               type="button"
               class="invite-landing__sso-pill invite-landing__sso-pill--google"
               :disabled="oauthBusy"
-              aria-label="Continue with Google"
+              :aria-label="echoT('b25.invite.continueGoogle')"
               @click="onGoogleClick"
             >
               <svg
@@ -324,7 +325,7 @@ function onGoogleClick() {
               type="button"
               class="invite-landing__sso-pill invite-landing__sso-pill--passkey"
               :disabled="oauthBusy"
-              aria-label="Sign in with a passkey"
+              :aria-label="echoT('b25.invite.signInPasskey')"
               @click="$emit('sign-in-passkey')"
             >
               <svg
@@ -359,20 +360,22 @@ function onGoogleClick() {
             class="invite-landing__primary w-full rounded-full px-4 py-3 text-base font-semibold leading-snug"
             @click="$emit('log-in-echo')"
           >
-            Log in with Echo
+            {{ echoT('b25.invite.loginEcho') }}
           </button>
           <button
             type="button"
             class="invite-landing__create w-full rounded-full px-4 py-3 text-base font-semibold leading-snug"
             @click="$emit('create-account')"
           >
-            Create an account
+            {{ echoT('b25.invite.createAccount') }}
           </button>
         </div>
       </div>
 
       <!-- Subtle Echo branding -->
-      <p class="mt-6 text-xs text-muted/60">Powered by Echo</p>
+      <p class="mt-6 text-xs text-muted/60">
+        {{ echoT('b25.invite.poweredBy') }}
+      </p>
     </div>
   </div>
 </template>

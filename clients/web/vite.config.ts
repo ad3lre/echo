@@ -99,7 +99,10 @@ function manualChunks(id: string): string | undefined {
   if (normalized.includes('marked')) return 'markdown';
   if (normalized.includes('dompurify')) return 'dompurify';
   if (normalized.includes('twemoji')) return 'twemoji';
-  if (normalized.includes('@tanstack/vue-virtual')) return 'virtual-scroll';
+  // Do not manual-chunk `@tanstack/vue-virtual`: Rolldown parks shared Vue runtime
+  // helpers inside that chunk (same failure mode as the old `rich-editor` split),
+  // forcing AppLayout / StatusIndicator to sync-import it. Virtualizer stays with
+  // MessageList's async graph instead.
   if (normalized.includes('unicode-emoji-json')) return 'emoji-json';
   /**
    * LiveKit vs Krisp: separate vendor chunks so LiveKit updates do not invalidate the Krisp WASM
@@ -120,11 +123,11 @@ function manualChunks(id: string): string | undefined {
   if (normalized.includes('socket.io-client')) return 'realtime-vendor';
   if (normalized.includes('pdfjs-dist')) return 'pdfjs';
 
-  // TipTap + ProseMirror: large, statically imported by the composer/paper editor. Isolate
-  // so editor-engine updates don't invalidate the app/layout chunk's cache line.
-  if (normalized.includes('@tiptap') || normalized.includes('prosemirror')) {
-    return 'rich-editor';
-  }
+  // TipTap / ProseMirror: do **not** assign a manual `rich-editor` chunk.
+  // Rolldown was parking shared Vue runtime helpers inside that chunk whenever
+  // TipTap packages were forced there, so AppLayout / StatusIndicator statically
+  // imported ~560 KB of editor code just for `createElementVNode` helpers.
+  // TipTap stays with its async importers (ChatInput, Paper, toast quick-reply).
 
   return undefined;
 }

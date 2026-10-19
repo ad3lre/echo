@@ -1,19 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import AppToastQuickReplyComposer from '@/features/layout/components/AppToastQuickReplyComposer.vue';
+import { echoT } from '@/i18n';
+import { defineAsyncComponent, ref } from 'vue';
 import {
   useAppToastController,
   type AppToastLayoutContext,
 } from '@/features/layout/composables/controller/useAppToastController';
+import type { EchoToastQuickReplyPayload } from '@/features/layout/echoToastQuickReplyBridge';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
+
+/** TipTap stays off the AppLayout sync graph until a toast actually needs quick-reply. */
+const AppToastQuickReplyComposer = defineAsyncComponent(
+  () => import('@/features/layout/components/AppToastQuickReplyComposer.vue'),
+);
 
 const props = defineProps<{
   layoutContext: AppToastLayoutContext;
 }>();
 
-const quickReplyComposerRef = ref<InstanceType<
-  typeof AppToastQuickReplyComposer
-> | null>(null);
+const quickReplyComposerRef = ref<{
+  getReplyPayload?: () => EchoToastQuickReplyPayload;
+} | null>(null);
 
 const {
   appToast,
@@ -276,7 +282,7 @@ const {
                   <button
                     type="button"
                     class="chat-focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg-soft disabled:pointer-events-none disabled:opacity-35"
-                    aria-label="Previous notification"
+                    :aria-label="echoT('b40.toast.prev')"
                     :disabled="!appToastMessageNavCanGoPrev"
                     @click="showPrevMessageToast"
                   >
@@ -302,7 +308,7 @@ const {
                   <button
                     type="button"
                     class="chat-focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg-soft disabled:pointer-events-none disabled:opacity-35"
-                    aria-label="Next notification"
+                    :aria-label="echoT('b40.toast.next')"
                     :disabled="!appToastMessageNavCanGoNext"
                     @click="showNextMessageToast"
                   >
@@ -329,7 +335,7 @@ const {
                       ? 'text-fg-subtle hover:text-fg-soft'
                       : 'text-muted hover:bg-overlay-subtle hover:text-foreground',
                   ]"
-                  aria-label="Dismiss"
+                  :aria-label="echoT('b40.toast.dismiss')"
                   @click="dismissAppToast"
                 >
                   <svg
@@ -414,7 +420,7 @@ const {
               class="chat-focus-ring shrink-0 rounded-md bg-glass-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-glass-hover"
               @click="openMessageChannelFromToast"
             >
-              Open
+              {{ echoT('b40.toast.open') }}
             </button>
             <button
               v-else
@@ -423,7 +429,7 @@ const {
               :disabled="!toastQuickReplyText.trim()"
               @click="submitToastQuickReply"
             >
-              Send
+              {{ echoT('b40.toast.send') }}
             </button>
           </div>
           <div
@@ -466,14 +472,14 @@ const {
         class="chat-focus-ring flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover"
         @click="openMessageChannelFromToastContextMenu"
       >
-        Open conversation
+        {{ echoT('b40.toast.openConversation') }}
       </button>
       <button
         type="button"
         class="chat-focus-ring flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-fg-soft hover:bg-glass-hover"
         @click="dismissToastFromContextMenu"
       >
-        Dismiss notification
+        {{ echoT('b40.toast.dismissNotification') }}
       </button>
     </div>
   </Teleport>

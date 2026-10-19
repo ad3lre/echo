@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   watch,
@@ -109,10 +110,10 @@ const emit = defineEmits<{
 type TabId = 'mutual-servers' | 'mutual-friends';
 const activeTab = ref<TabId>('mutual-servers');
 
-const tabs: { id: TabId; label: string }[] = [
-  { id: 'mutual-servers', label: 'Mutual Servers' },
-  { id: 'mutual-friends', label: 'Mutual Friends' },
-];
+const tabs = computed<{ id: TabId; label: string }[]>(() => [
+  { id: 'mutual-servers', label: echoT('b26.profileModal.mutualServers') },
+  { id: 'mutual-friends', label: echoT('b26.profileModal.mutualFriends') },
+]);
 
 const layoutLeft = inject<LayoutLeftChromeContext | null>(
   LAYOUT_LEFT_CHROME_KEY,
@@ -394,18 +395,18 @@ const tabBarRef = ref<HTMLElement | null>(null);
 
 function onTabBarKeydown(e: KeyboardEvent) {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-  const idx = tabs.findIndex((t) => t.id === activeTab.value);
+  const idx = tabs.value.findIndex((t) => t.id === activeTab.value);
   const nextIdx =
     e.key === 'ArrowLeft'
       ? idx > 0
         ? idx - 1
         : idx
-      : idx < tabs.length - 1
+      : idx < tabs.value.length - 1
         ? idx + 1
         : idx;
   if (nextIdx === idx) return;
   e.preventDefault();
-  activeTab.value = tabs[nextIdx]!.id;
+  activeTab.value = tabs.value[nextIdx]!.id;
   void nextTick(() => {
     const tabs = tabBarRef.value?.querySelectorAll<HTMLElement>('[role="tab"]');
     tabs?.[nextIdx]?.focus();
@@ -465,7 +466,7 @@ function onOverlayClick() {
                   class="absolute bottom-2 right-2 z-[12]"
                 >
                   <DiscordOriginMark
-                    label="Discord profile (not on Echo)"
+                    :label="echoT('b26.profileModal.discordNotOnEcho')"
                     size="md"
                   />
                 </div>
@@ -549,14 +550,14 @@ function onOverlayClick() {
                         class="ep-header-btn ep-header-btn-message"
                         @click="emit('open-edit-profile')"
                       >
-                        <span>Edit profile</span>
+                        <span>{{ echoT('memberProfile.editProfile') }}</span>
                       </button>
                       <button
                         v-if="showExpandedProfileMessageIcon"
                         type="button"
                         class="ep-header-btn ep-header-btn-icon-only"
-                        title="Message"
-                        aria-label="Message"
+                        :title="echoT('memberProfile.message')"
+                        :aria-label="echoT('memberProfile.message')"
                         @click="handleMessageClick"
                       >
                         <img
@@ -584,12 +585,12 @@ function onOverlayClick() {
                         ]"
                         :title="
                           friendshipUi.kind === 'unknown'
-                            ? 'Checking friendship...'
+                            ? echoT('b26.profileModal.checkingFriendship')
                             : friendshipUi.kind === 'incoming_request'
-                              ? 'Accept friend request'
+                              ? echoT('b26.profileModal.acceptRequest')
                               : friendshipUi.kind === 'outgoing_request'
-                                ? 'Pending friend request'
-                                : 'Add friend'
+                                ? echoT('b26.profileModal.pendingRequest')
+                                : echoT('memberProfile.addFriend')
                         "
                         :disabled="!friendshipUi.primaryEnabled"
                         @click="handleAddFriendClick"
@@ -616,11 +617,11 @@ function onOverlayClick() {
                         "
                         type="button"
                         class="ep-header-btn ep-header-btn-decline"
-                        title="Decline request"
+                        :title="echoT('b26.profileModal.declineRequest')"
                         @click="handleDeclineFriendClick"
                       >
                         <span class="text-[11px] font-semibold text-fg-soft">
-                          Decline
+                          {{ echoT('b26.profileModal.decline') }}
                         </span>
                       </button>
                       <UserProfileMoreMenu
@@ -666,7 +667,9 @@ function onOverlayClick() {
                   "
                   class="ep-roles-block mt-4"
                 >
-                  <div class="ep-about-label">Roles in this server</div>
+                  <div class="ep-about-label">
+                    {{ echoT('b26.profileModal.rolesInServer') }}
+                  </div>
                   <div class="mt-2 flex flex-wrap gap-1.5">
                     <span
                       v-for="role in sortedExpandedRoles"
@@ -674,7 +677,11 @@ function onOverlayClick() {
                       class="inline-flex max-w-full items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-semibold text-foreground"
                       :style="memberPopoutRoleChipStyle(role.color)"
                     >
-                      {{ role.name === '@everyone' ? 'Member' : role.name }}
+                      {{
+                        role.name === '@everyone'
+                          ? echoT('b26.profileModal.member')
+                          : role.name
+                      }}
                     </span>
                   </div>
                 </section>
@@ -688,7 +695,9 @@ function onOverlayClick() {
                     "
                   >
                     <template v-if="profile.bio?.trim()">
-                      <div class="ep-about-label">ABOUT ME</div>
+                      <div class="ep-about-label">
+                        {{ echoT('b26.profileModal.aboutMe') }}
+                      </div>
                       <ProfileBioText
                         :text="profile.bio"
                         body-class="ep-card-body"
@@ -704,7 +713,9 @@ function onOverlayClick() {
                   </div>
 
                   <div v-if="!profile.isDiscordShadow">
-                    <div class="ep-about-label">NOTE</div>
+                    <div class="ep-about-label">
+                      {{ echoT('b26.profileModal.note') }}
+                    </div>
                     <textarea
                       ref="noteInputRef"
                       v-model="draftNote"
@@ -748,7 +759,7 @@ function onOverlayClick() {
                 <button
                   type="button"
                   class="ep-close"
-                  aria-label="Close"
+                  :aria-label="echoT('b26.profileModal.close')"
                   @click="close"
                 >
                   <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true">
@@ -768,7 +779,7 @@ function onOverlayClick() {
                 <!-- Mutual Servers -->
                 <div v-show="activeTab === 'mutual-servers'" role="tabpanel">
                   <p v-if="profile.mutualServers.length === 0" class="ep-empty">
-                    No mutual servers
+                    {{ echoT('b26.profileModal.noMutualServers') }}
                   </p>
                   <ul v-else class="ep-server-list">
                     <li
@@ -794,7 +805,7 @@ function onOverlayClick() {
                 <!-- Mutual Friends -->
                 <div v-show="activeTab === 'mutual-friends'" role="tabpanel">
                   <p v-if="profile.mutualFriends.length === 0" class="ep-empty">
-                    No mutual friends
+                    {{ echoT('b26.profileModal.noMutualFriends') }}
                   </p>
                   <ul v-else class="ep-friend-list">
                     <li

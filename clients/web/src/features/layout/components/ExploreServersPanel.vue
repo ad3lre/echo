@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, unref } from 'vue';
 import { PUBLIC_INVITE_BASE } from '@/config';
 import { icons } from '@/assets/icons';
@@ -79,10 +80,10 @@ function joinViaInvite() {
           <div
             class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
           >
-            Discover
+            {{ echoT('b33.explore.discover') }}
           </div>
           <h2 class="mt-0.5 truncate text-base font-bold text-foreground">
-            Explore Servers
+            {{ echoT('b33.explore.title') }}
           </h2>
         </div>
       </div>
@@ -95,11 +96,10 @@ function joinViaInvite() {
             </div>
             <div class="min-w-0 flex-1">
               <h3 class="text-xs font-semibold text-foreground">
-                Create your own server
+                {{ echoT('b33.explore.createTitle') }}
               </h3>
               <p class="mt-0.5 text-[11px] leading-snug text-fg-soft">
-                Start fresh with channels, roles, and a space that feels like
-                yours.
+                {{ echoT('b33.explore.createDesc') }}
               </p>
             </div>
           </div>
@@ -108,7 +108,7 @@ function joinViaInvite() {
             class="explore-cta mt-2.5 w-full rounded-lg px-3 py-2 text-xs font-semibold text-white"
             @click="emit('create-server')"
           >
-            Create Server
+            {{ echoT('b33.explore.createBtn') }}
           </button>
         </section>
 
@@ -119,17 +119,17 @@ function joinViaInvite() {
             </div>
             <div class="min-w-0 flex-1">
               <h3 class="text-xs font-semibold text-foreground">
-                Join with an invite
+                {{ echoT('b33.explore.joinTitle') }}
               </h3>
               <p class="mt-0.5 text-[11px] leading-snug text-fg-soft">
-                Paste an invite link to jump into a server right away.
+                {{ echoT('b33.explore.joinDesc') }}
               </p>
             </div>
           </div>
           <label
             class="mt-2.5 block text-[10px] font-bold uppercase tracking-[0.18em] text-fg-subtle"
           >
-            Invite Link
+            {{ echoT('b33.explore.inviteLink') }}
           </label>
           <div class="mt-1.5 flex items-center gap-2">
             <input
@@ -143,7 +143,7 @@ function joinViaInvite() {
               class="explore-cta shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-white"
               @click="joinViaInvite"
             >
-              Join
+              {{ echoT('b33.explore.join') }}
             </button>
           </div>
         </section>
@@ -154,10 +154,10 @@ function joinViaInvite() {
               <div
                 class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
               >
-                Suggested
+                {{ echoT('b33.explore.suggested') }}
               </div>
               <h3 class="mt-0.5 text-xs font-semibold text-foreground">
-                Communities to browse
+                {{ echoT('b33.explore.communities') }}
               </h3>
             </div>
             <img
@@ -188,7 +188,7 @@ function joinViaInvite() {
                 <div
                   class="pointer-events-none absolute left-2 top-2 rounded-full border border-border bg-scrim-2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-fg-soft"
                 >
-                  Public
+                  {{ echoT('b33.explore.public') }}
                 </div>
               </div>
               <div
@@ -223,7 +223,7 @@ function joinViaInvite() {
                     class="suggested-server__join mt-2.5 w-full rounded-lg px-3 py-2 text-xs font-semibold text-white transition-colors"
                     @click="emit('join-suggested', server.name)"
                   >
-                    Join server
+                    {{ echoT('b33.explore.joinServer') }}
                   </button>
                 </div>
               </div>

@@ -9,28 +9,11 @@ import type {
 } from '@/features/channel-settings/types';
 import { canonicalizeEchoPermissionRowsForSave } from '@/features/channel-settings/domain/echoPermissionRows';
 import { dispatchAppToast } from '@/features/layout/failures/controllerMissingAction';
+import { channelPermissionLabel } from '@/i18n/labels';
+import { echoT } from '@/i18n';
 
 export type PermissionOverwriteSaveWarningsDto = {
   strippedAllows?: string[];
-};
-
-const ECHO_PERMISSION_LABELS: Record<string, string> = {
-  VIEW_CHANNEL: 'View channel',
-  SEND_MESSAGES: 'Send messages',
-  EMBED_LINKS: 'Embed links',
-  ATTACH_FILES: 'Attach files',
-  CONNECT: 'Connect',
-  SPEAK: 'Speak',
-  STREAM: 'Video / stream',
-  MANAGE_CHANNELS: 'Manage channel',
-  MANAGE_ROLES: 'Manage permissions',
-  MANAGE_WEBHOOKS: 'Manage webhooks',
-  CREATE_INSTANT_INVITE: 'Create invite',
-  ADD_REACTIONS: 'Add reactions',
-  READ_MESSAGE_HISTORY: 'Read message history',
-  MENTION_EVERYONE: 'Mention everyone',
-  MANAGE_MESSAGES: 'Manage messages',
-  COMMENT_ON_PAPER: 'Comment on paper',
 };
 
 function labelForEchoPermission(
@@ -41,9 +24,17 @@ function labelForEchoPermission(
   const uiKey = Object.keys(overrides)[0] as ChannelPermissionKey | undefined;
   if (uiKey) {
     const def = defs.find((d) => d.key === uiKey);
-    if (def) return def.label;
+    return channelPermissionLabel(uiKey, { group: def?.group });
   }
-  return ECHO_PERMISSION_LABELS[echoKey] ?? echoKey;
+  return echoKey;
+}
+
+function joinPermissionLabels(labels: string[]): string {
+  if (labels.length <= 4) return labels.join(', ');
+  return echoT('b31.overwrite.andMore', {
+    list: labels.slice(0, 3).join(', '),
+    count: labels.length - 3,
+  });
 }
 
 export function formatPermissionOverwriteSaveWarnings(
@@ -53,11 +44,9 @@ export function formatPermissionOverwriteSaveWarnings(
   const stripped = warnings?.strippedAllows ?? [];
   if (stripped.length === 0) return null;
   const labels = stripped.map((k) => labelForEchoPermission(k, defs));
-  const joined =
-    labels.length <= 4
-      ? labels.join(', ')
-      : `${labels.slice(0, 3).join(', ')}, and ${labels.length - 3} more`;
-  return `Some Allow overrides were removed because your role does not include: ${joined}. Deny and Inherit changes were still saved.`;
+  return echoT('b31.overwrite.strippedAllows', {
+    list: joinPermissionLabels(labels),
+  });
 }
 
 function rowKey(row: PermissionOverwriteRowDraft): string {
@@ -90,8 +79,8 @@ export function findPermissionOverwritePersistenceMismatches(
     if (!got) {
       labels.push(
         row.targetType === 'everyone'
-          ? '@everyone overwrite'
-          : `${row.targetType} overwrite`,
+          ? echoT('b31.overwrite.everyoneOverwrite')
+          : echoT('b31.overwrite.typedOverwrite', { type: row.targetType }),
       );
       continue;
     }
@@ -111,11 +100,9 @@ export function formatPermissionOverwritePersistenceMismatch(
   mismatchedLabels: string[],
 ): string | null {
   if (mismatchedLabels.length === 0) return null;
-  const joined =
-    mismatchedLabels.length <= 4
-      ? mismatchedLabels.join(', ')
-      : `${mismatchedLabels.slice(0, 3).join(', ')}, and ${mismatchedLabels.length - 3} more`;
-  return `Some permission changes did not save (${joined}). Reload the page and try again, or ask a server owner.`;
+  return echoT('b31.overwrite.persistenceMismatch', {
+    list: joinPermissionLabels(mismatchedLabels),
+  });
 }
 
 /** Surface server warnings and post-save drift to the user (non-blocking). */

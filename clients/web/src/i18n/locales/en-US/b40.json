@@ -1,0 +1,89 @@
+{
+  "tickets": {
+    "open": "Open",
+    "inProgress": "In Progress",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "category": "Category: {category}",
+    "markInProgress": "Mark In Progress",
+    "resolve": "Resolve",
+    "closeTicket": "Close Ticket",
+    "closedMsg": "This ticket has been closed."
+  },
+  "report": {
+    "tns": "Trust & Safety",
+    "manual": "Manual report",
+    "manualDesc": "Use this when you have a user or message ID but cannot open those menus — for example, content shared outside Echo.",
+    "openForm": "Open report form",
+    "intro": "Reports go to Echo's Trust & Safety team for review. Most reports are handled within a few business days.",
+    "fromProfile": "From a user profile — open their profile menu and choose {report}",
+    "fromMessage": "From a message — right-click or long-press and choose {report}",
+    "report": "Report",
+    "reportMessage": "Report message"
+  },
+  "permPreview": {
+    "title": "Permission preview",
+    "desc": "Effective permissions for your account (server fold, then category and channel layers). Requires manage roles or manage server.",
+    "signIn": "Sign in with Echo (non-mock) to load this panel.",
+    "channelContext": "Channel context",
+    "trace": "Trace",
+    "compare": "Compare to role",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "owner": "Owner bypass: all permissions."
+  },
+  "join": {
+    "server": "Server",
+    "memberOne": "{count} member",
+    "memberMany": "{count} members",
+    "inVoice": "{count} in voice",
+    "two": "{a} and {b}",
+    "andOthers": " and {count} others",
+    "andOtherOne": " and {count} other",
+    "iconAlt": "{name} icon",
+    "titleVoice": "Join voice channel?",
+    "titleServer": "Join this server?",
+    "descVoice": "You’ll join the server and connect to voice when you confirm.",
+    "descServer": "You’ll become a member and can see channels based on your roles.",
+    "about": "About",
+    "peopleHere": "People here",
+    "cancel": "Cancel",
+    "joining": "Joining…",
+    "join": "Join"
+  },
+  "reply": {
+    "jump": "Jump to message",
+    "video": "[Video]",
+    "gif": "[GIF]",
+    "image": "[Image]",
+    "audio": "[Audio]",
+    "file": "[File]",
+    "poll": "[Poll]",
+    "sticker": "[Sticker]"
+  },
+  "discordImport": {
+    "aria": "Import Discord message history",
+    "title": "Import recent Discord messages",
+    "loginRequired": "You must be logged in to import messages.",
+    "failed": "Failed to import messages",
+    "descInto": "This channel came from Discord. You can copy the last 90 messages into {channel}.",
+    "descHere": "This channel came from Discord. You can copy the last 90 messages here to preserve recent history.",
+    "importing": "Importing…",
+    "button": "Import last 90 messages",
+    "note": "Authors without a linked Discord account show as placeholder profiles."
+  },
+  "toast": {
+    "prev": "Previous notification",
+    "next": "Next notification",
+    "dismiss": "Dismiss",
+    "open": "Open",
+    "send": "Send",
+    "openConversation": "Open conversation",
+    "dismissNotification": "Dismiss notification"
+  },
+  "messageList": {
+    "inChannel": "Messages in {channel}",
+    "messages": "Messages",
+    "loading": "Loading messages"
+  }
+}

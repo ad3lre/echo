@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, type CSSProperties } from 'vue';
 import {
   roleHierarchyDisplayRank,
@@ -145,13 +146,13 @@ const filteredManageableRoles = computed(() => {
 });
 
 const roleListEmptyHint = computed(() => {
-  if (roleSearchQuery.value.trim()) return 'No matching roles.';
+  if (roleSearchQuery.value.trim()) return echoT('b27.rolePanel.noMatching');
   if (
     showRoleGroupTabs.value &&
     activeRoleGroupTabId.value !== 'all' &&
     !filteredManageableRoles.value.length
   ) {
-    return 'No roles in this group.';
+    return echoT('b27.rolePanel.noneInGroup');
   }
   const rm = props.roleManagement;
   const gate = rm?.canMutateMemberRole;
@@ -162,12 +163,12 @@ const roleListEmptyHint = computed(() => {
     !manageableRoles.value.length &&
     !roleSearchQuery.value.trim()
   ) {
-    return 'No roles you can assign from here (rank vs target or permissions).';
+    return echoT('b27.rolePanel.noneAssignable');
   }
   if (!manageableRoles.value.length) {
-    return 'No roles yet. Create one in Server Settings → Roles.';
+    return echoT('b27.rolePanel.noneYet');
   }
-  return 'No matching roles.';
+  return echoT('b27.rolePanel.noMatching');
 });
 
 function isRoleAssigned(roleId: string) {
@@ -197,8 +198,8 @@ function roleRowTitle(role: {
 }) {
   if (!isRoleRowDisabled(role)) return undefined;
   return isRoleAssigned(role.id)
-    ? 'You cannot remove this role for this member (rank).'
-    : 'You cannot assign this role (rank vs member, or missing permissions for self).';
+    ? echoT('b27.rolePanel.cannotRemove')
+    : echoT('b27.rolePanel.cannotAssign');
 }
 
 async function toggleRole(role: {
@@ -213,7 +214,6 @@ async function toggleRole(role: {
   if (isRoleRowDisabled(role)) return;
   const currently = isRoleAssigned(role.id);
   const next = !currently;
-
   void rm.onToggleRole({ targetUserId: p.id, roleId: role.id, assign: next });
 }
 
@@ -234,14 +234,16 @@ defineExpose({
           <div
             class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
           >
-            Manage Roles
+            {{ echoT('b27.rolePanel.manage') }}
           </div>
           <div class="mt-1 text-xs text-fg-soft">
-            Assign roles for {{ profile.displayName }}
+            {{
+              echoT('b27.rolePanel.assignFor', { name: profile.displayName })
+            }}
           </div>
         </div>
         <div v-if="roleManagement.busy" class="text-[11px] text-fg-subtle">
-          Saving...
+          {{ echoT('b27.rolePanel.saving') }}
         </div>
       </div>
 
@@ -249,14 +251,14 @@ defineExpose({
         v-model="roleSearchQuery"
         type="text"
         class="member-popout__role-search"
-        placeholder="Search roles"
+        :placeholder="echoT('b27.rolePanel.search')"
       />
 
       <div
         v-if="showRoleGroupTabs"
         class="member-popout__role-group-tabs custom-scrollbar"
         role="tablist"
-        aria-label="Role groups"
+        :aria-label="echoT('b27.rolePanel.groups')"
       >
         <button
           type="button"
@@ -269,7 +271,7 @@ defineExpose({
           :aria-selected="activeRoleGroupTabId === 'all'"
           @click="setRoleGroupTab('all')"
         >
-          All
+          {{ echoT('b27.rolePanel.all') }}
         </button>
         <button
           v-for="cat in sortedRoleCategories"
@@ -299,10 +301,10 @@ defineExpose({
               activeRoleGroupTabId === 'uncategorized',
           }"
           :aria-selected="activeRoleGroupTabId === 'uncategorized'"
-          title="Roles not in any group"
+          :title="echoT('b27.rolePanel.notInGroup')"
           @click="setRoleGroupTab('uncategorized')"
         >
-          Uncategorized
+          {{ echoT('b27.rolePanel.uncategorized') }}
         </button>
       </div>
 
@@ -326,10 +328,14 @@ defineExpose({
               />
             </span>
             <span class="truncate">{{
-              everyoneRole.name === '@everyone' ? 'Member' : everyoneRole.name
+              everyoneRole.name === '@everyone'
+                ? echoT('b27.rolePanel.member')
+                : everyoneRole.name
             }}</span>
           </span>
-          <span class="member-popout__role-option-state">Everyone</span>
+          <span class="member-popout__role-option-state">{{
+            echoT('b27.rolePanel.everyone')
+          }}</span>
         </div>
         <button
           v-for="role in filteredManageableRoles"
@@ -340,11 +346,7 @@ defineExpose({
             'member-popout__role-option--active': isRoleAssigned(role.id),
             'member-popout__role-option--blocked': isRoleRowDisabled(role),
           }"
-          :disabled="
-            roleManagement.busy ||
-            pendingRoleIds.has(role.id) ||
-            isRoleRowDisabled(role)
-          "
+          :disabled="pendingRoleIds.has(role.id) || isRoleRowDisabled(role)"
           :title="roleRowTitle(role)"
           @click="toggleRole(role)"
         >
@@ -365,7 +367,11 @@ defineExpose({
             <span class="truncate">{{ role.name }}</span>
           </span>
           <span class="member-popout__role-option-state">
-            {{ isRoleAssigned(role.id) ? 'Added' : 'Add' }}
+            {{
+              isRoleAssigned(role.id)
+                ? echoT('b27.rolePanel.added')
+                : echoT('b27.rolePanel.add')
+            }}
           </span>
         </button>
 

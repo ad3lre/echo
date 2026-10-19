@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useUiAudioDevicesStore } from '@/features/settings/uiAudioDevices';
 import { dispatchAppToastDetail } from '@/features/layout/failures/controllerMissingAction';
@@ -54,8 +55,9 @@ function notifyNewAudioDevices(
   if (!pick) return;
   const label =
     pick.label?.trim() ||
-    (pick.kind === 'audioinput' ? 'Microphone' : 'Speaker');
-  const kindLabel = pick.kind === 'audioinput' ? 'Microphone' : 'Speaker';
+    (pick.kind === 'audioinput' ? echoT('voiceChrome.microphone') : 'Speaker');
+  const kindLabel =
+    pick.kind === 'audioinput' ? echoT('voiceChrome.microphone') : 'Speaker';
   const deviceId = pick.deviceId;
   const kind = pick.kind;
   dispatchAppToastDetail({
@@ -106,7 +108,7 @@ function createMediaDevicesState() {
         d.label ||
         (d.deviceId === 'default'
           ? friendlyDefaultLabel(kind)
-          : `${kind === 'audioinput' ? 'Microphone' : kind === 'audiooutput' ? 'Speaker' : 'Camera'} (${d.deviceId.slice(0, 8)})`);
+          : `${kind === 'audioinput' ? echoT('voiceChrome.microphone') : kind === 'audiooutput' ? 'Speaker' : echoT('voiceChrome.camera')} (${d.deviceId.slice(0, 8)})`);
       opts.push({ label, value: d.deviceId });
     }
     return opts;

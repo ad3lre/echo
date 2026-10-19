@@ -197,28 +197,27 @@ function onAuthErrorModalUpdate(open: boolean) {
 
 function mapError(err: unknown): string {
   if (err instanceof Error && err.message === 'ACCOUNTS_DISABLED_PREVIEW') {
-    return 'Sign-in isn’t available while Echo is in preview mode.';
+    return echoT('auth.errors.previewMode');
   }
   if (err instanceof AuthApiError) {
     const c = err.body.code;
     if (c === 'INVALID_MFA_CODE' || c === 'INVALID_EMAIL_IP_CODE')
-      return 'That code doesn’t match. Try again.';
+      return echoT('auth.errors.codeMismatch');
     if (c === 'INVALID_MFA_TOKEN' || c === 'INVALID_LOGIN_TOKEN')
-      return 'The sign-in step expired. Try logging in again.';
+      return echoT('auth.errors.stepExpiredLogin');
     if (c === 'EMAIL_VERIFICATION_REQUIRED')
-      return 'Verify your email to unlock this account. Check your inbox for a link.';
+      return echoT('auth.errors.verifyEmailRequired');
     if (c === 'VERIFICATION_EMAIL_COOLDOWN' || c === 'LOGIN_EMAIL_OTP_COOLDOWN')
-      return 'Please wait a moment before requesting another email.';
+      return echoT('auth.errors.emailCooldown');
     if (c === 'INVALID_CREDENTIALS')
-      return 'That username or password doesn’t match our records.';
-    if (c === 'USERNAME_TAKEN')
-      return 'That username is already taken. Try another.';
+      return echoT('auth.errors.invalidCredentials');
+    if (c === 'USERNAME_TAKEN') return echoT('auth.errors.usernameTaken');
     if (c === 'EMAIL_IN_USE')
-      return 'That email is already registered. Try logging in instead.';
-    if (c === 'INVALID_EMAIL') return 'Please enter a valid email address.';
-    if (c === 'CHALLENGE_EXPIRED')
-      return 'That sign-in step expired. Try again.';
-    if (c === 'VERIFICATION_FAILED') return 'Verification failed. Try again.';
+      return echoT('auth.guestOnboarding.errors.emailInUse');
+    if (c === 'INVALID_EMAIL') return echoT('auth.errors.invalidEmail');
+    if (c === 'CHALLENGE_EXPIRED') return echoT('auth.errors.stepExpired');
+    if (c === 'VERIFICATION_FAILED')
+      return echoT('auth.errors.verificationFailed');
     return translateApiErrorBody(err.body);
   }
   if (err instanceof Error) return err.message;
@@ -314,7 +313,7 @@ async function submitLogin(): Promise<void> {
   const u = username.value.trim();
   const p = password.value;
   if (!u || !p) {
-    setAuthError('Enter your username or email and password.');
+    setAuthError(echoT('auth.errors.enterCredentials'));
     return;
   }
   submitting.value = true;
@@ -332,18 +331,18 @@ async function submitLogin(): Promise<void> {
 async function submitMfa(): Promise<void> {
   const token = mfaToken.value?.trim() ?? '';
   if (!token) {
-    setAuthError('Sign-in expired. Try logging in again.');
+    setAuthError(echoT('auth.errors.sessionExpired'));
     return;
   }
   const useTotp = mfaFactor.value === 'totp';
   const code = mfaTotpCode.value.trim();
   const recoveryCode = mfaRecoveryCode.value.trim();
   if (useTotp && !/^\d{6}$/.test(code)) {
-    setAuthError('Enter the 6-digit code from your authenticator app.');
+    setAuthError(echoT('auth.errors.enterMfaCode'));
     return;
   }
   if (!useTotp && !recoveryCode) {
-    setAuthError('Enter a recovery code.');
+    setAuthError(echoT('auth.errors.enterRecoveryCode'));
     return;
   }
   submitting.value = true;
@@ -372,11 +371,11 @@ async function submitRegister(): Promise<void> {
   const em = normalizeEmail(email.value);
   const d = displayName.value.trim();
   if (!u || !p) {
-    setAuthError('Choose a username and password.');
+    setAuthError(echoT('auth.errors.chooseUsernamePassword'));
     return;
   }
   if (!em || !isValidEmailFormat(email.value)) {
-    setAuthError('Enter a valid email address.');
+    setAuthError(echoT('auth.guestOnboarding.errors.validEmail'));
     return;
   }
   if (p.length < MIN_ACCOUNT_PASSWORD_LENGTH) {
@@ -412,14 +411,14 @@ async function submitRegister(): Promise<void> {
 async function resendEmailVerification(): Promise<void> {
   const token = emailGateToken.value?.trim() ?? '';
   if (!token) {
-    setAuthError('Sign-in expired. Try logging in again.');
+    setAuthError(echoT('auth.errors.sessionExpired'));
     return;
   }
   submitting.value = true;
   errorMessage.value = '';
   try {
     await authLoginResendVerification({ loginToken: token });
-    forgotMessage.value = 'Verification email sent. Check your inbox.';
+    forgotMessage.value = echoT('auth.emailVerify.sent');
   } catch (e) {
     setAuthError(mapError(e));
   } finally {
@@ -431,11 +430,11 @@ async function submitEmailIpCode(): Promise<void> {
   const token = emailGateToken.value?.trim() ?? '';
   const code = emailIpCode.value.trim();
   if (!token) {
-    setAuthError('Sign-in expired. Try logging in again.');
+    setAuthError(echoT('auth.errors.sessionExpired'));
     return;
   }
   if (!/^\d{4,8}$/.test(code)) {
-    setAuthError('Enter the code from your email.');
+    setAuthError(echoT('auth.errors.enterEmailCode'));
     return;
   }
   submitting.value = true;
@@ -453,7 +452,7 @@ async function submitEmailIpCode(): Promise<void> {
 async function resendEmailIpCode(): Promise<void> {
   const token = emailGateToken.value?.trim() ?? '';
   if (!token) {
-    setAuthError('Sign-in expired. Try logging in again.');
+    setAuthError(echoT('auth.errors.sessionExpired'));
     return;
   }
   submitting.value = true;
@@ -472,7 +471,7 @@ async function resendEmailIpCode(): Promise<void> {
 async function submitForgot(): Promise<void> {
   const em = normalizeEmail(forgotEmail.value);
   if (!em || !isValidEmailFormat(forgotEmail.value)) {
-    setAuthError('Enter a valid email address.');
+    setAuthError(echoT('auth.guestOnboarding.errors.validEmail'));
     return;
   }
   submitting.value = true;
@@ -480,9 +479,7 @@ async function submitForgot(): Promise<void> {
   forgotMessage.value = '';
   try {
     const out = await authForgotPassword({ email: em });
-    forgotMessage.value =
-      out.message ||
-      'If an account exists for that email, you will receive reset instructions.';
+    forgotMessage.value = out.message || echoT('auth.forgot.success');
   } catch (e) {
     setAuthError(mapError(e));
   } finally {
@@ -497,7 +494,11 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
 </script>
 
 <template>
-  <div class="mobile-auth" role="main" aria-label="Sign in to Echo">
+  <div
+    class="mobile-auth"
+    role="main"
+    :aria-label="echoT('auth.welcome.ariaLabel')"
+  >
     <!-- Soft branded background: blurred Echo glyph + radial gradient stack -->
     <div class="mobile-auth__bg" aria-hidden="true">
       <img
@@ -519,7 +520,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
         class="mobile-auth__page mobile-auth__page--welcome"
       >
         <div class="mobile-auth__hero">
-          <h1 class="mobile-auth__title">Welcome back</h1>
+          <h1 class="mobile-auth__title">{{ echoT('auth.welcome.title') }}</h1>
           <p class="mobile-auth__subtitle">
             <span>to</span>
             <img
@@ -541,14 +542,14 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           <div
             class="mobile-auth__chips"
             role="group"
-            aria-label="Other sign-in options"
+            :aria-label="echoT('auth.welcome.otherOptions')"
           >
             <button
               v-if="GOOGLE_SSO_SIGNIN_UI_ENABLED"
               type="button"
               class="mobile-auth__chip mobile-auth__chip--google"
               :disabled="submitting"
-              aria-label="Continue with Google"
+              :aria-label="echoT('auth.sso.continueWithGoogle')"
               @click="startGoogle"
             >
               <svg
@@ -573,13 +574,15 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
                   d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
                 />
               </svg>
-              <span class="mobile-auth__chip-text">Continue with Google</span>
+              <span class="mobile-auth__chip-text">{{
+                echoT('auth.sso.continueWithGoogle')
+              }}</span>
             </button>
             <button
               type="button"
               class="mobile-auth__chip mobile-auth__chip--discord"
               :disabled="submitting"
-              aria-label="Continue with Discord"
+              :aria-label="echoT('auth.sso.continueWithDiscord')"
               @click="startDiscord"
             >
               <svg
@@ -592,7 +595,9 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
                   d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"
                 />
               </svg>
-              <span class="mobile-auth__chip-text">Continue with Discord</span>
+              <span class="mobile-auth__chip-text">{{
+                echoT('auth.sso.continueWithDiscord')
+              }}</span>
             </button>
           </div>
 
@@ -609,7 +614,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               loading="lazy"
               decoding="async"
             />
-            <span>Sign in with Echo</span>
+            <span>{{ echoT('auth.welcome.signInWithEcho') }}</span>
           </button>
 
           <button
@@ -618,19 +623,19 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             :disabled="submitting"
             @click="push('register')"
           >
-            Create an account
+            {{ echoT('auth.titles.createAnAccount') }}
           </button>
         </div>
 
         <footer class="mobile-auth__footer">
           <p class="mobile-auth__legal">
-            Continuing means you accept our
+            {{ echoT('auth.legal.continuing') }}
             <button
               type="button"
               class="mobile-auth__legal-link"
               @click="openLegalModal('terms')"
             >
-              T.O.S
+              {{ echoT('auth.legal.terms') }}
             </button>
             and
             <button
@@ -638,12 +643,12 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               class="mobile-auth__legal-link"
               @click="openLegalModal('privacy')"
             >
-              Privacy policy
+              {{ echoT('auth.legal.privacy') }}
             </button>
             .
           </p>
           <p class="mobile-auth__support">
-            Support
+            {{ echoT('auth.welcome.support') }}
             <a
               class="mobile-auth__support-link"
               :href="echoPublicSupportMailtoHref"
@@ -663,7 +668,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           <button
             type="button"
             class="mobile-auth__back"
-            aria-label="Back"
+            :aria-label="echoT('b25.mobileAuth.back')"
             @click="pop()"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -676,7 +681,9 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               />
             </svg>
           </button>
-          <h1 class="mobile-auth__top-title">Log in</h1>
+          <h1 class="mobile-auth__top-title">
+            {{ echoT('auth.titles.logIn') }}
+          </h1>
           <span
             class="mobile-auth__back mobile-auth__back--ghost"
             aria-hidden="true"
@@ -685,7 +692,9 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
 
         <form class="mobile-auth__form" @submit.prevent="submitLogin">
           <label class="mobile-auth__field">
-            <span class="mobile-auth__label">Username or email</span>
+            <span class="mobile-auth__label">{{
+              echoT('auth.fields.usernameOrEmail')
+            }}</span>
             <input
               v-model="username"
               type="text"
@@ -699,7 +708,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             />
           </label>
           <label class="mobile-auth__field">
-            <span class="mobile-auth__label">Password</span>
+            <span class="mobile-auth__label">{{ echoT('auth.password') }}</span>
             <input
               v-model="password"
               type="password"
@@ -718,7 +727,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
                 push('forgot');
               "
             >
-              Forgot password?
+              {{ echoT('auth.forgotPassword') }}
             </button>
           </div>
 
@@ -727,17 +736,23 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             class="mobile-auth__primary mobile-auth__primary--filled"
             :disabled="submitting || isMockDataMode"
           >
-            {{ submitting ? 'Signing in…' : 'Log in' }}
+            {{
+              submitting
+                ? echoT('b25.mobileAuth.signingIn')
+                : echoT('b25.mobileAuth.logIn')
+            }}
           </button>
 
           <p class="mobile-auth__center-text">
-            <span class="mobile-auth__muted">New to Echo?</span>
+            <span class="mobile-auth__muted">{{
+              echoT('auth.login.newToEcho')
+            }}</span>
             <button
               type="button"
               class="mobile-auth__inline-link"
               @click="push('register')"
             >
-              Create an account
+              {{ echoT('auth.titles.createAnAccount') }}
             </button>
           </p>
         </form>
@@ -753,7 +768,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           <button
             type="button"
             class="mobile-auth__back"
-            aria-label="Back"
+            :aria-label="echoT('b25.mobileAuth.back')"
             @click="pop()"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -766,7 +781,9 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               />
             </svg>
           </button>
-          <h1 class="mobile-auth__top-title">Create account</h1>
+          <h1 class="mobile-auth__top-title">
+            {{ echoT('auth.createAccount') }}
+          </h1>
           <span
             class="mobile-auth__back mobile-auth__back--ghost"
             aria-hidden="true"
@@ -775,7 +792,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
 
         <form class="mobile-auth__form" @submit.prevent="submitRegister">
           <label class="mobile-auth__field">
-            <span class="mobile-auth__label">Email</span>
+            <span class="mobile-auth__label">{{ echoT('auth.email') }}</span>
             <input
               v-model="email"
               type="email"
@@ -790,7 +807,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             />
           </label>
           <label class="mobile-auth__field">
-            <span class="mobile-auth__label">Username</span>
+            <span class="mobile-auth__label">{{ echoT('auth.username') }}</span>
             <input
               v-model="username"
               type="text"
@@ -805,26 +822,28 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           </label>
           <label class="mobile-auth__field">
             <span class="mobile-auth__label">
-              Display name
-              <span class="mobile-auth__muted">(optional)</span>
+              {{ echoT('auth.displayName') }}
+              <span class="mobile-auth__muted">{{
+                echoT('auth.fields.optional')
+              }}</span>
             </span>
             <input
               v-model="displayName"
               type="text"
               autocomplete="nickname"
               class="mobile-auth__input"
-              placeholder="How others see you"
+              :placeholder="echoT('auth.placeholders.displayNameHint')"
               :disabled="isMockDataMode"
             />
           </label>
           <label class="mobile-auth__field">
-            <span class="mobile-auth__label">Password</span>
+            <span class="mobile-auth__label">{{ echoT('auth.password') }}</span>
             <input
               v-model="password"
               type="password"
               autocomplete="new-password"
               class="mobile-auth__input"
-              placeholder="At least 8 characters"
+              :placeholder="echoT('auth.placeholders.minPasswordChars')"
               :disabled="isMockDataMode"
             />
             <div v-if="password.length > 0" class="mobile-auth__strength">
@@ -836,7 +855,9 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
                 />
               </div>
               <div class="mobile-auth__strength-row">
-                <span class="mobile-auth__muted">Password strength</span>
+                <span class="mobile-auth__muted">{{
+                  echoT('auth.passwordStrength.title')
+                }}</span>
                 <span>{{ passwordStrength.label }}</span>
               </div>
             </div>
@@ -847,27 +868,33 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             class="mobile-auth__primary mobile-auth__primary--filled"
             :disabled="submitting || isMockDataMode"
           >
-            {{ submitting ? 'Creating account…' : 'Create account' }}
+            {{
+              submitting
+                ? echoT('auth.busy.creatingAccount')
+                : echoT('auth.createAccount')
+            }}
           </button>
 
           <p class="mobile-auth__center-text">
-            <span class="mobile-auth__muted">Already have one?</span>
+            <span class="mobile-auth__muted">{{
+              echoT('auth.login.alreadyHaveOne')
+            }}</span>
             <button
               type="button"
               class="mobile-auth__inline-link"
               @click="pop('welcome')"
             >
-              Sign in
+              {{ echoT('auth.signIn') }}
             </button>
           </p>
           <p class="mobile-auth__legal">
-            By signing up you agree to our
+            {{ echoT('auth.legal.signingUp') }}
             <button
               type="button"
               class="mobile-auth__legal-link"
               @click="openLegalModal('terms')"
             >
-              T.O.S
+              {{ echoT('auth.legal.terms') }}
             </button>
             and
             <button
@@ -875,7 +902,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               class="mobile-auth__legal-link"
               @click="openLegalModal('privacy')"
             >
-              Privacy policy
+              {{ echoT('auth.legal.privacy') }}
             </button>
             .
           </p>
@@ -892,7 +919,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           <button
             type="button"
             class="mobile-auth__back"
-            aria-label="Back"
+            :aria-label="echoT('b25.mobileAuth.back')"
             @click="pop('login')"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -905,7 +932,9 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               />
             </svg>
           </button>
-          <h1 class="mobile-auth__top-title">Forgot password</h1>
+          <h1 class="mobile-auth__top-title">
+            {{ echoT('auth.forgotPasswordTitle') }}
+          </h1>
           <span
             class="mobile-auth__back mobile-auth__back--ghost"
             aria-hidden="true"
@@ -913,11 +942,10 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
         </header>
         <form class="mobile-auth__form" @submit.prevent="submitForgot">
           <p class="mobile-auth__forgot-blurb">
-            Enter the email on your account. We will send a reset link if we
-            find a match.
+            {{ echoT('b25.mobileAuth.forgotBlurb') }}
           </p>
           <label class="mobile-auth__field">
-            <span class="mobile-auth__label">Email</span>
+            <span class="mobile-auth__label">{{ echoT('auth.email') }}</span>
             <input
               v-model="forgotEmail"
               type="email"
@@ -939,7 +967,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             class="mobile-auth__primary mobile-auth__primary--filled"
             :disabled="submitting || isMockDataMode"
           >
-            Send reset link
+            {{ echoT('auth.actions.sendResetLink') }}
           </button>
         </form>
       </section>
@@ -954,7 +982,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           <button
             type="button"
             class="mobile-auth__back"
-            aria-label="Back"
+            :aria-label="echoT('b25.mobileAuth.back')"
             @click="pop('login')"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -967,7 +995,9 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               />
             </svg>
           </button>
-          <h1 class="mobile-auth__top-title">Verify email</h1>
+          <h1 class="mobile-auth__top-title">
+            {{ echoT('auth.titles.verifyEmail') }}
+          </h1>
           <span
             class="mobile-auth__back mobile-auth__back--ghost"
             aria-hidden="true"
@@ -975,10 +1005,10 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
         </header>
         <div class="mobile-auth__form">
           <p class="mobile-auth__forgot-blurb">
-            Your account is locked until you verify
+            {{ echoT('b25.mobileAuth.lockedPre') }}
             <strong v-if="emailGateMasked">{{ emailGateMasked }}</strong
-            ><template v-else>your email</template>. Open the link we sent, then
-            sign in again.
+            ><template v-else>{{ echoT('b25.mobileAuth.yourEmail') }}</template
+            >{{ echoT('b25.mobileAuth.lockedPost') }}
           </p>
           <p v-if="forgotMessage" class="mobile-auth__success" role="status">
             {{ forgotMessage }}
@@ -989,7 +1019,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             :disabled="submitting"
             @click="resendEmailVerification"
           >
-            Resend verification email
+            {{ echoT('auth.actions.resendVerificationEmail') }}
           </button>
         </div>
       </section>
@@ -1004,7 +1034,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           <button
             type="button"
             class="mobile-auth__back"
-            aria-label="Back"
+            :aria-label="echoT('b25.mobileAuth.back')"
             @click="pop('login')"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1017,7 +1047,9 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               />
             </svg>
           </button>
-          <h1 class="mobile-auth__top-title">Confirm sign-in</h1>
+          <h1 class="mobile-auth__top-title">
+            {{ echoT('auth.titles.confirmSignIn') }}
+          </h1>
           <span
             class="mobile-auth__back mobile-auth__back--ghost"
             aria-hidden="true"
@@ -1025,12 +1057,15 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
         </header>
         <form class="mobile-auth__form" @submit.prevent="submitEmailIpCode">
           <p class="mobile-auth__forgot-blurb">
-            Enter the code we sent to
+            {{ echoT('b25.mobileAuth.codeSentTo') }}
             <strong v-if="emailGateMasked">{{ emailGateMasked }}</strong
-            ><template v-else>your email</template>.
+            ><template v-else>{{ echoT('b25.mobileAuth.yourEmail') }}</template
+            >.
           </p>
           <label class="mobile-auth__field">
-            <span class="mobile-auth__label">Email code</span>
+            <span class="mobile-auth__label">{{
+              echoT('auth.fields.emailCode')
+            }}</span>
             <input
               v-model="emailIpCode"
               type="text"
@@ -1046,7 +1081,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             class="mobile-auth__primary mobile-auth__primary--filled"
             :disabled="submitting"
           >
-            Continue
+            {{ echoT('auth.actions.continue') }}
           </button>
           <button
             type="button"
@@ -1054,7 +1089,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             :disabled="submitting"
             @click="resendEmailIpCode"
           >
-            Resend code
+            {{ echoT('auth.actions.resendCode') }}
           </button>
         </form>
       </section>
@@ -1069,7 +1104,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           <button
             type="button"
             class="mobile-auth__back"
-            aria-label="Back"
+            :aria-label="echoT('b25.mobileAuth.back')"
             @click="
               mfaToken = null;
               pop('login');
@@ -1085,21 +1120,27 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               />
             </svg>
           </button>
-          <h1 class="mobile-auth__top-title">Two-factor</h1>
+          <h1 class="mobile-auth__top-title">
+            {{ echoT('auth.titles.twoFactor') }}
+          </h1>
           <span
             class="mobile-auth__back mobile-auth__back--ghost"
             aria-hidden="true"
           />
         </header>
         <form class="mobile-auth__form" @submit.prevent="submitMfa">
-          <div class="mobile-auth__seg" role="group" aria-label="MFA factor">
+          <div
+            class="mobile-auth__seg"
+            role="group"
+            :aria-label="echoT('b25.mobileAuth.mfaFactor')"
+          >
             <button
               type="button"
               class="mobile-auth__seg-btn"
               :class="{ 'is-active': mfaFactor === 'totp' }"
               @click="mfaFactor = 'totp'"
             >
-              Authenticator
+              {{ echoT('auth.fields.authenticator') }}
             </button>
             <button
               type="button"
@@ -1107,11 +1148,13 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               :class="{ 'is-active': mfaFactor === 'recovery' }"
               @click="mfaFactor = 'recovery'"
             >
-              Recovery code
+              {{ echoT('auth.fields.recoveryCode') }}
             </button>
           </div>
           <label v-if="mfaFactor === 'totp'" class="mobile-auth__field">
-            <span class="mobile-auth__label">6-digit code</span>
+            <span class="mobile-auth__label">{{
+              echoT('auth.fields.sixDigitCode')
+            }}</span>
             <input
               v-model="mfaTotpCode"
               type="text"
@@ -1123,7 +1166,9 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             />
           </label>
           <label v-else class="mobile-auth__field">
-            <span class="mobile-auth__label">Recovery code</span>
+            <span class="mobile-auth__label">{{
+              echoT('auth.fields.recoveryCode')
+            }}</span>
             <input
               v-model="mfaRecoveryCode"
               type="text"
@@ -1137,7 +1182,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             class="mobile-auth__primary mobile-auth__primary--filled"
             :disabled="submitting"
           >
-            Continue
+            {{ echoT('auth.actions.continue') }}
           </button>
         </form>
       </section>
@@ -1146,7 +1191,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
     <AuthAlertModal
       :model-value="showAuthErrorModal"
       :message="errorMessage"
-      title="Sign-in issue"
+      :title="echoT('auth.titles.signInIssue')"
       variant="error"
       @update:model-value="onAuthErrorModalUpdate"
     />

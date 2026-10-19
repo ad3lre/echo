@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { icons } from '@/assets/icons';
 import DiscordChannelImportWidget from '@/features/chat/components/DiscordChannelImportWidget.vue';
 
@@ -23,7 +24,7 @@ const emit = defineEmits<{
     v-if="showNoServersYet"
     class="message-list-empty flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-4 text-center"
     role="status"
-    aria-label="No servers yet"
+    :aria-label="echoT('b42.empty.noServersAria')"
   >
     <div
       class="message-list-empty__icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -36,11 +37,10 @@ const emit = defineEmits<{
       />
     </div>
     <p class="text-base font-semibold text-foreground">
-      You're not in any servers yet
+      {{ echoT('b42.empty.noServersTitle') }}
     </p>
     <p class="mt-2 max-w-sm text-sm leading-relaxed text-muted">
-      Explore public communities or join one with an invite to start chatting
-      here.
+      {{ echoT('b42.empty.noServersBody') }}
     </p>
     <button
       v-if="onOpenExplore"
@@ -48,14 +48,14 @@ const emit = defineEmits<{
       class="chat-focus-ring mt-5 rounded-lg bg-accent/20 px-4 py-2.5 text-sm font-semibold text-foreground ring-1 ring-accent/30 transition-colors hover:bg-accent/30"
       @click="onOpenExplore"
     >
-      Explore servers
+      {{ echoT('b42.empty.explore') }}
     </button>
   </div>
   <div
     v-else-if="showNoChannelsHint"
     class="message-list-empty flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-4 text-center"
     role="status"
-    aria-label="No channels to show"
+    :aria-label="echoT('chat.empty.noChannelsToShow')"
   >
     <div
       class="message-list-empty__icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -75,17 +75,18 @@ const emit = defineEmits<{
         />
       </svg>
     </div>
-    <p class="text-base font-semibold text-foreground">No channels to show</p>
+    <p class="text-base font-semibold text-foreground">
+      {{ echoT('chat.empty.noChannelsToShow') }}
+    </p>
     <p class="mt-2 max-w-sm text-sm leading-relaxed text-muted">
-      Nothing in this server is visible with your current roles, or the server
-      has no channels yet.
+      {{ echoT('b42.empty.noChannelsBody') }}
     </p>
   </div>
   <div
     v-else-if="showEmptyChannelHint"
     class="message-list-empty flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-4 text-center"
     role="status"
-    aria-label="No messages in this channel"
+    :aria-label="echoT('b42.empty.noMessagesAria')"
   >
     <div
       class="message-list-empty__icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -105,10 +106,11 @@ const emit = defineEmits<{
         />
       </svg>
     </div>
-    <p class="text-base font-semibold text-foreground">No messages here yet</p>
+    <p class="text-base font-semibold text-foreground">
+      {{ echoT('chat.empty.noMessagesYet') }}
+    </p>
     <p class="mt-2 max-w-sm text-sm leading-relaxed text-muted">
-      When someone sends a message, it will appear here. Say hello to start the
-      conversation.
+      {{ echoT('b42.empty.noMessagesBody') }}
     </p>
   </div>
   <div

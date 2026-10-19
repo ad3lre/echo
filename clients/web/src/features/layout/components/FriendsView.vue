@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -73,7 +74,8 @@ const { peerUserSubtitle } = useDmConversationSubtitle({
   echoPeerByChannelId,
   messages: () => props.messages ?? {},
   resolveAuthorName: (userId) =>
-    props.users.find((u) => u.id === userId)?.name ?? 'Someone',
+    props.users.find((u) => u.id === userId)?.name ??
+    echoT('b17.friends.someone'),
 });
 
 function friendRowSubtitleText(user: { id: string }): string {
@@ -261,7 +263,7 @@ function sendFriendRequestTo(userId: string) {
               <h2
                 class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
               >
-                Friends
+                {{ echoT('b17.friends.title') }}
               </h2>
               <span
                 v-if="pendingCount > 0"
@@ -283,7 +285,7 @@ function sendFriendRequestTo(userId: string) {
                   v-if="isCompactShell"
                   type="button"
                   class="flex h-9 w-9 items-center justify-center rounded-xl text-fg-soft transition-colors hover:bg-glass-2 hover:text-fg"
-                  aria-label="Back to messages"
+                  :aria-label="echoT('b17.friends.backToMessages')"
                   @click="emit('back-to-messages')"
                 >
                   <img
@@ -317,7 +319,7 @@ function sendFriendRequestTo(userId: string) {
                       alt=""
                       class="friends-tab-icon friends-tab-icon--img echo-ink-icon"
                     />
-                    <span>All</span>
+                    <span>{{ echoT('b17.friends.tabAll') }}</span>
                   </span>
                 </button>
                 <button
@@ -342,7 +344,7 @@ function sendFriendRequestTo(userId: string) {
                         d="M12 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm-4.2-3.1-1.4-1.4C8.8 11.2 10.3 10 12 10s3.2 1.2 4.2 2.5L14.8 14c-.7-.8-1.7-1.4-2.8-1.4s-2.1.6-2.8 1.4zM4.9 9.5 3.5 8.1C5.6 6 8.7 4.5 12 4.5s6.4 1.5 8.5 3.6l-1.4 1.4C17.5 7.8 14.9 6.5 12 6.5S6.5 7.8 4.9 9.5zm2.8 2.8-1.4-1.4C8 9.6 9.9 8.5 12 8.5s4 1.1 5.7 2.8l-1.4 1.4C15.1 11.5 13.6 10.5 12 10.5s-3.1 1-4.3 2.3z"
                       />
                     </svg>
-                    <span>Online</span>
+                    <span>{{ echoT('b17.friends.tabOnline') }}</span>
                   </span>
                   <span
                     v-if="onlineFriendCount > 0"
@@ -369,7 +371,7 @@ function sendFriendRequestTo(userId: string) {
                       alt=""
                       class="friends-tab-icon friends-tab-icon--img echo-ink-icon"
                     />
-                    <span>Pending</span>
+                    <span>{{ echoT('b17.friends.tabPending') }}</span>
                   </span>
                   <span
                     v-if="pendingCount > 0"
@@ -388,8 +390,8 @@ function sendFriendRequestTo(userId: string) {
                       : 'friends-tab--inactive friends-tab--add-idle',
                     isCompactShell ? '' : 'rounded-lg px-3 py-1.5 text-[11px]',
                   ]"
-                  title="Add friend"
-                  aria-label="Add friend"
+                  :title="echoT('b17.friends.addFriend')"
+                  :aria-label="echoT('b17.friends.addFriend')"
                   @click="setActiveTab('add')"
                 >
                   <img
@@ -398,7 +400,9 @@ function sendFriendRequestTo(userId: string) {
                     class="friend-add-icon--blue"
                   />
                   <span class="truncate">{{
-                    isCompactShell ? 'Add' : 'Add friend'
+                    isCompactShell
+                      ? echoT('b17.friends.add')
+                      : echoT('b17.friends.addFriend')
                   }}</span>
                   <span
                     v-if="isCompactShell && pendingCount > 0"
@@ -429,7 +433,7 @@ function sendFriendRequestTo(userId: string) {
                     "
                     class="py-10 text-center text-xs text-fg-soft"
                   >
-                    No friends or requests match your search.
+                    {{ echoT('b17.friends.noMatchAll') }}
                   </div>
                   <template v-else>
                     <div v-if="incomingFiltered.length > 0">
@@ -441,7 +445,11 @@ function sendFriendRequestTo(userId: string) {
                         <button
                           type="button"
                           class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                          :aria-label="`View profile for ${req.user.name}`"
+                          :aria-label="
+                            echoT('b17.friends.viewProfile', {
+                              name: req.user.name,
+                            })
+                          "
                           @click="emit('open-expanded-profile', req.user.id)"
                         >
                           <div
@@ -464,11 +472,11 @@ function sendFriendRequestTo(userId: string) {
                               <span
                                 class="rounded-full bg-green-500/15 px-2 py-0.5 text-[11px] font-medium text-green-300"
                               >
-                                Incoming
+                                {{ echoT('b17.friends.incoming') }}
                               </span>
                             </div>
                             <div class="mt-0.5 text-xs text-fg-soft">
-                              Wants to be your friend
+                              {{ echoT('b17.friends.wantsFriend') }}
                             </div>
                           </div>
                         </button>
@@ -480,14 +488,14 @@ function sendFriendRequestTo(userId: string) {
                             class="flex-1 rounded-lg bg-green-600/80 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-green-600 sm:flex-none sm:px-4 sm:py-1.5"
                             @click.stop="emit('accept-friend-request', req.id)"
                           >
-                            Accept
+                            {{ echoT('b17.friends.accept') }}
                           </button>
                           <button
                             type="button"
                             class="flex-1 rounded-lg bg-glass-2 px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-glass-3 sm:flex-none sm:px-4 sm:py-1.5"
                             @click.stop="emit('decline-friend-request', req.id)"
                           >
-                            Decline
+                            {{ echoT('b17.friends.decline') }}
                           </button>
                         </div>
                       </div>
@@ -502,7 +510,11 @@ function sendFriendRequestTo(userId: string) {
                         <button
                           type="button"
                           class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                          :aria-label="`View profile for ${req.user.name}`"
+                          :aria-label="
+                            echoT('b17.friends.viewProfile', {
+                              name: req.user.name,
+                            })
+                          "
                           @click="emit('open-expanded-profile', req.user.id)"
                         >
                           <div
@@ -525,11 +537,11 @@ function sendFriendRequestTo(userId: string) {
                               <span
                                 class="rounded-full bg-glass-2 px-2 py-0.5 text-[11px] font-medium text-fg-soft"
                               >
-                                Outgoing
+                                {{ echoT('b17.friends.outgoing') }}
                               </span>
                             </div>
                             <div class="mt-0.5 text-xs text-fg-soft">
-                              Awaiting their response
+                              {{ echoT('b17.friends.awaiting') }}
                             </div>
                           </div>
                         </button>
@@ -538,7 +550,7 @@ function sendFriendRequestTo(userId: string) {
                           class="friend-row__actions w-full shrink-0 rounded-lg bg-glass-2 px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-glass-3 sm:w-auto sm:px-4 sm:py-1.5"
                           @click.stop="emit('cancel-friend-request', req.id)"
                         >
-                          Cancel
+                          {{ echoT('b17.friends.cancel') }}
                         </button>
                       </div>
                     </div>
@@ -552,7 +564,9 @@ function sendFriendRequestTo(userId: string) {
                       <button
                         type="button"
                         class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                        :aria-label="`View profile for ${user.name}`"
+                        :aria-label="
+                          echoT('b17.friends.viewProfile', { name: user.name })
+                        "
                         @click="emit('open-expanded-profile', user.id)"
                       >
                         <div class="relative h-12 w-12 shrink-0">
@@ -600,7 +614,9 @@ function sendFriendRequestTo(userId: string) {
                       <button
                         type="button"
                         class="shrink-0 rounded-lg p-2 transition-colors hover:bg-glass-3 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                        :aria-label="`Message ${user.name}`"
+                        :aria-label="
+                          echoT('b17.friends.message', { name: user.name })
+                        "
                         @click="emit('select-dm', user.id)"
                       >
                         <img
@@ -618,7 +634,7 @@ function sendFriendRequestTo(userId: string) {
                     v-if="onlineFriendsFiltered.length === 0"
                     class="py-10 text-center text-xs text-fg-soft"
                   >
-                    No online friends match your search.
+                    {{ echoT('b17.friends.noMatchOnline') }}
                   </div>
                   <div
                     v-for="user in onlineFriendsFiltered"
@@ -629,7 +645,9 @@ function sendFriendRequestTo(userId: string) {
                     <button
                       type="button"
                       class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                      :aria-label="`View profile for ${user.name}`"
+                      :aria-label="
+                        echoT('b17.friends.viewProfile', { name: user.name })
+                      "
                       @click="emit('open-expanded-profile', user.id)"
                     >
                       <div class="relative h-12 w-12 shrink-0">
@@ -668,7 +686,9 @@ function sendFriendRequestTo(userId: string) {
                     <button
                       type="button"
                       class="shrink-0 rounded-lg p-2 transition-colors hover:bg-glass-3 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                      :aria-label="`Message ${user.name}`"
+                      :aria-label="
+                        echoT('b17.friends.message', { name: user.name })
+                      "
                       @click="emit('select-dm', user.id)"
                     >
                       <img
@@ -692,7 +712,7 @@ function sendFriendRequestTo(userId: string) {
                       "
                       class="py-10 text-center text-xs text-fg-soft"
                     >
-                      No pending requests match your search.
+                      {{ echoT('b17.friends.noMatchPending') }}
                     </div>
 
                     <div
@@ -703,7 +723,7 @@ function sendFriendRequestTo(userId: string) {
                       "
                       class="px-1 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-soft"
                     >
-                      Pending requests
+                      {{ echoT('b17.friends.pendingRequests') }}
                     </div>
 
                     <div v-if="incomingFiltered.length > 0">
@@ -715,7 +735,11 @@ function sendFriendRequestTo(userId: string) {
                         <button
                           type="button"
                           class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                          :aria-label="`View profile for ${req.user.name}`"
+                          :aria-label="
+                            echoT('b17.friends.viewProfile', {
+                              name: req.user.name,
+                            })
+                          "
                           @click="emit('open-expanded-profile', req.user.id)"
                         >
                           <div
@@ -738,11 +762,11 @@ function sendFriendRequestTo(userId: string) {
                               <span
                                 class="rounded-full bg-green-500/15 px-2 py-0.5 text-[11px] font-medium text-green-300"
                               >
-                                Incoming
+                                {{ echoT('b17.friends.incoming') }}
                               </span>
                             </div>
                             <div class="mt-0.5 text-xs text-fg-soft">
-                              Wants to be your friend
+                              {{ echoT('b17.friends.wantsFriend') }}
                             </div>
                           </div>
                         </button>
@@ -754,14 +778,14 @@ function sendFriendRequestTo(userId: string) {
                             class="flex-1 rounded-lg bg-green-600/80 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-green-600 sm:flex-none sm:px-4 sm:py-1.5"
                             @click.stop="emit('accept-friend-request', req.id)"
                           >
-                            Accept
+                            {{ echoT('b17.friends.accept') }}
                           </button>
                           <button
                             type="button"
                             class="flex-1 rounded-lg bg-glass-2 px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-glass-3 sm:flex-none sm:px-4 sm:py-1.5"
                             @click.stop="emit('decline-friend-request', req.id)"
                           >
-                            Decline
+                            {{ echoT('b17.friends.decline') }}
                           </button>
                         </div>
                       </div>
@@ -776,7 +800,11 @@ function sendFriendRequestTo(userId: string) {
                         <button
                           type="button"
                           class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                          :aria-label="`View profile for ${req.user.name}`"
+                          :aria-label="
+                            echoT('b17.friends.viewProfile', {
+                              name: req.user.name,
+                            })
+                          "
                           @click="emit('open-expanded-profile', req.user.id)"
                         >
                           <div
@@ -799,11 +827,11 @@ function sendFriendRequestTo(userId: string) {
                               <span
                                 class="rounded-full bg-glass-2 px-2 py-0.5 text-[11px] font-medium text-fg-soft"
                               >
-                                Outgoing
+                                {{ echoT('b17.friends.outgoing') }}
                               </span>
                             </div>
                             <div class="mt-0.5 text-xs text-fg-soft">
-                              Awaiting their response
+                              {{ echoT('b17.friends.awaiting') }}
                             </div>
                           </div>
                         </button>
@@ -812,7 +840,7 @@ function sendFriendRequestTo(userId: string) {
                           class="friend-row__actions w-full shrink-0 rounded-lg bg-glass-2 px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-glass-3 sm:w-auto sm:px-4 sm:py-1.5"
                           @click.stop="emit('cancel-friend-request', req.id)"
                         >
-                          Cancel
+                          {{ echoT('b17.friends.cancel') }}
                         </button>
                       </div>
                     </div>
@@ -832,11 +860,10 @@ function sendFriendRequestTo(userId: string) {
                       >
                         <div class="min-w-0">
                           <h2 class="text-lg font-semibold text-foreground">
-                            Add friend
+                            {{ echoT('b17.friends.addFriend') }}
                           </h2>
                           <p class="mt-1 text-sm leading-relaxed text-fg-soft">
-                            Suggestions are the newest Echo sign-ups. Search by
-                            display name or username to find someone specific.
+                            {{ echoT('b17.friends.suggestions') }}
                           </p>
                         </div>
 
@@ -851,7 +878,9 @@ function sendFriendRequestTo(userId: string) {
                           <input
                             v-model="addFriendQuery"
                             type="text"
-                            placeholder="Search by name or username"
+                            :placeholder="
+                              echoT('b17.friends.searchPlaceholder')
+                            "
                             class="w-full rounded-lg border border-border bg-glass-1 py-2 pl-9 pr-3 text-sm text-fg placeholder:text-fg-subtle outline-none transition-colors"
                           />
                         </div>
@@ -862,7 +891,7 @@ function sendFriendRequestTo(userId: string) {
                           v-if="addableUsers.length === 0"
                           class="py-10 text-center text-xs text-fg-soft"
                         >
-                          No Echo users match your search.
+                          {{ echoT('b17.friends.noMatchEcho') }}
                         </div>
 
                         <div
@@ -873,7 +902,11 @@ function sendFriendRequestTo(userId: string) {
                           <button
                             type="button"
                             class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                            :aria-label="`View profile for ${user.name}`"
+                            :aria-label="
+                              echoT('b17.friends.viewProfile', {
+                                name: user.name,
+                              })
+                            "
                             @click="emit('open-expanded-profile', user.id)"
                           >
                             <div
@@ -890,7 +923,7 @@ function sendFriendRequestTo(userId: string) {
                                 v-else
                                 class="flex h-full w-full items-center justify-center rounded-full border border-dashed border-border bg-glass-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
                               >
-                                No profile
+                                {{ echoT('b17.friends.noProfile') }}
                               </div>
                             </div>
 
@@ -905,7 +938,7 @@ function sendFriendRequestTo(userId: string) {
                                   v-if="!hasProfilePicture(user.pfp)"
                                   class="rounded-full bg-glass-1 px-2 py-0.5 text-[11px] font-medium text-fg-soft"
                                 >
-                                  No profile
+                                  {{ echoT('b17.friends.noProfile') }}
                                 </span>
                               </div>
                             </div>
@@ -916,7 +949,7 @@ function sendFriendRequestTo(userId: string) {
                             class="w-full shrink-0 rounded-md bg-blue-600/90 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600 sm:w-auto sm:px-4 sm:py-1.5"
                             @click="sendFriendRequestTo(user.id)"
                           >
-                            Send request
+                            {{ echoT('b17.friends.sendRequest') }}
                           </button>
                         </div>
                       </div>

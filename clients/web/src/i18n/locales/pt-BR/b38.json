@@ -1,0 +1,84 @@
+{
+  "fwd": {
+    "forwarded": "Encaminhada",
+    "close": "Fechar",
+    "title": "Encaminhar mensagem",
+    "subtitle": "Enviar para uma DM ou canal",
+    "preview": "Pré-visualização",
+    "searchPlaceholder": "Buscar pessoas, servidores, canais…",
+    "searchLabel": "Buscar destinos",
+    "dms": "Mensagens diretas",
+    "servers": "Servidores",
+    "escHint": "Pressione Esc para cancelar",
+    "noDest1": "Não há outro lugar para encaminhar esta mensagem.",
+    "noDest2": "Abra outra DM ou canal de servidor primeiro.",
+    "noResults": "Nenhum resultado para \"{query}\""
+  },
+  "vcp": {
+    "drag": "Arraste para mover para outro canal de voz",
+    "serverDeafened": "Ensurdecido pelo servidor",
+    "deafened": "Ensurdecido",
+    "unknown": "Desconhecido",
+    "serverMuted": "Silenciado pelo servidor",
+    "muted": "Silenciado",
+    "sharingScreen": "Compartilhando tela",
+    "cameraOn": "Câmera ligada"
+  },
+  "gif": {
+    "defaultDetail": "Não foi possível carregar este arquivo. Ele pode estar ausente, ter sido movido ou não estar mais acessível.",
+    "bucketHint": "Se os uploads funcionam mas as imagens não carregam, seu bucket pode negar GET anônimo — ative a leitura pública para este prefixo (ou use um domínio público R2/personalizado).",
+    "avatarUnavailable": "Avatar indisponível",
+    "gifUnavailable": "GIF indisponível",
+    "imageUnavailable": "Imagem indisponível"
+  },
+  "roles": {
+    "title": "Cargos autoatribuíveis",
+    "desc": "Escolha os cargos para os quais você se qualifica. Você só pode escolher cargos cujas permissões sejam um subconjunto das que você já tem.",
+    "summary": "Resumo da atribuição de cargos",
+    "assigned": "atribuídos",
+    "available": "disponíveis",
+    "loading": "Carregando cargos…",
+    "syncedTitle": "Sincronizado a partir da categoria de cargos",
+    "synced": "sincronizado",
+    "emptyTitle": "Nada para atribuir ainda",
+    "categoriesLabel": "Categorias de {title}",
+    "emptyDesc": "Um administrador do servidor precisa marcar cargos como {selfSelectable} e expô-los em categorias de cargos sincronizadas ou canais nas Configurações do servidor.",
+    "selfSelectable": "Selecionável pelo próprio membro",
+    "removeRole": "Remover cargo {name}",
+    "assignRole": "Atribuir cargo {name}"
+  },
+  "selfPop": {
+    "online": "Online",
+    "onlineDesc": "Aparecer como ativo",
+    "idle": "Ausente",
+    "idleDesc": "Longe por um momento",
+    "dnd": "Não perturbe",
+    "dndDesc": "Sem notificações",
+    "setStatusPlaceholder": "Defina um status personalizado...",
+    "setStatus": "Definir um status personalizado",
+    "customStatus": "Status personalizado",
+    "onlineStatus": "Status online",
+    "userSettings": "Configurações de usuário",
+    "openUserSettings": "Abrir configurações de usuário"
+  },
+  "vact": {
+    "chatActions": "Ações do chat de voz",
+    "inVoice": "Em voz com você",
+    "theirVolume": "Volume da pessoa",
+    "participantVolume": "Volume do participante",
+    "moderation": "Moderação de voz",
+    "unmute": "Dessilenciar",
+    "mute": "Silenciar",
+    "undeafen": "Desensurdecer",
+    "deafen": "Ensurdecer",
+    "stopCamera": "Parar câmera",
+    "stopShare": "Parar compartilhamento",
+    "disconnect": "Desconectar"
+  },
+  "rail": {
+    "activeVoice": "Canal de voz ativo",
+    "unread": "Mensagens não lidas",
+    "dragHint": "Segure e arraste para reordenar.",
+    "moreServers": "mais {count} servidores"
+  }
+}

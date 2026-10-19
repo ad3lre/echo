@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
 import { serverGuildIconDisplayUrl } from '@/features/layout/display/serverGuildIconDisplayUrl';
 import { echoInviteSharePageUrl } from '@/features/layout/composables/server/echoInviteShareUrl';
@@ -335,16 +336,16 @@ function compactFolderDropRing(
         >
           <div class="min-w-0">
             <h2 class="truncate text-base font-bold text-foreground">
-              Extra servers
+              {{ echoT('b29.moreServers.title') }}
             </h2>
             <p class="mt-0.5 text-[11px] leading-snug text-fg-subtle">
-              Widget folders group this list only — stored on this device.
+              {{ echoT('b29.moreServers.hint') }}
             </p>
           </div>
           <button
             type="button"
             class="more-icon-btn shrink-0"
-            title="Close"
+            :title="echoT('b29.moreServers.close')"
             @click="emit('close')"
           >
             <svg
@@ -365,8 +366,8 @@ function compactFolderDropRing(
           <button
             type="button"
             class="view-tab-icon"
-            title="Switch to compact view"
-            aria-label="Switch to compact view"
+            :title="echoT('b29.moreServers.compact')"
+            :aria-label="echoT('b29.moreServers.compact')"
             @click="emit('set-compact', true)"
           >
             <svg
@@ -384,8 +385,16 @@ function compactFolderDropRing(
             type="button"
             class="view-tab-icon"
             :class="props.pinned ? 'view-tab-icon--active' : ''"
-            :title="props.pinned ? 'Unpin panel' : 'Keep panel open'"
-            :aria-label="props.pinned ? 'Unpin panel' : 'Keep panel open'"
+            :title="
+              props.pinned
+                ? echoT('b29.moreServers.unpin')
+                : echoT('b29.moreServers.keepOpen')
+            "
+            :aria-label="
+              props.pinned
+                ? echoT('b29.moreServers.unpin')
+                : echoT('b29.moreServers.keepOpen')
+            "
             @click="emit('toggle-pinned')"
           >
             <svg
@@ -403,8 +412,8 @@ function compactFolderDropRing(
           <button
             type="button"
             class="view-tab-icon"
-            title="New widget folder"
-            aria-label="New widget folder"
+            :title="echoT('b29.moreServers.newFolder')"
+            :aria-label="echoT('b29.moreServers.newFolder')"
             @click="onCreateWidgetFolder"
           >
             <svg
@@ -430,9 +439,9 @@ function compactFolderDropRing(
         </div>
 
         <div v-if="showOtherServersSearch" class="shrink-0 px-3 pb-2">
-          <label class="sr-only" for="more-servers-other-search"
-            >Search other servers</label
-          >
+          <label class="sr-only" for="more-servers-other-search">{{
+            echoT('b29.moreServers.searchOther')
+          }}</label>
           <div class="other-servers-search">
             <img
               :src="icons.search"
@@ -445,14 +454,14 @@ function compactFolderDropRing(
               v-model="otherServersSearchQuery"
               type="search"
               class="other-servers-search__input"
-              placeholder="Search other servers…"
+              :placeholder="echoT('b29.moreServers.searchOtherPh')"
               autocomplete="off"
             />
             <button
               v-if="normalizedOtherServersSearch"
               type="button"
               class="other-servers-search__clear"
-              aria-label="Clear search"
+              :aria-label="echoT('b29.moreServers.clearSearch')"
               @click="otherServersSearchQuery = ''"
             >
               <svg
@@ -481,7 +490,7 @@ function compactFolderDropRing(
           <button
             type="button"
             class="more-icon-btn"
-            title="Close"
+            :title="echoT('b29.moreServers.close')"
             @click="emit('close')"
           >
             <svg
@@ -500,7 +509,11 @@ function compactFolderDropRing(
             type="button"
             class="more-icon-btn"
             :class="props.pinned ? 'more-icon-btn--active' : ''"
-            :title="props.pinned ? 'Unpin panel' : 'Keep panel open'"
+            :title="
+              props.pinned
+                ? echoT('b29.moreServers.unpin')
+                : echoT('b29.moreServers.keepOpen')
+            "
             @click="emit('toggle-pinned')"
           >
             <svg
@@ -518,7 +531,7 @@ function compactFolderDropRing(
           <button
             type="button"
             class="more-icon-btn"
-            title="Full size view"
+            :title="echoT('b29.moreServers.fullSize')"
             @click="emit('set-compact', false)"
           >
             <svg
@@ -536,7 +549,7 @@ function compactFolderDropRing(
           <button
             type="button"
             class="more-icon-btn"
-            title="New widget folder"
+            :title="echoT('b29.moreServers.newFolder')"
             @click="onCreateWidgetFolder"
           >
             <svg

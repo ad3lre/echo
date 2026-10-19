@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import { withBasePath } from '@/features/layout/urlNavigation';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
@@ -72,7 +73,7 @@ const otherUpcomingEvents = computed(() => {
         <p
           class="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-200/80"
         >
-          Stage
+          {{ echoT('b08.stageLobby.stage') }}
         </p>
         <h1
           class="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
@@ -82,8 +83,8 @@ const otherUpcomingEvents = computed(() => {
         <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
           {{
             YOUTUBE_INTEGRATION_ENABLED
-              ? 'Start a scheduled event, go live on YouTube, or enter the stage with voice only.'
-              : 'Start a scheduled event or enter the stage with voice only.'
+              ? echoT('b08.stageLobby.subtitleYoutube')
+              : echoT('b08.stageLobby.subtitle')
           }}
         </p>
       </header>
@@ -107,17 +108,21 @@ const otherUpcomingEvents = computed(() => {
             <p
               class="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-300/90"
             >
-              Starting within the hour
+              {{ echoT('b08.stageLobby.startingSoon') }}
             </p>
             <h2 class="mt-1 text-xl font-bold text-foreground">
               {{ planningEvent.title }}
             </h2>
             <p class="mt-2 text-sm text-muted">
               {{ eventCountdown }} · {{ planningEvent.goingCount }}
-              {{ planningEvent.goingCount === 1 ? 'person' : 'people' }} going
+              {{
+                planningEvent.goingCount === 1
+                  ? echoT('b08.stageLobby.personGoing')
+                  : echoT('b08.stageLobby.peopleGoing')
+              }}
             </p>
             <p v-if="plannedModeLabel" class="mt-2 text-xs text-fg-soft">
-              Planned format:
+              {{ echoT('b08.stageLobby.plannedFormat') }}
               <span class="font-semibold text-foreground">{{
                 plannedModeLabel
               }}</span>
@@ -129,7 +134,7 @@ const otherUpcomingEvents = computed(() => {
           class="mt-5 w-full rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white shadow-md shadow-indigo-900/40 hover:bg-indigo-400 sm:w-auto"
           @click="emit('startPlannedEvent', planningEvent)"
         >
-          Start event
+          {{ echoT('b08.stageLobby.startEvent') }}
         </button>
       </section>
 
@@ -150,11 +155,10 @@ const otherUpcomingEvents = computed(() => {
           </div>
           <div class="min-w-0 flex-1">
             <h3 class="text-base font-bold text-foreground">
-              Go live on YouTube
+              {{ echoT('b08.stageLobby.goLiveYoutube') }}
             </h3>
             <p class="mt-1 text-sm leading-relaxed text-muted">
-              Stream the stage program feed to YouTube Live. Connect YouTube in
-              Settings before you start.
+              {{ echoT('b08.stageLobby.goLiveYoutubeDesc') }}
             </p>
           </div>
         </div>
@@ -192,13 +196,15 @@ const otherUpcomingEvents = computed(() => {
               />
             </svg>
           </div>
-          <h3 class="text-base font-bold text-foreground">Schedule event</h3>
+          <h3 class="text-base font-bold text-foreground">
+            {{ echoT('b08.stageLobby.scheduleEvent') }}
+          </h3>
           <p class="mt-1.5 flex-1 text-sm leading-relaxed text-muted">
-            Create a scheduled stage event with RSVPs for this channel.
+            {{ echoT('b08.stageLobby.scheduleEventDesc') }}
           </p>
           <span
             class="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle group-hover:text-foreground"
-            >New event</span
+            >{{ echoT('b08.stageLobby.newEvent') }}</span
           >
         </button>
 
@@ -226,14 +232,15 @@ const otherUpcomingEvents = computed(() => {
               />
             </svg>
           </div>
-          <h3 class="text-base font-bold text-foreground">Enter stage</h3>
+          <h3 class="text-base font-bold text-foreground">
+            {{ echoT('b08.stageLobby.enterStage') }}
+          </h3>
           <p class="mt-1.5 flex-1 text-sm leading-relaxed text-muted">
-            Open the stage with speakers and audience — no stream or event
-            setup.
+            {{ echoT('b08.stageLobby.enterStageDesc') }}
           </p>
           <span
             class="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle group-hover:text-foreground"
-            >Voice only</span
+            >{{ echoT('b08.stageLobby.voiceOnly') }}</span
           >
         </button>
       </div>
@@ -243,7 +250,7 @@ const otherUpcomingEvents = computed(() => {
         class="mt-6 rounded-2xl border border-border bg-glass-1 p-4 sm:p-5"
       >
         <h3 class="text-sm font-bold text-foreground">
-          Upcoming on this stage
+          {{ echoT('b08.stageLobby.upcoming') }}
         </h3>
         <ul class="mt-3 space-y-2">
           <li

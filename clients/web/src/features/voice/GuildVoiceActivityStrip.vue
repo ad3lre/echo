@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { echoT } from '@/i18n';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { icons } from '@/assets/icons';
 import { serverGuildIconDisplayUrl } from '@/features/layout/display/serverGuildIconDisplayUrl';
@@ -66,8 +67,14 @@ function onParticipantContextMenu(
 
 function pillLabel(card: GuildVoiceActivityCard): string {
   const n = card.participantCount;
-  const people = n === 1 ? '1 person in voice' : `${n} people in voice`;
-  return `Join ${card.channelDisplayName} in ${card.serverName}, ${people}`;
+  const values = {
+    channel: card.channelDisplayName,
+    server: card.serverName,
+    n,
+  };
+  return n === 1
+    ? echoT('b33.vs.pillPerson', values)
+    : echoT('b33.vs.pillPeople', values);
 }
 
 function participantOverflow(card: GuildVoiceActivityCard): number {
@@ -85,7 +92,7 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
   <section
     v-if="cards.length > 0"
     class="guild-vc-strip w-full shrink-0"
-    aria-label="Active voice channels in your servers"
+    :aria-label="echoT('b33.vs.activeAria')"
   >
     <div
       class="guild-vc-strip__scroller pb-0.5 pt-0.5 [scrollbar-width:thin] [scrollbar-color:rgba(120,120,140,0.35)_transparent]"
@@ -109,10 +116,10 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
         :aria-label="pillLabel(card)"
         :title="
           !canJoinChannel(card.channelId)
-            ? 'You cannot connect to this voice channel'
+            ? echoT('b33.vs.cannotConnect')
             : currentVoiceChannelId === card.channelId
-              ? 'Open voice channel'
-              : 'Join voice channel'
+              ? echoT('b33.vs.openChannel')
+              : echoT('b33.vs.joinChannel')
         "
         @click="onJoin(card)"
       >
@@ -128,7 +135,7 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
           <span
             class="pointer-events-none absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-[var(--surface)] bg-emerald-500 shadow-sm"
             aria-hidden="true"
-            title="Voice channel"
+            :title="echoT('b33.vs.voiceChannel')"
           >
             <img
               :src="icons.headphones"
@@ -152,13 +159,21 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
               <VoiceChannelUserLimitBadge
                 :label="voiceLimitUiForCard(card)!.label"
                 :tone="voiceLimitUiForCard(card)!.tone"
-                :title="`${voiceLimitUiForCard(card)!.count} of ${voiceLimitUiForCard(card)!.limit} in voice`"
+                :title="
+                  echoT('b33.vs.limitTitle', {
+                    count: voiceLimitUiForCard(card)!.count,
+                    limit: voiceLimitUiForCard(card)!.limit,
+                  })
+                "
               />
-              <span class="truncate">in voice</span>
+              <span class="truncate">{{ echoT('b33.vs.inVoice') }}</span>
             </template>
             <template v-else>
-              <span>{{ card.participantCount }}</span>
-              {{ card.participantCount === 1 ? 'person' : 'people' }} in voice
+              {{
+                card.participantCount === 1
+                  ? echoT('b33.vs.onePerson', { n: card.participantCount })
+                  : echoT('b33.vs.manyPeople', { n: card.participantCount })
+              }}
             </template>
           </p>
         </div>
@@ -174,7 +189,7 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
               type="button"
               class="relative h-8 w-8 overflow-hidden rounded-full border-2 border-[var(--surface)] bg-[var(--glass-tint)] shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
               :style="{ zIndex: 10 - idx }"
-              :aria-label="`Options for participant`"
+              :aria-label="echoT('b33.vs.participantOptions')"
               @click.stop
               @contextmenu.stop.prevent="
                 onParticipantContextMenu(
@@ -214,10 +229,10 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
         >
           {{
             currentVoiceChannelId === card.channelId
-              ? 'Open'
+              ? echoT('b33.vs.open')
               : canJoinChannel(card.channelId)
-                ? 'Join'
-                : 'Locked'
+                ? echoT('b33.vs.join')
+                : echoT('b33.vs.locked')
           }}
         </span>
       </button>

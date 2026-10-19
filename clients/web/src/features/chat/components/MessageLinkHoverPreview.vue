@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { Embed } from '@shared/types';
 import { openExternal } from '@/platform/desktopBridge';
@@ -97,7 +98,7 @@ function onOpen() {
     class="message-link-hover-preview"
     :style="positionStyle"
     role="dialog"
-    aria-label="Link preview"
+    :aria-label="echoT('chat.labels.linkPreview')"
   >
     <div class="message-link-hover-preview__body">
       <img

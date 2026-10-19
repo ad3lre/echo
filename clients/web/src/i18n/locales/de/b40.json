@@ -1,0 +1,89 @@
+{
+  "tickets": {
+    "open": "Offen",
+    "inProgress": "In Bearbeitung",
+    "resolved": "Gelöst",
+    "closed": "Geschlossen",
+    "category": "Kategorie: {category}",
+    "markInProgress": "Als in Bearbeitung markieren",
+    "resolve": "Als gelöst markieren",
+    "closeTicket": "Ticket schließen",
+    "closedMsg": "Dieses Ticket wurde geschlossen."
+  },
+  "report": {
+    "tns": "Trust & Safety",
+    "manual": "Manuelle Meldung",
+    "manualDesc": "Nutze das, wenn du eine Benutzer- oder Nachrichten-ID hast, aber diese Menüs nicht öffnen kannst – zum Beispiel bei Inhalten, die außerhalb von Echo geteilt wurden.",
+    "openForm": "Meldeformular öffnen",
+    "intro": "Meldungen gehen zur Prüfung an das Trust & Safety-Team von Echo. Die meisten Meldungen werden innerhalb weniger Werktage bearbeitet.",
+    "fromProfile": "Über ein Benutzerprofil – öffne das Profilmenü und wähle {report}",
+    "fromMessage": "Über eine Nachricht – Rechtsklick oder lange drücken und {report} wählen",
+    "report": "Melden",
+    "reportMessage": "Nachricht melden"
+  },
+  "permPreview": {
+    "title": "Berechtigungsvorschau",
+    "desc": "Effektive Berechtigungen für dein Konto (Server-Ebene, dann Kategorie- und Kanal-Ebene). Erfordert „Rollen verwalten“ oder „Server verwalten“.",
+    "signIn": "Melde dich mit Echo an (kein Mock), um dieses Panel zu laden.",
+    "channelContext": "Kanalkontext",
+    "trace": "Verlauf",
+    "compare": "Mit Rolle vergleichen",
+    "refresh": "Aktualisieren",
+    "loading": "Wird geladen…",
+    "owner": "Eigentümer-Bypass: alle Berechtigungen."
+  },
+  "join": {
+    "server": "Server",
+    "memberOne": "{count} Mitglied",
+    "memberMany": "{count} Mitglieder",
+    "inVoice": "{count} im Sprachkanal",
+    "two": "{a} und {b}",
+    "andOthers": " und {count} weitere",
+    "andOtherOne": " und {count} weitere Person",
+    "iconAlt": "Symbol von {name}",
+    "titleVoice": "Sprachkanal beitreten?",
+    "titleServer": "Diesem Server beitreten?",
+    "descVoice": "Wenn du bestätigst, trittst du dem Server bei und wirst mit dem Sprachkanal verbunden.",
+    "descServer": "Du wirst Mitglied und siehst Kanäle entsprechend deinen Rollen.",
+    "about": "Info",
+    "peopleHere": "Leute hier",
+    "cancel": "Abbrechen",
+    "joining": "Beitritt läuft…",
+    "join": "Beitreten"
+  },
+  "reply": {
+    "jump": "Zur Nachricht springen",
+    "video": "[Video]",
+    "gif": "[GIF]",
+    "image": "[Bild]",
+    "audio": "[Audio]",
+    "file": "[Datei]",
+    "poll": "[Umfrage]",
+    "sticker": "[Sticker]"
+  },
+  "discordImport": {
+    "aria": "Discord-Nachrichtenverlauf importieren",
+    "title": "Letzte Discord-Nachrichten importieren",
+    "loginRequired": "Du musst angemeldet sein, um Nachrichten zu importieren.",
+    "failed": "Nachrichten konnten nicht importiert werden",
+    "descInto": "Dieser Kanal stammt von Discord. Du kannst die letzten 90 Nachrichten nach {channel} kopieren.",
+    "descHere": "Dieser Kanal stammt von Discord. Du kannst die letzten 90 Nachrichten hierher kopieren, um den jüngsten Verlauf zu erhalten.",
+    "importing": "Import läuft…",
+    "button": "Letzte 90 Nachrichten importieren",
+    "note": "Autoren ohne verknüpftes Discord-Konto werden als Platzhalterprofile angezeigt."
+  },
+  "toast": {
+    "prev": "Vorherige Benachrichtigung",
+    "next": "Nächste Benachrichtigung",
+    "dismiss": "Schließen",
+    "open": "Öffnen",
+    "send": "Senden",
+    "openConversation": "Unterhaltung öffnen",
+    "dismissNotification": "Benachrichtigung schließen"
+  },
+  "messageList": {
+    "inChannel": "Nachrichten in {channel}",
+    "messages": "Nachrichten",
+    "loading": "Nachrichten werden geladen"
+  }
+}

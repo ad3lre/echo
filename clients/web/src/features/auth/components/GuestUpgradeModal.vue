@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import GuestAccountUpgradePanel from '@/features/settings/GuestAccountUpgradePanel.vue';
@@ -49,7 +50,7 @@ function onSignInExisting() {
             id="guest-upgrade-title"
             class="text-xl font-bold tracking-tight text-foreground"
           >
-            Save your account
+            {{ echoT('auth.guestUpgrade.title') }}
           </h2>
           <p class="mt-2 text-sm leading-relaxed text-muted">
             Sign up to send messages, unlock Friends, join more servers, and

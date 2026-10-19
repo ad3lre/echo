@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import {
@@ -75,16 +76,16 @@ function close() {
             id="legal-modal-title"
             class="text-lg font-semibold text-foreground"
           >
-            Legal
+            {{ echoT('b44.legal.title') }}
           </h2>
           <p class="mt-1 text-sm text-muted">
-            Review Terms of Service and Privacy Policy.
+            {{ echoT('b44.legal.subtitle') }}
           </p>
         </div>
         <button
           type="button"
           class="rounded-lg px-2 py-1 text-muted transition hover:bg-elevated hover:text-foreground"
-          aria-label="Close legal documents"
+          :aria-label="echoT('b44.legal.close')"
           @click="close"
         >
           ✕
@@ -93,7 +94,7 @@ function close() {
 
       <div
         role="tablist"
-        aria-label="Legal documents"
+        :aria-label="echoT('b44.legal.docs')"
         class="mb-4 flex flex-wrap gap-2 rounded-xl border border-border bg-elevated p-1"
       >
         <button

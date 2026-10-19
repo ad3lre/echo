@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
+import { computed } from 'vue';
 import type { EchoActionRailPlacementId } from '@/features/settings/theme';
 
 const props = defineProps<{
@@ -9,22 +11,24 @@ const emit = defineEmits<{
   'update:modelValue': [EchoActionRailPlacementId];
 }>();
 
-const options: Array<{
-  id: EchoActionRailPlacementId;
-  label: string;
-  desc: string;
-}> = [
+const options = computed<
+  Array<{
+    id: EchoActionRailPlacementId;
+    label: string;
+    desc: string;
+  }>
+>(() => [
   {
     id: 'left',
-    label: 'Left',
-    desc: 'Server rail along the side — classic layout.',
+    label: echoT('b43.railPicker.left'),
+    desc: echoT('b43.railPicker.leftDesc'),
   },
   {
     id: 'top',
-    label: 'Top',
-    desc: 'Horizontal bar across the top of the window.',
+    label: echoT('b43.railPicker.top'),
+    desc: echoT('b43.railPicker.topDesc'),
   },
-];
+]);
 
 function select(id: EchoActionRailPlacementId) {
   emit('update:modelValue', id);
@@ -65,7 +69,7 @@ function onKeydown(ev: KeyboardEvent, index: number) {
 <template>
   <div
     role="radiogroup"
-    aria-label="Action bar position"
+    :aria-label="echoT('b43.railPicker.aria')"
     class="grid min-w-0 grid-cols-2 gap-3 p-1 sm:gap-4"
   >
     <button

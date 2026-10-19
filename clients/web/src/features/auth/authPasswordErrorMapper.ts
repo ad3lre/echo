@@ -1,24 +1,25 @@
+import { echoT } from '@/i18n';
 import { AuthApiError } from '@/api/authClient';
 
 export function mapForgotPasswordError(err: unknown): string {
   if (err instanceof AuthApiError) {
-    return err.body.message || 'Something went wrong.';
+    return err.body.message || echoT('auth.errors.somethingWentWrong');
   }
   if (err instanceof Error) return err.message;
-  return 'Something went wrong.';
+  return echoT('auth.errors.somethingWentWrong');
 }
 
 export function mapResetPasswordError(err: unknown): string {
   if (err instanceof AuthApiError) {
     if (err.body.code === 'TOTP_REQUIRED') return '';
     if (err.body.code === 'INVALID_TOTP') {
-      return 'That authenticator code is not valid.';
+      return echoT('auth.errors.invalidTotp');
     }
     if (err.body.code === 'INVALID_TOKEN') {
-      return 'This reset link is invalid or has expired.';
+      return echoT('auth.errors.resetLinkInvalid');
     }
-    return err.body.message || 'Something went wrong.';
+    return err.body.message || echoT('auth.errors.somethingWentWrong');
   }
   if (err instanceof Error) return err.message;
-  return 'Something went wrong.';
+  return echoT('auth.errors.somethingWentWrong');
 }

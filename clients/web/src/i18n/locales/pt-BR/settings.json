@@ -1,0 +1,85 @@
+{
+  "sections": {
+    "profile": {
+      "blurb": "Defina como as pessoas veem você no Echo com perfil, status e detalhes de identidade."
+    },
+    "account": {
+      "blurb": "Controle dados de acesso, segurança e gerenciamento de sessões em um só lugar.",
+      "guestBlurb": "Sessões de convidado são temporárias. Adicione e-mail e senha para manter sua conta e liberar o app completo."
+    },
+    "friends": {
+      "blurb": "Escolha quem pode adicionar você como amigo e como desconhecidos podem iniciar mensagens diretas ou pedidos."
+    },
+    "termsAndPolicies": {
+      "blurb": "Leia a política de privacidade, os termos de serviço e as diretrizes da comunidade do Echo."
+    },
+    "reportAbuse": {
+      "blurb": "Denuncie um usuário ou mensagem por spam, assédio ou outras violações de política."
+    },
+    "formattingGuide": {
+      "blurb": "Aprenda a formatar mensagens do chat com negrito, listas, links e matemática."
+    },
+    "discord": {
+      "blurb": "Vincule sua conta Discord ao Echo para importar o perfil e manter uma identidade consistente entre apps."
+    },
+    "google": {
+      "blurb": "Vincule sua conta Google para entrar e como identidade usada nas lives do YouTube no Echo."
+    },
+    "youtube": {
+      "blurb": "Conecte seu canal do YouTube para transmitir ao vivo a partir de canais de palco do Echo."
+    },
+    "logOut": {
+      "blurb": "Encerre esta sessão neste dispositivo. Você pode entrar de novo a qualquer momento."
+    },
+    "dataAndPrivacy": {
+      "blurb": "Exporte os dados da conta e gerencie a remoção. Preferências de amigos e pedidos de DM ficam em Amigos."
+    },
+    "style": {
+      "blurb": "Ajuste a aparência do app, espaçamento e tratamento visual ao seu gosto."
+    },
+    "accessibility": {
+      "blurb": "Ajuste legibilidade, movimento e interação para mais conforto e clareza."
+    },
+    "voiceAndVideo": {
+      "blurb": "Escolha dispositivos e comportamento de chamada para chats de voz, gravações e câmera."
+    },
+    "notifications": {
+      "blurb": "Padrões pessoais neste navegador: alertas de desktop, sons, badges e menções. Combine com overrides por servidor no menu do servidor."
+    },
+    "sounds": {
+      "blurb": "Controle todos os sons do app em um só lugar: liga/desliga geral, por som, prévia e volume."
+    },
+    "keybinds": {
+      "blurb": "Revise atalhos e personalize as ações que você mais usa."
+    },
+    "timeAndLanguage": {
+      "blurb": "Defina idioma, região, fuso horário e formatação de horários."
+    },
+    "echoPlus": {
+      "blurb": "Desbloqueie uploads maiores, streaming em maior qualidade e benefícios exclusivos com Echo+ e Echo Black."
+    },
+    "subscriptions": {
+      "blurb": "Acompanhe o plano, renovações, formas de pagamento, faturas e o que está incluso na assinatura."
+    },
+    "advanced": {
+      "blurb": "Atalhos opcionais para usuários avançados neste navegador."
+    }
+  },
+  "subscription": {
+    "currentPlan": "Plano atual",
+    "renewal": "Renovação",
+    "includedSeats": "Assentos incluídos",
+    "perksUnlocked": "Benefícios desbloqueados",
+    "upgrade": "Upgrade",
+    "paid": "Pago"
+  },
+  "echoPlusInterest": {
+    "comingSoonLead": "Os upgrades do Echo+ estão chegando em breve para todos.",
+    "notifyCta": "Avise-me quando as assinaturas abrirem",
+    "interestedCta": "Tenho interesse",
+    "onList": "Você está na lista — avisaremos quando as assinaturas abrirem.",
+    "removeInterest": "Remover-me da lista",
+    "guestBlocked": "Crie uma conta para registrar interesse no Echo+.",
+    "errorGeneric": "Não foi possível salvar seu interesse. Tente de novo em instantes."
+  }
+}

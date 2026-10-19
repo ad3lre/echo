@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type { EchoChannelType, MessageWithAuthor } from '@shared/types';
 import type { EchoApiMessage } from '@/api/echoClient';
 import { mapEchoMessageToRaw } from '@/features/chat/domain/echoMessageSnapshots';
@@ -463,7 +464,7 @@ export function collectLocalSearchMessages(input: {
 
   if (id.startsWith('dm-group-')) {
     const channelMessages = input.getIndexedMessages(id);
-    const chName = 'Group DM';
+    const chName = echoT('chat.labels.groupDm');
     for (const msg of channelMessages) {
       result.push(rawToSearchRow(msg, lookup, id, chName, order));
       order += 1;
@@ -472,7 +473,7 @@ export function collectLocalSearchMessages(input: {
   }
   if (input.hasApiMode && isEchoGraphId(id) && input.echoDmThreadIds.has(id)) {
     const channelMessages = input.getIndexedMessages(id);
-    const chName = 'Direct message';
+    const chName = echoT('chat.labels.directMessage');
     for (const msg of channelMessages) {
       result.push(rawToSearchRow(msg, lookup, id, chName, order));
       order += 1;

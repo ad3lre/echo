@@ -52,7 +52,8 @@ import type { ChannelCategory } from '@/features/layout/channels/useChannels';
 import type { EchoChannelPatch } from '@/api/echo/types';
 import type { RailTab } from '@/features/layout/mainSurface';
 import { isExperimentalChannelTypeEnabled } from '@/features/paper/paperFeatureToggle';
-import { getChannelDisplayName, icons } from '@/assets/icons';
+import { getChannelDisplayName } from '@/assets/channelDisplayName';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import {
   dispatchAppToast,
   dispatchAppToastDetail,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   watch,
@@ -81,14 +82,14 @@ const iframeSrc = computed(() => {
 
 const title = computed(() => {
   const att = props.attachment;
-  if (!att) return 'Document';
+  if (!att) return echoT('chat.labels.document');
   return (
     att.filename?.trim() ||
     (isPdfAttachment(att)
       ? 'PDF'
       : isDocxAttachment(att)
-        ? 'Document'
-        : 'Document')
+        ? echoT('chat.labels.document')
+        : echoT('chat.labels.document'))
   );
 });
 
@@ -132,8 +133,7 @@ watch(
       iframeLoadTimer = setTimeout(() => {
         if (iframeLoading.value) {
           iframeLoading.value = false;
-          iframeError.value =
-            'Preview timed out. The file may require a public URL, or your browser blocked the embed. Try Download or Open.';
+          iframeError.value = echoT('b42.docViewer.timeout');
         }
       }, 45_000);
       return;
@@ -154,8 +154,7 @@ function onIframeLoad() {
 function onIframeError() {
   clearIframeLoadTimer();
   iframeLoading.value = false;
-  iframeError.value =
-    'Could not load the document preview. Try Download or Open.';
+  iframeError.value = echoT('b42.docViewer.loadFailed');
 }
 
 function openInBrowser() {
@@ -192,7 +191,7 @@ onErrorCaptured(() => false);
       class="document-viewer-modal fixed inset-0 z-[70] flex flex-col bg-overlay-ink"
       role="dialog"
       aria-modal="true"
-      :aria-label="`Document: ${title}`"
+      :aria-label="echoT('b42.docViewer.ariaLabel', { title })"
       @click.self="close"
     >
       <PdfDocumentViewer
@@ -226,8 +225,8 @@ onErrorCaptured(() => false);
             :download="saveLinkAttrs.download"
             :target="saveLinkAttrs.target"
             :rel="saveLinkAttrs.rel"
-            title="Download"
-            aria-label="Download"
+            :title="echoT('chat.actions.download')"
+            :aria-label="echoT('chat.actions.download')"
             @click.stop
           >
             <svg
@@ -247,8 +246,8 @@ onErrorCaptured(() => false);
           <button
             type="button"
             class="viewer-icon-btn rounded-full p-2 transition-colors"
-            title="Open in browser"
-            aria-label="Open in browser"
+            :title="echoT('chat.actions.openInBrowser')"
+            :aria-label="echoT('chat.actions.openInBrowser')"
             @click="openInBrowser"
           >
             <svg
@@ -268,8 +267,8 @@ onErrorCaptured(() => false);
           <button
             type="button"
             class="viewer-icon-btn rounded-full p-2 transition-colors"
-            aria-label="Close"
-            title="Close"
+            :aria-label="echoT('b42.docViewer.close')"
+            :title="echoT('b42.docViewer.close')"
             @click="close"
           >
             <svg
@@ -301,7 +300,9 @@ onErrorCaptured(() => false);
             <div
               class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"
             />
-            <span class="text-xs text-fg-subtle">Loading preview…</span>
+            <span class="text-xs text-fg-subtle">{{
+              echoT('b42.docViewer.loadingPreview')
+            }}</span>
           </div>
           <div
             v-else-if="iframeError"
@@ -313,7 +314,7 @@ onErrorCaptured(() => false);
               class="viewer-icon-btn rounded-lg px-3 py-2 text-sm"
               @click="openInBrowser"
             >
-              Open in browser
+              {{ echoT('chat.actions.openInBrowser') }}
             </button>
           </div>
           <iframe
@@ -321,7 +322,7 @@ onErrorCaptured(() => false);
             :key="iframeSrc"
             :src="iframeSrc"
             class="h-full min-h-0 w-full flex-1 border-0"
-            title="Document preview"
+            :title="echoT('b42.docViewer.previewTitle')"
             referrerpolicy="no-referrer-when-downgrade"
             @load="onIframeLoad"
             @error="onIframeError"
@@ -333,14 +334,14 @@ onErrorCaptured(() => false);
         class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
       >
         <p class="max-w-md text-sm text-fg-soft">
-          This document type cannot be previewed in Echo. Try Download or Open.
+          {{ echoT('b42.docViewer.unsupported') }}
         </p>
         <button
           type="button"
           class="viewer-icon-btn rounded-lg px-3 py-2 text-sm"
           @click="openInBrowser"
         >
-          Open in browser
+          {{ echoT('chat.actions.openInBrowser') }}
         </button>
       </div>
     </div>

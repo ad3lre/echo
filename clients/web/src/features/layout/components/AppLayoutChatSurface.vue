@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   defineAsyncComponent,
@@ -427,7 +428,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         "
         class="absolute right-0 top-0 bottom-0 w-2 -mr-1 cursor-col-resize z-[50]"
         style="background: transparent; border: none"
-        aria-label="Resize member panel"
+        :aria-label="echoT('b44.chatSurface.resizeMemberPanel')"
         @mousedown="chatCtx.startMemberResize"
         @dblclick="chatCtx.resetMemberWidth"
       />

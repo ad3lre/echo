@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, onMounted, onUnmounted, toRef, watch } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
 import type { Editor as VueEditor } from '@tiptap/vue-3';
 import { useComposerState } from '@/features/chat/composables/useComposerState';
 import { applyComposerOrderedListEnter } from '@/features/chat/editor/composerMarkdownListEnter';
 import { useComposerChannelMessageFormat } from '@/features/chat/composables/useComposerChannelMessageFormat';
-import { isComposerContentEffectivelyEmpty } from '@/features/chat/editor/composerModel';
+import { isComposerContentEffectivelyEmpty } from '@/features/chat/editor/composerPlainDoc';
 
 const props = defineProps<{
   channelId: string;
@@ -35,7 +36,9 @@ const composerEditor = computed(
   () => composer.editor.value as unknown as VueEditor | null,
 );
 
-const TOAST_QUICK_REPLY_PLACEHOLDER = 'Write a reply…';
+const toastQuickReplyPlaceholder = computed(() =>
+  echoT('layout.toast.writeReply'),
+);
 
 const showComposerPlaceholder = computed(() =>
   isComposerContentEffectivelyEmpty(composer.content.value),
@@ -153,9 +156,9 @@ defineExpose({
           v-if="showComposerPlaceholder"
           aria-hidden="true"
           class="chat-input-placeholder pointer-events-none absolute inset-x-2.5 top-1.5 z-[2] truncate text-left text-[13px] text-muted"
-          :title="TOAST_QUICK_REPLY_PLACEHOLDER"
+          :title="toastQuickReplyPlaceholder"
         >
-          {{ TOAST_QUICK_REPLY_PLACEHOLDER }}
+          {{ toastQuickReplyPlaceholder }}
         </div>
         <EditorContent
           v-if="composerEditor"

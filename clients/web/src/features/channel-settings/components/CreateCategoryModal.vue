@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useAutofocusOnOpen } from '@/features/layout/useAutofocusOnOpen';
@@ -66,16 +67,16 @@ function submit() {
       class="real-glass-modal relative w-full max-w-md rounded-xl p-6 text-foreground"
     >
       <h2 id="create-category-title" class="text-xl font-bold">
-        Create category
+        {{ echoT('b43.createCategory.title') }}
       </h2>
       <p class="mt-1 text-sm text-fg-soft">
-        Group channels in {{ serverName }}
+        {{ echoT('b43.createCategory.group', { server: serverName }) }}
       </p>
 
       <div class="mt-5">
-        <label class="settings-label" for="create-category-input"
-          >Category name</label
-        >
+        <label class="settings-label" for="create-category-input">{{
+          echoT('b43.createCategory.name')
+        }}</label>
         <div
           class="create-category-name-row mt-2 flex min-h-[44px] items-stretch overflow-hidden rounded-xl"
         >
@@ -85,7 +86,7 @@ function submit() {
             v-model="categoryName"
             type="text"
             class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-fg-subtle"
-            placeholder="New category"
+            :placeholder="echoT('b43.createCategory.placeholder')"
             maxlength="100"
             @keydown.enter.prevent="submit"
           />
@@ -94,7 +95,7 @@ function submit() {
           v-if="trimmedName && nameIsDuplicate"
           class="mt-2 text-xs text-rose-300/90"
         >
-          A category with this name already exists.
+          {{ echoT('b43.createCategory.duplicate') }}
         </p>
       </div>
 
@@ -104,7 +105,7 @@ function submit() {
           class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-white"
           @click="close"
         >
-          Cancel
+          {{ echoT('b43.createCategory.cancel') }}
         </button>
         <button
           type="button"
@@ -112,7 +113,7 @@ function submit() {
           :disabled="!canSubmit"
           @click="submit"
         >
-          Create Category
+          {{ echoT('b43.createCategory.submit') }}
         </button>
       </div>
     </div>

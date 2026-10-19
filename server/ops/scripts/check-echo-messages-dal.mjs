@@ -20,6 +20,13 @@ const allowlisted = new Set(
       'domain',
       'echoStore',
       'messages',
+      'echoMentionAttentionDal.ts',
+    ),
+    path.join(
+      backendSrc,
+      'domain',
+      'echoStore',
+      'messages',
       'discordImportMediaMirrorQueue.ts',
     ),
     path.join(

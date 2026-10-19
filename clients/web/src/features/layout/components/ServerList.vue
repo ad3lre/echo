@@ -1,11 +1,9 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import type { Server } from '@shared/types';
-import {
-  useServerStore,
-  EXTRA_SERVERS_RAIL_MIN_JOINED,
-} from '@/features/layout/server';
+import { useServerStore } from '@/features/layout/server';
 import { getPopoutAnchorRect } from '@/features/member-profile/memberProfiles';
 import type { PopoutAnchorRect } from '@/features/member-profile/memberProfiles';
 import { useMoreServers } from '@/features/layout/composables/more-servers/useMoreServers';
@@ -16,13 +14,13 @@ import type {
   ServerPingKind,
 } from '@/features/server-notifications/serverPing';
 import { useNotificationPreferencesStore } from '@/features/settings/notificationPreferences';
+import { useServerRailUiPreferencesStore } from '@/features/settings/serverRailUiPreferences';
 import { useSimpleContextMenu } from '@/features/layout/useSimpleContextMenu';
 import { copyToClipboard } from '@/features/chat/copyToClipboard';
 import { useDevSettingsStore } from '@/features/dev/devSettings';
 import { linkTokenServer } from '@/features/layout/ids/idTokens';
 import { shouldOfferLeaveServerInClientUi } from '@/features/layout/echoServerOwnership';
 import { usePlatform } from '@/platform/usePlatform';
-import { VISIBLE_SERVER_RAIL_SLOT_COUNT } from '@/features/layout/composables/rail/serverRailReorder';
 
 import { useServerRailReorder } from '@/features/layout/composables/rail/useServerRailReorder';
 import ServerRailContextMenu from '@/features/layout/components/server-rail/ServerRailContextMenu.vue';
@@ -32,6 +30,7 @@ import ServerRailCenterColumn from '@/features/layout/components/server-rail/Ser
 import RailProfileBar from '@/features/layout/components/server-rail/RailProfileBar.vue';
 
 const serverStore = useServerStore();
+const railUiPrefs = useServerRailUiPreferencesStore();
 const { isMockDataMode } = usePlatform();
 const devSettings = useDevSettingsStore();
 const { devModeIdsEnabled } = storeToRefs(devSettings);
@@ -53,7 +52,7 @@ const showDmIncomingRailCluster = computed(
 
 /** Extra-servers panel is only relevant once the main rail overflows its primary slots. */
 const showExtraServersRailButton = computed(
-  () => servers.value.length >= EXTRA_SERVERS_RAIL_MIN_JOINED,
+  () => servers.value.length >= railUiPrefs.extraServersMinJoined,
 );
 const notificationPreferencesStore = useNotificationPreferencesStore();
 
@@ -202,7 +201,7 @@ const railOrientation = computed(() =>
 );
 const horizontalRail = computed(() => props.layout === 'horizontal');
 
-/** Rail shows at most {@link VISIBLE_SERVER_RAIL_SLOT_COUNT} guild icons; overflow selection uses the “more” cluster + pill. */
+/** Rail shows at most the configured slot count (5, or 10 with extended list); overflow uses “more”. */
 const visibleServersForRail = computed(() => visibleServers.value);
 
 const {
@@ -311,7 +310,9 @@ function canLeaveContextServer(): boolean {
   );
 }
 
-const areServersExpanded = computed(() => props.activeRailTab === 'servers');
+const areServersExpanded = computed(
+  () => railUiPrefs.serversAlwaysOn || props.activeRailTab === 'servers',
+);
 /** Servers folder / rail intent; controller resolves the target server/channel synchronously. */
 function openServersRail() {
   emit('select-servers');
@@ -327,7 +328,7 @@ function openSelfProfile(event: MouseEvent) {
 
 <template>
   <nav
-    aria-label="Servers"
+    :aria-label="echoT('layout.rail.servers')"
     class="bg-[var(--echo-server-rail-bg)]"
     :class="
       props.layout === 'horizontal'
@@ -424,7 +425,11 @@ function openSelfProfile(event: MouseEvent) {
       :menu-open="laneMenuOpen && laneMenuScope !== null"
       :menu-ref="_laneMenuRef"
       :menu-position="laneMenuPosition"
-      :title="laneMenuScope === 'dm' ? 'Direct messages' : 'Servers'"
+      :title="
+        laneMenuScope === 'dm'
+          ? echoT('layout.rail.directMessages')
+          : echoT('layout.rail.servers')
+      "
       @mark-all-read="emitLaneMarkAllReadAndClose"
       @close="closeLaneContextMenu"
     />

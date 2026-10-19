@@ -9,27 +9,44 @@ export { MAX_STARRED_SERVERS, SERVER_RAIL_MRU_MAX_STORED };
 /** Max server icons on the main rail before overflow / “more” (must match Pinia `visibleServers` base slice). */
 export const VISIBLE_SERVER_RAIL_SLOT_COUNT = 5;
 
+/** Extended rail capacity when Appearance → “Extended server list” is on. */
+export const EXTENDED_VISIBLE_SERVER_RAIL_SLOT_COUNT = 10;
+
+function clampRailSlotCount(slotCount?: number): number {
+  if (
+    typeof slotCount === 'number' &&
+    Number.isFinite(slotCount) &&
+    slotCount >= 1
+  ) {
+    return Math.floor(slotCount);
+  }
+  return VISIBLE_SERVER_RAIL_SLOT_COUNT;
+}
+
 export type ServerRailProjection = {
   visible: Server[];
   /** Starred guilds (shown first on the rail). */
   starred: Server[];
   /** Recent non-starred fill after starred (MRU + fallback). */
   recentFill: Server[];
-  /** First {@link VISIBLE_SERVER_RAIL_SLOT_COUNT} entries of `allServers` (legacy ordering aid). */
+  /** First `slotCount` entries of `allServers` (legacy ordering aid). */
   base: Server[];
 };
 
 /**
- * At most {@link VISIBLE_SERVER_RAIL_SLOT_COUNT} icons: up to {@link MAX_STARRED_SERVERS} starred first,
- * then most-recent non-starred (from `mruIds`) with `allServers` order as fallback. Never appends a 6th
- * “overflow active” slot — selection outside this list is handled via overflow UI only.
+ * At most `slotCount` icons (default {@link VISIBLE_SERVER_RAIL_SLOT_COUNT}): up to
+ * {@link MAX_STARRED_SERVERS} starred first, then most-recent non-starred (from `mruIds`)
+ * with `allServers` order as fallback. Never appends an overflow-active slot —
+ * selection outside this list is handled via overflow UI only.
  */
 export function projectServerRailVisibleServers(
   allServers: readonly Server[],
   pinned: readonly Server[],
   mruIds: readonly string[],
+  slotCount: number = VISIBLE_SERVER_RAIL_SLOT_COUNT,
 ): ServerRailProjection {
-  const base = allServers.slice(0, VISIBLE_SERVER_RAIL_SLOT_COUNT);
+  const maxSlots = clampRailSlotCount(slotCount);
+  const base = allServers.slice(0, maxSlots);
   if (allServers.length === 0) {
     return { visible: [], starred: [], recentFill: [], base: [...base] };
   }
@@ -46,7 +63,7 @@ export function projectServerRailVisibleServers(
     starredIds.add(s.id);
   }
 
-  const need = VISIBLE_SERVER_RAIL_SLOT_COUNT - starred.length;
+  const need = maxSlots - starred.length;
   const recentFill: Server[] = [];
   if (need > 0) {
     const seen = new Set(starredIds);
@@ -81,12 +98,14 @@ export function resolveVisibleServerRail(
   allServers: readonly Server[],
   pinned: readonly Server[],
   mruIds: readonly string[],
-  opts?: { preferSavedOrder?: boolean },
+  opts?: { preferSavedOrder?: boolean; slotCount?: number },
 ): Server[] {
+  const maxSlots = clampRailSlotCount(opts?.slotCount);
   const { visible: membership } = projectServerRailVisibleServers(
     allServers,
     pinned,
     mruIds,
+    maxSlots,
   );
   if (membership.length === 0) return [];
   if (!opts?.preferSavedOrder) {
@@ -97,7 +116,7 @@ export function resolveVisibleServerRail(
   for (const s of allServers) {
     if (!memberIds.has(s.id)) continue;
     ordered.push(s);
-    if (ordered.length >= VISIBLE_SERVER_RAIL_SLOT_COUNT) break;
+    if (ordered.length >= maxSlots) break;
   }
   if (ordered.length < membership.length) {
     const have = new Set(ordered.map((s) => s.id));
@@ -105,7 +124,7 @@ export function resolveVisibleServerRail(
       if (!have.has(s.id)) ordered.push(s);
     }
   }
-  return ordered.slice(0, VISIBLE_SERVER_RAIL_SLOT_COUNT);
+  return ordered.slice(0, maxSlots);
 }
 
 /**
@@ -196,7 +215,7 @@ export function railLineBeforeFromBoundariesSticky(
 }
 
 /**
- * Reorder the visible server rail (starred prefix + MRU fill, at most {@link VISIBLE_SERVER_RAIL_SLOT_COUNT} icons),
+ * Reorder the visible server rail (starred prefix + MRU fill, at most `slotCount` icons),
  * returning updated full `servers` list, starred order, and MRU ids.
  */
 export function reorderServerRail(input: {
@@ -206,6 +225,7 @@ export function reorderServerRail(input: {
   fromIndex: number;
   toIndex: number;
   preferSavedOrder?: boolean;
+  slotCount?: number;
 }): { servers: Server[]; pinnedMore: Server[]; mruIds: string[] } {
   const {
     allServers,
@@ -214,9 +234,12 @@ export function reorderServerRail(input: {
     fromIndex,
     toIndex,
     preferSavedOrder,
+    slotCount,
   } = input;
+  const maxSlots = clampRailSlotCount(slotCount);
   const visible = resolveVisibleServerRail(allServers, pinnedMore, mruIds, {
     preferSavedOrder,
+    slotCount: maxSlots,
   });
   if (visible.length <= 1) {
     return {
@@ -304,6 +327,7 @@ export function reorderServerRailWithOverflow(input: {
   toIndex: number;
   overflowServerId: string;
   preferSavedOrder?: boolean;
+  slotCount?: number;
 }): { servers: Server[]; pinnedMore: Server[]; mruIds: string[] } {
   const {
     allServers,
@@ -313,9 +337,12 @@ export function reorderServerRailWithOverflow(input: {
     toIndex,
     overflowServerId,
     preferSavedOrder,
+    slotCount,
   } = input;
+  const maxSlots = clampRailSlotCount(slotCount);
   const visible = resolveVisibleServerRail(allServers, pinnedMore, mruIds, {
     preferSavedOrder,
+    slotCount: maxSlots,
   });
   const n = visible.length;
   const overflowIndex = n;
@@ -336,6 +363,7 @@ export function reorderServerRailWithOverflow(input: {
       fromIndex,
       toIndex,
       preferSavedOrder,
+      slotCount: maxSlots,
     });
   }
 
@@ -345,7 +373,7 @@ export function reorderServerRailWithOverflow(input: {
     const withoutOverflow = visibleIds.filter((id) => id !== overflowServerId);
     const nextIds = [...withoutOverflow];
     nextIds.splice(to, 0, overflowServerId);
-    const newVisibleIds = nextIds.slice(0, VISIBLE_SERVER_RAIL_SLOT_COUNT);
+    const newVisibleIds = nextIds.slice(0, maxSlots);
     return applyServerRailVisibleOrder({
       allServers,
       pinnedMore,

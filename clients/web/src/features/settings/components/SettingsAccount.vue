@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { onMounted, ref, toRef } from 'vue';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
@@ -216,7 +217,7 @@ defineExpose({
           class="shrink-0 text-xs font-semibold uppercase tracking-wider text-[color:var(--mention-special-fg)] hover:text-[color:var(--mention-special-fg-hover)]"
           @click="dismissGuestNotice"
         >
-          Dismiss
+          {{ echoT('panes.account.dismiss') }}
         </button>
       </div>
     </div>
@@ -224,9 +225,11 @@ defineExpose({
     <div class="settings-card rounded-2xl p-6">
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h4 class="text-lg font-bold text-foreground">Account Security</h4>
+          <h4 class="text-lg font-bold text-foreground">
+            {{ echoT('panes.account.accountSecurity') }}
+          </h4>
           <p class="text-sm text-muted mt-1">
-            Manage your sign-in credentials and security settings.
+            {{ echoT('panes.account.accountSecurityDesc') }}
           </p>
           <p v-if="accountSaveError" class="mt-2 text-sm text-red-600">
             {{ accountSaveError }}
@@ -239,7 +242,7 @@ defineExpose({
             type="button"
             class="settings-action rounded-xl px-4 py-2 text-sm font-medium"
           >
-            Reset
+            {{ echoT('panes.account.reset') }}
           </button>
           <button
             @click="handleEditAccountClick"
@@ -250,10 +253,10 @@ defineExpose({
           >
             {{
               isAccountLocked
-                ? 'Edit Account'
+                ? echoT('panes.account.editAccount')
                 : accountSaveBusy
-                  ? 'Saving…'
-                  : 'Save Changes'
+                  ? echoT('panes.account.saving')
+                  : echoT('panes.account.saveChanges')
             }}
           </button>
         </div>
@@ -263,7 +266,9 @@ defineExpose({
         <!-- Email -->
         <div class="flex flex-col gap-2">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="settings-label">Email Address</span>
+            <span class="settings-label">{{
+              echoT('panes.account.emailAddress')
+            }}</span>
             <template
               v-if="
                 !echoSyncCapabilities.isMockDataMode &&
@@ -276,13 +281,13 @@ defineExpose({
                 v-if="authSession.backendUser.emailVerified"
                 class="echo-status-pill echo-status-pill--success rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
               >
-                Verified
+                {{ echoT('panes.account.verified') }}
               </span>
               <span
                 v-else-if="!EMAIL_VERIFICATION_DOWNTIME"
                 class="echo-status-pill echo-status-pill--warn rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
               >
-                Unverified
+                {{ echoT('panes.account.unverified') }}
               </span>
             </template>
           </div>
@@ -309,7 +314,11 @@ defineExpose({
               :disabled="resendEmailBusy || isAccountLocked"
               @click="resendEmailVerification"
             >
-              {{ resendEmailBusy ? 'Sending…' : 'Resend verification email' }}
+              {{
+                resendEmailBusy
+                  ? echoT('panes.account.sending')
+                  : echoT('panes.account.resendVerification')
+              }}
             </button>
           </div>
           <div
@@ -328,7 +337,7 @@ defineExpose({
             <span
               v-if="!isAccountLocked"
               class="text-[10px] font-bold uppercase tracking-wider text-[color:var(--vc-settings-accent-fg)] opacity-0 group-hover/field:opacity-100 pointer-coarse:opacity-100 transition-opacity"
-              >Edit</span
+              >{{ echoT('panes.account.edit') }}</span
             >
           </div>
           <input
@@ -350,7 +359,9 @@ defineExpose({
           "
           class="flex flex-col gap-2"
         >
-          <span class="settings-label">Phone Number</span>
+          <span class="settings-label">{{
+            echoT('settingsUi.phoneNumber')
+          }}</span>
           <div
             v-if="!isEditingPhone"
             @click="toggleEditPhone"
@@ -367,7 +378,7 @@ defineExpose({
             <span
               v-if="!isAccountLocked"
               class="text-[10px] font-bold uppercase tracking-wider text-[color:var(--vc-settings-accent-fg)] opacity-0 group-hover/field:opacity-100 pointer-coarse:opacity-100 transition-opacity"
-              >Edit</span
+              >{{ echoT('panes.account.edit') }}</span
             >
           </div>
           <input
@@ -389,7 +400,9 @@ defineExpose({
           "
           class="flex flex-col gap-3"
         >
-          <span class="settings-label">Phone Number</span>
+          <span class="settings-label">{{
+            echoT('settingsUi.phoneNumber')
+          }}</span>
           <div
             v-if="isAccountLocked"
             class="settings-panel flex flex-col gap-2 rounded-xl p-4 text-sm text-fg-soft"
@@ -398,7 +411,9 @@ defineExpose({
               v-if="authSession.backendUser.phone"
               class="flex flex-wrap items-center gap-2"
             >
-              <span class="text-muted">Verified</span>
+              <span class="text-muted">{{
+                echoT('panes.account.verified')
+              }}</span>
               <span class="font-medium">{{
                 authSession.backendUser.phone
               }}</span>
@@ -407,7 +422,9 @@ defineExpose({
               v-if="authSession.backendUser.pendingPhone"
               class="flex flex-wrap items-center gap-2"
             >
-              <span class="text-muted">Pending verification</span>
+              <span class="text-muted">{{
+                echoT('panes.account.pendingVerification')
+              }}</span>
               <span class="font-medium">{{
                 authSession.backendUser.pendingPhone
               }}</span>
@@ -419,7 +436,7 @@ defineExpose({
               "
               class="text-fg-subtle"
             >
-              No phone on file. Unlock account to add one.
+              {{ echoT('panes.account.noPhone') }}
             </p>
           </div>
           <div v-else class="flex flex-col gap-2">
@@ -428,19 +445,19 @@ defineExpose({
               class="settings-input"
               type="tel"
               autocomplete="tel"
-              placeholder="Include country code (e.g. +1…)"
+              :placeholder="echoT('panes.account.phonePlaceholder')"
             />
             <p class="text-xs text-muted leading-relaxed">
-              Save changes to update your number, then request an SMS code.
+              {{ echoT('panes.account.phoneSaveHint') }}
             </p>
           </div>
           <div
             v-if="authSession.backendUser.pendingPhone"
             class="flex flex-col gap-2 rounded-xl border border-border bg-scrim-1 p-4"
           >
-            <span class="text-xs font-semibold text-fg-soft"
-              >SMS verification</span
-            >
+            <span class="text-xs font-semibold text-fg-soft">{{
+              echoT('panes.account.smsVerification')
+            }}</span>
             <p v-if="phoneOtpError" class="text-xs text-red-600">
               {{ phoneOtpError }}
             </p>
@@ -451,7 +468,11 @@ defineExpose({
                 :disabled="phoneSendBusy || isAccountLocked"
                 @click="sendPhoneVerificationCode"
               >
-                {{ phoneSendBusy ? 'Sending…' : 'Send code' }}
+                {{
+                  phoneSendBusy
+                    ? echoT('panes.account.sending')
+                    : echoT('panes.account.sendCode')
+                }}
               </button>
               <button
                 type="button"
@@ -459,20 +480,20 @@ defineExpose({
                 :disabled="phoneSendBusy || isAccountLocked"
                 @click="resendPhoneVerificationCode"
               >
-                Resend
+                {{ echoT('panes.account.resend') }}
               </button>
             </div>
             <label class="flex flex-col gap-1.5">
-              <span class="text-[11px] font-semibold text-muted"
-                >Code from SMS</span
-              >
+              <span class="text-[11px] font-semibold text-muted">{{
+                echoT('panes.account.codeFromSms')
+              }}</span>
               <input
                 v-model="phoneOtpCode"
                 class="settings-input"
                 type="text"
                 inputmode="numeric"
                 autocomplete="one-time-code"
-                placeholder="Enter code"
+                :placeholder="echoT('panes.account.enterCode')"
                 :disabled="isAccountLocked"
                 @keyup.enter="submitPhoneVerification"
               />
@@ -483,18 +504,24 @@ defineExpose({
               :disabled="phoneOtpBusy || isAccountLocked"
               @click="submitPhoneVerification"
             >
-              {{ phoneOtpBusy ? 'Verifying…' : 'Verify phone' }}
+              {{
+                phoneOtpBusy ? echoT('settingsUi.verifying') : 'Verify phone'
+              }}
             </button>
           </div>
         </div>
         <div v-else class="flex flex-col gap-2">
-          <span class="settings-label">Phone Number</span>
+          <span class="settings-label">{{
+            echoT('settingsUi.phoneNumber')
+          }}</span>
           <div class="settings-panel rounded-xl p-4 flex flex-col gap-2">
             <div
               v-if="authSession.backendUser?.phone"
               class="flex flex-wrap items-center gap-2 text-sm text-fg-soft"
             >
-              <span class="text-muted">Verified</span>
+              <span class="text-muted">{{
+                echoT('panes.account.verified')
+              }}</span>
               <span class="font-medium">{{
                 authSession.backendUser.phone
               }}</span>
@@ -503,17 +530,19 @@ defineExpose({
               v-if="authSession.backendUser?.pendingPhone"
               class="flex flex-wrap items-center gap-2 text-sm text-fg-soft"
             >
-              <span class="text-muted">Pending verification</span>
+              <span class="text-muted">{{
+                echoT('panes.account.pendingVerification')
+              }}</span>
               <span class="font-medium">{{
                 authSession.backendUser.pendingPhone
               }}</span>
             </div>
             <span class="text-sm text-fg-soft">
-              Phone verification is
+              {{ echoT('panes.account.phoneLead') }}
               <span
                 class="font-semibold text-[color:var(--vc-settings-accent-fg)]"
-                >coming soon</span
-              >.
+                >{{ echoT('panes.account.comingSoon') }}</span
+              >{{ echoT('panes.account.phoneTail') }}
             </span>
           </div>
         </div>
@@ -528,7 +557,9 @@ defineExpose({
           ]"
           class="flex flex-col gap-2"
         >
-          <span class="settings-label">Password</span>
+          <span class="settings-label">{{
+            echoT('panes.account.password')
+          }}</span>
           <div
             class="settings-panel flex items-center justify-between rounded-xl p-4"
           >
@@ -546,7 +577,7 @@ defineExpose({
                   : ''
               "
             >
-              Change Password
+              {{ echoT('panes.account.changePassword') }}
             </button>
           </div>
         </div>
@@ -562,15 +593,17 @@ defineExpose({
         class="settings-card max-w-md w-full rounded-2xl p-6 shadow-2xl border border-border"
       >
         <form class="flex flex-col" @submit.prevent="confirmAccountUnlock">
-          <h4 class="text-xl font-bold text-foreground">Password Required</h4>
+          <h4 class="text-xl font-bold text-foreground">
+            {{ echoT('panes.account.passwordRequired') }}
+          </h4>
           <p class="mt-2 text-sm text-muted leading-6">
-            Please enter your password to edit sensitive account information.
+            {{ echoT('panes.account.passwordRequiredDesc') }}
           </p>
           <div class="mt-4">
             <input
               v-model="accountPasswordInput"
               type="password"
-              placeholder="Enter password"
+              :placeholder="echoT('panes.account.enterPassword')"
               class="settings-input"
               :disabled="accountPasswordSubmitting"
               autocomplete="current-password"
@@ -587,14 +620,18 @@ defineExpose({
               @click="closeAccountPasswordPrompt"
               class="settings-action rounded-xl px-4 py-2 text-sm font-medium"
             >
-              Cancel
+              {{ echoT('panes.account.cancel') }}
             </button>
             <button
               type="submit"
               :disabled="accountPasswordSubmitting"
               class="primary-btn rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
             >
-              {{ accountPasswordSubmitting ? 'Verifying…' : 'Confirm' }}
+              {{
+                accountPasswordSubmitting
+                  ? echoT('settingsUi.verifying')
+                  : echoT('panes.account.confirm')
+              }}
             </button>
           </div>
         </form>
@@ -610,20 +647,22 @@ defineExpose({
         class="settings-card max-w-md w-full rounded-2xl p-6 shadow-2xl border border-border"
       >
         <form class="flex flex-col" @submit.prevent="submitChangePassword">
-          <h4 class="text-xl font-bold text-foreground">Change Password</h4>
+          <h4 class="text-xl font-bold text-foreground">
+            {{ echoT('panes.account.changePassword') }}
+          </h4>
           <p class="mt-2 text-sm text-muted leading-6">
-            Enter your current password and choose a new one.
+            {{ echoT('panes.account.changePasswordDesc') }}
           </p>
 
           <div class="mt-4 flex flex-col gap-3">
             <label class="flex flex-col gap-1.5">
-              <span class="text-xs font-semibold text-muted"
-                >Current password</span
-              >
+              <span class="text-xs font-semibold text-muted">{{
+                echoT('panes.account.currentPassword')
+              }}</span>
               <input
                 v-model="changePasswordCurrent"
                 :type="showChangePasswordCurrentValue ? 'text' : 'password'"
-                placeholder="Enter current password"
+                :placeholder="echoT('panes.account.enterCurrentPassword')"
                 class="settings-input"
                 autofocus
               />
@@ -635,16 +674,22 @@ defineExpose({
                     !showChangePasswordCurrentValue
                 "
               >
-                {{ showChangePasswordCurrentValue ? 'Hide' : 'Show' }}
+                {{
+                  showChangePasswordCurrentValue
+                    ? echoT('panes.account.hide')
+                    : echoT('panes.account.show')
+                }}
               </button>
             </label>
 
             <label class="flex flex-col gap-1.5">
-              <span class="text-xs font-semibold text-muted">New password</span>
+              <span class="text-xs font-semibold text-muted">{{
+                echoT('panes.account.newPassword')
+              }}</span>
               <input
                 v-model="changePasswordNew"
                 :type="showChangePasswordNewValue ? 'text' : 'password'"
-                placeholder="Enter new password"
+                :placeholder="echoT('panes.account.enterNewPassword')"
                 class="settings-input"
               />
               <button
@@ -654,18 +699,22 @@ defineExpose({
                   showChangePasswordNewValue = !showChangePasswordNewValue
                 "
               >
-                {{ showChangePasswordNewValue ? 'Hide' : 'Show' }}
+                {{
+                  showChangePasswordNewValue
+                    ? echoT('panes.account.hide')
+                    : echoT('panes.account.show')
+                }}
               </button>
             </label>
 
             <label class="flex flex-col gap-1.5">
-              <span class="text-xs font-semibold text-muted"
-                >Confirm new password</span
-              >
+              <span class="text-xs font-semibold text-muted">{{
+                echoT('panes.account.confirmNewPassword')
+              }}</span>
               <input
                 v-model="changePasswordConfirm"
                 :type="showChangePasswordConfirmValue ? 'text' : 'password'"
-                placeholder="Re-enter new password"
+                :placeholder="echoT('panes.account.reenterNewPassword')"
                 class="settings-input"
               />
               <button
@@ -676,7 +725,11 @@ defineExpose({
                     !showChangePasswordConfirmValue
                 "
               >
-                {{ showChangePasswordConfirmValue ? 'Hide' : 'Show' }}
+                {{
+                  showChangePasswordConfirmValue
+                    ? echoT('panes.account.hide')
+                    : echoT('panes.account.show')
+                }}
               </button>
             </label>
 
@@ -692,14 +745,18 @@ defineExpose({
               @click="closeChangePasswordModal"
               class="settings-action rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
-              Cancel
+              {{ echoT('panes.account.cancel') }}
             </button>
             <button
               type="submit"
               :disabled="changePasswordBusy"
               class="primary-btn rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
             >
-              {{ changePasswordBusy ? 'Updating…' : 'Update Password' }}
+              {{
+                changePasswordBusy
+                  ? echoT('panes.account.updating')
+                  : echoT('panes.account.updatePassword')
+              }}
             </button>
           </div>
         </form>
@@ -719,45 +776,44 @@ defineExpose({
           v-if="twoFactorStep === 'setup'"
           class="text-xl font-bold text-foreground"
         >
-          Set up Two-Factor Auth
+          {{ echoT('panes.account.setup2fa') }}
         </h4>
         <h4
           v-else-if="twoFactorStep === 'verify'"
           class="text-xl font-bold text-foreground"
         >
-          Verify 2FA Code
+          {{ echoT('panes.account.verify2fa') }}
         </h4>
         <h4
           v-else-if="twoFactorStep === 'recovery'"
           class="text-xl font-bold text-foreground"
         >
-          Save your recovery codes
+          {{ echoT('panes.account.saveRecovery') }}
         </h4>
         <h4 v-else class="text-xl font-bold text-foreground">
-          Two-Factor Enabled
+          {{ echoT('panes.account.tfaEnabledTitle') }}
         </h4>
 
         <p
           v-if="twoFactorStep === 'setup'"
           class="mt-2 text-sm text-muted leading-6"
         >
-          Scan the QR code with your authenticator app, then continue.
+          {{ echoT('panes.account.scanQr') }}
         </p>
         <p
           v-else-if="twoFactorStep === 'verify'"
           class="mt-2 text-sm text-muted leading-6"
         >
-          Enter the 6-digit code from your authenticator app.
+          {{ echoT('panes.account.enter6') }}
         </p>
         <p
           v-else-if="twoFactorStep === 'recovery'"
           class="mt-2 text-sm text-muted leading-6"
         >
-          Each code works once if you lose your device. Store them somewhere
-          safe — they won’t be shown again.
+          {{ echoT('panes.account.recoveryDesc') }}
         </p>
         <p v-else class="mt-2 text-sm text-muted leading-6">
-          Your account now requires 2FA for sign-in.
+          {{ echoT('panes.account.requires2fa') }}
         </p>
 
         <div
@@ -789,12 +845,14 @@ defineExpose({
               </svg>
             </template>
             <template v-else-if="twoFactorSetupBusy && !twoFactorQrDataUrl">
-              <span class="text-sm text-muted">Loading QR code…</span>
+              <span class="text-sm text-muted">{{
+                echoT('panes.account.loadingQr')
+              }}</span>
             </template>
             <img
               v-else-if="twoFactorQrDataUrl"
               :src="twoFactorQrDataUrl"
-              alt="Authenticator QR code"
+              :alt="echoT('panes.account.qrAlt')"
               class="w-36 h-36 object-contain"
               width="144"
               height="144"
@@ -808,7 +866,7 @@ defineExpose({
             <div
               class="text-[11px] font-bold uppercase tracking-[0.18em] text-muted mb-2"
             >
-              Secret key
+              {{ echoT('panes.account.secretKey') }}
             </div>
             <code class="block text-sm text-fg font-mono break-all">
               {{ twoFactorSecret }}
@@ -817,7 +875,7 @@ defineExpose({
               v-if="echoSyncCapabilities.isMockDataMode"
               class="mt-2 text-xs text-muted"
             >
-              Demo: to finish verification, enter
+              {{ echoT('panes.account.demoLead') }}
               <span class="font-bold text-[color:var(--vc-settings-accent-fg)]"
                 >123456</span
               >.
@@ -830,9 +888,9 @@ defineExpose({
           class="mt-4 flex flex-col gap-3"
         >
           <label class="flex flex-col gap-1.5">
-            <span class="text-xs font-semibold text-muted"
-              >Verification code</span
-            >
+            <span class="text-xs font-semibold text-muted">{{
+              echoT('panes.account.verificationCode')
+            }}</span>
             <input
               v-model="twoFactorCode"
               inputmode="numeric"
@@ -870,7 +928,7 @@ defineExpose({
             class="settings-action rounded-xl px-4 py-2 text-sm font-medium self-start"
             @click="copyRecoveryCodes"
           >
-            Copy all
+            {{ echoT('panes.account.copyAll') }}
           </button>
         </div>
 
@@ -878,9 +936,11 @@ defineExpose({
           <div
             class="echo-success-banner rounded-xl border border-emerald-400/20 p-4"
           >
-            <div class="text-sm font-bold">2FA is active</div>
+            <div class="text-sm font-bold">
+              {{ echoT('panes.account.tfaActive') }}
+            </div>
             <div class="mt-1 text-xs text-muted">
-              You can manage 2FA from this section in the future.
+              {{ echoT('panes.account.tfaManageLater') }}
             </div>
           </div>
         </div>
@@ -891,7 +951,7 @@ defineExpose({
             @click="closeTwoFactorSetupModal"
             class="settings-action rounded-xl px-4 py-2 text-sm font-medium"
           >
-            Cancel
+            {{ echoT('panes.account.cancel') }}
           </button>
 
           <button
@@ -906,7 +966,7 @@ defineExpose({
             @click="twoFactorStep = 'verify'"
             class="primary-btn rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
           >
-            Continue
+            {{ echoT('panes.account.continue') }}
           </button>
 
           <button
@@ -916,7 +976,7 @@ defineExpose({
             @click="verifyTwoFactorCode"
             class="primary-btn rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
           >
-            {{ twoFactorSetupBusy ? 'Verifying…' : 'Verify' }}
+            {{ twoFactorSetupBusy ? echoT('settingsUi.verifying') : 'Verify' }}
           </button>
 
           <button
@@ -925,7 +985,7 @@ defineExpose({
             @click="closeTwoFactorSetupModal"
             class="success-btn rounded-xl px-4 py-2 text-sm font-semibold"
           >
-            Done
+            {{ echoT('panes.account.done') }}
           </button>
 
           <button
@@ -934,7 +994,7 @@ defineExpose({
             @click="closeTwoFactorSetupModal"
             class="success-btn rounded-xl px-4 py-2 text-sm font-semibold"
           >
-            Done
+            {{ echoT('panes.account.done') }}
           </button>
         </div>
       </div>
@@ -950,10 +1010,10 @@ defineExpose({
         class="settings-card max-w-md w-full rounded-2xl p-6 shadow-2xl border border-border"
       >
         <h4 class="text-xl font-bold text-foreground">
-          Disable two-factor authentication
+          {{ echoT('panes.account.disableTfaTitle') }}
         </h4>
         <p class="mt-2 text-sm text-muted leading-6">
-          Enter your password and a valid authenticator code or recovery code.
+          {{ echoT('panes.account.disableTfaDesc') }}
         </p>
         <form class="flex flex-col" @submit.prevent="submitDisableTotp">
           <div class="mt-4 flex gap-2 rounded-xl bg-glass-2 p-1">
@@ -967,7 +1027,7 @@ defineExpose({
               "
               @click="disableTotpFactor = 'totp'"
             >
-              Authenticator
+              {{ echoT('panes.account.authenticator') }}
             </button>
             <button
               type="button"
@@ -979,11 +1039,13 @@ defineExpose({
               "
               @click="disableTotpFactor = 'recovery'"
             >
-              Recovery
+              {{ echoT('panes.account.recovery') }}
             </button>
           </div>
           <label class="mt-4 flex flex-col gap-1.5">
-            <span class="text-xs font-semibold text-muted">Password</span>
+            <span class="text-xs font-semibold text-muted">{{
+              echoT('panes.account.password')
+            }}</span>
             <input
               v-model="disableTotpPassword"
               type="password"
@@ -995,7 +1057,9 @@ defineExpose({
             v-if="disableTotpFactor === 'totp'"
             class="mt-3 flex flex-col gap-1.5"
           >
-            <span class="text-xs font-semibold text-muted">6-digit code</span>
+            <span class="text-xs font-semibold text-muted">{{
+              echoT('panes.account.sixDigitCode')
+            }}</span>
             <input
               v-model="disableTotpCode"
               inputmode="numeric"
@@ -1006,7 +1070,9 @@ defineExpose({
             />
           </label>
           <label v-else class="mt-3 flex flex-col gap-1.5">
-            <span class="text-xs font-semibold text-muted">Recovery code</span>
+            <span class="text-xs font-semibold text-muted">{{
+              echoT('panes.account.recoveryCode')
+            }}</span>
             <input
               v-model="disableTotpRecoveryCode"
               type="text"
@@ -1025,14 +1091,18 @@ defineExpose({
               class="settings-action rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
               @click="closeTwoFactorDisableModal"
             >
-              Cancel
+              {{ echoT('panes.account.cancel') }}
             </button>
             <button
               type="submit"
               :disabled="disableTotpBusy"
               class="danger-btn rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
             >
-              {{ disableTotpBusy ? 'Working…' : 'Disable 2FA' }}
+              {{
+                disableTotpBusy
+                  ? echoT('panes.account.working')
+                  : echoT('panes.account.disable2fa')
+              }}
             </button>
           </div>
         </form>
@@ -1050,18 +1120,16 @@ defineExpose({
         <h4 class="text-xl font-bold text-foreground">
           {{
             echoSyncCapabilities.isMockDataMode
-              ? 'Disable Account?'
-              : 'Sign out everywhere?'
+              ? echoT('panes.account.disableAccountQ')
+              : echoT('panes.account.signOutEverywhereQ')
           }}
         </h4>
         <p class="mt-2 text-sm text-muted leading-6">
           <template v-if="echoSyncCapabilities.isMockDataMode">
-            This will temporarily disable your account. You can re-enable it
-            later.
+            {{ echoT('panes.account.disableAccountDesc') }}
           </template>
           <template v-else>
-            This signs you out on every device and revokes all active sessions.
-            You can sign in again anytime.
+            {{ echoT('panes.account.signOutAllDesc') }}
           </template>
         </p>
         <div class="mt-6 flex items-center justify-end gap-3">
@@ -1071,7 +1139,7 @@ defineExpose({
             @click="closeDisableAccountConfirm"
             class="settings-action rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
           >
-            Cancel
+            {{ echoT('panes.account.cancel') }}
           </button>
           <button
             type="button"
@@ -1081,10 +1149,10 @@ defineExpose({
           >
             {{
               disableAccountBusy
-                ? 'Working…'
+                ? echoT('panes.account.working')
                 : echoSyncCapabilities.isMockDataMode
-                  ? 'Confirm Disable'
-                  : 'Sign out everywhere'
+                  ? echoT('panes.account.confirmDisable')
+                  : echoT('panes.account.signOutEverywhere')
             }}
           </button>
         </div>
@@ -1107,25 +1175,26 @@ defineExpose({
               : onConfirmDeleteAccount()
           "
         >
-          <h4 class="text-xl font-bold text-foreground">Delete Account?</h4>
+          <h4 class="text-xl font-bold text-foreground">
+            {{ echoT('panes.account.deleteAccountQ') }}
+          </h4>
           <p class="mt-2 text-sm text-muted leading-6">
-            This will permanently delete your account and all associated data.
-            This action cannot be undone.
+            {{ echoT('panes.account.deleteAccountDesc') }}
           </p>
           <template v-if="!echoSyncCapabilities.isMockDataMode">
             <label class="mt-4 flex flex-col gap-1.5">
-              <span class="text-xs font-semibold text-muted"
-                >Confirm with your password</span
-              >
+              <span class="text-xs font-semibold text-muted">{{
+                echoT('panes.account.confirmWithPassword')
+              }}</span>
               <input
                 v-model="deleteAccountPassword"
                 type="password"
                 autocomplete="current-password"
                 class="settings-input"
-                placeholder="Current password"
+                :placeholder="echoT('panes.account.currentPassword')"
               />
               <span class="text-xs text-muted">
-                Leave blank if you sign in with Discord or as a guest.
+                {{ echoT('panes.account.leaveBlank') }}
               </span>
             </label>
             <p v-if="deleteAccountError" class="mt-2 text-sm text-red-600">
@@ -1139,7 +1208,7 @@ defineExpose({
               @click="closeDeleteAccountConfirm"
               class="settings-action rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
-              Cancel
+              {{ echoT('panes.account.cancel') }}
             </button>
             <button
               v-if="echoSyncCapabilities.isMockDataMode"
@@ -1148,7 +1217,11 @@ defineExpose({
               @click="closeDeleteAccountConfirm"
               class="danger-btn rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
             >
-              {{ deleteAccountBusy ? 'Deleting…' : 'Close' }}
+              {{
+                deleteAccountBusy
+                  ? echoT('panes.account.deleting')
+                  : echoT('panes.account.close')
+              }}
             </button>
             <button
               v-else
@@ -1156,7 +1229,11 @@ defineExpose({
               :disabled="deleteAccountBusy"
               class="danger-btn rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
             >
-              {{ deleteAccountBusy ? 'Deleting…' : 'Delete account' }}
+              {{
+                deleteAccountBusy
+                  ? echoT('panes.account.deleting')
+                  : echoT('panes.account.deleteAccountBtn')
+              }}
             </button>
           </div>
         </form>
@@ -1171,22 +1248,24 @@ defineExpose({
       <div
         class="settings-card max-w-md w-full rounded-2xl p-6 shadow-2xl border border-border"
       >
-        <h4 class="text-xl font-bold text-foreground">Reset Account Info?</h4>
+        <h4 class="text-xl font-bold text-foreground">
+          {{ echoT('panes.account.resetAccountQ') }}
+        </h4>
         <p class="mt-2 text-sm text-muted leading-6">
-          This will discard all unsaved changes to your email and phone number.
+          {{ echoT('panes.account.resetAccountDesc') }}
         </p>
         <div class="mt-6 flex items-center justify-end gap-3">
           <button
             @click="showAccountResetConfirm = false"
             class="settings-action rounded-xl px-4 py-2 text-sm font-medium"
           >
-            Cancel
+            {{ echoT('panes.account.cancel') }}
           </button>
           <button
             @click="confirmAccountReset"
             class="danger-btn rounded-xl px-4 py-2 text-sm font-semibold"
           >
-            Confirm Reset
+            {{ echoT('panes.account.confirmReset') }}
           </button>
         </div>
       </div>
@@ -1197,18 +1276,18 @@ defineExpose({
         v-if="TWO_FACTOR_AUTH_COMING_SOON"
         class="settings-card rounded-2xl p-6"
       >
-        <div class="settings-label mb-4">Multi-Factor Authentication</div>
+        <div class="settings-label mb-4">{{ echoT('settingsUi.mfa') }}</div>
         <div
           class="settings-panel rounded-xl p-5 border border-indigo-500/10 bg-indigo-500/5"
         >
           <p
             class="mb-4 rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-4 py-3 text-sm text-foreground"
           >
-            Two-factor authentication is
+            {{ echoT('panes.account.tfaLead') }}
             <span
               class="font-semibold text-[color:var(--vc-settings-accent-fg)]"
-              >coming soon</span
-            >.
+              >{{ echoT('panes.account.comingSoon') }}</span
+            >{{ echoT('panes.account.phoneTail') }}
           </p>
           <div class="flex items-start gap-4">
             <div
@@ -1244,15 +1323,15 @@ defineExpose({
               <div
                 class="text-sm font-bold uppercase tracking-wider text-foreground"
               >
-                Two-Factor Auth (2FA)
+                {{ echoT('panes.account.tfaTitle') }}
               </div>
               <p class="text-xs text-muted mt-1 leading-relaxed">
-                Require an authenticator code when you sign in.
+                {{ echoT('panes.account.tfaRequireDesc') }}
               </p>
               <span
                 v-if="authSession.backendUser?.totpEnabled"
                 class="mt-4 inline-block text-xs font-bold uppercase tracking-widest text-[color:var(--set-positive-label-fg)]"
-                >2FA enabled</span
+                >{{ echoT('panes.account.tfaEnabled') }}</span
               >
             </div>
           </div>
@@ -1263,7 +1342,7 @@ defineExpose({
         v-else-if="echoSyncCapabilities.isMockDataMode"
         class="settings-card rounded-2xl p-6"
       >
-        <div class="settings-label mb-4">Multi-Factor Authentication</div>
+        <div class="settings-label mb-4">{{ echoT('settingsUi.mfa') }}</div>
         <div
           class="settings-panel rounded-xl p-5 border border-indigo-500/10 bg-indigo-500/5"
         >
@@ -1301,10 +1380,10 @@ defineExpose({
               <div
                 class="text-sm font-bold uppercase tracking-wider text-foreground"
               >
-                Two-Factor Auth (2FA)
+                {{ echoT('panes.account.tfaTitle') }}
               </div>
               <p class="text-xs text-muted mt-1 leading-relaxed">
-                Protect your account with an extra layer of security.
+                {{ echoT('panes.account.tfaProtectDesc') }}
               </p>
               <button
                 v-if="!form.twoFactorEnabled"
@@ -1318,7 +1397,7 @@ defineExpose({
                 "
                 @click="openTwoFactorSetupModal"
               >
-                Enable 2FA
+                {{ echoT('panes.account.enable2fa') }}
               </button>
 
               <button
@@ -1342,7 +1421,7 @@ defineExpose({
         "
         class="settings-card rounded-2xl p-6"
       >
-        <div class="settings-label mb-4">Multi-Factor Authentication</div>
+        <div class="settings-label mb-4">{{ echoT('settingsUi.mfa') }}</div>
         <div
           class="settings-panel rounded-xl p-5 border border-indigo-500/10 bg-indigo-500/5"
         >
@@ -1380,10 +1459,10 @@ defineExpose({
               <div
                 class="text-sm font-bold uppercase tracking-wider text-foreground"
               >
-                Two-Factor Auth (2FA)
+                {{ echoT('panes.account.tfaTitle') }}
               </div>
               <p class="text-xs text-muted mt-1 leading-relaxed">
-                Require an authenticator code when you sign in.
+                {{ echoT('panes.account.tfaRequireDesc') }}
               </p>
               <div
                 v-if="!authSession.backendUser.totpEnabled"
@@ -1395,13 +1474,13 @@ defineExpose({
                   :disabled="isAccountLocked"
                   @click="openTwoFactorSetupModal"
                 >
-                  Enable 2FA
+                  {{ echoT('panes.account.enable2fa') }}
                 </button>
               </div>
               <div v-else class="mt-4 flex flex-wrap gap-3">
                 <span
                   class="text-xs font-bold uppercase tracking-widest text-[color:var(--set-positive-label-fg)]"
-                  >2FA enabled</span
+                  >{{ echoT('panes.account.tfaEnabled') }}</span
                 >
                 <button
                   type="button"
@@ -1409,7 +1488,7 @@ defineExpose({
                   :disabled="isAccountLocked"
                   @click="openTwoFactorDisableModal"
                 >
-                  Disable
+                  {{ echoT('panes.account.disable') }}
                 </button>
               </div>
             </div>
@@ -1426,10 +1505,11 @@ defineExpose({
         "
         class="settings-card rounded-2xl p-6"
       >
-        <div class="settings-label mb-4">Passkeys</div>
+        <div class="settings-label mb-4">
+          {{ echoT('panes.account.passkeys') }}
+        </div>
         <p class="text-xs text-muted leading-relaxed mb-3">
-          Sign in with Face ID, Touch ID, or Windows Hello. You can add several
-          passkeys and remove ones you no longer use.
+          {{ echoT('panes.account.passkeysDesc') }}
         </p>
         <p v-if="passkeysError" class="text-sm text-red-600 mb-2">
           {{ passkeysError }}
@@ -1449,7 +1529,7 @@ defineExpose({
           {{ passkeyRegisterError }}
         </p>
         <div v-if="passkeysLoading" class="text-sm text-fg-subtle py-2 mb-2">
-          Loading passkeys…
+          {{ echoT('panes.account.loadingPasskeys') }}
         </div>
         <div v-else-if="passkeys.length > 0" class="flex flex-col gap-2 mb-4">
           <div
@@ -1465,7 +1545,7 @@ defineExpose({
                 v-model="passkeyEditingLabelValue"
                 type="text"
                 maxlength="64"
-                placeholder="Passkey name"
+                :placeholder="echoT('panes.account.passkeyName')"
                 class="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-accent"
                 @keyup.enter="confirmRenamePasskey"
                 @keyup.escape="cancelRenamePasskey"
@@ -1476,20 +1556,22 @@ defineExpose({
                 :disabled="passkeyRenamingId === p.id"
                 @click="confirmRenamePasskey"
               >
-                {{ passkeyRenamingId === p.id ? '…' : 'Save' }}
+                {{
+                  passkeyRenamingId === p.id ? '…' : echoT('panes.account.save')
+                }}
               </button>
               <button
                 type="button"
                 class="shrink-0 text-xs font-bold text-muted hover:text-foreground uppercase tracking-widest"
                 @click="cancelRenamePasskey"
               >
-                Cancel
+                {{ echoT('panes.account.cancel') }}
               </button>
             </div>
             <template v-else>
               <div class="min-w-0 text-xs text-fg-subtle">
                 <span class="font-medium text-foreground">{{
-                  p.label || 'Passkey'
+                  p.label || echoT('panes.account.passkeyDefault')
                 }}</span>
                 <span class="mx-1">·</span>
                 Added {{ formatSessionDate(p.createdAt) }}
@@ -1501,7 +1583,7 @@ defineExpose({
                   :disabled="isAccountLocked"
                   @click="startRenamePasskey(p.id, p.label)"
                 >
-                  Rename
+                  {{ echoT('panes.account.rename') }}
                 </button>
                 <button
                   type="button"
@@ -1509,7 +1591,11 @@ defineExpose({
                   :disabled="passkeyRevokingId === p.id || isAccountLocked"
                   @click="revokePasskey(p.id)"
                 >
-                  {{ passkeyRevokingId === p.id ? '…' : 'Remove' }}
+                  {{
+                    passkeyRevokingId === p.id
+                      ? '…'
+                      : echoT('panes.account.remove')
+                  }}
                 </button>
               </div>
             </template>
@@ -1521,7 +1607,7 @@ defineExpose({
               v-model="passkeyNewLabel"
               type="text"
               maxlength="64"
-              placeholder="Label (e.g. MacBook, iPhone)"
+              :placeholder="echoT('panes.account.passkeyLabelPlaceholder')"
               class="min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 py-2.5 text-xs text-foreground placeholder:text-muted outline-none focus:border-accent"
               :disabled="isAccountLocked || passkeyRegisterBusy"
               @keyup.enter="handleAddPasskey"
@@ -1536,7 +1622,11 @@ defineExpose({
               "
               @click="handleAddPasskey"
             >
-              {{ passkeyRegisterBusy ? 'Working…' : 'Add passkey' }}
+              {{
+                passkeyRegisterBusy
+                  ? echoT('panes.account.working')
+                  : echoT('panes.account.addPasskey')
+              }}
             </button>
           </div>
           <p
@@ -1545,7 +1635,7 @@ defineExpose({
             role="status"
             aria-live="polite"
           >
-            Follow your browser or device prompt to create a passkey…
+            {{ echoT('panes.account.passkeyPrompt') }}
           </p>
         </div>
       </div>
@@ -1559,16 +1649,16 @@ defineExpose({
             : 'lg:col-span-2'
         "
       >
-        <div class="settings-label mb-4">Account Removal</div>
+        <div class="settings-label mb-4">
+          {{ echoT('panes.account.accountRemoval') }}
+        </div>
         <div class="flex flex-col gap-3">
           <p class="text-xs text-muted leading-relaxed">
             <template v-if="echoSyncCapabilities.isMockDataMode">
-              Need to leave? You can temporarily disable your account or
-              permanently delete it.
+              {{ echoT('panes.account.removalMock') }}
             </template>
             <template v-else>
-              Sign out on all devices, or permanently delete your Echo account
-              and data.
+              {{ echoT('panes.account.removalReal') }}
             </template>
           </p>
           <div class="mt-2 flex flex-wrap gap-3">
@@ -1579,8 +1669,8 @@ defineExpose({
             >
               {{
                 echoSyncCapabilities.isMockDataMode
-                  ? 'Disable Account'
-                  : 'Sign out everywhere'
+                  ? echoT('panes.account.disableAccount')
+                  : echoT('panes.account.signOutEverywhere')
               }}
             </button>
             <button
@@ -1588,7 +1678,7 @@ defineExpose({
               class="danger-btn rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider"
               @click="openDeleteAccountConfirm"
             >
-              Delete Account
+              {{ echoT('panes.account.deleteAccount') }}
             </button>
           </div>
         </div>
@@ -1602,18 +1692,20 @@ defineExpose({
       "
       class="settings-card rounded-2xl p-6"
     >
-      <div class="settings-label mb-4">Active Sessions</div>
+      <div class="settings-label mb-4">
+        {{ echoT('panes.account.activeSessions') }}
+      </div>
       <p v-if="sessionsError" class="mb-3 text-sm text-red-600">
         {{ sessionsError }}
       </p>
       <div v-if="sessionsLoading" class="text-sm text-fg-subtle py-4">
-        Loading sessions…
+        {{ echoT('panes.account.loadingSessions') }}
       </div>
       <div
         v-else-if="sessions.length === 0"
         class="text-sm text-fg-subtle py-2"
       >
-        No active sessions.
+        {{ echoT('panes.account.noSessions') }}
       </div>
       <div v-else class="flex flex-col gap-3">
         <div
@@ -1648,7 +1740,7 @@ defineExpose({
                   v-if="s.isCurrentSession"
                   class="shrink-0 rounded-md bg-glass-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-fg-subtle"
                 >
-                  This device
+                  {{ echoT('panes.account.thisDevice') }}
                 </span>
               </div>
               <div class="text-xs text-fg-subtle mt-0.5 truncate">
@@ -1666,7 +1758,9 @@ defineExpose({
             :disabled="sessionsRevokingId === s.id"
             @click="revokeSession(s.id)"
           >
-            {{ sessionsRevokingId === s.id ? '…' : 'Revoke' }}
+            {{
+              sessionsRevokingId === s.id ? '…' : echoT('panes.account.revoke')
+            }}
           </button>
         </div>
       </div>
@@ -1677,9 +1771,11 @@ defineExpose({
       "
       class="settings-card rounded-2xl p-6"
     >
-      <div class="settings-label mb-4">Active Sessions</div>
+      <div class="settings-label mb-4">
+        {{ echoT('panes.account.activeSessions') }}
+      </div>
       <p class="text-sm text-fg-subtle">
-        Session management is available after you upgrade to a full account.
+        {{ echoT('panes.account.sessionsGuest') }}
       </p>
     </div>
   </div>

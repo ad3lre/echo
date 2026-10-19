@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   watch,
@@ -344,7 +345,7 @@ const {
 /**
  * Boot / rail / DM-open loading from AppLayout (`surfaceSwitchLoading`) used to
  * only drive a 2px top bar. Without folding it into the message skeleton, empty
- * copy ("No messages here yet") paints for the whole hydrate window — the flash
+ * copy (echoT('chat.empty.noMessagesYet')) paints for the whole hydrate window — the flash
  * users see on refresh. Prefer longer skeleton over empty-state lies.
  */
 const showLoadingSkeleton = computed(
@@ -1754,7 +1755,11 @@ defineExpose({
       data-cy="message-list"
       role="log"
       aria-live="off"
-      :aria-label="channelName ? `Messages in ${channelName}` : 'Messages'"
+      :aria-label="
+        channelName
+          ? echoT('b40.messageList.inChannel', { channel: channelName })
+          : echoT('b40.messageList.messages')
+      "
       class="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 touch-pan-y"
       v-scrollbar-on-scroll
       :class="scrollContainerPaddingBottomClass"
@@ -1822,7 +1827,9 @@ defineExpose({
                 :role="virtualRow.index === 0 ? 'status' : undefined"
                 :aria-live="virtualRow.index === 0 ? 'polite' : undefined"
                 :aria-label="
-                  virtualRow.index === 0 ? 'Loading older messages' : undefined
+                  virtualRow.index === 0
+                    ? echoT('chat.status.loadingOlder')
+                    : undefined
                 "
                 :aria-hidden="virtualRow.index === 0 ? undefined : true"
               >
@@ -1926,7 +1933,9 @@ defineExpose({
           paddingBottom: '16px',
         }"
       >
-        <MessageListHistorySkeleton aria-label="Loading messages" />
+        <MessageListHistorySkeleton
+          :aria-label="echoT('b40.messageList.loading')"
+        />
       </div>
     </Transition>
     <MessageListJumpFab

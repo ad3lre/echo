@@ -72,6 +72,8 @@ function onLoad() {
 }
 
 function onError() {
+  // Empty `src` while CDN signing finishes must not flip to "unavailable".
+  if (!resolved.value?.trim()) return;
   loadFailed.value = true;
   emit('error');
 }
@@ -94,6 +96,7 @@ function onError() {
     "
   >
     <img
+      v-if="resolved"
       :src="resolved"
       :srcset="srcset || undefined"
       :sizes="srcset ? sizes : undefined"
@@ -123,7 +126,7 @@ function onError() {
     </div>
   </div>
   <img
-    v-else
+    v-else-if="resolved"
     :src="resolved"
     :srcset="srcset || undefined"
     :sizes="srcset ? sizes : undefined"

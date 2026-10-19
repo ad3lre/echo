@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, useId, watch } from 'vue';
+import { echoT } from '@/i18n';
 import {
   PAPER_FONT_CATALOG,
   paperFontFamilyCss,
@@ -70,8 +71,8 @@ const triggerBindings = computed(() => {
 });
 
 const triggerLabel = computed(() => {
-  if (props.mixed) return 'Mixed';
-  return triggerFont.value?.label ?? 'Font';
+  if (props.mixed) return echoT('b41.fontPicker.mixed');
+  return triggerFont.value?.label ?? echoT('b41.fontPicker.font');
 });
 
 const filtered = computed(() => {
@@ -200,7 +201,7 @@ onUnmounted(() => {
       type="button"
       class="paper-font-picker-trigger"
       :class="{ 'paper-font-picker-trigger--field': layout === 'field' }"
-      :title="`Font: ${triggerLabel}`"
+      :title="echoT('b41.fontPicker.fontLabel', { label: triggerLabel })"
       aria-haspopup="listbox"
       :aria-expanded="open"
       @mousedown.prevent
@@ -233,7 +234,7 @@ onUnmounted(() => {
         :data-paper-appearance="paperAppearance ?? 'light'"
         :style="panelStyle"
         role="listbox"
-        :aria-label="`Font: ${triggerLabel}`"
+        :aria-label="echoT('b41.fontPicker.fontLabel', { label: triggerLabel })"
         @click.stop
         @mousedown.capture="onPanelCaptureMouseDown"
       >
@@ -241,7 +242,7 @@ onUnmounted(() => {
           v-model="query"
           type="search"
           class="paper-font-picker-menu__search"
-          placeholder="Search fonts"
+          :placeholder="echoT('b41.fontPicker.search')"
           @click.stop
         />
         <button
@@ -250,7 +251,7 @@ onUnmounted(() => {
           class="paper-font-picker-menu__row paper-font-picker-menu__row--meta"
           @mousedown.prevent.stop="useDocumentDefault()"
         >
-          Use document font
+          {{ echoT('b41.fontPicker.useDocFont') }}
         </button>
         <div class="paper-font-picker-menu__list">
           <button
@@ -270,7 +271,7 @@ onUnmounted(() => {
             {{ font.label }}
           </button>
           <p v-if="filtered.length === 0" class="paper-font-picker-menu__empty">
-            No fonts match
+            {{ echoT('b41.fontPicker.noMatch') }}
           </p>
         </div>
       </div>

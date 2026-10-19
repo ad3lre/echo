@@ -1,6 +1,7 @@
+import { echoT } from '@/i18n';
 /** User-facing labels for Discord subscription tier from Discord’s `premium_type`. */
 export function discordPremiumLabel(premiumType: number | null): string {
-  if (premiumType === null) return 'Not shared';
+  if (premiumType === null) return echoT('settingsUi.notShared');
   switch (premiumType) {
     case 0:
       return 'Standard';

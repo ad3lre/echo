@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import { icons } from '@/assets/icons';
 import { storeToRefs } from 'pinia';
@@ -67,10 +68,7 @@ async function toggleDesktopAlerts() {
     return;
   }
   if (Notification.permission === 'denied') {
-    dispatchAppToast(
-      'Notifications are blocked for this site in your browser settings.',
-      'warning',
-    );
+    dispatchAppToast(echoT('panes.notif.blocked'), 'warning');
     return;
   }
   if (
@@ -106,50 +104,41 @@ function sendTestDesktopNotification() {
     }
   };
   if (!props.form.notificationSettings.desktopAlerts) {
-    notify('Turn on "Desktop notifications" above to test.');
+    notify(echoT('panes.notif.turnOnToTest'));
     return;
   }
   if (typeof window === 'undefined' || !('Notification' in window)) {
-    notify(
-      'Desktop notifications are not supported in this environment.',
-      'warning',
-    );
+    notify(echoT('panes.notif.unsupported'), 'warning');
     return;
   }
   if (
     echoSyncCapabilities.browser.pageNotificationPreviewMode ===
     'standalone-only'
   ) {
-    notify(
-      'On iPhone and iPad, Safari web notifications only work after adding Echo to the Home Screen.',
-      'warning',
-    );
+    notify(echoT('panes.notif.iosHome'), 'warning');
     return;
   }
   const show = (body: string) => {
     try {
       new Notification('Echo', { body, icon: '/icons/favicon-32.png' });
-      dispatchAppToast('Test notification sent.', 'info');
+      dispatchAppToast(echoT('panes.notif.testSent'), 'info');
     } catch {
       notify(`Notification: ${body}`);
     }
   };
   if (Notification.permission === 'granted') {
-    show('This is a test alert. Personal settings sync across your devices.');
+    show(echoT('panes.notif.testAlert'));
     return;
   }
   if (Notification.permission === 'denied') {
-    notify(
-      'Notifications are blocked for this site in your browser settings.',
-      'warning',
-    );
+    notify(echoT('panes.notif.blocked'), 'warning');
     return;
   }
   Notification.requestPermission().then((perm) => {
     if (perm === 'granted') {
-      show('This is a test alert. Personal settings sync across your devices.');
+      show(echoT('panes.notif.testAlert'));
     } else {
-      notify('Permission was not granted.', 'warning');
+      notify(echoT('panes.notif.notGranted'), 'warning');
     }
   });
 }
@@ -165,15 +154,15 @@ async function onUploadCustomRingtone(e: Event) {
       maxCustomRingtones.value,
     );
     if (out.ok) {
-      dispatchAppToast(`Added "${file.name}" as a custom ringtone.`, 'info');
+      dispatchAppToast(
+        echoT('panes.notif.ringtoneAdded', { name: file.name }),
+        'info',
+      );
     } else {
       dispatchAppToast(out.reason, 'warning');
     }
   } catch {
-    dispatchAppToast(
-      'Could not read that audio file. Try another format.',
-      'warning',
-    );
+    dispatchAppToast(echoT('panes.notif.readFail'), 'warning');
   } finally {
     ringtoneUploading.value = false;
     if (input) input.value = '';
@@ -186,22 +175,23 @@ function browseRingtoneUpload() {
 
 async function removeCustomRingtone(id: string, label: string) {
   await ringtoneStore.removeCustomRingtone(id);
-  dispatchAppToast(`Removed "${label}".`, 'info');
+  dispatchAppToast(
+    echoT('panes.notif.ringtoneRemoved', { name: label }),
+    'info',
+  );
 }
 </script>
 
 <template>
   <div class="flex flex-col gap-6">
     <p class="-mt-1 max-w-2xl text-sm leading-relaxed text-fg-soft">
-      Personal notification defaults that sync across your devices. They combine
-      with <span class="font-semibold text-fg-soft">per-server</span> settings
-      (server menu → Notification Settings).
+      {{ echoT('panes.notif.intro') }}
     </p>
     <div class="grid gap-4 lg:grid-cols-2">
       <div class="settings-card rounded-2xl p-5">
-        <div class="settings-label">Desktop & UI</div>
+        <div class="settings-label">{{ echoT('panes.notif.desktopUi') }}</div>
         <p class="mt-1 text-xs text-fg-subtle">
-          Controls badges on the server rail and system-style alerts.
+          {{ echoT('panes.notif.controlsBadgesDesc') }}
         </p>
         <div class="mt-4 flex flex-col gap-3">
           <button
@@ -216,12 +206,12 @@ async function removeCustomRingtone(id: string, label: string) {
                 class="mt-0.5 h-5 w-5 shrink-0 opacity-80 filter invert"
               />
               <span class="min-w-0">
-                <span class="block text-sm font-semibold text-foreground"
-                  >Desktop notifications</span
-                >
-                <span class="block text-left text-sm text-muted"
-                  >Allow the browser to show system notifications.</span
-                >
+                <span class="block text-sm font-semibold text-foreground">{{
+                  echoT('panes.notif.desktopNotifications')
+                }}</span>
+                <span class="block text-left text-sm text-muted">{{
+                  echoT('panes.notif.desktopNotificationsDesc')
+                }}</span>
               </span>
             </span>
             <span
@@ -240,13 +230,12 @@ async function removeCustomRingtone(id: string, label: string) {
                 class="mt-0.5 h-5 w-5 shrink-0 opacity-80 filter invert"
               />
               <span class="min-w-0">
-                <span class="block text-sm font-semibold text-foreground"
-                  >Sound controls moved</span
-                >
-                <span class="block text-left text-sm text-muted"
-                  >Use the Sounds tab for per-sound toggles, volume, and
-                  preview.</span
-                >
+                <span class="block text-sm font-semibold text-foreground">{{
+                  echoT('panes.notif.soundsMoved')
+                }}</span>
+                <span class="block text-left text-sm text-muted">{{
+                  echoT('panes.notif.soundsMovedDesc')
+                }}</span>
               </span>
             </div>
           </div>
@@ -265,13 +254,12 @@ async function removeCustomRingtone(id: string, label: string) {
                 class="mt-0.5 h-5 w-5 shrink-0 opacity-80 filter invert"
               />
               <span class="min-w-0">
-                <span class="block text-sm font-semibold text-foreground"
-                  >Server notification badges</span
-                >
-                <span class="block text-left text-sm text-muted"
-                  >Show @ / − on server icons when a non-default level is
-                  set.</span
-                >
+                <span class="block text-sm font-semibold text-foreground">{{
+                  echoT('panes.notif.serverBadges')
+                }}</span>
+                <span class="block text-left text-sm text-muted">{{
+                  echoT('panes.notif.badgesDesc')
+                }}</span>
               </span>
             </span>
             <span
@@ -288,13 +276,13 @@ async function removeCustomRingtone(id: string, label: string) {
           class="settings-action mt-4 rounded-xl px-4 py-2.5 text-sm font-semibold"
           @click="sendTestDesktopNotification"
         >
-          Send test notification
+          {{ echoT('panes.notif.sendTest') }}
         </button>
       </div>
       <div class="settings-card rounded-2xl p-5">
-        <div class="settings-label">Message highlights</div>
+        <div class="settings-label">{{ echoT('panes.notif.highlights') }}</div>
         <p class="mt-1 text-xs text-fg-subtle">
-          Control how mention rows are highlighted in chat.
+          {{ echoT('panes.notif.highlightsDesc') }}
         </p>
         <div class="mt-4 flex flex-col gap-3">
           <button
@@ -312,15 +300,15 @@ async function removeCustomRingtone(id: string, label: string) {
                 class="mt-0.5 h-5 w-5 shrink-0 opacity-80 filter invert"
               />
               <span class="min-w-0">
-                <span class="block text-sm font-semibold text-foreground"
-                  >Highlight all mentions</span
-                >
+                <span class="block text-sm font-semibold text-foreground">{{
+                  echoT('panes.notif.highlightAll')
+                }}</span>
                 <span class="block text-left text-sm text-muted">
                   <template v-if="form.notificationSettings.mentionHighlights">
-                    Highlights direct, role, and broadcast mentions.
+                    {{ echoT('panes.notif.highlightAllOn') }}
                   </template>
                   <template v-else>
-                    Highlights only direct @you mentions.
+                    {{ echoT('panes.notif.highlightAllOff') }}
                   </template>
                 </span>
               </span>
@@ -336,20 +324,20 @@ async function removeCustomRingtone(id: string, label: string) {
         </div>
       </div>
       <div class="settings-card rounded-2xl p-5">
-        <div class="settings-label">Ringtones</div>
+        <div class="settings-label">{{ echoT('panes.notif.ringtones') }}</div>
         <p class="mt-1 text-xs text-fg-subtle">
-          Choose your default call ringtone and manage custom uploads.
+          {{ echoT('panes.notif.ringtonesDesc') }}
         </p>
         <div class="mt-4 flex flex-col gap-3">
           <EchoDropdown
             v-model="selectedId"
-            label="Default ringtone"
+            :label="echoT('panes.notif.defaultRingtone')"
             :options="ringtoneDropdownOptions"
             searchable
           />
 
           <div class="flex items-center justify-between text-xs text-fg-soft">
-            <span>Custom ringtones</span>
+            <span>{{ echoT('panes.notif.customRingtones') }}</span>
             <span class="tabular-nums">{{ customUsageLabel }}</span>
           </div>
           <input
@@ -365,11 +353,14 @@ async function removeCustomRingtone(id: string, label: string) {
             :disabled="!canUploadMore || ringtoneUploading"
             @click="browseRingtoneUpload"
           >
-            {{ ringtoneUploading ? 'Uploading…' : 'Upload custom ringtone' }}
+            {{
+              ringtoneUploading
+                ? echoT('panes.notif.uploading')
+                : echoT('panes.notif.uploadRingtone')
+            }}
           </button>
           <p class="text-[11px] text-fg-subtle">
-            Max {{ uploadLimitMb }}MB per file. Free: 1 custom ringtone, Echo+:
-            16, Echo Black: 256.
+            {{ echoT('panes.notif.uploadLimits', { mb: uploadLimitMb }) }}
           </p>
 
           <ul
@@ -393,7 +384,7 @@ async function removeCustomRingtone(id: string, label: string) {
                 class="echo-destructive-action rounded px-2 py-0.5 text-[11px]"
                 @click="removeCustomRingtone(ring.id, ring.label)"
               >
-                Remove
+                {{ echoT('panes.notif.remove') }}
               </button>
             </li>
           </ul>

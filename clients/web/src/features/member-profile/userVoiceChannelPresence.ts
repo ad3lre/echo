@@ -1,4 +1,4 @@
-import { getChannelDisplayName } from '@/assets/icons';
+import { getChannelDisplayName } from '@/assets/channelDisplayName';
 
 export type UserVoiceChannelPresence = {
   serverId: string;

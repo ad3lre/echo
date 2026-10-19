@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { computed, nextTick, ref, type Ref } from 'vue';
 import type { MessageAuthor, MessageWithAuthor } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
@@ -41,7 +42,7 @@ function buildAuthorForRawMessage(
   }
   return {
     id: msg.authorId,
-    name: msg.authorDisplayName?.trim() || 'Unknown',
+    name: msg.authorDisplayName?.trim() || echoT('chat.labels.unknown'),
     avatar: msg.authorAvatar?.trim() ?? '',
   };
 }

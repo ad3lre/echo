@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, nextTick, ref, unref, watch, type Ref } from 'vue';
 import {
   dbgMemberList,
@@ -20,7 +21,7 @@ import { userAvatars } from '@/assets/userAvatars';
 import { useEchoWorkspace } from '@/features/layout/echoWorkspace/useEchoWorkspace';
 import { useSimpleContextMenu } from '@/features/layout/useSimpleContextMenu';
 import { copyToClipboard } from '@/features/chat/copyToClipboard';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import MemberListScrollBody from '@/features/layout/components/MemberListScrollBody.vue';
 import { linkTokenUser } from '@/features/layout/ids/idTokens';
 import { useDevSettingsStore } from '@/features/dev/devSettings';
@@ -329,7 +330,9 @@ function subtitleText(user: User): string {
   // Show last online for offline users if available
   const lastOnline = props.lastOnlineAtByUserId?.[user.id];
   if (lastOnline && user.status === 'offline') {
-    return `Last online ${formatLastOnline(lastOnline)}`;
+    return echoT('b36.memberList.lastOnline', {
+      when: formatLastOnline(lastOnline),
+    });
   }
   return statusLabel(user.status);
 }
@@ -342,10 +345,10 @@ function formatLastOnline(isoTimestamp: string): string {
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMins < 1) return echoT('b36.memberList.justNow');
+  if (diffMins < 60) return echoT('b36.memberList.minAgo', { n: diffMins });
+  if (diffHours < 24) return echoT('b36.memberList.hourAgo', { n: diffHours });
+  if (diffDays < 7) return echoT('b36.memberList.dayAgo', { n: diffDays });
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
@@ -365,10 +368,13 @@ function activeCommunicationTimeoutUntil(userId: string): number | null {
 
 function formatTimeoutRemaining(epochMs: number): string {
   const seconds = Math.max(0, Math.ceil((epochMs - Date.now()) / 1000));
-  if (seconds >= 86_400) return `${Math.ceil(seconds / 86_400)}d left`;
-  if (seconds >= 3_600) return `${Math.ceil(seconds / 3_600)}h left`;
-  if (seconds >= 60) return `${Math.ceil(seconds / 60)}m left`;
-  return `${seconds}s left`;
+  if (seconds >= 86_400)
+    return echoT('b36.memberList.dayLeft', { n: Math.ceil(seconds / 86_400) });
+  if (seconds >= 3_600)
+    return echoT('b36.memberList.hourLeft', { n: Math.ceil(seconds / 3_600) });
+  if (seconds >= 60)
+    return echoT('b36.memberList.minLeft', { n: Math.ceil(seconds / 60) });
+  return echoT('b36.memberList.secLeft', { n: seconds });
 }
 
 function isUserCommunicationTimedOut(userId: string): boolean {
@@ -384,7 +390,9 @@ function contextUserHasActiveTimeout(): boolean {
 function subtitleTextWithTimeout(user: User): string {
   const timeoutUntil = activeCommunicationTimeoutUntil(user.id);
   if (timeoutUntil != null) {
-    return `Timed out, ${formatTimeoutRemaining(timeoutUntil)}`;
+    return echoT('b36.memberList.timedOut', {
+      left: formatTimeoutRemaining(timeoutUntil),
+    });
   }
   return subtitleText(user);
 }
@@ -558,8 +566,10 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
         >
           {{
             showGuests
-              ? 'Hide guests'
-              : `Show ${guestCount} guest${guestCount === 1 ? '' : 's'}`
+              ? echoT('b36.memberList.hideGuests')
+              : guestCount === 1
+                ? echoT('b36.memberList.showGuestsOne')
+                : echoT('b36.memberList.showGuestsMany', { count: guestCount })
           }}
         </button>
       </div>
@@ -588,7 +598,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
             alt=""
             class="h-4 w-4 shrink-0 opacity-80 filter invert"
           />
-          Profile
+          {{ echoT('b36.memberList.profile') }}
         </button>
         <button
           v-if="showMentionInChat && !isSelf"
@@ -602,7 +612,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
             aria-hidden="true"
             >@</span
           >
-          Direct mention
+          {{ echoT('b36.memberList.directMention') }}
         </button>
         <button
           v-if="!isSelf && onMessageUser"
@@ -616,7 +626,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
             alt=""
             class="h-4 w-4 shrink-0 opacity-80 filter invert"
           />
-          Message
+          {{ echoT('b36.memberList.message') }}
         </button>
         <button
           v-if="showChangeNickname"
@@ -638,7 +648,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
               d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
             />
           </svg>
-          Change nickname
+          {{ echoT('b36.memberList.changeNickname') }}
         </button>
         <button
           v-if="roleManagementUiVisible"
@@ -660,7 +670,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
               d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
             />
           </svg>
-          Roles
+          {{ echoT('b36.memberList.roles') }}
         </button>
         <div
           v-if="showAnyModAction"
@@ -687,7 +697,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
               d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
             />
           </svg>
-          Kick from server
+          {{ echoT('b36.memberList.kick') }}
         </button>
         <button
           v-if="showBan"
@@ -709,7 +719,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
               d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
             />
           </svg>
-          Ban from server
+          {{ echoT('b36.memberList.ban') }}
         </button>
         <button
           v-if="showTimeout"
@@ -732,7 +742,9 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
             />
           </svg>
           {{
-            contextUserHasActiveTimeout() ? 'Remove timeout' : 'Timeout (1h)'
+            contextUserHasActiveTimeout()
+              ? echoT('b36.memberList.removeTimeout')
+              : echoT('b36.memberList.timeout1h')
           }}
         </button>
         <template v-if="devModeIdsEnabled">

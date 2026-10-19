@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import {
   LEGAL_DOC_TABS,
@@ -17,7 +18,7 @@ const tabMeta = computed(() =>
   LEGAL_DOC_TABS.find((t) => t.id === props.docId),
 );
 
-const title = computed(() => tabMeta.value?.label ?? 'Legal');
+const title = computed(() => tabMeta.value?.label ?? echoT('b13.legal.title'));
 
 const activeHtml = computed(() =>
   renderLegalMarkdown(tabMeta.value?.markdown ?? ''),
@@ -34,11 +35,14 @@ function docHref(id: LegalDocTabId): string {
       <a
         class="legal-standalone__brand"
         :href="withBasePath('/', base)"
-        aria-label="Back to Echo"
+        :aria-label="echoT('auth.actions.backToEcho')"
       >
         <span class="legal-standalone__brand-name">Echo</span>
       </a>
-      <nav class="legal-standalone__switch" aria-label="Legal documents">
+      <nav
+        class="legal-standalone__switch"
+        :aria-label="echoT('b13.legal.documentsAria')"
+      >
         <a
           v-for="tab in LEGAL_DOC_TABS"
           :key="tab.id"

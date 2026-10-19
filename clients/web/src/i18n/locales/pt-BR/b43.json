@@ -1,0 +1,95 @@
+{
+  "voiceStrip": {
+    "serverDeafened": "Você está ensurdecido no servidor. Um moderador precisa remover o ensurdecimento.",
+    "serverMuted": "Você está silenciado no servidor. Um moderador precisa remover o silenciamento.",
+    "speakSent": "Pedido para falar enviado. Um moderador pode convidar você para o palco.",
+    "genericError": "Algo deu errado. Tente novamente.",
+    "speakFailed": "Não foi possível pedir para falar: {msg}"
+  },
+  "stageBanner": {
+    "inProgress": "Evento em andamento",
+    "liveScheduled": "Evento agendado · ao vivo",
+    "scheduled": "Evento agendado",
+    "youtubeTip": "Este evento está marcado para transmissão ao vivo no YouTube — use os controles acima para iniciar a transmissão.",
+    "dismissTip": "Dispensar dica",
+    "dismiss": "Dispensar"
+  },
+  "paperStructure": {
+    "lists": "Listas",
+    "bullet": "Lista com marcadores",
+    "numbered": "Lista numerada",
+    "dividers": "Divisores",
+    "hr": "Inserir linha horizontal",
+    "switchEdit": "Mude para o modo de edição para adicionar estrutura."
+  },
+  "eventStrip": {
+    "ariaGoing": "Próximos eventos de que você vai participar",
+    "scheduled": "Evento agendado",
+    "open": "Abrir",
+    "pill": "Abrir {title} em {server}",
+    "person": "pessoa",
+    "people": "pessoas",
+    "goingN": "{count} {who} indo"
+  },
+  "linkEmbeds": {
+    "smaller": "Menor",
+    "larger": "Maior",
+    "playVideo": "Reproduzir vídeo: {title}",
+    "videoPlayer": "Player de vídeo incorporado",
+    "preview": "Prévia do link: {title}"
+  },
+  "createCategory": {
+    "title": "Criar categoria",
+    "group": "Agrupe canais em {server}",
+    "name": "Nome da categoria",
+    "placeholder": "Nova categoria",
+    "duplicate": "Já existe uma categoria com este nome.",
+    "cancel": "Cancelar",
+    "submit": "Criar categoria"
+  },
+  "runtimeStats": {
+    "aria": "Estatísticas de execução da API do Echo",
+    "title": "Servidor da API",
+    "loading": "Carregando…",
+    "mem": "RSS {rss} · heap {heap}% · host {host}% em uso",
+    "up": "Ativo há {uptime} · carga {load}",
+    "off": "As estatísticas de execução estão desativadas nesta API. Defina {flag} no servidor e recarregue."
+  },
+  "memberPopout": {
+    "actions": "Ações do perfil",
+    "checking": "Verificando amizade...",
+    "accept": "Aceitar pedido de amizade",
+    "pending": "Pedido de amizade pendente",
+    "member": "Membro"
+  },
+  "leftChrome": {
+    "resizeDm": "Redimensionar mensagens diretas"
+  },
+  "railPicker": {
+    "aria": "Posição da barra de ações",
+    "left": "Esquerda",
+    "leftDesc": "Barra de servidores na lateral — layout clássico.",
+    "top": "Topo",
+    "topDesc": "Barra horizontal no topo da janela."
+  },
+  "jumpEmbed": {
+    "unavailableAria": "Prévia do link de mensagem indisponível",
+    "aria": "Prévia do link de mensagem do Echo",
+    "headerError": "Echo · link indisponível",
+    "header": "Echo · link de mensagem",
+    "channel": "#canal",
+    "linkTitle": "Link de mensagem",
+    "openOriginal": "Abrir link original"
+  },
+  "docAttachment": {
+    "preview": "Visualizar {name}",
+    "download": "Baixar {name}",
+    "docPdf": "Documento.pdf",
+    "save": "Salvar",
+    "view": "Ver"
+  },
+  "iconPicker": {
+    "loading": "Carregando catálogo de ícones",
+    "expand": "{label} ({count} variantes) — clique para expandir"
+  }
+}

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { icons } from '@/assets/icons';
 import { computed, inject, watch } from 'vue';
 import { LAYOUT_CHAT_SURFACE_KEY } from '@/features/layout/layoutInjectionKeys';
@@ -60,7 +61,7 @@ watch(
         : 'vc-mobile-dock-host--flush'
     "
     role="toolbar"
-    aria-label="Voice controls"
+    :aria-label="echoT('b28.vdock.voiceControls')"
   >
     <div
       class="vc-mobile-dock guild-mobile-voice-dock"
@@ -71,8 +72,8 @@ watch(
           <button
             type="button"
             class="vc-mobile-dock__leave"
-            aria-label="Disconnect from voice"
-            title="Leave"
+            :aria-label="echoT('b28.vdock.disconnect')"
+            :title="echoT('b28.vdock.leave')"
             @click="props.onLeaveVoice"
           >
             <img
@@ -93,10 +94,10 @@ watch(
               }"
               :title="
                 canUseVideo === false
-                  ? 'Video not allowed for this role'
+                  ? echoT('b28.vdock.videoNotAllowed')
                   : vcVideo
-                    ? 'Stop video'
-                    : 'Start video'
+                    ? echoT('b28.vdock.stopVideo')
+                    : echoT('b28.vdock.startVideo')
               "
               :disabled="canUseVideo === false"
               @click="props.onToggleVideo(!props.vcVideo)"
@@ -113,10 +114,10 @@ watch(
               }"
               :title="
                 canUseVideo === false
-                  ? 'Only speakers on stage can share screen'
+                  ? echoT('b28.vdock.onlySpeakersShare')
                   : vcScreenshare
-                    ? 'Stop share'
-                    : 'Share screen'
+                    ? echoT('b28.vdock.stopShare')
+                    : echoT('voiceChrome.shareScreen')
               "
               :disabled="canUseVideo === false"
               @click="props.onToggleScreenshare(!props.vcScreenshare)"
@@ -130,7 +131,9 @@ watch(
                 'vc-mobile-dock__ctrl--on': micOff,
                 'vc-mobile-dock__ctrl--server-mod': serverModActive,
               }"
-              :title="micOff ? 'Unmute' : 'Mute'"
+              :title="
+                micOff ? echoT('b28.vdock.unmute') : echoT('b28.vdock.mute')
+              "
               @click="props.onToggleMuted(!props.vcMuted)"
             >
               <span class="vc-mobile-dock__glyph-wrap">
@@ -160,7 +163,11 @@ watch(
                 'vc-mobile-dock__ctrl--server-mod':
                   !!props.vcSelfServerDeafened,
               }"
-              :title="deafOff ? 'Undeafen' : 'Deafen'"
+              :title="
+                deafOff
+                  ? echoT('b28.vdock.undeafen')
+                  : echoT('b28.vdock.deafen')
+              "
               @click="props.onToggleDeafened(!props.vcDeafened)"
             >
               <span class="vc-mobile-dock__glyph-wrap">
@@ -188,8 +195,8 @@ watch(
             <button
               type="button"
               class="vc-mobile-dock__util vc-mobile-dock__util--settings"
-              title="Voice settings"
-              aria-label="Voice settings"
+              :title="echoT('voiceChrome.voiceSettings')"
+              :aria-label="echoT('voiceChrome.voiceSettings')"
               @click="props.onOpenVoiceSettings"
             >
               <img
@@ -204,8 +211,8 @@ watch(
               :class="{
                 'vc-mobile-dock__util--active': !voiceSideChatCollapsed,
               }"
-              aria-label="Toggle voice chat"
-              title="Chat"
+              :aria-label="echoT('b28.vdock.toggleVoiceChat')"
+              :title="echoT('b28.vdock.chat')"
               @click="props.onToggleVoiceChat"
             >
               <svg
@@ -226,8 +233,8 @@ watch(
             <button
               type="button"
               class="vc-mobile-dock__util vc-mobile-dock__util--activities"
-              aria-label="Voice activities"
-              title="Activities"
+              :aria-label="echoT('b28.vdock.voiceActivities')"
+              :title="echoT('voiceChrome.activities')"
               @click="openVoiceActivities"
             >
               <img

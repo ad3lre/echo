@@ -156,4 +156,31 @@ describe('useMessageListRowPresentations', () => {
     expect(patched.length).toBeGreaterThan(0);
     expect(patched[0]).toContain('m1');
   });
+
+  it('reconciles more than the drain budget after scroll settle', async () => {
+    const ids = Array.from({ length: 48 }, (_, i) => `m${i}`);
+    const { api, messages, entities, userScrollActive } = mountHarness({
+      ids,
+      userScrollActive: true,
+    });
+    await nextTick();
+    const contentById: Record<string, string> = {};
+    for (const id of ids) contentById[id] = `edited-${id}`;
+    const next = mapsFor(ids, contentById);
+    messages.value = next.messages;
+    entities.value = next.entities;
+    await nextTick();
+    expect(api.messageListRowPresentations.value[40]?.message.content).toBe(
+      'hello',
+    );
+
+    userScrollActive.value = false;
+    api.flushPendingRowFactsAfterScrollSettle();
+    expect(api.messageListRowPresentations.value[40]?.message.content).toBe(
+      'edited-m40',
+    );
+    expect(api.messageListRowPresentations.value[47]?.message.content).toBe(
+      'edited-m47',
+    );
+  });
 });

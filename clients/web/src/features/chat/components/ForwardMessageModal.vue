@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, computed, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useAutofocusOnOpen } from '@/features/layout/useAutofocusOnOpen';
@@ -217,7 +218,9 @@ function labelHue(label: string): number {
                     <path d="M20 6 9 17l-5-5" />
                   </svg>
                 </div>
-                <span class="text-sm font-medium text-fg-soft">Forwarded</span>
+                <span class="text-sm font-medium text-fg-soft">{{
+                  echoT('b38.fwd.forwarded')
+                }}</span>
               </div>
             </Transition>
 
@@ -231,7 +234,7 @@ function labelHue(label: string): number {
             <button
               type="button"
               class="fwd-close-btn chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-glass-hover hover:text-foreground"
-              aria-label="Close"
+              :aria-label="echoT('b38.fwd.close')"
               @click="emit('close')"
             >
               <svg
@@ -254,10 +257,10 @@ function labelHue(label: string): number {
                 id="forward-modal-title"
                 class="text-lg font-bold leading-tight tracking-tight text-foreground"
               >
-                Forward message
+                {{ echoT('b38.fwd.title') }}
               </h2>
               <p class="mt-0.5 text-sm text-fg-subtle">
-                Send to a DM or channel
+                {{ echoT('b38.fwd.subtitle') }}
               </p>
 
               <!-- preview pill -->
@@ -280,7 +283,7 @@ function labelHue(label: string): number {
                 <div class="min-w-0 flex-1">
                   <span
                     class="block text-[10px] font-semibold uppercase tracking-widest text-fg-subtle"
-                    >Preview</span
+                    >{{ echoT('b38.fwd.preview') }}</span
                   >
                   <p
                     class="mt-0.5 line-clamp-2 text-sm leading-snug text-fg-soft"
@@ -302,9 +305,9 @@ function labelHue(label: string): number {
                   ref="searchInputRef"
                   v-model="q"
                   type="search"
-                  placeholder="Search people, servers, channels…"
+                  :placeholder="echoT('b38.fwd.searchPlaceholder')"
                   class="w-full rounded-xl border border-border bg-glass-2 py-2.5 pl-10 pr-3 text-sm text-foreground placeholder:text-fg-subtle outline-none transition-colors focus:border-border focus:bg-glass-2"
-                  aria-label="Search destinations"
+                  :aria-label="echoT('b38.fwd.searchLabel')"
                   autocomplete="off"
                 />
               </div>
@@ -335,8 +338,9 @@ function labelHue(label: string): number {
                   />
                 </svg>
                 <p class="text-sm leading-relaxed text-fg-subtle">
-                  There is nowhere else to forward this message.<br />Open
-                  another DM or server channel first.
+                  {{ echoT('b38.fwd.noDest1') }}<br />{{
+                    echoT('b38.fwd.noDest2')
+                  }}
                 </p>
               </div>
 
@@ -361,10 +365,13 @@ function labelHue(label: string): number {
                   <path d="m21 21-4.35-4.35" />
                 </svg>
                 <p class="text-sm text-fg-subtle">
-                  No results for "<span class="text-fg-soft">{{
-                    q.trim()
-                  }}</span
-                  >"
+                  <i18n-t keypath="b38.fwd.noResults" scope="global">
+                    <template #query
+                      ><span class="text-fg-soft">{{
+                        q.trim()
+                      }}</span></template
+                    >
+                  </i18n-t>
                 </p>
               </div>
 
@@ -374,7 +381,7 @@ function labelHue(label: string): number {
                   <div
                     class="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
                   >
-                    Direct messages
+                    {{ echoT('b38.fwd.dms') }}
                   </div>
                   <button
                     v-for="(d, idx) in filtered.dms"
@@ -425,7 +432,7 @@ function labelHue(label: string): number {
                   <div
                     class="mt-2 px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
                   >
-                    Servers
+                    {{ echoT('b38.fwd.servers') }}
                   </div>
                   <div v-for="s in filtered.servers" :key="s.id" class="mb-0.5">
                     <button
@@ -492,9 +499,9 @@ function labelHue(label: string): number {
 
             <!-- footer hint -->
             <div class="border-t border-border px-5 py-3 text-center">
-              <span class="text-[11px] text-fg-subtle"
-                >Press Esc to cancel</span
-              >
+              <span class="text-[11px] text-fg-subtle">{{
+                echoT('b38.fwd.escHint')
+              }}</span>
             </div>
           </div>
         </Transition>

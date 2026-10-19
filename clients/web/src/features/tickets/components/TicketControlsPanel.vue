@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, computed, onMounted } from 'vue';
 import { useServerTicketsStore } from '@/features/tickets/serverTickets';
 import type { EchoTicket, EchoTicketStatus } from '@shared/types/ticket';
@@ -27,23 +28,31 @@ onMounted(async () => {
   }
 });
 
-const statusOptions: {
-  value: EchoTicketStatus;
-  label: string;
-  color: string;
-}[] = [
-  { value: 'open', label: 'Open', color: '#3ba55d' },
-  { value: 'in_progress', label: 'In Progress', color: '#faa61a' },
-  { value: 'resolved', label: 'Resolved', color: '#5865f2' },
-  { value: 'closed', label: 'Closed', color: '#747f8d' },
-];
+const statusOptions = computed<
+  {
+    value: EchoTicketStatus;
+    label: string;
+    color: string;
+  }[]
+>(() => [
+  { value: 'open', label: echoT('b40.tickets.open'), color: '#3ba55d' },
+  {
+    value: 'in_progress',
+    label: echoT('b40.tickets.inProgress'),
+    color: '#faa61a',
+  },
+  { value: 'resolved', label: echoT('b40.tickets.resolved'), color: '#5865f2' },
+  { value: 'closed', label: echoT('b40.tickets.closed'), color: '#747f8d' },
+]);
 
 function statusLabel(status: string): string {
-  return statusOptions.find((s) => s.value === status)?.label ?? status;
+  return statusOptions.value.find((s) => s.value === status)?.label ?? status;
 }
 
 function statusColor(status: string): string {
-  return statusOptions.find((s) => s.value === status)?.color ?? '#747f8d';
+  return (
+    statusOptions.value.find((s) => s.value === status)?.color ?? '#747f8d'
+  );
 }
 
 async function changeStatus(newStatus: EchoTicketStatus) {
@@ -77,7 +86,7 @@ async function closeTicket() {
     </div>
 
     <div v-if="ticket.category" class="ticket-controls__category">
-      Category: {{ ticket.category }}
+      {{ echoT('b40.tickets.category', { category: ticket.category }) }}
     </div>
 
     <div
@@ -90,7 +99,7 @@ async function closeTicket() {
         :disabled="updating"
         @click="changeStatus('in_progress')"
       >
-        Mark In Progress
+        {{ echoT('b40.tickets.markInProgress') }}
       </button>
       <button
         v-if="ticket.status !== 'resolved'"
@@ -98,14 +107,14 @@ async function closeTicket() {
         :disabled="updating"
         @click="changeStatus('resolved')"
       >
-        Resolve
+        {{ echoT('b40.tickets.resolve') }}
       </button>
       <button
         class="ticket-controls__btn ticket-controls__btn--close"
         :disabled="updating"
         @click="closeTicket"
       >
-        Close Ticket
+        {{ echoT('b40.tickets.closeTicket') }}
       </button>
     </div>
 
@@ -118,12 +127,12 @@ async function closeTicket() {
         :disabled="updating"
         @click="closeTicket"
       >
-        Close Ticket
+        {{ echoT('b40.tickets.closeTicket') }}
       </button>
     </div>
 
     <div v-if="ticket.status === 'closed'" class="ticket-controls__closed-msg">
-      This ticket has been closed.
+      {{ echoT('b40.tickets.closedMsg') }}
     </div>
   </div>
 </template>

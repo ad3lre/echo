@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { resolveAppLayoutLoadHintMs } from '@/config/appLoadUi';
 import { reloadEchoApp } from '@/platform/reloadEchoApp';
@@ -26,7 +27,7 @@ function reload() {
     class="echo-app-splash echo-app-splash--async h-full w-full min-h-0 bg-bg"
     role="status"
     aria-live="polite"
-    aria-label="Loading Echo"
+    :aria-label="echoT('common.loading')"
   >
     <div class="echo-app-splash__inner">
       <svg
@@ -50,24 +51,28 @@ function reload() {
         v-if="showSlowHint"
         class="echo-app-splash__hint"
         role="region"
-        aria-label="Loading is taking longer than usual"
+        :aria-label="echoT('layout.splash.slowAria')"
       >
-        <p class="echo-app-splash__hint-title">Still loading…</p>
-        <p class="echo-app-splash__hint-lead">This can happen when:</p>
+        <p class="echo-app-splash__hint-title">
+          {{ echoT('layout.splash.stillLoading') }}
+        </p>
+        <p class="echo-app-splash__hint-lead">
+          {{ echoT('layout.splash.canHappenWhen') }}
+        </p>
         <ul class="echo-app-splash__hint-list">
-          <li>Your connection is slow or unstable</li>
+          <li>{{ echoT('layout.splash.slowConnection') }}</li>
           <li>
-            This is your first visit (the app is downloading in the background)
+            {{ echoT('layout.splash.firstVisit') }}
           </li>
           <li>
-            A browser extension or strict privacy mode is blocking scripts
+            {{ echoT('layout.splash.blockedScripts') }}
           </li>
         </ul>
         <p class="echo-app-splash__hint-foot">
-          If nothing changes after a while, try refreshing the page.
+          {{ echoT('layout.splash.tryRefresh') }}
         </p>
         <button type="button" class="echo-app-splash__retry" @click="reload">
-          Refresh page
+          {{ echoT('common.refreshPage') }}
         </button>
       </div>
     </div>

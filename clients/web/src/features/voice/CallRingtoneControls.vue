@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useCallRingtoneStore } from '@/features/voice/callRingtone';
@@ -129,8 +130,8 @@ onUnmounted(() => {
           ? 'dm-call-on-glass-btn'
           : 'call-ringtone-trigger--toolbar'
       "
-      title="Ringtone"
-      aria-label="Ringtone settings"
+      :title="echoT('b26.ringtone.title')"
+      :aria-label="echoT('b26.ringtone.settings')"
       :aria-expanded="open"
       aria-haspopup="dialog"
       @click.stop="toggleOpen"
@@ -167,7 +168,7 @@ onUnmounted(() => {
           WebkitBackdropFilter: 'var(--chat-glass-header-backdrop, blur(14px))',
         }"
         role="dialog"
-        aria-label="Ringtone"
+        :aria-label="echoT('b26.ringtone.title')"
         tabindex="-1"
         @pointerdown.stop
       >
@@ -175,16 +176,22 @@ onUnmounted(() => {
           <div
             class="mb-2.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
           >
-            Ringtone
+            {{ echoT('b26.ringtone.title') }}
           </div>
 
           <div class="mb-3 flex items-center gap-1.5">
             <button
               type="button"
               class="call-ringtone-dd-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-fg-soft hover:bg-glass-hover hover:text-white disabled:pointer-events-none disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-fg-soft"
-              :title="ringtoneCanStepBack ? 'Previous' : 'First ringtone'"
+              :title="
+                ringtoneCanStepBack
+                  ? echoT('b26.ringtone.previous')
+                  : echoT('voiceChrome.firstRingtone')
+              "
               :aria-label="
-                ringtoneCanStepBack ? 'Previous ringtone' : 'First ringtone'
+                ringtoneCanStepBack
+                  ? echoT('voiceChrome.previousRingtone')
+                  : echoT('voiceChrome.firstRingtone')
               "
               :disabled="!ringtoneCanStepBack"
               @click="store.stepRingtone(-1)"
@@ -204,8 +211,8 @@ onUnmounted(() => {
               class="call-ringtone-name-btn min-w-0 flex-1 truncate rounded-md px-1 py-0.5 text-center text-[13px] font-medium leading-snug text-fg transition-colors hover:bg-glass-hover hover:text-white"
               :title="
                 trackPickerOpen
-                  ? 'Hide ringtone list'
-                  : 'Browse ringtones — click to show list'
+                  ? echoT('b26.ringtone.hideList')
+                  : echoT('b26.ringtone.browse')
               "
               :aria-expanded="trackPickerOpen"
               @click.stop="toggleTrackPicker"
@@ -215,9 +222,15 @@ onUnmounted(() => {
             <button
               type="button"
               class="call-ringtone-dd-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-fg-soft hover:bg-glass-hover hover:text-white disabled:pointer-events-none disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-fg-soft"
-              :title="ringtoneCanStepForward ? 'Next' : 'Last ringtone'"
+              :title="
+                ringtoneCanStepForward
+                  ? echoT('b26.ringtone.next')
+                  : echoT('voiceChrome.lastRingtone')
+              "
               :aria-label="
-                ringtoneCanStepForward ? 'Next ringtone' : 'Last ringtone'
+                ringtoneCanStepForward
+                  ? echoT('voiceChrome.nextRingtone')
+                  : echoT('voiceChrome.lastRingtone')
               "
               :disabled="!ringtoneCanStepForward"
               @click="store.stepRingtone(1)"
@@ -242,7 +255,7 @@ onUnmounted(() => {
               <ul
                 class="call-ringtone-list max-h-[min(220px,42vh)] space-y-0.5 overflow-y-auto overscroll-contain pr-0.5"
                 role="listbox"
-                aria-label="Ringtones"
+                :aria-label="echoT('voiceChrome.ringtones')"
               >
                 <template
                   v-for="group in ringtoneOptionGroups"
@@ -309,14 +322,18 @@ onUnmounted(() => {
               <line x1="23" y1="9" x2="17" y2="15" />
               <line x1="17" y1="9" x2="23" y2="15" />
             </svg>
-            {{ muted ? 'Unmute ringtone' : 'Mute ringtone' }}
+            {{
+              muted
+                ? echoT('b26.ringtone.unmute')
+                : echoT('voiceChrome.muteRingtone')
+            }}
           </button>
 
           <div>
             <div
               class="mb-1.5 flex items-center justify-between text-[10px] font-medium text-fg-subtle"
             >
-              <span>Volume</span>
+              <span>{{ echoT('b26.ringtone.volume') }}</span>
               <span class="tabular-nums text-fg-soft"
                 >{{ volumePercent }}%</span
               >

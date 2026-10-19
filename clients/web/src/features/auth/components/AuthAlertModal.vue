@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 
@@ -10,7 +11,7 @@ const props = withDefaults(
     variant?: 'error' | 'warning' | 'success';
   }>(),
   {
-    title: 'Sign-in issue',
+    title: echoT('auth.titles.signInIssue'),
     variant: 'error',
   },
 );
@@ -95,7 +96,7 @@ function dismiss() {
             class="rounded-lg bg-glass-2 px-4 py-2.5 text-sm font-semibold text-fg transition-colors hover:bg-glass-active"
             @click="dismiss"
           >
-            Dismiss
+            {{ echoT('auth.actions.dismiss') }}
           </button>
         </div>
       </div>

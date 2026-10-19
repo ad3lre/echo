@@ -1,0 +1,119 @@
+{
+  "bw": {
+    "saveFailed": "Falha ao salvar",
+    "intro": "Escolha um nível predefinido para filtrar automaticamente mensagens com linguagem inapropriada, ou personalize quais categorias ativar e qual ação cada uma executa.",
+    "needManage": "Você precisa da permissão Gerenciar Servidor para editar o filtro de palavras.",
+    "loading": "Carregando configuração…",
+    "filterLevel": "Nível do filtro",
+    "categories": "Categorias",
+    "customWords": "Palavras personalizadas",
+    "customWordsHelp": "Adicione palavras ou frases extras para filtrar (uma por linha). Elas são sempre bloqueadas, independentemente das configurações de categoria.",
+    "exemptRoles": "Cargos isentos",
+    "exemptHelp": "Membros com qualquer um desses cargos ignoram totalmente o filtro de palavras. Administradores e quem tem Gerenciar Servidor/Mensagens são sempre isentos.",
+    "noRoles": "Nenhum cargo disponível.",
+    "noChanges": "Nenhuma alteração não salva.",
+    "saving": "Salvando…",
+    "save": "Salvar alterações",
+    "switchCustom": "Mude para {custom} para alterar categorias e ações individualmente.",
+    "placeholder": "palavrão\noutra frase",
+    "preset": {
+      "off": "Desativado",
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "custom": "Personalizado"
+    },
+    "presetDesc": {
+      "off": "Nenhuma palavra é filtrada.",
+      "low": "Apenas ofensas discriminatórias e conteúdo sexual são filtrados.",
+      "medium": "Ofensas discriminatórias, conteúdo sexual e palavrões são filtrados.",
+      "high": "Todas as categorias são filtradas.",
+      "custom": "Escolha quais categorias ativar e qual ação cada uma executa."
+    },
+    "cat": {
+      "profanity": "Palavrões",
+      "slurs": "Ofensas e discurso de ódio",
+      "sexual_content": "Conteúdo sexual",
+      "insults": "Insultos"
+    },
+    "catDesc": {
+      "profanity": "Palavrões comuns e linguagem vulgar.",
+      "slurs": "Ofensas raciais, étnicas e baseadas em identidade.",
+      "sexual_content": "Termos e frases sexualmente explícitos.",
+      "insults": "Ataques pessoais e linguagem humilhante."
+    },
+    "action": {
+      "block_message": "Bloquear mensagem",
+      "delete_message": "Excluir mensagem",
+      "timeout_5m": "Castigo (5 min)",
+      "timeout_60m": "Castigo (1 hora)",
+      "warn_dm": "Avisar por DM"
+    }
+  },
+  "sd": {
+    "detecting": "Detectando indisponibilidade…",
+    "checkingNow": "Verificando agora…",
+    "avgRecovery": "Recuperação média",
+    "typicalRecovery": "Recuperação típica",
+    "defaultHint": "Padrão até aprendermos com suas reconexões",
+    "pastWindow": "Além da janela usual de recuperação — ainda reconectando",
+    "title": "O servidor do Echo está fora do ar no momento",
+    "body": "Estamos tentando novamente em tempo real e reconectaremos automaticamente assim que o serviço voltar ao normal.",
+    "downtime": "Tempo fora do ar",
+    "lastCheck": "Última verificação de integridade",
+    "checkingStatus": "Verificando o status do servidor…",
+    "waiting": "Aguardando recuperação…",
+    "checkAgain": "Verificar novamente agora",
+    "refresh": "Atualizar app",
+    "ago": "há {duration}",
+    "basedOnOne": "Com base em {count} indisponibilidade anterior neste dispositivo",
+    "basedOnMany": "Com base em {count} indisponibilidades anteriores neste dispositivo",
+    "typicalWindow": "Janela típica de cerca de {duration}",
+    "remaining": "Cerca de {rem}s restantes vs. {est}s típicos",
+    "progressAria": "Progresso da recuperação em relação à janela típica de {est} segundos"
+  },
+  "ep": {
+    "copied": "\"{name}\" copiado como um novo pacote de emojis.",
+    "maxPacks": "Você só pode salvar {max} pacotes.",
+    "copyFail": "Não foi possível copiar este pacote.",
+    "replaced": "\"{target}\" substituído por \"{name}\".",
+    "replaceFail": "Não foi possível substituir esse pacote.",
+    "packFallback": "pacote",
+    "searchEmoji": "Pesquisar emojis e figurinhas...",
+    "searchIcons": "Pesquisar ícones...",
+    "search": "Pesquisar...",
+    "pickerContent": "Conteúdo do seletor",
+    "emoji": "Emoji",
+    "icons": "Ícones",
+    "noMatch": "Nenhum emoji ou figurinha corresponde a \"{query}\"",
+    "packActions": "Ações do pacote de emojis",
+    "copyWhole": "Copiar pacote inteiro",
+    "limit": "Limite de pacotes atingido ({max}). Substitua um pacote salvo:",
+    "replace": "Substituir: {name}",
+    "cancel": "Cancelar"
+  },
+  "pv": {
+    "updatedOne": "Alguém atualizou o parágrafo que você está editando",
+    "updatedMany": "Alguém atualizou {count} parágrafos que você está editando",
+    "saveFailed": "Falha ao salvar: {error}",
+    "askedRelease": "Pedido enviado a {owner} para liberar este parágrafo",
+    "accessSent": "Solicitação de acesso enviada",
+    "stillLoading": "O documento ainda está carregando",
+    "copiedText": "Texto do documento copiado",
+    "couldNotCopy": "Não foi possível copiar",
+    "viewNoEdit": "Você pode ver este documento, mas não pode editá-lo.",
+    "viewNoComment": "Você pode ver este documento, mas não pode adicionar comentários.",
+    "postFail": "Não foi possível publicar o comentário",
+    "updateFail": "Não foi possível atualizar o comentário",
+    "deleteFail": "Não foi possível excluir o comentário",
+    "retry": "Tentar novamente"
+  },
+  "mm": {
+    "moreOptions": "Mais opções",
+    "directMention": "Menção direta",
+    "unfriend": "Desfazer amizade",
+    "report": "Denunciar usuário",
+    "block": "Bloquear usuário",
+    "unblock": "Desbloquear usuário"
+  }
+}

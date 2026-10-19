@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { nextTick, ref, watch } from 'vue';
 
 const props = defineProps<{
@@ -66,13 +67,13 @@ function onBackdrop() {
           class="rounded-lg px-3 py-1.5 text-sm text-fg-soft hover:bg-glass-hover"
           @click="onBackdrop"
         >
-          Cancel
+          {{ echoT('b24.paperPrompt.cancel') }}
         </button>
         <button
           type="submit"
           class="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
         >
-          {{ confirmLabel ?? 'Apply' }}
+          {{ confirmLabel ?? echoT('b24.paperPrompt.apply') }}
         </button>
       </div>
     </form>

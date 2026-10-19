@@ -1,0 +1,98 @@
+{
+  "report": {
+    "title": {
+      "general": "Denunciar à Confiança e Segurança",
+      "default": "Denunciar"
+    },
+    "subtitle": {
+      "anon": "Nossa equipe analisa todos os envios.",
+      "general": "Pesquise quem ou o que denunciar. Você também pode inserir IDs manualmente, se necessário.",
+      "user": "Você está denunciando {name}. Nossa equipe analisa todos os envios.",
+      "message": "Você está denunciando uma mensagem de {name}."
+    },
+    "signIn": "Entre para enviar uma denúncia.",
+    "toast": {
+      "submitted": "Denúncia enviada. Obrigado."
+    },
+    "error": {
+      "submit": "Não foi possível enviar a denúncia."
+    },
+    "submittedTitle": "Denúncia enviada",
+    "submittedBody": "Obrigado — nossa equipe de Confiança e Segurança vai analisá-la.",
+    "close": "Fechar",
+    "card": {
+      "reporting": "Denunciando",
+      "messagePreview": "Prévia da mensagem"
+    },
+    "typeLabel": "Tipo de denúncia",
+    "reportSomeone": "Denunciar alguém",
+    "reportMessage": "Denunciar uma mensagem",
+    "search": {
+      "users": "Pesquisar amigos e membros…",
+      "messages": "Pesquisar mensagens neste canal…",
+      "channels": "Pesquisar canais…"
+    },
+    "change": "Alterar",
+    "friend": "Amigo",
+    "noPeople": "Nenhuma pessoa corresponde à sua pesquisa. Tente outro nome ou use a entrada manual abaixo.",
+    "changeChannel": "Alterar canal",
+    "noChannels": "Nenhum canal corresponde. Abra um servidor primeiro ou use a entrada manual abaixo.",
+    "pickDifferent": "Escolher outra mensagem",
+    "noMessages": "Nenhuma mensagem carregada neste canal ainda. Role o chat para carregar o histórico ou use a entrada manual abaixo.",
+    "hideManual": "Ocultar entrada manual",
+    "userId": "ID do usuário",
+    "pasteUserId": "Cole o ID do usuário",
+    "messageId": "ID da mensagem",
+    "pasteMessageId": "Cole o ID da mensagem",
+    "channelId": "ID do canal",
+    "pasteChannelId": "Cole o ID do canal",
+    "category": "Categoria",
+    "details": "Detalhes adicionais",
+    "optional": "(opcional)",
+    "placeholder": "Conte-nos o que aconteceu",
+    "cancel": "Cancelar",
+    "someone": "alguém",
+    "fallback": {
+      "user": "Usuário",
+      "message": "Mensagem"
+    },
+    "submitting": "Enviando…",
+    "cantFind": "Não encontrou? Insira os IDs manualmente"
+  },
+  "stage": {
+    "toast": {
+      "requestSent": "Pedido para falar enviado. Um moderador pode convidar você para o palco.",
+      "fallbackErr": "Algo deu errado. Tente novamente.",
+      "cancelled": "Pedido para falar cancelado.",
+      "cancelFail": "Não foi possível cancelar"
+    },
+    "audience": "Você está na plateia",
+    "raiseHand": "Levante a mão para pedir o microfone aos moderadores.",
+    "cancelRequest": "Cancelar pedido",
+    "requestToSpeak": "Pedir para falar",
+    "requestsToSpeak": "Pedidos para falar",
+    "invite": "Convidar",
+    "deny": "Recusar",
+    "empty": "O palco está vazio",
+    "emptyHint": "Seja o primeiro a entrar — os moderadores podem iniciar uma transmissão no YouTube acima.",
+    "noSpeakers": "Ainda não há palestrantes",
+    "noSpeakersHint": "Os moderadores podem convidar membros da plateia para falar ou iniciar uma transmissão ao vivo no YouTube pela barra acima.",
+    "you": "Você",
+    "speaker": "Palestrante",
+    "requestedToSpeak": "Pediu para falar",
+    "quickMention": "Menção rápida",
+    "inviteToSpeak": "Convidar para falar",
+    "moveToAudience": "Mover para a plateia",
+    "unmute": "Reativar som",
+    "mute": "Silenciar",
+    "turnOffCamera": "Desligar câmera",
+    "stopScreenShare": "Parar compartilhamento de tela",
+    "couldNotRequest": "Não foi possível pedir para falar: {msg}",
+    "speakersListening": "{count} {speakers} · {listening} ouvindo",
+    "speaker1": "palestrante",
+    "speakerN": "palestrantes",
+    "goToChannel": "{name} — Ir para o canal",
+    "limitTitle": "{count} de {limit} usuários no palco",
+    "openProfile": "Abrir perfil de {name}"
+  }
+}

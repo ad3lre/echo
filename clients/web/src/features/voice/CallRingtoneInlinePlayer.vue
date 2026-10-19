@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { storeToRefs } from 'pinia';
 import { ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
@@ -11,7 +12,6 @@ withDefaults(
     embedded?: boolean;
   }>(),
   {
-    title: 'Waiting music',
     embedded: false,
   },
 );
@@ -67,7 +67,7 @@ function pickRingtone(id: string) {
     <div class="flex items-center gap-2">
       <div class="min-w-0 flex-1">
         <p class="truncate text-[12px] font-semibold text-fg">
-          {{ title }}
+          {{ title ?? echoT('b35.ringtone.waiting') }}
         </p>
         <button
           type="button"
@@ -75,22 +75,28 @@ function pickRingtone(id: string) {
           :disabled="(ringtoneOptionGroups?.length ?? 0) < 1"
           :title="
             (ringtoneOptionGroups?.length ?? 0) > 0
-              ? 'Choose ringtone'
-              : 'No ringtones available'
+              ? echoT('b35.ringtone.choose')
+              : echoT('b35.ringtone.none')
           "
           :aria-expanded="sheetOpen"
           aria-haspopup="dialog"
           @click.stop="openRingtoneSheet"
         >
-          {{ selectedEntry?.label ?? 'Ringtone' }}
+          {{ selectedEntry?.label ?? echoT('b35.ringtone.label') }}
         </button>
       </div>
       <button
         type="button"
         class="call-ringtone-inline__ctrl"
-        :title="ringtoneCanStepBack ? 'Previous ringtone' : 'First ringtone'"
+        :title="
+          ringtoneCanStepBack
+            ? echoT('voiceChrome.previousRingtone')
+            : echoT('voiceChrome.firstRingtone')
+        "
         :aria-label="
-          ringtoneCanStepBack ? 'Previous ringtone' : 'First ringtone'
+          ringtoneCanStepBack
+            ? echoT('voiceChrome.previousRingtone')
+            : echoT('voiceChrome.firstRingtone')
         "
         :disabled="!ringtoneCanStepBack"
         @click="ringtoneStore.stepRingtone(-1)"
@@ -109,8 +115,12 @@ function pickRingtone(id: string) {
         type="button"
         class="call-ringtone-inline__ctrl"
         :class="{ 'call-ringtone-inline__ctrl--on': ringtoneMuted }"
-        :title="ringtoneMuted ? 'Unmute ringtone' : 'Mute ringtone'"
-        aria-label="Mute ringtone"
+        :title="
+          ringtoneMuted
+            ? echoT('b35.ringtone.unmute')
+            : echoT('voiceChrome.muteRingtone')
+        "
+        :aria-label="echoT('voiceChrome.muteRingtone')"
         @click="ringtoneStore.toggleMuted()"
       >
         <img
@@ -123,8 +133,16 @@ function pickRingtone(id: string) {
       <button
         type="button"
         class="call-ringtone-inline__ctrl"
-        :title="ringtoneCanStepForward ? 'Next ringtone' : 'Last ringtone'"
-        :aria-label="ringtoneCanStepForward ? 'Next ringtone' : 'Last ringtone'"
+        :title="
+          ringtoneCanStepForward
+            ? echoT('voiceChrome.nextRingtone')
+            : echoT('voiceChrome.lastRingtone')
+        "
+        :aria-label="
+          ringtoneCanStepForward
+            ? echoT('voiceChrome.nextRingtone')
+            : echoT('voiceChrome.lastRingtone')
+        "
         :disabled="!ringtoneCanStepForward"
         @click="ringtoneStore.stepRingtone(1)"
       >
@@ -140,7 +158,9 @@ function pickRingtone(id: string) {
       </button>
     </div>
     <div class="mt-2 flex items-center gap-2">
-      <span class="w-10 shrink-0 text-[10px] text-fg-subtle">Vol</span>
+      <span class="w-10 shrink-0 text-[10px] text-fg-subtle">{{
+        echoT('b35.ringtone.vol')
+      }}</span>
       <input
         type="range"
         class="call-ringtone-inline__range h-1.5 w-full cursor-pointer"
@@ -166,14 +186,14 @@ function pickRingtone(id: string) {
         <button
           type="button"
           class="call-ringtone-inline-sheet-scrim-btn absolute inset-0 border-0 bg-black/50 backdrop-blur-[1px]"
-          aria-label="Close ringtone picker"
+          :aria-label="echoT('b35.ringtone.closePicker')"
           @click="sheetOpen = false"
         />
         <div
           class="call-ringtone-inline-sheet-panel pointer-events-auto absolute bottom-0 left-0 right-0 z-[1] mx-auto w-full max-w-lg rounded-t-2xl border border-b-0 border-border bg-[var(--echo-dm-inset-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl"
           role="dialog"
           aria-modal="true"
-          aria-label="Choose ringtone"
+          :aria-label="echoT('b35.ringtone.choose')"
           @click.stop
         >
           <div
@@ -184,12 +204,12 @@ function pickRingtone(id: string) {
             <div
               class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
             >
-              Ringtone
+              {{ echoT('b35.ringtone.label') }}
             </div>
             <ul
               class="call-ringtone-inline-sheet-list max-h-[min(52vh,320px)] space-y-0.5 overflow-y-auto overscroll-contain pr-0.5"
               role="listbox"
-              aria-label="Ringtones"
+              :aria-label="echoT('voiceChrome.ringtones')"
             >
               <template
                 v-for="group in ringtoneOptionGroups"

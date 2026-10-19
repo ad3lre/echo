@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, unref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useServerStore } from '@/features/layout/server';
@@ -9,7 +10,7 @@ import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
 import { LAYOUT_LEFT_CHROME_KEY } from '@/features/layout/layoutInjectionKeys';
 import { describeServerPingBubbleLine } from '@/features/server-notifications/serverPing';
 import type { ServerPingBubbleDisplay } from '@shared/attentionPing';
-import { VISIBLE_SERVER_RAIL_SLOT_COUNT } from '@/features/layout/composables/rail/serverRailReorder';
+import { useServerRailUiPreferencesStore } from '@/features/settings/serverRailUiPreferences';
 
 const emit = defineEmits<{
   'select-server': [serverId: string];
@@ -17,11 +18,12 @@ const emit = defineEmits<{
 
 const layoutLeft = inject(LAYOUT_LEFT_CHROME_KEY, null);
 const serverStore = useServerStore();
+const railUiPrefs = useServerRailUiPreferencesStore();
 const { selectedServerId } = storeToRefs(serverStore);
 const { moreServersList } = useMoreServers();
 
 const showAllServersHint = computed(
-  () => serverStore.servers.length > VISIBLE_SERVER_RAIL_SLOT_COUNT,
+  () => serverStore.servers.length > railUiPrefs.visibleSlotCount,
 );
 
 const isEmpty = computed(() => moreServersList.value.length === 0);
@@ -61,12 +63,14 @@ function selectServer(serverId: string) {
 <template>
   <div class="mobile-server-list flex h-full min-h-0 flex-col overflow-hidden">
     <div class="shrink-0 border-b border-border px-4 py-3">
-      <h1 class="text-lg font-bold text-foreground">Servers</h1>
+      <h1 class="text-lg font-bold text-foreground">
+        {{ echoT('layout.mobile.serversTitle') }}
+      </h1>
       <p class="mt-0.5 text-xs text-fg-subtle">
         {{
           showAllServersHint
-            ? 'All your servers — pick one to open channels and chat.'
-            : 'Pick a server to open channels and chat.'
+            ? echoT('layout.mobile.serversHintAll')
+            : echoT('layout.mobile.serversHintPick')
         }}
       </p>
     </div>
@@ -92,7 +96,7 @@ function selectServer(serverId: string) {
             <PausedGifAvatar
               v-if="serverGuildIconDisplayUrl(server.icon)"
               :src="safeImageUrl(serverGuildIconDisplayUrl(server.icon)!)"
-              :alt="`${server.name} icon`"
+              :alt="echoT('layout.rail.serverIcon', { name: server.name })"
               :session-key="server.id"
               img-class="h-full w-full object-cover"
             />
@@ -128,9 +132,11 @@ function selectServer(serverId: string) {
       v-else
       class="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-8 text-center"
     >
-      <p class="text-sm font-semibold text-foreground">No servers yet</p>
+      <p class="text-sm font-semibold text-foreground">
+        {{ echoT('layout.mobile.noServersYet') }}
+      </p>
       <p class="text-xs text-fg-subtle">
-        Join one from Explore to get started.
+        {{ echoT('layout.mobile.joinFromExplore') }}
       </p>
     </div>
   </div>

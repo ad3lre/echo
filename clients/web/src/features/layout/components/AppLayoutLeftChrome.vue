@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, defineAsyncComponent, inject, ref, unref, watch } from 'vue';
 import type { MaybeRef } from 'vue';
 import ServerList from '@/features/layout/components/ServerList.vue';
@@ -41,7 +42,7 @@ import type { DmSubView } from '@/features/layout/mainSurface';
 import type { CreateChannelModalSubmitPayload } from '@/features/channel-panel/components/CreateChannelModal.vue';
 import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
 import { channelPanelDiag } from '@/features/channel-panel/channelPanelDiag';
-import { getChannelDisplayName } from '@/assets/icons';
+import { getChannelDisplayName } from '@/assets/channelDisplayName';
 import { showStarredServerLimitAlert } from '@/features/layout/composables/rail/serverRailPinFeedback';
 
 type DmMarkReadPayload =
@@ -1379,7 +1380,7 @@ function onMoreServersPinServer(payload: {
         <div
           v-if="lc.dmPanelOpen"
           class="absolute top-0 right-0 bottom-0 z-[40] flex w-2 cursor-col-resize items-center justify-center group"
-          aria-label="Resize direct messages"
+          :aria-label="echoT('b43.leftChrome.resizeDm')"
           @mousedown="fireDmPanelResizeStart($event)"
           @dblclick="fireDmPanelResizeReset"
         >
@@ -1558,7 +1559,7 @@ function onMoreServersPinServer(payload: {
         <div
           v-if="lc.dmPanelOpen"
           class="absolute top-0 right-0 bottom-0 w-2 cursor-col-resize z-[40] flex items-center justify-center group"
-          aria-label="Resize direct messages"
+          :aria-label="echoT('b43.leftChrome.resizeDm')"
           @mousedown="fireDmPanelResizeStart($event)"
           @dblclick="fireDmPanelResizeReset"
         >

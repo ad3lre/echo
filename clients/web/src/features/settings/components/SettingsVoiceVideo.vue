@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, onUnmounted, inject, computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import EchoDropdown from '@/components/EchoDropdown.vue';
@@ -24,30 +25,30 @@ import { primeEchoAudioPlayback } from '@/features/layout/useEchoSounds';
 import { rmsToDbfs, thresholdPercentToRms } from '@/features/voice/voiceGate';
 import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
-const videoQualityOptions: { value: VideoQualityPreset; label: string }[] = [
-  { value: '720p', label: '720p (HD)' },
-  { value: '480p', label: '480p (SD)' },
+const videoQualityOptions = computed<
+  { value: VideoQualityPreset; label: string }[]
+>(() => [
+  { value: '720p', label: echoT('panes.voice.q720') },
+  { value: '480p', label: echoT('panes.voice.q480') },
   { value: '360p', label: '360p' },
-  { value: '180p', label: '180p (Low)' },
-];
+  { value: '180p', label: echoT('panes.voice.q180') },
+]);
 
-const krispQualityOptions: {
-  value: 'low' | 'medium' | 'high';
-  label: string;
-}[] = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Balanced' },
-  { value: 'high', label: 'High' },
-];
+const krispQualityOptions = computed<
+  { value: 'low' | 'medium' | 'high'; label: string }[]
+>(() => [
+  { value: 'low', label: echoT('panes.voice.qualityLow') },
+  { value: 'medium', label: echoT('panes.voice.qualityBalanced') },
+  { value: 'high', label: echoT('panes.voice.qualityHigh') },
+]);
 
-const processingModeOptions: {
-  value: 'krisp' | 'browser' | 'native';
-  label: string;
-}[] = [
-  { value: 'krisp', label: 'Enhanced (Krisp)' },
-  { value: 'browser', label: 'Standard (browser)' },
-  { value: 'native', label: 'Minimal (native)' },
-];
+const processingModeOptions = computed<
+  { value: 'krisp' | 'browser' | 'native'; label: string }[]
+>(() => [
+  { value: 'krisp', label: echoT('settingsUi.enhancedKrisp') },
+  { value: 'browser', label: echoT('settingsUi.standardBrowser') },
+  { value: 'native', label: echoT('settingsUi.minimalNative') },
+]);
 
 const echoVoiceApi = inject<EchoVoiceProcessingApi | null>(
   ECHO_VOICE_PROCESSING_KEY,
@@ -223,9 +224,11 @@ const showMicTestManualGainHandle = computed(
 );
 
 const gateModeLabel = computed(() => {
-  if (voiceLevels.outboundGateMode === 'none') return 'None';
-  if (voiceLevels.outboundGateMode === 'hard') return 'Hard';
-  return 'Soft';
+  if (voiceLevels.outboundGateMode === 'none')
+    return echoT('panes.voice.gateNone');
+  if (voiceLevels.outboundGateMode === 'hard')
+    return echoT('panes.voice.gateHard');
+  return echoT('panes.voice.gateSoft');
 });
 
 function toggleGateMode() {
@@ -459,12 +462,12 @@ watch(
       <div class="grid gap-6 md:grid-cols-2">
         <EchoDropdown
           v-model="form.inputDevice"
-          label="Input Device"
+          :label="echoT('settingsUi.inputDevice')"
           :options="inputDevices"
         />
         <EchoDropdown
           v-model="form.outputDevice"
-          label="Output Device"
+          :label="echoT('settingsUi.outputDevice')"
           :options="outputDevices"
           :disabled="!audioOutputSelectionSupported"
         />
@@ -474,25 +477,22 @@ watch(
         class="mt-3 text-[11px] leading-snug text-fg-subtle"
       >
         <template v-if="outputDeviceLimitedHint === 'ios'">
-          On iPhone and iPad Safari, audio playback follows the system speaker.
-          Use Control Center to switch to AirPods or other headphones — Echo
-          cannot pick a separate output device here.
+          {{ echoT('panes.voice.outputIos') }}
         </template>
         <template v-else-if="outputDeviceLimitedHint === 'mac-desktop'">
-          In the Mac app, audio playback follows the system default output —
-          Echo cannot apply a separate output device here (this is not a bug
-          with saving).
+          {{ echoT('panes.voice.outputMac') }}
         </template>
         <template v-else>
-          This browser uses the system default speaker for playback, so Echo
-          keeps Output Device on the system default.
+          {{ echoT('panes.voice.outputBrowser') }}
         </template>
       </p>
       <div class="mt-8 grid gap-8 md:grid-cols-2">
         <div class="flex flex-col gap-4">
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0">
-              <span class="settings-label">Input volume</span>
+              <span class="settings-label">{{
+                echoT('settingsUi.inputVolume')
+              }}</span>
             </div>
             <span class="text-xs font-bold text-indigo-300 shrink-0"
               >{{ voiceLevels.inputEffectivePercent }}%</span
@@ -509,7 +509,7 @@ watch(
                 voiceLevels.inputSensitivityPercent,
               ),
             }"
-            aria-label="Input volume"
+            :aria-label="echoT('settingsUi.inputVolume')"
             @input="
               voiceLevels.setInputSensitivityPercent(
                 Number(($event.target as HTMLInputElement).value),
@@ -530,19 +530,23 @@ watch(
                 )
               "
             />
-            <span class="font-semibold">Max boost</span>
+            <span class="font-semibold">{{
+              echoT('panes.voice.maxBoost')
+            }}</span>
           </label>
         </div>
         <div class="flex flex-col gap-4">
           <div class="flex items-center justify-between">
-            <span class="settings-label">Output volume</span
+            <span class="settings-label">{{
+              echoT('settingsUi.outputVolume')
+            }}</span
             ><span class="text-xs font-bold text-indigo-300"
               >{{ voiceLevels.outputEffectivePercent }}%</span
             >
           </div>
           <input
             class="settings-voice-slider w-full accent-indigo-400"
-            aria-label="Output volume"
+            :aria-label="echoT('settingsUi.outputVolume')"
             type="range"
             min="0"
             :max="voiceLevels.sliderMax"
@@ -561,14 +565,16 @@ watch(
             class="pt-1"
           >
             <div class="flex items-center justify-between">
-              <span class="settings-label">Max boost level</span>
+              <span class="settings-label">{{
+                echoT('settingsUi.maxBoostLevel')
+              }}</span>
               <span class="text-xs font-bold text-amber-300"
                 >{{ voiceLevels.maxBoostLevel }}x</span
               >
             </div>
             <input
               class="settings-voice-slider w-full mt-2"
-              aria-label="Max boost level"
+              :aria-label="echoT('settingsUi.maxBoostLevel')"
               type="range"
               min="2"
               max="6"
@@ -588,7 +594,7 @@ watch(
       </div>
       <div class="mt-8">
         <div class="flex items-center gap-3 mb-2">
-          <span class="settings-label">Mic</span>
+          <span class="settings-label">{{ echoT('panes.voice.mic') }}</span>
           <button
             type="button"
             class="text-xs font-semibold px-3 py-1 rounded-lg transition-colors"
@@ -599,7 +605,11 @@ watch(
             "
             @click="toggleMicTest()"
           >
-            {{ micTestActive ? 'Stop' : 'Listen' }}
+            {{
+              micTestActive
+                ? echoT('panes.voice.stop')
+                : echoT('panes.voice.listen')
+            }}
           </button>
           <button
             type="button"
@@ -614,8 +624,12 @@ watch(
                 !form.voiceSettings.automaticGainControl
             "
           >
-            Gain:
-            {{ form.voiceSettings.automaticGainControl ? 'Auto' : 'Manual' }}
+            {{ echoT('panes.voice.gain') }}
+            {{
+              form.voiceSettings.automaticGainControl
+                ? echoT('panes.voice.auto')
+                : echoT('panes.voice.manual')
+            }}
           </button>
           <button
             v-if="!form.voiceSettings.automaticGainControl"
@@ -630,12 +644,13 @@ watch(
             "
             @click="toggleGateMode()"
           >
-            Gate: {{ gateModeLabel }}
+            {{ echoT('panes.voice.gate') }} {{ gateModeLabel }}
           </button>
           <span
             v-if="showMicTestManualGainHandle"
             class="ml-auto text-xs font-bold text-indigo-300"
-            >Threshold {{ voiceLevels.voiceActivationThresholdPercent }}%</span
+            >{{ echoT('panes.voice.threshold') }}
+            {{ voiceLevels.voiceActivationThresholdPercent }}%</span
           >
         </div>
         <div
@@ -659,7 +674,7 @@ watch(
                 : ''
             "
             :style="{ left: thresholdHandleLeft }"
-            aria-label="Voice activity threshold"
+            :aria-label="echoT('settingsUi.voiceActivityThreshold')"
             @pointerdown.stop.prevent="onThresholdHandlePointerDown"
           />
         </div>
@@ -667,18 +682,19 @@ watch(
           v-if="micTestActive"
           class="mt-2 text-[11px] leading-snug text-fg-subtle"
         >
-          Your voice is played through the selected Output Device (use
-          headphones to avoid feedback).
+          {{ echoT('panes.voice.micPlayback') }}
         </p>
         <p
           v-if="micTestActive && showMicTestManualGainHandle"
           class="mt-1 text-[11px] leading-snug text-indigo-200/70"
         >
-          Manual gain control is active (AGC is off).
+          {{ echoT('panes.voice.manualGainActive') }}
         </p>
         <div v-if="micTestActive && showMicTestManualGainHandle" class="mt-3">
           <div class="flex items-center justify-between gap-2 mb-2">
-            <span class="settings-label">Manual gain</span>
+            <span class="settings-label">{{
+              echoT('settingsUi.manualGain')
+            }}</span>
             <span class="text-xs font-bold text-indigo-300"
               >{{ voiceLevels.inputEffectivePercent }}%</span
             >
@@ -694,7 +710,7 @@ watch(
                 voiceLevels.inputSensitivityPercent,
               ),
             }"
-            aria-label="Manual gain"
+            :aria-label="echoT('settingsUi.manualGain')"
             @input="
               voiceLevels.setInputSensitivityPercent(
                 Number(($event.target as HTMLInputElement).value),
@@ -705,8 +721,9 @@ watch(
       </div>
       <div class="mt-8">
         <div class="mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wide text-muted"
-            >Voice processing controls</span
+          <span
+            class="text-xs font-semibold uppercase tracking-wide text-muted"
+            >{{ echoT('panes.voice.processingControls') }}</span
           >
         </div>
         <div
@@ -738,9 +755,9 @@ watch(
             "
           >
             <span class="text-left"
-              ><span class="block text-sm font-semibold text-foreground"
-                >Echo cancellation</span
-              ></span
+              ><span class="block text-sm font-semibold text-foreground">{{
+                echoT('panes.voice.echoCancellation')
+              }}</span></span
             ><span
               :class="
                 form.voiceSettings.echoCancellation
@@ -759,9 +776,9 @@ watch(
             "
           >
             <span class="text-left"
-              ><span class="block text-sm font-semibold text-foreground"
-                >Noise suppression</span
-              ></span
+              ><span class="block text-sm font-semibold text-foreground">{{
+                echoT('panes.voice.noiseSuppression')
+              }}</span></span
             ><span
               :class="
                 form.voiceSettings.noiseSuppression
@@ -808,9 +825,9 @@ watch(
               "
             >
               <span class="text-left"
-                ><span class="block text-sm font-semibold text-foreground"
-                  >Voice Isolation</span
-                ></span
+                ><span class="block text-sm font-semibold text-foreground">{{
+                  echoT('panes.voice.voiceIsolation')
+                }}</span></span
               ><span
                 :class="
                   form.voiceKrispSettings.useBVC
@@ -837,15 +854,13 @@ watch(
           id="max-boost-warning-title"
           class="text-xl font-bold echo-destructive-text"
         >
-          Warning: Max Boost Can Cause Damage
+          {{ echoT('panes.voice.maxBoostWarningTitle') }}
         </h3>
         <p class="mt-3 text-sm leading-relaxed text-fg-soft">
-          Max Boost can produce dangerously loud audio levels. This may lead to
-          hearing damage and/or speaker damage. It is not recommended.
+          {{ echoT('panes.voice.maxBoostWarning1') }}
         </p>
         <p class="mt-2 text-sm leading-relaxed text-fg-soft">
-          By continuing, you acknowledge the risk and agree that Echo takes no
-          liability for any resulting damage or injury.
+          {{ echoT('panes.voice.maxBoostWarning2') }}
         </p>
         <div class="mt-5 flex items-center justify-end gap-3">
           <button
@@ -853,14 +868,14 @@ watch(
             class="rounded-lg px-4 py-2 text-sm font-semibold bg-glass-2 text-fg-soft hover:bg-glass-3"
             @click="cancelEnableMaxBoost"
           >
-            Cancel
+            {{ echoT('panes.voice.cancel') }}
           </button>
           <button
             type="button"
             class="rounded-lg px-4 py-2 text-sm font-semibold bg-red-500/80 text-white hover:bg-red-500"
             @click="confirmEnableMaxBoost"
           >
-            Enable Max Boost
+            {{ echoT('panes.voice.enableMaxBoost') }}
           </button>
         </div>
       </div>
@@ -868,7 +883,7 @@ watch(
     <div class="grid gap-6">
       <!-- ── Camera ── -->
       <div class="settings-card rounded-2xl p-6">
-        <div class="settings-label mb-4">Camera</div>
+        <div class="settings-label mb-4">{{ echoT('panes.voice.camera') }}</div>
         <div class="camera-settings-layout">
           <div
             class="camera-settings-preview camera-settings-preview-shell"
@@ -876,8 +891,8 @@ watch(
             tabindex="0"
             :aria-label="
               cameraPreviewActive
-                ? 'Stop camera preview'
-                : 'Start camera preview'
+                ? echoT('settingsUi.stopCameraPreview')
+                : echoT('settingsUi.startCameraPreview')
             "
             @click="onCameraPreviewToggle"
             @keydown.enter.prevent="onCameraPreviewToggle"
@@ -893,8 +908,8 @@ watch(
             <div class="camera-settings-preview-status">
               {{
                 cameraPreviewActive
-                  ? 'Click to stop preview'
-                  : 'Click to test camera'
+                  ? echoT('panes.voice.clickStopPreview')
+                  : echoT('panes.voice.clickTestCamera')
               }}
             </div>
             <button
@@ -908,8 +923,8 @@ watch(
             >
               {{
                 cameraPreferences.mirrorLocalVideo
-                  ? 'Unmirror camera'
-                  : 'Mirror camera'
+                  ? echoT('panes.voice.unmirror')
+                  : echoT('panes.voice.mirror')
               }}
             </button>
           </div>
@@ -917,13 +932,13 @@ watch(
             <EchoDropdown
               class="camera-settings-dropdown"
               v-model="form.cameraDevice"
-              label="Camera device"
+              :label="echoT('panes.voice.cameraDevice')"
               :options="cameraDevices"
             />
             <EchoDropdown
               class="camera-settings-dropdown"
               :model-value="form.videoQuality ?? '720p'"
-              label="Video quality"
+              :label="echoT('panes.voice.videoQuality')"
               :options="videoQualityOptions"
               @update:model-value="
                 form.videoQuality = $event as VideoQualityPreset

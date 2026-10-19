@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import { SECTION_GROUPS } from '../types';
 import type { ServerSettingsSection, SectionGroup } from '../types';

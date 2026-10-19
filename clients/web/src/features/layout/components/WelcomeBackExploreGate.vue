@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { icons } from '@/assets/icons';
 import { usePlatform } from '@/platform/usePlatform';
@@ -87,7 +88,11 @@ onBeforeUnmount(() => {
     ref="gateRootRef"
     class="welcome-back-explore-gate custom-scrollbar flex h-full min-h-[100dvh] w-full flex-col overflow-x-hidden overflow-y-auto bg-surface lg:min-h-0 lg:bg-[var(--echo-chat-view-bg)]"
     role="region"
-    :aria-label="memberEmptyDirectory ? 'Create or join a server' : 'Sign in'"
+    :aria-label="
+      memberEmptyDirectory
+        ? echoT('b31.gate.createOrJoin')
+        : echoT('b31.gate.signIn')
+    "
   >
     <!--
       Mobile / narrow path: replace the modal-driven welcome+OAuth stack with
@@ -255,23 +260,22 @@ onBeforeUnmount(() => {
           <h1
             class="welcome-back-hero__title max-w-[18ch] text-balance sm:max-w-[22ch] lg:max-w-[24ch]"
           >
-            Welcome back
+            {{ echoT('b31.gate.welcomeBack') }}
           </h1>
           <p
             v-if="memberEmptyDirectory"
             class="welcome-back-hero__subtitle max-w-lg text-balance ps-0.5 sm:max-w-xl lg:max-w-2xl lg:ps-1"
           >
-            The public directory isn’t listing any servers right now. Create one
-            or join with an invite.
+            {{ echoT('b31.gate.emptyDirCurly') }}
           </p>
           <p
             v-else
             class="welcome-back-hero__subtitle max-w-lg text-balance ps-0.5 sm:max-w-xl lg:max-w-2xl lg:ps-1"
           >
-            Pick up where you left off.
+            {{ echoT('b31.gate.pickUp') }}
           </p>
           <p v-if="!memberEmptyDirectory" class="welcome-back-hero__support">
-            Support, legal, or other concerns:
+            {{ echoT('b31.gate.support') }}
             <a
               class="welcome-back-hero__support-link"
               :href="echoPublicSupportMailtoHref"
@@ -298,24 +302,23 @@ onBeforeUnmount(() => {
         >
           <p class="welcome-back-narrow-header__eyebrow">Echo</p>
           <h1 class="welcome-back-narrow-header__title">
-            <template v-if="memberEmptyDirectory"
-              >Create or join a server</template
-            >
-            <template v-else>Welcome back</template>
+            <template v-if="memberEmptyDirectory">{{
+              echoT('b31.gate.createOrJoin')
+            }}</template>
+            <template v-else>{{ echoT('b31.gate.welcomeBack') }}</template>
           </h1>
           <p class="welcome-back-narrow-header__subtitle">
             <template v-if="memberEmptyDirectory">
-              The public directory isn't listing any servers right now. Create
-              one or join with an invite.
+              {{ echoT('b31.gate.emptyDirStraight') }}
             </template>
-            <template v-else>Pick up where you left off.</template>
+            <template v-else>{{ echoT('b31.gate.pickUp') }}</template>
           </p>
         </div>
         <h2 id="welcome-back-gate-heading" class="sr-only">
-          <template v-if="memberEmptyDirectory"
-            >Create or join a server</template
-          >
-          <template v-else> Sign in or create an account </template>
+          <template v-if="memberEmptyDirectory">{{
+            echoT('b31.gate.createOrJoin')
+          }}</template>
+          <template v-else> {{ echoT('b31.gate.signInOrCreate') }} </template>
         </h2>
         <div
           v-if="memberEmptyDirectory"
@@ -326,14 +329,14 @@ onBeforeUnmount(() => {
             class="welcome-back-gate__primary w-full max-w-full self-center rounded-full px-4 py-3.5 text-base font-semibold leading-snug sm:w-4/5 sm:py-3"
             @click="$emit('create-server')"
           >
-            Create server
+            {{ echoT('b31.gate.createServer') }}
           </button>
           <button
             type="button"
             class="welcome-back-gate__secondary w-full max-w-full self-center rounded-full border border-border bg-surface px-4 py-3.5 text-base font-semibold leading-snug text-foreground sm:w-4/5 sm:py-3"
             @click="$emit('join-server')"
           >
-            Join with invite
+            {{ echoT('b31.gate.joinInvite') }}
           </button>
         </div>
         <div
@@ -348,7 +351,7 @@ onBeforeUnmount(() => {
             v-if="isMockDataMode"
             class="w-full max-w-full self-center rounded-xl border border-border bg-elevated px-3 py-2.5 text-center text-sm leading-snug text-muted sm:w-4/5"
           >
-            Preview mode: connect the full app to sign in.
+            {{ echoT('b31.gate.preview') }}
           </p>
         </div>
       </aside>

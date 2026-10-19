@@ -1,0 +1,71 @@
+{
+  "speakerPill": {
+    "someone": "Someone",
+    "voice": "Voice",
+    "closeControls": "Close voice controls",
+    "sessionIndicator": "Voice session indicator",
+    "speaking": "Speaking",
+    "inVoice": "In voice",
+    "controls": "Voice controls",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "undeafen": "Undeafen",
+    "deafen": "Deafen",
+    "openChannel": "Open voice channel",
+    "open": "Open",
+    "leaveVoice": "Leave voice",
+    "leave": "Leave"
+  },
+  "createChannel": {
+    "type": {
+      "text": "Text",
+      "forum": "Forum",
+      "paper": "Paper",
+      "voice": "Voice",
+      "stage": "Stage",
+      "textSub": "Send messages",
+      "forumSub": "Organized threads",
+      "paperSub": "Collaborative document",
+      "voiceSub": "Voice, video, screen share",
+      "stageSub": "Events and panels",
+      "categorySub": "Group channels",
+      "label": "Type"
+    },
+    "name": "Name",
+    "channelName": "Channel name",
+    "newCategory": "new-category",
+    "newChannel": "new-channel",
+    "creationType": "Creation type",
+    "channelType": "Channel type",
+    "in": "in",
+    "close": "Close",
+    "duplicate": "A category with this name already exists.",
+    "cancel": "Cancel"
+  },
+  "inlineAuth": {
+    "and": "and",
+    "verifyLocked": "Your account is locked until you verify {target}. Open the link we sent, then sign in again.",
+    "codeSent": "Enter the code we sent to {target} to confirm this new sign-in.",
+    "yourEmail": "your email",
+    "signingIn": "Signing in…",
+    "logIn": "Log in",
+    "mfaFactor": "MFA factor",
+    "back": "Back",
+    "or": "or",
+    "yourHandle": "your_handle",
+    "forgotBlurb": "Enter the email on your account. We will send a reset link if we find a match."
+  },
+  "vcPresence": {
+    "youtube": "In YouTube activity",
+    "watchTogether": "In Watch Together activity",
+    "openguessr": "In OpenGuessr activity",
+    "garticPhone": "In Gartic Phone activity",
+    "krunker": "In Krunker activity",
+    "richup": "In Richup.io activity",
+    "gooberDash": "In Goober Dash activity",
+    "smashKarts": "In Smash Karts activity",
+    "clusterRush": "In Cluster Rush activity",
+    "browsing": "Browsing activities",
+    "voiceActivity": "Voice activity"
+  }
+}

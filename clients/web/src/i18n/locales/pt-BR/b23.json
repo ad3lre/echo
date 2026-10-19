@@ -1,0 +1,87 @@
+{
+  "ctxMenu": {
+    "edit": "Editar",
+    "copyMessage": "Copiar mensagem",
+    "copyImage": "Copiar imagem",
+    "copyAsWritten": "Copiar como escrito",
+    "copyLink": "Copiar link da mensagem",
+    "user": "Usuário",
+    "report": "Denunciar mensagem",
+    "viewProfile": "Ver perfil",
+    "copyUsername": "Copiar nome de usuário",
+    "viewReactions": "Ver reações",
+    "directMention": "Menção direta",
+    "developer": "Desenvolvedor",
+    "copyAuthorId": "Copiar ID do autor",
+    "copyMessageId": "Copiar ID da mensagem",
+    "copyQuotedId": "Copiar ID da mensagem citada",
+    "copyChannelId": "Copiar ID do canal",
+    "pin": "Fixar mensagem",
+    "unpin": "Desafixar mensagem",
+    "moderation": "Moderação",
+    "deleteMessage": "Excluir mensagem",
+    "removeTimeout": "Remover castigo",
+    "timeout1h": "Castigo (1 hora)",
+    "kick": "Expulsar do servidor",
+    "ban": "Banir do servidor"
+  },
+  "gif": {
+    "starGifs": "Favorite GIFs enquanto navega para salvá-los aqui.",
+    "starImages": "Favorite imagens enquanto navega para salvá-las aqui.",
+    "favGifs": "GIFs favoritos",
+    "favImages": "Imagens favoritas",
+    "mediaType": "Tipo de mídia",
+    "images": "Imagens",
+    "noFavorites": "Nenhum favorito ainda",
+    "searchGifs": "Pesquisar GIFs...",
+    "searchImages": "Pesquisar imagens...",
+    "loadingGifs": "Carregando GIFs",
+    "loadingImages": "Carregando imagens",
+    "viewPlans": "Ver planos do Echo+",
+    "imageResultsVia": "Resultados de imagens via",
+    "quota": "{remaining} de {cap} pesquisas restantes hoje"
+  },
+  "cat": {
+    "category": "Categoria",
+    "sidebarDesc": "Padrões para canais que sincronizam com esta categoria.",
+    "settings": "Configurações",
+    "close": "Fechar",
+    "basics": "Básico",
+    "name": "Nome da categoria",
+    "sensitive": "Estas ações são sensíveis e podem ser irreversíveis. Prossiga com cuidado.",
+    "autoDelete": "Excluir mensagens automaticamente",
+    "autoDeleteHint": "As mensagens em canais que sincronizam com esta categoria são removidas após este período. O conteúdo excluído permanece no banco de dados por 14 dias por conformidade e depois é apagado.",
+    "retention": "Retenção",
+    "deleteCategory": "Excluir categoria",
+    "deleteDesc": "Exclui permanentemente esta categoria e todos os canais dentro dela. O histórico de mensagens desses canais no mock será removido.",
+    "chatSyncUnavail": "A sincronização de chat do Discord está disponível quando esta categoria pertence a um servidor.",
+    "voiceMirrorUnavail": "O espelho de voz está disponível quando esta categoria pertence a um servidor.",
+    "changesApply": "As alterações são aplicadas quando você salvar.",
+    "cancel": "Cancelar",
+    "confirmTitle": "Excluir categoria “{label}”?",
+    "confirmOne": "Excluir esta categoria e o {n} canal dentro dela? Isso não pode ser desfeito.",
+    "confirmMany": "Excluir esta categoria e todos os {n} canais dentro dela? Isso não pode ser desfeito."
+  },
+  "tab": {
+    "overview": {
+      "title": "Visão geral",
+      "desc": "Renomeie esta categoria. Canais que seguem as permissões da categoria usam a aba Permissões."
+    },
+    "permissions": {
+      "title": "Permissões",
+      "desc": "Defina as permissões padrão desta categoria. Canais que seguem a categoria usam estas regras."
+    },
+    "discord_chat_sync": {
+      "title": "Mensagens do Discord (categoria)",
+      "desc": "Ative a mesma vinculação de mensagens do Discord para todos os canais de texto e fórum desta categoria."
+    },
+    "discord_voice_mirror": {
+      "title": "Atividade de voz do Discord",
+      "desc": "Mostre quem está em voz no Discord nos canais desta categoria. Entre na voz pelo Discord para participar."
+    },
+    "danger_zone": {
+      "title": "Zona de perigo",
+      "desc": "Ações sensíveis que removem permanentemente esta categoria e seus canais. Prossiga com cuidado."
+    }
+  }
+}

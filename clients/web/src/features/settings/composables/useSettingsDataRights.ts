@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { ref } from 'vue';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import {
@@ -80,12 +81,10 @@ export function useSettingsDataRights() {
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
-      dispatchAppToast('Data export downloaded.', 'info');
+      dispatchAppToast(echoT('panes.dataRights.exported'), 'info');
     } catch (e) {
       dispatchAppToast(
-        e instanceof Error
-          ? e.message
-          : 'Could not export your data right now.',
+        e instanceof Error ? e.message : echoT('panes.dataRights.exportFailed'),
         'warning',
       );
     } finally {
@@ -112,7 +111,7 @@ export function useSettingsDataRights() {
   async function confirmAccountRemoval() {
     if (removalInFlight.value) return;
     if (removalConfirmText.value.trim().toUpperCase() !== 'DELETE') {
-      removalModalError.value = 'Type DELETE to confirm permanent removal.';
+      removalModalError.value = echoT('panes.dataRights.typeDelete');
       return;
     }
     removalInFlight.value = true;
@@ -121,11 +120,11 @@ export function useSettingsDataRights() {
       // Password optional: guest / OAuth-only accounts delete via session.
       await authDeleteAccount(removalPassword.value.trim() || undefined);
       authSession.clearLocalTokens();
-      dispatchAppToast('Account removal completed.', 'info');
+      dispatchAppToast(echoT('panes.dataRights.removed'), 'info');
       showRemovalModal.value = false;
     } catch (e) {
       removalModalError.value =
-        e instanceof Error ? e.message : 'Could not complete account removal.';
+        e instanceof Error ? e.message : echoT('panes.dataRights.removeFailed');
     } finally {
       removalInFlight.value = false;
     }

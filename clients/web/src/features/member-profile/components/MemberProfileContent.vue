@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, nextTick } from 'vue';
 import { useEchoWorkspace } from '@/features/layout/echoWorkspace/useEchoWorkspace';
 import { useServerStore } from '@/features/layout/server';
@@ -178,10 +179,13 @@ const communicationTimeoutLabel = computed(() => {
   const epochMs = communicationTimeoutUntilEpochMs.value;
   if (!epochMs) return '';
   const seconds = Math.max(0, Math.ceil((epochMs - Date.now()) / 1000));
-  if (seconds >= 86_400) return `Timed out for ${Math.ceil(seconds / 86_400)}d`;
-  if (seconds >= 3_600) return `Timed out for ${Math.ceil(seconds / 3_600)}h`;
-  if (seconds >= 60) return `Timed out for ${Math.ceil(seconds / 60)}m`;
-  return `Timed out for ${seconds}s`;
+  if (seconds >= 86_400)
+    return echoT('b33.mp.timedOutD', { n: Math.ceil(seconds / 86_400) });
+  if (seconds >= 3_600)
+    return echoT('b33.mp.timedOutH', { n: Math.ceil(seconds / 3_600) });
+  if (seconds >= 60)
+    return echoT('b33.mp.timedOutM', { n: Math.ceil(seconds / 60) });
+  return echoT('b33.mp.timedOutS', { n: seconds });
 });
 
 const voiceActivities = useUserVoiceChannelPresenceForProfile(
@@ -268,7 +272,7 @@ defineExpose({
             </h3>
             <DiscordOriginMark
               v-if="profile.isDiscordShadow"
-              label="Discord profile (not on Echo)"
+              :label="echoT('b33.mp.discordProfile')"
             />
             <div
               v-if="badgesForNameRow.length || showFriendsBadge"
@@ -327,7 +331,7 @@ defineExpose({
           <div
             class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle mb-1.5"
           >
-            Note
+            {{ echoT('memberProfile.note') }}
           </div>
           <textarea
             ref="noteInputRef"
@@ -348,7 +352,7 @@ defineExpose({
         >
           <span
             class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle shrink-0"
-            >Note</span
+            >{{ echoT('memberProfile.note') }}</span
           >
           <span class="member-popout__note-compact__hint truncate text-left"
             >+</span
@@ -366,7 +370,7 @@ defineExpose({
         <div
           class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
         >
-          Roles
+          {{ echoT('memberProfile.roles') }}
         </div>
         <div class="mt-2.5 flex flex-wrap gap-1.5 pb-1">
           <span
@@ -388,8 +392,8 @@ defineExpose({
                 "
                 type="button"
                 class="member-role__remove-circle"
-                title="Remove role"
-                aria-label="Remove role"
+                :title="echoT('b33.mp.removeRole')"
+                :aria-label="echoT('b33.mp.removeRole')"
                 @click.stop="$emit('remove-role', role, $event)"
               >
                 <svg
@@ -439,7 +443,9 @@ defineExpose({
             v-if="hasRoleOverflow && !rolesExpanded"
             type="button"
             class="member-role member-role--overflow inline-flex items-center justify-center rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums"
-            :aria-label="`Show ${roleOverflowCount} more roles`"
+            :aria-label="
+              echoT('b33.mp.showMoreRoles', { n: roleOverflowCount })
+            "
             @click="rolesExpanded = true"
           >
             +{{ roleOverflowCount }}
@@ -448,10 +454,10 @@ defineExpose({
             v-if="hasRoleOverflow && rolesExpanded"
             type="button"
             class="member-role member-role--overflow member-role--overflow-collapse inline-flex items-center justify-center rounded-full px-2.5 py-1 text-[11px] font-semibold"
-            aria-label="Show fewer roles"
+            :aria-label="echoT('b33.mp.showFewerRoles')"
             @click="rolesExpanded = false"
           >
-            Show less
+            {{ echoT('b33.mp.showLess') }}
           </button>
           <button
             v-if="roleManagementEnabled"
@@ -459,7 +465,7 @@ defineExpose({
             class="member-role member-role--action inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
             @click.stop="$emit('toggle-role-panel', $event)"
           >
-            Add role
+            {{ echoT('b33.mp.addRole') }}
           </button>
         </div>
       </section>
@@ -487,7 +493,7 @@ defineExpose({
               d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
             />
           </svg>
-          Message
+          {{ echoT('memberProfile.message') }}
         </button>
       </section>
 
@@ -504,17 +510,19 @@ defineExpose({
             v-model="quickDmDraft"
             type="text"
             class="member-popout__quick-dm-input min-w-0 flex-1 rounded-[10px] px-2.5 py-2 text-[13px] text-fg placeholder:text-fg-subtle outline-none"
-            :placeholder="`Message @${profile.username}`"
+            :placeholder="
+              echoT('b33.mp.messagePlaceholder', { username: profile.username })
+            "
             maxlength="2000"
             enterkeyhint="send"
-            aria-label="Message user"
+            :aria-label="echoT('b33.mp.messageUser')"
             @keydown.enter.exact.prevent="submitQuickDm"
           />
           <button
             type="submit"
             class="member-popout__quick-dm-send inline-flex shrink-0 items-center justify-center rounded-[10px] px-2.5 transition disabled:pointer-events-none disabled:opacity-35"
             :disabled="!quickDmDraft.trim()"
-            aria-label="Send direct message"
+            :aria-label="echoT('b33.mp.sendDm')"
           >
             <svg
               class="h-[18px] w-[18px] shrink-0 opacity-90"

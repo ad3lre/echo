@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, unref } from 'vue';
 import { useCompactShell } from '@/features/layout/useCompactShell';
 import { LAYOUT_CHAT_SURFACE_KEY } from '@/features/layout/layoutInjectionKeys';
@@ -118,7 +119,7 @@ const displayTitle = computed(() => {
 
 const subtitle = computed(() => {
   if (props.viewOnlyHint) return props.viewOnlyHint;
-  if (props.conflict) return 'Updated elsewhere — showing latest version';
+  if (props.conflict) return echoT('b06.docChrome.updatedElsewhere');
   return null;
 });
 
@@ -140,8 +141,8 @@ const sourceViewMode = computed(() => props.sourceViewMode ?? 'inline');
 
 const sourceViewToggleTitle = computed(() =>
   sourceViewMode.value === 'inline'
-    ? 'Rendered preview — click for markdown source'
-    : 'Markdown source — click for rendered preview',
+    ? echoT('b06.docChrome.renderedPreviewTitle')
+    : echoT('b06.docChrome.markdownSourceTitle'),
 );
 
 function modeIcon(id: PaperUiMode): string {
@@ -178,20 +179,21 @@ const statusDotClass = computed(() => {
   }
 });
 
-const shareVisibilityOptions: {
-  id: PaperShareVisibility;
-  label: string;
-}[] = [
-  { id: 'server', label: 'Server members (RBAC)' },
-  { id: 'private', label: 'Authors only' },
-  { id: 'global', label: 'Anyone with link' },
-];
+const shareVisibilityOptions = computed<
+  { id: PaperShareVisibility; label: string }[]
+>(() => [
+  { id: 'server', label: echoT('b06.docChrome.visServer') },
+  { id: 'private', label: echoT('b06.docChrome.visPrivate') },
+  { id: 'global', label: echoT('b06.docChrome.visGlobal') },
+]);
 
 async function copyShareLink(link: string) {
   if (!link) return;
   const ok = await copyToClipboard(link);
   dispatchAppToast(
-    ok ? 'Link copied to clipboard' : 'Could not copy link',
+    ok
+      ? echoT('b06.docChrome.linkCopied')
+      : echoT('b06.docChrome.linkCopyFailed'),
     ok ? 'success' : 'warning',
   );
 }
@@ -215,8 +217,8 @@ function onRedo() {
         v-if="showMobileBackToChannels"
         type="button"
         class="paper-chrome-btn shrink-0"
-        title="Back to channel list"
-        aria-label="Back to channel list"
+        :title="echoT('b06.docChrome.backToChannelList')"
+        :aria-label="echoT('b06.docChrome.backToChannelList')"
         @click="revealChannelList"
       >
         <img
@@ -229,8 +231,8 @@ function onRedo() {
         v-else-if="showRevealChannelList"
         type="button"
         class="paper-chrome-btn shrink-0"
-        title="Show channels"
-        aria-label="Show channels"
+        :title="echoT('b06.docChrome.showChannels')"
+        :aria-label="echoT('b06.docChrome.showChannels')"
         @click="revealChannelList"
       >
         <img
@@ -241,7 +243,11 @@ function onRedo() {
       </button>
 
       <!-- File -->
-      <PaperChromeDropdown label="File" title="File actions" align="left">
+      <PaperChromeDropdown
+        :label="echoT('b06.docChrome.file')"
+        :title="echoT('b06.docChrome.fileActions')"
+        align="left"
+      >
         <template #icon>
           <img
             :src="icons.file"
@@ -273,10 +279,12 @@ function onRedo() {
               <path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3" />
             </svg>
             <span>
-              <span class="font-medium">Download as PDF</span>
-              <span class="block text-[11px] paper-chrome-subtext"
-                >Print or save as PDF</span
-              >
+              <span class="font-medium">{{
+                echoT('b06.docChrome.downloadPdf')
+              }}</span>
+              <span class="block text-[11px] paper-chrome-subtext">{{
+                echoT('b06.docChrome.downloadPdfHint')
+              }}</span>
             </span>
           </button>
           <button
@@ -302,10 +310,12 @@ function onRedo() {
               <path d="M14 2v6h6M8 13h2M8 17h8M8 9h1" />
             </svg>
             <span>
-              <span class="font-medium">Download JSON</span>
-              <span class="block text-[11px] paper-chrome-subtext"
-                >Full document data</span
-              >
+              <span class="font-medium">{{
+                echoT('b06.docChrome.downloadJson')
+              }}</span>
+              <span class="block text-[11px] paper-chrome-subtext">{{
+                echoT('b06.docChrome.downloadJsonHint')
+              }}</span>
             </span>
           </button>
           <button
@@ -331,21 +341,27 @@ function onRedo() {
               />
             </svg>
             <span>
-              <span class="font-medium">Copy plain text</span>
-              <span class="block text-[11px] paper-chrome-subtext"
-                >Text only, no formatting</span
-              >
+              <span class="font-medium">{{
+                echoT('b06.docChrome.copyPlainText')
+              }}</span>
+              <span class="block text-[11px] paper-chrome-subtext">{{
+                echoT('b06.docChrome.copyPlainTextHint')
+              }}</span>
             </span>
           </button>
         </template>
       </PaperChromeDropdown>
 
-      <div class="paper-chrome-history" role="group" aria-label="Undo and redo">
+      <div
+        class="paper-chrome-history"
+        role="group"
+        :aria-label="echoT('b06.docChrome.undoRedo')"
+      >
         <button
           type="button"
           class="paper-chrome-btn"
-          title="Undo"
-          aria-label="Undo"
+          :title="echoT('b06.docChrome.undo')"
+          :aria-label="echoT('b06.docChrome.undo')"
           :disabled="!canUndo"
           @click="onUndo"
         >
@@ -363,8 +379,8 @@ function onRedo() {
         <button
           type="button"
           class="paper-chrome-btn"
-          title="Redo"
-          aria-label="Redo"
+          :title="echoT('b06.docChrome.redo')"
+          :aria-label="echoT('b06.docChrome.redo')"
           :disabled="!canRedo"
           @click="onRedo"
         >
@@ -381,7 +397,10 @@ function onRedo() {
         </button>
       </div>
 
-      <div class="paper-chrome-toolbar hidden md:flex" aria-label="Canvas view">
+      <div
+        class="paper-chrome-toolbar hidden md:flex"
+        :aria-label="echoT('b06.docChrome.canvasView')"
+      >
         <button
           type="button"
           class="paper-chrome-pill"
@@ -474,7 +493,9 @@ function onRedo() {
             <polyline points="8 6 2 12 8 18" />
           </svg>
           <span class="paper-chrome-pill__label">{{
-            sourceViewMode === 'inline' ? 'Rendered' : 'Raw'
+            sourceViewMode === 'inline'
+              ? echoT('b06.docChrome.rendered')
+              : echoT('b06.docChrome.raw')
           }}</span>
         </button>
       </div>
@@ -493,7 +514,11 @@ function onRedo() {
         type="button"
         class="paper-chrome-btn paper-chrome-btn--comments"
         :class="{ 'paper-chrome-btn--active': commentsVisible }"
-        :title="commentsVisible ? 'Hide comments' : 'Show comments'"
+        :title="
+          commentsVisible
+            ? echoT('b06.docChrome.hideComments')
+            : echoT('b06.docChrome.showComments')
+        "
         :aria-pressed="commentsVisible"
         @click="emit('toggleComments')"
       >
@@ -523,8 +548,8 @@ function onRedo() {
         class="paper-doc-chrome__presence"
         :title="
           totalWatching > watchingPeers.length
-            ? `${totalWatching} people viewing`
-            : `${totalWatching} viewing`
+            ? echoT('b06.docChrome.peopleViewing', { count: totalWatching })
+            : echoT('b06.docChrome.viewing', { count: totalWatching })
         "
       >
         <div class="paper-doc-chrome__presence-stack">
@@ -569,7 +594,7 @@ function onRedo() {
         v-if="modeOptions.length > 1"
         class="hidden md:block"
         :label="modeLabel"
-        title="Document mode"
+        :title="echoT('b06.docChrome.documentMode')"
         align="right"
       >
         <template #icon>
@@ -608,8 +633,8 @@ function onRedo() {
 
       <PaperChromeDropdown
         class="hidden md:block"
-        label="Share"
-        title="Share document"
+        :label="echoT('paperUi.share')"
+        :title="echoT('b06.docChrome.shareDocument')"
         align="right"
       >
         <template #icon>
@@ -624,7 +649,7 @@ function onRedo() {
             <p
               class="text-[11px] font-medium uppercase tracking-wide paper-chrome-subtext"
             >
-              Who can open this link
+              {{ echoT('b06.docChrome.whoCanOpen') }}
             </p>
             <p
               v-if="share.loading"
@@ -634,7 +659,7 @@ function onRedo() {
                 class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-[color:var(--paper-surface-muted)] border-t-transparent"
                 aria-hidden="true"
               />
-              Loading share settings…
+              {{ echoT('b06.docChrome.loadingShare') }}
             </p>
             <p v-else-if="share.error" class="mt-2 text-xs text-red-400">
               {{ share.error }}
@@ -643,7 +668,7 @@ function onRedo() {
                 class="ml-1 underline"
                 @click.stop="share.load()"
               >
-                Retry
+                {{ echoT('b06.docChrome.retry') }}
               </button>
             </p>
             <template v-else-if="share.settings?.canManageShare">
@@ -701,7 +726,7 @@ function onRedo() {
                     d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
                   />
                 </svg>
-                Copy link
+                {{ echoT('b06.docChrome.copyLink') }}
               </button>
             </div>
           </div>
@@ -710,8 +735,8 @@ function onRedo() {
 
       <PaperChromeDropdown
         class="md:hidden"
-        label="More"
-        title="More actions"
+        :label="echoT('b06.docChrome.more')"
+        :title="echoT('b06.docChrome.moreActions')"
         align="right"
       >
         <template #default="{ close }">
@@ -723,7 +748,7 @@ function onRedo() {
             <p
               class="text-[11px] font-medium uppercase tracking-wide paper-chrome-subtext"
             >
-              Document mode
+              {{ echoT('b06.docChrome.documentMode') }}
             </p>
             <button
               v-for="opt in modeOptions"
@@ -786,12 +811,14 @@ function onRedo() {
             </svg>
             <span>
               <span class="font-medium">{{
-                sourceViewMode === 'inline' ? 'Rendered' : 'Raw'
+                sourceViewMode === 'inline'
+                  ? echoT('b06.docChrome.rendered')
+                  : echoT('b06.docChrome.raw')
               }}</span>
               <span class="block text-[11px] paper-chrome-subtext">{{
                 sourceViewMode === 'inline'
-                  ? 'Tap for markdown source'
-                  : 'Tap for rendered preview'
+                  ? echoT('b06.docChrome.tapMarkdown')
+                  : echoT('b06.docChrome.tapRendered')
               }}</span>
             </span>
           </button>
@@ -799,10 +826,10 @@ function onRedo() {
             <p
               class="text-[11px] font-medium uppercase tracking-wide paper-chrome-subtext"
             >
-              Share
+              {{ echoT('paperUi.share') }}
             </p>
             <p v-if="share.loading" class="mt-1 text-xs paper-chrome-subtext">
-              Loading…
+              {{ echoT('b06.docChrome.loading') }}
             </p>
             <p v-else-if="share.error" class="mt-1 text-xs text-red-400">
               {{ share.error }}
@@ -837,7 +864,7 @@ function onRedo() {
               :disabled="!share.shareLink"
               @click.stop="copyShareLink(share.shareLink)"
             >
-              Copy link
+              {{ echoT('b06.docChrome.copyLink') }}
             </button>
           </div>
           <template v-if="canDownload !== false">
@@ -849,7 +876,7 @@ function onRedo() {
                 close();
               "
             >
-              Download as PDF…
+              {{ echoT('b06.docChrome.downloadPdfEllipsis') }}
             </button>
             <button
               type="button"
@@ -859,7 +886,7 @@ function onRedo() {
                 close();
               "
             >
-              Download JSON
+              {{ echoT('b06.docChrome.downloadJson') }}
             </button>
             <button
               type="button"
@@ -869,7 +896,7 @@ function onRedo() {
                 close();
               "
             >
-              Copy plain text
+              {{ echoT('b06.docChrome.copyPlainText') }}
             </button>
           </template>
         </template>
@@ -883,8 +910,8 @@ function onRedo() {
           v-if="canReconnect"
           type="button"
           class="paper-chrome-btn"
-          title="Retry connection"
-          aria-label="Retry connection"
+          :title="echoT('b06.docChrome.retryConnection')"
+          :aria-label="echoT('b06.docChrome.retryConnection')"
           @click="emit('reconnect')"
         >
           <svg
@@ -911,8 +938,8 @@ function onRedo() {
         v-if="canOpenSettings"
         type="button"
         class="paper-chrome-btn"
-        title="Channel settings"
-        aria-label="Channel settings"
+        :title="echoT('b06.docChrome.channelSettings')"
+        :aria-label="echoT('b06.docChrome.channelSettings')"
         @click="emit('openSettings')"
       >
         <img

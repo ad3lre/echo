@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useAutofocusOnOpen } from '@/features/layout/useAutofocusOnOpen';
@@ -32,7 +33,7 @@ watch(
 async function submit() {
   const t = name.value.trim();
   if (!t) {
-    err.value = 'Enter a name to show in chat.';
+    err.value = echoT('auth.guestDisplayName.enterName');
     return;
   }
   if (!auth.isAuthenticated) return;
@@ -45,7 +46,10 @@ async function submit() {
     emit('saved');
     emit('update:modelValue', false);
   } catch (e) {
-    err.value = e instanceof Error ? e.message : 'Could not save';
+    err.value =
+      e instanceof Error
+        ? e.message
+        : echoT('auth.guestDisplayName.saveFailed');
   } finally {
     busy.value = false;
   }
@@ -64,9 +68,11 @@ async function submit() {
       aria-modal="true"
       class="w-full max-w-md rounded-2xl border border-border bg-[var(--echo-modal-bg)] p-6 text-foreground shadow-xl"
     >
-      <h2 class="text-lg font-semibold">Choose your display name</h2>
+      <h2 class="text-lg font-semibold">
+        {{ echoT('auth.guestDisplayName.title') }}
+      </h2>
       <p class="mt-1 text-sm text-fg-soft">
-        This is how others see you in chat. You can change it later.
+        {{ echoT('auth.guestDisplayName.blurb') }}
       </p>
       <input
         ref="displayNameInputRef"
@@ -74,7 +80,7 @@ async function submit() {
         type="text"
         maxlength="80"
         class="mt-4 w-full rounded-lg border border-border bg-scrim-2 px-3 py-2 text-sm outline-none focus:border-indigo-400"
-        placeholder="Display name"
+        :placeholder="echoT('auth.displayName')"
         @keydown.enter.prevent="submit"
       />
       <p v-if="err" class="mt-2 text-sm text-red-400">{{ err }}</p>

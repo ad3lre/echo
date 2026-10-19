@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { icons } from '@/assets/icons';
+import { echoT } from '@/i18n';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import { resolveCallTileAvatarUrl } from '@/features/layout/display/avatarDisplay';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import ServerOwnerCrownIcon from '@/features/layout/ServerOwnerCrownIcon.vue';
 import VcActivityKingCrown from '@/features/voice/VcActivityKingCrown.vue';
 import VcActivityPresenceBadges from '@/features/voice/VcActivityPresenceBadges.vue';
-import {
-  VOICE_CAMERA_ON_HOVER_TITLE,
-  VOICE_STREAMING_HOVER_TITLE,
-  voiceMuteDeafenHoverTitle,
-} from '@/features/voice/voiceIndicatorHints';
+import { voiceMuteDeafenHoverTitle } from '@/features/voice/voiceIndicatorHints';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
 import type { ChannelVoiceParticipantUi } from '@/features/channel-panel/channelVoiceParticipantUi';
 
@@ -51,7 +48,7 @@ const emit = defineEmits<{
       },
     ]"
     :draggable="draggable"
-    :title="draggable ? 'Drag to move to another voice channel' : undefined"
+    :title="draggable ? echoT('b38.vcp.drag') : undefined"
     @click.stop="emit('click', $event)"
     @contextmenu.stop.prevent="emit('contextmenu', $event)"
     @dragstart.stop="emit('dragstart', $event)"
@@ -88,7 +85,11 @@ const emit = defineEmits<{
         <div class="vc-avatar-badge-bg" />
         <img
           :src="icons.headphones"
-          :alt="vc.serverDeafened ? 'Server deafened' : 'Deafened'"
+          :alt="
+            vc.serverDeafened
+              ? echoT('b38.vcp.serverDeafened')
+              : echoT('b38.vcp.deafened')
+          "
           class="vc-avatar-badge-icon"
         />
       </div>
@@ -97,7 +98,9 @@ const emit = defineEmits<{
       class="vc-participant-name text-[11px] truncate flex-1 min-w-0 inline-flex items-center gap-0.5"
       :class="vc.deafened || vc.muted ? 'vc-participant-name--dim' : ''"
     >
-      <span class="min-w-0 truncate">{{ name ?? 'Unknown' }}</span>
+      <span class="min-w-0 truncate">{{
+        name ?? echoT('b38.vcp.unknown')
+      }}</span>
       <VcActivityKingCrown v-if="isVcActivityKing" icon-class="h-3 w-3" />
       <ServerOwnerCrownIcon v-if="isServerOwner" icon-class="h-3 w-3" />
     </span>
@@ -107,14 +110,14 @@ const emit = defineEmits<{
       <span
         v-if="vc.streaming"
         class="vc-indicator-badge vc-indicator-badge--stream"
-        :title="VOICE_STREAMING_HOVER_TITLE"
+        :title="echoT('b38.vcp.sharingScreen')"
       >
         <img :src="icons.stream" alt="" class="vc-indicator-icon" />
       </span>
       <span
         v-if="vc.video"
         class="vc-indicator-pill"
-        :title="VOICE_CAMERA_ON_HOVER_TITLE"
+        :title="echoT('b38.vcp.cameraOn')"
       >
         <img :src="icons.cameraOn" alt="" class="vc-indicator-icon" />
       </span>
@@ -127,14 +130,14 @@ const emit = defineEmits<{
       <template v-if="vc.serverDeafened">
         <span
           class="vc-indicator-icon-wrap vc-indicator-icon-wrap--server"
-          title="Server deafened"
+          :title="echoT('b38.vcp.serverDeafened')"
         >
           <img :src="icons.mic" alt="" class="vc-indicator-icon" />
           <span class="vc-indicator-strike" aria-hidden="true" />
         </span>
         <span
           class="vc-indicator-icon-wrap vc-indicator-icon-wrap--server"
-          title="Server deafened"
+          :title="echoT('b38.vcp.serverDeafened')"
         >
           <img :src="icons.headphones" alt="" class="vc-indicator-icon" />
           <span class="vc-indicator-strike" aria-hidden="true" />
@@ -144,12 +147,16 @@ const emit = defineEmits<{
         <span
           class="vc-indicator-icon-wrap"
           :class="{ 'vc-indicator-icon-wrap--server': vc.serverMuted }"
-          :title="vc.serverMuted ? 'Server muted' : 'Muted'"
+          :title="
+            vc.serverMuted
+              ? echoT('b38.vcp.serverMuted')
+              : echoT('b38.vcp.muted')
+          "
         >
           <img :src="icons.mic" alt="" class="vc-indicator-icon" />
           <span class="vc-indicator-strike" aria-hidden="true" />
         </span>
-        <span class="vc-indicator-icon-wrap" title="Deafened">
+        <span class="vc-indicator-icon-wrap" :title="echoT('b38.vcp.deafened')">
           <img :src="icons.headphones" alt="" class="vc-indicator-icon" />
           <span class="vc-indicator-strike" aria-hidden="true" />
         </span>
@@ -157,7 +164,7 @@ const emit = defineEmits<{
       <span
         v-else-if="vc.serverMuted"
         class="vc-indicator-icon-wrap vc-indicator-icon-wrap--server"
-        title="Server muted"
+        :title="echoT('b38.vcp.serverMuted')"
       >
         <img :src="icons.mic" alt="" class="vc-indicator-icon" />
         <span class="vc-indicator-strike" aria-hidden="true" />

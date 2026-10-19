@@ -1,0 +1,93 @@
+{
+  "settings": {
+    "sections": {
+      "Profile": "Profil",
+      "Account": "Konto",
+      "Friends": "Freunde",
+      "Terms & policies": "Bedingungen & Richtlinien",
+      "Report abuse": "Missbrauch melden",
+      "Formatting guide": "Formatierungsleitfaden",
+      "Discord": "Discord",
+      "Google": "Google",
+      "YouTube": "YouTube",
+      "Log out": "Abmelden",
+      "Data & Privacy": "Daten & Datenschutz",
+      "Style": "Stil",
+      "Accessibility": "Barrierefreiheit",
+      "Voice & Video": "Sprache & Video",
+      "Notifications": "Benachrichtigungen",
+      "Sounds": "Sounds",
+      "Keybinds": "Tastenkürzel",
+      "Time & Language": "Zeit & Sprache",
+      "Echo+": "Echo+",
+      "Subscriptions": "Abos",
+      "Advanced": "Erweitert"
+    },
+    "groups": {
+      "User": "Benutzer",
+      "Legal": "Rechtliches",
+      "External apps": "Externe Apps",
+      "App": "App",
+      "Payment": "Zahlung",
+      "Session": "Sitzung"
+    }
+  },
+  "server": {
+    "sections": {
+      "Overview": "Übersicht",
+      "Events": "Events",
+      "Structure": "Struktur",
+      "Members": "Mitglieder",
+      "Roles": "Rollen",
+      "Emoji": "Emoji",
+      "Discord": "Discord",
+      "Security": "Sicherheit",
+      "Access": "Zugang",
+      "Tickets": "Tickets",
+      "Self-assignable Roles": "Selbst zuweisbare Rollen",
+      "Banned Words": "Gesperrte Wörter",
+      "Moderation": "Moderation",
+      "Audit Log": "Audit-Log",
+      "Bans": "Sperren",
+      "Danger Zone": "Gefahrenzone"
+    },
+    "groups": {
+      "General": "Allgemein",
+      "Community": "Community",
+      "Integrations": "Integrationen",
+      "Access": "Zugang",
+      "Moderation": "Moderation",
+      "Danger zone": "Gefahrenzone"
+    }
+  },
+  "audit": {
+    "tabs": {
+      "All": "Alle",
+      "Join / leave": "Beitritt / Austritt",
+      "Message changes": "Nachrichtenänderungen",
+      "Mod: user actions": "Mod: Benutzeraktionen",
+      "Mod: general actions": "Mod: allgemeine Aktionen"
+    }
+  },
+  "permissionGroups": {
+    "General": "Allgemein",
+    "Expressions": "Ausdrücke",
+    "Invites": "Einladungen",
+    "Profile": "Profil",
+    "Moderation": "Moderation",
+    "Paper": "Paper",
+    "Voice": "Sprache",
+    "Advanced": "Erweitert",
+    "Messaging": "Nachrichten",
+    "Media": "Medien",
+    "Mentions": "Erwähnungen",
+    "Polls": "Umfragen",
+    "Access": "Zugang",
+    "Media & links": "Medien & Links",
+    "Reactions & emoji": "Reaktionen & Emoji",
+    "Apps & commands": "Apps & Befehle",
+    "Threads": "Threads",
+    "Voice moderation": "Sprachmoderation",
+    "Activities & events": "Aktivitäten & Events"
+  }
+}

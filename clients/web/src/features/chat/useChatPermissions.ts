@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 /**
  * Chat send permissions for the main shell, provided from `AppLayout` via `provideChatPermissions`.
  *
@@ -239,7 +240,7 @@ export function createChatPermissions(
       return null;
     }
     return {
-      blockReason: 'You are in a communication timeout in this server.',
+      blockReason: echoT('chat.status.communicationTimeout'),
       communicationTimeoutUntilEpochMs:
         live.communicationTimeoutUntilEpochMs ?? null,
     };

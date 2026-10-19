@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useAutofocusOnOpen } from '@/features/layout/useAutofocusOnOpen';
@@ -43,57 +44,59 @@ const emit = defineEmits<{
 
 type CreationMode = 'text' | 'voice' | 'stage' | 'forum' | 'paper' | 'category';
 
-const CHANNEL_TYPE_OPTIONS: {
-  id: CreationMode;
-  label: string;
-  subtitle: string;
-  icon: string;
-}[] = [
+const CHANNEL_TYPE_OPTIONS = computed<
+  {
+    id: CreationMode;
+    label: string;
+    subtitle: string;
+    icon: string;
+  }[]
+>(() => [
   {
     id: 'text',
-    label: 'Text',
-    subtitle: 'Send messages',
+    label: echoT('b30.createChannel.type.text'),
+    subtitle: echoT('b30.createChannel.type.textSub'),
     icon: icons.hashtag,
   },
   {
     id: 'forum',
-    label: 'Forum',
-    subtitle: 'Organized threads',
+    label: echoT('b30.createChannel.type.forum'),
+    subtitle: echoT('b30.createChannel.type.forumSub'),
     icon: icons.messageAlt,
   },
   ...(isPaperFeatureEnabled
     ? [
         {
           id: 'paper' as const,
-          label: 'Paper',
-          subtitle: 'Collaborative document',
+          label: echoT('b30.createChannel.type.paper'),
+          subtitle: echoT('b30.createChannel.type.paperSub'),
           icon: icons.file,
         },
       ]
     : []),
   {
     id: 'voice',
-    label: 'Voice',
-    subtitle: 'Voice, video, screen share',
+    label: echoT('b30.createChannel.type.voice'),
+    subtitle: echoT('b30.createChannel.type.voiceSub'),
     icon: icons.volumeUp,
   },
   ...(isExperimentalChannelTypeEnabled('stage')
     ? [
         {
           id: 'stage' as const,
-          label: 'Stage',
-          subtitle: 'Events and panels',
+          label: echoT('b30.createChannel.type.stage'),
+          subtitle: echoT('b30.createChannel.type.stageSub'),
           icon: icons.sofa,
         },
       ]
     : []),
   {
     id: 'category',
-    label: 'Category',
-    subtitle: 'Group channels',
+    label: echoT('channelPanel.category'),
+    subtitle: echoT('b30.createChannel.type.categorySub'),
     icon: icons.list,
   },
-];
+]);
 
 const modalRef = ref<HTMLElement | null>(null);
 const channelNameInputRef = ref<HTMLInputElement | null>(null);
@@ -143,7 +146,9 @@ const canSubmit = computed(() => {
 });
 
 const submitLabel = computed(() =>
-  isCategoryMode.value ? 'Create category' : 'Create channel',
+  isCategoryMode.value
+    ? echoT('channelPanel.createCategory')
+    : echoT('channelPanel.createChannel'),
 );
 
 watch(
@@ -230,10 +235,14 @@ function submit() {
                 id="create-channel-title"
                 class="cc-widget-title cc-widget-title--header"
               >
-                {{ isCategoryMode ? 'Create category' : 'Create channel' }}
+                {{
+                  isCategoryMode
+                    ? echoT('channelPanel.createCategory')
+                    : echoT('channelPanel.createChannel')
+                }}
               </h2>
               <p class="cc-widget-subtitle">
-                in
+                {{ echoT('b30.createChannel.in') }}
                 <span class="font-medium text-foreground">{{
                   serverName
                 }}</span>
@@ -242,7 +251,7 @@ function submit() {
             <button
               type="button"
               class="cc-widget-close chat-focus-ring"
-              aria-label="Close"
+              :aria-label="echoT('b30.createChannel.close')"
               @click="close"
             >
               <span class="cc-widget-close-glyph" aria-hidden="true">×</span>
@@ -257,7 +266,11 @@ function submit() {
               isCategoryMode ? 'create-category-name' : 'create-channel-name'
             "
           >
-            {{ isCategoryMode ? 'Name' : 'Channel name' }}
+            {{
+              isCategoryMode
+                ? echoT('b30.createChannel.name')
+                : echoT('b30.createChannel.channelName')
+            }}
           </label>
           <div class="cc-name-row chat-focus-ring">
             <span
@@ -279,7 +292,11 @@ function submit() {
               v-model="channelName"
               type="text"
               class="cc-name-input"
-              :placeholder="isCategoryMode ? 'new-category' : 'new-channel'"
+              :placeholder="
+                isCategoryMode
+                  ? echoT('b30.createChannel.newCategory')
+                  : echoT('b30.createChannel.newChannel')
+              "
               :maxlength="isCategoryMode ? 100 : ECHO_CHANNEL_NAME_MAX_LENGTH"
               @keydown.enter.prevent="submit"
             />
@@ -299,7 +316,7 @@ function submit() {
             v-if="isCategoryMode && trimmedName && categoryNameIsDuplicate"
             class="cc-widget-note cc-widget-note--warning"
           >
-            A category with this name already exists.
+            {{ echoT('b30.createChannel.duplicate') }}
           </p>
         </div>
 
@@ -310,17 +327,23 @@ function submit() {
           <EchoDropdown
             v-model="selectedCategory"
             :options="categoryDropdownOptions"
-            label="Category"
+            :label="echoT('channelPanel.category')"
             class="create-channel-category-dropdown"
           />
         </div>
 
         <fieldset class="cc-widget cc-widget--types">
-          <legend class="cc-field-label">Type</legend>
+          <legend class="cc-field-label">
+            {{ echoT('b30.createChannel.type.label') }}
+          </legend>
           <div
             class="cc-type-grid"
             role="radiogroup"
-            :aria-label="isCategoryMode ? 'Creation type' : 'Channel type'"
+            :aria-label="
+              isCategoryMode
+                ? echoT('b30.createChannel.creationType')
+                : echoT('b30.createChannel.channelType')
+            "
           >
             <label
               v-for="opt in CHANNEL_TYPE_OPTIONS"
@@ -356,7 +379,7 @@ function submit() {
             class="cc-btn cc-btn--ghost chat-focus-ring"
             @click="close"
           >
-            Cancel
+            {{ echoT('b30.createChannel.cancel') }}
           </button>
           <button
             type="button"

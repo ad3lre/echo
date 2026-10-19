@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue';
 import PaperAuthorGutter from '@/features/paper/components/PaperAuthorGutter.vue';
 import PaperBubbleMenu from '@/features/paper/components/PaperBubbleMenu.vue';
@@ -63,10 +64,11 @@ import { readPaperPageColors } from '@/features/paper/editor/paperPageAppearance
 import {
   PAPER_FONT_CATALOG,
   paperFontFamilyCss,
+  paperFontIdFromFamily,
 } from '@/features/paper/editor/paperTypography';
 import {
   ensurePaperFontLoaded,
-  preloadPaperFontCatalog,
+  warmPaperFontsForDocument,
 } from '@/features/paper/editor/paperFontLoader';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import { createRafCoalescer } from '@/features/chat/markdown/rafCoalesce';
@@ -350,10 +352,11 @@ const connectionBannerMessage = computed(() => {
   if (showRemoteUpdateBanner.value) {
     const count = pendingRemoteUpdateBlocks.value.size;
     return count === 1
-      ? 'Someone updated the paragraph you are editing'
-      : `Someone updated ${count} paragraphs you are editing`;
+      ? echoT('b32.pv.updatedOne')
+      : echoT('b32.pv.updatedMany', { count });
   }
-  if (error.value && documentLoaded.value) return `Save failed: ${error.value}`;
+  if (error.value && documentLoaded.value)
+    return echoT('b32.pv.saveFailed', { error: error.value });
   return null;
 });
 
@@ -422,7 +425,9 @@ function onRequestBlockAccess(blockId: string) {
   paperCollab.requestBlockAccess(blockId);
   const owner = paperCollab.lockOwnerName(blockId);
   dispatchAppToast(
-    owner ? `Asked ${owner} to release this paragraph` : 'Access request sent',
+    owner
+      ? echoT('b32.pv.askedRelease', { owner })
+      : echoT('b32.pv.accessSent'),
     'success',
   );
 }
@@ -639,7 +644,7 @@ async function onDocumentFontChange(fontId: string) {
 function onDownloadPdf() {
   const ok = printPaperPage(pageEl.value, props.channelName);
   if (!ok) {
-    dispatchAppToast('Document is still loading', 'warning');
+    dispatchAppToast(echoT('b32.pv.stillLoading'), 'warning');
   }
 }
 
@@ -654,7 +659,7 @@ async function onCopyPlainText() {
   if (!text) return;
   const ok = await copyToClipboard(text);
   dispatchAppToast(
-    ok ? 'Copied document text' : 'Could not copy',
+    ok ? echoT('b32.pv.copiedText') : echoT('b32.pv.couldNotCopy'),
     ok ? 'success' : 'warning',
   );
 }
@@ -664,10 +669,10 @@ const chromeViewHint = computed(() => {
   if (!documentLoaded.value) return undefined;
   const pref = paperUi.preferred.value;
   if (pref === 'edit' && !canAuthor.value) {
-    return 'You can view this document but cannot edit it.';
+    return echoT('b32.pv.viewNoEdit');
   }
   if (pref === 'comment' && !canComment.value) {
-    return 'You can view this document but cannot add comments.';
+    return echoT('b32.pv.viewNoComment');
   }
   return undefined;
 });
@@ -766,7 +771,7 @@ async function submitComment() {
     measure();
   } catch (e) {
     dispatchAppToast(
-      e instanceof Error ? e.message : 'Could not post comment',
+      e instanceof Error ? e.message : echoT('b32.pv.postFail'),
       'warning',
     );
   }
@@ -777,7 +782,7 @@ async function onResolveComment(id: string, resolved: boolean) {
     await commentsApi.resolveComment(id, resolved);
   } catch (e) {
     dispatchAppToast(
-      e instanceof Error ? e.message : 'Could not update comment',
+      e instanceof Error ? e.message : echoT('b32.pv.updateFail'),
       'warning',
     );
   }
@@ -788,7 +793,7 @@ async function onDeleteComment(id: string) {
     await commentsApi.removeComment(id);
   } catch (e) {
     dispatchAppToast(
-      e instanceof Error ? e.message : 'Could not delete comment',
+      e instanceof Error ? e.message : echoT('b32.pv.deleteFail'),
       'warning',
     );
   }
@@ -926,7 +931,8 @@ let unsubDoc: (() => void) | null = null;
 let unsubComment: (() => void) | null = null;
 
 onMounted(() => {
-  preloadPaperFontCatalog();
+  const docFontId = paperFontIdFromFamily(paperPageFontFamily.value);
+  warmPaperFontsForDocument(docFontId ? [docFontId] : []);
   void ensureMarkdownKatexReady().then(() => {
     if (editor.value) {
       editor.value.view.dispatch(editor.value.view.state.tr);
@@ -1021,7 +1027,7 @@ onUnmounted(() => {
         class="rounded-lg border border-border bg-elevated px-4 py-2 text-sm text-fg hover:bg-glass-hover"
         @click="load()"
       >
-        Retry
+        {{ echoT('b32.pv.retry') }}
       </button>
     </div>
 

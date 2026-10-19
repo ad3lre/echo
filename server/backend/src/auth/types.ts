@@ -75,7 +75,7 @@ export interface AuthUser {
    * Omitted when unset.
    */
   timeZone?: string | null;
-  /** BCP-47 UI locale (e.g. en-US, en-GB). Omitted when unset. */
+  /** BCP-47 UI locale (e.g. en-US, en-GB, es, pt-BR, de). Omitted when unset. */
   locale?: string | null;
   /** Instance operator — may manage instance-level bans and operators. */
   isInstanceOperator?: boolean;

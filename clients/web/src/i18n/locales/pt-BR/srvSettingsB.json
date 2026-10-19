@@ -1,0 +1,39 @@
+{
+  "header": {
+    "server": "Servidor",
+    "close": "Fechar"
+  },
+  "notif": {
+    "title": "Configurações de notificação",
+    "done": "Concluído",
+    "body": "Escolha o que você recebe de {server}. Isso vale apenas para você e é sincronizado entre seus dispositivos."
+  },
+  "leave": {
+    "confirmTitle": "Sair do servidor?",
+    "cantLeaveTitle": "Não é possível sair deste servidor",
+    "cancel": "Cancelar",
+    "leave": "Sair do servidor",
+    "ok": "OK",
+    "confirmBody": "Sair de {server}? Você não poderá entrar novamente sem um convite.",
+    "ownerBody": "Você é o dono deste servidor. Transfira a propriedade para outro membro nas configurações do servidor (Zona de perigo) antes de sair."
+  },
+  "permDiff": {
+    "title": "Diferença de permissões",
+    "none": "Nenhuma comparação disponível.",
+    "added": "Adicionadas",
+    "removed": "Removidas",
+    "trace": "Linha do tempo de rastreamento (prévia)"
+  },
+  "banner": {
+    "hint": "Arraste para cima ou para baixo para escolher o que aparece no recorte.",
+    "close": "Fechar",
+    "reset": "Redefinir",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "title": "Reposicionar banner"
+  },
+  "emojiTags": {
+    "placeholder": "Digite uma tag e pressione Enter",
+    "max": "Máximo de {n} tags"
+  }
+}

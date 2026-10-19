@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { icons } from '@/assets/icons';
+import { echoT } from '@/i18n';
 import iconFolder from '@/assets/icons/folder.svg?url';
 import type { MoreServerWidgetFolder } from '@/features/layout/composables/more-servers/useMoreServerFolders';
 
@@ -58,7 +59,7 @@ function pickFolder(folderId: string) {
     @click="emit('remove')"
   >
     <img :src="icons.arrowLeft" alt="" :class="menuItemIconClass" />
-    Remove from folder
+    {{ echoT('b41.assignMenu.remove') }}
   </button>
 
   <div v-if="folders.length > 0">
@@ -70,7 +71,9 @@ function pickFolder(folderId: string) {
       @click="toggleSubmenu"
     >
       <img :src="iconFolder" alt="" :class="menuItemIconClass" />
-      <span class="min-w-0 flex-1 truncate">Move to folder</span>
+      <span class="min-w-0 flex-1 truncate">{{
+        echoT('b41.assignMenu.move')
+      }}</span>
       <span class="shrink-0 text-xs text-fg-subtle" aria-hidden="true">{{
         submenuOpen ? '▾' : '▸'
       }}</span>
@@ -81,15 +84,15 @@ function pickFolder(folderId: string) {
       @mousedown.stop
     >
       <div v-if="showSearch" class="px-2 py-1.5">
-        <label class="sr-only" for="more-server-folder-submenu-search"
-          >Search folders</label
-        >
+        <label class="sr-only" for="more-server-folder-submenu-search">{{
+          echoT('b41.assignMenu.searchFolders')
+        }}</label>
         <input
           id="more-server-folder-submenu-search"
           v-model="searchQuery"
           type="search"
           class="more-server-folder-submenu__search w-full rounded-md px-2 py-1.5 text-xs outline-none"
-          placeholder="Search folders…"
+          :placeholder="echoT('b41.assignMenu.searchFoldersEllipsis')"
           autocomplete="off"
           @keydown.stop
         />
@@ -104,7 +107,7 @@ function pickFolder(folderId: string) {
           type="button"
           class="echo-menu-item flex w-full items-center gap-2 pl-6 pr-3 py-1.5 text-left text-xs"
           role="menuitem"
-          :title="'Move to “' + folder.name + '”'"
+          :title="echoT('b41.assignMenu.moveTo', { name: folder.name })"
           @click="pickFolder(folder.id)"
         >
           <img
@@ -118,8 +121,8 @@ function pickFolder(folderId: string) {
       <p v-else class="px-3 py-2 text-xs leading-snug text-fg-subtle">
         {{
           normalizedSearch
-            ? 'No folders match your search.'
-            : 'No other folders to move into.'
+            ? echoT('b41.assignMenu.noMatch')
+            : echoT('b41.assignMenu.noOther')
         }}
       </p>
     </div>
@@ -132,7 +135,7 @@ function pickFolder(folderId: string) {
     @click="emit('new-folder')"
   >
     <img :src="icons.plus" alt="" :class="menuItemIconClass" />
-    New folder with this server…
+    {{ echoT('b41.assignMenu.newFolder') }}
   </button>
 </template>
 

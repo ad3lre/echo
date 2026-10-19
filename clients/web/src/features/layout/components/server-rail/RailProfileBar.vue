@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import StatusIndicator from '@/components/StatusIndicator.vue';
 import { presenceIndicatorTitle } from '@/features/layout/presence';
@@ -25,7 +26,8 @@ const emit = defineEmits<{
 }>();
 
 const profileHoverTitle = computed(() => {
-  const name = props.currentUser.name?.trim() || 'Your profile';
+  const name =
+    props.currentUser.name?.trim() || echoT('layout.rail.yourProfile');
   if (!props.currentUser.status) return name;
   const status = presenceIndicatorTitle({
     status: props.currentUser.status,
@@ -48,8 +50,8 @@ const profileHoverTitle = computed(() => {
       v-if="bugHunterEnabled && !profileOnly"
       type="button"
       class="rail-bug-hunter pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full border border-amber-500/35 bg-amber-500/15 text-amber-200 shadow-md transition hover:bg-amber-500/25 hover:brightness-110"
-      title="Report a bug"
-      aria-label="Report a bug"
+      :title="echoT('layout.rail.reportBug')"
+      :aria-label="echoT('layout.rail.reportBug')"
       @click.stop="emit('open-bug-report')"
     >
       <span class="text-[13px] leading-none" aria-hidden="true">🐛</span>
@@ -58,7 +60,7 @@ const profileHoverTitle = computed(() => {
       class="rail-profile__avatar pointer-events-auto relative h-10 w-10 shrink-0"
       :class="{ 'rail-profile__avatar--away-speaking': awaySelfSpeaking }"
       :title="profileHoverTitle"
-      aria-label="Current profile"
+      :aria-label="echoT('layout.rail.currentProfile')"
       @click="emit('open-self-profile', $event)"
     >
       <span class="rail-profile__glow" aria-hidden="true" />
@@ -66,7 +68,7 @@ const profileHoverTitle = computed(() => {
       <div class="rail-profile__face">
         <PausedGifAvatar
           :src="safeImageUrl(currentUser.pfp)"
-          :alt="`${currentUser.name} profile picture`"
+          :alt="echoT('layout.rail.profilePicture', { name: currentUser.name })"
           :session-key="currentUser.id"
           img-class="rail-profile__image h-full w-full rounded-full object-cover"
         />

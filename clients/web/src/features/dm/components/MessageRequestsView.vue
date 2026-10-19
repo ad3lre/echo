@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, computed, nextTick, provide } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import type { MentionEntity, PollData, ReplyTo } from '@shared/types';
@@ -92,7 +93,7 @@ const activeChannelMessages = computed(
               diagnosticsKey: `message-request:${user.id}`,
             }).status as MessageWithAuthor['author']['status'],
           }
-        : { id: msg.authorId, name: 'Unknown', avatar: '' };
+        : { id: msg.authorId, name: echoT('chat.labels.unknown'), avatar: '' };
       return {
         id: msg.id,
         authorId: msg.authorId,
@@ -150,11 +151,10 @@ provide('openImageViewer', (url: string) => {
         <div
           class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted"
         >
-          Message requests
+          {{ echoT('b39.msgReq.title') }}
         </div>
         <p class="mt-3 text-sm text-muted">
-          Select a request from the sidebar to review the conversation, reply if
-          needed, then accept, ignore, or report it.
+          {{ echoT('b39.msgReq.selectHint') }}
         </p>
       </div>
     </div>
@@ -177,9 +177,9 @@ provide('openImageViewer', (url: string) => {
               class="block truncate text-sm font-semibold text-foreground"
               >{{ selectedRequestWithUser.user.name }}</span
             >
-            <span class="block truncate text-xs text-muted"
-              >Message request</span
-            >
+            <span class="block truncate text-xs text-muted">{{
+              echoT('b39.msgReq.single')
+            }}</span>
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-2">
@@ -193,21 +193,21 @@ provide('openImageViewer', (url: string) => {
               alt=""
               class="h-3.5 w-3.5 filter invert opacity-60"
             />
-            <span>Back to messages</span>
+            <span>{{ echoT('b39.msgReq.back') }}</span>
           </button>
           <button
             type="button"
             class="rounded-lg bg-green-600/80 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600"
             @click="emit('accept-request', selectedRequestWithUser.id)"
           >
-            Accept
+            {{ echoT('b39.msgReq.accept') }}
           </button>
           <button
             type="button"
             class="rounded-lg bg-glass-tint px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-glass-tint"
             @click="emit('ignore-request', selectedRequestWithUser.id)"
           >
-            Ignore
+            {{ echoT('b39.msgReq.ignore') }}
           </button>
         </div>
       </div>
@@ -217,18 +217,16 @@ provide('openImageViewer', (url: string) => {
           <span
             class="rounded-full bg-glass-tint px-2.5 py-1 text-[11px] font-medium text-muted"
           >
-            Not friends yet
+            {{ echoT('b39.msgReq.notFriends') }}
           </span>
           <span
             class="rounded-full bg-accent/15 px-2.5 py-1 text-[11px] font-medium text-accent"
           >
-            You can reply before accepting
+            {{ echoT('b39.msgReq.canReply') }}
           </span>
         </div>
         <p class="mt-2 max-w-2xl text-sm text-muted">
-          Review the conversation first. Accept moves this thread into your
-          normal direct messages, while Ignore removes the request from your
-          queue.
+          {{ echoT('b39.msgReq.reviewHint') }}
         </p>
       </div>
 

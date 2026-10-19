@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { IMAGE_SLOT_ASPECT_RATIOS } from '@shared/imageSlot';
 import { DISCORD_BUTTON_STYLE } from '@shared/discordMessageComponents';
 import type { ButtonRowButton } from '@shared/buttonRow';
@@ -105,7 +106,7 @@ const BUTTON_SUCCESS: ButtonRowButton = {
 };
 
 const BUTTON_DANGER: ButtonRowButton = {
-  label: 'Delete',
+  label: echoT('chat.actions.delete'),
   style: DISCORD_BUTTON_STYLE.DANGER,
   customId: 'delete',
 };
@@ -252,7 +253,7 @@ function buildMarkdownCommands(): ChatSlashCommand[] {
     ),
     command(
       'italic',
-      'Italic',
+      echoT('chat.format.italic'),
       'Wrap selection in *italic*',
       'markdown',
       markdownWrap('italic'),
@@ -261,7 +262,7 @@ function buildMarkdownCommands(): ChatSlashCommand[] {
     ),
     command(
       'strike',
-      'Strikethrough',
+      echoT('chat.format.strikethrough'),
       'Wrap selection in ~~strike~~',
       'markdown',
       markdownWrap('strike'),
@@ -279,7 +280,7 @@ function buildMarkdownCommands(): ChatSlashCommand[] {
     ),
     command(
       'spoiler',
-      'Spoiler',
+      echoT('chat.format.spoiler'),
       'Hide text behind a spoiler tag',
       'markdown',
       markdownWrap('spoiler'),

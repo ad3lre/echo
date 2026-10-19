@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
+import { channelPermissionLabel, permissionGroupLabel } from '@/i18n/labels';
 import { computed, ref, watch } from 'vue';
 import type {
   ChannelPermissionDef,
@@ -203,18 +205,21 @@ function describeRow(row: PermissionOverwriteRowDraft): {
   avatarUrl?: string;
 } {
   if (row.targetType === 'members')
-    return { label: '@members', subtitle: 'Base overwrite for all members' };
+    return {
+      label: echoT('b31.overwrite.membersLabel'),
+      subtitle: echoT('b31.overwrite.membersSubtitle'),
+    };
   if (row.targetType === 'role') {
     const role = roleMap.value.get(row.targetId ?? '');
     return {
-      label: role?.label ?? 'Unknown role',
+      label: role?.label ?? echoT('b31.overwrite.unknownRole'),
       subtitle: role?.subtitle,
       color: role?.color,
     };
   }
   const member = memberMap.value.get(row.targetId ?? '');
   return {
-    label: member?.label ?? 'Unknown member',
+    label: member?.label ?? echoT('b31.overwrite.unknownMember'),
     subtitle: member?.subtitle,
     avatarUrl: member?.avatarUrl,
   };
@@ -256,8 +261,7 @@ function removeSelectedRow() {
 
 function notifyPermissionEditBlocked() {
   const msg =
-    props.disabledMessage?.trim() ||
-    'Permission overrides are not editable in the current mode.';
+    props.disabledMessage?.trim() || echoT('b31.overwrite.notEditable');
   dispatchAppToast(msg, 'info');
 }
 
@@ -305,7 +309,7 @@ function explicitPermissionCount(
 <template>
   <div class="overwrite-editor">
     <div v-if="loading" class="overwrite-editor__empty">
-      Loading permission targets…
+      {{ echoT('b31.overwrite.loading') }}
     </div>
 
     <div
@@ -320,13 +324,15 @@ function explicitPermissionCount(
             type="search"
             class="overwrite-editor__search"
             :placeholder="
-              targetTab === 'roles' ? 'Search roles…' : 'Search members…'
+              targetTab === 'roles'
+                ? echoT('b31.overwrite.searchRoles')
+                : echoT('b31.overwrite.searchMembers')
             "
           />
           <div
             class="overwrite-editor__tabs"
             role="tablist"
-            aria-label="Permission target type"
+            :aria-label="echoT('b31.overwrite.targetType')"
           >
             <button
               type="button"
@@ -338,7 +344,7 @@ function explicitPermissionCount(
               :aria-selected="targetTab === 'roles'"
               @click="targetTab = 'roles'"
             >
-              Roles
+              {{ echoT('b31.overwrite.roles') }}
             </button>
             <button
               type="button"
@@ -350,7 +356,7 @@ function explicitPermissionCount(
               :aria-selected="targetTab === 'members'"
               @click="targetTab = 'members'"
             >
-              Members
+              {{ echoT('b31.overwrite.members') }}
             </button>
           </div>
         </div>
@@ -369,7 +375,9 @@ function explicitPermissionCount(
               <span
                 class="overwrite-editor__dot overwrite-editor__dot--members"
               ></span>
-              <span class="truncate">@members</span>
+              <span class="truncate">{{
+                echoT('b31.overwrite.membersLabel')
+              }}</span>
             </button>
 
             <button
@@ -396,7 +404,9 @@ function explicitPermissionCount(
             </button>
 
             <div class="overwrite-editor__add-list">
-              <div class="overwrite-editor__list-title">Add role overwrite</div>
+              <div class="overwrite-editor__list-title">
+                {{ echoT('b31.overwrite.addRole') }}
+              </div>
               <button
                 v-for="role in availableRoleOptions.slice(0, 8)"
                 :key="role.id"
@@ -416,7 +426,7 @@ function explicitPermissionCount(
                 v-if="availableRoleOptions.length === 0"
                 class="overwrite-editor__hint"
               >
-                No more roles match.
+                {{ echoT('b31.overwrite.noMoreRoles') }}
               </div>
             </div>
           </template>
@@ -453,7 +463,7 @@ function explicitPermissionCount(
 
             <div class="overwrite-editor__add-list">
               <div class="overwrite-editor__list-title">
-                Add member overwrite
+                {{ echoT('b31.overwrite.addMember') }}
               </div>
               <button
                 v-for="member in availableMemberOptions.slice(0, 8)"
@@ -483,7 +493,7 @@ function explicitPermissionCount(
                 v-if="availableMemberOptions.length === 0"
                 class="overwrite-editor__hint"
               >
-                No more members match.
+                {{ echoT('b31.overwrite.noMoreMembers') }}
               </div>
             </div>
           </template>
@@ -500,7 +510,9 @@ function explicitPermissionCount(
               <div class="overwrite-editor__panel-subtitle">
                 {{
                   describeRow(selectedRow).subtitle ||
-                  `${explicitPermissionCount(selectedRow)} explicit permission overrides`
+                  echoT('b31.overwrite.explicitCount', {
+                    count: explicitPermissionCount(selectedRow),
+                  })
                 }}
               </div>
             </div>
@@ -511,7 +523,7 @@ function explicitPermissionCount(
               :disabled="disabled"
               @click="removeSelectedRow"
             >
-              Remove
+              {{ echoT('b31.overwrite.remove') }}
             </button>
           </div>
 
@@ -520,7 +532,9 @@ function explicitPermissionCount(
             :key="group"
             class="overwrite-editor__group"
           >
-            <div class="overwrite-editor__group-title">{{ group }}</div>
+            <div class="overwrite-editor__group-title">
+              {{ permissionGroupLabel(group) }}
+            </div>
             <div
               v-for="def in defs"
               :key="def.key"
@@ -529,7 +543,7 @@ function explicitPermissionCount(
               <div class="overwrite-editor__perm-label-wrap">
                 <ChannelPermissionIconBadge :permission-key="def.key" />
                 <span class="overwrite-editor__perm-label">{{
-                  def.label
+                  channelPermissionLabel(def.key, { group: def.group })
                 }}</span>
               </div>
               <div class="overwrite-editor__perm-actions">
@@ -543,7 +557,7 @@ function explicitPermissionCount(
                   :disabled="disabled"
                   @click="setPermissionValue(def.key, false)"
                 >
-                  Deny
+                  {{ echoT('b31.overwrite.deny') }}
                 </button>
                 <button
                   type="button"
@@ -555,7 +569,7 @@ function explicitPermissionCount(
                   :disabled="disabled"
                   @click="setPermissionValue(def.key, undefined)"
                 >
-                  Inherit
+                  {{ echoT('b31.overwrite.inherit') }}
                 </button>
                 <button
                   type="button"
@@ -567,7 +581,7 @@ function explicitPermissionCount(
                   :disabled="disabled"
                   @click="setPermissionValue(def.key, true)"
                 >
-                  Allow
+                  {{ echoT('b31.overwrite.allow') }}
                 </button>
               </div>
             </div>
@@ -575,8 +589,11 @@ function explicitPermissionCount(
         </div>
 
         <div v-else class="overwrite-editor__empty">
-          Select or add a {{ targetTab === 'roles' ? 'role' : 'member' }} to
-          edit its permissions.
+          {{
+            targetTab === 'roles'
+              ? echoT('b31.overwrite.selectRole')
+              : echoT('b31.overwrite.selectMember')
+          }}
         </div>
       </section>
     </div>

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  serverSettingsGroupLabel,
+  serverSettingsSectionLabel,
+} from '@/i18n/labels';
+import { echoT } from '@/i18n';
 import { computed, ref, toRef, watch } from 'vue';
 import { collectExploreQuickFilters } from '@/features/layout/exploreDirectoryRows';
 import { storeToRefs } from 'pinia';
@@ -717,7 +722,7 @@ async function onModerationPatch(patch: {
                 class="chat-focus-ring w-full rounded-lg px-2 py-1.5 text-center text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
                 @click="preferIconNav"
               >
-                Icon rail
+                {{ echoT('b20.ssm.iconRail') }}
               </button>
             </div>
 
@@ -725,7 +730,7 @@ async function onModerationPatch(patch: {
               v-if="!navCollapsed"
               class="pointer-events-auto absolute bottom-0 right-0 top-0 z-[6] w-2 -mr-1 cursor-col-resize"
               style="background: transparent; border: none"
-              aria-label="Resize settings navigation"
+              :aria-label="echoT('b20.ssm.resizeNav')"
               @mousedown="startSidebarResize"
               @dblclick.stop="resetSidebarWidth"
             />
@@ -742,13 +747,13 @@ async function onModerationPatch(patch: {
               <div
                 class="text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-soft"
               >
-                Server Settings
+                {{ echoT('b20.ssm.serverSettings') }}
               </div>
               <h2 id="server-settings-title" class="mt-2 text-2xl font-bold">
                 {{ server.name }}
               </h2>
               <p class="mt-1 text-sm text-muted">
-                One thing at a time. Tap a section or swipe left.
+                {{ echoT('b20.ssm.mobileHint') }}
               </p>
             </div>
             <button
@@ -756,7 +761,7 @@ async function onModerationPatch(patch: {
               class="close-btn shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
               @click="close"
             >
-              Exit
+              {{ echoT('b20.ssm.exit') }}
             </button>
           </div>
 
@@ -764,7 +769,7 @@ async function onModerationPatch(patch: {
             v-if="!visibleSectionGroups.length"
             class="mb-5 px-3 text-sm text-muted"
           >
-            You don't have permission to change this server's settings.
+            {{ echoT('b20.ssm.noPermission') }}
           </div>
           <div
             v-for="group in visibleSectionGroups"
@@ -774,7 +779,7 @@ async function onModerationPatch(patch: {
             <div
               class="server-settings-nav-section-label px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
             >
-              {{ group.label }}
+              {{ serverSettingsGroupLabel(group.label) }}
             </div>
             <div class="flex flex-col gap-1">
               <button
@@ -791,7 +796,9 @@ async function onModerationPatch(patch: {
                       alt=""
                       class="server-settings-nav-icon h-4 w-4"
                     />
-                    <span class="truncate">{{ item }}</span>
+                    <span class="truncate">{{
+                      serverSettingsSectionLabel(item)
+                    }}</span>
                   </span>
                   <span class="text-fg-subtle" aria-hidden="true">&gt;</span>
                 </div>
@@ -1180,7 +1187,7 @@ async function onModerationPatch(patch: {
                     v-else
                     class="server-settings-panel rounded-2xl p-5 text-sm text-fg-soft"
                   >
-                    Banned words filter is unavailable for this server.
+                    {{ echoT('b20.ssm.bannedWordsUnavailable') }}
                   </div>
                 </div>
 
@@ -1239,7 +1246,7 @@ async function onModerationPatch(patch: {
           v-if="!isCompactShell"
           class="server-settings-modal__resize-edge pointer-events-auto absolute bottom-6 right-0 top-24 z-[6] w-2 cursor-col-resize"
           style="background: transparent; border: none"
-          aria-label="Resize server settings window"
+          :aria-label="echoT('b20.ssm.resizeWindow')"
           @mousedown="startModalWidthResize"
           @dblclick.stop="resetModalWidth"
         />

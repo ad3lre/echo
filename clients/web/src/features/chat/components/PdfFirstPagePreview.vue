@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, onUnmounted, nextTick, computed } from 'vue';
 import type {
   PDFDocumentLoadingTask,
@@ -97,7 +98,7 @@ async function loadPreview() {
     if (!rendered) {
       await destroyPdfLoad(null, pdf);
       activeDoc = undefined;
-      error.value = 'Could not render PDF preview.';
+      error.value = echoT('chatB.pdfPreview.renderFail');
     }
     loading.value = false;
   } catch (e) {

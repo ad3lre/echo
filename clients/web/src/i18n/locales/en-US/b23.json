@@ -1,0 +1,87 @@
+{
+  "ctxMenu": {
+    "edit": "Edit",
+    "copyMessage": "Copy message",
+    "copyImage": "Copy image",
+    "copyAsWritten": "Copy as written",
+    "copyLink": "Copy message link",
+    "user": "User",
+    "report": "Report message",
+    "viewProfile": "View profile",
+    "copyUsername": "Copy username",
+    "viewReactions": "View reactions",
+    "directMention": "Direct mention",
+    "developer": "Developer",
+    "copyAuthorId": "Copy author ID",
+    "copyMessageId": "Copy message ID",
+    "copyQuotedId": "Copy quoted message ID",
+    "copyChannelId": "Copy channel ID",
+    "pin": "Pin message",
+    "unpin": "Unpin message",
+    "moderation": "Moderation",
+    "deleteMessage": "Delete message",
+    "removeTimeout": "Remove timeout",
+    "timeout1h": "Timeout (1 hour)",
+    "kick": "Kick from server",
+    "ban": "Ban from server"
+  },
+  "gif": {
+    "starGifs": "Star GIFs while browsing to save them here.",
+    "starImages": "Star images while browsing to save them here.",
+    "favGifs": "Favorite GIFs",
+    "favImages": "Favorite images",
+    "mediaType": "Media type",
+    "images": "Images",
+    "noFavorites": "No favorites yet",
+    "searchGifs": "Search GIFs...",
+    "searchImages": "Search images...",
+    "loadingGifs": "Loading GIFs",
+    "loadingImages": "Loading images",
+    "viewPlans": "View Echo+ plans",
+    "imageResultsVia": "Image results via",
+    "quota": "{remaining} of {cap} searches left today"
+  },
+  "cat": {
+    "category": "Category",
+    "sidebarDesc": "Defaults for channels that sync with this category.",
+    "settings": "Settings",
+    "close": "Close",
+    "basics": "Basics",
+    "name": "Category name",
+    "sensitive": "These actions are sensitive and may be irreversible. Proceed carefully.",
+    "autoDelete": "Auto-delete messages",
+    "autoDeleteHint": "Messages in channels that sync with this category are removed after this period. Deleted content stays in the database for 14 days for compliance, then is purged.",
+    "retention": "Retention",
+    "deleteCategory": "Delete category",
+    "deleteDesc": "Permanently delete this category and all channels inside it. Message history for those channels in the mock will be removed.",
+    "chatSyncUnavail": "Discord chat sync is available when this category belongs to a server.",
+    "voiceMirrorUnavail": "Voice mirror is available when this category belongs to a server.",
+    "changesApply": "Changes apply when you save.",
+    "cancel": "Cancel",
+    "confirmTitle": "Delete category “{label}”?",
+    "confirmOne": "Delete this category and all {n} channel inside it? This cannot be undone.",
+    "confirmMany": "Delete this category and all {n} channels inside it? This cannot be undone."
+  },
+  "tab": {
+    "overview": {
+      "title": "Overview",
+      "desc": "Rename this category. Channels that match category permissions use the Permissions tab."
+    },
+    "permissions": {
+      "title": "Permissions",
+      "desc": "Set default permissions for this category. Channels that match the category use these rules."
+    },
+    "discord_chat_sync": {
+      "title": "Discord messages (category)",
+      "desc": "Turn on the same Discord message linking for every text and forum channel in this category."
+    },
+    "discord_voice_mirror": {
+      "title": "Discord voice activity",
+      "desc": "Show who is in voice on Discord for channels in this category. Join voice in Discord to participate."
+    },
+    "danger_zone": {
+      "title": "Danger Zone",
+      "desc": "Sensitive actions that permanently remove this category and its channels. Proceed carefully."
+    }
+  }
+}

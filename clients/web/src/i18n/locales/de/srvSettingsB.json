@@ -1,0 +1,39 @@
+{
+  "header": {
+    "server": "Server",
+    "close": "Schließen"
+  },
+  "notif": {
+    "title": "Benachrichtigungseinstellungen",
+    "done": "Fertig",
+    "body": "Wähle, was du von {server} erhältst. Das gilt nur für dich und wird auf all deinen Geräten synchronisiert."
+  },
+  "leave": {
+    "confirmTitle": "Server verlassen?",
+    "cantLeaveTitle": "Server kann nicht verlassen werden",
+    "cancel": "Abbrechen",
+    "leave": "Server verlassen",
+    "ok": "OK",
+    "confirmBody": "{server} verlassen? Du kannst nur mit einer Einladung wieder beitreten.",
+    "ownerBody": "Dir gehört dieser Server. Übertrage in den Servereinstellungen (Gefahrenzone) das Eigentum an ein anderes Mitglied, bevor du ihn verlassen kannst."
+  },
+  "permDiff": {
+    "title": "Berechtigungsvergleich",
+    "none": "Kein Vergleich verfügbar.",
+    "added": "Hinzugefügt",
+    "removed": "Entfernt",
+    "trace": "Verlauf (Vorschau)"
+  },
+  "banner": {
+    "hint": "Ziehe nach oben oder unten, um den sichtbaren Ausschnitt zu wählen.",
+    "close": "Schließen",
+    "reset": "Zurücksetzen",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "title": "Banner neu positionieren"
+  },
+  "emojiTags": {
+    "placeholder": "Tag eingeben, dann Enter drücken",
+    "max": "Maximal {n} Tags"
+  }
+}

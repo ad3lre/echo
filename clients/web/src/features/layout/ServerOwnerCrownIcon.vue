@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { iconCrownSvgPath } from '@/assets/icons';
 
 defineProps<{
@@ -13,8 +14,8 @@ defineProps<{
     class="inline-block shrink-0 text-amber-400"
     viewBox="0 0 24 24"
     role="img"
-    aria-label="Server owner"
-    title="Server owner"
+    :aria-label="echoT('layoutB.crown.serverOwner')"
+    :title="echoT('layoutB.crown.serverOwner')"
     focusable="false"
   >
     <path :d="iconCrownSvgPath" fill="currentColor" />

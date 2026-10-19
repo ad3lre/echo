@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   nextTick,
@@ -393,13 +394,13 @@ function onVideoMetadata(): void {
       class="media-spoiler-btn chat-focus-ring inline-flex items-center gap-2 rounded-lg px-4 py-3 bg-overlay-heavy hover:bg-overlay-heavy text-amber-400/90 hover:text-amber-400 text-xs font-semibold uppercase tracking-wider transition-colors"
       @click="revealed = true"
     >
-      <span>Spoiler</span>
+      <span>{{ echoT('chat.format.spoiler') }}</span>
       <span class="text-[10px] opacity-80">— Click to reveal</span>
     </button>
 
     <MediaUnavailablePanel
       v-else-if="showUnavailable"
-      headline="Video unavailable"
+      :headline="echoT('chat.status.videoUnavailable')"
       :href="isTrustedMediaUrl(url) ? safeImageUrl(url) : undefined"
     />
 
@@ -408,8 +409,16 @@ function onVideoMetadata(): void {
         type="button"
         class="absolute right-2 top-2 z-[3] rounded-md bg-overlay-heavy px-2 py-1 text-[11px] font-semibold text-fg shadow-md backdrop-blur-sm ring-1 ring-border transition-opacity duration-150 pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 hover:bg-overlay-heavy focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00a8fc]"
         :aria-expanded="expanded"
-        :aria-label="expanded ? 'Smaller embed' : 'Larger embed'"
-        :title="expanded ? 'Smaller embed' : 'Larger embed'"
+        :aria-label="
+          expanded
+            ? echoT('chat.actions.smallerEmbed')
+            : echoT('chat.actions.largerEmbed')
+        "
+        :title="
+          expanded
+            ? echoT('chat.actions.smallerEmbed')
+            : echoT('chat.actions.largerEmbed')
+        "
         @click.stop="toggleExpand($event)"
       >
         {{ expanded ? 'Smaller' : 'Larger' }}

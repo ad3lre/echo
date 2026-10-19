@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useSignedEchoMediaResponsive } from '@/features/chat/composables/useSignedEchoMediaResponsive';
 import {
@@ -102,6 +103,12 @@ function onLoad(event?: Event): void {
   }
 }
 
+/** Empty `src` while CDN signing finishes must not flip to "unavailable". */
+function onStillError(): void {
+  if (!resolved.value?.trim()) return;
+  loadFailed.value = true;
+}
+
 function onClick(): void {
   if (spoilered.value) {
     revealed.value = true;
@@ -136,7 +143,10 @@ onUnmounted(() => stopObserve?.());
     "
     @click="onClick"
   >
-    <MediaUnavailablePanel v-if="unavailable" headline="Image unavailable" />
+    <MediaUnavailablePanel
+      v-if="unavailable"
+      :headline="echoT('chat.status.imageUnavailable')"
+    />
     <template v-else>
       <div v-if="!loaded" class="collage-cell__skeleton" aria-hidden="true" />
       <!-- Soft image-derived wash behind letterboxed (contain) media. -->
@@ -190,7 +200,7 @@ onUnmounted(() => stopObserve?.());
         />
       </div>
       <img
-        v-else
+        v-else-if="resolved"
         ref="imgRef"
         :src="resolved"
         :srcset="srcset || undefined"
@@ -209,7 +219,7 @@ onUnmounted(() => stopObserve?.());
         ]"
         :crossorigin="imgCrossOrigin ?? undefined"
         @load="onLoad"
-        @error="loadFailed = true"
+        @error="onStillError"
       />
       <span v-if="overflowCount > 0" class="collage-cell__more">
         +{{ overflowCount }}

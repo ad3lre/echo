@@ -3,7 +3,8 @@ import type { WireAppLayoutVoiceAndRealtimeResult } from './wireAppLayoutVoiceAn
 import type { WireAppLayoutMessagingPhase3Extension } from './wireAppLayoutMessagingPhase3Extension';
 import { useComputedRefAlias } from './useComputedRefAlias';
 import { isEchoGraphId } from '@/features/layout/ids/echoIds';
-import { icons, getChannelDisplayName } from '@/assets/icons';
+import { getChannelDisplayName } from '@/assets/channelDisplayName';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 
 export type WireAppLayoutAssemblyInput = WireAppLayoutVoiceAndRealtimeResult &
   WireAppLayoutMessagingPhase3Extension;

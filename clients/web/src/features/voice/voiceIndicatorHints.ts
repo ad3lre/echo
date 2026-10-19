@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 /** Concise hover labels for voice UI indicators (Discord-style clarity, Echo wording). */
 
 export function voiceMuteDeafenHoverTitle(input: {
@@ -6,10 +7,10 @@ export function voiceMuteDeafenHoverTitle(input: {
   serverDeafened?: boolean;
   serverMuted?: boolean;
 }): string | undefined {
-  if (input.serverDeafened) return 'Server deafened';
-  if (input.deafened) return 'Deafened';
-  if (input.serverMuted) return 'Server muted';
-  if (input.muted) return 'Muted';
+  if (input.serverDeafened) return echoT('voiceChrome.serverDeafened');
+  if (input.deafened) return echoT('voiceChrome.deafened');
+  if (input.serverMuted) return echoT('voiceChrome.serverMuted');
+  if (input.muted) return echoT('voiceChrome.muted');
   return undefined;
 }
 
@@ -21,7 +22,7 @@ export function quarterCallMediaBadgesTitle(input: {
   showDeafened: boolean;
   showMutedOnly: boolean;
 }): string | undefined {
-  if (input.showDeafened) return 'Deafened';
-  if (input.showMutedOnly) return 'Muted';
+  if (input.showDeafened) return echoT('voiceChrome.deafened');
+  if (input.showMutedOnly) return echoT('voiceChrome.muted');
   return undefined;
 }

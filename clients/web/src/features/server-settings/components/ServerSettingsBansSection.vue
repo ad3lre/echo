@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
 
@@ -66,7 +67,7 @@ async function confirmUnban() {
       unbanTarget.value = null;
       unbanReason.value = '';
     } else {
-      unbanError.value = 'Could not unban. Please try again.';
+      unbanError.value = echoT('b29.bans.unbanFailed');
     }
   } finally {
     unbanSubmitting.value = false;
@@ -82,7 +83,7 @@ async function confirmUnban() {
           :value="props.banSearchQuery"
           class="roles-toolbar-search min-w-0 flex-1"
           type="text"
-          placeholder="Search banned members"
+          :placeholder="echoT('b29.bans.searchPh')"
           @input="
             $emit(
               'update:banSearchQuery',
@@ -105,10 +106,10 @@ async function confirmUnban() {
           >
             {{
               scope === 'all'
-                ? 'All'
+                ? echoT('b29.bans.all')
                 : scope === 'temporary'
-                  ? 'Temporary'
-                  : 'Permanent'
+                  ? echoT('b29.bans.temporary')
+                  : echoT('b29.bans.permanent')
             }}
           </button>
         </div>
@@ -119,10 +120,10 @@ async function confirmUnban() {
           <div
             class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
           >
-            Banned Members
+            {{ echoT('b29.bans.heading') }}
           </div>
           <div class="text-xs text-fg-subtle">
-            {{ props.banList.length }} entries
+            {{ echoT('b29.bans.entries', { count: props.banList.length }) }}
           </div>
         </div>
 
@@ -151,20 +152,27 @@ async function confirmUnban() {
                             : 'echo-status-pill--danger'
                         "
                       >
-                        {{ ban.expiresAt ? 'Temporary' : 'Permanent' }}
+                        {{
+                          ban.expiresAt
+                            ? echoT('b29.bans.temporary')
+                            : echoT('b29.bans.permanent')
+                        }}
                       </span>
                     </div>
                     <div class="mt-1 text-sm text-fg-soft">
                       {{ ban.reason }}
                     </div>
                     <div class="mt-1 text-[11px] text-fg-subtle">
-                      Banned by
+                      {{ echoT('b29.bans.bannedBy') }}
                       <span class="font-semibold text-fg-soft">{{
                         ban.moderator
                       }}</span>
                       • {{ ban.createdAtLabel }}
                       <template v-if="ban.expiresAt">
-                        • Expires {{ ban.expiresAt }}</template
+                        •
+                        {{
+                          echoT('b29.bans.expires', { date: ban.expiresAt })
+                        }}</template
                       >
                     </div>
                   </div>
@@ -175,7 +183,7 @@ async function confirmUnban() {
                   class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
                   @click="openUnbanModal(ban)"
                 >
-                  Unban
+                  {{ echoT('b29.bans.unban') }}
                 </button>
               </div>
             </div>
@@ -184,7 +192,7 @@ async function confirmUnban() {
             v-if="!props.banList.length"
             class="py-12 text-center text-sm text-fg-subtle"
           >
-            No bans match this filter.
+            {{ echoT('b29.bans.noMatch') }}
           </div>
         </div>
       </div>
@@ -204,26 +212,25 @@ async function confirmUnban() {
           @click.stop
         >
           <h2 id="unban-confirm-title" class="text-lg font-semibold text-fg">
-            Unban member
+            {{ echoT('b29.bans.modalTitle') }}
           </h2>
           <p class="mt-2 text-sm text-fg-soft">
             <span class="font-medium text-fg-soft">{{
               unbanTarget.userName
             }}</span>
-            will be allowed to rejoin this server if they have a valid invite. A
-            reason is required and is recorded in the audit log.
+            {{ echoT('b29.bans.modalBody') }}
           </p>
           <label
             class="mt-4 block text-xs font-medium uppercase tracking-wide text-fg-subtle"
             for="unban-reason-input"
-            >Reason for unban</label
+            >{{ echoT('b29.bans.reasonLabel') }}</label
           >
           <textarea
             id="unban-reason-input"
             v-model="unbanReason"
             class="mt-1.5 min-h-[88px] w-full resize-y rounded-lg border border-border bg-scrim-1 px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:border-indigo-400/50 focus:outline-none focus:ring-1 focus:ring-indigo-400/40"
             :maxlength="MAX_UNBAN_REASON"
-            placeholder="Explain why this ban is being lifted"
+            :placeholder="echoT('b29.bans.reasonPh')"
             :disabled="unbanSubmitting"
             rows="3"
           />
@@ -240,7 +247,7 @@ async function confirmUnban() {
               :disabled="unbanSubmitting"
               @click="closeUnbanModal"
             >
-              Cancel
+              {{ echoT('b29.bans.cancel') }}
             </button>
             <button
               type="button"
@@ -248,7 +255,11 @@ async function confirmUnban() {
               :disabled="!canSubmitUnban"
               @click="confirmUnban"
             >
-              {{ unbanSubmitting ? 'Unbanning…' : 'Confirm unban' }}
+              {{
+                unbanSubmitting
+                  ? echoT('b29.bans.unbanning')
+                  : echoT('b29.bans.confirm')
+              }}
             </button>
           </div>
         </div>

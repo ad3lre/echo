@@ -1,0 +1,119 @@
+{
+  "bw": {
+    "saveFailed": "Failed to save",
+    "intro": "Choose a preset level to automatically filter messages containing inappropriate language, or customize which categories to enable and what action each takes.",
+    "needManage": "You need Manage Server to edit the word filter.",
+    "loading": "Loading configuration…",
+    "filterLevel": "Filter Level",
+    "categories": "Categories",
+    "customWords": "Custom Words",
+    "customWordsHelp": "Add extra words or phrases to filter (one per line). These are always blocked regardless of category settings.",
+    "exemptRoles": "Exempt Roles",
+    "exemptHelp": "Members with any of these roles bypass the word filter entirely. Admins and Manage Server/Messages holders are always exempt.",
+    "noRoles": "No roles available.",
+    "noChanges": "No unsaved changes.",
+    "saving": "Saving…",
+    "save": "Save Changes",
+    "switchCustom": "Switch to {custom} to change individual categories and actions.",
+    "placeholder": "badword\nanother phrase",
+    "preset": {
+      "off": "Off",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "custom": "Custom"
+    },
+    "presetDesc": {
+      "off": "No words are filtered.",
+      "low": "Only slurs and sexual content are filtered.",
+      "medium": "Slurs, sexual content, and profanity are filtered.",
+      "high": "All categories are filtered.",
+      "custom": "Choose which categories to enable and what action each takes."
+    },
+    "cat": {
+      "profanity": "Profanity",
+      "slurs": "Slurs & Hate Speech",
+      "sexual_content": "Sexual Content",
+      "insults": "Insults"
+    },
+    "catDesc": {
+      "profanity": "Common swear words and vulgar language.",
+      "slurs": "Racial, ethnic, and identity-based slurs.",
+      "sexual_content": "Sexually explicit terms and phrases.",
+      "insults": "Personal attacks and demeaning language."
+    },
+    "action": {
+      "block_message": "Block message",
+      "delete_message": "Delete message",
+      "timeout_5m": "Timeout (5 min)",
+      "timeout_60m": "Timeout (1 hour)",
+      "warn_dm": "Warn via DM"
+    }
+  },
+  "sd": {
+    "detecting": "Detecting outage…",
+    "checkingNow": "Checking now…",
+    "avgRecovery": "Avg. recovery",
+    "typicalRecovery": "Typical recovery",
+    "defaultHint": "Default until we learn from your reconnects",
+    "pastWindow": "Past your usual recovery window — still reconnecting",
+    "title": "Echo server is currently down",
+    "body": "We are retrying in real time and will reconnect automatically once service is healthy again.",
+    "downtime": "Downtime",
+    "lastCheck": "Last health check",
+    "checkingStatus": "Checking server status…",
+    "waiting": "Waiting for recovery…",
+    "checkAgain": "Check again now",
+    "refresh": "Refresh app",
+    "ago": "{duration} ago",
+    "basedOnOne": "Based on {count} past outage on this device",
+    "basedOnMany": "Based on {count} past outages on this device",
+    "typicalWindow": "Typical window about {duration}",
+    "remaining": "About {rem}s remaining vs typical {est}s",
+    "progressAria": "Recovery progress versus typical {est} second window"
+  },
+  "ep": {
+    "copied": "Copied \"{name}\" as a new emoji pack.",
+    "maxPacks": "You can only save {max} packs.",
+    "copyFail": "Could not copy this pack.",
+    "replaced": "Replaced \"{target}\" with \"{name}\".",
+    "replaceFail": "Could not replace that pack.",
+    "packFallback": "pack",
+    "searchEmoji": "Search emoji and stickers...",
+    "searchIcons": "Search icons...",
+    "search": "Search...",
+    "pickerContent": "Picker content",
+    "emoji": "Emoji",
+    "icons": "Icons",
+    "noMatch": "No emojis or stickers match \"{query}\"",
+    "packActions": "Emoji pack actions",
+    "copyWhole": "Copy whole pack",
+    "limit": "Pack limit reached ({max}). Replace a saved pack:",
+    "replace": "Replace: {name}",
+    "cancel": "Cancel"
+  },
+  "pv": {
+    "updatedOne": "Someone updated the paragraph you are editing",
+    "updatedMany": "Someone updated {count} paragraphs you are editing",
+    "saveFailed": "Save failed: {error}",
+    "askedRelease": "Asked {owner} to release this paragraph",
+    "accessSent": "Access request sent",
+    "stillLoading": "Document is still loading",
+    "copiedText": "Copied document text",
+    "couldNotCopy": "Could not copy",
+    "viewNoEdit": "You can view this document but cannot edit it.",
+    "viewNoComment": "You can view this document but cannot add comments.",
+    "postFail": "Could not post comment",
+    "updateFail": "Could not update comment",
+    "deleteFail": "Could not delete comment",
+    "retry": "Retry"
+  },
+  "mm": {
+    "moreOptions": "More options",
+    "directMention": "Direct mention",
+    "unfriend": "Unfriend",
+    "report": "Report user",
+    "block": "Block user",
+    "unblock": "Unblock user"
+  }
+}

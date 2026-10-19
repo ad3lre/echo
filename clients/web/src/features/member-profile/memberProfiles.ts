@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { normalizeCanonicalPresenceStatus } from '@/features/layout/presence';
 import type { EchoServerMemberDto } from '@/api/echo/types';
 import { isEchoPublicBadgeId } from '@shared/echoAccountBadges';
@@ -118,7 +119,7 @@ export type MutualFriendSummary = {
 export type ExpandedProfile = MemberProfile & {
   mutualServers: MutualServerSummary[];
   mutualFriends: MutualFriendSummary[];
-  /** Account creation or "Member since" for overview. */
+  /** Account creation or echoT('memberProfile.memberSince') for overview. */
   accountCreatedAt?: string;
 };
 
@@ -576,7 +577,7 @@ export function getMemberSinceLeadText(
   if (n && n !== MEMBER_PROFILE_DM_SERVER_LABEL) {
     return `Member in ${n} since`;
   }
-  return 'Member since';
+  return echoT('memberProfile.memberSince');
 }
 
 /** Format a server membership instant for “Member since” (locale-aware). */

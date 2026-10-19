@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { hexToHsv, hsvToHex } from '@/features/server-settings/colorUtils';
 import {
@@ -40,12 +41,13 @@ const hueRef = ref<HTMLElement | null>(null);
 let dragTarget: 'sv' | 'hue' | null = null;
 
 const clearLabel = computed(() => {
-  if (props.kind === 'text') return 'Use default text color';
-  if (props.kind === 'highlight') return 'Remove highlight';
-  if (props.kind === 'pageLight') return 'Use default light page color';
-  if (props.kind === 'pageDark') return 'Use default dark page color';
-  if (props.kind === 'object') return 'No fill';
-  return 'Reset';
+  if (props.kind === 'text') return echoT('b33.paperColor.defaultText');
+  if (props.kind === 'highlight')
+    return echoT('b33.paperColor.removeHighlight');
+  if (props.kind === 'pageLight') return echoT('b33.paperColor.defaultLight');
+  if (props.kind === 'pageDark') return echoT('b33.paperColor.defaultDark');
+  if (props.kind === 'object') return echoT('b33.paperColor.noFill');
+  return echoT('b33.paperColor.reset');
 });
 
 const previewHex = computed(() =>
@@ -187,7 +189,9 @@ onUnmounted(() => {
     @mousedown.prevent
   >
     <section v-if="recentColors.length" class="paper-color-picker-section">
-      <p class="paper-color-picker-label">Recently used</p>
+      <p class="paper-color-picker-label">
+        {{ echoT('b33.paperColor.recentlyUsed') }}
+      </p>
       <div class="paper-color-picker-swatches">
         <button
           v-for="hex in recentColors"
@@ -208,7 +212,9 @@ onUnmounted(() => {
     </section>
 
     <section class="paper-color-picker-section">
-      <p class="paper-color-picker-label">Document colors</p>
+      <p class="paper-color-picker-label">
+        {{ echoT('b33.paperColor.documentColors') }}
+      </p>
       <div class="paper-color-picker-swatches">
         <button
           v-for="swatch in paletteSwatches"
@@ -229,14 +235,16 @@ onUnmounted(() => {
     </section>
 
     <section class="paper-color-picker-section paper-color-picker-custom">
-      <p class="paper-color-picker-label">Custom</p>
+      <p class="paper-color-picker-label">
+        {{ echoT('b33.paperColor.custom') }}
+      </p>
       <div class="paper-color-picker-custom-row">
         <div
           ref="svRef"
           class="paper-color-picker-sv"
           :style="svPlaneStyle"
           role="slider"
-          aria-label="Saturation and brightness"
+          :aria-label="echoT('b33.paperColor.satBright')"
           tabindex="0"
           @pointerdown="onPointerDown('sv', $event)"
           @pointermove="onPointerMove"
@@ -253,7 +261,7 @@ onUnmounted(() => {
           ref="hueRef"
           class="paper-color-picker-hue"
           role="slider"
-          aria-label="Hue"
+          :aria-label="echoT('b33.paperColor.hue')"
           tabindex="0"
           @pointerdown="onPointerDown('hue', $event)"
           @pointermove="onPointerMove"
@@ -278,7 +286,7 @@ onUnmounted(() => {
           class="paper-color-picker-hex-input"
           :value="hexInput"
           spellcheck="false"
-          aria-label="Hex color"
+          :aria-label="echoT('b33.paperColor.hex')"
           @input="onHexInput"
           @change="onHexCommit"
           @keydown.enter.prevent="onHexCommit"

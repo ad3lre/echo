@@ -139,6 +139,8 @@ test('raw-ui-copy gate flags English Text literals outside the allowlist', () =>
           localizations: {
             en: { stringUnit: { state: 'translated', value: 'Hello' } },
             es: { stringUnit: { state: 'translated', value: 'Hola' } },
+            'pt-BR': { stringUnit: { state: 'translated', value: 'Olá' } },
+            de: { stringUnit: { state: 'translated', value: 'Hallo' } },
           },
         },
       },
@@ -156,7 +158,7 @@ test('raw-ui-copy gate flags English Text literals outside the allowlist', () =>
   assert.ok(result.violations.some((v) => v.kind === 'raw-ui-copy'));
 });
 
-test('catalog-locale-coverage requires en and es', () => {
+test('catalog-locale-coverage requires en, es, pt-BR, and de', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'echo-apple-locale-'));
   fs.mkdirSync(path.join(dir, 'Modules', 'EchoFeatures', 'Resources'), {
     recursive: true,
@@ -189,4 +191,81 @@ test('catalog-locale-coverage requires en and es', () => {
   assert.ok(
     result.violations.some((v) => v.kind === 'catalog-locale-coverage'),
   );
+});
+
+test('catalog-locale-coverage flags a key missing only pt-BR', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'echo-apple-locale-pt-'));
+  fs.mkdirSync(path.join(dir, 'Modules', 'EchoFeatures', 'Resources'), {
+    recursive: true,
+  });
+  fs.mkdirSync(path.join(dir, 'Apps', 'iOS'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'Tests'), { recursive: true });
+  fs.writeFileSync(
+    path.join(
+      dir,
+      'Modules',
+      'EchoFeatures',
+      'Resources',
+      'Localizable.xcstrings',
+    ),
+    JSON.stringify({
+      strings: {
+        Hello: {
+          localizations: {
+            en: { stringUnit: { state: 'translated', value: 'Hello' } },
+            es: { stringUnit: { state: 'translated', value: 'Hola' } },
+          },
+        },
+      },
+    }) + '\n',
+  );
+  fs.writeFileSync(
+    path.join(dir, 'Apps', 'iOS', 'App.swift'),
+    'import SwiftUI\n',
+  );
+  const result = checkAppleMaintainability({ appleRoot: dir });
+  const violation = result.violations.find(
+    (v) => v.kind === 'catalog-locale-coverage',
+  );
+  assert.ok(violation);
+  assert.match(violation.detail, /pt-BR=1/);
+});
+
+test('catalog-locale-coverage flags a key missing only de', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'echo-apple-locale-de-'));
+  fs.mkdirSync(path.join(dir, 'Modules', 'EchoFeatures', 'Resources'), {
+    recursive: true,
+  });
+  fs.mkdirSync(path.join(dir, 'Apps', 'iOS'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'Tests'), { recursive: true });
+  fs.writeFileSync(
+    path.join(
+      dir,
+      'Modules',
+      'EchoFeatures',
+      'Resources',
+      'Localizable.xcstrings',
+    ),
+    JSON.stringify({
+      strings: {
+        Hello: {
+          localizations: {
+            en: { stringUnit: { state: 'translated', value: 'Hello' } },
+            es: { stringUnit: { state: 'translated', value: 'Hola' } },
+            'pt-BR': { stringUnit: { state: 'translated', value: 'Olá' } },
+          },
+        },
+      },
+    }) + '\n',
+  );
+  fs.writeFileSync(
+    path.join(dir, 'Apps', 'iOS', 'App.swift'),
+    'import SwiftUI\n',
+  );
+  const result = checkAppleMaintainability({ appleRoot: dir });
+  const violation = result.violations.find(
+    (v) => v.kind === 'catalog-locale-coverage',
+  );
+  assert.ok(violation);
+  assert.match(violation.detail, /de=1/);
 });

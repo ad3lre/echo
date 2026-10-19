@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { icons } from '@/assets/icons';
+import { echoT } from '@/i18n';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import type { DmIncomingRailAvatar } from '@/features/layout/composables/dm/useAppLayoutDmRailUnread';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
@@ -37,11 +38,18 @@ function avatarKey(a: DmIncomingRailAvatar): string {
 
 function titleFor(a: DmIncomingRailAvatar): string {
   const n = a.unreadCount;
-  const suffix = a.inCall ? ' (in call)' : n > 0 ? ` (${n} unread)` : '';
+  const suffix = a.inCall
+    ? ` (${echoT('layout.rail.inCall')})`
+    : n > 0
+      ? ` (${echoT('layout.rail.unreadCount', { count: n })})`
+      : '';
   if (a.kind === 'group') {
-    return `Open group message — ${a.name}${suffix}`;
+    return echoT('layout.rail.openGroupMessage', { name: a.name, suffix });
   }
-  return `Open direct message from ${a.name}${suffix}`;
+  return echoT('layout.rail.openDirectMessageFrom', {
+    name: a.name,
+    suffix,
+  });
 }
 </script>
 
@@ -53,7 +61,7 @@ function titleFor(a: DmIncomingRailAvatar): string {
         ? 'mt-0 max-w-[min(42vw,18rem)] flex-row gap-2 overflow-x-auto overflow-y-hidden'
         : 'mt-1.5 flex-col gap-2'
     "
-    aria-label="Unread direct messages"
+    :aria-label="echoT('layout.rail.unreadDirectMessages')"
   >
     <div
       v-for="a in avatars"
@@ -105,7 +113,7 @@ function titleFor(a: DmIncomingRailAvatar): string {
       <button
         type="button"
         class="dm-incoming-rail__item dm-incoming-rail__item--more flex h-10 w-10 items-center justify-center rounded-full transition-all"
-        :title="`${overflowCount} more unread direct messages — open inbox`"
+        :title="echoT('layout.rail.moreUnreadDms', { count: overflowCount })"
         @click="emit('open-dm-inbox-overflow')"
       >
         <span class="more-servers-count">+{{ overflowCount }}</span>

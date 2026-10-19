@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, toRef } from 'vue';
+import { echoT } from '@/i18n';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useAutofocusOnOpen } from '@/features/layout/useAutofocusOnOpen';
 import { PUBLIC_INVITE_BASE } from '@/config';
@@ -128,10 +129,7 @@ async function copyLink() {
     copied.value = true;
     setTimeout(() => (copied.value = false), COPY_FEEDBACK_RESET_MS);
   } else {
-    dispatchAppToast(
-      'Could not copy invite link. Copy it manually or check clipboard permission.',
-      'warning',
-    );
+    dispatchAppToast(echoT('b13.invite.copyLinkFailed'), 'warning');
   }
 }
 
@@ -143,10 +141,7 @@ async function copyDirectInviteLink() {
     directCopied.value = true;
     setTimeout(() => (directCopied.value = false), COPY_FEEDBACK_RESET_MS);
   } else {
-    dispatchAppToast(
-      'Could not copy link. Copy it manually or check clipboard permission.',
-      'warning',
-    );
+    dispatchAppToast(echoT('b13.invite.copyDirectFailed'), 'warning');
   }
 }
 
@@ -165,7 +160,10 @@ const voiceIdForPreview = computed(
 const { preview } = useEchoInvitePreview(previewToken, voiceIdForPreview);
 
 const resolvedServerName = computed(
-  () => preview.value?.name?.trim() || props.serverName.trim() || 'this server',
+  () =>
+    preview.value?.name?.trim() ||
+    props.serverName.trim() ||
+    echoT('b13.invite.thisServer'),
 );
 
 const voiceChannelName = computed(() => {
@@ -183,15 +181,22 @@ const isVoiceInvite = computed(
 );
 
 const modalTitle = computed(() =>
-  isVoiceInvite.value ? 'Invite to voice' : 'Invite people',
+  isVoiceInvite.value
+    ? echoT('b13.invite.titleVoice')
+    : echoT('b13.invite.titlePeople'),
 );
 
 const modalSubtitle = computed(() =>
   isVoiceInvite.value
     ? voiceChannelName.value
-      ? `Invite friends to ${voiceChannelName.value} in ${resolvedServerName.value}.`
-      : `Share a link so people can join ${resolvedServerName.value} in this voice channel.`
-    : `Invite friends to ${resolvedServerName.value}.`,
+      ? echoT('b13.invite.subtitleVoiceChannel', {
+          channel: voiceChannelName.value,
+          server: resolvedServerName.value,
+        })
+      : echoT('b13.invite.subtitleVoiceLink', {
+          server: resolvedServerName.value,
+        })
+    : echoT('b13.invite.subtitleFriends', { server: resolvedServerName.value }),
 );
 
 const hasFriendsSection = computed(() => friendsList.value.length > 0);
@@ -221,7 +226,7 @@ const showDirectInviteSection = computed(
       <button
         type="button"
         class="invite-modal-close chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
-        aria-label="Close"
+        :aria-label="echoT('b13.invite.close')"
         @click="close"
       >
         <svg
@@ -252,20 +257,30 @@ const showDirectInviteSection = computed(
         class="mt-5 flex min-h-0 flex-1 flex-col"
       >
         <div class="mb-2 flex items-center justify-between gap-3">
-          <span class="invite-section-label">Friends</span>
+          <span class="invite-section-label">{{
+            echoT('b13.invite.friends')
+          }}</span>
           <span class="text-xs text-muted">
-            {{ filteredFriendsList.length }}
-            {{ filteredFriendsList.length === 1 ? 'friend' : 'friends' }}
+            {{
+              echoT(
+                filteredFriendsList.length === 1
+                  ? 'b13.invite.friendCountOne'
+                  : 'b13.invite.friendCountMany',
+                { count: filteredFriendsList.length },
+              )
+            }}
           </span>
         </div>
 
-        <label class="sr-only" for="invite-friend-search">Search friends</label>
+        <label class="sr-only" for="invite-friend-search">{{
+          echoT('b13.invite.searchFriends')
+        }}</label>
         <input
           id="invite-friend-search"
           v-model="friendSearchQuery"
           type="search"
           autocomplete="off"
-          placeholder="Search friends"
+          :placeholder="echoT('b13.invite.searchFriends')"
           class="invite-input chat-focus-ring min-h-[40px] w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-fg-subtle focus:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))]"
         />
 
@@ -304,14 +319,18 @@ const showDirectInviteSection = computed(
               :disabled="invitedUserIds.has(friend.id)"
               @click="inviteFriend(friend.id)"
             >
-              {{ invitedUserIds.has(friend.id) ? 'Invited' : 'Invite' }}
+              {{
+                invitedUserIds.has(friend.id)
+                  ? echoT('b13.invite.invited')
+                  : echoT('b13.invite.invite')
+              }}
             </button>
           </div>
           <p
             v-if="filteredFriendsList.length === 0"
             class="invite-empty-search rounded-xl border border-border bg-elevated px-4 py-4 text-center text-sm text-muted"
           >
-            No friends match your search.
+            {{ echoT('b13.invite.noFriendsMatch') }}
           </p>
         </div>
       </section>
@@ -324,43 +343,57 @@ const showDirectInviteSection = computed(
         <span
           class="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted"
         >
-          or send an invite link
+          {{ echoT('b13.invite.orSendLink') }}
         </span>
         <div class="h-px flex-1 bg-border" />
       </div>
 
       <section class="shrink-0" :class="hasFriendsSection ? '' : 'mt-5'">
         <label for="invite-link-input" class="invite-section-label block">
-          Invite link
+          {{ echoT('b13.invite.inviteLink') }}
         </label>
         <p
           v-if="inviteLinkLookupPending"
           class="invite-link-status mt-3 rounded-xl border border-border bg-elevated px-4 py-3.5 text-sm leading-relaxed text-muted"
         >
-          Loading invite link…
+          {{ echoT('b13.invite.loadingLink') }}
         </p>
-        <p
+        <i18n-t
           v-else-if="inviteJoinBlocked"
+          keypath="b13.invite.joinBlocked"
+          tag="p"
+          scope="global"
           class="invite-link-status mt-3 rounded-xl border border-border bg-elevated px-4 py-3.5 text-sm leading-relaxed text-foreground"
         >
-          This server is not accepting new members through invite links. A
-          server admin can open joins again under
-          <span class="font-semibold">Server Settings → Access</span>.
-        </p>
-        <p
+          <template #path>
+            <span class="font-semibold">{{
+              echoT('b13.invite.pathAccess')
+            }}</span>
+          </template>
+        </i18n-t>
+        <i18n-t
           v-else-if="showInviteLinkUnavailable"
+          keypath="b13.invite.noPublicUrl"
+          tag="p"
+          scope="global"
           class="invite-link-status mt-3 rounded-xl border border-border bg-elevated px-4 py-3.5 text-sm leading-relaxed text-foreground"
         >
-          This server does not have a public invite URL yet. An owner or
-          moderator can set a
-          <span class="font-semibold">vanity URL</span> under
-          <span class="font-semibold">Server Settings → Overview</span>. People
-          join at
-          <span class="whitespace-nowrap font-mono text-sm text-muted">{{
-            `${PUBLIC_INVITE_BASE.replace(/^https?:\/\//, '')}/your-server`
-          }}</span
-          >.
-        </p>
+          <template #vanity>
+            <span class="font-semibold">{{
+              echoT('b13.invite.vanityUrl')
+            }}</span>
+          </template>
+          <template #path>
+            <span class="font-semibold">{{
+              echoT('b13.invite.pathOverview')
+            }}</span>
+          </template>
+          <template #url>
+            <span class="whitespace-nowrap font-mono text-sm text-muted">{{
+              `${PUBLIC_INVITE_BASE.replace(/^https?:\/\//, '')}/your-server`
+            }}</span>
+          </template>
+        </i18n-t>
         <div
           v-else
           class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch"
@@ -378,7 +411,7 @@ const showDirectInviteSection = computed(
             class="invite-copy-btn chat-focus-ring shrink-0 rounded-lg border border-border bg-glass-2 px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover sm:min-w-[5.5rem]"
             @click="copyLink"
           >
-            {{ copied ? 'Copied!' : 'Copy' }}
+            {{ copied ? echoT('b13.invite.copied') : echoT('b13.invite.copy') }}
           </button>
         </div>
       </section>
@@ -391,9 +424,11 @@ const showDirectInviteSection = computed(
           class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
         >
           <div class="min-w-0">
-            <span class="invite-section-label block">Direct invite</span>
+            <span class="invite-section-label block">{{
+              echoT('b13.invite.directInvite')
+            }}</span>
             <p class="mt-1 text-xs leading-snug text-muted">
-              One-time link — skips the application form.
+              {{ echoT('b13.invite.directHint') }}
             </p>
           </div>
           <button
@@ -404,10 +439,10 @@ const showDirectInviteSection = computed(
           >
             {{
               directInviteBusy
-                ? 'Creating…'
+                ? echoT('b13.invite.creating')
                 : (directInviteLink ?? '').trim()
-                  ? 'Regenerate'
-                  : 'Create link'
+                  ? echoT('b13.invite.regenerate')
+                  : echoT('b13.invite.createLink')
             }}
           </button>
         </div>
@@ -419,7 +454,7 @@ const showDirectInviteSection = computed(
             :value="directInviteLink"
             type="text"
             readonly
-            aria-label="Direct invite link"
+            :aria-label="echoT('b13.invite.directLinkAria')"
             class="invite-input invite-link-field chat-focus-ring min-h-[36px] min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 font-mono text-xs text-foreground outline-none"
           />
           <button
@@ -427,7 +462,11 @@ const showDirectInviteSection = computed(
             class="invite-copy-btn chat-focus-ring shrink-0 rounded-md border border-border bg-glass-2 px-4 py-1.5 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover sm:min-w-[4.5rem]"
             @click="copyDirectInviteLink"
           >
-            {{ directCopied ? 'Copied!' : 'Copy' }}
+            {{
+              directCopied
+                ? echoT('b13.invite.copied')
+                : echoT('b13.invite.copy')
+            }}
           </button>
         </div>
       </section>

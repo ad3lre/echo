@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 
@@ -42,7 +43,7 @@ function dismiss() {
           id="unverified-email-title"
           class="text-lg font-semibold text-foreground"
         >
-          Verify your email
+          {{ echoT('auth.verifyPage.title') }}
         </h2>
         <p class="mt-2 text-sm leading-relaxed text-muted">
           Verify your email to secure your account. Check your inbox for the
@@ -68,14 +69,14 @@ function dismiss() {
             class="order-3 rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-glass-hover hover:text-foreground sm:order-1"
             @click="dismiss"
           >
-            Dismiss
+            {{ echoT('auth.actions.dismiss') }}
           </button>
           <button
             type="button"
             class="order-2 rounded-lg bg-glass-2 px-4 py-2.5 text-sm font-semibold text-fg transition-colors hover:bg-glass-active"
             @click="emit('change-email')"
           >
-            Change email
+            {{ echoT('auth.actions.changeEmail') }}
           </button>
           <button
             type="button"
@@ -83,7 +84,7 @@ function dismiss() {
             :disabled="resendBusy"
             @click="emit('resend')"
           >
-            {{ resendBusy ? 'Sending…' : 'Resend email' }}
+            {{ resendBusy ? 'Sending…' : echoT('auth.actions.resendEmail') }}
           </button>
         </div>
       </div>

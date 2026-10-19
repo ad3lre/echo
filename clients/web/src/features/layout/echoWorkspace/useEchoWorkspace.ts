@@ -74,6 +74,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
   const categoriesByServer = sessionRefs.categoriesByServer as unknown as Ref<
     MockData['categoriesByServer']
   >;
+  const voiceEphemeralByChannelId = sessionRefs.voiceEphemeralByChannelId;
   const discoverableServers = sessionRefs.discoverableServers as unknown as Ref<
     MockData['discoverableServers']
   >;
@@ -128,6 +129,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
     users,
     servers,
     categoriesByServer,
+    voiceEphemeralByChannelId,
     discoverableServers,
     messages,
     friendIds,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { icons } from '@/assets/icons';
 
 withDefaults(
@@ -9,7 +10,6 @@ withDefaults(
     size?: 'sm' | 'md';
   }>(),
   {
-    label: 'From Discord',
     size: 'sm',
   },
 );
@@ -18,9 +18,9 @@ withDefaults(
 <template>
   <span
     class="discord-origin-mark inline-flex shrink-0 items-center justify-center"
-    :title="label"
-    :data-echo-hint="label"
-    :aria-label="label"
+    :title="label ?? echoT('b44.discordOrigin.fromDiscord')"
+    :data-echo-hint="label ?? echoT('b44.discordOrigin.fromDiscord')"
+    :aria-label="label ?? echoT('b44.discordOrigin.fromDiscord')"
     role="img"
   >
     <img

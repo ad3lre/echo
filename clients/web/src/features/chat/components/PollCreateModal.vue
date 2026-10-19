@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, toRef, computed } from 'vue';
 import type { PollData, PollOption } from '@shared/types';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
@@ -18,21 +19,21 @@ const emit = defineEmits<{
   create: [poll: PollData];
 }>();
 
-const TIME_LIMIT_OPTIONS = [
-  { value: '', label: 'No time limit' },
-  { value: 5, label: '5 minutes' },
-  { value: 15, label: '15 minutes' },
-  { value: 30, label: '30 minutes' },
-  { value: 60, label: '1 hour' },
-  { value: 24 * 60, label: '1 day' },
-  { value: 3 * 24 * 60, label: '3 days' },
-  { value: 7 * 24 * 60, label: '1 week' },
-] as const;
-
-const timeLimitDropdownOptions = TIME_LIMIT_OPTIONS.map((opt) => ({
-  value: opt.value === '' ? '' : String(opt.value),
-  label: opt.label,
-}));
+const timeLimitDropdownOptions = computed(() =>
+  [
+    { value: '', label: echoT('b37.poll.noLimit') },
+    { value: 5, label: echoT('b37.poll.min5') },
+    { value: 15, label: echoT('b37.poll.min15') },
+    { value: 30, label: echoT('b37.poll.min30') },
+    { value: 60, label: echoT('b37.poll.hour1') },
+    { value: 24 * 60, label: echoT('b37.poll.day1') },
+    { value: 3 * 24 * 60, label: echoT('b37.poll.day3') },
+    { value: 7 * 24 * 60, label: echoT('b37.poll.week1') },
+  ].map((opt) => ({
+    value: opt.value === '' ? '' : String(opt.value),
+    label: opt.label,
+  })),
+);
 
 const question = ref('');
 const durationMinutes = ref<number | ''>('');
@@ -133,9 +134,11 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
       aria-labelledby="poll-modal-title"
       class="real-glass-modal relative w-full max-w-md rounded-xl p-6 text-foreground bg-transparent"
     >
-      <h2 id="poll-modal-title" class="text-xl font-bold">Create Poll</h2>
+      <h2 id="poll-modal-title" class="text-xl font-bold">
+        {{ echoT('b37.poll.create') }}
+      </h2>
       <p class="mt-1 text-sm text-muted">
-        Ask a question and add options for others to vote on.
+        {{ echoT('b37.poll.intro') }}
       </p>
 
       <div class="mt-5 space-y-4">
@@ -144,14 +147,14 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
             for="poll-question"
             class="block text-xs font-semibold uppercase text-muted mb-1.5"
           >
-            Question
+            {{ echoT('b37.poll.question') }}
           </label>
           <input
             id="poll-question"
             ref="pollQuestionInputRef"
             v-model="question"
             type="text"
-            placeholder="What do you want to ask?"
+            :placeholder="echoT('b37.poll.questionPh')"
             class="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted outline-none transition-[box-shadow,border-color] focus-visible:border-border focus-visible:ring-2 focus-visible:ring-accent/30"
           />
         </div>
@@ -159,7 +162,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label class="text-xs font-semibold uppercase text-muted">
-              Options
+              {{ echoT('b37.poll.options') }}
             </label>
             <button
               v-if="options.length < 10"
@@ -167,7 +170,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
               class="text-xs font-medium text-accent hover:brightness-110 transition-[filter,color]"
               @click="addOption"
             >
-              + Add option
+              {{ echoT('b37.poll.addOption') }}
             </button>
           </div>
           <div class="space-y-2">
@@ -185,13 +188,13 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
               <input
                 v-model="opt.text"
                 type="text"
-                :placeholder="`Option ${idx + 1}`"
+                :placeholder="echoT('b37.poll.optionN', { n: idx + 1 })"
                 class="flex-1 min-w-0 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none transition-[box-shadow,border-color] focus-visible:border-border focus-visible:ring-2 focus-visible:ring-accent/30"
               />
               <button
                 v-if="options.length > 2"
                 type="button"
-                aria-label="Remove option"
+                :aria-label="echoT('b37.poll.removeOption')"
                 class="flex-shrink-0 p-1.5 rounded-md text-muted hover:text-red-400 hover:bg-glass-hover transition-colors"
                 @click="removeOption(opt.id)"
               >
@@ -212,7 +215,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
             </div>
           </div>
           <p class="mt-1.5 text-xs text-muted">
-            {{ options.length }}/10 options • At least 2 required
+            {{ echoT('b37.poll.counts', { count: options.length }) }}
           </p>
         </div>
 
@@ -239,12 +242,11 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
             </svg>
           </span>
           <div class="min-w-0 flex-1">
-            <span class="text-sm font-medium text-foreground"
-              >Anonymous voting</span
-            >
+            <span class="text-sm font-medium text-foreground">{{
+              echoT('b37.poll.anonymous')
+            }}</span>
             <span class="mt-0.5 block text-xs leading-snug text-muted">
-              Voters’ names stay private; only vote counts are visible to
-              others.
+              {{ echoT('b37.poll.anonymousHint') }}
             </span>
           </div>
           <input
@@ -257,7 +259,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
 
         <EchoDropdown
           v-model="durationMinutesModel"
-          label="Time limit"
+          :label="echoT('b37.poll.timeLimit')"
           :options="timeLimitDropdownOptions"
         />
       </div>
@@ -268,7 +270,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
           class="px-4 py-2 rounded-lg text-sm font-medium text-muted hover:text-foreground hover:bg-glass-hover transition-colors"
           @click="close"
         >
-          Cancel
+          {{ echoT('b37.poll.cancel') }}
         </button>
         <button
           type="button"
@@ -276,7 +278,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
           :disabled="!canSubmit()"
           @click="handleSubmit"
         >
-          Create Poll
+          {{ echoT('b37.poll.create') }}
         </button>
       </div>
     </div>

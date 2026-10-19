@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { ref } from 'vue';
 import { uploadPendingMediaAsAttachments } from '@/features/chat/composables/uploadPendingMediaAsAttachments';
 import { formatChatUploadErrorMessage } from '@/features/chat/domain/chatUploads';
@@ -51,7 +52,7 @@ async function uploadImageAndFillSlot(
     });
     if (!result.ok) {
       dispatchAppToast(
-        result.error?.userMessage ?? 'Could not fill image slot',
+        result.error?.userMessage ?? echoT('chat.status.couldNotFillImageSlot'),
         'warning',
       );
       return false;
@@ -81,7 +82,7 @@ async function handleImageSlotFileSelected(
 ): Promise<void> {
   const channelId = opts.channelId()?.trim();
   if (!channelId || !state.pending.messageId || !state.pending.slotId) {
-    dispatchAppToast('Could not fill image slot', 'warning');
+    dispatchAppToast(echoT('chat.status.couldNotFillImageSlot'), 'warning');
     state.pending.messageId = '';
     state.pending.slotId = '';
     return;
@@ -139,7 +140,7 @@ export function useImageSlotFill(opts: {
     const trimmedMessageId = messageId.trim();
     const trimmedSlotId = slotId.trim();
     if (!trimmedMessageId || !trimmedSlotId) {
-      dispatchAppToast('Could not fill image slot', 'warning');
+      dispatchAppToast(echoT('chat.status.couldNotFillImageSlot'), 'warning');
       return;
     }
     pending.messageId = trimmedMessageId;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { storeToRefs } from 'pinia';
 import { watch, onMounted } from 'vue';
 import { useServerStore } from '@/features/layout/server';
@@ -92,7 +93,7 @@ watch(selectedServerId, (id) => {
         </li>
       </ul>
       <div v-else class="px-3 text-center text-xs font-medium text-fg-soft">
-        No servers found
+        {{ echoT('layout.myServers.empty') }}
       </div>
     </div>
   </aside>

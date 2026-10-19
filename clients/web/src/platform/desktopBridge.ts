@@ -153,4 +153,7 @@ export async function playDesktopNativeRingtone(_options: {
   looped?: boolean;
   volume01?: number;
 }): Promise<void> {}
+export async function setDesktopNativeRingtoneVolume(
+  _volume01: number,
+): Promise<void> {}
 export async function stopDesktopNativeRingtone(): Promise<void> {}

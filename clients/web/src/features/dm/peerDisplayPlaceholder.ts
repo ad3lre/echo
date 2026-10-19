@@ -1,6 +1,7 @@
+import { echoT } from '@/i18n';
 /**
  * Short stable label when a peer user row is not in `workspace.users` yet.
- * Avoids showing the literal "Unknown" while profiles hydrate.
+ * Avoids showing the literal echoT('chat.labels.unknown') while profiles hydrate.
  */
 export function peerDisplayNamePlaceholder(userId: string): string {
   const id = userId.trim();

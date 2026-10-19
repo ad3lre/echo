@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref } from 'vue';
 
 defineProps<{
@@ -32,7 +33,7 @@ defineExpose({
       <div
         class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted shrink-0"
       >
-        Markdown preview
+        {{ echoT('chatB.mdPreview.title') }}
       </div>
       <div
         ref="markdownPreviewContentRef"

@@ -18,8 +18,12 @@ import {
   reorderServerRail,
   reorderServerRailWithOverflow,
 } from '@/features/layout/composables/rail/serverRailReorder';
+import { useServerRailUiPreferencesStore } from '@/features/settings/serverRailUiPreferences';
 
-/** Show the “extra servers” rail control when joined count exceeds {@link VISIBLE_SERVER_RAIL_SLOT_COUNT}. */
+/**
+ * Default Extra-servers threshold (5-slot rail). Prefer the live
+ * `useServerRailUiPreferencesStore().extraServersMinJoined` when extended list is on.
+ */
 export const EXTRA_SERVERS_RAIL_MIN_JOINED = VISIBLE_SERVER_RAIL_SLOT_COUNT + 1;
 
 import {
@@ -133,6 +137,7 @@ function touchServerRailMru(
 export const useServerStore = defineStore('server', () => {
   // --- State ---
   const echoSession = useEchoSessionStore();
+  const railUiPrefs = useServerRailUiPreferencesStore();
 
   const servers = computed<Server[]>(() => echoSession.servers as Server[]);
   function setServersState(next: Server[]) {
@@ -177,7 +182,10 @@ export const useServerStore = defineStore('server', () => {
       servers.value,
       pinnedMoreServers.value,
       serverRailMru.value,
-      { preferSavedOrder: readSavedServerRailOrder().length > 0 },
+      {
+        preferSavedOrder: readSavedServerRailOrder().length > 0,
+        slotCount: railUiPrefs.visibleSlotCount,
+      },
     );
   });
 
@@ -203,6 +211,7 @@ export const useServerStore = defineStore('server', () => {
         servers.value,
         pinnedMoreServers.value,
         serverRailMru.value,
+        railUiPrefs.visibleSlotCount,
       );
       if (!visible.some((s) => s.id === serverId)) {
         serverRailMru.value = touchServerRailMru(
@@ -254,6 +263,7 @@ export const useServerStore = defineStore('server', () => {
   ) {
     if (fromIndex === toIndex) return;
     const preferSavedOrder = readSavedServerRailOrder().length > 0;
+    const slotCount = railUiPrefs.visibleSlotCount;
     const out = overflowServerId
       ? reorderServerRailWithOverflow({
           allServers: servers.value,
@@ -263,6 +273,7 @@ export const useServerStore = defineStore('server', () => {
           toIndex,
           overflowServerId,
           preferSavedOrder,
+          slotCount,
         })
       : reorderServerRail({
           allServers: servers.value,
@@ -271,6 +282,7 @@ export const useServerStore = defineStore('server', () => {
           fromIndex,
           toIndex,
           preferSavedOrder,
+          slotCount,
         });
     setServersState(out.servers);
     pinnedMoreServers.value = out.pinnedMore;

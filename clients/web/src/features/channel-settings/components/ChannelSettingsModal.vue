@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, toRef } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/features/dev/devSettings';
@@ -43,7 +44,13 @@ import {
   SLOW_MODE_OPTIONS,
   MESSAGE_AUTO_DELETE_OPTIONS,
 } from '@/features/channel-settings/types';
-import { channelTabCopy } from '@/i18n/labels';
+import {
+  channelPermissionLabel,
+  channelTabCopy,
+  messageAutoDeleteOptionLabel,
+  permissionGroupLabel,
+  slowModeOptionLabel,
+} from '@/i18n/labels';
 import {
   messageAutoDeleteOptionValueToSeconds,
   messageAutoDeleteSecondsToOptionValue,
@@ -196,6 +203,20 @@ async function onPaperShareVisibilityChange(visibility: PaperShareVisibility) {
 
 const categoryDropdownOptions = computed(() =>
   props.categoryOptions.map((o) => ({ label: o.label, value: o.id })),
+);
+
+const slowModeDropdownOptions = computed(() =>
+  SLOW_MODE_OPTIONS.map((o) => ({
+    value: o.value,
+    label: slowModeOptionLabel(o.value),
+  })),
+);
+
+const autoDeleteDropdownOptions = computed(() =>
+  MESSAGE_AUTO_DELETE_OPTIONS.map((o) => ({
+    value: o.value,
+    label: messageAutoDeleteOptionLabel(o.value),
+  })),
 );
 
 const channelCategoryLabel = computed(() => {
@@ -493,8 +514,16 @@ const bitrateSliderFillPct = computed(() => {
 
 const bitrateKbpsLabel = computed(() =>
   voiceDefaultBitrate.value
-    ? 'Default'
-    : `${Math.min(ECHO_VOICE_BITRATE_MAX_KBPS, Math.max(ECHO_VOICE_BITRATE_MIN_KBPS, Math.round(bitrateSliderKbps.value)))} kbps`,
+    ? echoT('b03.voice.default')
+    : echoT('b03.voice.kbps', {
+        value: Math.min(
+          ECHO_VOICE_BITRATE_MAX_KBPS,
+          Math.max(
+            ECHO_VOICE_BITRATE_MIN_KBPS,
+            Math.round(bitrateSliderKbps.value),
+          ),
+        ),
+      }),
 );
 
 const initialSnapshot = computed(() => {
@@ -752,10 +781,9 @@ async function confirmDeleteChannel() {
   if (!props.channelSettings) return;
   const label = props.channelSettings.channel.name;
   const ok = await requestAppConfirm({
-    title: `Delete channel “${label}”?`,
-    message:
-      'This cannot be undone.\n\nAll messages in this channel will be removed from the mock.',
-    confirmLabel: 'Delete channel',
+    title: echoT('b03.confirm.title', { label }),
+    message: echoT('b03.confirm.message'),
+    confirmLabel: echoT('b03.danger.deleteChannel'),
     danger: true,
   });
   if (!ok) return;
@@ -786,7 +814,7 @@ async function confirmDeleteChannel() {
             <div
               class="text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-soft"
             >
-              Channel
+              {{ echoT('b03.sidebar.kicker') }}
             </div>
             <h2
               id="channel-settings-title"
@@ -796,11 +824,11 @@ async function confirmDeleteChannel() {
               {{ channelSettings.channel.name }}
             </h2>
             <p class="mt-1 text-sm text-muted">
-              Configure this channel for {{ serverName }}.
+              {{ echoT('b03.sidebar.serverDesc', { serverName }) }}
             </p>
             <div
               class="channel-settings-type-chip mt-3 inline-flex max-w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium"
-              title="Channel type"
+              :title="echoT('b03.sidebar.typeTitle')"
             >
               <span
                 v-if="sidebarChannelIconVisual.kind === 'emoji'"
@@ -816,10 +844,10 @@ async function confirmDeleteChannel() {
               />
               <span class="min-w-0 truncate">{{
                 channelType === 'voice' || channelType === 'stage'
-                  ? 'Voice channel'
+                  ? echoT('b03.sidebar.voiceChannel')
                   : channelType === 'forum'
-                    ? 'Forum channel'
-                    : 'Text channel'
+                    ? echoT('b03.sidebar.forumChannel')
+                    : echoT('b03.sidebar.textChannel')
               }}</span>
             </div>
           </div>
@@ -828,7 +856,7 @@ async function confirmDeleteChannel() {
             <div
               class="channel-settings-sidebar-kicker px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
             >
-              Settings
+              {{ echoT('b03.sidebar.settings') }}
             </div>
             <div class="flex flex-col gap-1">
               <button
@@ -875,7 +903,7 @@ async function confirmDeleteChannel() {
               <div
                 class="text-xs font-semibold uppercase tracking-[0.18em] text-fg-soft"
               >
-                Channel
+                {{ echoT('b03.sidebar.kicker') }}
               </div>
               <div class="mt-2 flex items-center gap-3">
                 <template v-if="activeTab === 'overview'">
@@ -912,7 +940,7 @@ async function confirmDeleteChannel() {
               class="close-btn channel-settings-close-btn shrink-0 rounded-lg px-3 py-2 text-sm font-semibold transition-colors"
               @click="close"
             >
-              Close
+              {{ echoT('b03.common.close') }}
             </button>
           </div>
 
@@ -936,7 +964,7 @@ async function confirmDeleteChannel() {
                         alt=""
                         class="channel-settings-label-icon server-settings-inline-icon"
                       />
-                      Name
+                      {{ echoT('b03.overview.name') }}
                     </label>
                     <div
                       class="channel-settings-glass-row mt-2 flex min-h-[44px] w-full min-w-0 items-stretch overflow-hidden rounded-xl"
@@ -956,7 +984,7 @@ async function confirmDeleteChannel() {
                         v-model="channelName"
                         type="text"
                         class="channel-settings-name-input min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm outline-none"
-                        placeholder="channel-name"
+                        :placeholder="echoT('b03.overview.namePlaceholder')"
                         :maxlength="ECHO_CHANNEL_NAME_MAX_LENGTH"
                       />
                     </div>
@@ -971,7 +999,7 @@ async function confirmDeleteChannel() {
                         alt=""
                         class="channel-settings-label-icon server-settings-inline-icon"
                       />
-                      Category
+                      {{ echoT('b03.overview.category') }}
                     </div>
                     <div class="channel-settings-dropdowns mt-2 w-full min-w-0">
                       <EchoDropdown
@@ -997,10 +1025,10 @@ async function confirmDeleteChannel() {
                         alt=""
                         class="channel-settings-label-icon server-settings-inline-icon"
                       />
-                      Paper
+                      {{ echoT('b03.paper.title') }}
                     </div>
                     <p class="channel-settings-hint w-full min-w-0">
-                      Shared document with live co-editing and margin comments.
+                      {{ echoT('b03.paper.hint') }}
                     </p>
                     <label
                       class="flex cursor-pointer items-center gap-2 text-sm"
@@ -1010,7 +1038,7 @@ async function confirmDeleteChannel() {
                         type="checkbox"
                         class="rounded border-border"
                       />
-                      Allow margin comments
+                      {{ echoT('b03.paper.allowComments') }}
                     </label>
                     <label
                       class="flex cursor-pointer items-center gap-2 text-sm"
@@ -1020,14 +1048,14 @@ async function confirmDeleteChannel() {
                         type="checkbox"
                         class="rounded border-border"
                       />
-                      Show author names in margin
+                      {{ echoT('b03.paper.showAuthors') }}
                     </label>
                     <div v-if="paperShareCanManage" class="space-y-2">
                       <div class="text-sm font-medium text-fg">
-                        Share visibility
+                        {{ echoT('b03.paper.shareVisibility') }}
                       </div>
                       <p class="channel-settings-hint">
-                        Who can open this paper when using a share link.
+                        {{ echoT('b03.paper.shareVisibilityHint') }}
                       </p>
                       <label
                         class="flex cursor-pointer items-start gap-2 text-sm"
@@ -1041,7 +1069,7 @@ async function confirmDeleteChannel() {
                           :disabled="paperShareSaving"
                           @change="onPaperShareVisibilityChange('server')"
                         />
-                        Server members (RBAC)
+                        {{ echoT('b03.paper.serverMembers') }}
                       </label>
                       <label
                         class="flex cursor-pointer items-start gap-2 text-sm"
@@ -1055,7 +1083,7 @@ async function confirmDeleteChannel() {
                           :disabled="paperShareSaving"
                           @change="onPaperShareVisibilityChange('private')"
                         />
-                        Authors only
+                        {{ echoT('b03.paper.authorsOnly') }}
                       </label>
                       <label
                         class="flex cursor-pointer items-start gap-2 text-sm"
@@ -1069,7 +1097,7 @@ async function confirmDeleteChannel() {
                           :disabled="paperShareSaving"
                           @change="onPaperShareVisibilityChange('global')"
                         />
-                        Anyone with link
+                        {{ echoT('b03.paper.anyoneWithLink') }}
                       </label>
                     </div>
                   </div>
@@ -1083,12 +1111,12 @@ async function confirmDeleteChannel() {
                         alt=""
                         class="channel-settings-label-icon server-settings-inline-icon"
                       />
-                      Slowmode
+                      {{ echoT('b03.overview.slowmode') }}
                     </div>
                     <div class="channel-settings-dropdowns mt-2 w-full min-w-0">
                       <EchoDropdown
                         v-model="slowModeSecondsStr"
-                        :options="SLOW_MODE_OPTIONS"
+                        :options="slowModeDropdownOptions"
                         menu-match-trigger-width
                         teleport-menu
                         attached
@@ -1096,7 +1124,7 @@ async function confirmDeleteChannel() {
                       />
                     </div>
                     <p class="channel-settings-hint mt-1.5 w-full min-w-0">
-                      Wait time between messages per member.
+                      {{ echoT('b03.overview.slowmodeHint') }}
                     </p>
                   </div>
 
@@ -1113,10 +1141,10 @@ async function confirmDeleteChannel() {
                       />
                       <div class="min-w-0">
                         <div class="channel-settings-option-title">
-                          Age-restricted (NSFW)
+                          {{ echoT('b03.overview.nsfw') }}
                         </div>
                         <p class="channel-settings-hint mt-0.5">
-                          Members must confirm their age before viewing.
+                          {{ echoT('b03.overview.nsfwHint') }}
                         </p>
                       </div>
                     </div>
@@ -1124,7 +1152,7 @@ async function confirmDeleteChannel() {
                       v-model="nsfw"
                       type="checkbox"
                       class="server-toggle shrink-0"
-                      aria-label="Age-restricted channel"
+                      :aria-label="echoT('b03.overview.nsfwAria')"
                     />
                   </div>
 
@@ -1141,7 +1169,7 @@ async function confirmDeleteChannel() {
                           alt=""
                           class="channel-settings-label-icon server-settings-inline-icon"
                         />
-                        User limit
+                        {{ echoT('b03.voice.userLimit') }}
                       </div>
                       <div class="mt-3 flex w-full min-w-0 items-center gap-4">
                         <input
@@ -1170,28 +1198,29 @@ async function confirmDeleteChannel() {
                           alt=""
                           class="channel-settings-label-icon server-settings-inline-icon"
                         />
-                        Bitrate
+                        {{ echoT('b03.voice.bitrate') }}
                       </div>
                       <div
                         class="server-toggle-row mt-3 w-full min-w-0 items-center !py-3.5"
                       >
                         <div class="channel-settings-option-row__text min-w-0">
                           <div class="channel-settings-option-title">
-                            Use server default
+                            {{ echoT('b03.voice.useServerDefault') }}
                           </div>
                           <p class="channel-settings-hint mt-0.5">
-                            Off lets you pick
-                            {{ ECHO_VOICE_BITRATE_MIN_KBPS }}–{{
-                              ECHO_VOICE_BITRATE_MAX_KBPS
+                            {{
+                              echoT('b03.voice.bitrateHint', {
+                                min: ECHO_VOICE_BITRATE_MIN_KBPS,
+                                max: ECHO_VOICE_BITRATE_MAX_KBPS,
+                              })
                             }}
-                            kbps below.
                           </p>
                         </div>
                         <input
                           v-model="voiceDefaultBitrate"
                           type="checkbox"
                           class="server-toggle shrink-0"
-                          aria-label="Use server default bitrate"
+                          :aria-label="echoT('b03.voice.useServerDefaultAria')"
                         />
                       </div>
                       <div class="mt-3 flex w-full min-w-0 items-center gap-4">
@@ -1229,11 +1258,10 @@ async function confirmDeleteChannel() {
                       />
                       <div class="min-w-0">
                         <div class="channel-settings-option-title">
-                          End-to-end encryption
+                          {{ echoT('b03.voice.e2ee') }}
                         </div>
                         <p class="channel-settings-hint mt-0.5">
-                          LiveKit E2EE for voice and camera. No recording,
-                          transcription, or audio bots.
+                          {{ echoT('b03.voice.e2eeHint') }}
                         </p>
                       </div>
                     </div>
@@ -1241,7 +1269,7 @@ async function confirmDeleteChannel() {
                       v-model="voiceE2eeEnabled"
                       type="checkbox"
                       class="server-toggle shrink-0"
-                      aria-label="End-to-end encryption for voice"
+                      :aria-label="echoT('b03.voice.e2eeAria')"
                     />
                   </div>
                 </div>
@@ -1287,19 +1315,28 @@ async function confirmDeleteChannel() {
                 class="server-settings-panel-root pb-8"
               >
                 <div class="max-w-2xl space-y-5">
-                  <p class="channel-settings-hint text-[15px] leading-relaxed">
-                    This text is inserted into the message input for everyone in
-                    the channel. Use
-                    <strong class="font-semibold text-fg">Soft</strong> if it
-                    should be a default they can remove, or
-                    <strong class="font-semibold text-fg">Hard</strong> to keep
-                    it as a fixed prefix (also enforced when sending text).
-                  </p>
+                  <i18n-t
+                    keypath="b03.format.intro"
+                    tag="p"
+                    scope="global"
+                    class="channel-settings-hint text-[15px] leading-relaxed"
+                  >
+                    <template #soft>
+                      <strong class="font-semibold text-fg">{{
+                        echoT('b03.format.soft')
+                      }}</strong>
+                    </template>
+                    <template #hard>
+                      <strong class="font-semibold text-fg">{{
+                        echoT('b03.format.hard')
+                      }}</strong>
+                    </template>
+                  </i18n-t>
                   <div class="w-full min-w-0">
                     <label
                       class="channel-settings-section-label"
                       for="channel-settings-message-format"
-                      >Default message text</label
+                      >{{ echoT('b03.format.defaultText') }}</label
                     >
                     <textarea
                       id="channel-settings-message-format"
@@ -1312,7 +1349,7 @@ async function confirmDeleteChannel() {
                   </div>
                   <fieldset class="space-y-2">
                     <legend class="channel-settings-section-label">
-                      Enforcement
+                      {{ echoT('b03.format.enforcement') }}
                     </legend>
                     <label
                       class="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-glass px-3 py-2.5"
@@ -1325,11 +1362,13 @@ async function confirmDeleteChannel() {
                         :disabled="!messageFormatTemplate.trim()"
                       />
                       <span>
-                        <span class="font-medium text-fg">Soft</span>
+                        <span class="font-medium text-fg">{{
+                          echoT('b03.format.soft')
+                        }}</span>
                         <span
                           class="channel-settings-hint mt-0.5 block text-sm"
                         >
-                          Users can delete or edit the default text.
+                          {{ echoT('b03.format.softHint') }}
                         </span>
                       </span>
                     </label>
@@ -1344,12 +1383,13 @@ async function confirmDeleteChannel() {
                         :disabled="!messageFormatTemplate.trim()"
                       />
                       <span>
-                        <span class="font-medium text-fg">Hard</span>
+                        <span class="font-medium text-fg">{{
+                          echoT('b03.format.hard')
+                        }}</span>
                         <span
                           class="channel-settings-hint mt-0.5 block text-sm"
                         >
-                          Prefix stays at the start of the input and must appear
-                          on sent messages.
+                          {{ echoT('b03.format.hardHint') }}
                         </span>
                       </span>
                     </label>
@@ -1363,22 +1403,27 @@ async function confirmDeleteChannel() {
                 class="server-settings-panel-root pb-8"
               >
                 <div class="max-w-xl space-y-5">
-                  <p class="channel-settings-hint text-[15px] leading-relaxed">
-                    Members who start a post get these extras on
-                    <strong class="font-semibold text-fg">their own</strong>
-                    thread only. Server roles and channel permissions still
-                    apply for everything else.
-                  </p>
+                  <i18n-t
+                    keypath="b03.forum.intro"
+                    tag="p"
+                    scope="global"
+                    class="channel-settings-hint text-[15px] leading-relaxed"
+                  >
+                    <template #own>
+                      <strong class="font-semibold text-fg">{{
+                        echoT('b03.forum.own')
+                      }}</strong>
+                    </template>
+                  </i18n-t>
                   <div
                     class="server-toggle-row channel-settings-perm-sync-row items-start !py-4"
                   >
                     <div class="channel-settings-option-row__text min-w-0">
                       <div class="channel-settings-option-title">
-                        Manage post (pin, lock, archive, tags)
+                        {{ echoT('b03.forum.managePost') }}
                       </div>
                       <p class="channel-settings-hint mt-1">
-                        Lets the author change listing pin, lock, archive, and
-                        tags without Manage Channel on the post.
+                        {{ echoT('b03.forum.managePostHint') }}
                       </p>
                     </div>
                     <input
@@ -1392,10 +1437,10 @@ async function confirmDeleteChannel() {
                   >
                     <div class="channel-settings-option-row__text min-w-0">
                       <div class="channel-settings-option-title">
-                        Delete own post
+                        {{ echoT('b03.forum.deleteOwn') }}
                       </div>
                       <p class="channel-settings-hint mt-1">
-                        Lets the author delete the entire post channel (thread).
+                        {{ echoT('b03.forum.deleteOwnHint') }}
                       </p>
                     </div>
                     <input
@@ -1409,10 +1454,10 @@ async function confirmDeleteChannel() {
                   >
                     <div class="channel-settings-option-row__text min-w-0">
                       <div class="channel-settings-option-title">
-                        Delete others’ messages in their post
+                        {{ echoT('b03.forum.deleteOthers') }}
                       </div>
                       <p class="channel-settings-hint mt-1">
-                        Like scoped message moderation inside their thread only.
+                        {{ echoT('b03.forum.deleteOthersHint') }}
                       </p>
                     </div>
                     <input
@@ -1431,8 +1476,7 @@ async function confirmDeleteChannel() {
               >
                 <div class="max-w-lg space-y-8">
                   <p class="channel-settings-hint text-[15px] leading-relaxed">
-                    These actions are sensitive and may be irreversible. Proceed
-                    carefully.
+                    {{ echoT('b03.danger.intro') }}
                   </p>
 
                   <section
@@ -1440,12 +1484,10 @@ async function confirmDeleteChannel() {
                     class="space-y-3"
                   >
                     <div class="channel-settings-section-label">
-                      Auto-delete messages
+                      {{ echoT('b03.danger.autoDelete') }}
                     </div>
                     <p class="channel-settings-hint mt-1.5 w-full min-w-0">
-                      Remove messages older than the retention period. When
-                      synced, the category setting applies. Deleted messages
-                      remain in the database for 14 days before purge.
+                      {{ echoT('b03.danger.autoDeleteHint') }}
                     </p>
                     <label
                       class="mt-3 flex cursor-pointer items-center gap-2 text-sm"
@@ -1455,17 +1497,18 @@ async function confirmDeleteChannel() {
                         type="checkbox"
                         class="rounded border-border"
                       />
-                      Sync with category
+                      {{ echoT('b03.common.syncWithCategory') }}
                     </label>
                     <p
                       v-if="autoDeleteSyncedToCategory"
                       class="channel-settings-hint mt-2 w-full min-w-0"
                     >
-                      Inherited from category:
                       {{
-                        MESSAGE_AUTO_DELETE_OPTIONS.find(
-                          (o) => o.value === effectiveCategoryAutoDeleteStr,
-                        )?.label ?? 'Off'
+                        echoT('b03.danger.inherited', {
+                          value: messageAutoDeleteOptionLabel(
+                            effectiveCategoryAutoDeleteStr || '',
+                          ),
+                        })
                       }}
                     </p>
                     <div
@@ -1477,8 +1520,8 @@ async function confirmDeleteChannel() {
                     >
                       <EchoDropdown
                         v-model="displayedAutoDeleteStr"
-                        :options="MESSAGE_AUTO_DELETE_OPTIONS"
-                        label="Retention"
+                        :options="autoDeleteDropdownOptions"
+                        :label="echoT('b03.danger.retention')"
                         menu-match-trigger-width
                         teleport-menu
                         attached
@@ -1492,28 +1535,33 @@ async function confirmDeleteChannel() {
                   >
                     <div class="min-w-0">
                       <div class="text-sm font-semibold echo-danger-title">
-                        Delete channel
+                        {{ echoT('b03.danger.deleteChannel') }}
                       </div>
-                      <p class="mt-1 text-sm text-fg-soft">
-                        Permanently delete
-                        <span
-                          class="inline-flex min-w-0 max-w-full align-bottom"
-                        >
+                      <i18n-t
+                        keypath="b03.danger.deleteDesc"
+                        tag="p"
+                        scope="global"
+                        class="mt-1 text-sm text-fg-soft"
+                      >
+                        <template #name>
                           <span
-                            class="min-w-0 truncate font-semibold text-fg"
-                            :title="'#' + channelSettings.channel.name"
-                            >#{{ channelSettings.channel.name }}</span
-                          ></span
-                        >. All messages in this channel will be removed. This
-                        cannot be undone.
-                      </p>
+                            class="inline-flex min-w-0 max-w-full align-bottom"
+                          >
+                            <span
+                              class="min-w-0 truncate font-semibold text-fg"
+                              :title="'#' + channelSettings.channel.name"
+                              >#{{ channelSettings.channel.name }}</span
+                            >
+                          </span>
+                        </template>
+                      </i18n-t>
                     </div>
                     <button
                       type="button"
                       class="danger-btn danger-btn--strong shrink-0 self-start sm:self-center"
                       @click="confirmDeleteChannel"
                     >
-                      Delete channel
+                      {{ echoT('b03.danger.deleteChannel') }}
                     </button>
                   </div>
                 </div>
@@ -1528,12 +1576,16 @@ async function confirmDeleteChannel() {
                   v-if="isPaperChannel && paperPermissionsDisabled"
                   class="rounded-xl border border-border bg-elevated/50 p-4"
                 >
-                  <p class="text-sm text-fg">
-                    Permissions apply when share visibility is set to
-                    <strong>Server members (RBAC)</strong>. Change the share
-                    visibility in the Overview tab to enable permission
-                    controls.
-                  </p>
+                  <i18n-t
+                    keypath="b03.perm.paperNote"
+                    tag="p"
+                    scope="global"
+                    class="text-sm text-fg"
+                  >
+                    <template #mode>
+                      <strong>{{ echoT('b03.paper.serverMembers') }}</strong>
+                    </template>
+                  </i18n-t>
                 </div>
 
                 <template
@@ -1549,17 +1601,20 @@ async function confirmDeleteChannel() {
                       class="channel-settings-option-row__text min-w-0 max-w-[min(100%,42rem)]"
                     >
                       <div class="channel-settings-option-title">
-                        Sync with category
+                        {{ echoT('b03.common.syncWithCategory') }}
                       </div>
-                      <p class="channel-settings-hint mt-1">
-                        When enabled, this channel inherits category-level
-                        overwrites from
-                        <span class="font-semibold text-fg-soft">{{
-                          channelCategoryLabel
-                        }}</span
-                        >. Turn it off to apply channel-specific rules for roles
-                        or individual members.
-                      </p>
+                      <i18n-t
+                        keypath="b03.perm.syncHint"
+                        tag="p"
+                        scope="global"
+                        class="channel-settings-hint mt-1"
+                      >
+                        <template #category>
+                          <span class="font-semibold text-fg-soft">{{
+                            channelCategoryLabel
+                          }}</span>
+                        </template>
+                      </i18n-t>
                     </div>
                     <input
                       v-model="echoSyncWithCategoryModel"
@@ -1573,9 +1628,17 @@ async function confirmDeleteChannel() {
                     class="echo-warn-banner rounded-xl border border-amber-400/25 border-l-4 border-l-amber-400/70 px-4 py-3 text-sm leading-relaxed"
                     role="note"
                   >
-                    This channel is currently inheriting permissions from
-                    <span class="font-semibold">{{ channelCategoryLabel }}</span
-                    >. Disable sync to add channel-specific overwrites.
+                    <i18n-t
+                      keypath="b03.perm.inheriting"
+                      tag="span"
+                      scope="global"
+                    >
+                      <template #category>
+                        <span class="font-semibold">{{
+                          channelCategoryLabel
+                        }}</span>
+                      </template>
+                    </i18n-t>
                   </div>
 
                   <PermissionOverwriteEditor
@@ -1586,7 +1649,11 @@ async function confirmDeleteChannel() {
                     :permission-defs="echoPermissionDefs"
                     :loading="echoPermissionEditor.loading"
                     :disabled="echoSyncWithCategoryModel"
-                    :disabled-message="`This channel is currently inheriting permissions from ${channelCategoryLabel}. Disable sync to add channel-specific overwrites.`"
+                    :disabled-message="
+                      echoT('b03.perm.inheriting', {
+                        category: channelCategoryLabel,
+                      })
+                    "
                     @update:rows="echoPermissionRows = $event"
                   />
                 </template>
@@ -1610,16 +1677,20 @@ async function confirmDeleteChannel() {
                       class="channel-settings-option-row__text min-w-0 max-w-[min(100%,42rem)]"
                     >
                       <div class="channel-settings-option-title">
-                        Sync with category
+                        {{ echoT('b03.common.syncWithCategory') }}
                       </div>
-                      <p class="channel-settings-hint mt-1">
-                        When enabled, this channel uses defaults from
-                        <span class="font-semibold text-fg-soft">{{
-                          channelCategoryLabel
-                        }}</span>
-                        (edit in category settings). Turn off to set overrides
-                        only for this channel.
-                      </p>
+                      <i18n-t
+                        keypath="b03.perm.defaultsHint"
+                        tag="p"
+                        scope="global"
+                        class="channel-settings-hint mt-1"
+                      >
+                        <template #category>
+                          <span class="font-semibold text-fg-soft">{{
+                            channelCategoryLabel
+                          }}</span>
+                        </template>
+                      </i18n-t>
                     </div>
                     <input
                       v-model="syncWithCategoryModel"
@@ -1633,12 +1704,17 @@ async function confirmDeleteChannel() {
                     class="echo-warn-banner mx-3 rounded-xl border border-amber-400/25 border-l-4 border-l-amber-400/70 px-4 py-3 text-sm leading-relaxed"
                     role="note"
                   >
-                    Showing defaults for
-                    <span class="font-semibold">{{
-                      channelCategoryLabel
-                    }}</span>
-                    — use the gear on that category in the sidebar to edit.
-                    Uncheck sync above to override only this channel.
+                    <i18n-t
+                      keypath="b03.perm.showingDefaults"
+                      tag="span"
+                      scope="global"
+                    >
+                      <template #category>
+                        <span class="font-semibold">{{
+                          channelCategoryLabel
+                        }}</span>
+                      </template>
+                    </i18n-t>
                   </div>
 
                   <div
@@ -1647,7 +1723,7 @@ async function confirmDeleteChannel() {
                     class="mb-4 w-full last:mb-0"
                   >
                     <div class="settings-subtitle px-3 pt-3 pb-2">
-                      {{ group }}
+                      {{ permissionGroupLabel(group) }}
                     </div>
                     <div
                       class="roles-permissions-list flex w-full flex-col gap-0.5"
@@ -1665,7 +1741,11 @@ async function confirmDeleteChannel() {
                           />
                           <span
                             class="channel-settings-option-row__text min-w-0 pt-1 text-[14px] font-semibold leading-snug text-fg"
-                            >{{ def.label }}</span
+                            >{{
+                              channelPermissionLabel(def.key, {
+                                group: def.group,
+                              })
+                            }}</span
                           >
                         </div>
                         <input
@@ -1687,7 +1767,7 @@ async function confirmDeleteChannel() {
             class="roles-change-bar mt-4 shrink-0 border-t border-border pt-4"
           >
             <div class="text-sm text-fg-subtle">
-              Changes apply when you save.
+              {{ echoT('b03.footer.changesApply') }}
             </div>
             <div class="flex gap-2">
               <button
@@ -1695,7 +1775,7 @@ async function confirmDeleteChannel() {
                 class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
                 @click="close"
               >
-                Cancel
+                {{ echoT('b03.footer.cancel') }}
               </button>
               <button
                 type="button"
@@ -1703,7 +1783,7 @@ async function confirmDeleteChannel() {
                 :disabled="!canSave"
                 @click="save"
               >
-                Save changes
+                {{ echoT('serverSettingsUi.saveChanges') }}
               </button>
             </div>
           </div>

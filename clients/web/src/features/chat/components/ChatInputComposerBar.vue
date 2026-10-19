@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import type { ComponentPublicInstance } from 'vue';
 import type { Ref } from 'vue';
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue';
@@ -500,7 +501,7 @@ defineExpose({
               <button
                 type="button"
                 class="selection-menu-btn"
-                aria-label="Bold"
+                :aria-label="echoT('chat.format.bold')"
                 @click.prevent="formatBold"
               >
                 <svg
@@ -517,7 +518,7 @@ defineExpose({
               <button
                 type="button"
                 class="selection-menu-btn"
-                aria-label="Italic"
+                :aria-label="echoT('chat.format.italic')"
                 @click.prevent="formatItalic"
               >
                 <svg
@@ -535,7 +536,7 @@ defineExpose({
               <button
                 type="button"
                 class="selection-menu-btn"
-                aria-label="Strikethrough"
+                :aria-label="echoT('chat.format.strikethrough')"
                 @click.prevent="formatStrike"
               >
                 <svg
@@ -554,7 +555,7 @@ defineExpose({
               <button
                 type="button"
                 class="selection-menu-btn"
-                aria-label="Code"
+                :aria-label="echoT('chat.format.code')"
                 @click.prevent="formatCode"
               >
                 <svg
@@ -571,7 +572,7 @@ defineExpose({
               <button
                 type="button"
                 class="selection-menu-btn"
-                aria-label="Spoiler"
+                :aria-label="echoT('chat.format.spoiler')"
                 @click.prevent="formatSpoiler"
               >
                 <svg
@@ -640,7 +641,7 @@ defineExpose({
           <template v-if="props.popoutTheme === 'forum'">
             <button
               type="button"
-              aria-label="Upload file"
+              :aria-label="echoT('b16.composerBar.uploadFile')"
               :disabled="composerDisabled || attachAllowsUpload === false"
               class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
               :class="{
@@ -667,7 +668,7 @@ defineExpose({
             </button>
             <button
               type="button"
-              aria-label="Create poll"
+              :aria-label="echoT('b16.composerBar.createPoll')"
               :disabled="composerDisabled || attachAllowsPoll === false"
               class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
               :class="{
@@ -704,7 +705,11 @@ defineExpose({
             "
             type="button"
             :aria-pressed="allSpoilers"
-            :title="allSpoilers ? 'Mark as not spoiler' : 'Mark as spoiler'"
+            :title="
+              allSpoilers
+                ? echoT('b16.composerBar.markNotSpoiler')
+                : echoT('b16.composerBar.markSpoiler')
+            "
             class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
             :class="
               allSpoilers
@@ -743,7 +748,7 @@ defineExpose({
               "
               :aria-expanded="markdownMenuOpen"
               aria-haspopup="menu"
-              title="Markdown preview mode"
+              :title="echoT('b16.composerBar.markdownPreviewMode')"
               @click.stop="toggleMarkdownMenu"
             >
               m
@@ -757,7 +762,7 @@ defineExpose({
                   : 'bottom-full mb-1'
               "
               role="menu"
-              aria-label="Markdown preview"
+              :aria-label="echoT('b16.composerBar.markdownPreview')"
               @mousedown.prevent
               @click.stop
             >
@@ -775,10 +780,12 @@ defineExpose({
                     {{ currentMarkdownMenuMode === 'off' ? '✓' : '' }}
                   </span>
                   <span>
-                    <span class="font-medium">Source only</span>
+                    <span class="font-medium">{{
+                      echoT('b16.composerBar.sourceOnly')
+                    }}</span>
                     <span
                       class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
-                      >No preview</span
+                      >{{ echoT('b16.composerBar.noPreview') }}</span
                     >
                   </span>
                 </span>
@@ -799,11 +806,12 @@ defineExpose({
                     {{ currentMarkdownMenuMode === 'inline' ? '✓' : '' }}
                   </span>
                   <span>
-                    <span class="font-medium">Inline preview</span>
+                    <span class="font-medium">{{
+                      echoT('b16.composerBar.inlinePreview')
+                    }}</span>
                     <span
                       class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
-                      >Headings, lists, links, fences, and inline marks—same
-                      source as split preview</span
+                      >{{ echoT('b16.composerBar.inlineHint') }}</span
                     >
                   </span>
                 </span>
@@ -822,10 +830,12 @@ defineExpose({
                     {{ currentMarkdownMenuMode === 'split' ? '✓' : '' }}
                   </span>
                   <span>
-                    <span class="font-medium">Split preview</span>
+                    <span class="font-medium">{{
+                      echoT('b16.composerBar.splitPreview')
+                    }}</span>
                     <span
                       class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
-                      >Panel above the input</span
+                      >{{ echoT('b16.composerBar.splitHint') }}</span
                     >
                   </span>
                 </span>
@@ -844,10 +854,12 @@ defineExpose({
                     {{ currentMarkdownMenuMode === 'full' ? '✓' : '' }}
                   </span>
                   <span>
-                    <span class="font-medium">Full preview</span>
+                    <span class="font-medium">{{
+                      echoT('b16.composerBar.fullPreview')
+                    }}</span>
                     <span
                       class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
-                      >Large preview in chat area</span
+                      >{{ echoT('b16.composerBar.fullHint') }}</span
                     >
                   </span>
                 </span>
@@ -886,7 +898,7 @@ defineExpose({
           >
             <img
               :src="icons.emotes"
-              alt="Emotes"
+              :alt="echoT('b16.composerBar.emotes')"
               class="w-6 h-6 chat-toolbar-icon"
             />
           </button>
@@ -898,22 +910,30 @@ defineExpose({
             type="button"
             class="chat-focus-ring chat-mobile-send-btn ml-0.5 inline-flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-lg px-3 text-xs font-semibold transition-colors"
             :disabled="composerDisabled"
-            :title="composerDisabled ? composerDisabledReason : 'Send message'"
-            aria-label="Send message"
+            :title="
+              composerDisabled
+                ? composerDisabledReason
+                : echoT('b16.composerBar.sendMessage')
+            "
+            :aria-label="echoT('b16.composerBar.sendMessage')"
             @click="void props.requestSend?.()"
           >
-            Send
+            {{ echoT('b16.composerBar.send') }}
           </button>
           <button
             v-if="props.popoutTheme === 'forum'"
             type="button"
             class="chat-focus-ring forum-send-btn ml-1 inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold transition-colors"
             :disabled="composerDisabled || !hasComposerPayload"
-            :title="composerDisabled ? composerDisabledReason : 'Publish post'"
-            aria-label="Publish post"
+            :title="
+              composerDisabled
+                ? composerDisabledReason
+                : echoT('b16.composerBar.publishPost')
+            "
+            :aria-label="echoT('b16.composerBar.publishPost')"
             @click="void props.requestSend?.()"
           >
-            Post
+            {{ echoT('b16.composerBar.post') }}
           </button>
         </div>
       </div>

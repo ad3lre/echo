@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type { AuthSessionInfo } from '@/api/authClient';
 
 export type ParsedClientEnvironment = {
@@ -82,7 +83,7 @@ export function parseAuthSessionUserAgent(
   if (/iPhone|iPad|iPod/i.test(u)) {
     const ver = iosVer?.[1]?.replace(/_/g, '.') ?? '';
     const os = ver ? `iOS ${ver.split('.').slice(0, 3).join('.')}` : 'iOS';
-    let device = 'Apple device';
+    let device = echoT('auth.deviceLabel.appleDevice');
     if (/iPad/i.test(u)) device = 'iPad';
     else if (/iPod/i.test(u)) device = 'iPod touch';
     else if (/iPhone/i.test(u)) device = iphoneModelFromUa(u) ?? 'iPhone';
@@ -94,7 +95,9 @@ export function parseAuthSessionUserAgent(
   if (/Macintosh|Mac OS X/i.test(u)) {
     const ver = macVer?.[1]?.replace(/_/g, '.') ?? '';
     const os = ver ? `macOS ${ver.split('.').slice(0, 3).join('.')}` : 'macOS';
-    const device = /Mobile\/\w+/i.test(u) ? 'Mac (touch class)' : 'Mac';
+    const device = /Mobile\/\w+/i.test(u)
+      ? echoT('auth.deviceLabel.macTouch')
+      : 'Mac';
     return withBrowser({ os, device, headline: `${os} — ${device}` }, u);
   }
 
@@ -102,7 +105,9 @@ export function parseAuthSessionUserAgent(
   if (/Android/i.test(u)) {
     const av = u.match(/Android ([\d.]+)/i);
     const os = av?.[1] ? `Android ${av[1]}` : 'Android';
-    let device = /Mobile/i.test(u) ? 'Android phone' : 'Android tablet';
+    let device = /Mobile/i.test(u)
+      ? echoT('auth.deviceLabel.androidPhone')
+      : echoT('auth.deviceLabel.androidTablet');
     const buildMatch = u.match(/;\s*([^;)]+?)\s*(?:Build|\))/i);
     if (buildMatch) {
       const hint = buildMatch[1].trim();

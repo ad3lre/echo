@@ -1,0 +1,84 @@
+{
+  "fwd": {
+    "forwarded": "Weitergeleitet",
+    "close": "Schließen",
+    "title": "Nachricht weiterleiten",
+    "subtitle": "An eine Direktnachricht oder einen Kanal senden",
+    "preview": "Vorschau",
+    "searchPlaceholder": "Personen, Server, Kanäle suchen…",
+    "searchLabel": "Ziele durchsuchen",
+    "dms": "Direktnachrichten",
+    "servers": "Server",
+    "escHint": "Zum Abbrechen Esc drücken",
+    "noDest1": "Es gibt keinen anderen Ort, an den du diese Nachricht weiterleiten kannst.",
+    "noDest2": "Öffne zuerst eine andere Direktnachricht oder einen Serverkanal.",
+    "noResults": "Keine Ergebnisse für \"{query}\""
+  },
+  "vcp": {
+    "drag": "Ziehen, um in einen anderen Sprachkanal zu verschieben",
+    "serverDeafened": "Vom Server taubgeschaltet",
+    "deafened": "Taubgeschaltet",
+    "unknown": "Unbekannt",
+    "serverMuted": "Vom Server stummgeschaltet",
+    "muted": "Stummgeschaltet",
+    "sharingScreen": "Teilt den Bildschirm",
+    "cameraOn": "Kamera an"
+  },
+  "gif": {
+    "defaultDetail": "Diese Datei konnte nicht geladen werden. Sie fehlt möglicherweise, wurde verschoben oder ist nicht mehr zugänglich.",
+    "bucketHint": "Wenn Uploads funktionieren, Bilder aber nicht geladen werden, verweigert dein Bucket möglicherweise anonyme GET-Anfragen – aktiviere den öffentlichen Lesezugriff für dieses Präfix (oder nutze eine öffentliche R2-/eigene Domain).",
+    "avatarUnavailable": "Avatar nicht verfügbar",
+    "gifUnavailable": "GIF nicht verfügbar",
+    "imageUnavailable": "Bild nicht verfügbar"
+  },
+  "roles": {
+    "title": "Selbst zuweisbare Rollen",
+    "desc": "Wähle die Rollen, für die du infrage kommst. Du kannst nur Rollen wählen, deren Berechtigungen eine Teilmenge deiner eigenen sind.",
+    "summary": "Übersicht der Rollenzuweisung",
+    "assigned": "zugewiesen",
+    "available": "verfügbar",
+    "loading": "Rollen werden geladen…",
+    "syncedTitle": "Aus der Rollenkategorie synchronisiert",
+    "synced": "synchronisiert",
+    "emptyTitle": "Noch nichts zuzuweisen",
+    "categoriesLabel": "Kategorien: {title}",
+    "emptyDesc": "Ein Server-Admin muss Rollen als {selfSelectable} markieren und sie in den Servereinstellungen in synchronisierten Rollenkategorien oder Kanälen bereitstellen.",
+    "selfSelectable": "Selbst wählbar",
+    "removeRole": "Rolle {name} entfernen",
+    "assignRole": "Rolle {name} zuweisen"
+  },
+  "selfPop": {
+    "online": "Online",
+    "onlineDesc": "Als aktiv anzeigen",
+    "idle": "Abwesend",
+    "idleDesc": "Kurz weg",
+    "dnd": "Bitte nicht stören",
+    "dndDesc": "Keine Benachrichtigungen",
+    "setStatusPlaceholder": "Eigenen Status festlegen...",
+    "setStatus": "Eigenen Status festlegen",
+    "customStatus": "Eigener Status",
+    "onlineStatus": "Online-Status",
+    "userSettings": "Benutzereinstellungen",
+    "openUserSettings": "Benutzereinstellungen öffnen"
+  },
+  "vact": {
+    "chatActions": "Aktionen für den Sprachchat",
+    "inVoice": "Mit dir im Sprachkanal",
+    "theirVolume": "Lautstärke dieser Person",
+    "participantVolume": "Lautstärke des Teilnehmers",
+    "moderation": "Sprachmoderation",
+    "unmute": "Stummschaltung aufheben",
+    "mute": "Stummschalten",
+    "undeafen": "Taubschaltung aufheben",
+    "deafen": "Taubschalten",
+    "stopCamera": "Kamera beenden",
+    "stopShare": "Teilen beenden",
+    "disconnect": "Trennen"
+  },
+  "rail": {
+    "activeVoice": "Aktiver Sprachkanal",
+    "unread": "Ungelesene Nachrichten",
+    "dragHint": "Gedrückt halten und ziehen, um die Reihenfolge zu ändern.",
+    "moreServers": "{count} weitere Server"
+  }
+}

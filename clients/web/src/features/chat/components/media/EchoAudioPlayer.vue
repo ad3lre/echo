@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   observeChatMediaRetentionVisible,
@@ -122,13 +123,15 @@ function onAudioError(): void {
       class="media-spoiler-btn chat-focus-ring inline-flex items-center gap-2 rounded-lg px-4 py-3 bg-overlay-heavy hover:bg-overlay-heavy text-amber-400/90 hover:text-amber-400 text-xs font-semibold uppercase tracking-wider transition-colors"
       @click="revealed = true"
     >
-      <span>Spoiler</span>
-      <span class="text-[10px] opacity-80">— Click to reveal</span>
+      <span>{{ echoT('chat.format.spoiler') }}</span>
+      <span class="text-[10px] opacity-80">{{
+        echoT('chatB.audio.clickReveal')
+      }}</span>
     </button>
 
     <MediaUnavailablePanel
       v-else-if="showUnavailable"
-      headline="Audio unavailable"
+      :headline="echoT('chatB.audio.unavailable')"
       :href="isTrustedMediaUrl(url) ? playUrl : undefined"
     />
 

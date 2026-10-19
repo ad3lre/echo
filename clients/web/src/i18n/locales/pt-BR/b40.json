@@ -1,0 +1,89 @@
+{
+  "tickets": {
+    "open": "Aberto",
+    "inProgress": "Em andamento",
+    "resolved": "Resolvido",
+    "closed": "Fechado",
+    "category": "Categoria: {category}",
+    "markInProgress": "Marcar como em andamento",
+    "resolve": "Resolver",
+    "closeTicket": "Fechar ticket",
+    "closedMsg": "Este ticket foi fechado."
+  },
+  "report": {
+    "tns": "Confiança e Segurança",
+    "manual": "Denúncia manual",
+    "manualDesc": "Use isto quando você tiver o ID de um usuário ou mensagem, mas não conseguir abrir esses menus — por exemplo, conteúdo compartilhado fora do Echo.",
+    "openForm": "Abrir formulário de denúncia",
+    "intro": "As denúncias vão para a equipe de Confiança e Segurança do Echo para análise. A maioria é tratada em poucos dias úteis.",
+    "fromProfile": "Em um perfil de usuário — abra o menu do perfil e escolha {report}",
+    "fromMessage": "Em uma mensagem — clique com o botão direito ou pressione e segure e escolha {report}",
+    "report": "Denunciar",
+    "reportMessage": "Denunciar mensagem"
+  },
+  "permPreview": {
+    "title": "Pré-visualização de permissões",
+    "desc": "Permissões efetivas da sua conta (regras do servidor, depois camadas de categoria e canal). Requer gerenciar cargos ou gerenciar servidor.",
+    "signIn": "Entre com o Echo (não simulado) para carregar este painel.",
+    "channelContext": "Contexto do canal",
+    "trace": "Rastreamento",
+    "compare": "Comparar com cargo",
+    "refresh": "Atualizar",
+    "loading": "Carregando…",
+    "owner": "Dono ignora verificações: todas as permissões."
+  },
+  "join": {
+    "server": "Servidor",
+    "memberOne": "{count} membro",
+    "memberMany": "{count} membros",
+    "inVoice": "{count} em voz",
+    "two": "{a} e {b}",
+    "andOthers": " e mais {count} outros",
+    "andOtherOne": " e mais {count} outro",
+    "iconAlt": "Ícone de {name}",
+    "titleVoice": "Entrar no canal de voz?",
+    "titleServer": "Entrar neste servidor?",
+    "descVoice": "Você entrará no servidor e se conectará à voz quando confirmar.",
+    "descServer": "Você se tornará membro e poderá ver os canais com base nos seus cargos.",
+    "about": "Sobre",
+    "peopleHere": "Pessoas aqui",
+    "cancel": "Cancelar",
+    "joining": "Entrando…",
+    "join": "Entrar"
+  },
+  "reply": {
+    "jump": "Ir para a mensagem",
+    "video": "[Vídeo]",
+    "gif": "[GIF]",
+    "image": "[Imagem]",
+    "audio": "[Áudio]",
+    "file": "[Arquivo]",
+    "poll": "[Enquete]",
+    "sticker": "[Figurinha]"
+  },
+  "discordImport": {
+    "aria": "Importar histórico de mensagens do Discord",
+    "title": "Importar mensagens recentes do Discord",
+    "loginRequired": "Você precisa estar conectado para importar mensagens.",
+    "failed": "Falha ao importar mensagens",
+    "descInto": "Este canal veio do Discord. Você pode copiar as últimas 90 mensagens para {channel}.",
+    "descHere": "Este canal veio do Discord. Você pode copiar as últimas 90 mensagens para cá e preservar o histórico recente.",
+    "importing": "Importando…",
+    "button": "Importar últimas 90 mensagens",
+    "note": "Autores sem conta do Discord vinculada aparecem como perfis provisórios."
+  },
+  "toast": {
+    "prev": "Notificação anterior",
+    "next": "Próxima notificação",
+    "dismiss": "Dispensar",
+    "open": "Abrir",
+    "send": "Enviar",
+    "openConversation": "Abrir conversa",
+    "dismissNotification": "Dispensar notificação"
+  },
+  "messageList": {
+    "inChannel": "Mensagens em {channel}",
+    "messages": "Mensagens",
+    "loading": "Carregando mensagens"
+  }
+}

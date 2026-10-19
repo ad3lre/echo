@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import { icons } from '@/assets/icons';
@@ -100,7 +101,7 @@ defineEmits<{
             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
           />
         </svg>
-        Edit
+        {{ echoT('b23.ctxMenu.edit') }}
       </button>
       <button
         v-if="isOwnMessage"
@@ -121,7 +122,7 @@ defineEmits<{
             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
           />
         </svg>
-        Delete
+        {{ echoT('chat.actions.delete') }}
       </button>
       <button
         type="button"
@@ -141,7 +142,7 @@ defineEmits<{
             d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
           />
         </svg>
-        Copy message
+        {{ echoT('b23.ctxMenu.copyMessage') }}
       </button>
       <button
         v-if="showCopyImage"
@@ -162,7 +163,7 @@ defineEmits<{
             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
-        Copy image
+        {{ echoT('b23.ctxMenu.copyImage') }}
       </button>
       <button
         type="button"
@@ -182,7 +183,7 @@ defineEmits<{
             d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
           />
         </svg>
-        Copy as written
+        {{ echoT('b23.ctxMenu.copyAsWritten') }}
       </button>
       <button
         type="button"
@@ -202,7 +203,7 @@ defineEmits<{
             d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
           />
         </svg>
-        Copy message link
+        {{ echoT('b23.ctxMenu.copyLink') }}
       </button>
 
       <template
@@ -213,7 +214,9 @@ defineEmits<{
         "
       >
         <div class="my-1 border-t border-border" role="separator" />
-        <div :class="menuSectionLabelClass">User</div>
+        <div :class="menuSectionLabelClass">
+          {{ echoT('b23.ctxMenu.user') }}
+        </div>
         <button
           v-if="showReportMessage"
           type="button"
@@ -233,7 +236,7 @@ defineEmits<{
               d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
             />
           </svg>
-          Report message
+          {{ echoT('b23.ctxMenu.report') }}
         </button>
         <button
           v-if="showOpenProfile"
@@ -254,7 +257,7 @@ defineEmits<{
               d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
             />
           </svg>
-          View profile
+          {{ echoT('b23.ctxMenu.viewProfile') }}
         </button>
         <button
           v-if="(message.author?.name ?? '').trim()"
@@ -275,7 +278,7 @@ defineEmits<{
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy username
+          {{ echoT('b23.ctxMenu.copyUsername') }}
         </button>
       </template>
 
@@ -298,7 +301,7 @@ defineEmits<{
             d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        View reactions
+        {{ echoT('b23.ctxMenu.viewReactions') }}
       </button>
       <button
         v-if="showForward"
@@ -319,7 +322,7 @@ defineEmits<{
             d="M13 7l5 5m0 0l-5 5m5-5H6"
           />
         </svg>
-        Forward
+        {{ echoT('chat.actions.forward') }}
       </button>
       <button
         v-if="showMentionAuthorInComposer"
@@ -332,11 +335,13 @@ defineEmits<{
           aria-hidden="true"
           >@</span
         >
-        Direct mention
+        {{ echoT('b23.ctxMenu.directMention') }}
       </button>
       <template v-if="showExpandedDeveloperIds">
         <div class="my-1 border-t border-border" role="separator" />
-        <div :class="menuSectionLabelClass">Developer</div>
+        <div :class="menuSectionLabelClass">
+          {{ echoT('b23.ctxMenu.developer') }}
+        </div>
         <button
           v-if="message.authorId"
           type="button"
@@ -356,7 +361,7 @@ defineEmits<{
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy author ID
+          {{ echoT('b23.ctxMenu.copyAuthorId') }}
         </button>
         <button
           v-if="message.id"
@@ -377,7 +382,7 @@ defineEmits<{
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy message ID
+          {{ echoT('b23.ctxMenu.copyMessageId') }}
         </button>
         <button
           v-if="message.replyTo?.messageId"
@@ -398,7 +403,7 @@ defineEmits<{
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy quoted message ID
+          {{ echoT('b23.ctxMenu.copyQuotedId') }}
         </button>
         <button
           v-if="channelId"
@@ -419,7 +424,7 @@ defineEmits<{
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy channel ID
+          {{ echoT('b23.ctxMenu.copyChannelId') }}
         </button>
       </template>
       <button
@@ -433,7 +438,7 @@ defineEmits<{
           alt=""
           class="w-4 h-4 shrink-0 filter invert"
         />
-        Pin message
+        {{ echoT('b23.ctxMenu.pin') }}
       </button>
       <button
         v-if="canUnpin && isPinned"
@@ -446,12 +451,14 @@ defineEmits<{
           alt=""
           class="w-4 h-4 shrink-0 filter invert"
         />
-        Unpin message
+        {{ echoT('b23.ctxMenu.unpin') }}
       </button>
 
       <template v-if="showModActions">
         <div class="my-1 border-t border-border" role="separator" />
-        <div :class="menuSectionLabelClass">Moderation</div>
+        <div :class="menuSectionLabelClass">
+          {{ echoT('b23.ctxMenu.moderation') }}
+        </div>
         <button
           type="button"
           :class="menuItemDestructiveClass"
@@ -470,7 +477,7 @@ defineEmits<{
               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
             />
           </svg>
-          Delete message
+          {{ echoT('b23.ctxMenu.deleteMessage') }}
         </button>
         <button
           type="button"
@@ -490,7 +497,11 @@ defineEmits<{
               d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          {{ timeoutActive ? 'Remove timeout' : 'Timeout (1 hour)' }}
+          {{
+            timeoutActive
+              ? echoT('b23.ctxMenu.removeTimeout')
+              : echoT('b23.ctxMenu.timeout1h')
+          }}
         </button>
         <button
           type="button"
@@ -510,7 +521,7 @@ defineEmits<{
               d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
             />
           </svg>
-          Kick from server
+          {{ echoT('b23.ctxMenu.kick') }}
         </button>
         <button
           type="button"
@@ -530,7 +541,7 @@ defineEmits<{
               d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
             />
           </svg>
-          Ban from server
+          {{ echoT('b23.ctxMenu.ban') }}
         </button>
       </template>
     </div>

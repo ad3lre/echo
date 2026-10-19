@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { icons } from '@/assets/icons';
+import { echoT } from '@/i18n';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import DmIncomingRailCluster from './DmIncomingRailCluster.vue';
 import ServerRailServerIcons from './ServerRailServerIcons.vue';
 import type { Server } from '@shared/types';
@@ -115,7 +116,7 @@ const emit = defineEmits<{
           <button
             type="button"
             class="explore-trigger relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
-            title="Direct messages"
+            :title="echoT('b17.rail.directMessages')"
             @click="emit('toggle-dm-panel')"
             @contextmenu.stop.prevent="emit('dm-lane-contextmenu', $event)"
           >
@@ -133,7 +134,7 @@ const emit = defineEmits<{
                 :src="
                   activeRailTab === 'dm' ? icons.messageFilled : icons.message
                 "
-                alt="Direct messages"
+                :alt="echoT('b17.rail.directMessages')"
                 class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
               />
             </div>
@@ -159,7 +160,7 @@ const emit = defineEmits<{
           <button
             type="button"
             class="explore-trigger relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
-            title="Servers"
+            :title="echoT('b17.rail.servers')"
             @click="emit('open-servers-rail')"
             @contextmenu.stop.prevent="emit('servers-lane-contextmenu', $event)"
           >
@@ -177,7 +178,7 @@ const emit = defineEmits<{
                     ? icons.communityFilled
                     : icons.community
                 "
-                alt="Servers"
+                :alt="echoT('b17.rail.servers')"
                 class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
               />
             </div>
@@ -214,7 +215,7 @@ const emit = defineEmits<{
             type="button"
             data-cy="explore-rail-trigger"
             class="explore-trigger relative flex h-10 w-10 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
-            title="Explore servers"
+            :title="echoT('b17.rail.exploreServers')"
             @click="emit('toggle-explore')"
           >
             <div
@@ -231,7 +232,7 @@ const emit = defineEmits<{
                     ? icons.exploreFilled
                     : icons.explore
                 "
-                alt="Explore servers"
+                :alt="echoT('b17.rail.exploreServers')"
                 class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
               />
             </div>
@@ -241,8 +242,8 @@ const emit = defineEmits<{
           v-if="props.bugHunterEnabled"
           type="button"
           class="rail-bug-hunter shrink-0 flex h-9 w-9 items-center justify-center rounded-full border border-amber-500/35 bg-amber-500/15 text-amber-200 shadow-md transition hover:bg-amber-500/25 hover:brightness-110"
-          title="Report a bug"
-          aria-label="Report a bug"
+          :title="echoT('b17.rail.reportBug')"
+          :aria-label="echoT('b17.rail.reportBug')"
           @click="emit('open-bug-report')"
         >
           <span class="text-[13px] leading-none" aria-hidden="true">🐛</span>
@@ -256,7 +257,7 @@ const emit = defineEmits<{
           <button
             type="button"
             class="explore-trigger relative flex h-12 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
-            title="Direct messages"
+            :title="echoT('b17.rail.directMessages')"
             @click="emit('toggle-dm-panel')"
             @contextmenu.stop.prevent="emit('dm-lane-contextmenu', $event)"
           >
@@ -274,7 +275,7 @@ const emit = defineEmits<{
                 :src="
                   activeRailTab === 'dm' ? icons.messageFilled : icons.message
                 "
-                alt="Direct messages"
+                :alt="echoT('b17.rail.directMessages')"
                 class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
               />
             </div>
@@ -292,7 +293,7 @@ const emit = defineEmits<{
           <button
             type="button"
             class="explore-trigger relative flex h-12 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
-            title="Servers"
+            :title="echoT('b17.rail.servers')"
             @click="emit('open-servers-rail')"
             @contextmenu.stop.prevent="emit('servers-lane-contextmenu', $event)"
           >
@@ -310,7 +311,7 @@ const emit = defineEmits<{
                     ? icons.communityFilled
                     : icons.community
                 "
-                alt="Servers"
+                :alt="echoT('b17.rail.servers')"
                 class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
               />
             </div>
@@ -346,7 +347,7 @@ const emit = defineEmits<{
             type="button"
             data-cy="explore-rail-trigger"
             class="explore-trigger relative flex h-12 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
-            title="Explore servers"
+            :title="echoT('b17.rail.exploreServers')"
             @click="emit('toggle-explore')"
           >
             <div
@@ -363,7 +364,7 @@ const emit = defineEmits<{
                     ? icons.exploreFilled
                     : icons.explore
                 "
-                alt="Explore servers"
+                :alt="echoT('b17.rail.exploreServers')"
                 class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
               />
             </div>
@@ -379,7 +380,7 @@ const emit = defineEmits<{
           type="button"
           class="explore-trigger relative flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
           :class="props.horizontal ? 'h-10 w-10 shrink-0' : 'h-12 w-full'"
-          title="Log in or register"
+          :title="echoT('b17.rail.loginOrRegister')"
           @click="emit('open-auth')"
         >
           <div
@@ -388,7 +389,7 @@ const emit = defineEmits<{
           >
             <img
               :src="icons.logIn"
-              alt="Log in"
+              :alt="echoT('b17.rail.logIn')"
               class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
             />
           </div>
@@ -398,7 +399,7 @@ const emit = defineEmits<{
           data-cy="explore-rail-trigger"
           class="explore-trigger relative flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
           :class="props.horizontal ? 'h-10 w-10 shrink-0' : 'h-12 w-full'"
-          title="Explore public servers"
+          :title="echoT('b17.rail.explorePublic')"
           @click="emit('toggle-explore')"
         >
           <div
@@ -416,7 +417,7 @@ const emit = defineEmits<{
                   ? icons.exploreFilled
                   : icons.explore
               "
-              alt="Explore servers"
+              :alt="echoT('b17.rail.exploreServers')"
               class="rail-icon h-5 w-5 filter invert opacity-85 transition-opacity duration-200"
             />
           </div>
@@ -425,10 +426,10 @@ const emit = defineEmits<{
           v-if="!isMockDataMode"
           type="button"
           class="max-w-[4.5rem] rounded-md px-1 py-0.5 text-center text-[9px] font-medium leading-tight text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg-soft"
-          title="Continue"
+          :title="echoT('b17.rail.continue')"
           @click="emit('open-auth')"
         >
-          Sign in
+          {{ echoT('b17.rail.signIn') }}
         </button>
       </div>
       <div
@@ -443,8 +444,8 @@ const emit = defineEmits<{
           v-if="showChannelButton"
           type="button"
           class="explore-trigger relative flex h-10 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
-          title="Show channels"
-          aria-label="Show channels"
+          :title="echoT('b17.rail.showChannels')"
+          :aria-label="echoT('b17.rail.showChannels')"
           @click="emit('expand-channels')"
         >
           <div
@@ -461,8 +462,8 @@ const emit = defineEmits<{
           v-if="showMemberButton"
           type="button"
           class="explore-trigger relative flex h-10 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
-          title="Show members"
-          aria-label="Show members"
+          :title="echoT('b17.rail.showMembers')"
+          :aria-label="echoT('b17.rail.showMembers')"
           @click="emit('expand-members')"
         >
           <div
@@ -484,7 +485,7 @@ const emit = defineEmits<{
           v-if="showDmListButton"
           type="button"
           class="explore-trigger relative flex h-10 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
-          title="Show direct messages"
+          :title="echoT('b17.rail.showDirectMessages')"
           @click="emit('toggle-dm-panel')"
         >
           <div
@@ -492,7 +493,7 @@ const emit = defineEmits<{
           >
             <img
               :src="icons.messageAlt"
-              alt="Direct messages"
+              :alt="echoT('b17.rail.directMessages')"
               class="rail-icon h-4 w-4 filter invert opacity-90"
             />
           </div>

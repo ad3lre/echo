@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import type { MessageReaction } from '@shared/types';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -152,9 +153,11 @@ onUnmounted(() => {
 function labelForUser(userId: string): string {
   if (props.resolveReactorDisplay) return props.resolveReactorDisplay(userId);
   if (props.currentUserId && userId === props.currentUserId) {
-    return props.currentUserDisplayName?.trim() || 'You';
+    return (
+      props.currentUserDisplayName?.trim() || echoT('chatB.reactionHover.you')
+    );
   }
-  return 'Unknown';
+  return echoT('chat.labels.unknown');
 }
 
 function avatarForUser(userId: string): string | null {
@@ -186,7 +189,7 @@ const overflowCount = computed(() => {
       class="fixed z-[110] w-[260px] max-w-[calc(100vw-16px)] rounded-xl border border-border bg-[color-mix(in_srgb,var(--echo-popover-bg)_95%,transparent)] p-2 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-sm"
       :style="cardStyle"
       role="dialog"
-      aria-label="Reaction details"
+      :aria-label="echoT('chatB.reactionHover.aria')"
       @mouseenter="emit('cardMouseenter')"
       @mouseleave="emit('cardMouseleave')"
     >
@@ -195,11 +198,14 @@ const overflowCount = computed(() => {
           class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-glass-1"
           v-html="parseSingleEmojiForReactions(reaction.emoji)"
         />
-        <span class="text-xs text-fg-soft"
-          >{{ reaction.count }} reaction{{
-            reaction.count === 1 ? '' : 's'
-          }}</span
-        >
+        <span class="text-xs text-fg-soft">{{
+          echoT(
+            reaction.count === 1
+              ? 'chatB.reactionHover.countOne'
+              : 'chatB.reactionHover.countMany',
+            { count: reaction.count },
+          )
+        }}</span>
       </div>
       <ul class="space-y-1">
         <li
@@ -229,7 +235,7 @@ const overflowCount = computed(() => {
         v-if="overflowCount > 0"
         class="mt-1 px-1.5 text-[11px] text-fg-soft"
       >
-        +{{ overflowCount }} more
+        {{ echoT('chatB.reactionHover.more', { count: overflowCount }) }}
       </div>
     </div>
   </Teleport>

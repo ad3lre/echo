@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { icons } from '@/assets/icons';
+import { echoT } from '@/i18n';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 
 defineProps<{
   menuOpen: boolean;
@@ -23,7 +24,7 @@ const emit = defineEmits<{
       class="ellipsis-menu fixed z-[120] min-w-[220px] py-1"
       :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }"
       role="menu"
-      :aria-label="`${title} options`"
+      :aria-label="echoT('layout.rail.laneOptions', { title })"
       @mousedown.stop
       @contextmenu.prevent
     >
@@ -43,7 +44,7 @@ const emit = defineEmits<{
           alt=""
           class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
         />
-        Mark all as read
+        {{ echoT('layout.rail.markAllRead') }}
       </button>
     </div>
   </Teleport>

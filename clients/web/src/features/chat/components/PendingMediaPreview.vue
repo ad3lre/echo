@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import type {
   PendingImage,
   PendingGif,
@@ -93,8 +94,8 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
       v-if="images.length > 0"
       type="button"
       class="chat-focus-ring flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-border bg-glass-1 text-fg-soft transition-colors hover:bg-glass-hover hover:text-white"
-      title="Preview images"
-      aria-label="Preview images larger"
+      :title="echoT('b24.pending.previewImages')"
+      :aria-label="echoT('b24.pending.previewImagesLarger')"
       @click="emit('previewImages', 0)"
     >
       <svg
@@ -111,7 +112,9 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
           d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"
         />
       </svg>
-      <span class="text-[9px] font-semibold uppercase tracking-wide">View</span>
+      <span class="text-[9px] font-semibold uppercase tracking-wide">{{
+        echoT('b24.pending.view')
+      }}</span>
     </button>
     <div
       v-for="(img, i) in images"
@@ -127,7 +130,7 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
       />
       <button
         class="chat-focus-ring absolute inset-0 flex items-center justify-center rounded-lg bg-scrim-2 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
-        aria-label="Remove"
+        :aria-label="echoT('b24.pending.remove')"
         @click="emit('removeImage', i)"
       >
         <span
@@ -184,8 +187,8 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
       <div
         v-if="video.uploadStatus === 'done'"
         class="pointer-events-none absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/95 text-white shadow"
-        title="Uploaded"
-        aria-label="Uploaded"
+        :title="echoT('b24.pending.uploaded')"
+        :aria-label="echoT('b24.pending.uploaded')"
       >
         <svg
           class="h-3 w-3"
@@ -205,7 +208,7 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
         v-else-if="video.uploadStatus === 'error'"
         class="pointer-events-none absolute inset-x-0 top-0 bg-red-600/85 px-1 py-0.5 text-center text-[8px] font-semibold uppercase tracking-wide text-white"
       >
-        Upload failed
+        {{ echoT('b24.pending.uploadFailed') }}
       </div>
       <div
         v-if="pendingVideoShowUploadBar(video)"
@@ -224,7 +227,7 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
           :aria-label="
             video.uploadPercent != null
               ? `Uploading ${pendingVideoUploadBarWidth(video)}%`
-              : 'Uploading'
+              : echoT('chat.status.uploading')
           "
         >
           <div
@@ -246,12 +249,12 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
           class="truncate rounded bg-scrim-2 px-1 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-fg-soft"
           :title="video.file.name"
         >
-          Video
+          {{ echoT('b24.pending.video') }}
         </div>
       </div>
       <button
         class="chat-focus-ring absolute inset-0 flex items-center justify-center rounded-lg bg-scrim-2 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
-        aria-label="Remove"
+        :aria-label="echoT('b24.pending.remove')"
         @click="emit('removeVideo', i)"
       >
         <span
@@ -310,13 +313,13 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
           <div
             class="mt-0.5 text-[10px] uppercase tracking-wide text-fg-subtle"
           >
-            Audio
+            {{ echoT('b24.pending.audio') }}
           </div>
         </div>
       </div>
       <button
         class="chat-focus-ring absolute inset-0 flex items-center justify-center rounded-lg bg-scrim-2 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
-        aria-label="Remove"
+        :aria-label="echoT('b24.pending.remove')"
         @click="emit('removeAudio', i)"
       >
         <span
@@ -357,7 +360,7 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
           v-else
           class="flex shrink-0 flex-col items-center justify-center rounded-md bg-glass-2 px-1 text-[9px] font-bold uppercase leading-tight text-fg-soft"
         >
-          <span>DOC</span>
+          <span>{{ echoT('b24.pending.doc') }}</span>
         </div>
         <div class="flex min-w-0 flex-1 flex-col justify-center py-1 pr-1">
           <div
@@ -370,13 +373,13 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
           <div
             class="mt-0.5 text-[10px] uppercase tracking-wide text-fg-subtle"
           >
-            {{ isPdfPending(doc) ? 'PDF' : 'Document' }}
+            {{ isPdfPending(doc) ? 'PDF' : echoT('chat.labels.document') }}
           </div>
         </div>
       </div>
       <button
         class="chat-focus-ring absolute inset-0 flex items-center justify-center rounded-lg bg-scrim-2 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
-        aria-label="Remove"
+        :aria-label="echoT('b24.pending.remove')"
         @click="emit('removeDocument', i)"
       >
         <span
@@ -406,13 +409,13 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
     >
       <img
         :src="photo.url"
-        alt="Image"
+        :alt="echoT('b24.pending.image')"
         :class="photo.spoiler ? 'blur-md' : ''"
         class="max-h-16 max-w-full object-contain"
       />
       <button
         class="chat-focus-ring absolute inset-0 flex items-center justify-center rounded-lg bg-scrim-2 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
-        aria-label="Remove"
+        :aria-label="echoT('b24.pending.remove')"
         @click="emit('removeExternalImage', i)"
       >
         <span
@@ -442,13 +445,13 @@ function pendingVideoShowUploadBar(video: PendingVideo): boolean {
     >
       <img
         :src="gif.url"
-        alt="GIF"
+        :alt="echoT('b24.pending.gif')"
         :class="gif.spoiler ? 'blur-md' : ''"
         class="max-h-16 max-w-full object-contain"
       />
       <button
         class="chat-focus-ring absolute inset-0 flex items-center justify-center rounded-lg bg-scrim-2 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
-        aria-label="Remove"
+        :aria-label="echoT('b24.pending.remove')"
         @click="emit('removeGif', i)"
       >
         <span

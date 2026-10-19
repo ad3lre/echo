@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
   isTrustedMediaUrl,
@@ -215,7 +216,7 @@ const echoGrouped = computed(() => {
       lastKey = key;
       out.push({
         kind: 'header',
-        roleName: r?.name ?? 'Member',
+        roleName: r?.name ?? echoT('b21.members.member'),
         color: r?.color,
         iconSrc: memberRoleIconImgSrc({
           iconUrl: r?.iconUrl,
@@ -228,7 +229,7 @@ const echoGrouped = computed(() => {
   if (echoGuestsSorted.value.length) {
     out.push({
       kind: 'header',
-      roleName: 'Guests',
+      roleName: echoT('b21.members.guests'),
       color: undefined,
       iconSrc: '',
     });
@@ -338,7 +339,7 @@ async function copyUserId(id: string) {
     }, 1600);
     return;
   }
-  window.prompt('Copy user ID:', id);
+  window.prompt(echoT('b21.members.copyPrompt'), id);
 }
 
 const ACTION_BTN =
@@ -358,23 +359,26 @@ const ICON_BTN =
             v-model="searchQuery"
             class="roles-toolbar-search min-w-0 flex-1 px-2 py-2"
             type="search"
-            placeholder="Search name or ID"
+            :placeholder="echoT('b21.members.searchPlaceholder')"
             autocomplete="off"
           />
         </div>
         <span class="shrink-0 text-xs text-fg-subtle">{{
           q
-            ? `${echoVisibleCount + ghostVisibleCount} match${
-                echoVisibleCount + ghostVisibleCount === 1 ? '' : 'es'
-              }`
-            : `${members.length} total`
+            ? echoT(
+                echoVisibleCount + ghostVisibleCount === 1
+                  ? 'b21.members.matchOne'
+                  : 'b21.members.matchMany',
+                { count: echoVisibleCount + ghostVisibleCount },
+              )
+            : echoT('b21.members.total', { count: members.length })
         }}</span>
       </div>
 
       <div
         class="flex shrink-0 flex-wrap gap-1.5"
         role="tablist"
-        aria-label="Member type"
+        :aria-label="echoT('b21.members.memberType')"
       >
         <button
           type="button"
@@ -388,7 +392,7 @@ const ICON_BTN =
           "
           @click="membersTab = 'echo'"
         >
-          Echo members
+          {{ echoT('b21.members.echoMembers') }}
           <span class="ml-1 text-fg-subtle">({{ echoTabCount }})</span>
         </button>
         <button
@@ -403,7 +407,7 @@ const ICON_BTN =
           "
           @click="membersTab = 'ghosts'"
         >
-          Import placeholders
+          {{ echoT('b21.members.importPlaceholders') }}
           <span class="ml-1 text-fg-subtle">({{ ghostTabCount }})</span>
         </button>
       </div>
@@ -459,7 +463,11 @@ const ICON_BTN =
                 type="button"
                 class="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-border"
                 :disabled="!canOpenMember(item.m)"
-                :title="canOpenMember(item.m) ? 'Open profile' : undefined"
+                :title="
+                  canOpenMember(item.m)
+                    ? echoT('b21.members.openProfile')
+                    : undefined
+                "
                 @click="openMember(item.m, $event)"
               >
                 <img
@@ -487,13 +495,13 @@ const ICON_BTN =
                       v-if="currentUserId && item.m.id === currentUserId"
                       class="server-settings-members__meta-tag shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-fg-soft"
                     >
-                      You
+                      {{ echoT('b21.members.you') }}
                     </span>
                     <span
                       v-if="item.m.isGuest"
                       class="server-settings-members__meta-tag shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-fg-soft"
                     >
-                      Guest
+                      {{ echoT('b21.members.guest') }}
                     </span>
                   </div>
                   <div class="mt-0.5 text-xs text-fg-subtle">
@@ -513,7 +521,7 @@ const ICON_BTN =
                   v-if="canManageRolesFor(item.m)"
                   type="button"
                   :class="ACTION_BTN"
-                  title="Manage roles"
+                  :title="echoT('b21.members.manageRoles')"
                   @click="openMember(item.m, $event, { rolesPanel: true })"
                 >
                   <img
@@ -521,13 +529,13 @@ const ICON_BTN =
                     alt=""
                     class="h-3.5 w-3.5 opacity-90 filter invert"
                   />
-                  Roles
+                  {{ echoT('b21.members.roles') }}
                 </button>
                 <button
                   type="button"
                   :class="ICON_BTN"
-                  title="More actions"
-                  aria-label="More actions"
+                  :title="echoT('serverSettingsUi.moreActions')"
+                  :aria-label="echoT('serverSettingsUi.moreActions')"
                   :aria-expanded="openMenuUserId === item.m.id"
                   @click.stop="toggleMemberMenu(item.m.id)"
                 >
@@ -549,7 +557,7 @@ const ICON_BTN =
                     role="menuitem"
                     @click="openMember(item.m, $event)"
                   >
-                    View profile
+                    {{ echoT('b21.members.viewProfile') }}
                   </button>
                   <button
                     v-if="canManageRolesFor(item.m)"
@@ -558,7 +566,7 @@ const ICON_BTN =
                     role="menuitem"
                     @click="openMember(item.m, $event, { rolesPanel: true })"
                   >
-                    Manage roles
+                    {{ echoT('b21.members.manageRoles') }}
                   </button>
                   <button
                     type="button"
@@ -568,8 +576,8 @@ const ICON_BTN =
                   >
                     {{
                       copyFeedbackId === item.m.id
-                        ? 'Copied ID'
-                        : 'Copy user ID'
+                        ? echoT('b21.members.copiedId')
+                        : echoT('b21.members.copyUserId')
                     }}
                   </button>
                   <template v-if="hasModActions(item.m)">
@@ -581,7 +589,7 @@ const ICON_BTN =
                       :disabled="!canAct(item.m, 'kick')"
                       @click="requestModerate(item.m, 'kick')"
                     >
-                      Kick
+                      {{ echoT('b21.members.kick') }}
                     </button>
                     <button
                       type="button"
@@ -590,7 +598,7 @@ const ICON_BTN =
                       :disabled="!canAct(item.m, 'timeout')"
                       @click="requestModerate(item.m, 'timeout')"
                     >
-                      Timeout
+                      {{ echoT('b21.members.timeout') }}
                     </button>
                     <button
                       type="button"
@@ -599,7 +607,7 @@ const ICON_BTN =
                       :disabled="!canAct(item.m, 'ban')"
                       @click="requestModerate(item.m, 'ban')"
                     >
-                      Ban
+                      {{ echoT('b21.members.ban') }}
                     </button>
                   </template>
                 </div>
@@ -613,10 +621,10 @@ const ICON_BTN =
         >
           {{
             !members.length
-              ? 'No members.'
+              ? echoT('b21.members.noMembers')
               : q
-                ? 'No matches.'
-                : 'No Echo members yet.'
+                ? echoT('b21.members.noMatches')
+                : echoT('b21.members.noEchoMembers')
           }}
         </div>
       </div>
@@ -643,7 +651,7 @@ const ICON_BTN =
                 <span
                   class="server-settings-members__meta-tag shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-fg-soft"
                 >
-                  Import
+                  {{ echoT('b21.members.import') }}
                 </span>
                 <ServerOwnerCrownIcon v-if="ownerId && m.id === ownerId" />
               </div>
@@ -660,14 +668,18 @@ const ICON_BTN =
                 :class="ACTION_BTN"
                 @click="copyUserId(m.id)"
               >
-                {{ copyFeedbackId === m.id ? 'Copied' : 'Copy ID' }}
+                {{
+                  copyFeedbackId === m.id
+                    ? echoT('b21.members.copied')
+                    : echoT('b21.members.copyId')
+                }}
               </button>
               <button
                 v-if="hasModActions(m)"
                 type="button"
                 :class="ICON_BTN"
-                title="More actions"
-                aria-label="More actions"
+                :title="echoT('serverSettingsUi.moreActions')"
+                :aria-label="echoT('serverSettingsUi.moreActions')"
                 :aria-expanded="openMenuUserId === m.id"
                 @click.stop="toggleMemberMenu(m.id)"
               >
@@ -689,7 +701,7 @@ const ICON_BTN =
                   :disabled="!canAct(m, 'kick')"
                   @click="requestModerate(m, 'kick')"
                 >
-                  Kick
+                  {{ echoT('b21.members.kick') }}
                 </button>
                 <button
                   type="button"
@@ -698,7 +710,7 @@ const ICON_BTN =
                   :disabled="!canAct(m, 'timeout')"
                   @click="requestModerate(m, 'timeout')"
                 >
-                  Timeout
+                  {{ echoT('b21.members.timeout') }}
                 </button>
                 <button
                   type="button"
@@ -707,7 +719,7 @@ const ICON_BTN =
                   :disabled="!canAct(m, 'ban')"
                   @click="requestModerate(m, 'ban')"
                 >
-                  Ban
+                  {{ echoT('b21.members.ban') }}
                 </button>
               </div>
             </div>
@@ -717,7 +729,11 @@ const ICON_BTN =
           v-if="!ghostsSorted.length"
           class="px-4 py-12 text-center text-sm text-fg-subtle"
         >
-          {{ ghostTotal ? 'No matches.' : 'No import placeholders.' }}
+          {{
+            ghostTotal
+              ? echoT('b21.members.noMatches')
+              : echoT('b21.members.noPlaceholders')
+          }}
         </div>
       </div>
     </div>

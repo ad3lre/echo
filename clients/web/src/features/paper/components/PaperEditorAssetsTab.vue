@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import type { PaperEditorPanelBridgeContext } from '@/features/paper/paperEditorPanelBridge';
 import { extractPaperDocumentImages } from '@/features/paper/editor/extractPaperDocumentImages';
@@ -38,12 +39,12 @@ const props = defineProps<{
 const editorRef = computed(() => props.context.editor.value);
 const shapeActions = usePaperShapeActions(editorRef);
 
-const shapeTools: { id: PaperShapeKind; label: string }[] = [
-  { id: 'rectangle', label: 'Square' },
-  { id: 'circle', label: 'Circle' },
-  { id: 'triangle', label: 'Triangle' },
-  { id: 'line', label: 'Line' },
-];
+const shapeTools = computed<{ id: PaperShapeKind; label: string }[]>(() => [
+  { id: 'rectangle', label: echoT('b09.assets.square') },
+  { id: 'circle', label: echoT('b09.assets.circle') },
+  { id: 'triangle', label: echoT('b09.assets.triangle') },
+  { id: 'line', label: echoT('b09.assets.line') },
+]);
 const fileInput = ref<HTMLInputElement | null>(null);
 const dragOver = ref(false);
 const imageUrlDialogOpen = ref(false);
@@ -65,11 +66,11 @@ const shapeSizeOptions: EchoDropdownOption[] = PAPER_SHAPE_SIZE_PRESETS.map(
   }),
 );
 
-const shapeAlignOptions: EchoDropdownOption[] = [
-  { label: 'Left', value: 'left' },
-  { label: 'Center', value: 'center' },
-  { label: 'Right', value: 'right' },
-];
+const shapeAlignOptions = computed<EchoDropdownOption[]>(() => [
+  { label: echoT('b09.assets.left'), value: 'left' },
+  { label: echoT('b09.assets.center'), value: 'center' },
+  { label: echoT('b09.assets.right'), value: 'right' },
+]);
 
 const currentShapeSize = computed(() => {
   const { width } = shapeActions.selectedShapeSizePx();
@@ -85,25 +86,25 @@ const selectedImageAttrs = computed(() => {
   return ed.getAttributes('image');
 });
 
-const widthOptions: EchoDropdownOption[] = [
+const widthOptions = computed<EchoDropdownOption[]>(() => [
   { label: '25%', value: '25%' },
   { label: '50%', value: '50%' },
   { label: '75%', value: '75%' },
   { label: '100%', value: '100%' },
-  { label: 'Auto', value: '' },
-];
+  { label: echoT('b09.assets.auto'), value: '' },
+]);
 
-const alignOptions: EchoDropdownOption[] = [
-  { label: 'Left', value: 'left' },
-  { label: 'Center', value: 'center' },
-  { label: 'Right', value: 'right' },
-];
+const alignOptions = computed<EchoDropdownOption[]>(() => [
+  { label: echoT('b09.assets.left'), value: 'left' },
+  { label: echoT('b09.assets.center'), value: 'center' },
+  { label: echoT('b09.assets.right'), value: 'right' },
+]);
 
-const wrapOptions: EchoDropdownOption[] = [
-  { label: 'None', value: 'none' },
-  { label: 'Left', value: 'left' },
-  { label: 'Right', value: 'right' },
-];
+const wrapOptions = computed<EchoDropdownOption[]>(() => [
+  { label: echoT('b09.assets.none'), value: 'none' },
+  { label: echoT('b09.assets.left'), value: 'left' },
+  { label: echoT('b09.assets.right'), value: 'right' },
+]);
 
 const currentWidth = computed(() => selectedImageAttrs.value?.width ?? '');
 const currentAlign = computed(
@@ -211,7 +212,7 @@ function onImageUrlConfirm(src: string) {
   if (!editor || !src) return;
   imageUrlError.value = null;
   if (!props.context.imageUpload.insertImageUrl(editor, src)) {
-    imageUrlError.value = 'That URL is not allowed for images.';
+    imageUrlError.value = echoT('b09.assets.urlNotAllowed');
     imageUrlDialogOpen.value = true;
   }
 }
@@ -247,9 +248,11 @@ function submitSearch() {
         @dragleave.prevent="dragOver = false"
         @drop="onDrop"
       >
-        <p class="paper-editor-upload-zone__title">Upload images</p>
+        <p class="paper-editor-upload-zone__title">
+          {{ echoT('b09.assets.uploadImages') }}
+        </p>
         <p class="paper-editor-upload-zone__hint">
-          Drag and drop or choose a file
+          {{ echoT('b09.assets.dragDrop') }}
         </p>
         <button
           type="button"
@@ -258,7 +261,9 @@ function submitSearch() {
           @click="onPickImage()"
         >
           {{
-            context.imageUpload.uploading.value ? 'Uploading…' : 'Choose file'
+            context.imageUpload.uploading.value
+              ? echoT('b09.assets.uploading')
+              : echoT('b09.assets.chooseFile')
           }}
         </button>
       </section>
@@ -269,14 +274,16 @@ function submitSearch() {
           class="paper-editor-panel__asset-btn paper-editor-panel__asset-btn--ghost"
           @click="openImageUrlDialog()"
         >
-          Insert from URL…
+          {{ echoT('b09.assets.insertFromUrl') }}
         </button>
       </section>
 
       <section class="paper-editor-tab__block">
-        <h4 class="paper-editor-tab__label">Shapes</h4>
+        <h4 class="paper-editor-tab__label">
+          {{ echoT('b09.assets.shapes') }}
+        </h4>
         <p class="paper-editor-tab__hint">
-          Uses the fill color from Colors → Objects.
+          {{ echoT('b09.assets.fillHint') }}
         </p>
         <div class="paper-colors-tab__shape-grid">
           <button
@@ -302,22 +309,26 @@ function submitSearch() {
       </section>
 
       <section class="paper-editor-tab__block">
-        <h4 class="paper-editor-tab__label">Search photos</h4>
+        <h4 class="paper-editor-tab__label">
+          {{ echoT('b09.assets.searchPhotos') }}
+        </h4>
         <form class="paper-editor-search" @submit.prevent="submitSearch">
           <input
             v-model="searchQuery"
             type="search"
             class="paper-editor-search__input"
-            placeholder="Search images…"
-            aria-label="Search stock images"
+            :placeholder="echoT('b09.assets.searchImagesPh')"
+            :aria-label="echoT('b09.assets.searchStock')"
           />
-          <button type="submit" class="paper-editor-search__btn">Search</button>
+          <button type="submit" class="paper-editor-search__btn">
+            {{ echoT('b09.assets.search') }}
+          </button>
         </form>
         <p v-if="searchError" class="paper-editor-tab__hint">
           {{ searchError }}
         </p>
         <p v-else-if="searchLoading" class="paper-editor-tab__hint">
-          Searching…
+          {{ echoT('b09.assets.searching') }}
         </p>
         <div v-else-if="searchResults.length" class="paper-editor-image-grid">
           <button
@@ -329,7 +340,7 @@ function submitSearch() {
           >
             <img
               :src="img.thumbUrl || img.url"
-              :alt="img.alt || 'Image'"
+              :alt="img.alt || echoT('b09.assets.image')"
               loading="lazy"
             />
           </button>
@@ -337,7 +348,9 @@ function submitSearch() {
       </section>
 
       <section v-if="docImages.length" class="paper-editor-tab__block">
-        <h4 class="paper-editor-tab__label">In this document</h4>
+        <h4 class="paper-editor-tab__label">
+          {{ echoT('b09.assets.inThisDocument') }}
+        </h4>
         <div class="paper-editor-image-grid">
           <button
             v-for="img in docImages"
@@ -348,7 +361,11 @@ function submitSearch() {
               'paper-editor-image-grid__item--active':
                 selectedImageAttrs?.src === img.src,
             }"
-            :title="img.blockId ? 'Go to image' : 'Insert again'"
+            :title="
+              img.blockId
+                ? echoT('b09.assets.goToImage')
+                : echoT('b09.assets.insertAgain')
+            "
             @click="onDocImageClick(img.src, img.blockId)"
           >
             <img :src="safeImageUrl(img.src)" alt="" loading="lazy" />
@@ -360,14 +377,18 @@ function submitSearch() {
         v-if="isShapeSelected"
         class="paper-editor-tab__block paper-editor-tab__block--highlight"
       >
-        <h4 class="paper-editor-tab__label">Selected shape</h4>
+        <h4 class="paper-editor-tab__label">
+          {{ echoT('b09.assets.selectedShape') }}
+        </h4>
         <div class="paper-editor-panel__tool-row paper-editor-panel__size-row">
-          <span class="paper-editor-panel__control-label">Size</span>
+          <span class="paper-editor-panel__control-label">{{
+            echoT('b09.assets.size')
+          }}</span>
           <div class="paper-editor-panel__size-controls">
             <button
               type="button"
               class="paper-editor-panel__size-step"
-              aria-label="Decrease shape size"
+              :aria-label="echoT('b09.assets.decreaseShapeSize')"
               :disabled="!canDecreaseShapeSize"
               @mousedown.prevent="stepShapeSize('down')"
             >
@@ -379,13 +400,13 @@ function submitSearch() {
               :paper-appearance="context.appearance.value"
               trigger-mode="label"
               placement="below"
-              title="Shape size"
+              :title="echoT('b09.assets.shapeSize')"
               @update:model-value="setShapeSize"
             />
             <button
               type="button"
               class="paper-editor-panel__size-step"
-              aria-label="Increase shape size"
+              :aria-label="echoT('b09.assets.increaseShapeSize')"
               :disabled="!canIncreaseShapeSize"
               @mousedown.prevent="stepShapeSize('up')"
             >
@@ -394,18 +415,19 @@ function submitSearch() {
           </div>
         </div>
         <div class="paper-editor-panel__tool-row">
-          <span class="paper-editor-panel__control-label">Position</span>
+          <span class="paper-editor-panel__control-label">{{
+            echoT('b09.assets.position')
+          }}</span>
           <EchoDropdown
             :model-value="currentShapeAlign"
             :options="shapeAlignOptions"
-            label="Position"
+            :label="echoT('b09.assets.position')"
             compact
             @update:model-value="setShapeAlign"
           />
         </div>
         <p class="paper-editor-tab__hint">
-          Drag the handles on the canvas to resize, or change fill in Colors →
-          Objects.
+          {{ echoT('b09.assets.resizeHint') }}
         </p>
         <span
           v-if="selectedShapeAttrs"
@@ -424,33 +446,41 @@ function submitSearch() {
         v-if="isImageSelected"
         class="paper-editor-tab__block paper-editor-tab__block--highlight"
       >
-        <h4 class="paper-editor-tab__label">Selected image</h4>
+        <h4 class="paper-editor-tab__label">
+          {{ echoT('b09.assets.selectedImage') }}
+        </h4>
         <div class="paper-editor-panel__tool-row">
-          <span class="paper-editor-panel__control-label">Width</span>
+          <span class="paper-editor-panel__control-label">{{
+            echoT('b09.assets.width')
+          }}</span>
           <EchoDropdown
             :model-value="currentWidth"
             :options="widthOptions"
-            label="Width"
+            :label="echoT('b09.assets.width')"
             compact
             @update:model-value="setImageWidth"
           />
         </div>
         <div class="paper-editor-panel__tool-row">
-          <span class="paper-editor-panel__control-label">Align</span>
+          <span class="paper-editor-panel__control-label">{{
+            echoT('b09.assets.align')
+          }}</span>
           <EchoDropdown
             :model-value="currentAlign"
             :options="alignOptions"
-            label="Align"
+            :label="echoT('b09.assets.align')"
             compact
             @update:model-value="setImageAlign"
           />
         </div>
         <div class="paper-editor-panel__tool-row">
-          <span class="paper-editor-panel__control-label">Wrap</span>
+          <span class="paper-editor-panel__control-label">{{
+            echoT('b09.assets.wrap')
+          }}</span>
           <EchoDropdown
             :model-value="currentWrap"
             :options="wrapOptions"
-            label="Wrap"
+            :label="echoT('b09.assets.wrap')"
             compact
             @update:model-value="setImageWrap"
           />
@@ -458,7 +488,7 @@ function submitSearch() {
         <p v-if="selectedImageAttrs?.src" class="paper-editor-tab__hint">
           <img
             :src="safeImageUrl(selectedImageAttrs.src)"
-            alt="Selected"
+            :alt="echoT('b09.assets.selected')"
             class="paper-editor-selected-preview"
           />
         </p>
@@ -466,7 +496,7 @@ function submitSearch() {
     </template>
 
     <p v-else class="paper-editor-tab__hint paper-editor-tab__hint--center">
-      Switch to edit mode to add images.
+      {{ echoT('b09.assets.switchToEdit') }}
     </p>
 
     <input
@@ -479,8 +509,8 @@ function submitSearch() {
 
     <PaperPromptDialog
       :open="imageUrlDialogOpen"
-      title="Image from URL"
-      label="Image URL"
+      :title="echoT('b09.assets.imageFromUrl')"
+      :label="echoT('b09.assets.imageUrl')"
       placeholder="https://"
       :error="imageUrlError"
       @confirm="onImageUrlConfirm"

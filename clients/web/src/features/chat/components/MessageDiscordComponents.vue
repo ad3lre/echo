@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type {
   DiscordActionRow,
@@ -66,8 +67,11 @@ async function onButtonClick(btn: DiscordMessageButton) {
   }
   dispatchAppToast(
     btn.customId
-      ? `Button "${btn.label || btn.customId}" is display-only in Echo (custom_id: ${btn.customId}).`
-      : 'This button is display-only in Echo.',
+      ? echoT('chatB.discordComponents.displayOnlyNamed', {
+          label: btn.label || btn.customId,
+          id: btn.customId,
+        })
+      : echoT('chatB.discordComponents.displayOnly'),
     'info',
   );
 }

@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { reactive, type UnwrapRef } from 'vue';
 import {
   loadVoiceProcessingPreferences,
@@ -77,6 +78,10 @@ export function useSettingsForm() {
     styleSettings: {
       syncThemeWithSystem: false,
       saturateAccents: false,
+      /** Keep server icons visible on DM / Explore. */
+      serversAlwaysOn: false,
+      /** Side rail shows 10 guild icons instead of 5. */
+      extendedServerList: false,
     },
     accessibilitySettings: {
       reducedMotion: false,

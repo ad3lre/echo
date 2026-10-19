@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useServerTicketsStore } from '@/features/tickets/serverTickets';
 import type {
@@ -112,7 +113,7 @@ async function save() {
   saving.value = false;
   if (result) {
     syncFromConfig(result);
-    dispatchAppToast('Ticket settings saved');
+    dispatchAppToast(echoT('b15.tickets.saved'));
   } else if (ticketStore.lastError) {
     dispatchAppToast(ticketStore.lastError, 'warning');
   }
@@ -155,7 +156,7 @@ function toggleHandlerRole(roleId: string) {
 <template>
   <div class="server-settings-tickets">
     <div v-if="loading" class="server-settings-tickets__loading">
-      Loading ticket settings...
+      {{ echoT('b15.tickets.loading') }}
     </div>
     <template v-else>
       <div v-if="loadError" class="server-settings-tickets__error" role="alert">
@@ -165,37 +166,39 @@ function toggleHandlerRole(roleId: string) {
           class="server-settings-tickets__btn"
           @click="loadSettings"
         >
-          Retry
+          {{ echoT('b15.tickets.retry') }}
         </button>
       </div>
 
       <section class="server-settings-tickets__section">
-        <h3 class="server-settings-tickets__heading">Ticket System</h3>
+        <h3 class="server-settings-tickets__heading">
+          {{ echoT('b15.tickets.title') }}
+        </h3>
         <p class="server-settings-tickets__desc">
-          Allow members to submit private reports and inquiries. Each ticket
-          creates a private channel visible only to the submitter and your
-          designated handler roles.
+          {{ echoT('b15.tickets.desc') }}
         </p>
 
         <label class="server-settings-tickets__toggle">
           <input v-model="enabled" type="checkbox" />
-          <span>Enable ticket system</span>
+          <span>{{ echoT('b15.tickets.enable') }}</span>
         </label>
       </section>
 
       <template v-if="enabled">
         <section class="server-settings-tickets__section">
           <h4 class="server-settings-tickets__subheading">
-            Ticket Channel Category
+            {{ echoT('b15.tickets.catChannel') }}
           </h4>
           <p class="server-settings-tickets__hint">
-            New ticket channels will be created inside this category.
+            {{ echoT('b15.tickets.catChannelHint') }}
           </p>
           <select
             v-model="ticketCategoryId"
             class="server-settings-tickets__select"
           >
-            <option :value="null">-- Select a category --</option>
+            <option :value="null">
+              {{ echoT('b15.tickets.selectCategory') }}
+            </option>
             <option
               v-for="cat in props.categories ?? []"
               :key="cat.id"
@@ -207,15 +210,19 @@ function toggleHandlerRole(roleId: string) {
         </section>
 
         <section class="server-settings-tickets__section">
-          <h4 class="server-settings-tickets__subheading">Panel Channel</h4>
+          <h4 class="server-settings-tickets__subheading">
+            {{ echoT('b15.tickets.panelChannel') }}
+          </h4>
           <p class="server-settings-tickets__hint">
-            The channel where the ticket creation widget will appear.
+            {{ echoT('b15.tickets.panelChannelHint') }}
           </p>
           <select
             v-model="panelChannelId"
             class="server-settings-tickets__select"
           >
-            <option :value="null">-- Select a channel --</option>
+            <option :value="null">
+              {{ echoT('b15.tickets.selectChannel') }}
+            </option>
             <option v-for="ch in textChannels" :key="ch.id" :value="ch.id">
               #{{ ch.name }}
             </option>
@@ -224,14 +231,16 @@ function toggleHandlerRole(roleId: string) {
             v-if="!textChannels.length"
             class="server-settings-tickets__empty-note"
           >
-            No text channels available. Create a channel under Structure first.
+            {{ echoT('b15.tickets.noChannels') }}
           </p>
         </section>
 
         <section class="server-settings-tickets__section">
-          <h4 class="server-settings-tickets__subheading">Handler Roles</h4>
+          <h4 class="server-settings-tickets__subheading">
+            {{ echoT('b15.tickets.handlerRoles') }}
+          </h4>
           <p class="server-settings-tickets__hint">
-            Members with these roles can view and manage all tickets.
+            {{ echoT('b15.tickets.handlerRolesHint') }}
           </p>
           <div class="server-settings-tickets__role-list">
             <label
@@ -250,22 +259,23 @@ function toggleHandlerRole(roleId: string) {
               v-if="!assignableRoles.length"
               class="server-settings-tickets__empty-note"
             >
-              No roles available yet. Create roles under Server Settings →
-              Roles.
+              {{ echoT('b15.tickets.noRoles') }}
             </p>
           </div>
         </section>
 
         <section class="server-settings-tickets__section">
-          <h4 class="server-settings-tickets__subheading">Log Channel</h4>
+          <h4 class="server-settings-tickets__subheading">
+            {{ echoT('b15.tickets.logChannel') }}
+          </h4>
           <p class="server-settings-tickets__hint">
-            Optional channel for ticket activity logs.
+            {{ echoT('b15.tickets.logChannelHint') }}
           </p>
           <select
             v-model="logChannelId"
             class="server-settings-tickets__select"
           >
-            <option :value="null">-- None --</option>
+            <option :value="null">{{ echoT('b15.tickets.none') }}</option>
             <option v-for="ch in textChannels" :key="ch.id" :value="ch.id">
               #{{ ch.name }}
             </option>
@@ -273,9 +283,11 @@ function toggleHandlerRole(roleId: string) {
         </section>
 
         <section class="server-settings-tickets__section">
-          <h4 class="server-settings-tickets__subheading">Limits</h4>
+          <h4 class="server-settings-tickets__subheading">
+            {{ echoT('b15.tickets.limits') }}
+          </h4>
           <label class="server-settings-tickets__field">
-            <span>Max open tickets per user</span>
+            <span>{{ echoT('b15.tickets.maxOpen') }}</span>
             <input
               v-model.number="maxOpenPerUser"
               type="number"
@@ -287,28 +299,30 @@ function toggleHandlerRole(roleId: string) {
         </section>
 
         <section class="server-settings-tickets__section">
-          <h4 class="server-settings-tickets__subheading">Greeting Message</h4>
+          <h4 class="server-settings-tickets__subheading">
+            {{ echoT('b15.tickets.greeting') }}
+          </h4>
           <p class="server-settings-tickets__hint">
-            This message will be posted as the first message in every new ticket
-            channel.
+            {{ echoT('b15.tickets.greetingHint') }}
           </p>
           <textarea
             v-model="greetingMessage"
             class="server-settings-tickets__textarea"
             rows="3"
-            placeholder="e.g. Thanks for reaching out! A staff member will be with you shortly."
+            :placeholder="echoT('b15.tickets.greetingPlaceholder')"
           />
         </section>
 
         <section class="server-settings-tickets__section">
-          <h4 class="server-settings-tickets__subheading">Ticket Categories</h4>
+          <h4 class="server-settings-tickets__subheading">
+            {{ echoT('b15.tickets.categories') }}
+          </h4>
           <p class="server-settings-tickets__hint">
-            Define types/categories users can choose from when submitting a
-            ticket.
+            {{ echoT('b15.tickets.categoriesHint') }}
           </p>
           <label class="server-settings-tickets__toggle">
             <input v-model="requireCategory" type="checkbox" />
-            <span>Require category selection</span>
+            <span>{{ echoT('b15.tickets.requireCategory') }}</span>
           </label>
           <div class="server-settings-tickets__categories">
             <div
@@ -319,33 +333,32 @@ function toggleHandlerRole(roleId: string) {
               <input
                 v-model="cat.emoji"
                 class="server-settings-tickets__input server-settings-tickets__input--emoji"
-                placeholder="emoji"
+                :placeholder="echoT('b15.tickets.emoji')"
               />
               <input
                 v-model="cat.name"
                 class="server-settings-tickets__input server-settings-tickets__input--grow"
-                placeholder="Category name"
+                :placeholder="echoT('b15.tickets.categoryName')"
               />
               <button
                 class="server-settings-tickets__btn-danger"
                 @click="removeCategory(cat.id)"
               >
-                Remove
+                {{ echoT('b15.tickets.remove') }}
               </button>
             </div>
             <button class="server-settings-tickets__btn" @click="addCategory">
-              + Add Category
+              {{ echoT('b15.tickets.addCategory') }}
             </button>
           </div>
         </section>
 
         <section class="server-settings-tickets__section">
           <h4 class="server-settings-tickets__subheading">
-            Custom Form Fields
+            {{ echoT('b15.tickets.customFields') }}
           </h4>
           <p class="server-settings-tickets__hint">
-            Additional fields shown in the ticket submission form (beyond
-            subject).
+            {{ echoT('b15.tickets.customFieldsHint') }}
           </p>
           <div class="server-settings-tickets__fields">
             <div
@@ -356,29 +369,35 @@ function toggleHandlerRole(roleId: string) {
               <input
                 v-model="field.label"
                 class="server-settings-tickets__input server-settings-tickets__input--grow"
-                placeholder="Field label"
+                :placeholder="echoT('b15.tickets.fieldLabel')"
               />
               <select
                 v-model="field.type"
                 class="server-settings-tickets__select--small"
               >
-                <option value="text">Short text</option>
-                <option value="textarea">Long text</option>
-                <option value="select">Dropdown</option>
+                <option value="text">
+                  {{ echoT('b15.tickets.shortText') }}
+                </option>
+                <option value="textarea">
+                  {{ echoT('b15.tickets.longText') }}
+                </option>
+                <option value="select">
+                  {{ echoT('b15.tickets.dropdown') }}
+                </option>
               </select>
               <label class="server-settings-tickets__toggle--inline">
                 <input v-model="field.required" type="checkbox" />
-                <span>Required</span>
+                <span>{{ echoT('b15.tickets.required') }}</span>
               </label>
               <button
                 class="server-settings-tickets__btn-danger"
                 @click="removeFormField(field.id)"
               >
-                Remove
+                {{ echoT('b15.tickets.remove') }}
               </button>
             </div>
             <button class="server-settings-tickets__btn" @click="addFormField">
-              + Add Field
+              {{ echoT('b15.tickets.addField') }}
             </button>
           </div>
         </section>
@@ -390,7 +409,7 @@ function toggleHandlerRole(roleId: string) {
           :disabled="saving"
           @click="save"
         >
-          {{ saving ? 'Saving...' : 'Save Changes' }}
+          {{ saving ? echoT('b15.tickets.saving') : echoT('b15.tickets.save') }}
         </button>
       </div>
     </template>

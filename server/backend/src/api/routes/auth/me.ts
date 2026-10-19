@@ -702,6 +702,14 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'That timezone is not recognized. Pick a valid region from the list.',
           );
         }
+        if (msg === 'INVALID_LOCALE') {
+          return sendError(
+            reply,
+            400,
+            'INVALID_LOCALE',
+            'That language is not supported. Pick a language from the list.',
+          );
+        }
         throw err;
       }
       if (!updated) return sendError(reply, 404, 'NOT_FOUND', 'User not found');

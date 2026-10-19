@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 /**
  * Shown only when `VITE_SCREEN_SHARE_CONFIG_MODAL=true` (e.g. future native app).
  * Browser builds skip this and use `SCREEN_SHARE_BROWSER_DEFAULTS` in `screenShareUi.ts`.
  */
-import { ref, toRef, watch } from 'vue';
+import { computed, ref, toRef, watch } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import EchoDropdown from '@/components/EchoDropdown.vue';
@@ -34,15 +35,14 @@ const quality = ref<Quality>('auto');
 const contentHint = ref<'motion' | 'detail'>('detail');
 const includeAudio = ref(true);
 
-const QUALITY_SELECT_OPTIONS: {
-  value: Quality;
-  label: string;
-}[] = [
-  { value: 'auto', label: 'Auto — 1080p · 30fps (recommended)' },
-  { value: '1080p60', label: '1080p · 60fps' },
-  { value: '720p30', label: '720p · 30fps' },
-  { value: '720p15', label: '720p · 15fps (text & slides)' },
-];
+const QUALITY_SELECT_OPTIONS = computed<{ value: Quality; label: string }[]>(
+  () => [
+    { value: 'auto', label: echoT('b06.screenShare.autoOption') },
+    { value: '1080p60', label: '1080p · 60fps' },
+    { value: '720p30', label: '720p · 30fps' },
+    { value: '720p15', label: echoT('b06.screenShare.preset720p15') },
+  ],
+);
 
 watch(
   () => props.modelValue,
@@ -97,16 +97,16 @@ function toggleAudio() {
                 id="screen-share-modal-title"
                 class="text-lg font-bold leading-tight tracking-tight"
               >
-                Share your screen
+                {{ echoT('b06.screenShare.title') }}
               </h2>
               <p class="mt-1 text-sm text-[var(--muted)]">
-                Choose quality and whether to capture system audio.
+                {{ echoT('b06.screenShare.subtitle') }}
               </p>
             </div>
             <button
               type="button"
               class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--glass-tint)] hover:text-[var(--text)]"
-              aria-label="Close"
+              :aria-label="echoT('b06.screenShare.close')"
               @click="close"
             >
               <svg
@@ -127,15 +127,14 @@ function toggleAudio() {
             <div>
               <EchoDropdown
                 v-model="quality"
-                label="Quality"
+                :label="echoT('b06.screenShare.quality')"
                 :options="QUALITY_SELECT_OPTIONS"
               />
               <p
                 id="screen-share-quality-hint"
                 class="mt-2 text-xs leading-relaxed text-[var(--muted)]"
               >
-                Auto targets 1080p at 30fps. Pick a preset to force a specific
-                resolution and frame rate.
+                {{ echoT('b06.screenShare.qualityHint') }}
               </p>
             </div>
 
@@ -144,7 +143,7 @@ function toggleAudio() {
                 id="screen-share-hint-label"
                 class="settings-label text-[var(--muted)]"
               >
-                Optimize for
+                {{ echoT('b06.screenShare.optimizeFor') }}
               </span>
               <div
                 class="mt-2 inline-flex w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5"
@@ -161,7 +160,7 @@ function toggleAudio() {
                   "
                   @click="contentHint = 'motion'"
                 >
-                  Motion
+                  {{ echoT('b06.screenShare.motion') }}
                 </button>
                 <button
                   type="button"
@@ -173,11 +172,11 @@ function toggleAudio() {
                   "
                   @click="contentHint = 'detail'"
                 >
-                  Detail
+                  {{ echoT('b06.screenShare.detail') }}
                 </button>
               </div>
               <p class="mt-2 text-xs text-[var(--muted)]">
-                Motion favors smooth video; detail sharpens text and UI.
+                {{ echoT('b06.screenShare.optimizeHint') }}
               </p>
             </div>
 
@@ -207,11 +206,10 @@ function toggleAudio() {
                 </div>
                 <div class="min-w-0">
                   <div class="text-sm font-semibold text-[var(--text)]">
-                    System audio
+                    {{ echoT('b06.screenShare.systemAudio') }}
                   </div>
                   <p class="mt-0.5 text-xs leading-snug text-[var(--muted)]">
-                    Include sound from the window, tab, or display you select
-                    next (when the browser allows it).
+                    {{ echoT('b06.screenShare.systemAudioHint') }}
                   </p>
                   <p
                     v-if="
@@ -220,8 +218,7 @@ function toggleAudio() {
                     "
                     class="mt-1 text-xs leading-snug text-[var(--muted)]"
                   >
-                    This browser may not offer system audio for every share
-                    source, so audio starts off disabled by default.
+                    {{ echoT('b06.screenShare.audioOffNote') }}
                   </p>
                 </div>
               </div>
@@ -255,14 +252,14 @@ function toggleAudio() {
               class="rounded-lg px-4 py-2.5 text-sm font-semibold text-[var(--muted)] transition-colors hover:bg-[var(--glass-tint)] hover:text-[var(--text)]"
               @click="close"
             >
-              Cancel
+              {{ echoT('b06.screenShare.cancel') }}
             </button>
             <button
               type="button"
               class="rounded-lg bg-indigo-600/90 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
               @click="onConfirm"
             >
-              Share screen
+              {{ echoT('voiceChrome.shareScreen') }}
             </button>
           </div>
         </div>

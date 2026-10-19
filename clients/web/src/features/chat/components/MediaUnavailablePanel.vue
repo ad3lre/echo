@@ -1,14 +1,15 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import { openExternal } from '@/platform/desktopBridge';
 
 const props = withDefaults(
   defineProps<{
-    /** Short label, e.g. "Video unavailable" */
+    /** Short label, e.g. echoT('chat.status.videoUnavailable') */
     headline: string;
     /** Secondary line; default explains missing / server issues */
     detail?: string;
-    /** If set, show "Open link" to this URL (already safe to use as href) */
+    /** If set, show echoT('chat.actions.openLink') to this URL (already safe to use as href) */
     href?: string;
     /** Tighter padding for thumbnails / compact embeds */
     compact?: boolean;
@@ -18,12 +19,17 @@ const props = withDefaults(
     variant?: 'default' | 'avatar';
   }>(),
   {
-    detail:
-      'This file could not be loaded. It may be missing, moved, or no longer accessible.',
+    detail: undefined,
     href: '',
     compact: false,
     variant: 'default',
   },
+);
+
+const detailText = computed(() =>
+  props.detail === undefined
+    ? echoT('chatB.mediaUnavailable.detail')
+    : props.detail,
 );
 
 const showLink = computed(
@@ -102,8 +108,8 @@ async function openHref() {
         <div class="text-sm font-semibold leading-snug text-fg">
           {{ headline }}
         </div>
-        <p v-if="detail" class="text-xs leading-snug text-fg-soft">
-          {{ detail }}
+        <p v-if="detailText" class="text-xs leading-snug text-fg-soft">
+          {{ detailText }}
         </p>
       </div>
     </div>
@@ -117,7 +123,7 @@ async function openHref() {
       @keydown.enter.prevent.stop="openHref"
       @keydown.space.prevent.stop="openHref"
     >
-      Open link
+      {{ echoT('chat.actions.openLink') }}
       <span class="text-fg-subtle" aria-hidden="true">↗</span>
     </span>
   </div>

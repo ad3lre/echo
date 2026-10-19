@@ -1,8 +1,12 @@
+<script setup lang="ts">
+import { echoT } from '@/i18n';
+</script>
+
 <template>
   <span
     class="message-send-pending-dots inline-flex gap-0.5 align-middle"
     role="status"
-    aria-label="Sending"
+    :aria-label="echoT('chatB.sendPending.aria')"
   >
     <span class="dot" aria-hidden="true" />
     <span class="dot" aria-hidden="true" />

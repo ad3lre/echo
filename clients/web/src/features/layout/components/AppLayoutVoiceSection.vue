@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   defineAsyncComponent,
@@ -383,16 +384,16 @@ const voiceSideChatIconUrl = computed(() => {
   return channelIconResolver.getIconUrl(props.effectiveActiveChannel ?? null);
 });
 const voiceSideChatTitle = computed(() => {
-  if (!props.effectiveActiveChannel) return 'Voice Chat';
+  if (!props.effectiveActiveChannel) return echoT('b22.vs.voiceChat');
   const name = props.getChannelDisplayName(props.effectiveActiveChannel.name);
-  return name ? `${name} - chat` : 'Voice Chat';
+  return name ? echoT('b22.vs.chatTitle', { name }) : echoT('b22.vs.voiceChat');
 });
 
 const voiceChannelActivityLabel = computed(() => {
   const ch = voiceUiChannel.value ?? props.effectiveActiveChannel;
-  if (!ch) return 'Voice channel';
+  if (!ch) return echoT('b22.vs.voiceChannel');
   const name = props.getChannelDisplayName(ch.name);
-  return name ? name : 'Voice channel';
+  return name ? name : echoT('b22.vs.voiceChannel');
 });
 
 /**
@@ -569,8 +570,8 @@ const voiceSectionDockPadStyle = computed(() => {
               ? 'voice-chat-reopen-action--mobile'
               : 'voice-chat-reopen-action--desktop'
           "
-          aria-label="Reopen chat"
-          title="Reopen chat"
+          :aria-label="echoT('b22.vs.reopenChat')"
+          :title="echoT('b22.vs.reopenChat')"
           @click="expandVoiceSideChat"
         >
           <svg
@@ -587,7 +588,7 @@ const voiceSectionDockPadStyle = computed(() => {
               d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
             />
           </svg>
-          <span>Reopen chat</span>
+          <span>{{ echoT('b22.vs.reopenChat') }}</span>
         </button>
         <div
           v-show="!isCompactMobileGuild || voiceSideChatCollapsed"
@@ -609,8 +610,8 @@ const voiceSectionDockPadStyle = computed(() => {
             "
             type="button"
             class="absolute left-3 top-3 z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
-            aria-label="Back to channels"
-            title="Back to channels"
+            :aria-label="echoT('b22.vs.backToChannels')"
+            :title="echoT('b22.vs.backToChannels')"
             @click="expandChannels()"
           >
             <img
@@ -618,7 +619,7 @@ const voiceSectionDockPadStyle = computed(() => {
               alt=""
               class="h-3.5 w-3.5 brightness-0 invert"
             />
-            <span>Back</span>
+            <span>{{ echoT('b22.vs.back') }}</span>
           </button>
           <button
             v-if="
@@ -626,7 +627,7 @@ const voiceSectionDockPadStyle = computed(() => {
             "
             type="button"
             class="absolute left-3 top-[calc(env(safe-area-inset-top,0px)+0.45rem)] z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
-            aria-label="Back to channels"
+            :aria-label="echoT('b22.vs.backToChannels')"
             @click="onMobileBackToChannels?.()"
           >
             <img
@@ -634,7 +635,7 @@ const voiceSectionDockPadStyle = computed(() => {
               alt=""
               class="h-3.5 w-3.5 brightness-0 invert"
             />
-            <span>Back</span>
+            <span>{{ echoT('b22.vs.back') }}</span>
           </button>
           <StageVcLobby
             v-if="stageShowLobby && voiceUiChannel"
@@ -836,7 +837,7 @@ const voiceSectionDockPadStyle = computed(() => {
             <!-- Hit target only: was a flex sibling (`w-2`) which left an un-painted strip beside the header. -->
             <div
               class="absolute inset-y-0 left-0 z-[40] w-2 cursor-col-resize"
-              aria-label="Resize voice chat"
+              :aria-label="echoT('b22.vs.resizeVoiceChat')"
               @mousedown="startVoiceSideChatResize"
               @dblclick="resetVoiceSideChatWidth"
             />
@@ -866,8 +867,8 @@ const voiceSectionDockPadStyle = computed(() => {
               <button
                 type="button"
                 class="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg-soft"
-                aria-label="Close voice chat"
-                title="Close voice chat"
+                :aria-label="echoT('b22.vs.closeVoiceChat')"
+                :title="echoT('b22.vs.closeVoiceChat')"
                 @click="toggleVoiceSideChat"
               >
                 <svg
@@ -940,8 +941,8 @@ const voiceSectionDockPadStyle = computed(() => {
               v-if="onMobileBackToChannels"
               type="button"
               class="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-1.5 text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
-              aria-label="Back to channels"
-              title="Back to channels"
+              :aria-label="echoT('b22.vs.backToChannels')"
+              :title="echoT('b22.vs.backToChannels')"
               @click="onMobileBackToChannels()"
             >
               <img
@@ -973,11 +974,11 @@ const voiceSectionDockPadStyle = computed(() => {
             <button
               type="button"
               class="ml-auto inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
-              aria-label="Back to voice"
-              title="Back to voice"
+              :aria-label="echoT('b22.vs.backToVoice')"
+              :title="echoT('b22.vs.backToVoice')"
               @click="toggleVoiceSideChat"
             >
-              Voice
+              {{ echoT('b22.vs.voice') }}
             </button>
           </div>
           <ChatView

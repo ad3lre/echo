@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   onMounted,
@@ -144,7 +145,7 @@ onUnmounted(() => {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search emoji..."
+          :placeholder="echoT('chat.search.emoji')"
           class="mx-2 mt-2 mb-1.5 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted backdrop-blur-sm"
         />
         <div class="flex flex-1 min-h-0 overflow-hidden">
@@ -190,7 +191,11 @@ onUnmounted(() => {
               v-if="searchQuery.trim() && renderedCategories.length === 0"
               class="py-8 text-center text-sm text-muted"
             >
-              No emojis match "{{ searchQuery.trim() }}"
+              {{
+                echoT('chatB.emojiPopover.noMatch', {
+                  query: searchQuery.trim(),
+                })
+              }}
             </div>
           </div>
         </div>

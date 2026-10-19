@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue';
 import type { ChannelSummary } from '@shared/types';
 import { useChannelIconResolver } from '@/features/layout/channels/useChannelIconResolver';
@@ -108,7 +109,7 @@ const voiceLocationOptions = computed(() => {
     label: string;
     iconSrc?: string;
     iconMono?: boolean;
-  }[] = [{ value: '', label: 'No voice channel' }];
+  }[] = [{ value: '', label: echoT('b05.eventsSection.noVoiceChannel') }];
   for (const ch of flatChannels.value) {
     if (ch.type !== 'voice' && ch.type !== 'stage') continue;
     const iconSrc = channelIconResolver.getIconUrl(ch);
@@ -128,7 +129,7 @@ const textLocationOptions = computed(() => {
     label: string;
     iconSrc?: string;
     iconMono?: boolean;
-  }[] = [{ value: '', label: 'No text channel' }];
+  }[] = [{ value: '', label: echoT('b05.eventsSection.noTextChannel') }];
   for (const ch of flatChannels.value) {
     if (ch.type !== 'text') continue;
     const iconSrc = channelIconResolver.getIconUrl(ch);
@@ -166,7 +167,8 @@ async function load() {
     /* `echoFetch` uses cookie session; bearer token arg is ignored (see `transport.ts`). */
     events.value = await fetchGuildEventsForManagement('', props.serverId);
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to load events';
+    error.value =
+      e instanceof Error ? e.message : echoT('b05.eventsSection.loadFailed');
   } finally {
     loading.value = false;
     syncCountdownTimer();
@@ -279,24 +281,24 @@ function validateForm(): boolean {
   clearFieldErrors();
   let ok = true;
   if (!draftTitle.value.trim()) {
-    fieldErrors.value.title = 'Title is required.';
+    fieldErrors.value.title = echoT('b05.eventsSection.titleRequired');
     ok = false;
   }
   const startsIso = parseDateTimeLocalToUtcIso(draftStarts.value);
   const endsIso = parseDateTimeLocalToUtcIso(draftEnds.value);
   if (!startsIso) {
-    fieldErrors.value.starts = 'Pick a valid start date and time.';
+    fieldErrors.value.starts = echoT('b05.eventsSection.startInvalid');
     ok = false;
   } else if (isDateTimeLocalInPast(draftStarts.value)) {
-    fieldErrors.value.starts = 'Start cannot be in the past.';
+    fieldErrors.value.starts = echoT('b05.eventsSection.startPast');
     ok = false;
   }
   if (!endsIso) {
-    fieldErrors.value.ends = 'Pick a valid end date and time.';
+    fieldErrors.value.ends = echoT('b05.eventsSection.endInvalid');
     ok = false;
   }
   if (startsIso && endsIso && new Date(endsIso) <= new Date(startsIso)) {
-    fieldErrors.value.ends = 'End must be after start.';
+    fieldErrors.value.ends = echoT('b05.eventsSection.endBeforeStart');
     ok = false;
   }
   return ok;
@@ -304,7 +306,7 @@ function validateForm(): boolean {
 
 async function submitSave() {
   if (!validateForm()) {
-    dispatchAppToast('Fix the highlighted fields.', 'warning');
+    dispatchAppToast(echoT('b05.eventsSection.fixFields'), 'warning');
     return;
   }
   const startsIso = parseDateTimeLocalToUtcIso(draftStarts.value)!;
@@ -351,7 +353,7 @@ async function submitSave() {
           'warning',
         );
       } else {
-        dispatchAppToast('Event updated.', 'success');
+        dispatchAppToast(echoT('b05.eventsSection.updated'), 'success');
       }
     } else {
       const created = await createGuildEvent('', props.serverId, {
@@ -374,7 +376,7 @@ async function submitSave() {
           'warning',
         );
       } else {
-        dispatchAppToast('Event created.', 'success');
+        dispatchAppToast(echoT('b05.eventsSection.created'), 'success');
       }
     }
     emit('echo-workspace-refresh');
@@ -382,7 +384,8 @@ async function submitSave() {
     closeEditor();
     await load();
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Could not save event';
+    const msg =
+      e instanceof Error ? e.message : echoT('b05.eventsSection.saveFailed');
     dispatchAppToast(msg, 'warning');
   } finally {
     saving.value = false;
@@ -393,11 +396,12 @@ async function onCancelEvent(id: string) {
   cancellingId.value = id;
   try {
     await cancelGuildEvent('', props.serverId, id);
-    dispatchAppToast('Event cancelled.', 'success');
+    dispatchAppToast(echoT('b05.eventsSection.cancelledToast'), 'success');
     emit('echo-workspace-refresh');
     await load();
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Could not cancel';
+    const msg =
+      e instanceof Error ? e.message : echoT('b05.eventsSection.cancelFailed');
     dispatchAppToast(msg, 'warning');
   } finally {
     cancellingId.value = null;
@@ -425,25 +429,26 @@ function countdownLabel(startsAtIso: string): string {
   const t = new Date(startsAtIso).getTime();
   if (Number.isNaN(t)) return '';
   const diff = t - nowMs.value;
-  if (diff <= 0) return 'Started';
+  if (diff <= 0) return echoT('b05.eventsSection.started');
   const sec = Math.floor(diff / 1000);
   const d = Math.floor(sec / 86400);
   const h = Math.floor((sec % 86400) / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  if (d > 0) return `Starts in ${d}d ${h}h`;
-  if (h > 0) return `Starts in ${h}h ${m}m`;
-  if (m > 0) return `Starts in ${m}m ${s}s`;
-  return 'Starting soon';
+  if (d > 0) return echoT('b05.eventsSection.startsInDH', { d, h });
+  if (h > 0) return echoT('b05.eventsSection.startsInHM', { h, m });
+  if (m > 0) return echoT('b05.eventsSection.startsInMS', { m, s });
+  return echoT('b05.eventsSection.startingSoon');
 }
 
 function eventTimingLabel(row: EchoServerEventManagementRow): string {
-  if (row.status === 'cancelled') return 'Cancelled';
+  if (row.status === 'cancelled')
+    return echoT('b05.eventsSection.cancelledStatus');
   const start = new Date(row.startsAt).getTime();
   const end = new Date(row.endsAt).getTime();
   const n = nowMs.value;
   if (!Number.isNaN(start) && !Number.isNaN(end) && n >= start && n <= end) {
-    return 'Happening now';
+    return echoT('b05.eventsSection.happeningNow');
   }
   if (!Number.isNaN(end) && n > end) return 'Ended';
   return countdownLabel(row.startsAt);
@@ -507,11 +512,13 @@ async function onCoverFileChange(ev: Event) {
           })
         : await readBlobAsDataUrl(file!);
     draftImageUrl.value = url;
-    dispatchAppToast('Cover image ready.', 'success');
+    dispatchAppToast(echoT('b05.eventsSection.coverReady'), 'success');
   } catch (e) {
     const detail = extractUploadErrorMessage(e);
     dispatchAppToast(
-      detail ? `Could not upload cover: ${detail}` : 'Could not upload cover.',
+      detail
+        ? echoT('b05.eventsSection.coverUploadFailedDetail', { detail })
+        : echoT('b05.eventsSection.coverUploadFailed'),
       'warning',
     );
   } finally {
@@ -536,10 +543,11 @@ function clearCover() {
         class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
       >
         <div class="min-w-0 flex-1">
-          <div class="settings-subtitle">Community events</div>
+          <div class="settings-subtitle">
+            {{ echoT('b05.eventsSection.communityEvents') }}
+          </div>
           <p class="mt-1.5 text-sm leading-snug text-fg-subtle">
-            Plan what’s happening, when, and where. Members see upcoming events
-            in the sidebar and can RSVP from their inbox.
+            {{ echoT('b05.eventsSection.intro') }}
           </p>
         </div>
         <button
@@ -548,18 +556,24 @@ function clearCover() {
           :disabled="saving || !serverId.trim()"
           @click="openCreate"
         >
-          New event
+          {{ echoT('b05.eventsSection.newEvent') }}
         </button>
       </div>
     </section>
 
     <p v-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
-    <p v-if="loading" class="mt-4 text-sm text-fg-soft">Loading events…</p>
+    <p v-if="loading" class="mt-4 text-sm text-fg-soft">
+      {{ echoT('b05.eventsSection.loading') }}
+    </p>
 
     <section v-if="showEditor" class="settings-section-stack">
       <div class="mb-3 flex items-center justify-between gap-2">
         <h4 class="text-base font-semibold text-foreground">
-          {{ editingEventId ? 'Edit event' : 'Create event' }}
+          {{
+            editingEventId
+              ? echoT('b05.eventsSection.editEvent')
+              : echoT('b05.eventsSection.createEvent')
+          }}
         </h4>
         <button
           type="button"
@@ -567,16 +581,18 @@ function clearCover() {
           :disabled="saving"
           @click="closeEditor"
         >
-          Close
+          {{ echoT('b05.eventsSection.close') }}
         </button>
       </div>
 
       <div class="space-y-8">
         <section class="min-w-0">
           <div class="mb-4 border-b border-border/60 pb-3">
-            <h5 class="settings-subtitle">Event details</h5>
+            <h5 class="settings-subtitle">
+              {{ echoT('b05.eventsSection.eventDetails') }}
+            </h5>
             <p class="mt-1 text-xs leading-relaxed text-fg-soft">
-              What members see on the event card.
+              {{ echoT('b05.eventsSection.eventDetailsHint') }}
             </p>
           </div>
           <div
@@ -584,7 +600,9 @@ function clearCover() {
           >
             <div class="flex min-w-0 flex-col gap-4 lg:col-span-7">
               <div>
-                <label class="settings-label">Title</label>
+                <label class="settings-label">{{
+                  echoT('b05.eventsSection.title')
+                }}</label>
                 <input
                   v-model="draftTitle"
                   type="text"
@@ -597,7 +615,9 @@ function clearCover() {
                 </p>
               </div>
               <div>
-                <label class="settings-label">Description (optional)</label>
+                <label class="settings-label">{{
+                  echoT('b05.eventsSection.descriptionOptional')
+                }}</label>
                 <textarea
                   v-model="draftDescription"
                   rows="4"
@@ -607,9 +627,11 @@ function clearCover() {
               </div>
             </div>
             <div class="min-w-0 lg:col-span-5">
-              <label class="settings-label">Cover image</label>
+              <label class="settings-label">{{
+                echoT('b05.eventsSection.coverImage')
+              }}</label>
               <p class="mt-1 text-xs text-fg-soft">
-                Wide images work best (16:9).
+                {{ echoT('b05.eventsSection.coverHint') }}
               </p>
               <div
                 class="relative mt-3 aspect-[16/9] w-full overflow-hidden rounded-2xl bg-glass-2 ring-1 ring-border/50"
@@ -624,7 +646,9 @@ function clearCover() {
                   v-else
                   class="flex h-full min-h-[7.5rem] w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-glass-2 to-glass-3 p-4 text-center"
                 >
-                  <span class="text-sm text-fg-soft">No cover yet</span>
+                  <span class="text-sm text-fg-soft">{{
+                    echoT('b05.eventsSection.noCover')
+                  }}</span>
                 </div>
                 <div
                   class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end gap-2 bg-gradient-to-t from-black/50 to-transparent p-3"
@@ -638,7 +662,11 @@ function clearCover() {
                       :disabled="coverUploading || saving"
                       @click="triggerCoverPicker"
                     >
-                      {{ coverUploading ? 'Uploading…' : 'Upload' }}
+                      {{
+                        coverUploading
+                          ? echoT('b05.eventsSection.uploading')
+                          : echoT('b05.eventsSection.upload')
+                      }}
                     </button>
                     <button
                       v-if="draftImageUrl.trim()"
@@ -647,7 +675,7 @@ function clearCover() {
                       :disabled="saving"
                       @click="clearCover"
                     >
-                      Remove
+                      {{ echoT('b05.eventsSection.remove') }}
                     </button>
                   </span>
                 </div>
@@ -665,14 +693,18 @@ function clearCover() {
 
         <section class="min-w-0">
           <div class="mb-4 border-b border-border/60 pb-3">
-            <h5 class="settings-subtitle">Schedule</h5>
+            <h5 class="settings-subtitle">
+              {{ echoT('b05.eventsSection.schedule') }}
+            </h5>
             <p class="mt-1 text-xs leading-relaxed text-fg-soft">
-              Everyone sees times in their own timezone.
+              {{ echoT('b05.eventsSection.scheduleHint') }}
             </p>
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="min-w-0">
-              <label class="settings-label">Starts</label>
+              <label class="settings-label">{{
+                echoT('b05.eventsSection.starts')
+              }}</label>
               <EchoDateTimePicker
                 v-model="draftStarts"
                 class="mt-2"
@@ -685,13 +717,15 @@ function clearCover() {
               </p>
             </div>
             <div class="min-w-0">
-              <label class="settings-label">Ends</label>
+              <label class="settings-label">{{
+                echoT('b05.eventsSection.ends')
+              }}</label>
               <EchoDateTimePicker
                 v-model="draftEnds"
                 class="mt-2"
                 surface="server"
                 :min-date-time="minEndDateTime"
-                min-error-message="End must be after start."
+                :min-error-message="echoT('b05.eventsSection.endBeforeStart')"
                 :invalid="!!fieldErrors.ends"
               />
               <p v-if="fieldErrors.ends" class="mt-1 text-xs text-red-400">
@@ -703,15 +737,17 @@ function clearCover() {
 
         <section class="min-w-0">
           <div class="mb-4 border-b border-border/60 pb-3">
-            <h5 class="settings-subtitle">Location</h5>
+            <h5 class="settings-subtitle">
+              {{ echoT('b05.eventsSection.location') }}
+            </h5>
             <p class="mt-1 text-xs leading-relaxed text-fg-soft">
-              Choose a channel on this server, or add an address or link.
+              {{ echoT('b05.eventsSection.locationHint') }}
             </p>
           </div>
           <div
             class="inline-flex max-w-full flex-wrap rounded-xl border border-border bg-glass-1 p-0.5 text-xs font-semibold"
             role="tablist"
-            aria-label="Event location type"
+            :aria-label="echoT('b05.eventsSection.locationType')"
           >
             <button
               type="button"
@@ -724,7 +760,7 @@ function clearCover() {
               :disabled="saving"
               @click="locationTab = 'voice'"
             >
-              Voice
+              {{ echoT('b05.eventsSection.voice') }}
             </button>
             <button
               type="button"
@@ -737,7 +773,7 @@ function clearCover() {
               :disabled="saving"
               @click="locationTab = 'text'"
             >
-              Text
+              {{ echoT('b05.eventsSection.text') }}
             </button>
             <button
               type="button"
@@ -750,14 +786,14 @@ function clearCover() {
               :disabled="saving"
               @click="locationTab = 'custom'"
             >
-              Custom
+              {{ echoT('b05.eventsSection.custom') }}
             </button>
           </div>
           <div class="mt-4 min-w-0">
             <EchoDropdown
               v-if="locationTab === 'voice'"
               v-model="draftChannelId"
-              label="Voice or stage channel"
+              :label="echoT('b05.eventsSection.voiceOrStage')"
               :options="voiceLocationOptions"
               surface="server"
               teleport-menu
@@ -767,7 +803,7 @@ function clearCover() {
             <EchoDropdown
               v-else-if="locationTab === 'text'"
               v-model="draftChannelId"
-              label="Text channel"
+              :label="echoT('b05.eventsSection.textChannel')"
               :options="textLocationOptions"
               surface="server"
               teleport-menu
@@ -775,13 +811,15 @@ function clearCover() {
               :disabled="saving"
             />
             <div v-else>
-              <label class="settings-label">Custom venue</label>
+              <label class="settings-label">{{
+                echoT('b05.eventsSection.customVenue')
+              }}</label>
               <textarea
                 v-model="draftCustomLocation"
                 rows="3"
                 maxlength="2000"
                 class="server-input mt-2 min-h-[88px] w-full resize-y"
-                placeholder="Address, link, or invite"
+                :placeholder="echoT('b05.eventsSection.venuePlaceholder')"
                 :disabled="saving"
               />
             </div>
@@ -797,7 +835,7 @@ function clearCover() {
             v-if="editingHadDiscordMirror"
             class="text-sm leading-snug text-fg-subtle"
           >
-            Saving updates the Discord listing with a link back here.
+            {{ echoT('b05.eventsSection.mirrorUpdate') }}
           </p>
           <label v-else class="flex cursor-pointer items-start gap-3">
             <input
@@ -808,10 +846,10 @@ function clearCover() {
             />
             <span class="min-w-0">
               <span class="block text-sm font-semibold text-foreground">
-                Also create a Discord scheduled event
+                {{ echoT('b05.eventsSection.mirrorCreate') }}
               </span>
               <span class="mt-0.5 block text-xs leading-snug text-fg-soft">
-                Creates a matching event on Discord with a link back to Echo.
+                {{ echoT('b05.eventsSection.mirrorCreateHint') }}
               </span>
             </span>
           </label>
@@ -824,7 +862,11 @@ function clearCover() {
             :disabled="saving || coverUploading"
             @click="submitSave"
           >
-            {{ saving ? 'Saving…' : 'Save event' }}
+            {{
+              saving
+                ? echoT('b05.eventsSection.saving')
+                : echoT('b05.eventsSection.saveEvent')
+            }}
           </button>
           <button
             type="button"
@@ -832,21 +874,32 @@ function clearCover() {
             :disabled="saving"
             @click="closeEditor"
           >
-            Cancel
+            {{ echoT('b05.eventsSection.cancel') }}
           </button>
         </div>
       </div>
     </section>
 
     <section v-if="!loading && events.length" class="settings-section-stack">
-      <div class="settings-subtitle mb-3">Scheduled &amp; past</div>
+      <div class="settings-subtitle mb-3">
+        {{ echoT('b05.eventsSection.scheduledAndPast') }}
+      </div>
       <ul class="flex flex-col gap-3">
         <li v-for="ev in events" :key="ev.id" class="events-list-row">
           <button
             type="button"
             class="events-collapsed-card group relative flex min-h-[7.75rem] w-full flex-col justify-end overflow-hidden rounded-2xl text-left transition-[transform,box-shadow] duration-200 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
             :aria-expanded="expandedEventId === ev.id"
-            :aria-label="`${ev.title}. ${eventTimingLabel(ev)}. ${expandedEventId === ev.id ? 'Collapse' : 'Show'} details`"
+            :aria-label="
+              echoT('b05.eventsSection.cardAria', {
+                title: ev.title,
+                timing: eventTimingLabel(ev),
+                action:
+                  expandedEventId === ev.id
+                    ? echoT('b05.eventsSection.collapse')
+                    : echoT('b05.eventsSection.show'),
+              })
+            "
             @click="toggleExpandedEvent(ev.id)"
           >
             <img
@@ -870,13 +923,13 @@ function clearCover() {
                   v-if="ev.status === 'cancelled'"
                   class="echo-status-pill echo-status-pill--danger shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
                 >
-                  Cancelled
+                  {{ echoT('b05.eventsSection.cancelledStatus') }}
                 </span>
                 <span
                   v-else
                   class="echo-status-pill echo-status-pill--success shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ring-1 ring-white/25"
                 >
-                  Scheduled
+                  {{ echoT('b05.eventsSection.scheduledStatus') }}
                 </span>
                 <span
                   v-if="ev.discordScheduledEventId?.trim()"
@@ -929,7 +982,7 @@ function clearCover() {
               <span class="font-semibold text-foreground">{{
                 ev.goingCount
               }}</span>
-              going
+              {{ echoT('b05.eventsSection.going') }}
             </p>
             <div
               v-if="ev.status === 'scheduled'"
@@ -941,7 +994,7 @@ function clearCover() {
                 :disabled="saving || !!cancellingId"
                 @click.stop="openEdit(ev)"
               >
-                Edit event
+                {{ echoT('b05.eventsSection.editEvent') }}
               </button>
               <button
                 type="button"
@@ -949,7 +1002,11 @@ function clearCover() {
                 :disabled="!!cancellingId"
                 @click.stop="onCancelEvent(ev.id)"
               >
-                {{ cancellingId === ev.id ? '…' : 'Cancel event' }}
+                {{
+                  cancellingId === ev.id
+                    ? '…'
+                    : echoT('b05.eventsSection.cancelEvent')
+                }}
               </button>
             </div>
           </div>
@@ -962,7 +1019,7 @@ function clearCover() {
       class="settings-section-stack py-6 text-center"
     >
       <p class="text-sm text-fg-soft">
-        No events yet. Create one to show it in the sidebar.
+        {{ echoT('b05.eventsSection.empty') }}
       </p>
     </section>
   </div>

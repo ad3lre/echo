@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, ref, watch } from 'vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import StatusIndicator from '@/components/StatusIndicator.vue';
@@ -59,11 +60,19 @@ const groupDescription = computed(() => {
   if (explicit) return explicit;
 
   const names = props.members.map((m) => m.name);
-  if (!names.length) return 'Private group DM';
-  if (names.length === 1) return `Private group with ${names[0]}`;
+  if (!names.length) return echoT('b34.groupOverview.privateGroupDm');
+  if (names.length === 1)
+    return echoT('b34.groupOverview.groupWith1', { a: names[0] });
   if (names.length === 2)
-    return `Private group with ${names[0]} and ${names[1]}`;
-  return `Private group with ${names[0]}, ${names[1]} and ${names.length - 2} others`;
+    return echoT('b34.groupOverview.groupWith2', {
+      a: names[0],
+      b: names[1],
+    });
+  return echoT('b34.groupOverview.groupWithN', {
+    a: names[0],
+    b: names[1],
+    n: names.length - 2,
+  });
 });
 
 const groupAvatarSrc = computed(
@@ -218,7 +227,7 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
         <p
           class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
         >
-          Group DM
+          {{ echoT('chat.labels.groupDm') }}
         </p>
         <div class="mt-0.5 min-w-0">
           <input
@@ -229,7 +238,7 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
             type="text"
             :maxlength="ECHO_CHANNEL_NAME_MAX_LENGTH"
             class="group-overview-name-input w-full truncate rounded-md border border-border bg-scrim-1 px-2 py-1 text-base font-bold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-border"
-            aria-label="Edit group name"
+            :aria-label="echoT('chat.dm.editGroupName')"
             @keydown="onNameInputKeydown"
             @blur="commitNameEdit"
           />
@@ -238,9 +247,11 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
             type="button"
             class="chat-focus-ring max-w-full truncate text-left text-base font-bold text-foreground"
             :title="
-              isCompactShell ? 'Edit group name' : 'Edit group name inline'
+              isCompactShell
+                ? echoT('chat.dm.editGroupName')
+                : echoT('b34.groupOverview.editInline')
             "
-            aria-label="Edit group name"
+            :aria-label="echoT('chat.dm.editGroupName')"
             @click="startNameEdit"
           >
             {{ group.name }}
@@ -255,8 +266,8 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
           v-if="canEdit"
           type="button"
           class="group-dm-header-icon-btn"
-          title="Add members"
-          aria-label="Add members"
+          :title="echoT('chat.dm.addMembers')"
+          :aria-label="echoT('chat.dm.addMembers')"
           @click="addMembers"
         >
           <img
@@ -268,8 +279,8 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
         <button
           type="button"
           class="group-dm-close-btn"
-          title="Close"
-          aria-label="Close"
+          :title="echoT('b34.groupOverview.close')"
+          :aria-label="echoT('b34.groupOverview.close')"
           @click="close"
         >
           <span class="text-base leading-none">×</span>
@@ -283,8 +294,8 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
         v-if="canEdit"
         type="button"
         class="group-dm-avatar-btn chat-focus-ring relative h-20 w-20 rounded-2xl ring-2 ring-border transition-opacity hover:opacity-95"
-        title="Change group icon"
-        aria-label="Change group icon"
+        :title="echoT('chat.dm.changeGroupIcon')"
+        :aria-label="echoT('chat.dm.changeGroupIcon')"
         @click="openAvatarEdit"
       >
         <div
@@ -326,7 +337,14 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
         </div>
       </div>
       <p class="mt-3 text-xs text-fg-soft">
-        {{ members.length }} member{{ members.length === 1 ? '' : 's' }}
+        {{
+          echoT(
+            members.length === 1
+              ? 'b34.groupOverview.memberCountOne'
+              : 'b34.groupOverview.memberCountMany',
+            { n: members.length },
+          )
+        }}
       </p>
       <p class="mt-1 text-xs text-fg-subtle text-center max-w-xs">
         {{ groupDescription }}
@@ -335,7 +353,9 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
 
     <!-- Members list -->
     <div class="custom-scrollbar flex-1 overflow-y-auto px-4 pb-4 pt-2">
-      <p class="group-section-label">Members</p>
+      <p class="group-section-label">
+        {{ echoT('b34.groupOverview.members') }}
+      </p>
       <div class="mt-2 space-y-1.5">
         <div
           v-for="member in membersSorted"
@@ -400,7 +420,7 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
             alt=""
             class="h-4 w-4 shrink-0 opacity-80 filter invert"
           />
-          Profile
+          {{ echoT('b34.groupOverview.profile') }}
         </button>
         <button
           type="button"
@@ -413,7 +433,7 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
             alt=""
             class="h-4 w-4 shrink-0 opacity-80 filter invert"
           />
-          Direct message
+          {{ echoT('chat.labels.directMessage') }}
         </button>
         <button
           type="button"
@@ -426,7 +446,7 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
             alt=""
             class="h-4 w-4 shrink-0 opacity-80 filter invert"
           />
-          Block
+          {{ echoT('b34.groupOverview.block') }}
         </button>
         <div v-if="showKick" class="my-1 h-px bg-glass-2" />
         <button
@@ -441,7 +461,7 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
             alt=""
             class="h-4 w-4 shrink-0 opacity-80 filter invert"
           />
-          Kick from group
+          {{ echoT('b34.groupOverview.kick') }}
         </button>
       </div>
     </Teleport>

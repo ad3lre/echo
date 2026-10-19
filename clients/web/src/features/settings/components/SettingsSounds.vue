@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { echoT } from '@/i18n';
 import { icons } from '@/assets/icons';
 import { playEchoSound } from '@/features/layout/useEchoSounds';
 import { ECHO_SOUND_IDS, type EchoSoundId } from '@/audio/echoSoundAssets';
@@ -13,30 +14,14 @@ const props = defineProps<{
 
 const volumeExpandedFor = ref<EchoSoundId | null>(null);
 
-const SOUND_LABELS: Record<EchoSoundId, string> = {
-  streamStart: 'Stream started',
-  streamEnd: 'Stream ended',
-  videoStart: 'Camera enabled',
-  videoEnd: 'Camera disabled',
-  streamJoinSelf: 'Joined stream',
-  streamViewerArrive: 'Viewer joined your stream',
-  joinVoiceChannel: 'Joined voice channel',
-  streamViewerLeave: 'Viewer left your stream',
-  pttOn: 'Push-to-talk on',
-  pttOff: 'Push-to-talk off',
-  vcMute: 'Muted',
-  vcUnmute: 'Unmuted',
-  vcDeafen: 'Deafened',
-  vcUndeafen: 'Undeafened',
-  pingActive: 'Active mention',
-  pingDirectMention: 'Direct mention',
-  pingDm: 'Direct message',
-  pingEveryone: '@everyone mention',
-  leaveVc: 'Left voice channel',
-};
+const SOUND_LABELS = new Proxy({} as Record<EchoSoundId, string>, {
+  get: (_t, id) => echoT(`panes.sounds.labels.${String(id)}`),
+});
 
-const sortedSoundIds = [...ECHO_SOUND_IDS].sort((a, b) =>
-  SOUND_LABELS[a].localeCompare(SOUND_LABELS[b]),
+const sortedSoundIds = computed(() =>
+  [...ECHO_SOUND_IDS].sort((a, b) =>
+    SOUND_LABELS[a].localeCompare(SOUND_LABELS[b]),
+  ),
 );
 
 function isSoundEnabled(id: EchoSoundId): boolean {
@@ -69,11 +54,14 @@ function previewSound(id: EchoSoundId) {
 }
 
 function volumeButtonLabel(id: EchoSoundId): string {
-  return `Event volume (${soundVolume(id)}%) — ${SOUND_LABELS[id]}`;
+  return echoT('panes.sounds.eventVolumeLabel', {
+    n: soundVolume(id),
+    name: SOUND_LABELS[id],
+  });
 }
 
 function soundLevelLabel(id: EchoSoundId): string {
-  return `${soundVolume(id)}% event volume`;
+  return echoT('panes.sounds.eventVolume', { n: soundVolume(id) });
 }
 
 function onSoundCheckboxChange(id: EchoSoundId, e: Event) {
@@ -86,27 +74,25 @@ function onSoundCheckboxChange(id: EchoSoundId, e: Event) {
 <template>
   <div class="flex min-w-0 flex-col gap-6">
     <section class="settings-card rounded-2xl p-5">
-      <div class="settings-label">Global</div>
+      <div class="settings-label">{{ echoT('panes.sounds.global') }}</div>
       <p class="mt-2 max-w-prose text-sm leading-relaxed text-fg-soft">
-        Set the overall sound state and master level for this device before
-        fine-tuning individual events.
+        {{ echoT('panes.sounds.globalDesc') }}
       </p>
       <div class="mt-4">
         <p class="text-xs text-fg-subtle">
-          Control the master state first, then use it as the baseline for each
-          event below.
+          {{ echoT('panes.sounds.globalHint') }}
         </p>
       </div>
 
       <div class="mt-4 flex min-w-0 flex-col divide-y divide-border/50">
         <SettingsSettingRow
-          title="All sounds"
-          description="Master switch for every event sound below."
+          :title="echoT('panes.sounds.allSounds')"
+          :description="echoT('panes.sounds.allSoundsDesc')"
         >
           <template #control>
             <SettingsPillSwitch
               :model-value="form.notificationSettings.soundEffects"
-              ariaLabel="Enable all sound effects"
+              :ariaLabel="echoT('panes.sounds.allSoundsAria')"
               @update:model-value="
                 form.notificationSettings.soundEffects = $event
               "
@@ -124,10 +110,10 @@ function onSoundCheckboxChange(id: EchoSoundId, e: Event) {
             />
             <div class="min-w-0 flex-1">
               <div class="text-sm font-semibold tracking-tight text-foreground">
-                Master level
+                {{ echoT('panes.sounds.masterLevel') }}
               </div>
               <p class="mt-1 max-w-prose text-xs leading-relaxed text-muted">
-                Scales every enabled sound before per-event volume.
+                {{ echoT('panes.sounds.masterLevelDesc') }}
               </p>
               <div
                 class="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4"
@@ -154,15 +140,13 @@ function onSoundCheckboxChange(id: EchoSoundId, e: Event) {
     </section>
 
     <section class="settings-card rounded-2xl p-5">
-      <div class="settings-label">Per Event</div>
+      <div class="settings-label">{{ echoT('panes.sounds.perEvent') }}</div>
       <p class="mt-2 max-w-prose text-sm leading-relaxed text-fg-soft">
-        Enable or mute specific sounds, preview them, and open event volume only
-        when you need extra control.
+        {{ echoT('panes.sounds.eventsDesc') }}
       </p>
       <div class="mt-4">
         <p class="text-xs text-fg-subtle">
-          Use the checkbox to enable each sound, preview it, and open volume
-          when you need finer control.
+          {{ echoT('panes.sounds.eventsHint') }}
         </p>
       </div>
 
@@ -193,7 +177,9 @@ function onSoundCheckboxChange(id: EchoSoundId, e: Event) {
                 }"
                 :aria-expanded="volumeExpandedFor === id"
                 :aria-label="volumeButtonLabel(id)"
-                :title="`Volume ${soundVolume(id)}%`"
+                :title="
+                  echoT('panes.sounds.volumeTitle', { n: soundVolume(id) })
+                "
                 @click="toggleVolumePanel(id)"
               >
                 <img
@@ -206,8 +192,10 @@ function onSoundCheckboxChange(id: EchoSoundId, e: Event) {
                 type="button"
                 class="settings-sounds__icon-btn"
                 :disabled="!form.notificationSettings.soundEffects"
-                :aria-label="`Play preview — ${SOUND_LABELS[id]}`"
-                title="Play preview"
+                :aria-label="
+                  echoT('panes.sounds.previewLabel', { name: SOUND_LABELS[id] })
+                "
+                :title="echoT('panes.sounds.playPreview')"
                 @click="previewSound(id)"
               >
                 <svg
@@ -224,7 +212,9 @@ function onSoundCheckboxChange(id: EchoSoundId, e: Event) {
                 class="settings-sounds__checkbox"
                 :checked="isSoundEnabled(id)"
                 :disabled="!form.notificationSettings.soundEffects"
-                :aria-label="`Sound on for ${SOUND_LABELS[id]}`"
+                :aria-label="
+                  echoT('panes.sounds.enabledLabel', { name: SOUND_LABELS[id] })
+                "
                 @change="onSoundCheckboxChange(id, $event)"
               />
             </div>

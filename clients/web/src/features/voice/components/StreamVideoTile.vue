@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import type { StreamVideoTileTrack } from '@/features/voice/composables/streamVideoTileTrack';
 import {
   ref,
@@ -224,11 +225,11 @@ watchEffect((onCleanup) => {
   });
 });
 
-const QUALITY_LABELS: Record<StreamQuality, string> = {
-  high: 'High (Source)',
-  medium: 'Medium',
-  low: 'Low',
-};
+const QUALITY_LABELS = computed<Record<StreamQuality, string>>(() => ({
+  high: echoT('b09.stream.qualityHigh'),
+  medium: echoT('b09.stream.qualityMedium'),
+  low: echoT('b09.stream.qualityLow'),
+}));
 
 function onContextMenu(e: MouseEvent) {
   if (props.isLocal) return;
@@ -526,25 +527,24 @@ onUnmounted(() => {
         class="pointer-events-auto flex max-w-[min(100%,22rem)] flex-col items-center gap-3 rounded-xl border border-border bg-overlay-heavy px-5 py-4 text-center shadow-lg backdrop-blur-md"
       >
         <p class="text-sm font-medium text-fg">
-          Preview paused to save CPU and battery
+          {{ echoT('b09.stream.previewPaused') }}
         </p>
         <p class="text-xs leading-snug text-fg-subtle">
-          You are still sharing — others still see your screen. Click anywhere
-          on this tile or use the button below to show your preview again.
+          {{ echoT('b09.stream.stillSharing') }}
         </p>
         <button
           type="button"
           class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500"
           @click.stop="bumpPreviewActivity"
         >
-          Show preview
+          {{ echoT('b09.stream.showPreview') }}
         </button>
       </div>
       <p
         v-else
         class="max-w-[90%] rounded-lg bg-scrim-2 px-4 py-2 text-center text-sm font-medium text-fg backdrop-blur-sm"
       >
-        You are sharing your screen
+        {{ echoT('b09.stream.sharingYourScreen') }}
       </p>
     </div>
 
@@ -577,7 +577,7 @@ onUnmounted(() => {
           v-if="isScreenShare"
           class="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white"
         >
-          LIVE
+          {{ echoT('b09.stream.live') }}
         </span>
       </div>
     </div>
@@ -594,7 +594,9 @@ onUnmounted(() => {
         :aria-expanded="streamVolumePopoverOpen"
         aria-haspopup="dialog"
         :aria-label="
-          streamVolumeMuted ? 'Unmute stream audio' : 'Stream volume'
+          streamVolumeMuted
+            ? echoT('b09.stream.unmuteStreamAudio')
+            : echoT('voiceChrome.streamVolume')
         "
         @click.stop="toggleStreamVolumePopover"
         @dblclick.stop
@@ -611,7 +613,7 @@ onUnmounted(() => {
         v-if="pipSupported && track"
         type="button"
         class="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-scrim-2 text-white opacity-0 shadow-lg backdrop-blur-sm transition-[opacity,background-color] duration-200 hover:bg-overlay-heavy group-hover:opacity-100 pointer-coarse:opacity-100"
-        aria-label="Picture in picture"
+        :aria-label="echoT('b09.stream.pip')"
         @click.stop="togglePip"
         @dblclick.stop
       >
@@ -632,7 +634,7 @@ onUnmounted(() => {
       <button
         type="button"
         class="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-scrim-2 text-white opacity-0 shadow-lg backdrop-blur-sm transition-[opacity,background-color] duration-200 hover:bg-overlay-heavy group-hover:opacity-100 pointer-coarse:opacity-100"
-        aria-label="Fullscreen"
+        :aria-label="echoT('b09.stream.fullscreen')"
         @click.stop="onRequestFullscreen"
         @dblclick.stop
       >
@@ -661,7 +663,7 @@ onUnmounted(() => {
         v-if="streamVolumePopoverOpen && remoteStreamVolumeControl && !isLocal"
         ref="streamVolumePopoverRef"
         role="dialog"
-        aria-label="Stream volume"
+        :aria-label="echoT('voiceChrome.streamVolume')"
         class="stream-tile-volume-popover fixed z-[402] w-[min(calc(100vw-1.5rem),16.5rem)] rounded-lg border border-border bg-[var(--echo-menu-bg)] px-3 py-2.5 shadow-xl"
         :style="{
           left: `${streamVolumePopoverPos.left}px`,
@@ -682,7 +684,7 @@ onUnmounted(() => {
             alt=""
             class="h-3.5 w-3.5 opacity-80 filter invert"
           />
-          Their volume
+          {{ echoT('b09.stream.theirVolume') }}
         </p>
         <div class="mt-2.5 flex items-center gap-2">
           <input
@@ -698,7 +700,7 @@ onUnmounted(() => {
             aria-valuemin="0"
             :aria-valuemax="STREAM_VOLUME_SLIDER_MAX"
             :aria-valuenow="streamVolumeSliderValue"
-            aria-label="Stream volume"
+            :aria-label="echoT('voiceChrome.streamVolume')"
             @input="onStreamVolumeRangeInput"
           />
           <span
@@ -713,17 +715,21 @@ onUnmounted(() => {
             v-if="streamVolumeSliderValue !== 100"
             type="button"
             class="rounded-md px-2 py-1 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
-            aria-label="Reset stream volume to default"
+            :aria-label="echoT('b09.stream.resetStreamVolume')"
             @click.stop="resetStreamVolumeToDefault"
           >
-            Reset
+            {{ echoT('b09.stream.reset') }}
           </button>
           <button
             type="button"
             class="rounded-md px-2 py-1 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
             @click.stop="toggleStreamVolumeMute"
           >
-            {{ streamVolumeMuted ? 'Unmute' : 'Mute' }}
+            {{
+              streamVolumeMuted
+                ? echoT('b09.stream.unmute')
+                : echoT('b09.stream.mute')
+            }}
           </button>
         </div>
       </div>
@@ -755,7 +761,7 @@ onUnmounted(() => {
               alt=""
               class="h-3.5 w-3.5 opacity-80 filter invert"
             />
-            Their volume
+            {{ echoT('b09.stream.theirVolume') }}
           </p>
         </div>
         <div class="mt-2 flex items-center gap-2">
@@ -769,7 +775,7 @@ onUnmounted(() => {
               '--value': streamVolumeSliderFillPercent(pfpOutputMenuDraft),
             }"
             :value="pfpOutputMenuDraft"
-            aria-label="Participant volume"
+            :aria-label="echoT('voiceChrome.participantVolume')"
             @input="onPfpOutputVolumeInput"
           />
           <span
@@ -806,7 +812,7 @@ onUnmounted(() => {
               alt=""
               class="h-3.5 w-3.5 opacity-80 filter invert"
             />
-            Their volume
+            {{ echoT('b09.stream.theirVolume') }}
           </div>
           <div class="mt-2 flex items-center gap-2">
             <input
@@ -821,7 +827,7 @@ onUnmounted(() => {
                 ),
               }"
               :value="streamVolumeSliderValue"
-              aria-label="Participant volume"
+              :aria-label="echoT('voiceChrome.participantVolume')"
               @input="onStreamVolumeRangeInput"
             />
             <span
@@ -838,14 +844,14 @@ onUnmounted(() => {
               class="rounded-md px-2 py-0.5 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
               @click.stop="resetStreamVolumeToDefault"
             >
-              Reset to default
+              {{ echoT('b09.stream.resetToDefault') }}
             </button>
           </div>
         </div>
         <div
           class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-subtle"
         >
-          Stream Quality
+          {{ echoT('b09.stream.streamQuality') }}
         </div>
         <button
           v-for="(label, key) in QUALITY_LABELS"

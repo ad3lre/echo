@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import { serverGuildIconDisplayUrl } from '@/features/layout/display/serverGuildIconDisplayUrl';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
 import type { GuildEventActivityCard } from '@/features/layout/appLayoutLeftChromeProps';
@@ -27,7 +28,10 @@ const emit = defineEmits<{
 }>();
 
 function pillLabel(card: GuildEventActivityCard): string {
-  return `Open ${card.title} in ${card.serverName}`;
+  return echoT('b43.eventStrip.pill', {
+    title: card.title,
+    server: card.serverName,
+  });
 }
 
 function formatStart(iso: string): string {
@@ -52,7 +56,7 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
   <section
     v-if="cards.length > 0"
     class="guild-event-strip w-full shrink-0"
-    aria-label="Upcoming events you are going to"
+    :aria-label="echoT('b43.eventStrip.ariaGoing')"
   >
     <div
       class="guild-event-strip__scroller pb-0.5 pt-0.5 [scrollbar-width:thin] [scrollbar-color:rgba(120,120,140,0.35)_transparent]"
@@ -104,7 +108,7 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
           <span
             class="pointer-events-none absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-[var(--surface)] bg-indigo-500 shadow-sm"
             aria-hidden="true"
-            title="Scheduled event"
+            :title="echoT('b43.eventStrip.scheduled')"
           >
             <img
               :src="icons.bellSchool"
@@ -139,14 +143,21 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
             </template>
           </p>
           <p class="text-[10px] text-fg-soft">
-            {{ card.goingCount }}
-            {{ card.goingCount === 1 ? 'person' : 'people' }} going
+            {{
+              echoT('b43.eventStrip.goingN', {
+                count: card.goingCount,
+                who:
+                  card.goingCount === 1
+                    ? echoT('b43.eventStrip.person')
+                    : echoT('b43.eventStrip.people'),
+              })
+            }}
           </p>
         </div>
         <span
           class="shrink-0 rounded-full bg-accent/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white"
         >
-          Open
+          {{ echoT('b43.eventStrip.open') }}
         </span>
       </button>
     </div>

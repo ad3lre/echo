@@ -1,0 +1,90 @@
+{
+  "actions": {
+    "addReaction": "Adicionar reação",
+    "moreOptions": "Mais opções",
+    "reply": "Responder",
+    "edit": "Editar",
+    "delete": "Excluir",
+    "copy": "Copiar",
+    "copyText": "Copiar texto",
+    "copyLink": "Copiar link",
+    "forward": "Encaminhar",
+    "pin": "Fixar",
+    "unpin": "Desafixar",
+    "report": "Denunciar",
+    "markUnread": "Marcar como não lida",
+    "download": "Baixar",
+    "openInBrowser": "Abrir no navegador",
+    "openLink": "Abrir link",
+    "addToFavorites": "Adicionar aos favoritos",
+    "removeFromFavorites": "Remover dos favoritos",
+    "smallerEmbed": "Incorporação menor",
+    "largerEmbed": "Incorporação maior",
+    "exitFullScreen": "Sair da tela cheia",
+    "zoomIn": "Aumentar zoom",
+    "zoomOut": "Diminuir zoom",
+    "spoiler": "Spoiler",
+    "removeAttachment": "Remover anexo"
+  },
+  "empty": {
+    "noMessagesYet": "Ainda não há mensagens aqui",
+    "noChannelsToShow": "Nenhum canal para mostrar"
+  },
+  "status": {
+    "loadingOlder": "Carregando mensagens anteriores",
+    "loadingMention": "Carregando menção…",
+    "uploading": "Enviando",
+    "slowmodeActive": "Modo lento ativo",
+    "sendBlocked": "Envio bloqueado",
+    "failedToSend": "Falha ao enviar mensagem",
+    "imageUnavailable": "Imagem indisponível",
+    "videoUnavailable": "Vídeo indisponível",
+    "imageCopied": "Imagem copiada",
+    "couldNotCopyImage": "Não foi possível copiar a imagem",
+    "couldNotCopyClipboard": "Não foi possível copiar para a área de transferência",
+    "nothingToCopy": "Nada para copiar",
+    "couldNotFillImageSlot": "Não foi possível preencher o espaço da imagem",
+    "realtimeNotReady": "A conexão em tempo real não está pronta. Aguarde o Echo reconectar e tente de novo.",
+    "communicationTimeout": "Você está em timeout de comunicação neste servidor."
+  },
+  "search": {
+    "emoji": "Buscar emoji...",
+    "messages": "Buscar mensagens",
+    "placeholder": "Buscar"
+  },
+  "labels": {
+    "favorites": "Favoritos",
+    "attachment": "Anexo",
+    "document": "Documento",
+    "linkPreview": "Prévia do link",
+    "someone": "Alguém",
+    "unknown": "Desconhecido",
+    "directMessage": "Mensagem direta",
+    "groupDm": "DM em grupo",
+    "friends": "Amigos",
+    "voiceChannel": "Canal de voz",
+    "outline": "Sumário"
+  },
+  "dm": {
+    "changeGroupIcon": "Alterar ícone do grupo",
+    "addMembers": "Adicionar membros",
+    "editGroupName": "Editar nome do grupo"
+  },
+  "format": {
+    "bold": "Negrito",
+    "italic": "Itálico",
+    "strikethrough": "Tachado",
+    "code": "Código",
+    "spoiler": "Spoiler"
+  },
+  "composer": {
+    "messagePlaceholder": "Mensagem em {channel}",
+    "messagePlaceholderDm": "Mensagem para {'@'}{name}",
+    "messagePlaceholderGeneric": "Mensagem"
+  },
+  "jumpFab": {
+    "latest": "Ir para o mais recente",
+    "ariaLatest": "Ir para as mensagens mais recentes",
+    "ariaNew": "{count} novas mensagens — ir para o mais recente"
+  }
+}

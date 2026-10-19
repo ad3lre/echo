@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, computed, unref, toRef, nextTick } from 'vue';
 import { PUBLIC_INVITE_BASE } from '@/config';
 import { icons } from '@/assets/icons';
@@ -64,8 +65,10 @@ const joinInviteRaw = ref('');
 const discordPostImportSyncAllChannels = ref(false);
 const discordPostImportRecentMessages = ref(false);
 
-const joinInvitePlaceholder = computed(
-  () => `${PUBLIC_INVITE_BASE.replace(/\/$/, '')}/your-server or your-server`,
+const joinInvitePlaceholder = computed(() =>
+  echoT('b02.addServer.invitePlaceholder', {
+    base: PUBLIC_INVITE_BASE.replace(/\/$/, ''),
+  }),
 );
 
 function revokeServerIconPreview() {
@@ -189,7 +192,7 @@ function onNewServerIconChange(event: Event) {
 
 function submitCreate() {
   if (props.createBusy) return;
-  const name = newServerName.value.trim() || 'My Server';
+  const name = newServerName.value.trim() || echoT('b02.addServer.myServer');
   if (createUsesDiscordImport.value) {
     if (discordImportPhase.value !== 'name_server') return;
     const gid = selectedImportGuild.value?.id?.trim();
@@ -280,70 +283,71 @@ const modalTitleId = computed(() => {
 });
 
 const createModalTitle = computed(() => {
-  if (!createUsesDiscordImport.value) return 'Customize your server';
+  if (!createUsesDiscordImport.value)
+    return echoT('b02.addServer.title.customize');
   switch (discordImportPhase.value) {
     case 'loading':
-      return 'Import from Discord';
+      return echoT('b02.addServer.title.importDiscord');
     case 'need_link':
-      return 'Connect Discord';
+      return echoT('b02.addServer.title.connectDiscord');
     case 'pick_guild':
-      return 'Choose a server';
+      return echoT('b02.addServer.title.chooseServer');
     case 'invite_bot':
-      return 'Add the Echo bot';
+      return echoT('b02.addServer.title.addBot');
     case 'waiting_bot':
       switch (discordBotWaitUiStep.value) {
         case 'need_bot':
-          return 'Add the Echo bot';
+          return echoT('b02.addServer.title.addBot');
         case 'exporting':
-          return 'Exporting your server';
+          return echoT('b02.addServer.title.exporting');
         case 'stuck_sync':
-          return 'Still setting up';
+          return echoT('b02.addServer.title.stillSettingUp');
         case 'connecting':
         default:
-          return 'Setting up import';
+          return echoT('b02.addServer.title.settingUpImport');
       }
     case 'name_server':
     default:
-      return 'Name your server';
+      return echoT('b02.addServer.title.nameServer');
   }
 });
 
 const createModalSubtitle = computed(() => {
   if (!createUsesDiscordImport.value) {
-    return 'Choose a display name and optional icon. You can change everything later.';
+    return echoT('b02.addServer.sub.customize');
   }
   switch (discordImportPhase.value) {
     case 'loading':
-      return 'One moment…';
+      return echoT('b02.addServer.sub.moment');
     case 'need_link':
-      return 'Link your Discord account in Settings first.';
+      return echoT('b02.addServer.sub.needLink');
     case 'pick_guild':
-      return 'Pick a server you manage in Discord.';
+      return echoT('b02.addServer.sub.pickGuild');
     case 'invite_bot':
-      return 'We’ll open Discord in a new tab. Add Echo to this server, then return here.';
+      return echoT('b02.addServer.sub.inviteBot');
     case 'waiting_bot':
       switch (discordBotWaitUiStep.value) {
         case 'need_bot':
-          return 'Open Discord, add Echo to this server, then keep this window open.';
+          return echoT('b02.addServer.sub.needBot');
         case 'exporting':
-          return 'Echo is copying channels, roles, and members. Large servers can take a few minutes.';
+          return echoT('b02.addServer.sub.exporting');
         case 'stuck_sync':
-          return 'We don’t see your import request yet. Go back and tap Open Discord again, or wait and we’ll retry.';
+          return echoT('b02.addServer.sub.stuckSync');
         case 'connecting':
         default:
-          return 'Talking to Echo and checking your import status…';
+          return echoT('b02.addServer.sub.connecting');
       }
     case 'name_server':
     default:
-      return 'You can change this later in server settings.';
+      return echoT('b02.addServer.sub.nameServer');
   }
 });
 
 const createBusyStatusLine = computed(() => {
   if (createUsesDiscordImport.value) {
-    return 'Importing channels, roles, and members from Discord. Large servers can take a few minutes.';
+    return echoT('b02.addServer.busy.importing');
   }
-  return 'Creating your server…';
+  return echoT('b02.addServer.busy.creating');
 });
 
 function isUnknownDiscordGuildName(name: string | null | undefined): boolean {
@@ -355,7 +359,7 @@ function isUnknownDiscordGuildName(name: string | null | undefined): boolean {
 
 function getDiscordGuildDisplayName(name: string | null | undefined): string {
   if (!isUnknownDiscordGuildName(name)) return (name ?? '').trim();
-  return 'Unknown Discord server name';
+  return echoT('b02.addServer.unknownGuild');
 }
 
 const hasUnknownGuildNameInImportList = computed(() =>
@@ -368,17 +372,18 @@ const selectedImportGuildDisplayName = computed(() =>
 
 const discordBotWaitStatusLine = computed(() => {
   if (discordImportPhase.value !== 'waiting_bot') return '';
-  const name = selectedImportGuildDisplayName.value || 'this server';
+  const name =
+    selectedImportGuildDisplayName.value || echoT('b02.addServer.thisServer');
   switch (discordBotWaitUiStep.value) {
     case 'need_bot':
-      return `Add the Echo bot to “${name}” in Discord if you haven’t already, then stay on this screen.`;
+      return echoT('b02.addServer.needBot', { name });
     case 'exporting':
-      return 'The Echo bot is exporting your server layout. You can keep this tab open.';
+      return echoT('b02.addServer.status.exporting');
     case 'stuck_sync':
-      return 'Still syncing your request with Echo. Try the previous step again if this lasts more than a minute.';
+      return echoT('b02.addServer.status.stuckSync');
     case 'connecting':
     default:
-      return 'Connecting and registering your import with Echo…';
+      return echoT('b02.addServer.status.connecting');
   }
 });
 </script>
@@ -428,16 +433,16 @@ const discordBotWaitStatusLine = computed(() => {
                   id="add-server-modal-title"
                   class="text-[1.625rem] font-bold leading-snug tracking-tight text-foreground"
                 >
-                  Add a server
+                  {{ echoT('b02.addServer.addAServer') }}
                 </h2>
                 <p class="mt-4 text-[0.9375rem] leading-relaxed text-fg-subtle">
-                  Create a new home for your community or join one with a link.
+                  {{ echoT('b02.addServer.initialSub') }}
                 </p>
               </div>
               <button
                 type="button"
                 class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground"
-                aria-label="Close"
+                :aria-label="echoT('b02.common.close')"
                 @click="close"
               >
                 <svg
@@ -467,10 +472,11 @@ const discordBotWaitStatusLine = computed(() => {
                   class="h-10 w-10 shrink-0 filter invert opacity-90"
                 />
                 <div>
-                  <div class="font-semibold text-foreground">Create My Own</div>
+                  <div class="font-semibold text-foreground">
+                    {{ echoT('b02.addServer.createOwn') }}
+                  </div>
                   <div class="mt-0.5 text-sm leading-snug text-fg-subtle">
-                    Set a name and optional icon. You can refine everything in
-                    server settings.
+                    {{ echoT('b02.addServer.createOwnDesc') }}
                   </div>
                 </div>
               </button>
@@ -485,9 +491,11 @@ const discordBotWaitStatusLine = computed(() => {
                   class="h-10 w-10 shrink-0 filter invert opacity-90"
                 />
                 <div>
-                  <div class="font-semibold text-foreground">Join a Server</div>
+                  <div class="font-semibold text-foreground">
+                    {{ echoT('b02.addServer.joinServerCard') }}
+                  </div>
                   <div class="mt-0.5 text-sm leading-snug text-fg-subtle">
-                    Browse discoverable servers or paste an invite.
+                    {{ echoT('b02.addServer.joinServerDesc') }}
                   </div>
                 </div>
               </button>
@@ -511,7 +519,7 @@ const discordBotWaitStatusLine = computed(() => {
               <button
                 type="button"
                 class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
-                aria-label="Close"
+                :aria-label="echoT('b02.common.close')"
                 :disabled="createBusy"
                 @click="requestClose"
               >
@@ -545,7 +553,9 @@ const discordBotWaitStatusLine = computed(() => {
                   v-if="discordImportPhase === 'loading'"
                   class="py-8 text-center text-sm text-fg-soft"
                 >
-                  {{ guildsLoading ? 'Loading servers…' : '…' }}
+                  {{
+                    guildsLoading ? echoT('b02.addServer.loadingServers') : '…'
+                  }}
                 </div>
 
                 <div
@@ -559,7 +569,7 @@ const discordBotWaitStatusLine = computed(() => {
                     {{ discordGuildsError }}
                   </p>
                   <p class="text-sm leading-relaxed text-fg-soft">
-                    Use the button below, then tap refresh.
+                    {{ echoT('b02.addServer.useButtonRefresh') }}
                   </p>
                   <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <button
@@ -567,7 +577,7 @@ const discordBotWaitStatusLine = computed(() => {
                       class="add-server-primary-btn rounded-xl px-6 py-3 text-sm font-semibold"
                       @click="onLinkDiscordClick"
                     >
-                      Open Settings
+                      {{ echoT('b02.addServer.openSettings') }}
                     </button>
                     <button
                       type="button"
@@ -575,7 +585,7 @@ const discordBotWaitStatusLine = computed(() => {
                       :disabled="guildsLoading"
                       @click="loadImportableGuilds"
                     >
-                      Refresh
+                      {{ echoT('b02.addServer.refresh') }}
                     </button>
                   </div>
                 </div>
@@ -594,16 +604,13 @@ const discordBotWaitStatusLine = computed(() => {
                     v-if="hasUnknownGuildNameInImportList"
                     class="text-sm leading-relaxed text-amber-200/90"
                   >
-                    Some Discord servers were returned without a readable name.
-                    This usually means your Discord token is stale or missing
-                    scope. Try Refresh, then reconnect Discord in Settings if it
-                    persists.
+                    {{ echoT('b02.addServer.unknownNames') }}
                   </p>
                   <div v-if="importableGuilds.length > 0" class="space-y-2">
                     <label
                       for="add-server-discord-guild-search"
                       class="add-server-label"
-                      >Search servers</label
+                      >{{ echoT('b02.addServer.searchServers') }}</label
                     >
                     <input
                       id="add-server-discord-guild-search"
@@ -611,7 +618,7 @@ const discordBotWaitStatusLine = computed(() => {
                       v-model="guildSearchQuery"
                       type="search"
                       class="add-server-input"
-                      placeholder="Filter by name…"
+                      :placeholder="echoT('b02.addServer.filterByName')"
                       autocomplete="off"
                       enterkeyhint="search"
                     />
@@ -621,8 +628,8 @@ const discordBotWaitStatusLine = computed(() => {
                     role="listbox"
                     :aria-label="
                       importableGuilds.length > 0
-                        ? 'Servers you can import'
-                        : 'No servers to import'
+                        ? echoT('b02.addServer.serversToImport')
+                        : echoT('b02.addServer.noServersToImport')
                     "
                   >
                     <p
@@ -632,7 +639,7 @@ const discordBotWaitStatusLine = computed(() => {
                       "
                       class="py-6 text-center text-sm text-fg-subtle"
                     >
-                      No servers match your search.
+                      {{ echoT('b02.addServer.noMatch') }}
                     </p>
                     <button
                       v-for="g in filteredImportableGuilds"
@@ -678,7 +685,7 @@ const discordBotWaitStatusLine = computed(() => {
                       <p
                         class="text-xs font-semibold uppercase tracking-wider text-fg-subtle"
                       >
-                        Server
+                        {{ echoT('b02.addServer.serverLabel') }}
                       </p>
                       <p class="truncate font-semibold text-foreground">
                         {{ selectedImportGuildDisplayName }}
@@ -695,7 +702,7 @@ const discordBotWaitStatusLine = computed(() => {
                     v-if="!selectedImportGuild?.botInviteUrl"
                     class="text-sm text-amber-200/90"
                   >
-                    Discord import isn’t set up on this Echo host yet.
+                    {{ echoT('b02.addServer.notSetUp') }}
                   </p>
                   <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <button
@@ -707,7 +714,11 @@ const discordBotWaitStatusLine = computed(() => {
                       "
                       @click="openDiscordForBotInstall"
                     >
-                      {{ discordInviteFlowBusy ? 'Checking…' : 'Open Discord' }}
+                      {{
+                        discordInviteFlowBusy
+                          ? echoT('b02.addServer.checking')
+                          : echoT('b02.addServer.openDiscord')
+                      }}
                     </button>
                   </div>
                 </div>
@@ -733,8 +744,7 @@ const discordBotWaitStatusLine = computed(() => {
                       "
                       class="max-w-md text-sm leading-relaxed text-amber-200/90"
                     >
-                      Large servers can take several minutes — nothing is wrong
-                      if it’s slow.
+                      {{ echoT('b02.addServer.largeSlow') }}
                     </p>
                     <p
                       v-else-if="
@@ -743,23 +753,22 @@ const discordBotWaitStatusLine = computed(() => {
                       "
                       class="max-w-md text-sm leading-relaxed text-amber-200/90"
                     >
-                      If nothing changes, go back and open Discord again, or
-                      confirm the Echo bot is in your server.
+                      {{ echoT('b02.addServer.noChange') }}
                     </p>
                   </div>
                 </div>
 
                 <div v-else-if="discordImportPhase === 'name_server'">
-                  <label for="add-server-name" class="add-server-label"
-                    >Server name</label
-                  >
+                  <label for="add-server-name" class="add-server-label">{{
+                    echoT('serverSettingsUi.serverName')
+                  }}</label>
                   <input
                     id="add-server-name"
                     ref="addServerNameDiscordInputRef"
                     v-model="newServerName"
                     type="text"
                     class="add-server-input mt-3"
-                    placeholder="My Server"
+                    :placeholder="echoT('b02.addServer.myServer')"
                     autocomplete="organization"
                     @keydown.enter.prevent="submitCreate"
                   />
@@ -769,7 +778,7 @@ const discordBotWaitStatusLine = computed(() => {
                     <div
                       class="text-xs font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                     >
-                      After import
+                      {{ echoT('b02.addServer.afterImport') }}
                     </div>
                     <label
                       class="flex cursor-pointer items-start gap-3 text-sm leading-snug text-fg-soft"
@@ -781,9 +790,9 @@ const discordBotWaitStatusLine = computed(() => {
                         :disabled="createBusy"
                       />
                       <span>
-                        <span class="font-medium text-fg"
-                          >Sync all channels</span
-                        >
+                        <span class="font-medium text-fg">{{
+                          echoT('b02.addServer.syncAll')
+                        }}</span>
                         — turn on the Discord ↔ Echo message bridge for every
                         imported text and forum channel, and enable the voice
                         mirror for every imported voice room (including stage
@@ -800,9 +809,9 @@ const discordBotWaitStatusLine = computed(() => {
                         :disabled="createBusy"
                       />
                       <span>
-                        <span class="font-medium text-fg"
-                          >Import the last 90 messages</span
-                        >
+                        <span class="font-medium text-fg">{{
+                          echoT('b02.addServer.import90')
+                        }}</span>
                         into each empty text or forum channel. Runs one channel
                         at a time with pauses to stay kind to Discord rate
                         limits.
@@ -818,9 +827,11 @@ const discordBotWaitStatusLine = computed(() => {
                   class="add-server-icon-row flex items-center justify-between gap-6"
                 >
                   <div class="min-w-0 flex-1 text-left">
-                    <p class="add-server-label">Server icon (optional)</p>
+                    <p class="add-server-label">
+                      {{ echoT('b02.addServer.serverIconOptional') }}
+                    </p>
                     <p class="mt-3 text-sm leading-relaxed text-fg-subtle">
-                      Tap the circle to upload PNG or JPG (max 5&nbsp;MB).
+                      {{ echoT('b02.addServer.iconHint') }}
                     </p>
                     <button
                       v-if="newServerIconPreviewUrl"
@@ -828,7 +839,7 @@ const discordBotWaitStatusLine = computed(() => {
                       class="add-server-link-btn mt-3 text-sm font-semibold"
                       @click="revokeServerIconPreview"
                     >
-                      Remove icon
+                      {{ echoT('b02.addServer.removeIcon') }}
                     </button>
                   </div>
                   <label
@@ -840,7 +851,9 @@ const discordBotWaitStatusLine = computed(() => {
                       class="sr-only"
                       @change="onNewServerIconChange"
                     />
-                    <span class="sr-only">Upload server icon</span>
+                    <span class="sr-only">{{
+                      echoT('b02.addServer.uploadIcon')
+                    }}</span>
                     <span class="add-server-icon-drop__frame">
                       <img
                         :src="newServerIconPreviewUrl || iconEchoRounded"
@@ -870,16 +883,16 @@ const discordBotWaitStatusLine = computed(() => {
                 </div>
 
                 <div>
-                  <label for="add-server-name-fresh" class="add-server-label"
-                    >Server name</label
-                  >
+                  <label for="add-server-name-fresh" class="add-server-label">{{
+                    echoT('serverSettingsUi.serverName')
+                  }}</label>
                   <input
                     id="add-server-name-fresh"
                     ref="addServerNameFreshInputRef"
                     v-model="newServerName"
                     type="text"
                     class="add-server-input mt-3"
-                    placeholder="Adel's Server"
+                    :placeholder="echoT('b02.addServer.adelsServer')"
                     autocomplete="organization"
                     @keydown.enter.prevent="submitCreate"
                   />
@@ -901,7 +914,7 @@ const discordBotWaitStatusLine = computed(() => {
                 :disabled="createBusy"
                 @click="backDiscordImportStep"
               >
-                Back
+                {{ echoT('b02.addServer.back') }}
               </button>
               <button
                 v-else
@@ -910,7 +923,7 @@ const discordBotWaitStatusLine = computed(() => {
                 :disabled="createBusy"
                 @click="backFromCreate"
               >
-                Back
+                {{ echoT('b02.addServer.back') }}
               </button>
               <div
                 class="flex w-full flex-col gap-3 sm:ml-auto sm:w-auto sm:flex-row sm:flex-nowrap sm:items-center sm:justify-end"
@@ -922,7 +935,7 @@ const discordBotWaitStatusLine = computed(() => {
                   :disabled="createBusy"
                   @click="chooseDiscordImport"
                 >
-                  Import from Discord
+                  {{ echoT('b02.addServer.title.importDiscord') }}
                 </button>
                 <button
                   v-if="
@@ -938,11 +951,11 @@ const discordBotWaitStatusLine = computed(() => {
                   {{
                     createBusy
                       ? createUsesDiscordImport
-                        ? 'Importing…'
-                        : 'Creating…'
+                        ? echoT('b02.addServer.importing')
+                        : echoT('b02.addServer.creating')
                       : createUsesDiscordImport
-                        ? 'Create and import'
-                        : 'Create'
+                        ? echoT('b02.addServer.createAndImport')
+                        : echoT('b02.addServer.create')
                   }}
                 </button>
               </div>
@@ -957,16 +970,16 @@ const discordBotWaitStatusLine = computed(() => {
                   id="add-server-join-title"
                   class="text-[1.625rem] font-bold leading-snug tracking-tight text-foreground"
                 >
-                  Join a server
+                  {{ echoT('b02.addServer.joinAServer') }}
                 </h2>
                 <p class="mt-4 text-[0.9375rem] leading-relaxed text-fg-subtle">
-                  Pick a public server or use an invite link.
+                  {{ echoT('b02.addServer.joinSub') }}
                 </p>
               </div>
               <button
                 type="button"
                 class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground"
-                aria-label="Close"
+                :aria-label="echoT('b02.common.close')"
                 @click="close"
               >
                 <svg
@@ -1023,7 +1036,11 @@ const discordBotWaitStatusLine = computed(() => {
                     :disabled="joinBusy"
                     @click="emit('join-discoverable', server)"
                   >
-                    {{ joinBusy ? 'Joining…' : 'Join' }}
+                    {{
+                      joinBusy
+                        ? echoT('b02.addServer.joining')
+                        : echoT('b02.addServer.join')
+                    }}
                   </button>
                 </div>
               </div>
@@ -1031,13 +1048,13 @@ const discordBotWaitStatusLine = computed(() => {
               <p
                 class="text-center text-xs font-semibold uppercase tracking-wide text-fg-subtle"
               >
-                Or invite link
+                {{ echoT('b02.addServer.orInviteLink') }}
               </p>
 
               <div>
-                <label for="invite-link" class="add-server-label"
-                  >Invite link</label
-                >
+                <label for="invite-link" class="add-server-label">{{
+                  echoT('b02.addServer.inviteLink')
+                }}</label>
                 <input
                   id="invite-link"
                   ref="joinInviteInputRef"
@@ -1058,7 +1075,7 @@ const discordBotWaitStatusLine = computed(() => {
                 class="add-server-back-btn text-sm font-semibold"
                 @click="view = 'initial'"
               >
-                Back
+                {{ echoT('b02.addServer.back') }}
               </button>
               <button
                 type="button"
@@ -1067,7 +1084,11 @@ const discordBotWaitStatusLine = computed(() => {
                 :aria-busy="joinBusy"
                 @click="submitJoinWithLink"
               >
-                {{ joinBusy ? 'Joining…' : 'Join Server' }}
+                {{
+                  joinBusy
+                    ? echoT('b02.addServer.joining')
+                    : echoT('b02.addServer.joinServer')
+                }}
               </button>
             </div>
           </template>
@@ -1094,11 +1115,10 @@ const discordBotWaitStatusLine = computed(() => {
             id="add-server-import-leave-title"
             class="text-lg font-bold leading-snug tracking-tight text-foreground"
           >
-            Leave Discord import?
+            {{ echoT('b02.addServer.leaveImportQ') }}
           </h3>
           <p class="mt-3 text-sm leading-relaxed text-fg-soft">
-            You’ll exit the import wizard. A bot export may still finish on the
-            server; to resume in the UI, start Import from Discord again.
+            {{ echoT('b02.addServer.leaveImportDesc') }}
           </p>
           <div
             class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
@@ -1108,14 +1128,14 @@ const discordBotWaitStatusLine = computed(() => {
               class="add-server-back-btn rounded-lg px-4 py-2.5 text-sm font-semibold sm:min-w-[5.5rem]"
               @click="cancelImportLeaveConfirm"
             >
-              Stay
+              {{ echoT('b02.addServer.stay') }}
             </button>
             <button
               type="button"
               class="add-server-primary-btn rounded-xl px-5 py-2.5 text-sm font-semibold sm:min-w-[5.5rem]"
               @click="confirmLeaveDiscordImport"
             >
-              Leave
+              {{ echoT('b02.addServer.leave') }}
             </button>
           </div>
         </div>

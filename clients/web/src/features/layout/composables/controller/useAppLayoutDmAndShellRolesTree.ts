@@ -1,4 +1,5 @@
 import { computed, watch, type Ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import { isGuildShellSettling as computeGuildShellSettling } from '../shell/guildShellSettling';
 import { useImmediateShellSwitchPending } from '../shell/useImmediateShellSwitchPending';
 import { useComputedOptionalRefAlias } from './useComputedOptionalRefAlias';
@@ -12,6 +13,7 @@ import { useGuildChannelTree } from '@/features/layout/composables/server/useGui
 import { createIsChannelActive } from '../shell/createIsChannelActive';
 import { bindResolveServerChannelInfoForMainSurface } from '@/features/layout/resolveServerChannelTypeForMainSurface';
 import type { AppLayoutDmAndShellSession } from './useAppLayoutDmAndShellSession';
+import { useEchoSessionStore } from '@/features/layout/echoSession';
 
 function wireInviteAndAuth(session: AppLayoutDmAndShellSession) {
   const { uiState, serverStore, workspace, authSession } = session;
@@ -83,6 +85,7 @@ function wireRolesAndChannelTree(
   const rolePreviewState = useEchoRolePreviewStateComputed(
     roleUi.rolePreview as Ref<unknown>,
   );
+  const { voiceEphemeralByChannelId } = storeToRefs(useEchoSessionStore());
   const channelTree = useGuildChannelTree({
     serverStore: session.serverStore,
     workspace: session.workspace,
@@ -90,6 +93,7 @@ function wireRolesAndChannelTree(
     rolePreview: rolePreviewState,
     isRolePreviewActiveForServer: roleUi.isRolePreviewActiveForServer,
     previewHasUiPermission: roleUi.previewHasUiPermission,
+    voiceEphemeralByChannelId,
   });
   return {
     roleUi,

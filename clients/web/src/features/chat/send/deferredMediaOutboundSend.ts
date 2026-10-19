@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { reactive } from 'vue';
 import type {
@@ -221,9 +222,7 @@ export function completeDeferredMediaOutboundSend(opts: {
 
   const adapter = deps.getAdapter();
   if (!adapter) {
-    const err = new Error(
-      'Realtime connection is not ready. Wait for Echo to reconnect, then try again.',
-    );
+    const err = new Error(echoT('chat.status.realtimeNotReady'));
     failDeferredMediaOutboundSend({
       channelId,
       clientMessageId,

@@ -42,6 +42,7 @@ import {
   findEchoVoiceChannelIdContainingUserOnServer,
   resolveEchoServerIdContainingChannel,
 } from '@/features/voice/resolveEchoServerIdForGuildChannel';
+import { useEchoSessionStore } from '@/features/layout/echoSession';
 import { UIErrorBus } from '@/features/layout/failures/uiErrorBus';
 import { dispatchAppToast } from '@/features/layout/failures/controllerMissingAction';
 import type { EchoWorkspaceEvent } from '@shared/types';
@@ -2539,6 +2540,7 @@ export function useServerVoiceSession(deps: {
           sid,
           uid,
           workspace.categoriesByServer.value,
+          useEchoSessionStore().voiceEphemeralByChannelId,
         );
         if (authoritative && authoritative !== channelId) {
           voiceClientTrace('voice.client:vc_auto_reconnect_authoritative', {

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
+import {
+  serverSettingsGroupLabel,
+  serverSettingsSectionLabel,
+} from '@/i18n/labels';
 import type {
   ServerSettingsSection,
   SectionGroup,
@@ -37,8 +42,8 @@ const emit = defineEmits<{
         <button
           type="button"
           class="chat-focus-ring flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-glass-1 text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
-          :title="'Show section names'"
-          aria-label="Show section names"
+          :title="echoT('b36.sidebar.showNames')"
+          :aria-label="echoT('b36.sidebar.showNames')"
           @click="emit('request-expand-labels')"
         >
           <img
@@ -64,14 +69,14 @@ const emit = defineEmits<{
         v-if="!visibleSectionGroups.length"
         class="px-0.5 text-center text-[10px] leading-tight text-muted"
       >
-        No access
+        {{ echoT('b36.sidebar.noAccess') }}
       </div>
       <div
         v-for="group in visibleSectionGroups"
         :key="group.label"
         class="mb-3 flex flex-col items-stretch gap-1"
       >
-        <div class="sr-only">{{ group.label }}</div>
+        <div class="sr-only">{{ serverSettingsGroupLabel(group.label) }}</div>
         <button
           v-for="item in group.items"
           :key="item"
@@ -82,8 +87,8 @@ const emit = defineEmits<{
               ? 'server-settings-nav-item--active'
               : 'text-fg-soft hover:bg-glass-hover hover:text-fg'
           "
-          :title="item"
-          :aria-label="item"
+          :title="serverSettingsSectionLabel(item)"
+          :aria-label="serverSettingsSectionLabel(item)"
           :aria-current="activeSection === item ? 'page' : undefined"
           @click="emit('update:activeSection', item)"
         >
@@ -101,13 +106,13 @@ const emit = defineEmits<{
         <div
           class="text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-soft"
         >
-          Server Settings
+          {{ echoT('b36.sidebar.title') }}
         </div>
         <h2 id="server-settings-title" class="mt-2 truncate text-2xl font-bold">
           {{ serverName }}
         </h2>
         <p class="mt-1 line-clamp-2 text-sm text-muted">
-          Configure the server, roles, invites, and moderation.
+          {{ echoT('b36.sidebar.subtitle') }}
         </p>
       </div>
 
@@ -115,7 +120,7 @@ const emit = defineEmits<{
         v-if="!visibleSectionGroups.length"
         class="mb-5 px-3 text-sm text-muted"
       >
-        You don’t have permission to change this server’s settings.
+        {{ echoT('b36.sidebar.noPermission') }}
       </div>
       <div
         v-for="group in visibleSectionGroups"
@@ -125,7 +130,7 @@ const emit = defineEmits<{
         <div
           class="server-settings-nav-section-label truncate px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
         >
-          {{ group.label }}
+          {{ serverSettingsGroupLabel(group.label) }}
         </div>
         <div class="flex flex-col gap-1">
           <button
@@ -146,7 +151,9 @@ const emit = defineEmits<{
                 alt=""
                 class="server-settings-nav-icon h-4 w-4 shrink-0"
               />
-              <span class="min-w-0 flex-1 truncate">{{ item }}</span>
+              <span class="min-w-0 flex-1 truncate">{{
+                serverSettingsSectionLabel(item)
+              }}</span>
             </div>
           </button>
         </div>

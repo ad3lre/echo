@@ -1,0 +1,95 @@
+{
+  "voiceStrip": {
+    "serverDeafened": "You are server deafened. A moderator must undeafen you.",
+    "serverMuted": "You are server muted. A moderator must unmute you.",
+    "speakSent": "Request to speak sent. A moderator can invite you to the stage.",
+    "genericError": "Something didn't work. Try again.",
+    "speakFailed": "Could not request to speak: {msg}"
+  },
+  "stageBanner": {
+    "inProgress": "Event in progress",
+    "liveScheduled": "Scheduled event · live",
+    "scheduled": "Scheduled event",
+    "youtubeTip": "This event is tagged for YouTube live — use the controls above to go live.",
+    "dismissTip": "Dismiss tip",
+    "dismiss": "Dismiss"
+  },
+  "paperStructure": {
+    "lists": "Lists",
+    "bullet": "Bullet list",
+    "numbered": "Numbered list",
+    "dividers": "Dividers",
+    "hr": "Insert horizontal rule",
+    "switchEdit": "Switch to edit mode to add structure."
+  },
+  "eventStrip": {
+    "ariaGoing": "Upcoming events you are going to",
+    "scheduled": "Scheduled event",
+    "open": "Open",
+    "pill": "Open {title} in {server}",
+    "person": "person",
+    "people": "people",
+    "goingN": "{count} {who} going"
+  },
+  "linkEmbeds": {
+    "smaller": "Smaller",
+    "larger": "Larger",
+    "playVideo": "Play video: {title}",
+    "videoPlayer": "Embedded video player",
+    "preview": "Link preview: {title}"
+  },
+  "createCategory": {
+    "title": "Create category",
+    "group": "Group channels in {server}",
+    "name": "Category name",
+    "placeholder": "New category",
+    "duplicate": "A category with this name already exists.",
+    "cancel": "Cancel",
+    "submit": "Create Category"
+  },
+  "runtimeStats": {
+    "aria": "Echo API runtime stats",
+    "title": "API server",
+    "loading": "Loading…",
+    "mem": "RSS {rss} · heap {heap}% · host {host}% used",
+    "up": "Up {uptime} · load {load}",
+    "off": "Runtime stats are off on this API. Set {flag} on the server, then reload."
+  },
+  "memberPopout": {
+    "actions": "Profile actions",
+    "checking": "Checking friendship...",
+    "accept": "Accept friend request",
+    "pending": "Pending friend request",
+    "member": "Member"
+  },
+  "leftChrome": {
+    "resizeDm": "Resize direct messages"
+  },
+  "railPicker": {
+    "aria": "Action bar position",
+    "left": "Left",
+    "leftDesc": "Server rail along the side — classic layout.",
+    "top": "Top",
+    "topDesc": "Horizontal bar across the top of the window."
+  },
+  "jumpEmbed": {
+    "unavailableAria": "Message link preview unavailable",
+    "aria": "Echo message link preview",
+    "headerError": "Echo · link unavailable",
+    "header": "Echo · message link",
+    "channel": "#channel",
+    "linkTitle": "Message link",
+    "openOriginal": "Open original link"
+  },
+  "docAttachment": {
+    "preview": "Preview {name}",
+    "download": "Download {name}",
+    "docPdf": "Document.pdf",
+    "save": "Save",
+    "view": "View"
+  },
+  "iconPicker": {
+    "loading": "Loading icon catalog",
+    "expand": "{label} ({count} variants) — click to expand"
+  }
+}

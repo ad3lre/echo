@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
+import { echoT } from '@/i18n';
 import { useLimitedGifPlayback } from '@/features/chat/useLimitedGifPlayback';
 import { useSignedEchoMediaResponsive } from '@/features/chat/composables/useSignedEchoMediaResponsive';
 import { echoMediaUrlNeedsSigning } from '@/features/chat/mediaCdn';
@@ -197,9 +198,6 @@ const fallbackHref = computed(() =>
     : safeImageUrl(props.src.trim()),
 );
 
-const DEFAULT_MEDIA_UNAVAILABLE_DETAIL =
-  'This file could not be loaded. It may be missing, moved, or no longer accessible.';
-
 const mediaUnavailableDetail = computed(() => {
   if (props.unavailableVariant === 'avatar') return '';
   if (
@@ -207,9 +205,9 @@ const mediaUnavailableDetail = computed(() => {
     fallbackHref.value &&
     /^https?:\/\//i.test(fallbackHref.value)
   ) {
-    return 'If uploads work but images do not load, your bucket may deny anonymous GET — enable public read for this prefix (or use a public R2/custom domain).';
+    return echoT('b38.gif.bucketHint');
   }
-  return DEFAULT_MEDIA_UNAVAILABLE_DETAIL;
+  return echoT('b38.gif.defaultDetail');
 });
 
 const session = computed(() =>
@@ -343,9 +341,11 @@ const resolvedImgClass = computed(() => {
 
 const mediaUnavailableHeadline = computed(() => {
   if (props.unavailableVariant === 'avatar') {
-    return 'Avatar unavailable';
+    return echoT('b38.gif.avatarUnavailable');
   }
-  return isGif.value ? 'GIF unavailable' : 'Image unavailable';
+  return isGif.value
+    ? echoT('b38.gif.gifUnavailable')
+    : echoT('b38.gif.imageUnavailable');
 });
 
 function onMouseEnter() {

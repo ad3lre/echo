@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/features/dev/devSettings';
@@ -45,13 +46,20 @@ function memUseLine(s: ChannelPanelServerRuntimeStatsPayload): string {
     s.totalmemBytes > 0
       ? Math.round((100 * (s.totalmemBytes - s.freememBytes)) / s.totalmemBytes)
       : 0;
-  return `RSS ${formatBytes(s.rssBytes)} · heap ${heapPct}% · host ${hostPct}% used`;
+  return echoT('b43.runtimeStats.mem', {
+    rss: formatBytes(s.rssBytes),
+    heap: heapPct,
+    host: hostPct,
+  });
 }
 
 const primaryLine = computed(() => {
   const s = snapshot.value;
   if (!s) return null;
-  return `Up ${formatUptime(s.uptimeSec)} · load ${formatLoad(s.loadAvg)}`;
+  return echoT('b43.runtimeStats.up', {
+    uptime: formatUptime(s.uptimeSec),
+    load: formatLoad(s.loadAvg),
+  });
 });
 
 const secondaryLine = computed(() => {
@@ -66,20 +74,24 @@ const secondaryLine = computed(() => {
     v-if="channelPanelServerRuntimeStatsEnabled"
     class="channel-panel-server-runtime-stats shrink-0 border-b border-border px-3 py-2"
     role="region"
-    aria-label="Echo API runtime stats"
+    :aria-label="echoT('b43.runtimeStats.aria')"
   >
     <div
       class="text-[0.65rem] font-semibold uppercase tracking-wide text-fg-soft"
     >
-      API server
+      {{ echoT('b43.runtimeStats.title') }}
     </div>
     <div
       v-if="serverStatsDisabled"
       class="mt-1 text-xs leading-snug text-fg-soft"
     >
-      Runtime stats are off on this API. Set
-      <span class="font-mono text-[0.7rem]">ECHO_PUBLIC_RUNTIME_STATS=1</span>
-      on the server, then reload.
+      <i18n-t keypath="b43.runtimeStats.off" scope="global" tag="span">
+        <template #flag>
+          <span class="font-mono text-[0.7rem]"
+            >ECHO_PUBLIC_RUNTIME_STATS=1</span
+          >
+        </template>
+      </i18n-t>
     </div>
     <div
       v-else-if="fetchError"
@@ -99,6 +111,8 @@ const secondaryLine = computed(() => {
         {{ secondaryLine }}
       </div>
     </template>
-    <div v-else class="mt-1 text-xs text-fg-soft">Loading…</div>
+    <div v-else class="mt-1 text-xs text-fg-soft">
+      {{ echoT('b43.runtimeStats.loading') }}
+    </div>
   </div>
 </template>

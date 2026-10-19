@@ -151,35 +151,32 @@ export function useInlineAuthFlow(opts: {
 
   function mapError(err: unknown): string {
     if (err instanceof Error && err.message === 'ACCOUNTS_DISABLED_PREVIEW') {
-      return 'Sign-in isn’t available while Echo is in preview mode.';
+      return echoT('auth.errors.previewMode');
     }
     if (err instanceof AuthApiError) {
       const c = err.body.code;
-      if (c === 'INVALID_MFA_CODE')
-        return 'That code doesn’t match. Try again.';
+      if (c === 'INVALID_MFA_CODE') return echoT('auth.errors.codeMismatch');
       if (c === 'INVALID_MFA_TOKEN')
-        return 'The sign-in step expired. Try logging in again.';
+        return echoT('auth.errors.stepExpiredLogin');
       if (c === 'INVALID_LOGIN_TOKEN')
-        return 'The sign-in step expired. Try logging in again.';
+        return echoT('auth.errors.stepExpiredLogin');
       if (c === 'INVALID_EMAIL_IP_CODE')
-        return 'That code doesn’t match. Try again.';
+        return echoT('auth.errors.codeMismatch');
       if (c === 'EMAIL_VERIFICATION_REQUIRED')
-        return 'Verify your email to unlock this account. Check your inbox for a link.';
+        return echoT('auth.errors.verifyEmailRequired');
       if (c === 'INVALID_CREDENTIALS')
-        return 'That username or password doesn’t match our records.';
-      if (c === 'USERNAME_TAKEN')
-        return 'That username is already taken. Try another.';
-      if (c === 'EMAIL_IN_USE')
-        return 'That email is already registered. Try logging in instead.';
-      if (c === 'INVALID_EMAIL') return 'Please enter a valid email address.';
-      if (c === 'CHALLENGE_EXPIRED')
-        return 'That sign-in step expired. Try again.';
-      if (c === 'VERIFICATION_FAILED') return 'Verification failed. Try again.';
+        return echoT('auth.errors.invalidCredentials');
+      if (c === 'USERNAME_TAKEN') return echoT('auth.errors.usernameTaken');
+      if (c === 'EMAIL_IN_USE') return echoT('auth.errors.emailInUse');
+      if (c === 'INVALID_EMAIL') return echoT('auth.errors.invalidEmail');
+      if (c === 'CHALLENGE_EXPIRED') return echoT('auth.errors.stepExpired');
+      if (c === 'VERIFICATION_FAILED')
+        return echoT('auth.errors.verificationFailed');
       if (
         c === 'VERIFICATION_EMAIL_COOLDOWN' ||
         c === 'LOGIN_EMAIL_OTP_COOLDOWN'
       )
-        return 'Please wait a moment before requesting another email.';
+        return echoT('auth.errors.emailCooldown');
       return translateApiErrorBody(err.body);
     }
     if (err instanceof Error) return err.message;
@@ -321,7 +318,7 @@ export function useInlineAuthFlow(opts: {
     const u = username.value.trim();
     const p = password.value;
     if (!u || !p) {
-      setAuthError('Enter your username or email and password.');
+      setAuthError(echoT('auth.errors.enterCredentials'));
       return;
     }
     submitting.value = true;
@@ -339,18 +336,18 @@ export function useInlineAuthFlow(opts: {
   async function submitMfa(): Promise<void> {
     const token = mfaToken.value?.trim() ?? '';
     if (!token) {
-      setAuthError('Sign-in expired. Try logging in again.');
+      setAuthError(echoT('auth.errors.sessionExpired'));
       return;
     }
     const useTotp = mfaFactor.value === 'totp';
     const code = mfaTotpCode.value.trim();
     const recoveryCode = mfaRecoveryCode.value.trim();
     if (useTotp && !/^\d{6}$/.test(code)) {
-      setAuthError('Enter the 6-digit code from your authenticator app.');
+      setAuthError(echoT('auth.errors.enterMfaCode'));
       return;
     }
     if (!useTotp && !recoveryCode) {
-      setAuthError('Enter a recovery code.');
+      setAuthError(echoT('auth.errors.enterRecoveryCode'));
       return;
     }
     submitting.value = true;
@@ -370,9 +367,10 @@ export function useInlineAuthFlow(opts: {
 
   function validateRegister(): string | null {
     const p = password.value;
-    if (!username.value.trim() || !p) return 'Choose a username and password.';
+    if (!username.value.trim() || !p)
+      return echoT('auth.errors.chooseUsernamePassword');
     if (!normalizeEmail(email.value) || !isValidEmailFormat(email.value)) {
-      return 'Enter a valid email address.';
+      return echoT('auth.guestOnboarding.errors.validEmail');
     }
     if (p.length < MIN_ACCOUNT_PASSWORD_LENGTH) {
       return `Password must be at least ${MIN_ACCOUNT_PASSWORD_LENGTH} characters.`;
@@ -415,7 +413,7 @@ export function useInlineAuthFlow(opts: {
   async function resendEmailVerification(): Promise<void> {
     const token = emailGateToken.value?.trim() ?? '';
     if (!token) {
-      setAuthError('Sign-in expired. Try logging in again.');
+      setAuthError(echoT('auth.errors.sessionExpired'));
       return;
     }
     submitting.value = true;
@@ -423,7 +421,7 @@ export function useInlineAuthFlow(opts: {
     try {
       await authLoginResendVerification({ loginToken: token });
       setAuthError('');
-      forgotMessage.value = 'Verification email sent. Check your inbox.';
+      forgotMessage.value = echoT('auth.emailVerify.sent');
     } catch (e) {
       setAuthError(mapError(e));
     } finally {
@@ -435,11 +433,11 @@ export function useInlineAuthFlow(opts: {
     const token = emailGateToken.value?.trim() ?? '';
     const code = emailIpCode.value.trim();
     if (!token) {
-      setAuthError('Sign-in expired. Try logging in again.');
+      setAuthError(echoT('auth.errors.sessionExpired'));
       return;
     }
     if (!/^\d{4,8}$/.test(code)) {
-      setAuthError('Enter the code from your email.');
+      setAuthError(echoT('auth.errors.enterEmailCode'));
       return;
     }
     submitting.value = true;
@@ -457,7 +455,7 @@ export function useInlineAuthFlow(opts: {
   async function resendEmailIpCode(): Promise<void> {
     const token = emailGateToken.value?.trim() ?? '';
     if (!token) {
-      setAuthError('Sign-in expired. Try logging in again.');
+      setAuthError(echoT('auth.errors.sessionExpired'));
       return;
     }
     submitting.value = true;
@@ -476,7 +474,7 @@ export function useInlineAuthFlow(opts: {
   async function submitForgot(): Promise<void> {
     const em = normalizeEmail(forgotEmail.value);
     if (!em || !isValidEmailFormat(forgotEmail.value)) {
-      setAuthError('Enter a valid email address.');
+      setAuthError(echoT('auth.guestOnboarding.errors.validEmail'));
       return;
     }
     submitting.value = true;
@@ -484,9 +482,7 @@ export function useInlineAuthFlow(opts: {
     forgotMessage.value = '';
     try {
       const out = await authForgotPassword({ email: em });
-      forgotMessage.value =
-        out.message ||
-        'If an account exists for that email, you will receive reset instructions.';
+      forgotMessage.value = out.message || echoT('auth.forgot.success');
     } catch (e) {
       setAuthError(mapError(e));
     } finally {

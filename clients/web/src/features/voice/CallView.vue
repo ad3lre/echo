@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import StreamVideoTile from '@/features/voice/components/StreamVideoTile.vue';
@@ -76,7 +77,7 @@ const {
         v-if="onGoToVoiceChannelInSidebar"
         type="button"
         class="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-[15px] font-semibold text-foreground transition hover:underline"
-        :title="`${channelName} — Go to channel`"
+        :title="`${channelName} — ${echoT('b27.call.goToChannel')}`"
         @click="onGoToVoiceChannelInSidebar()"
       >
         {{ channelName }}
@@ -94,11 +95,20 @@ const {
           :label="voiceChannelLimitUi.label"
           :tone="voiceChannelLimitUi.tone"
           size="md"
-          :title="`${voiceChannelLimitUi.count} of ${voiceChannelLimitUi.limit} users in voice`"
+          :title="
+            echoT('b27.call.usersInVoice', {
+              count: voiceChannelLimitUi.count,
+              limit: voiceChannelLimitUi.limit,
+            })
+          "
         />
         <span v-else class="text-fg-subtle">
           {{ participants.length }}
-          {{ participants.length === 1 ? 'person' : 'people' }}
+          {{
+            participants.length === 1
+              ? echoT('b27.call.person')
+              : echoT('b27.call.people')
+          }}
         </span>
       </span>
     </div>
@@ -133,8 +143,8 @@ const {
           <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
-        <p class="text-sm">No one here yet</p>
-        <p class="text-xs text-fg-subtle">Invite someone to join the channel</p>
+        <p class="text-sm">{{ echoT('b27.call.noOne') }}</p>
+        <p class="text-xs text-fg-subtle">{{ echoT('b27.call.inviteHint') }}</p>
       </div>
 
       <div
@@ -294,7 +304,7 @@ const {
                   v-if="onOpenProfile"
                   type="button"
                   class="call-audio-circle-avatar-btn border-0 bg-transparent p-0 focus:outline-none focus:ring-2 focus:ring-white/40 rounded-full"
-                  aria-label="Open profile"
+                  :aria-label="echoT('b27.call.openProfile')"
                   @click="handleOpenProfile(p.id, $event)"
                   @contextmenu.stop.prevent="onTileContextMenu(p, $event)"
                 >
@@ -347,7 +357,7 @@ const {
                 <template v-if="p.serverDeafened">
                   <span
                     class="call-indicator-icon-wrap call-indicator-icon-wrap--server"
-                    title="Server deafened"
+                    :title="echoT('voiceChrome.serverDeafened')"
                   >
                     <img
                       :src="icons.mic"
@@ -358,7 +368,7 @@ const {
                   </span>
                   <span
                     class="call-indicator-icon-wrap call-indicator-icon-wrap--server"
-                    title="Server deafened"
+                    :title="echoT('voiceChrome.serverDeafened')"
                   >
                     <img
                       :src="icons.headphones"
@@ -374,7 +384,11 @@ const {
                     :class="{
                       'call-indicator-icon-wrap--server': p.serverMuted,
                     }"
-                    :title="p.serverMuted ? 'Server muted' : 'Muted'"
+                    :title="
+                      p.serverMuted
+                        ? echoT('voiceChrome.serverMuted')
+                        : echoT('voiceChrome.muted')
+                    "
                   >
                     <img
                       :src="icons.mic"
@@ -383,7 +397,10 @@ const {
                     />
                     <span class="call-indicator-strike" aria-hidden="true" />
                   </span>
-                  <span class="call-indicator-icon-wrap" title="Deafened">
+                  <span
+                    class="call-indicator-icon-wrap"
+                    :title="echoT('voiceChrome.deafened')"
+                  >
                     <img
                       :src="icons.headphones"
                       alt=""
@@ -395,7 +412,7 @@ const {
                 <span
                   v-else-if="p.serverMuted"
                   class="call-indicator-icon-wrap call-indicator-icon-wrap--server"
-                  title="Server muted"
+                  :title="echoT('voiceChrome.serverMuted')"
                 >
                   <img
                     :src="icons.mic"
@@ -407,7 +424,7 @@ const {
                 <span
                   v-else-if="p.muted"
                   class="call-indicator-icon-wrap"
-                  title="Muted"
+                  :title="echoT('voiceChrome.muted')"
                 >
                   <img
                     :src="icons.mic"
@@ -507,9 +524,9 @@ const {
             class="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-indigo-500/15"
             role="menuitem"
             :title="
-              'Insert @' +
-              (vcModerationTarget?.name ?? '') +
-              ' in the message box'
+              echoT('b27.call.insertMention', {
+                name: vcModerationTarget?.name ?? '',
+              })
             "
             @click="mentionParticipantFromCallMenu"
           >
@@ -519,10 +536,12 @@ const {
               >@</span
             >
             <span class="flex min-w-0 flex-col gap-0.5">
-              <span class="font-semibold leading-tight">Quick mention</span>
-              <span class="text-[11px] leading-snug text-fg-subtle"
-                >Adds to your message input</span
-              >
+              <span class="font-semibold leading-tight">{{
+                echoT('b27.call.quickMention')
+              }}</span>
+              <span class="text-[11px] leading-snug text-fg-subtle">{{
+                echoT('b27.call.quickMentionDesc')
+              }}</span>
             </span>
           </button>
         </div>
@@ -540,7 +559,7 @@ const {
               alt=""
               class="app-inline-icon h-3.5 w-3.5 opacity-80"
             />
-            Their volume
+            {{ echoT('b27.call.theirVolume') }}
           </div>
           <div class="mt-2 flex items-center gap-2">
             <input
@@ -549,7 +568,7 @@ const {
               min="0"
               max="200"
               :value="vcMenuVolumeDraft"
-              aria-label="Participant volume"
+              :aria-label="echoT('voiceChrome.participantVolume')"
               @input="onCallMenuVolumeInput"
             />
             <span
@@ -567,7 +586,7 @@ const {
           <div
             class="border-b border-border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-subtle"
           >
-            Stream quality
+            {{ echoT('b27.call.streamQuality') }}
           </div>
           <button
             v-for="sq in STREAM_QUALITY_ORDER"
@@ -611,7 +630,7 @@ const {
           <div
             class="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-red-300/90"
           >
-            Moderation
+            {{ echoT('b27.call.moderation') }}
           </div>
           <button
             v-if="vcModAllowed(vcModerationTarget.id, 'serverMute')"
@@ -626,7 +645,9 @@ const {
               class="app-inline-icon h-4 w-4 opacity-80"
             />
             {{
-              vcModerationTarget.serverMuted ? 'Unmute member' : 'Mute member'
+              vcModerationTarget.serverMuted
+                ? echoT('b27.call.unmuteMember')
+                : echoT('b27.call.muteMember')
             }}
           </button>
           <button
@@ -643,8 +664,8 @@ const {
             />
             {{
               vcModerationTarget.serverDeafened
-                ? 'Undeafen member'
-                : 'Deafen member'
+                ? echoT('b27.call.undeafenMember')
+                : echoT('b27.call.deafenMember')
             }}
           </button>
           <button
@@ -662,7 +683,7 @@ const {
               alt=""
               class="app-inline-icon h-4 w-4 opacity-80"
             />
-            Turn off camera
+            {{ echoT('b27.call.turnOffCamera') }}
           </button>
           <button
             v-if="
@@ -679,7 +700,7 @@ const {
               alt=""
               class="app-inline-icon h-4 w-4 opacity-80"
             />
-            Stop screen share
+            {{ echoT('b27.call.stopScreenShare') }}
           </button>
           <button
             v-if="vcModAllowed(vcModerationTarget.id, 'disconnect')"
@@ -701,7 +722,7 @@ const {
                 d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
               />
             </svg>
-            Disconnect
+            {{ echoT('voiceChrome.disconnect') }}
           </button>
         </template>
       </div>

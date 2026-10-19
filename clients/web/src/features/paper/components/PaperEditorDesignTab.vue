@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { PaperEditorPanelBridgeContext } from '@/features/paper/paperEditorPanelBridge';
 import PaperEditorCanvasColorSection from '@/features/paper/components/PaperEditorCanvasColorSection.vue';
@@ -68,6 +69,21 @@ const canvasSectionLabel = computed(() =>
   paperAppearanceCanvasLabel(props.appearance),
 );
 
+const PRESET_LABEL_KEYS: Record<string, string> = {
+  White: 'b44.paperDesign.presets.white',
+  Cream: 'b44.paperDesign.presets.cream',
+  Warm: 'b44.paperDesign.presets.warm',
+  Amber: 'b44.paperDesign.presets.amber',
+  Mint: 'b44.paperDesign.presets.mint',
+  Sky: 'b44.paperDesign.presets.sky',
+  Lavender: 'b44.paperDesign.presets.lavender',
+};
+
+function presetLabel(label: string): string {
+  const key = PRESET_LABEL_KEYS[label];
+  return key ? echoT(key) : label;
+}
+
 function onCanvasPick(hex: string) {
   if (isPaperDarkAppearance(props.appearance)) {
     props.context.onPageColorDark(hex);
@@ -118,7 +134,9 @@ function applyPreset(light: string, dark: string) {
     />
 
     <section class="paper-editor-tab__block">
-      <h4 class="paper-editor-tab__label">Page presets</h4>
+      <h4 class="paper-editor-tab__label">
+        {{ echoT('b44.paperDesign.pagePresets') }}
+      </h4>
       <div class="paper-design-tab__preset-grid">
         <button
           v-for="preset in PAPER_PAGE_COLOR_PRESETS"
@@ -132,7 +150,7 @@ function applyPreset(light: string, dark: string) {
               preset,
             ),
           }"
-          :title="preset.label"
+          :title="presetLabel(preset.label)"
           @click="applyPreset(preset.light, preset.dark)"
         >
           <span
@@ -141,7 +159,9 @@ function applyPreset(light: string, dark: string) {
               background: `linear-gradient(135deg, ${preset.light} 0 50%, ${preset.dark} 50% 100%)`,
             }"
           />
-          <span class="paper-design-tab__preset-name">{{ preset.label }}</span>
+          <span class="paper-design-tab__preset-name">{{
+            presetLabel(preset.label)
+          }}</span>
         </button>
       </div>
     </section>

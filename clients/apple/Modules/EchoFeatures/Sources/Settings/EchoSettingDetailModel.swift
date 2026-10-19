@@ -193,7 +193,7 @@ final class EchoSettingDetailModel {
   }
 
   func updateLocaleAndTimeZone(locale: String, timeZone: String?) {
-    guard ["en-US", "en-GB", "es"].contains(locale) else { return }
+    guard EchoAppLocale.supportedIdentifiers.contains(locale) else { return }
     Task {
       do {
         try await client.updateLocaleAndTimeZone(
@@ -249,7 +249,7 @@ final class EchoSettingDetailModel {
         let identity = try await client.loadAccountIdentity(accessToken: accessToken)
         accountState.apply(identity)
         if route == .timeLanguage {
-          if let value = identity.locale, ["en-US", "en-GB", "es"].contains(value) {
+          if let value = identity.locale, EchoAppLocale.supportedIdentifiers.contains(value) {
             syncLocale?(value)
           }
           if let value = identity.timeZone, TimeZone(identifier: value) != nil {

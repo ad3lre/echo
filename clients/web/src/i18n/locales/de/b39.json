@@ -1,0 +1,88 @@
+{
+  "moreServers": {
+    "menu": {
+      "serverOptions": "Serveroptionen",
+      "viewInfo": "Serverinfo ansehen",
+      "invite": "Leute einladen",
+      "unpin": "Von der Leiste entfernen",
+      "pin": "An Leiste anheften",
+      "widgetFolder": "Widget-Ordner",
+      "leave": "Server verlassen",
+      "editFolder": "Ordner bearbeiten…",
+      "newFolder": "Neuer Ordner…",
+      "deleteFolder": "Ordner löschen…"
+    },
+    "compact": {
+      "dropIntoFolderGroup": "In Widget-Ordner ablegen",
+      "pinned": "An Leiste angeheftet",
+      "emptyFolder": "Leer – zieh einen Server hierher.",
+      "dropInto": "In {name} ablegen",
+      "serverTitle": "{name} – zum Verschieben ziehen · Rechtsklick für Ordneroptionen",
+      "folderAria": {
+        "expanded": "{name}, {count} Server. Klicken zum Einklappen.",
+        "collapsed": "{name}, {count} Server. Klicken zum Ausklappen."
+      },
+      "folderTitle": {
+        "expanded": "{name} – {count} Server. Klicken zum Einklappen; ziehen, um den Ordner neu anzuordnen.",
+        "collapsed": "{name} – {count} Server. Klicken zum Ausklappen; ziehen, um den Ordner neu anzuordnen."
+      }
+    }
+  },
+  "dmSection": {
+    "acceptFriend": "Freundschaftsanfrage annehmen",
+    "cancelFriend": "Freundschaftsanfrage abbrechen",
+    "sendFriend": "Freundschaftsanfrage senden",
+    "thisUser": "diesen Benutzer",
+    "selectConversation": "Wähle eine Unterhaltung aus deinen Direktnachrichten aus oder öffne Freunde, um zu chatten.",
+    "channelLoadFailed": "Dieser Kanal konnte nicht geladen werden.",
+    "viewLoadFailed": "Beim Laden dieser Ansicht ist etwas schiefgelaufen.",
+    "backToChannels": "Zurück zu den Kanälen",
+    "historyIntro": "Das ist der Anfang deines Direktnachrichtenverlaufs mit {name}."
+  },
+  "msgReq": {
+    "title": "Nachrichtenanfragen",
+    "selectHint": "Wähle in der Seitenleiste eine Anfrage aus, um die Unterhaltung anzusehen, bei Bedarf zu antworten und sie dann anzunehmen, zu ignorieren oder zu melden.",
+    "single": "Nachrichtenanfrage",
+    "back": "Zurück zu den Nachrichten",
+    "accept": "Annehmen",
+    "ignore": "Ignorieren",
+    "notFriends": "Noch keine Freunde",
+    "canReply": "Du kannst antworten, bevor du annimmst",
+    "reviewHint": "Sieh dir zuerst die Unterhaltung an. Beim Annehmen wandert sie in deine normalen Direktnachrichten, beim Ignorieren wird die Anfrage aus deiner Liste entfernt."
+  },
+  "poll": {
+    "voteOne": "{count} Stimme",
+    "voteMany": "{count} Stimmen",
+    "totalOne": "{count} Stimme insgesamt",
+    "totalMany": "{count} Stimmen insgesamt",
+    "you": "Du",
+    "option": "Umfrageoption",
+    "hidden": "Ergebnisse sind erst nach deiner Abstimmung sichtbar",
+    "viewVoters": "Ansehen, wer abgestimmt hat",
+    "voteInDiscord": "In Discord abstimmen",
+    "whoVoted": "Wer abgestimmt hat",
+    "close": "Schließen",
+    "votesByAnswer": "Stimmen pro Antwort",
+    "noVotes": "Noch keine Stimmen für diese Option"
+  },
+  "chatView": {
+    "backToForum": "Zurück zum Forum",
+    "onThisPage": "Auf dieser Seite",
+    "markdownPreview": "Markdown-Vorschau",
+    "collapsePreview": "Vorschau einklappen",
+    "ageRestricted": "Altersbeschränkter Kanal",
+    "nsfwNotice": "Dieser Kanal ist als NSFW markiert. Wenn du fortfährst, bestätigst du, dass du mindestens 18 Jahre alt bist und möglicherweise nicht jugendfreie Inhalte sehen möchtest.",
+    "goBack": "Zurück",
+    "enterChannel": "Kanal betreten"
+  },
+  "fsStream": {
+    "previewPaused": "Vorschau pausiert, um CPU und Akku zu sparen",
+    "stillSharing": "Du teilst weiterhin. Klicke irgendwo oder nutze die Schaltfläche, um deine Vorschau wieder anzuzeigen.",
+    "showPreview": "Vorschau anzeigen",
+    "unmute": "Stream-Audio einschalten",
+    "mute": "Stream-Audio stummschalten",
+    "pip": "Bild-im-Bild",
+    "closeFullscreen": "Vollbild schließen",
+    "theirVolume": "Lautstärke der Person"
+  }
+}

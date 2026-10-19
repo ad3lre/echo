@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import { icons } from '@/assets/icons';
@@ -66,7 +67,7 @@ const guildSelectOptions = computed((): EchoDiscordBridgeGuildOption[] => {
   if (bridged && !base.some((g) => g.id === bridged)) {
     base.unshift({
       id: bridged,
-      name: 'Current bridge server',
+      name: echoT('b19.dsp.currentBridgeServer'),
       iconUrl: null,
       botInGuild: true,
       botInviteUrl: '',
@@ -86,7 +87,7 @@ const guildDropdownOptions = computed(() => {
     label: g.name,
     value: g.id,
   }));
-  return [{ label: 'Select server…', value: '' }, ...rows];
+  return [{ label: echoT('b19.dsp.selectServer'), value: '' }, ...rows];
 });
 
 const channelDropdownOptions = computed(() => {
@@ -95,13 +96,13 @@ const channelDropdownOptions = computed(() => {
     value: c.id,
   }));
   const rows: { label: string; value: string }[] = [
-    { label: 'Select channel…', value: '' },
+    { label: echoT('b19.dsp.selectChannel'), value: '' },
     ...fromApi,
   ];
   const sid = selectedChannelId.value.trim();
   if (sid && !channels.value.some((c) => c.id === sid)) {
     rows.push({
-      label: `Current: ${sid}`,
+      label: echoT('b19.dsp.current', { id: sid }),
       value: sid,
     });
   }
@@ -166,7 +167,7 @@ async function loadChannels(guildId: string) {
   } catch (e) {
     channels.value = [];
     error.value =
-      e instanceof Error ? e.message : 'Could not load Discord channels.';
+      e instanceof Error ? e.message : echoT('b19.dsp.errLoadChannels');
   } finally {
     channelsLoading.value = false;
   }
@@ -197,9 +198,7 @@ async function load() {
     await Promise.all([guildsPromise, channelsPromise ?? Promise.resolve()]);
   } catch (e) {
     error.value =
-      e instanceof Error
-        ? e.message
-        : 'Could not load Discord message settings.';
+      e instanceof Error ? e.message : echoT('b19.dsp.errLoadSettings');
   } finally {
     loading.value = false;
     syncingFromBridgeLoad.value = false;
@@ -253,9 +252,7 @@ async function save() {
     applyBridgeState(saved);
   } catch (e) {
     error.value =
-      e instanceof Error
-        ? e.message
-        : 'Could not save Discord message settings.';
+      e instanceof Error ? e.message : echoT('b19.dsp.errSaveSettings');
   } finally {
     saving.value = false;
   }
@@ -270,9 +267,7 @@ async function clearSync() {
   ) {
     return;
   }
-  const ok = window.confirm(
-    'Stop linking messages with Discord for this channel? Live mirroring will turn off.',
-  );
+  const ok = window.confirm(echoT('b19.dsp.confirmStop'));
   if (!ok) return;
   const token = authSession.accessToken?.trim() ?? '';
   clearing.value = true;
@@ -285,10 +280,7 @@ async function clearSync() {
     );
     applyBridgeState(cleared);
   } catch (e) {
-    error.value =
-      e instanceof Error
-        ? e.message
-        : 'Could not turn off Discord message linking.';
+    error.value = e instanceof Error ? e.message : echoT('b19.dsp.errTurnOff');
   } finally {
     clearing.value = false;
   }
@@ -304,24 +296,20 @@ async function clearSync() {
           alt=""
           class="server-settings-inline-icon h-5 w-5 shrink-0"
         />
-        <div class="settings-subtitle">Discord messages</div>
+        <div class="settings-subtitle">{{ echoT('b19.dsp.title') }}</div>
       </div>
       <p class="mb-4 text-xs leading-relaxed text-fg-subtle">
-        Keep messages in step between this Echo channel and a Discord channel.
-        Messages from Discord need the Echo bot online in that server. Messages
-        from Echo to Discord are set up automatically when you turn on Echo →
-        Discord.
+        {{ echoT('b19.dsp.intro') }}
       </p>
 
       <div v-if="!authSession.isAuthenticated" class="text-sm text-fg-soft">
-        Sign in to link messages with Discord.
+        {{ echoT('b19.dsp.signIn') }}
       </div>
       <div
         v-else-if="authSession.backendUser?.isGuest"
         class="text-sm text-fg-soft"
       >
-        Linking with Discord isn’t available for guest sessions. Create an
-        account or sign in with a full Echo profile to continue.
+        {{ echoT('b19.dsp.guest') }}
       </div>
       <div
         v-else-if="
@@ -329,29 +317,26 @@ async function clearSync() {
         "
         class="text-sm text-fg-soft"
       >
-        Discord message linking is only available for text and forum channels.
+        {{ echoT('b19.dsp.onlyTextForum') }}
       </div>
       <div v-else class="space-y-4">
         <div
           v-if="!guildsMeta.linked"
           class="rounded-lg bg-glass-2 px-3 py-2 text-sm text-fg-soft"
         >
-          Link your Discord account under Echo user settings so Echo can list
-          servers you manage.
+          {{ echoT('b19.dsp.notLinked') }}
         </div>
         <div
           v-else-if="guildsMeta.tokenExpired"
           class="echo-warn-banner rounded-lg px-3 py-2 text-sm"
         >
-          Your Discord connection expired. Reconnect Discord in Echo settings,
-          then try again.
+          {{ echoT('b19.dsp.expired') }}
         </div>
         <div
           v-else-if="guildsMeta.missingGuildsScope"
           class="echo-warn-banner rounded-lg px-3 py-2 text-sm"
         >
-          Discord needs permission to list your servers. Reconnect Discord in
-          Settings and allow access to your servers.
+          {{ echoT('b19.dsp.missingScope') }}
         </div>
         <div
           v-else-if="
@@ -360,13 +345,10 @@ async function clearSync() {
           class="rounded-lg bg-glass-2 px-3 py-2 text-sm text-fg-soft"
         >
           <span v-if="!guildsMeta.botConfigured">
-            This Echo server isn’t set up with a Discord bot yet. Ask whoever
-            runs it to enable Discord integration.
+            {{ echoT('b19.dsp.noBotConfigured') }}
           </span>
           <template v-else>
-            The Echo bot isn’t in any Discord server you can manage, or it
-            hasn’t been invited yet. In Discord, open your server → Server
-            Settings → Integrations → add the Echo bot.
+            {{ echoT('b19.dsp.noBotInGuild') }}
           </template>
         </div>
 
@@ -374,13 +356,13 @@ async function clearSync() {
           <EchoDropdown
             v-model="selectedGuildId"
             :options="guildDropdownOptions"
-            label="Discord server"
+            :label="echoT('b19.dsp.discordServer')"
             surface="server"
             teleport-menu
             :disabled="saving || guildsLoading || !guildsMeta.linked"
           />
           <p class="mt-1 text-[11px] text-fg-subtle">
-            Servers where you can manage and where the Echo bot is installed.
+            {{ echoT('b19.dsp.serversHint') }}
           </p>
         </div>
 
@@ -388,13 +370,13 @@ async function clearSync() {
           <EchoDropdown
             v-model="selectedChannelId"
             :options="channelDropdownOptions"
-            label="Discord channel"
+            :label="echoT('b19.dsp.discordChannel')"
             surface="server"
             teleport-menu
             :disabled="saving || channelsLoading || !selectedGuildId.trim()"
           />
           <p class="mt-1 text-[11px] text-fg-subtle">
-            Text, announcement, and forum channels only.
+            {{ echoT('b19.dsp.channelsHint') }}
           </p>
         </div>
 
@@ -408,7 +390,7 @@ async function clearSync() {
               class="rounded border-border"
               :disabled="saving"
             />
-            Discord → Echo (live)
+            {{ echoT('b19.dsp.inbound') }}
           </label>
           <label
             class="flex cursor-pointer items-center gap-2 text-sm text-fg-soft"
@@ -419,7 +401,7 @@ async function clearSync() {
               class="rounded border-border"
               :disabled="saving"
             />
-            Echo → Discord
+            {{ echoT('b19.dsp.outbound') }}
           </label>
         </div>
 
@@ -427,11 +409,10 @@ async function clearSync() {
           class="rounded-lg border border-border/50 bg-glass-1/40 px-3 py-2"
         >
           <summary class="cursor-pointer text-xs font-medium text-fg-soft">
-            Advanced: custom posting link
+            {{ echoT('b19.dsp.advanced') }}
           </summary>
           <p class="mt-2 text-[11px] text-fg-subtle">
-            Leave blank and Echo will set up posting to Discord for you. Paste a
-            link only if your admin gave you one to use instead.
+            {{ echoT('b19.dsp.advancedHint') }}
           </p>
           <input
             v-model="webhookOverride"
@@ -448,8 +429,7 @@ async function clearSync() {
               class="rounded border-border"
               :disabled="saving || !hasWebhook"
             />
-            Remove saved posting link (Echo creates a new one on the next save
-            if Echo → Discord stays on)
+            {{ echoT('b19.dsp.removeLink') }}
           </div>
         </details>
 
@@ -457,19 +437,19 @@ async function clearSync() {
           {{ error }}
         </div>
         <div v-if="loading" class="text-sm text-fg-subtle">
-          Loading message link settings…
+          {{ echoT('b19.dsp.loadingLink') }}
         </div>
         <div
           v-else-if="guildsLoading && !guilds.length"
           class="text-sm text-fg-subtle"
         >
-          Loading Discord servers…
+          {{ echoT('b19.dsp.loadingServers') }}
         </div>
         <div
           v-else-if="channelsLoading && selectedGuildId.trim()"
           class="text-sm text-fg-subtle"
         >
-          Loading Discord channels…
+          {{ echoT('b19.dsp.loadingChannels') }}
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <button
@@ -478,7 +458,7 @@ async function clearSync() {
             :disabled="loading || saving || clearing"
             @click="save"
           >
-            {{ saving ? 'Saving…' : 'Save' }}
+            {{ saving ? echoT('b19.dsp.saving') : echoT('b19.dsp.save') }}
           </button>
           <button
             v-if="hasBridge"
@@ -487,7 +467,11 @@ async function clearSync() {
             :disabled="loading || saving || clearing"
             @click="clearSync"
           >
-            {{ clearing ? 'Turning off…' : 'Stop linking' }}
+            {{
+              clearing
+                ? echoT('b19.dsp.turningOff')
+                : echoT('b19.dsp.stopLinking')
+            }}
           </button>
         </div>
       </div>

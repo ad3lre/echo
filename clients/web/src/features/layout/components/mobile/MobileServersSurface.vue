@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, unref, watch } from 'vue';
 import MobileServerList from '@/features/layout/components/mobile/MobileServerList.vue';
 import MobileChannelSheet from '@/features/layout/components/mobile/MobileChannelSheet.vue';
@@ -92,13 +93,15 @@ function closeMembers() {
         <div
           class="flex shrink-0 items-center justify-between border-b border-border px-4 py-3"
         >
-          <h2 class="text-sm font-bold text-foreground">Members</h2>
+          <h2 class="text-sm font-bold text-foreground">
+            {{ echoT('layout.mobile.members') }}
+          </h2>
           <button
             type="button"
             class="rounded-lg px-2 py-1 text-sm font-semibold text-fg-soft hover:bg-glass-1"
             @click="closeMembers"
           >
-            Done
+            {{ echoT('layout.mobile.done') }}
           </button>
         </div>
         <AppLayoutMembersColumn

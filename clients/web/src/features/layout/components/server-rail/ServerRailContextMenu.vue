@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import type { Server } from '@shared/types';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import { ECHO_SIMPLE_CONTEXT_MENU_ATTR } from '@/features/layout/useSimpleContextMenu';
 
 defineProps<{
@@ -36,7 +37,7 @@ const emit = defineEmits<{
       class="ellipsis-menu fixed z-[120] min-w-[220px] py-1"
       :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }"
       role="menu"
-      aria-label="Server options"
+      :aria-label="echoT('layout.rail.serverOptions')"
       @mousedown.stop
       @contextmenu.prevent
     >
@@ -60,7 +61,7 @@ const emit = defineEmits<{
           alt=""
           class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
         />
-        Server settings
+        {{ echoT('layout.rail.serverSettings') }}
       </button>
       <button
         v-if="
@@ -78,7 +79,7 @@ const emit = defineEmits<{
           alt=""
           class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
         />
-        Invite people
+        {{ echoT('layout.rail.invitePeople') }}
       </button>
       <button
         type="button"
@@ -91,7 +92,7 @@ const emit = defineEmits<{
           alt=""
           class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
         />
-        Notification settings
+        {{ echoT('layout.rail.notificationSettings') }}
       </button>
       <button
         type="button"
@@ -104,7 +105,7 @@ const emit = defineEmits<{
           alt=""
           class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
         />
-        Mark as read
+        {{ echoT('layout.rail.markAsRead') }}
       </button>
       <button
         v-if="devModeIdsEnabled"
@@ -126,7 +127,7 @@ const emit = defineEmits<{
             d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
           />
         </svg>
-        Copy server ID
+        {{ echoT('layout.rail.copyServerId') }}
       </button>
       <template v-if="canLeaveContextServer">
         <div class="my-1 h-px bg-glass-2" role="separator" />
@@ -141,7 +142,7 @@ const emit = defineEmits<{
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Leave server
+          {{ echoT('layout.rail.leaveServer') }}
         </button>
       </template>
     </div>

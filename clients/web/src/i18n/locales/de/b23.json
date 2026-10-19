@@ -1,0 +1,87 @@
+{
+  "ctxMenu": {
+    "edit": "Bearbeiten",
+    "copyMessage": "Nachricht kopieren",
+    "copyImage": "Bild kopieren",
+    "copyAsWritten": "Wie geschrieben kopieren",
+    "copyLink": "Nachrichtenlink kopieren",
+    "user": "Nutzer",
+    "report": "Nachricht melden",
+    "viewProfile": "Profil ansehen",
+    "copyUsername": "Benutzernamen kopieren",
+    "viewReactions": "Reaktionen ansehen",
+    "directMention": "Direkt erwähnen",
+    "developer": "Entwickler",
+    "copyAuthorId": "Autor-ID kopieren",
+    "copyMessageId": "Nachrichten-ID kopieren",
+    "copyQuotedId": "ID der zitierten Nachricht kopieren",
+    "copyChannelId": "Kanal-ID kopieren",
+    "pin": "Nachricht anheften",
+    "unpin": "Nachricht lösen",
+    "moderation": "Moderation",
+    "deleteMessage": "Nachricht löschen",
+    "removeTimeout": "Timeout aufheben",
+    "timeout1h": "Timeout (1 Stunde)",
+    "kick": "Vom Server kicken",
+    "ban": "Vom Server sperren"
+  },
+  "gif": {
+    "starGifs": "Markiere GIFs beim Stöbern mit einem Stern, um sie hier zu speichern.",
+    "starImages": "Markiere Bilder beim Stöbern mit einem Stern, um sie hier zu speichern.",
+    "favGifs": "Favorisierte GIFs",
+    "favImages": "Favorisierte Bilder",
+    "mediaType": "Medientyp",
+    "images": "Bilder",
+    "noFavorites": "Noch keine Favoriten",
+    "searchGifs": "GIFs suchen...",
+    "searchImages": "Bilder suchen...",
+    "loadingGifs": "GIFs werden geladen",
+    "loadingImages": "Bilder werden geladen",
+    "viewPlans": "Echo+-Tarife ansehen",
+    "imageResultsVia": "Bildergebnisse über",
+    "quota": "Heute noch {remaining} von {cap} Suchen übrig"
+  },
+  "cat": {
+    "category": "Kategorie",
+    "sidebarDesc": "Standards für Kanäle, die mit dieser Kategorie synchronisiert sind.",
+    "settings": "Einstellungen",
+    "close": "Schließen",
+    "basics": "Grundlagen",
+    "name": "Kategoriename",
+    "sensitive": "Diese Aktionen sind heikel und möglicherweise nicht rückgängig zu machen. Geh vorsichtig vor.",
+    "autoDelete": "Nachrichten automatisch löschen",
+    "autoDeleteHint": "Nachrichten in Kanälen, die mit dieser Kategorie synchronisiert sind, werden nach diesem Zeitraum entfernt. Gelöschte Inhalte bleiben aus Compliance-Gründen 14 Tage in der Datenbank und werden dann endgültig gelöscht.",
+    "retention": "Aufbewahrung",
+    "deleteCategory": "Kategorie löschen",
+    "deleteDesc": "Diese Kategorie und alle darin enthaltenen Kanäle endgültig löschen. Der Nachrichtenverlauf dieser Kanäle im Mock wird entfernt.",
+    "chatSyncUnavail": "Die Discord-Chat-Synchronisierung ist verfügbar, wenn diese Kategorie zu einem Server gehört.",
+    "voiceMirrorUnavail": "Die Sprachspiegelung ist verfügbar, wenn diese Kategorie zu einem Server gehört.",
+    "changesApply": "Änderungen werden beim Speichern übernommen.",
+    "cancel": "Abbrechen",
+    "confirmTitle": "Kategorie „{label}“ löschen?",
+    "confirmOne": "Diese Kategorie und den {n} Kanal darin löschen? Das kann nicht rückgängig gemacht werden.",
+    "confirmMany": "Diese Kategorie und alle {n} Kanäle darin löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "tab": {
+    "overview": {
+      "title": "Übersicht",
+      "desc": "Benenne diese Kategorie um. Kanäle, die den Kategorieberechtigungen folgen, nutzen den Tab „Berechtigungen“."
+    },
+    "permissions": {
+      "title": "Berechtigungen",
+      "desc": "Lege Standardberechtigungen für diese Kategorie fest. Kanäle, die der Kategorie folgen, nutzen diese Regeln."
+    },
+    "discord_chat_sync": {
+      "title": "Discord-Nachrichten (Kategorie)",
+      "desc": "Aktiviere dieselbe Discord-Nachrichtenverknüpfung für jeden Text- und Forum-Kanal in dieser Kategorie."
+    },
+    "discord_voice_mirror": {
+      "title": "Discord-Sprachaktivität",
+      "desc": "Zeige für Kanäle in dieser Kategorie, wer auf Discord im Sprachkanal ist. Tritt in Discord dem Sprachkanal bei, um teilzunehmen."
+    },
+    "danger_zone": {
+      "title": "Gefahrenzone",
+      "desc": "Heikle Aktionen, die diese Kategorie und ihre Kanäle endgültig entfernen. Geh vorsichtig vor."
+    }
+  }
+}

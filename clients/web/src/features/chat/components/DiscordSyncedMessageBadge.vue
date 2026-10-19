@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import DiscordOriginMark from '@/features/discord/DiscordOriginMark.vue';
 
 withDefaults(
@@ -11,5 +12,8 @@ withDefaults(
 </script>
 
 <template>
-  <DiscordOriginMark class="discord-synced-badge" label="From Discord" />
+  <DiscordOriginMark
+    class="discord-synced-badge"
+    :label="echoT('chatB.discordBadge.from')"
+  />
 </template>

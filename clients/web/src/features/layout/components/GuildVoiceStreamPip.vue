@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, ref, unref, watch } from 'vue';
 import StreamVideoTile from '@/features/voice/components/StreamVideoTile.vue';
 import { icons } from '@/assets/icons';
@@ -159,13 +160,13 @@ function toggleMinimized() {
             @click="goToVoiceChannel"
           >
             {{ glance?.name }}
-            <span class="text-fg-subtle"> · Live</span>
+            <span class="text-fg-subtle"> {{ echoT('b37.pip.live') }}</span>
           </button>
           <button
             type="button"
             class="flex h-7 w-7 items-center justify-center rounded-md text-fg-soft transition hover:bg-glass-1 hover:text-fg"
-            title="Expand preview"
-            aria-label="Expand preview"
+            :title="echoT('b37.pip.expandPreview')"
+            :aria-label="echoT('b37.pip.expandPreview')"
             @click="toggleMinimized"
           >
             <img
@@ -177,8 +178,8 @@ function toggleMinimized() {
           <button
             type="button"
             class="flex h-7 w-7 items-center justify-center rounded-md text-fg-soft transition hover:bg-glass-1 hover:text-fg"
-            title="Close preview"
-            aria-label="Close preview"
+            :title="echoT('b37.pip.closePreview')"
+            :aria-label="echoT('b37.pip.closePreview')"
             @click="dismissPip"
           >
             <span class="text-sm leading-none" aria-hidden="true">×</span>
@@ -212,7 +213,9 @@ function toggleMinimized() {
             <button
               type="button"
               class="min-w-0 flex-1 truncate text-left text-xs font-semibold text-fg"
-              :title="`Return to voice — ${glance?.name ?? ''}`"
+              :title="
+                echoT('b37.pip.returnToVoice', { name: glance?.name ?? '' })
+              "
               @click="goToVoiceChannel"
             >
               {{ glance?.name }}
@@ -220,8 +223,8 @@ function toggleMinimized() {
             <button
               type="button"
               class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-soft transition hover:bg-glass-1 hover:text-fg"
-              title="Fullscreen"
-              aria-label="Fullscreen stream"
+              :title="echoT('b37.pip.fullscreen')"
+              :aria-label="echoT('b37.pip.fullscreenStream')"
               @click="expandFullscreen"
             >
               <img
@@ -233,8 +236,8 @@ function toggleMinimized() {
             <button
               type="button"
               class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-soft transition hover:bg-glass-1 hover:text-fg"
-              title="Minimize"
-              aria-label="Minimize preview"
+              :title="echoT('b37.pip.minimize')"
+              :aria-label="echoT('b37.pip.minimizePreview')"
               @click="toggleMinimized"
             >
               <span class="text-sm leading-none" aria-hidden="true">−</span>
@@ -242,8 +245,8 @@ function toggleMinimized() {
             <button
               type="button"
               class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-soft transition hover:bg-glass-1 hover:text-fg"
-              title="Close preview"
-              aria-label="Close preview"
+              :title="echoT('b37.pip.closePreview')"
+              :aria-label="echoT('b37.pip.closePreview')"
               @click="dismissPip"
             >
               <span class="text-sm leading-none" aria-hidden="true">×</span>

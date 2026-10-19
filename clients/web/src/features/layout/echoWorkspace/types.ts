@@ -72,6 +72,13 @@ export interface WorkspaceStateRefs {
   users: Ref<MockData['users']>;
   servers: Ref<MockData['servers']>;
   categoriesByServer: Ref<MockData['categoriesByServer']>;
+  /** Guild voice roster — same shallowRef as echoSession.voiceEphemeralByChannelId. */
+  voiceEphemeralByChannelId: import('vue').ShallowRef<
+    Map<
+      string,
+      import('@/features/layout/echoWorkspace/workspaceVoiceEphemeral').VoiceChannelEphemeral
+    >
+  >;
   discoverableServers: Ref<MockData['discoverableServers']>;
   messages: Ref<MockData['messages']>;
   friendIds: Ref<MockData['friendIds']>;

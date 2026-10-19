@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   provide,
@@ -827,7 +828,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
           onGoToChannel(forumParentChannelId)
         "
       >
-        Back to forum
+        {{ echoT('b39.chatView.backToForum') }}
       </button>
       <!-- Opening a channel: always anchor to latest; go-to-message / search / links scroll via nav bridge. -->
       <SelfAssignableRolesWidget
@@ -929,7 +930,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
             <div
               class="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted"
             >
-              On this page
+              {{ echoT('b39.chatView.onThisPage') }}
             </div>
             <button
               v-for="item in markdownExpandedHeadingToc"
@@ -956,7 +957,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
             <div
               class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted"
             >
-              Markdown preview
+              {{ echoT('b39.chatView.markdownPreview') }}
             </div>
             <div
               class="markdown-preview__content text-sm break-words"
@@ -970,7 +971,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
             class="chat-focus-ring chat-markdown-expanded-collapse text-xs text-muted hover:text-foreground px-2 py-1 rounded"
             @click="collapseMarkdownPreview"
           >
-            Collapse preview
+            {{ echoT('b39.chatView.collapsePreview') }}
           </button>
         </div>
       </div>
@@ -1034,11 +1035,10 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
             id="nsfw-gate-title"
             class="text-xl font-bold tracking-tight text-foreground"
           >
-            Age-restricted channel
+            {{ echoT('b39.chatView.ageRestricted') }}
           </h2>
           <p class="text-sm leading-relaxed text-fg-soft">
-            This channel is marked as NSFW. By continuing you confirm you are 18
-            or older and choose to view potentially mature content.
+            {{ echoT('b39.chatView.nsfwNotice') }}
           </p>
           <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
@@ -1047,14 +1047,14 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
               class="chat-focus-ring rounded-lg px-4 py-2.5 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
               @click="onNsfwDecline"
             >
-              Go back
+              {{ echoT('b39.chatView.goBack') }}
             </button>
             <button
               type="button"
               class="chat-focus-ring rounded-lg bg-rose-600/90 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-950/40 transition-colors hover:bg-rose-600"
               @click="onNsfwAcknowledge?.()"
             >
-              Enter channel
+              {{ echoT('b39.chatView.enterChannel') }}
             </button>
           </div>
         </div>

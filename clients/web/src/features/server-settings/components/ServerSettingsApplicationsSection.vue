@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { onMounted, ref, watch } from 'vue';
 import type { Ref } from 'vue';
 import type {
@@ -58,15 +59,15 @@ const uploadCapMb = Math.max(
 function questionTypeTitle(type: EchoApplicationQuestionType): string {
   switch (type) {
     case 'short':
-      return 'Short answer';
+      return echoT('srvSettingsA.applications.q.short');
     case 'long':
-      return 'Long answer';
+      return echoT('srvSettingsA.applications.q.long');
     case 'single':
-      return 'Single choice';
+      return echoT('srvSettingsA.applications.q.single');
     case 'multi':
-      return 'Multiple choice';
+      return echoT('srvSettingsA.applications.q.multi');
     case 'attachment':
-      return 'File upload';
+      return echoT('srvSettingsA.applications.q.attachment');
     default:
       return type;
   }
@@ -86,7 +87,10 @@ function newQuestion(
       type: 'single',
       label: '',
       required: true,
-      options: ['Option A', 'Option B'],
+      options: [
+        echoT('srvSettingsA.applications.optionN', { n: 1 }),
+        echoT('srvSettingsA.applications.optionN', { n: 2 }),
+      ],
     };
   if (type === 'multi')
     return {
@@ -94,7 +98,10 @@ function newQuestion(
       type: 'multi',
       label: '',
       required: true,
-      options: ['Option A', 'Option B'],
+      options: [
+        echoT('srvSettingsA.applications.optionN', { n: 1 }),
+        echoT('srvSettingsA.applications.optionN', { n: 2 }),
+      ],
     };
   if (type === 'attachment')
     return { id, type: 'attachment', label: '', required: true };
@@ -107,12 +114,16 @@ function addChoiceOption(q: EchoApplicationQuestionDto) {
   if (!q.options) q.options = [];
   if (q.options.length >= MAX_CHOICE_OPTIONS) {
     dispatchAppToast(
-      `At most ${MAX_CHOICE_OPTIONS} options per question.`,
+      echoT('srvSettingsA.applications.maxOptions', {
+        max: MAX_CHOICE_OPTIONS,
+      }),
       'warning',
     );
     return;
   }
-  q.options.push(`Option ${q.options.length + 1}`);
+  q.options.push(
+    echoT('srvSettingsA.applications.optionN', { n: q.options.length + 1 }),
+  );
 }
 
 function removeChoiceOption(q: EchoApplicationQuestionDto, oi: number) {
@@ -149,7 +160,10 @@ async function loadSettings() {
       questions: (s.applicationForm.questions ?? []).map((q) => ({ ...q })),
     };
   } catch {
-    dispatchAppToast('Could not load application settings.', 'error');
+    dispatchAppToast(
+      echoT('srvSettingsA.applications.toast.loadSettings'),
+      'error',
+    );
   }
 }
 
@@ -160,7 +174,10 @@ async function loadPending() {
     const r = await httpFetchServerApplications('', props.serverId, 'pending');
     pending.value = r.applications ?? [];
   } catch {
-    dispatchAppToast('Could not load waitlist.', 'error');
+    dispatchAppToast(
+      echoT('srvSettingsA.applications.toast.loadWaitlist'),
+      'error',
+    );
   } finally {
     listBusy.value = false;
   }
@@ -205,7 +222,7 @@ async function persistPatch(patch: Record<string, unknown>): Promise<boolean> {
     emit('echo-workspace-refresh');
     return true;
   } catch {
-    dispatchAppToast('Could not save changes.', 'error');
+    dispatchAppToast(echoT('srvSettingsA.applications.toast.save'), 'error');
     return false;
   } finally {
     saving.value = false;
@@ -221,18 +238,17 @@ async function onToggleApplications(v: boolean) {
 
 function validateFormForSave(): string | null {
   for (const q of applicationForm.value.questions) {
-    if (!q.label.trim()) return 'Each question needs a label.';
+    if (!q.label.trim()) return echoT('srvSettingsA.applications.err.label');
     if (q.type === 'single' || q.type === 'multi') {
       const opts = (q.options ?? []).map((s) => s.trim()).filter(Boolean);
       if (opts.length < 1)
-        return 'Choice questions need at least one non-empty option.';
+        return echoT('srvSettingsA.applications.err.noOptions');
       if (opts.length > MAX_CHOICE_OPTIONS)
-        return 'Too many options on one question.';
+        return echoT('srvSettingsA.applications.err.tooMany');
       const seen = new Set<string>();
       for (const o of opts) {
         const k = o.toLowerCase();
-        if (seen.has(k))
-          return 'Choice options must be unique (case-insensitive).';
+        if (seen.has(k)) return echoT('srvSettingsA.applications.err.unique');
         seen.add(k);
       }
     }
@@ -254,7 +270,10 @@ async function saveForm() {
   });
   if (!ok) return;
   await loadSettings();
-  dispatchAppToast('Application form saved.', 'success');
+  dispatchAppToast(
+    echoT('srvSettingsA.applications.toast.formSaved'),
+    'success',
+  );
 }
 
 async function approve(id: string) {
@@ -263,9 +282,15 @@ async function approve(id: string) {
     await httpApproveServerApplication('', props.serverId, id);
     await loadPending();
     emit('echo-workspace-refresh');
-    dispatchAppToast('Member approved.', 'success');
+    dispatchAppToast(
+      echoT('srvSettingsA.applications.toast.approved'),
+      'success',
+    );
   } catch {
-    dispatchAppToast('Could not approve.', 'error');
+    dispatchAppToast(
+      echoT('srvSettingsA.applications.toast.approveFail'),
+      'error',
+    );
   } finally {
     listBusy.value = false;
   }
@@ -276,9 +301,15 @@ async function reject(id: string) {
   try {
     await httpRejectServerApplication('', props.serverId, id);
     await loadPending();
-    dispatchAppToast('Application rejected.', 'success');
+    dispatchAppToast(
+      echoT('srvSettingsA.applications.toast.rejected'),
+      'success',
+    );
   } catch {
-    dispatchAppToast('Could not reject.', 'error');
+    dispatchAppToast(
+      echoT('srvSettingsA.applications.toast.rejectFail'),
+      'error',
+    );
   } finally {
     listBusy.value = false;
   }
@@ -347,7 +378,7 @@ function waitlistAnswerRows(
       "
     >
       <p class="text-sm text-muted">
-        You don’t have permission to manage applications for this server.
+        {{ echoT('srvSettingsA.applications.noPermission') }}
       </p>
     </div>
 
@@ -360,21 +391,32 @@ function waitlistAnswerRows(
         "
       >
         <template v-if="!flatSections">
-          <div class="settings-subtitle mb-1">Join applications</div>
-          <p class="mb-4 text-sm text-fg-subtle">
-            When enabled, new members must complete your form and wait for
-            approval before they can join (Explore joins and normal invite
-            links). Create a
-            <strong class="font-semibold text-fg">direct invite</strong> from
-            the invite panel to share a link that skips this step.
-          </p>
+          <div class="settings-subtitle mb-1">
+            {{ echoT('srvSettingsA.applications.joinTitle') }}
+          </div>
+          <i18n-t
+            keypath="srvSettingsA.applications.joinIntro"
+            tag="p"
+            scope="global"
+            class="mb-4 text-sm text-fg-subtle"
+          >
+            <template #directInvite>
+              <strong class="font-semibold text-fg">{{
+                echoT('srvSettingsA.applications.directInvite')
+              }}</strong>
+            </template>
+          </i18n-t>
         </template>
-        <div v-if="loading" class="text-sm text-muted">Loading…</div>
+        <div v-if="loading" class="text-sm text-muted">
+          {{ echoT('srvSettingsA.applications.loading') }}
+        </div>
         <div v-else class="server-toggle-row">
           <div>
-            <div class="text-sm font-semibold text-fg">Enable applications</div>
+            <div class="text-sm font-semibold text-fg">
+              {{ echoT('srvSettingsA.applications.enable') }}
+            </div>
             <div class="mt-0.5 text-xs text-fg-subtle">
-              Gate joins behind your questionnaire and waitlist.
+              {{ echoT('srvSettingsA.applications.enableDesc') }}
             </div>
           </div>
           <label class="relative inline-flex cursor-pointer items-center">
@@ -406,11 +448,11 @@ function waitlistAnswerRows(
             : 'server-settings-panel rounded-2xl p-5'
         "
       >
-        <div class="settings-subtitle mb-3">Form builder</div>
+        <div class="settings-subtitle mb-3">
+          {{ echoT('srvSettingsA.applications.formBuilder') }}
+        </div>
         <p class="mb-4 text-sm text-fg-subtle">
-          Build your questionnaire: joiners see questions in order. Choice
-          questions use explicit options; file uploads use your storage plan
-          limits unless you set a lower cap.
+          {{ echoT('srvSettingsA.applications.formBuilderDesc') }}
         </p>
         <div
           class="mb-5 flex flex-wrap gap-2 rounded-xl border border-[var(--border)] bg-[var(--set-card-bg)] p-3"
@@ -421,7 +463,7 @@ function waitlistAnswerRows(
             :disabled="saving || !applicationsEnabled"
             @click="applicationForm.questions.push(newQuestion('short'))"
           >
-            + Short answer
+            {{ echoT('srvSettingsA.applications.add.short') }}
           </button>
           <button
             type="button"
@@ -429,7 +471,7 @@ function waitlistAnswerRows(
             :disabled="saving || !applicationsEnabled"
             @click="applicationForm.questions.push(newQuestion('long'))"
           >
-            + Long answer
+            {{ echoT('srvSettingsA.applications.add.long') }}
           </button>
           <button
             type="button"
@@ -437,7 +479,7 @@ function waitlistAnswerRows(
             :disabled="saving || !applicationsEnabled"
             @click="applicationForm.questions.push(newQuestion('single'))"
           >
-            + Single choice
+            {{ echoT('srvSettingsA.applications.add.single') }}
           </button>
           <button
             type="button"
@@ -445,7 +487,7 @@ function waitlistAnswerRows(
             :disabled="saving || !applicationsEnabled"
             @click="applicationForm.questions.push(newQuestion('multi'))"
           >
-            + Multiple choice
+            {{ echoT('srvSettingsA.applications.add.multi') }}
           </button>
           <button
             type="button"
@@ -453,7 +495,7 @@ function waitlistAnswerRows(
             :disabled="saving || !applicationsEnabled"
             @click="applicationForm.questions.push(newQuestion('attachment'))"
           >
-            + File upload
+            {{ echoT('srvSettingsA.applications.add.attachment') }}
           </button>
         </div>
 
@@ -466,7 +508,7 @@ function waitlistAnswerRows(
               : 'rounded-xl border border-dashed border-[var(--border)] bg-[var(--set-card-bg)]'
           "
         >
-          No questions yet. Add at least one to collect meaningful responses.
+          {{ echoT('srvSettingsA.applications.noQuestions') }}
         </div>
 
         <div class="space-y-4">
@@ -508,7 +550,7 @@ function waitlistAnswerRows(
                   :disabled="i === 0"
                   @click="moveQuestion(i, -1)"
                 >
-                  Move up
+                  {{ echoT('srvSettingsA.applications.moveUp') }}
                 </button>
                 <button
                   type="button"
@@ -516,27 +558,31 @@ function waitlistAnswerRows(
                   :disabled="i === applicationForm.questions.length - 1"
                   @click="moveQuestion(i, 1)"
                 >
-                  Move down
+                  {{ echoT('srvSettingsA.applications.moveDown') }}
                 </button>
                 <button
                   type="button"
                   class="rounded-lg border border-transparent px-2.5 py-1 text-xs font-medium text-rose-400 hover:bg-rose-500/10"
                   @click="removeQuestion(i)"
                 >
-                  Remove
+                  {{ echoT('srvSettingsA.applications.remove') }}
                 </button>
               </div>
             </div>
 
             <div class="space-y-3 p-4">
               <div>
-                <label class="settings-label">Question label</label>
+                <label class="settings-label">{{
+                  echoT('srvSettingsA.applications.questionLabel')
+                }}</label>
                 <input
                   v-model="q.label"
                   type="text"
                   class="server-input mt-1 w-full"
                   maxlength="200"
-                  placeholder="What should we call you?"
+                  :placeholder="
+                    echoT('srvSettingsA.applications.questionLabelPh')
+                  "
                 />
               </div>
 
@@ -548,21 +594,25 @@ function waitlistAnswerRows(
                   type="checkbox"
                   class="rounded border-[var(--border)]"
                 />
-                Required
+                {{ echoT('srvSettingsA.applications.required') }}
               </label>
 
               <template v-if="q.type === 'short' || q.type === 'long'">
-                <label class="settings-label block"
-                  >Placeholder (optional)</label
-                >
+                <label class="settings-label block">{{
+                  echoT('srvSettingsA.applications.placeholderOpt')
+                }}</label>
                 <input
                   v-model="q.placeholder"
                   type="text"
                   class="server-input mt-1 w-full"
                   maxlength="120"
-                  placeholder="Shown inside the empty field…"
+                  :placeholder="
+                    echoT('srvSettingsA.applications.placeholderPh')
+                  "
                 />
-                <label class="settings-label mt-3 block">Character limit</label>
+                <label class="settings-label mt-3 block">{{
+                  echoT('srvSettingsA.applications.charLimit')
+                }}</label>
                 <input
                   v-model.number="q.maxLength"
                   type="number"
@@ -574,7 +624,9 @@ function waitlistAnswerRows(
 
               <template v-if="q.type === 'single' || q.type === 'multi'">
                 <div class="flex items-center justify-between gap-2">
-                  <label class="settings-label m-0">Answer options</label>
+                  <label class="settings-label m-0">{{
+                    echoT('srvSettingsA.applications.answerOptions')
+                  }}</label>
                   <button
                     type="button"
                     class="rounded-lg border border-[var(--border)] bg-[var(--set-action-bg)] px-2.5 py-1 text-xs font-semibold text-fg hover:bg-[var(--set-action-hover-bg)]"
@@ -585,12 +637,15 @@ function waitlistAnswerRows(
                     "
                     @click="addChoiceOption(q)"
                   >
-                    Add option
+                    {{ echoT('srvSettingsA.applications.addOption') }}
                   </button>
                 </div>
                 <p class="mt-1 text-xs text-fg-subtle">
-                  Up to {{ MAX_CHOICE_OPTIONS }} options; labels must be unique
-                  (ignoring case).
+                  {{
+                    echoT('srvSettingsA.applications.optionsHint', {
+                      max: MAX_CHOICE_OPTIONS,
+                    })
+                  }}
                 </p>
                 <ul class="mt-2 space-y-2">
                   <li
@@ -603,7 +658,11 @@ function waitlistAnswerRows(
                       type="text"
                       maxlength="200"
                       class="server-input min-w-0 flex-1"
-                      :placeholder="'Option ' + (oi + 1)"
+                      :placeholder="
+                        echoT('srvSettingsA.applications.optionN', {
+                          n: oi + 1,
+                        })
+                      "
                       @input="
                         (e) => {
                           if (!q.options) q.options = [];
@@ -617,20 +676,22 @@ function waitlistAnswerRows(
                       :disabled="(q.options?.length ?? 0) <= 1"
                       @click="removeChoiceOption(q, oi)"
                     >
-                      Remove
+                      {{ echoT('srvSettingsA.applications.remove') }}
                     </button>
                   </li>
                 </ul>
               </template>
 
               <template v-if="q.type === 'attachment'">
-                <label class="settings-label block"
-                  >Max file size (optional)</label
-                >
+                <label class="settings-label block">{{
+                  echoT('srvSettingsA.applications.maxFileSize')
+                }}</label>
                 <p class="mt-0.5 text-xs text-fg-subtle">
-                  Leave blank to use the uploader’s plan limit (at most
-                  {{ uploadCapMb }}
-                  MiB). Lower values help keep applications lightweight.
+                  {{
+                    echoT('srvSettingsA.applications.maxFileHint', {
+                      max: uploadCapMb,
+                    })
+                  }}
                 </p>
                 <input
                   :value="attachmentMaxMbField(q)"
@@ -658,7 +719,7 @@ function waitlistAnswerRows(
             :disabled="saving || !applicationsEnabled"
             @click="saveForm"
           >
-            Save form
+            {{ echoT('srvSettingsA.applications.saveForm') }}
           </button>
         </div>
       </div>
@@ -670,15 +731,17 @@ function waitlistAnswerRows(
             : 'server-settings-panel rounded-2xl p-5'
         "
       >
-        <div class="settings-subtitle mb-3">Waitlist</div>
+        <div class="settings-subtitle mb-3">
+          {{ echoT('srvSettingsA.applications.waitlist') }}
+        </div>
         <p class="mb-4 text-sm text-fg-subtle">
-          Pending applications. Approve to add the member; reject to dismiss.
+          {{ echoT('srvSettingsA.applications.waitlistDesc') }}
         </p>
         <div v-if="listBusy && !pending.length" class="text-sm text-muted">
-          Loading…
+          {{ echoT('srvSettingsA.applications.loading') }}
         </div>
         <div v-else-if="!pending.length" class="text-sm text-muted">
-          No pending applications.
+          {{ echoT('srvSettingsA.applications.noPending') }}
         </div>
         <ul v-else class="space-y-3">
           <li
@@ -694,7 +757,9 @@ function waitlistAnswerRows(
             <div class="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <div class="text-sm font-semibold text-fg">
-                  User {{ row.userId }}
+                  {{
+                    echoT('srvSettingsA.applications.userN', { id: row.userId })
+                  }}
                 </div>
                 <div class="text-xs text-fg-subtle">
                   {{ row.source }} · {{ row.createdAt }}
@@ -706,7 +771,11 @@ function waitlistAnswerRows(
                   class="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-fg hover:bg-[var(--set-action-hover-bg)]"
                   @click="expandedId = expandedId === row.id ? null : row.id"
                 >
-                  {{ expandedId === row.id ? 'Hide' : 'View' }} answers
+                  {{
+                    expandedId === row.id
+                      ? echoT('srvSettingsA.applications.hideAnswers')
+                      : echoT('srvSettingsA.applications.viewAnswers')
+                  }}
                 </button>
                 <button
                   type="button"
@@ -714,7 +783,7 @@ function waitlistAnswerRows(
                   :disabled="listBusy"
                   @click="approve(row.id)"
                 >
-                  Approve
+                  {{ echoT('srvSettingsA.applications.approve') }}
                 </button>
                 <button
                   type="button"
@@ -722,7 +791,7 @@ function waitlistAnswerRows(
                   :disabled="listBusy"
                   @click="reject(row.id)"
                 >
-                  Reject
+                  {{ echoT('srvSettingsA.applications.reject') }}
                 </button>
               </div>
             </div>
@@ -757,7 +826,9 @@ function waitlistAnswerRows(
                   >
                     {{ ar.fileName }}
                   </a>
-                  <span class="text-xs text-fg-subtle"> — open file</span>
+                  <span class="text-xs text-fg-subtle">
+                    {{ echoT('srvSettingsA.applications.openFile') }}</span
+                  >
                 </div>
               </div>
             </div>

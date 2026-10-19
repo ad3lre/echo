@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import { getChannelIcon, getChannelDisplayName, icons } from '@/assets/icons';
@@ -37,7 +38,7 @@ defineEmits<{
       type="button"
       class="author-name-trigger font-semibold"
       data-dev-hit="author"
-      data-echo-hint="Open profile"
+      :data-echo-hint="echoT('b42.header.openProfile')"
       :class="props.authorOffline ? 'text-fg-subtle' : ''"
       :style="
         props.authorOffline ? {} : { color: authorRoleColor || undefined }
@@ -50,7 +51,7 @@ defineEmits<{
     <span
       v-if="showTimestamp"
       class="text-[10px] tabular-nums leading-tight text-muted whitespace-nowrap shrink-0"
-      :data-echo-hint="`Sent ${timestampLabel}`"
+      :data-echo-hint="echoT('b42.header.sent', { time: timestampLabel })"
     >
       {{ timestampLabel }}
     </span>
@@ -59,29 +60,41 @@ defineEmits<{
       v-if="message.editedAt || saveFeedback"
       class="text-xs italic transition-opacity"
       :class="saveFeedback ? 'text-emerald-400' : 'text-muted'"
-      :title="saveFeedback ? 'Saved' : 'Edited'"
-      :data-echo-hint="saveFeedback ? 'Message saved' : 'Message edited'"
+      :title="
+        saveFeedback ? echoT('b42.header.saved') : echoT('b42.header.edited')
+      "
+      :data-echo-hint="
+        saveFeedback
+          ? echoT('b42.header.messageSaved')
+          : echoT('b42.header.messageEdited')
+      "
     >
-      {{ saveFeedback ? 'Saved' : '(edited)' }}
+      {{
+        saveFeedback ? echoT('b42.header.saved') : echoT('b42.header.editedTag')
+      }}
     </span>
     <span
       v-if="isPinned"
       class="inline-flex items-center gap-1 text-xs text-amber-400/90"
-      title="Pinned"
-      data-echo-hint="Pinned message"
+      :title="echoT('b42.header.pinned')"
+      :data-echo-hint="echoT('b42.header.pinnedMessage')"
     >
       <img
         :src="icons.thumbtack"
         alt=""
         class="w-3.5 h-3.5 shrink-0 filter invert"
       />
-      Pinned
+      {{ echoT('b42.header.pinned') }}
     </span>
     <span
       v-if="message.channelName"
       class="inline-flex items-center gap-1.5 text-xs text-muted bg-glass-1 px-1.5 py-0.5 rounded"
       :data-dev-hit="channelId ? 'channel' : undefined"
-      :data-echo-hint="`Posted in #${getChannelDisplayName(message.channelName)}`"
+      :data-echo-hint="
+        echoT('b42.header.postedIn', {
+          name: getChannelDisplayName(message.channelName),
+        })
+      "
     >
       <img
         :src="getChannelIcon({ name: message.channelName, type: 'text' })"

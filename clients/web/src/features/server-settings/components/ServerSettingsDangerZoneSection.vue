@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 
@@ -89,9 +90,11 @@ function confirmDeleteServer() {
 <template>
   <div class="space-y-4">
     <div class="roles-panel rounded-2xl p-5">
-      <div class="settings-subtitle echo-danger-subtitle">Danger Zone</div>
+      <div class="settings-subtitle echo-danger-subtitle">
+        {{ echoT('serverSettingsUi.dangerZone') }}
+      </div>
       <div class="mt-2 text-sm text-fg-soft">
-        These actions are sensitive and may be irreversible. Proceed carefully.
+        {{ echoT('b24.danger.sensitive') }}
       </div>
     </div>
 
@@ -101,22 +104,20 @@ function confirmDeleteServer() {
           class="flex items-start justify-between gap-4 rounded-xl bg-glass-1 px-4 py-3"
         >
           <div>
-            <div class="font-semibold text-fg">Transfer Ownership</div>
+            <div class="font-semibold text-fg">
+              {{ echoT('b24.danger.transferOwnership') }}
+            </div>
             <div class="mt-1 text-sm text-fg-subtle">
-              Move permanent server ownership to another member. This is tied to
-              the server itself, not a role—the new owner gains full control and
-              you lose owner-only actions unless they transfer ownership back to
-              you.
+              {{ echoT('b24.danger.transferDesc') }}
             </div>
             <div v-if="!transferEnabled" class="mt-2 text-xs text-fg-subtle">
-              Available when you are the server owner (mock preview also needs a
-              bearer session).
+              {{ echoT('b24.danger.availableOwner') }}
             </div>
             <div
               v-else-if="transferCandidates.length === 0"
               class="echo-warn-text mt-2 text-xs"
             >
-              Invite another member before you can transfer ownership.
+              {{ echoT('b24.danger.inviteFirst') }}
             </div>
           </div>
           <button
@@ -129,7 +130,7 @@ function confirmDeleteServer() {
             "
             @click="transferModalOpen = true"
           >
-            Transfer
+            {{ echoT('b24.danger.transfer') }}
           </button>
         </div>
 
@@ -137,16 +138,18 @@ function confirmDeleteServer() {
           class="flex items-start justify-between gap-4 rounded-xl bg-glass-1 px-4 py-3"
         >
           <div>
-            <div class="font-semibold text-fg">Archive Server</div>
+            <div class="font-semibold text-fg">
+              {{ echoT('b24.danger.archiveServer') }}
+            </div>
             <div class="mt-1 text-sm text-fg-subtle">
-              Lock all channels and put the community in read-only mode.
+              {{ echoT('b24.danger.archiveDesc') }}
             </div>
           </div>
           <button
             type="button"
             class="echo-warn-action shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
           >
-            Archive
+            {{ echoT('b24.danger.archive') }}
           </button>
         </div>
 
@@ -154,11 +157,15 @@ function confirmDeleteServer() {
           class="echo-danger-section flex items-start justify-between gap-4 rounded-xl px-4 py-3"
         >
           <div>
-            <div class="font-semibold echo-danger-title">Delete Server</div>
+            <div class="font-semibold echo-danger-title">
+              {{ echoT('b24.danger.deleteServerTitle') }}
+            </div>
             <div class="mt-1 text-sm echo-danger-body">
-              Permanently delete
-              <span class="font-semibold">{{ props.serverName }}</span> and all
-              related messages, channels, and media.
+              <i18n-t keypath="b24.danger.deleteBody" scope="global">
+                <template #name>
+                  <span class="font-semibold">{{ props.serverName }}</span>
+                </template>
+              </i18n-t>
             </div>
           </div>
           <button
@@ -172,7 +179,7 @@ function confirmDeleteServer() {
               }
             "
           >
-            Delete Server
+            {{ echoT('b24.danger.deleteServerTitle') }}
           </button>
         </div>
       </div>
@@ -195,17 +202,20 @@ function confirmDeleteServer() {
             id="transfer-ownership-title"
             class="text-lg font-semibold text-fg"
           >
-            Transfer ownership
+            {{ echoT('b24.danger.transferOwnershipLower') }}
           </h2>
           <p class="mt-2 text-sm text-fg-soft">
-            Choose a member to become the new fundamental owner of
-            <span class="font-medium text-fg-soft">{{ props.serverName }}</span
-            >. This cannot be undone from here except by the new owner
-            transferring back.
+            <i18n-t keypath="b24.danger.transferBody" scope="global">
+              <template #name>
+                <span class="font-medium text-fg-soft">{{
+                  props.serverName
+                }}</span>
+              </template>
+            </i18n-t>
           </p>
           <label
             class="mt-4 block text-xs font-medium uppercase tracking-wide text-fg-subtle"
-            >New owner</label
+            >{{ echoT('b24.danger.newOwner') }}</label
           >
           <EchoDropdown
             v-model="selectedNewOwnerId"
@@ -227,7 +237,7 @@ function confirmDeleteServer() {
               :disabled="transferLoading"
               @click="transferModalOpen = false"
             >
-              Cancel
+              {{ echoT('b24.danger.cancel') }}
             </button>
             <button
               type="button"
@@ -235,7 +245,11 @@ function confirmDeleteServer() {
               :disabled="transferLoading || !selectedNewOwnerId"
               @click="confirmTransfer"
             >
-              {{ transferLoading ? 'Transferring…' : 'Transfer ownership' }}
+              {{
+                transferLoading
+                  ? echoT('b24.danger.transferring')
+                  : echoT('b24.danger.transferOwnershipLower')
+              }}
             </button>
           </div>
         </div>
@@ -259,16 +273,20 @@ function confirmDeleteServer() {
             id="delete-server-title"
             class="text-lg font-semibold echo-danger-title"
           >
-            Delete server
+            {{ echoT('b24.danger.deleteServerLower') }}
           </h2>
           <p class="mt-2 text-sm text-fg-soft">
-            This cannot be undone. Type
-            <span class="font-semibold text-fg">{{ props.serverName }}</span>
-            exactly to confirm.
+            <i18n-t keypath="b24.danger.confirmBody" scope="global">
+              <template #name>
+                <span class="font-semibold text-fg">{{
+                  props.serverName
+                }}</span>
+              </template>
+            </i18n-t>
           </p>
           <label
             class="mt-4 block text-xs font-medium uppercase tracking-wide text-fg-subtle"
-            >Server name</label
+            >{{ echoT('serverSettingsUi.serverName') }}</label
           >
           <input
             v-model="deleteNameConfirm"
@@ -278,7 +296,7 @@ function confirmDeleteServer() {
             autocomplete="off"
             autocapitalize="off"
             spellcheck="false"
-            placeholder="Enter server name"
+            :placeholder="echoT('b24.danger.enterServerName')"
           />
           <p v-if="deleteError" class="mt-3 text-sm echo-destructive-text">
             {{ deleteError }}
@@ -290,7 +308,7 @@ function confirmDeleteServer() {
               :disabled="deleteLoading"
               @click="deleteModalOpen = false"
             >
-              Cancel
+              {{ echoT('b24.danger.cancel') }}
             </button>
             <button
               type="button"
@@ -298,7 +316,11 @@ function confirmDeleteServer() {
               :disabled="deleteLoading || !deleteNameMatches"
               @click="confirmDeleteServer"
             >
-              {{ deleteLoading ? 'Deleting…' : 'Delete server permanently' }}
+              {{
+                deleteLoading
+                  ? echoT('b24.danger.deleting')
+                  : echoT('b24.danger.deletePermanently')
+              }}
             </button>
           </div>
         </div>

@@ -4,7 +4,7 @@ import type {
   MessageAttachmentPayload,
 } from '@shared/types';
 import { plainTextFromEchoContentJson } from '@/features/chat/editor/echoContentJsonPlainText';
-import { makeMentionEntity } from '@/features/chat/editor/composerModel';
+import { makeMentionEntity } from '@/features/chat/editor/composerPlainDoc';
 
 export type MessageEditDraftSource = {
   id?: string;

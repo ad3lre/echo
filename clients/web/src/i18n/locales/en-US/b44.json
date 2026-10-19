@@ -1,0 +1,96 @@
+{
+  "attach": {
+    "lottieSticker": "Lottie sticker",
+    "clickToReveal": "— Click to reveal",
+    "hide": "Hide",
+    "image": "Image"
+  },
+  "emojiInspect": {
+    "details": "Emoji details",
+    "animated": "Animated"
+  },
+  "docx": {
+    "missingUrl": "Missing document URL.",
+    "close": "Close",
+    "loading": "Loading document…",
+    "download": "Download {name}"
+  },
+  "vcCamera": {
+    "title": "Camera setup",
+    "camera": "Camera",
+    "cancel": "Cancel",
+    "start": "Start video",
+    "help": "Pick a camera from the list to preview and grant access. Video quality is configured in Settings → Voice & Video."
+  },
+  "guest": {
+    "intro": "Minimal profile first (photo, name, handle). Then secure it with email + password.",
+    "uploadFailed": "Could not upload profile photo: {detail}",
+    "created": "Account created — verify {email} via the link we sent, then sign in.",
+    "yourEmail": "your email",
+    "creating": "Creating…"
+  },
+  "paperPreset": {
+    "presets": "Presets",
+    "size": "Size",
+    "fontSizePresets": "Font size presets"
+  },
+  "layoutModals": {
+    "member": "Member",
+    "server": "Server"
+  },
+  "chatSurface": {
+    "resizeMemberPanel": "Resize member panel"
+  },
+  "discordOrigin": {
+    "fromDiscord": "From Discord"
+  },
+  "pollEmoji": {
+    "change": "Change emoji",
+    "add": "Add emoji",
+    "noMatch": "No emojis match \"{query}\"",
+    "remove": "Remove emoji"
+  },
+  "upload": {
+    "preparingImage": "Preparing image",
+    "preparingFile": "Preparing file",
+    "checking": "Checking upload",
+    "finalizing": "Finalizing",
+    "complete": "Complete",
+    "percent": "Upload {percent}%",
+    "progress": "Upload progress"
+  },
+  "attachPopout": {
+    "upload": "Upload file",
+    "uploadHint": "Images, documents, and more",
+    "poll": "Create poll",
+    "pollHint": "Ask a question with options"
+  },
+  "legal": {
+    "title": "Legal",
+    "subtitle": "Review Terms of Service and Privacy Policy.",
+    "close": "Close legal documents",
+    "docs": "Legal documents"
+  },
+  "paperDesign": {
+    "pagePresets": "Page presets",
+    "presets": {
+      "white": "White",
+      "cream": "Cream",
+      "warm": "Warm",
+      "amber": "Amber",
+      "mint": "Mint",
+      "sky": "Sky",
+      "lavender": "Lavender"
+    }
+  },
+  "vcActivity": {
+    "inProgress": "{label} in progress",
+    "eyebrow": "In activity",
+    "subtitle": "Join the same session as everyone in voice",
+    "joinLabel": "Join {label}",
+    "join": "Join activity"
+  },
+  "badges": {
+    "profile": "Profile badges"
+  }
+}

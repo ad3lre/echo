@@ -1,17 +1,13 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import { useServerBannedWordsStore } from '@/features/server-settings/serverBannedWords';
 import { isEchoGraphId } from '@/features/layout/ids/echoIds';
 import {
   BANNED_WORD_CATEGORIES,
-  BANNED_WORD_CATEGORY_LABELS,
-  BANNED_WORD_CATEGORY_DESCRIPTIONS,
   BANNED_WORD_PRESET_LEVELS,
-  BANNED_WORD_PRESET_LABELS,
-  BANNED_WORD_PRESET_DESCRIPTIONS,
   BANNED_WORD_PRESET_DEFAULTS,
   BANNED_WORD_ACTION_KINDS,
-  BANNED_WORD_ACTION_LABELS,
   BANNED_WORDS_MAX_CUSTOM_WORDS,
   BANNED_WORDS_MAX_WORD_LENGTH,
   type BannedWordPresetLevel,
@@ -126,7 +122,8 @@ async function onSave() {
       exemptRoleIds: draftExemptRoleIds.value,
     });
   } catch (e) {
-    saveError.value = e instanceof Error ? e.message : 'Failed to save';
+    saveError.value =
+      e instanceof Error ? e.message : echoT('b32.bw.saveFailed');
   }
 }
 
@@ -147,18 +144,18 @@ function toggleExemptRole(roleId: string) {
         class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
       >
         <div class="min-w-0 flex-1">
-          <div class="settings-subtitle">Banned Words</div>
+          <div class="settings-subtitle">
+            {{ echoT('serverSettingsUi.bannedWords') }}
+          </div>
           <p class="mt-1.5 max-w-2xl text-sm leading-relaxed text-fg-subtle">
-            Choose a preset level to automatically filter messages containing
-            inappropriate language, or customize which categories to enable and
-            what action each takes.
+            {{ echoT('b32.bw.intro') }}
           </p>
         </div>
       </div>
     </section>
 
     <p v-if="!canManage" class="text-sm text-fg-subtle">
-      You need Manage Server to edit the word filter.
+      {{ echoT('b32.bw.needManage') }}
     </p>
 
     <p v-if="store.lastError" class="text-sm text-red-400">
@@ -166,13 +163,15 @@ function toggleExemptRole(roleId: string) {
     </p>
 
     <div v-if="store.loadingServerId === serverId" class="text-sm text-fg-soft">
-      Loading configuration…
+      {{ echoT('b32.bw.loading') }}
     </div>
 
     <template v-else>
       <!-- Preset level picker -->
       <section class="server-settings-panel rounded-2xl p-5">
-        <div class="settings-subtitle mb-4">Filter Level</div>
+        <div class="settings-subtitle mb-4">
+          {{ echoT('b32.bw.filterLevel') }}
+        </div>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <button
             v-for="level in BANNED_WORD_PRESET_LEVELS"
@@ -188,10 +187,10 @@ function toggleExemptRole(roleId: string) {
             @click="draftLevel = level"
           >
             <div class="text-sm font-semibold text-fg">
-              {{ BANNED_WORD_PRESET_LABELS[level] }}
+              {{ echoT(`b32.bw.preset.${level}`) }}
             </div>
             <div class="mt-1 text-xs text-fg-subtle">
-              {{ BANNED_WORD_PRESET_DESCRIPTIONS[level] }}
+              {{ echoT(`b32.bw.presetDesc.${level}`) }}
             </div>
           </button>
         </div>
@@ -202,7 +201,9 @@ function toggleExemptRole(roleId: string) {
         v-if="draftLevel !== 'off'"
         class="server-settings-panel rounded-2xl p-5"
       >
-        <div class="settings-subtitle mb-4">Categories</div>
+        <div class="settings-subtitle mb-4">
+          {{ echoT('b32.bw.categories') }}
+        </div>
         <div class="space-y-3">
           <div
             v-for="cat in BANNED_WORD_CATEGORIES"
@@ -226,14 +227,10 @@ function toggleExemptRole(roleId: string) {
                 />
                 <div>
                   <div class="text-sm font-semibold text-fg">
-                    {{ BANNED_WORD_CATEGORY_LABELS[cat as BannedWordCategory] }}
+                    {{ echoT(`b32.bw.cat.${cat}`) }}
                   </div>
                   <div class="text-xs text-fg-subtle">
-                    {{
-                      BANNED_WORD_CATEGORY_DESCRIPTIONS[
-                        cat as BannedWordCategory
-                      ]
-                    }}
+                    {{ echoT(`b32.bw.catDesc.${cat}`) }}
                   </div>
                 </div>
               </label>
@@ -259,15 +256,22 @@ function toggleExemptRole(roleId: string) {
                 :key="ak"
                 :value="ak"
               >
-                {{ BANNED_WORD_ACTION_LABELS[ak] }}
+                {{ echoT(`b32.bw.action.${ak}`) }}
               </option>
             </select>
           </div>
         </div>
-        <p v-if="draftLevel !== 'custom'" class="mt-3 text-xs text-fg-soft">
-          Switch to <strong>Custom</strong> to change individual categories and
-          actions.
-        </p>
+        <i18n-t
+          v-if="draftLevel !== 'custom'"
+          keypath="b32.bw.switchCustom"
+          tag="p"
+          scope="global"
+          class="mt-3 text-xs text-fg-soft"
+        >
+          <template #custom
+            ><strong>{{ echoT('b32.bw.preset.custom') }}</strong></template
+          >
+        </i18n-t>
       </section>
 
       <!-- Custom words -->
@@ -275,16 +279,17 @@ function toggleExemptRole(roleId: string) {
         v-if="draftLevel !== 'off'"
         class="server-settings-panel rounded-2xl p-5"
       >
-        <div class="settings-subtitle mb-2">Custom Words</div>
+        <div class="settings-subtitle mb-2">
+          {{ echoT('b32.bw.customWords') }}
+        </div>
         <p class="mb-3 text-xs text-fg-subtle">
-          Add extra words or phrases to filter (one per line). These are always
-          blocked regardless of category settings.
+          {{ echoT('b32.bw.customWordsHelp') }}
         </p>
         <textarea
           class="echo-settings-field min-h-[100px] w-full rounded-lg px-3 py-2 text-sm outline-none"
           :disabled="!canManage"
           :value="draftCustomWords"
-          placeholder="badword&#10;another phrase"
+          :placeholder="echoT('b32.bw.placeholder')"
           @input="
             draftCustomWords = ($event.target as HTMLTextAreaElement).value
           "
@@ -299,10 +304,11 @@ function toggleExemptRole(roleId: string) {
         v-if="draftLevel !== 'off'"
         class="server-settings-panel rounded-2xl p-5"
       >
-        <div class="settings-subtitle mb-2">Exempt Roles</div>
+        <div class="settings-subtitle mb-2">
+          {{ echoT('b32.bw.exemptRoles') }}
+        </div>
         <p class="mb-3 text-xs text-fg-subtle">
-          Members with any of these roles bypass the word filter entirely.
-          Admins and Manage Server/Messages holders are always exempt.
+          {{ echoT('b32.bw.exemptHelp') }}
         </p>
         <div class="flex flex-wrap gap-2">
           <button
@@ -322,7 +328,7 @@ function toggleExemptRole(roleId: string) {
           </button>
         </div>
         <p v-if="echoRoles.length === 0" class="text-xs text-fg-soft">
-          No roles available.
+          {{ echoT('b32.bw.noRoles') }}
         </p>
       </section>
 
@@ -334,7 +340,7 @@ function toggleExemptRole(roleId: string) {
           :disabled="!canManage || store.saving || !hasChanges"
           @click="onSave"
         >
-          {{ store.saving ? 'Saving…' : 'Save Changes' }}
+          {{ store.saving ? echoT('b32.bw.saving') : echoT('b32.bw.save') }}
         </button>
         <p v-if="saveError" class="text-sm text-red-400">
           {{ saveError }}
@@ -343,7 +349,7 @@ function toggleExemptRole(roleId: string) {
           v-else-if="!hasChanges && draftLevel !== 'off'"
           class="text-xs text-fg-soft"
         >
-          No unsaved changes.
+          {{ echoT('b32.bw.noChanges') }}
         </p>
       </div>
     </template>

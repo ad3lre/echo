@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import ChatInput from '@/features/chat/components/ChatInput.vue';
 import AppLayoutSplash from '@/features/layout/components/AppLayoutSplash.vue';
@@ -213,15 +214,17 @@ const visiblePosts = computed(() => {
   });
 });
 const sortModeLabel = computed(() =>
-  sortMode.value === 'latest_activity' ? 'Latest activity' : 'Creation date',
+  sortMode.value === 'latest_activity'
+    ? echoT('b11.forum.latestActivity')
+    : echoT('b11.forum.creationDate'),
 );
 
-const forumSortDropdownOptions = [
-  { value: 'latest_activity', label: 'Latest activity' },
-  { value: 'creation_date', label: 'Creation date' },
-] as const;
+const forumSortDropdownOptions = computed(() => [
+  { value: 'latest_activity', label: echoT('b11.forum.latestActivity') },
+  { value: 'creation_date', label: echoT('b11.forum.creationDate') },
+]);
 const viewModeLabel = computed(() =>
-  viewMode.value === 'grid' ? 'Grid' : 'List',
+  viewMode.value === 'grid' ? echoT('b11.forum.grid') : echoT('b11.forum.list'),
 );
 
 function handlePostComposerSend(
@@ -374,13 +377,13 @@ watch(
                 v-model="searchQuery"
                 type="search"
                 class="w-full bg-transparent px-1 py-2 text-sm font-semibold text-fg placeholder:text-fg-subtle outline-none"
-                placeholder="Search posts…"
+                :placeholder="echoT('b11.forum.searchPlaceholder')"
               />
               <button
                 v-if="normalizedSearchQuery"
                 type="button"
                 class="chat-focus-ring forum-creator-btn flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors"
-                aria-label="Clear search"
+                :aria-label="echoT('b11.forum.clearSearch')"
                 @click="searchQuery = ''"
               >
                 <svg
@@ -401,7 +404,7 @@ watch(
               <button
                 type="button"
                 class="chat-focus-ring forum-creator-btn flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors"
-                aria-label="Create post"
+                :aria-label="echoT('b11.forum.createPost')"
                 @click="createMode = true"
               >
                 <img
@@ -422,12 +425,12 @@ watch(
                     alt=""
                     class="h-3.5 w-3.5 shrink-0 opacity-75 filter invert"
                   />
-                  <span class="truncate">New post</span>
+                  <span class="truncate">{{ echoT('b11.forum.newPost') }}</span>
                 </div>
                 <button
                   type="button"
                   class="chat-focus-ring forum-creator-btn flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors"
-                  aria-label="Cancel"
+                  :aria-label="echoT('b11.forum.cancel')"
                   @click="createMode = false"
                 >
                   <svg
@@ -449,7 +452,7 @@ watch(
 
               <ChatInput
                 class="pt-1"
-                placeholder="Start a post..."
+                :placeholder="echoT('b11.forum.startPost')"
                 popout-direction="down"
                 popout-theme="forum"
                 :channel-name="forumChannelName"
@@ -474,7 +477,9 @@ watch(
             v-if="!createMode && normalizedSearchQuery"
             class="mt-1.5 px-1 text-[11px] font-semibold text-fg-subtle"
           >
-            Showing {{ visiblePosts.length }} results
+            {{
+              echoT('b11.forum.showingResults', { count: visiblePosts.length })
+            }}
           </div>
         </div>
 
@@ -491,10 +496,10 @@ watch(
             class="mt-6 rounded-xl bg-glass-1 px-6 py-10 text-center"
           >
             <div class="text-base font-semibold text-fg-soft">
-              Make the first post
+              {{ echoT('b11.forum.firstPostTitle') }}
             </div>
             <div class="mt-2 text-sm text-fg-subtle">
-              Start the conversation and get things going.
+              {{ echoT('b11.forum.firstPostBody') }}
             </div>
           </div>
 
@@ -503,17 +508,17 @@ watch(
             class="mt-6 rounded-xl bg-glass-1 px-6 py-10 text-center"
           >
             <div class="text-base font-semibold text-fg-soft">
-              No matching posts
+              {{ echoT('b11.forum.noMatchTitle') }}
             </div>
             <div class="mt-2 text-sm text-fg-subtle">
-              Try a different search, or clear it to see everything.
+              {{ echoT('b11.forum.noMatchBody') }}
             </div>
             <button
               type="button"
               class="forum-creator-btn mt-4 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
               @click="searchQuery = ''"
             >
-              Clear search
+              {{ echoT('b11.forum.clearSearch') }}
             </button>
           </div>
 
@@ -555,23 +560,25 @@ watch(
                     <span
                       v-if="p.pinned"
                       class="text-[10px] font-semibold text-amber-300"
-                      >PIN</span
+                      >{{ echoT('b11.forum.pinBadge') }}</span
                     >
                     <span
                       v-if="p.locked"
                       class="text-[10px] font-semibold text-fg-soft"
-                      >LOCK</span
+                      >{{ echoT('b11.forum.lockBadge') }}</span
                     >
                     <span
                       v-if="p.archivedAt"
                       class="text-[10px] font-semibold text-fg-soft"
-                      >ARCH</span
+                      >{{ echoT('b11.forum.archBadge') }}</span
                     >
                   </div>
                   <div
                     class="mt-0.5 flex items-center justify-between gap-3 text-[11px] text-fg-soft"
                   >
-                    <span>{{ p.messageCount }} messages</span>
+                    <span>{{
+                      echoT('b11.forum.messageCount', { count: p.messageCount })
+                    }}</span>
                     <span class="shrink-0">{{
                       new Date(p.lastActivityAt).toLocaleString()
                     }}</span>
@@ -610,26 +617,32 @@ watch(
                       <span
                         v-if="p.pinned"
                         class="text-[10px] font-semibold text-amber-300"
-                        >PIN</span
+                        >{{ echoT('b11.forum.pinBadge') }}</span
                       >
                       <span
                         v-if="p.locked"
                         class="text-[10px] font-semibold text-fg-subtle"
-                        >LOCK</span
+                        >{{ echoT('b11.forum.lockBadge') }}</span
                       >
                       <span
                         v-if="p.archivedAt"
                         class="text-[10px] font-semibold text-fg-subtle"
-                        >ARCH</span
+                        >{{ echoT('b11.forum.archBadge') }}</span
                       >
                     </div>
                     <div class="mt-1 line-clamp-2 text-[12px] text-fg-subtle">
-                      {{ p.lastMessagePreview || 'No messages yet' }}
+                      {{
+                        p.lastMessagePreview || echoT('b11.forum.noMessagesYet')
+                      }}
                     </div>
                     <div
                       class="mt-2 flex items-center justify-between gap-3 text-[11px] text-fg-subtle"
                     >
-                      <span>{{ p.messageCount }} messages</span>
+                      <span>{{
+                        echoT('b11.forum.messageCount', {
+                          count: p.messageCount,
+                        })
+                      }}</span>
                       <span class="shrink-0">{{
                         new Date(p.lastActivityAt).toLocaleString()
                       }}</span>
@@ -669,13 +682,13 @@ watch(
             alt=""
             class="h-4 w-4 shrink-0 opacity-80 filter invert"
           />
-          Open post
+          {{ echoT('b11.forum.openPost') }}
         </button>
         <div class="my-1 h-px bg-glass-2" role="separator" />
         <div
           class="px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-fg-subtle"
         >
-          Channel list
+          {{ echoT('b11.forum.channelList') }}
         </div>
         <button
           type="button"
@@ -693,8 +706,8 @@ watch(
           />
           {{
             postContext.pinned
-              ? 'Unpin from channel sidebar'
-              : 'Pin to channel sidebar'
+              ? echoT('b11.forum.unpinSidebar')
+              : echoT('b11.forum.pinSidebar')
           }}
         </button>
         <template v-if="viewerCanModerateForumPost(postContext)">
@@ -702,7 +715,7 @@ watch(
           <div
             class="px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-fg-subtle"
           >
-            Moderation
+            {{ echoT('b11.forum.moderation') }}
           </div>
           <button
             type="button"
@@ -718,7 +731,11 @@ watch(
               alt=""
               class="h-4 w-4 shrink-0 opacity-80 filter invert"
             />
-            {{ postContext.locked ? 'Unlock post' : 'Lock post' }}
+            {{
+              postContext.locked
+                ? echoT('b11.forum.unlockPost')
+                : echoT('b11.forum.lockPost')
+            }}
           </button>
           <button
             type="button"
@@ -734,7 +751,11 @@ watch(
               alt=""
               class="h-4 w-4 shrink-0 opacity-80 filter invert"
             />
-            {{ postContext.archivedAt ? 'Restore post' : 'Archive post' }}
+            {{
+              postContext.archivedAt
+                ? echoT('b11.forum.restorePost')
+                : echoT('b11.forum.archivePost')
+            }}
           </button>
         </template>
         <div class="my-1 h-px bg-glass-2" role="separator" />
@@ -760,7 +781,7 @@ watch(
               d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
             />
           </svg>
-          Copy link
+          {{ echoT('b11.forum.copyLink') }}
         </button>
         <button
           type="button"
@@ -784,7 +805,7 @@ watch(
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          Copy post channel ID
+          {{ echoT('b11.forum.copyPostChannelId') }}
         </button>
       </div>
     </Teleport>
@@ -796,7 +817,7 @@ watch(
         v-if="loading"
         class="pointer-events-none rounded-full bg-scrim-2 px-3 py-1.5 text-xs font-semibold text-fg-soft backdrop-blur-xl"
       >
-        Loading…
+        {{ echoT('b11.forum.loading') }}
       </div>
       <button
         type="button"
@@ -806,21 +827,21 @@ watch(
             sortMode === 'latest_activity' ? 'creation_date' : 'latest_activity'
         "
       >
-        Sort: {{ sortModeLabel }}
+        {{ echoT('b11.forum.sortLabel', { label: sortModeLabel }) }}
       </button>
       <button
         type="button"
         class="chat-focus-ring forum-creator-pill pointer-events-auto rounded-full px-4 py-2 text-xs font-semibold backdrop-blur-xl transition-colors"
         @click="viewMode = viewMode === 'grid' ? 'list' : 'grid'"
       >
-        View: {{ viewModeLabel }}
+        {{ echoT('b11.forum.viewLabel', { label: viewModeLabel }) }}
       </button>
       <button
         type="button"
         class="chat-focus-ring forum-creator-pill pointer-events-auto rounded-full px-4 py-2 text-xs font-semibold backdrop-blur-xl transition-colors"
         @click="refreshCurrentForum"
       >
-        Refresh
+        {{ echoT('b11.forum.refresh') }}
       </button>
     </div>
   </div>
@@ -835,7 +856,7 @@ watch(
             <div
               class="text-[10px] font-bold uppercase tracking-[0.12em] text-fg-subtle"
             >
-              Forum
+              {{ echoT('b11.forum.forum') }}
             </div>
             <div class="truncate text-sm font-semibold text-fg">
               {{ forumChannelName }}
@@ -846,7 +867,7 @@ watch(
             class="shrink-0 rounded-lg border border-border bg-glass-1 px-3 py-1.5 text-xs font-semibold text-fg-soft transition-colors hover:border-border hover:bg-glass-hover hover:text-white"
             @click="closePost"
           >
-            Back
+            {{ echoT('b11.forum.back') }}
           </button>
         </div>
       </div>
@@ -867,7 +888,7 @@ watch(
             class="shrink-0 rounded-lg px-2 py-1 text-[10px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-white"
             @click="refreshCurrentForum"
           >
-            Refresh
+            {{ echoT('b11.forum.refresh') }}
           </button>
         </div>
       </div>
@@ -877,7 +898,7 @@ watch(
           v-if="loading"
           class="px-2 py-3 text-xs font-medium text-fg-subtle"
         >
-          Loading…
+          {{ echoT('b11.forum.loading') }}
         </div>
         <div
           v-else-if="error"
@@ -929,28 +950,30 @@ watch(
                 <span
                   v-if="p.pinned"
                   class="shrink-0 text-[9px] font-bold text-amber-300/95"
-                  >PIN</span
+                  >{{ echoT('b11.forum.pinBadge') }}</span
                 >
                 <span
                   v-if="p.locked"
                   class="shrink-0 text-[9px] font-bold text-fg-subtle"
-                  >LOCK</span
+                  >{{ echoT('b11.forum.lockBadge') }}</span
                 >
                 <span
                   v-if="p.archivedAt"
                   class="shrink-0 text-[9px] font-bold text-fg-subtle"
-                  >ARCH</span
+                  >{{ echoT('b11.forum.archBadge') }}</span
                 >
               </span>
               <span
                 class="mt-1 block line-clamp-2 text-[11.5px] leading-relaxed text-fg-subtle"
               >
-                {{ p.lastMessagePreview || 'No messages yet' }}
+                {{ p.lastMessagePreview || echoT('b11.forum.noMessagesYet') }}
               </span>
               <span
                 class="mt-1.5 flex items-center gap-2 text-[10.5px] font-medium tabular-nums text-fg-subtle"
               >
-                <span class="shrink-0">{{ p.messageCount }} messages</span>
+                <span class="shrink-0">{{
+                  echoT('b11.forum.messageCount', { count: p.messageCount })
+                }}</span>
                 <span class="text-fg-subtle">·</span>
                 <span class="min-w-0 truncate">{{
                   new Date(p.lastActivityAt).toLocaleString()
@@ -969,16 +992,20 @@ watch(
         >
           <div class="min-w-0">
             <div class="truncate text-sm font-semibold text-fg">
-              {{ selectedPost?.title || 'Post' }}
+              {{ selectedPost?.title || echoT('b11.forum.post') }}
             </div>
             <div
               class="mt-0.5 flex items-center gap-2 text-[11px] text-fg-subtle"
             >
-              <span v-if="selectedPost?.pinned" class="text-amber-300"
-                >Pinned</span
-              >
-              <span v-if="selectedPost?.locked">Locked</span>
-              <span v-if="selectedPost?.archivedAt">Archived</span>
+              <span v-if="selectedPost?.pinned" class="text-amber-300">{{
+                echoT('b11.forum.pinned')
+              }}</span>
+              <span v-if="selectedPost?.locked">{{
+                echoT('b11.forum.locked')
+              }}</span>
+              <span v-if="selectedPost?.archivedAt">{{
+                echoT('b11.forum.archived')
+              }}</span>
               <span
                 v-if="
                   selectedPost &&
@@ -986,10 +1013,15 @@ watch(
                   !selectedPost.archivedAt
                 "
                 class="text-emerald-300/90"
-                >Open</span
+                >{{ echoT('b11.forum.open') }}</span
               >
               <span v-if="selectedPost"
-                >· {{ selectedPost.messageCount }} messages</span
+                >·
+                {{
+                  echoT('b11.forum.messageCount', {
+                    count: selectedPost.messageCount,
+                  })
+                }}</span
               >
             </div>
           </div>
@@ -998,7 +1030,7 @@ watch(
             class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-fg-soft hover:bg-glass-hover hover:text-white"
             @click="closePost"
           >
-            Back to forum
+            {{ echoT('b11.forum.backToForum') }}
           </button>
         </div>
         <ChatView

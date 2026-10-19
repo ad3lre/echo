@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, reactive, ref, toRef, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
@@ -62,7 +63,7 @@ watch(
 );
 
 const displayName = computed(
-  () => props.payload?.serverName?.trim() || 'Server',
+  () => props.payload?.serverName?.trim() || echoT('b36.appModal.server'),
 );
 
 const iconSrc = computed(() =>
@@ -118,10 +119,7 @@ async function onAttachmentFile(q: EchoApplicationQuestionDto, ev: Event) {
   if (!file) return;
   const p = props.payload;
   if (!p || !canSubmitEchoApplications.value) {
-    dispatchAppToast(
-      'Sign in with a full account to upload a file.',
-      'warning',
-    );
+    dispatchAppToast(echoT('b36.appModal.signInUpload'), 'warning');
     return;
   }
   attachmentUploadingId.value = q.id;
@@ -140,7 +138,7 @@ async function onAttachmentFile(q: EchoApplicationQuestionDto, ev: Event) {
     );
     answers[q.id] = r;
   } catch {
-    dispatchAppToast('Could not upload file.', 'error');
+    dispatchAppToast(echoT('b36.appModal.uploadFailed'), 'error');
   } finally {
     attachmentUploadingId.value = null;
     attachmentProgress.value = null;
@@ -168,10 +166,7 @@ async function submit() {
   const p = props.payload;
   if (!p || localBusy.value || attachmentUploadingId.value != null) return;
   if (!canSubmitEchoApplications.value) {
-    dispatchAppToast(
-      'Sign in with a full account to submit an application.',
-      'warning',
-    );
+    dispatchAppToast(echoT('b36.appModal.signInSubmit'), 'warning');
     return;
   }
   localBusy.value = true;
@@ -181,10 +176,10 @@ async function submit() {
       inviteToken: p.inviteToken,
       answers: buildSubmitAnswers(),
     });
-    dispatchAppToast('Application sent — you’re on the waitlist.', 'success');
+    dispatchAppToast(echoT('b36.appModal.sent'), 'success');
     emit('submitted');
   } catch {
-    dispatchAppToast('Could not submit application.', 'error');
+    dispatchAppToast(echoT('b36.appModal.submitFailed'), 'error');
   } finally {
     localBusy.value = false;
   }
@@ -210,18 +205,17 @@ async function submit() {
 
       <div class="relative shrink-0 border-b border-[var(--border)] p-5 pb-4">
         <h2 id="server-app-title" class="text-lg font-bold text-fg">
-          Apply to join
+          {{ echoT('b36.appModal.title') }}
         </h2>
         <p class="mt-1 text-sm text-fg-subtle">
-          This server requires a short application before you can become a
-          member.
+          {{ echoT('b36.appModal.intro') }}
         </p>
         <div
           class="mt-4 flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--set-card-bg)] px-3 py-2.5"
         >
           <img
             :src="iconSrc"
-            :alt="`${displayName} icon`"
+            :alt="echoT('b36.appModal.iconAlt', { name: displayName })"
             class="h-10 w-10 shrink-0 rounded-lg object-contain"
           />
           <div class="min-w-0 truncate text-sm font-semibold text-fg">
@@ -238,7 +232,7 @@ async function submit() {
             class="rounded-xl border border-[var(--border)] bg-[var(--set-card-bg)] p-4"
           >
             <label class="settings-label">
-              {{ q.label || 'Question' }}
+              {{ q.label || echoT('b36.appModal.question') }}
               <span v-if="q.required" class="text-rose-400">*</span>
             </label>
             <input
@@ -312,7 +306,7 @@ async function submit() {
                   :disabled="attachmentUploadingId != null"
                   @click="clearAttachment(q.id)"
                 >
-                  Remove
+                  {{ echoT('b36.appModal.remove') }}
                 </button>
               </div>
               <div v-else class="flex flex-col gap-2">
@@ -325,19 +319,24 @@ async function submit() {
                       : ''
                   "
                 >
-                  Choose file
+                  {{ echoT('b36.appModal.chooseFile') }}
                 </label>
               </div>
               <p
                 v-if="attachmentUploadingId === q.id"
                 class="text-xs text-fg-subtle"
               >
-                Uploading<span v-if="attachmentProgress != null">
+                {{ echoT('b36.appModal.uploading')
+                }}<span v-if="attachmentProgress != null">
                   {{ ' ' }}{{ attachmentProgress }}%</span
                 >…
               </p>
               <p v-if="q.maxBytes" class="text-xs text-fg-subtle">
-                Max file size: {{ Math.round(q.maxBytes / (1024 * 1024)) }} MiB
+                {{
+                  echoT('b36.appModal.maxSize', {
+                    size: Math.round(q.maxBytes / (1024 * 1024)),
+                  })
+                }}
               </p>
             </div>
           </div>
@@ -353,7 +352,7 @@ async function submit() {
           :disabled="submitLocked"
           @click="close"
         >
-          Cancel
+          {{ echoT('b36.appModal.cancel') }}
         </button>
         <button
           type="button"
@@ -361,7 +360,7 @@ async function submit() {
           :disabled="submitLocked"
           @click="submit"
         >
-          Submit application
+          {{ echoT('b36.appModal.submit') }}
         </button>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type { ChannelPermissionKey, EchoChannelType } from '@shared/types';
 import { CHANNEL_WEBHOOKS_ENABLED } from '@shared/integrationKillSwitches';
 

@@ -1,0 +1,20 @@
+{
+  "message": "Message",
+  "call": "Call",
+  "addFriend": "Add friend",
+  "removeFriend": "Remove friend",
+  "block": "Block",
+  "unblock": "Unblock",
+  "kick": "Kick",
+  "ban": "Ban",
+  "timeout": "Timeout",
+  "roles": "Roles",
+  "note": "Note",
+  "copyUserId": "Copy user ID",
+  "viewProfile": "View profile",
+  "editProfile": "Edit profile",
+  "memberSince": "Member since",
+  "joinedServer": "Joined server",
+  "status": "Status",
+  "customStatus": "Custom status"
+}

@@ -1,0 +1,74 @@
+{
+  "dmIntro": {
+    "mutualOne": "{count} mutual server",
+    "mutualMany": "{count} mutual servers",
+    "aria": "Direct message history intro"
+  },
+  "channelAc": {
+    "forum": "Forum channel",
+    "text": "Text channel",
+    "none": "No channels found"
+  },
+  "audio": {
+    "clickReveal": "— Click to reveal",
+    "unavailable": "Audio unavailable"
+  },
+  "reactionHover": {
+    "countOne": "{count} reaction",
+    "countMany": "{count} reactions",
+    "more": "+{count} more",
+    "aria": "Reaction details",
+    "you": "You"
+  },
+  "imageSlot": {
+    "ariaUploading": "Uploading image for {w}:{h} slot",
+    "ariaAdd": "Add image to {w}:{h} slot",
+    "ariaSlot": "Image slot {w}:{h}",
+    "label": "Image {w}:{h}",
+    "uploading": "Uploading…",
+    "add": "Click to add image"
+  },
+  "discordComponents": {
+    "displayOnlyNamed": "Button \"{label}\" is display-only in Echo (custom_id: {id}).",
+    "displayOnly": "This button is display-only in Echo."
+  },
+  "mediaUnavailable": {
+    "detail": "This file could not be loaded. It may be missing, moved, or no longer accessible."
+  },
+  "typing": {
+    "one": "{name} is typing",
+    "two": "{a} and {b} are typing",
+    "many": "Several people are typing"
+  },
+  "historySkeleton": {
+    "loading": "Loading messages"
+  },
+  "pdfPreview": {
+    "renderFail": "Could not render PDF preview."
+  },
+  "mdPreview": {
+    "title": "Markdown preview"
+  },
+  "discordBadge": {
+    "from": "From Discord"
+  },
+  "seekBar": {
+    "aria": "Seek"
+  },
+  "waveform": {
+    "aria": "Audio waveform"
+  },
+  "sendPending": {
+    "aria": "Sending"
+  },
+  "mentionAc": {
+    "none": "No matches found"
+  },
+  "emojiPopover": {
+    "noMatch": "No emojis match \"{query}\""
+  },
+  "reactionsRow": {
+    "byOne": "Reacted by {count} person",
+    "byMany": "Reacted by {count} people"
+  }
+}

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
@@ -46,10 +47,10 @@ const countdown = computed(() =>
       >
         {{
           startedFromLobby
-            ? 'Event in progress'
+            ? echoT('b43.stageBanner.inProgress')
             : isLive
-              ? 'Scheduled event · live'
-              : 'Scheduled event'
+              ? echoT('b43.stageBanner.liveScheduled')
+              : echoT('b43.stageBanner.scheduled')
         }}
       </p>
       <p class="truncate text-sm font-semibold text-foreground">
@@ -64,8 +65,7 @@ const countdown = computed(() =>
         v-if="promptYoutubeLive && canManageYoutube"
         class="text-xs text-indigo-800 dark:text-indigo-100/90"
       >
-        This event is tagged for YouTube live — use the controls above to go
-        live.
+        {{ echoT('b43.stageBanner.youtubeTip') }}
       </p>
       <button
         v-if="promptYoutubeLive"
@@ -73,14 +73,14 @@ const countdown = computed(() =>
         class="rounded-lg border border-indigo-400/40 px-2.5 py-1 text-xs font-semibold text-indigo-800 hover:bg-indigo-500/15 dark:text-indigo-100"
         @click="emit('dismissYoutubePrompt')"
       >
-        Dismiss tip
+        {{ echoT('b43.stageBanner.dismissTip') }}
       </button>
       <button
         type="button"
         class="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-fg-soft hover:bg-glass-hover"
         @click="emit('dismiss')"
       >
-        Dismiss
+        {{ echoT('b43.stageBanner.dismiss') }}
       </button>
     </div>
   </div>

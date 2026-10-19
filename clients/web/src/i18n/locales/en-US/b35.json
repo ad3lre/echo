@@ -1,0 +1,77 @@
+{
+  "voiceMirror": {
+    "loadError": "Could not load voice mirror settings.",
+    "saveError": "Could not save voice mirror settings.",
+    "title": "Discord voice mirror",
+    "desc": "When enabled, Echo shows live Discord voice rosters for voice channels in this category. Echo voice join stays off — use Discord to participate in voice.",
+    "signIn": "Sign in to configure voice mirror.",
+    "guest": "Not available for guest sessions.",
+    "enable": "Mirror Discord voice activity for this category",
+    "catId": "Discord category ID (optional filter)",
+    "catIdPh": "Leave empty to mirror all Discord VCs into this Echo category",
+    "catIdHelp": "When set, only Discord voice channels under this Discord category id are mirrored into this Echo category. Developer Mode → right-click Discord category → Copy ID."
+  },
+  "common": {
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "save": "Save"
+  },
+  "ytLive": {
+    "badge": "YouTube live",
+    "openStream": "Open stream",
+    "goLive": "Go live on YouTube",
+    "modHint": "A moderator with Manage Channels can start the YouTube live stream.",
+    "layoutTitle": "Program layout sent to YouTube",
+    "grid": "Grid",
+    "spotlight": "Spotlight",
+    "screen": "Screen first",
+    "end": "End live"
+  },
+  "lobby": {
+    "close": "Close",
+    "voiceChannel": "Voice channel",
+    "voice": "Voice",
+    "empty": "No one here yet — be the first.",
+    "join": "Join voice",
+    "unmuteMic": "Unmute microphone",
+    "muteMic": "Mute microphone",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "openChat": "Open chat without joining",
+    "chat": "Chat",
+    "settings": "Settings"
+  },
+  "ticket": {
+    "subjectRequired": "Subject is required",
+    "categoryRequired": "Please select a category",
+    "failed": "Failed to create ticket",
+    "title": "Create a Ticket",
+    "intro": "Submit a report or inquiry. A private channel will be created where you can communicate with the server team.",
+    "subject": "Subject *",
+    "subjectPh": "Brief description of your issue",
+    "select": "Select...",
+    "cancel": "Cancel",
+    "creating": "Creating...",
+    "create": "Create Ticket"
+  },
+  "ringtone": {
+    "waiting": "Waiting music",
+    "choose": "Choose ringtone",
+    "none": "No ringtones available",
+    "label": "Ringtone",
+    "unmute": "Unmute ringtone",
+    "vol": "Vol",
+    "closePicker": "Close ringtone picker"
+  },
+  "bubble": {
+    "newerFormat": "This message uses a newer format and could not be displayed.",
+    "cannotDisplay": "This message could not be displayed.",
+    "noImageToCopy": "No image to copy",
+    "deleteTitle": "Delete this message?",
+    "firstUnread": "First unread message",
+    "new": "New",
+    "seeMore": "See more",
+    "forwarded": "Forwarded",
+    "jump": "Jump to message"
+  }
+}

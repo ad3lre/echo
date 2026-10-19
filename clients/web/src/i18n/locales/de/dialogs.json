@@ -1,0 +1,43 @@
+{
+  "voiceJoin": {
+    "titleFull": "Sprachkanal voll",
+    "titleNoConnect": "Verbindung zum Sprachkanal nicht möglich",
+    "titleNoView": "Kanal nicht verfügbar",
+    "titleTimeout": "Kommunikations-Timeout",
+    "titleBanned": "Sprachkanal nicht nutzbar",
+    "titleNotMember": "Kein Mitglied",
+    "titleNotFound": "Sprachkanal nicht verfügbar",
+    "titleE2eeFailed": "Einrichtung der Sprachverschlüsselung fehlgeschlagen",
+    "titleDefault": "Sprachkanal konnte nicht betreten werden",
+    "noPermissionMessage": "Du hast keine Berechtigung, dich mit diesem Sprachkanal zu verbinden.",
+    "joinInDiscordTitle": "In Discord beitreten",
+    "joinInDiscordMessage": "Dieser Kanal spiegelt nur die Discord-Sprachaktivität – tritt dem Sprachkanal in Discord bei.",
+    "connectFailedNetwork": "Verbindung zum Sprachkanal fehlgeschlagen. Prüfe das Netzwerk und versuche es erneut.",
+    "communicationTimeoutBlocked": "Du hast auf diesem Server einen Kommunikations-Timeout und kannst erst nach dessen Ende einem Sprachkanal beitreten."
+  },
+  "guestExploreJoin": {
+    "title": "Beitritt über Explore mit diesem Konto nicht möglich",
+    "messageDefault": "Mit diesem Kontotyp kannst du Servern aus dem öffentlichen Explore-Verzeichnis nicht beitreten. Erstelle ein kostenloses Echo-Konto mit E-Mail, um gelisteten Communitys beizutreten, oder nutze einen Einladungslink von einem Mitglied.",
+    "messageWithHint": "{hint}\n\nUm gelisteten Servern aus dem Verzeichnis beizutreten, erstelle ein kostenloses Echo-Konto mit E-Mail (Upgrade über dein Profil oder das Gast-Banner). Einer Community kannst du trotzdem beitreten, wenn dir jemand einen Einladungslink schickt."
+  },
+  "messageFailed": {
+    "rateLimit": "Zu viele Aktionen. Warte einen Moment und versuche es erneut.",
+    "slowmode": "In diesem Kanal ist der Langsam-Modus aktiv. Warte, bevor du bearbeitest oder sendest.",
+    "spamFilter": "Der Spam-Filter hat diese Nachricht blockiert. Warte kurz und versuche es erneut.",
+    "communicationTimeout": "Du hast auf diesem Server einen Kommunikations-Timeout.",
+    "mentionBroadcastForbidden": "Du kannst {'@'}everyone oder {'@'}active in diesem Kanal nicht erwähnen.",
+    "forbidden": "Dafür hast du keine Berechtigung.",
+    "unauthenticated": "Melde dich erneut an und versuche es dann noch einmal.",
+    "persistFailed": "Echo konnte deine Änderung nicht speichern. Versuche es erneut.",
+    "e2eeStorageUnavailable": "Der Speicher für private Nachrichten ist auf diesem Server noch nicht verfügbar. Normale Nachrichten funktionieren weiterhin.",
+    "e2eeUnknownDevice": "Dieses Gerät ist nicht für private Nachrichten eingerichtet. Prüfe Einstellungen → Konto.",
+    "e2eeDeviceRevoked": "Dieses Gerät wurde aus den privaten Nachrichten entfernt.",
+    "e2eeEnvelopeTooLarge": "Diese private Nachricht war zu groß zum Senden.",
+    "validation": "Diese Änderung wurde abgelehnt.",
+    "unknownChannel": "Dieser Kanal ist nicht mehr verfügbar.",
+    "idempotencyExpired": "Diese Aktion ist abgelaufen. Versuche es erneut.",
+    "guestLimit": "Erstelle ein Konto, um Nachrichten zu senden.",
+    "guestAbuseCooldown": "Aktion vorübergehend blockiert. Versuche es später erneut.",
+    "default": "Das hat nicht geklappt. Versuche es erneut."
+  }
+}

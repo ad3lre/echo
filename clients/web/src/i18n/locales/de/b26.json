@@ -1,0 +1,80 @@
+{
+  "audit": {
+    "filters": "Audit-Filter",
+    "clear": "Filter zurücksetzen",
+    "tabsAria": "Tabs des Audit-Logs",
+    "actor": "Akteur",
+    "timeWindow": "Zeitraum",
+    "feed": "Event-Feed",
+    "feedDesc": "Aktuelle Moderations- und Verwaltungsaktionen auf dem gesamten Server.",
+    "empty": "Keine Audit-Events entsprechen diesen Filtern.",
+    "emptyHint": "Setze die Filter zurück oder erweitere den Zeitraum, um mehr Aktivität zu sehen.",
+    "time": {
+      "All": "Gesamte Zeit",
+      "1h": "Letzte Stunde",
+      "6h": "Letzte 6 Stunden",
+      "12h": "Letzte 12 Stunden",
+      "24h": "Letzte 24 Stunden",
+      "3d": "Letzte 3 Tage",
+      "7d": "Letzte 7 Tage",
+      "30d": "Letzte 30 Tage",
+      "90d": "Letzte 90 Tage"
+    },
+    "filterHelp": "Filtere nach Kategorie, Akteur oder Zeit. Öffne {actor} und nutze das Suchfeld, um jemanden in der Liste zu finden.",
+    "entries": "{count} Einträge"
+  },
+  "paperShape": {
+    "toolbar": "Formformatierung",
+    "decrease": "Formgröße verkleinern",
+    "increase": "Formgröße vergrößern",
+    "size": "Formgröße",
+    "fillColor": "Füllfarbe",
+    "borderColor": "Rahmenfarbe",
+    "borderWidth": "Rahmenbreite",
+    "borderStyle": "Rahmenstil",
+    "addImage": "Bild zur Form hinzufügen",
+    "removeImage": "Formbild entfernen",
+    "position": "Position",
+    "alignLeft": "Linksbündig",
+    "alignCenter": "Zentriert",
+    "alignRight": "Rechtsbündig",
+    "noBorder": "Kein Rahmen",
+    "sizes": {
+      "small": "Klein",
+      "medium": "Mittel",
+      "large": "Groß"
+    },
+    "styles": {
+      "solid": "Durchgezogen",
+      "dashed": "Gestrichelt",
+      "dotted": "Gepunktet"
+    }
+  },
+  "ringtone": {
+    "title": "Klingelton",
+    "settings": "Klingelton-Einstellungen",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "hideList": "Klingelton-Liste ausblenden",
+    "browse": "Klingeltöne durchsuchen – klicken, um die Liste anzuzeigen",
+    "unmute": "Klingelton einschalten",
+    "volume": "Lautstärke"
+  },
+  "profileModal": {
+    "mutualServers": "Gemeinsame Server",
+    "mutualFriends": "Gemeinsame Freunde",
+    "discordNotOnEcho": "Discord-Profil (nicht auf Echo)",
+    "checkingFriendship": "Freundschaft wird geprüft...",
+    "acceptRequest": "Freundschaftsanfrage annehmen",
+    "pendingRequest": "Ausstehende Freundschaftsanfrage",
+    "decline": "Ablehnen",
+    "declineRequest": "Anfrage ablehnen",
+    "rolesInServer": "Rollen auf diesem Server",
+    "member": "Mitglied",
+    "aboutMe": "ÜBER MICH",
+    "note": "NOTIZ",
+    "close": "Schließen",
+    "noMutualServers": "Keine gemeinsamen Server",
+    "noMutualFriends": "Keine gemeinsamen Freunde"
+  }
+}

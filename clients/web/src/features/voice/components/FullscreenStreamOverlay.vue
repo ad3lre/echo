@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   watch,
@@ -340,18 +341,17 @@ watch(streamVolumeSliderValue, (v) => {
           class="pointer-events-auto flex max-w-[min(100%,22rem)] flex-col items-center gap-3 rounded-xl border border-border bg-overlay-heavy px-5 py-4 text-center shadow-lg backdrop-blur-md"
         >
           <p class="text-sm font-medium text-fg">
-            Preview paused to save CPU and battery
+            {{ echoT('b39.fsStream.previewPaused') }}
           </p>
           <p class="text-xs leading-snug text-fg-subtle">
-            You are still sharing. Click anywhere or use the button to show your
-            preview again.
+            {{ echoT('b39.fsStream.stillSharing') }}
           </p>
           <button
             type="button"
             class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500"
             @click.stop="bumpPreviewActivity"
           >
-            Show preview
+            {{ echoT('b39.fsStream.showPreview') }}
           </button>
         </div>
       </div>
@@ -389,8 +389,8 @@ watch(streamVolumeSliderValue, (v) => {
                 class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-fg transition-colors hover:bg-glass-hover"
                 :aria-label="
                   streamVolumeMuted
-                    ? 'Unmute stream audio'
-                    : 'Mute stream audio'
+                    ? echoT('b39.fsStream.unmute')
+                    : echoT('b39.fsStream.mute')
                 "
                 @click="toggleStreamOutputMute"
               >
@@ -411,7 +411,7 @@ watch(streamVolumeSliderValue, (v) => {
                 :aria-valuenow="streamVolumeSliderValue"
                 aria-valuemin="0"
                 aria-valuemax="200"
-                aria-label="Stream volume"
+                :aria-label="echoT('voiceChrome.streamVolume')"
                 @input="onStreamVolumeRangeInput"
               />
             </div>
@@ -424,7 +424,7 @@ watch(streamVolumeSliderValue, (v) => {
               v-if="pipSupported"
               type="button"
               class="fullscreen-stream-overlay__btn flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-scrim-2 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-overlay-heavy"
-              aria-label="Picture in picture"
+              :aria-label="echoT('b39.fsStream.pip')"
               @click="togglePip"
             >
               <svg
@@ -444,7 +444,7 @@ watch(streamVolumeSliderValue, (v) => {
             <button
               type="button"
               class="fullscreen-stream-overlay__btn flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-scrim-2 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-overlay-heavy"
-              aria-label="Close fullscreen"
+              :aria-label="echoT('b39.fsStream.closeFullscreen')"
               @click="close"
             >
               <svg
@@ -485,7 +485,7 @@ watch(streamVolumeSliderValue, (v) => {
               alt=""
               class="h-3.5 w-3.5 opacity-80 filter invert"
             />
-            Their volume
+            {{ echoT('b39.fsStream.theirVolume') }}
           </p>
           <div class="mt-2 flex items-center gap-2">
             <input
@@ -495,7 +495,7 @@ watch(streamVolumeSliderValue, (v) => {
               max="200"
               step="1"
               :value="streamVolumeMenuDraft"
-              aria-label="Participant volume"
+              :aria-label="echoT('voiceChrome.participantVolume')"
               @input="onStreamVolumeMenuInput"
             />
             <span

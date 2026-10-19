@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, toRef, watch } from 'vue';
 import type { MessageReaction } from '@shared/types';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -90,9 +91,9 @@ function voterLabel(userId: string): string {
   }
   const uid = props.currentUserId;
   if (uid && userId === uid) {
-    return props.currentUserDisplayName?.trim() || 'You';
+    return props.currentUserDisplayName?.trim() || echoT('b42.reactors.you');
   }
-  return 'Unknown';
+  return echoT('chat.labels.unknown');
 }
 
 function isUsableAvatarUrl(url: string | undefined | null): boolean {
@@ -171,7 +172,7 @@ const totalReactors = computed(() => {
           id="msg-reactions-voters-title"
           class="shrink-0 text-lg font-semibold pr-8"
         >
-          Who reacted
+          {{ echoT('b42.reactors.title') }}
         </h2>
         <p
           v-if="messagePreview?.trim()"
@@ -182,7 +183,7 @@ const totalReactors = computed(() => {
         <button
           type="button"
           class="absolute top-4 right-4 p-1.5 rounded-md text-muted hover:text-foreground hover:bg-glass-hover transition-colors"
-          aria-label="Close"
+          :aria-label="echoT('b42.reactors.close')"
           @click="close"
         >
           <svg
@@ -204,18 +205,29 @@ const totalReactors = computed(() => {
         >
           <span class="tabular-nums">
             {{ totalReactors }}
-            {{ totalReactors === 1 ? 'person' : 'people' }} ·
+            {{
+              totalReactors === 1
+                ? echoT('b42.reactors.person')
+                : echoT('b42.reactors.people')
+            }}
+            ·
             {{ displayReactions.length }}
-            {{ displayReactions.length === 1 ? 'emoji' : 'emojis' }}
+            {{
+              displayReactions.length === 1
+                ? echoT('b42.reactors.emoji')
+                : echoT('b42.reactors.emojis')
+            }}
           </span>
-          <span v-if="votersLoading" class="text-muted">Loading…</span>
-          <span v-else-if="votersLoadError" class="text-muted"
-            >Could not load full list</span
-          >
+          <span v-if="votersLoading" class="text-muted">{{
+            echoT('b42.reactors.loading')
+          }}</span>
+          <span v-else-if="votersLoadError" class="text-muted">{{
+            echoT('b42.reactors.loadError')
+          }}</span>
         </div>
         <div
           role="tablist"
-          aria-label="Reactors by emoji"
+          :aria-label="echoT('b42.reactors.byEmoji')"
           class="mt-4 flex gap-1 overflow-x-auto pb-2 -mx-1 px-1 custom-scrollbar shrink-0 border-b border-border"
         >
           <button
@@ -290,7 +302,7 @@ const totalReactors = computed(() => {
                 </li>
               </ul>
               <p v-else class="py-6 text-center text-sm text-muted/80 italic">
-                No reactors for this emoji
+                {{ echoT('b42.reactors.none') }}
               </p>
             </div>
           </template>
@@ -301,7 +313,7 @@ const totalReactors = computed(() => {
             class="px-4 py-2 rounded-lg text-sm font-medium text-muted hover:text-foreground hover:bg-glass-hover transition-colors"
             @click="close"
           >
-            Close
+            {{ echoT('b42.reactors.close') }}
           </button>
         </div>
       </div>

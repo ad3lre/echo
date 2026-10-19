@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useAuthSessionStore } from '@/features/auth/authSession';
@@ -130,14 +131,14 @@ function themeRadioTabIndex(t: { id?: string }): number {
         id="guest-welcome-title"
         class="text-lg font-semibold text-foreground"
       >
-        Welcome — make Echo yours
+        {{ echoT('auth.guestWelcome.title') }}
       </h2>
       <p class="mt-1 text-sm text-fg-soft">
         Pick a theme and where you want the server rail on desktop. You can
         change these anytime in Settings → Appearance.
       </p>
       <p class="mt-2 text-xs text-fg-subtle">
-        On small screens the rail stays on the side for easier reach.
+        {{ echoT('auth.guestWelcome.railNote') }}
       </p>
 
       <div class="mt-6 space-y-6">
@@ -145,7 +146,7 @@ function themeRadioTabIndex(t: { id?: string }): number {
           <div
             class="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted"
           >
-            Theme
+            {{ echoT('auth.guestWelcome.theme') }}
           </div>
           <p
             v-if="themeLocked"
@@ -208,7 +209,7 @@ function themeRadioTabIndex(t: { id?: string }): number {
           <div
             class="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted"
           >
-            Server rail (desktop)
+            {{ echoT('auth.guestWelcome.serverRail') }}
           </div>
           <ActionRailPlacementVisualPicker
             :model-value="draftPlacement"
@@ -223,14 +224,14 @@ function themeRadioTabIndex(t: { id?: string }): number {
           class="rounded-lg px-3 py-2 text-sm text-fg-soft hover:bg-glass-hover"
           @click="onSkip"
         >
-          Skip
+          {{ echoT('auth.actions.skip') }}
         </button>
         <button
           type="button"
           class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
           @click="onContinue"
         >
-          Continue
+          {{ echoT('auth.actions.continue') }}
         </button>
       </div>
     </div>

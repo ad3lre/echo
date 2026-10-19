@@ -36,6 +36,36 @@ describe('projectServerRailVisibleServers', () => {
     expect(visible.length).toBe(VISIBLE_SERVER_RAIL_SLOT_COUNT);
     expect(visible.map((s) => s.id)).toEqual(['s1', 's2', 'a', 'b', 'e']);
   });
+
+  it('honors extended slot count (10)', () => {
+    const all = [
+      S('a'),
+      S('b'),
+      S('c'),
+      S('d'),
+      S('e'),
+      S('f'),
+      S('g'),
+      S('h'),
+      S('i'),
+      S('j'),
+      S('k'),
+    ];
+    const mru = all.map((s) => s.id);
+    const { visible } = projectServerRailVisibleServers(all, [], mru, 10);
+    expect(visible.map((s) => s.id)).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+      'f',
+      'g',
+      'h',
+      'i',
+      'j',
+    ]);
+  });
 });
 
 describe('reorderServerRail', () => {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import ServerOwnerCrownIcon from '@/features/layout/ServerOwnerCrownIcon.vue';
@@ -41,7 +42,7 @@ function avatarUrl(p: { id: string; pfp: string }) {
         <button
           type="button"
           class="absolute inset-0 bg-overlay-dim backdrop-blur-sm"
-          aria-label="Close"
+          :aria-label="echoT('b35.lobby.close')"
           @click="emit('close')"
         />
 
@@ -72,18 +73,18 @@ function avatarUrl(p: { id: string; pfp: string }) {
                 <p
                   class="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                 >
-                  Voice channel
+                  {{ echoT('b35.lobby.voiceChannel') }}
                 </p>
                 <h2
                   class="truncate text-[17px] font-bold leading-tight text-fg"
                 >
-                  {{ channelName || 'Voice' }}
+                  {{ channelName || echoT('b35.lobby.voice') }}
                 </h2>
               </div>
               <button
                 type="button"
                 class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-glass-1 text-fg-subtle transition-colors hover:bg-glass-3 hover:text-fg-soft"
-                aria-label="Close"
+                :aria-label="echoT('b35.lobby.close')"
                 @click="emit('close')"
               >
                 <svg
@@ -152,7 +153,7 @@ function avatarUrl(p: { id: string; pfp: string }) {
                   />
                 </div>
                 <p class="text-[13px] text-fg-subtle">
-                  No one here yet — be the first.
+                  {{ echoT('b35.lobby.empty') }}
                 </p>
               </div>
             </div>
@@ -173,7 +174,7 @@ function avatarUrl(p: { id: string; pfp: string }) {
                 alt=""
                 class="h-[18px] w-[18px] brightness-0 invert"
               />
-              Join voice
+              {{ echoT('b35.lobby.join') }}
             </button>
             <div class="mt-3 flex items-center justify-end gap-2">
               <button
@@ -181,9 +182,15 @@ function avatarUrl(p: { id: string; pfp: string }) {
                 class="vc-lobby-icon-btn inline-flex h-11 w-11 items-center justify-center rounded-xl"
                 :class="props.isMuted ? 'vc-lobby-icon-btn--active' : ''"
                 :aria-label="
-                  props.isMuted ? 'Unmute microphone' : 'Mute microphone'
+                  props.isMuted
+                    ? echoT('b35.lobby.unmuteMic')
+                    : echoT('b35.lobby.muteMic')
                 "
-                :title="props.isMuted ? 'Unmute' : 'Mute'"
+                :title="
+                  props.isMuted
+                    ? echoT('b35.lobby.unmute')
+                    : echoT('b35.lobby.mute')
+                "
                 @click="emit('toggleMute', !props.isMuted)"
               >
                 <span
@@ -205,8 +212,8 @@ function avatarUrl(p: { id: string; pfp: string }) {
               <button
                 type="button"
                 class="vc-lobby-icon-btn inline-flex h-11 w-11 items-center justify-center rounded-xl"
-                aria-label="Open chat without joining"
-                title="Chat"
+                :aria-label="echoT('b35.lobby.openChat')"
+                :title="echoT('b35.lobby.chat')"
                 @click="emit('chat')"
               >
                 <img
@@ -218,8 +225,8 @@ function avatarUrl(p: { id: string; pfp: string }) {
               <button
                 type="button"
                 class="vc-lobby-icon-btn inline-flex h-11 w-11 items-center justify-center rounded-xl"
-                aria-label="Voice settings"
-                title="Settings"
+                :aria-label="echoT('voiceChrome.voiceSettings')"
+                :title="echoT('b35.lobby.settings')"
                 @click="emit('openAudioSettings')"
               >
                 <img

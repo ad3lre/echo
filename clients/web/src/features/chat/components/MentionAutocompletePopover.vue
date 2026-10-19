@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, unref } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 import type { MentionOption } from '@/features/chat/composables/useMentionAutocomplete';
@@ -117,7 +118,7 @@ function suggestionSecondaryText(option: MentionOption): string {
       role="status"
       aria-live="polite"
     >
-      No matches found
+      {{ echoT('chatB.mentionAc.none') }}
     </div>
   </div>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import { icons } from '@/assets/icons';
 import { useAuthSessionStore } from '@/features/auth/authSession';
@@ -51,20 +52,25 @@ async function applyToCategory() {
     const parts: string[] = [];
     if (res.applied > 0) {
       parts.push(
-        `${res.applied} channel${res.applied === 1 ? '' : 's'} updated`,
+        echoT(
+          res.applied === 1
+            ? 'b29.catSync.updatedOne'
+            : 'b29.catSync.updatedMany',
+          { count: res.applied },
+        ),
       );
     }
     if (res.skipped > 0) {
-      parts.push(`${res.skipped} skipped (no permission on those channels)`);
+      parts.push(echoT('b29.catSync.skipped', { count: res.skipped }));
     }
     if (res.failed > 0) {
-      parts.push(`${res.failed} failed`);
+      parts.push(echoT('b29.catSync.failed', { count: res.failed }));
     }
     lastSummary.value =
       parts.join(' · ') ||
       (bridgeableCount.value === 0
-        ? 'No text or forum channels in this category.'
-        : 'Nothing to apply.');
+        ? echoT('b29.catSync.noChannels')
+        : echoT('b29.catSync.nothingApply'));
     if (res.failures.length > 0) {
       const detail = res.failures
         .slice(0, 4)
@@ -73,13 +79,11 @@ async function applyToCategory() {
       error.value =
         res.failures.length > 4
           ? `${detail}; …`
-          : detail || 'Some channels could not be updated.';
+          : detail || echoT('b29.catSync.someNotUpdated');
     }
   } catch (e) {
     error.value =
-      e instanceof Error
-        ? e.message
-        : 'Could not update Discord message linking.';
+      e instanceof Error ? e.message : echoT('b29.catSync.updateFailed');
   } finally {
     applying.value = false;
   }
@@ -89,7 +93,12 @@ async function clearCategorySync() {
   if (!canUse.value || !props.serverId || !props.categoryId) return;
   if (bridgeableCount.value === 0) return;
   const ok = window.confirm(
-    `Stop linking messages with Discord for all ${bridgeableCount.value} text/forum channel${bridgeableCount.value === 1 ? '' : 's'} in this category?`,
+    echoT(
+      bridgeableCount.value === 1
+        ? 'b29.catSync.confirmOne'
+        : 'b29.catSync.confirmMany',
+      { count: bridgeableCount.value },
+    ),
   );
   if (!ok) return;
   const token = authSession.accessToken?.trim() ?? '';
@@ -105,20 +114,25 @@ async function clearCategorySync() {
     const parts: string[] = [];
     if (res.applied > 0) {
       parts.push(
-        `${res.applied} channel${res.applied === 1 ? '' : 's'} cleared`,
+        echoT(
+          res.applied === 1
+            ? 'b29.catSync.clearedOne'
+            : 'b29.catSync.clearedMany',
+          { count: res.applied },
+        ),
       );
     }
     if (res.skipped > 0) {
-      parts.push(`${res.skipped} skipped (no permission on those channels)`);
+      parts.push(echoT('b29.catSync.skipped', { count: res.skipped }));
     }
     if (res.failed > 0) {
-      parts.push(`${res.failed} failed`);
+      parts.push(echoT('b29.catSync.failed', { count: res.failed }));
     }
     lastSummary.value =
       parts.join(' · ') ||
       (bridgeableCount.value === 0
-        ? 'No text or forum channels in this category.'
-        : 'Nothing to clear.');
+        ? echoT('b29.catSync.noChannels')
+        : echoT('b29.catSync.nothingClear'));
     if (res.failures.length > 0) {
       const detail = res.failures
         .slice(0, 4)
@@ -127,13 +141,11 @@ async function clearCategorySync() {
       error.value =
         res.failures.length > 4
           ? `${detail}; …`
-          : detail || 'Some channels could not be cleared.';
+          : detail || echoT('b29.catSync.someNotCleared');
     }
   } catch (e) {
     error.value =
-      e instanceof Error
-        ? e.message
-        : 'Could not turn off Discord message linking.';
+      e instanceof Error ? e.message : echoT('b29.catSync.clearFailed');
   } finally {
     clearing.value = false;
   }
@@ -149,31 +161,27 @@ async function clearCategorySync() {
           alt=""
           class="h-5 w-5 shrink-0 opacity-90 filter invert"
         />
-        <div class="settings-subtitle">Discord messages (category)</div>
+        <div class="settings-subtitle">{{ echoT('b29.catSync.title') }}</div>
       </div>
       <p class="mb-4 text-xs leading-relaxed text-fg-subtle">
-        Turn the same Discord ↔ Echo message options on or off for every
-        <strong class="font-semibold text-fg-soft">text</strong> and
-        <strong class="font-semibold text-fg-soft">forum</strong>
-        channel in this category. Each channel still uses its own linked Discord
-        channel from import (you can fine-tune one channel in channel settings).
+        {{ echoT('b29.catSync.intro') }}
       </p>
 
       <div v-if="!authSession.isAuthenticated" class="text-sm text-fg-soft">
-        Sign in to link messages with Discord.
+        {{ echoT('b29.catSync.signIn') }}
       </div>
       <div
         v-else-if="authSession.backendUser?.isGuest"
         class="text-sm text-fg-soft"
       >
-        Not available for guest sessions.
+        {{ echoT('b29.catSync.guest') }}
       </div>
       <div v-else class="space-y-4">
         <div
           v-if="bridgeableCount === 0"
           class="rounded-lg bg-glass-2 px-3 py-2 text-sm text-fg-soft"
         >
-          This category has no text or forum channels — nothing to link.
+          {{ echoT('b29.catSync.noChannelsLink') }}
         </div>
 
         <div class="flex flex-wrap gap-6">
@@ -186,7 +194,7 @@ async function clearCategorySync() {
               class="rounded border-border"
               :disabled="applying || bridgeableCount === 0"
             />
-            Discord → Echo (live)
+            {{ echoT('b29.catSync.inbound') }}
           </label>
           <label
             class="flex cursor-pointer items-center gap-2 text-sm text-fg-soft"
@@ -197,17 +205,16 @@ async function clearCategorySync() {
               class="rounded border-border"
               :disabled="applying || bridgeableCount === 0"
             />
-            Echo → Discord
+            {{ echoT('b29.catSync.outbound') }}
           </label>
         </div>
 
         <p class="text-[11px] text-fg-subtle">
-          Turning both off and saving only stops linking when no custom posting
-          link is saved. Use
-          <strong class="font-semibold text-fg-soft"
-            >Stop linking in category</strong
-          >
-          to fully remove links. Channels you cannot manage are skipped.
+          {{ echoT('b29.catSync.noteBefore') }}
+          <strong class="font-semibold text-fg-soft">{{
+            echoT('b29.catSync.stop')
+          }}</strong>
+          {{ echoT('b29.catSync.noteAfter') }}
         </p>
 
         <div class="flex flex-wrap items-center gap-3">
@@ -217,7 +224,11 @@ async function clearCategorySync() {
             :disabled="applying || clearing || bridgeableCount === 0"
             @click="applyToCategory"
           >
-            {{ applying ? 'Applying…' : 'Sync all channels in category' }}
+            {{
+              applying
+                ? echoT('b29.catSync.applying')
+                : echoT('b29.catSync.syncAll')
+            }}
           </button>
           <button
             type="button"
@@ -225,7 +236,11 @@ async function clearCategorySync() {
             :disabled="applying || clearing || bridgeableCount === 0"
             @click="clearCategorySync"
           >
-            {{ clearing ? 'Turning off…' : 'Stop linking in category' }}
+            {{
+              clearing
+                ? echoT('b29.catSync.turningOff')
+                : echoT('b29.catSync.stop')
+            }}
           </button>
         </div>
 

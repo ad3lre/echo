@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import {
   dispatchAppDialogResponse,
@@ -143,22 +144,22 @@ const titleId = computed(() => (active.value ? `dlg_${active.value.id}` : ''));
 
 const confirmLabel = computed(() => {
   const cur = active.value;
-  if (!cur || cur.kind === 'twoChoice') return 'OK';
+  if (!cur || cur.kind === 'twoChoice') return echoT('layoutB.dialogHost.ok');
   if (
     (cur.kind === 'alert' || cur.kind === 'confirm' || cur.kind === 'prompt') &&
     cur.confirmLabel?.trim()
   ) {
     return cur.confirmLabel.trim();
   }
-  if (cur.kind === 'confirm') return 'Confirm';
-  return 'OK';
+  if (cur.kind === 'confirm') return echoT('layoutB.dialogHost.confirm');
+  return echoT('layoutB.dialogHost.ok');
 });
 
 const cancelLabel = computed(() => {
   const cur = active.value;
-  if (!cur) return 'Cancel';
+  if (!cur) return echoT('layoutB.dialogHost.cancel');
   if (cur.kind === 'twoChoice') {
-    return cur.dismissLabel?.trim() || 'Cancel';
+    return cur.dismissLabel?.trim() || echoT('layoutB.dialogHost.cancel');
   }
   if (
     (cur.kind === 'confirm' || cur.kind === 'prompt') &&
@@ -166,7 +167,7 @@ const cancelLabel = computed(() => {
   ) {
     return cur.cancelLabel.trim();
   }
-  return 'Cancel';
+  return echoT('layoutB.dialogHost.cancel');
 });
 
 const modalDanger = computed(() => {
@@ -359,7 +360,7 @@ onUnmounted(() => {
               :disabled="!twoChoiceCardSelection"
               @click="confirmTwoChoiceCardSelection"
             >
-              Confirm
+              {{ echoT('layoutB.dialogHost.confirm') }}
             </button>
           </div>
         </div>

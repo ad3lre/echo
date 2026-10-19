@@ -107,10 +107,29 @@ export function rolePermissionLabel(key: RolePermissionKey): string {
   return echoT(`serverSettings.permissions.${key}`);
 }
 
-export function channelPermissionLabel(key: ChannelPermissionKey): string {
+export function channelPermissionLabel(
+  key: ChannelPermissionKey,
+  options?: { group?: string },
+): string {
+  if (options?.group === 'Paper') {
+    const paperKey = `channelSettings.permissions.paper.${key}`;
+    const paperTranslated = echoT(paperKey);
+    if (paperTranslated !== paperKey) return paperTranslated;
+  }
   const i18nKey = `channelSettings.permissions.${key}`;
   const translated = echoT(i18nKey);
   return translated !== i18nKey ? translated : key;
+}
+
+/** Slowmode dropdown option label (`value` is seconds as a string, e.g. `"5"`). */
+export function slowModeOptionLabel(value: string): string {
+  return navLabel(`b03.slowmodeOptions.${value}`, value);
+}
+
+/** Auto-delete retention dropdown label (`value` is seconds or `""` for off). */
+export function messageAutoDeleteOptionLabel(value: string): string {
+  const key = value === '' ? 'off' : value;
+  return navLabel(`b03.autoDeleteOptions.${key}`, value || 'Off');
 }
 
 export function channelTabCopy(tab: ChannelSettingsTab): {
@@ -144,4 +163,34 @@ export function legalDocTabLabel(
   id: 'privacy' | 'terms' | 'community' | 'attributions',
 ): string {
   return echoT(`legal.tabs.${id}`);
+}
+
+function navLabel(key: string, fallback: string): string {
+  const translated = echoT(key);
+  return translated === key ? fallback : translated;
+}
+
+/** Display label for a user-settings section id (ids stay English for routing). */
+export function settingsSectionLabel(section: string): string {
+  return navLabel(`nav.settings.sections.${section}`, section);
+}
+
+export function settingsGroupLabel(group: string): string {
+  return navLabel(`nav.settings.groups.${group}`, group);
+}
+
+export function serverSettingsSectionLabel(section: string): string {
+  return navLabel(`nav.server.sections.${section}`, section);
+}
+
+export function serverSettingsGroupLabel(group: string): string {
+  return navLabel(`nav.server.groups.${group}`, group);
+}
+
+export function auditTabLabel(tab: string): string {
+  return navLabel(`nav.audit.tabs.${tab}`, tab);
+}
+
+export function permissionGroupLabel(group: string): string {
+  return navLabel(`nav.permissionGroups.${group}`, group);
 }

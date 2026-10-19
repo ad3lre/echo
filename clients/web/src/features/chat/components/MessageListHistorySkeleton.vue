@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import {
   HISTORY_SKELETON_ROWS,
@@ -23,7 +24,7 @@ const skeletonRows = computed(() =>
     class="message-list-history-skeleton flex w-full flex-col"
     role="status"
     aria-live="polite"
-    :aria-label="ariaLabel ?? 'Loading messages'"
+    :aria-label="ariaLabel ?? echoT('chatB.historySkeleton.loading')"
   >
     <MessageListHistorySkeletonRow
       v-for="(row, index) in skeletonRows"

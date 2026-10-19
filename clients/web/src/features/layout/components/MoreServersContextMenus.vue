@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import type { CSSProperties } from 'vue';
 import { icons } from '@/assets/icons';
 import MoreServerFolderAssignMenuItems from '@/features/layout/components/MoreServerFolderAssignMenuItems.vue';
@@ -45,7 +46,7 @@ defineProps<{
       class="ellipsis-menu fixed z-[200] min-w-[200px] py-1"
       :style="cardMenuStyle"
       role="menu"
-      aria-label="Server options"
+      :aria-label="echoT('b39.moreServers.menu.serverOptions')"
       @mousedown.stop
     >
       <button
@@ -55,7 +56,7 @@ defineProps<{
         @click="openServerInfo(openMenuServer.id)"
       >
         <img :src="icons.community" alt="" :class="menuItemIconClass" />
-        View server info
+        {{ echoT('b39.moreServers.menu.viewInfo') }}
       </button>
       <button
         v-if="canOpenInviteForServer?.(openMenuServer.id) ?? false"
@@ -65,7 +66,7 @@ defineProps<{
         @click="inviteServer(openMenuServer.id)"
       >
         <img :src="icons.friendAdd" alt="" :class="menuItemIconClass" />
-        Invite people
+        {{ echoT('b39.moreServers.menu.invite') }}
       </button>
       <button
         type="button"
@@ -74,13 +75,17 @@ defineProps<{
         @click="togglePin(openMenuServer)"
       >
         <img :src="icons.thumbtack" alt="" :class="menuItemIconClass" />
-        {{ isPinned(openMenuServer.id) ? 'Remove from rail' : 'Pin to rail' }}
+        {{
+          isPinned(openMenuServer.id)
+            ? echoT('b39.moreServers.menu.unpin')
+            : echoT('b39.moreServers.menu.pin')
+        }}
       </button>
       <div class="my-1 h-px bg-glass-2" role="separator" />
       <div
         class="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle"
       >
-        Widget folder
+        {{ echoT('b39.moreServers.menu.widgetFolder') }}
       </div>
       <MoreServerFolderAssignMenuItems
         :folders="folders"
@@ -98,7 +103,7 @@ defineProps<{
         @click="onLeaveServer(openMenuServer.id)"
       >
         <img :src="icons.logOut" alt="" :class="menuItemIconClass" />
-        Leave server
+        {{ echoT('b39.moreServers.menu.leave') }}
       </button>
     </div>
     <div
@@ -131,7 +136,7 @@ defineProps<{
           @click="contextMenuEditFolder"
         >
           <img :src="icons.pen" alt="" :class="menuItemIconClass" />
-          Edit folder…
+          {{ echoT('b39.moreServers.menu.editFolder') }}
         </button>
         <button
           type="button"
@@ -140,7 +145,7 @@ defineProps<{
           @click="openCreateFolderModal"
         >
           <img :src="icons.plus" alt="" :class="menuItemIconClass" />
-          New folder…
+          {{ echoT('b39.moreServers.menu.newFolder') }}
         </button>
         <div class="my-1 h-px bg-glass-2" role="separator" />
         <button
@@ -150,14 +155,14 @@ defineProps<{
           @click="contextMenuDeleteFolder"
         >
           <img :src="icons.trash" alt="" :class="menuItemIconClass" />
-          Delete folder…
+          {{ echoT('b39.moreServers.menu.deleteFolder') }}
         </button>
       </template>
       <template v-else-if="contextMenu.target === 'server'">
         <div
           class="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle border-b border-border"
         >
-          Widget folder
+          {{ echoT('b39.moreServers.menu.widgetFolder') }}
         </div>
         <MoreServerFolderAssignMenuItems
           :folders="folders"

@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import {
   echoDmChannelIdForPeerUser,
@@ -88,7 +89,8 @@ function formatLastMessagePreview(input: {
   if (input.isGroup) {
     if (isSelf) return `You: ${preview}`;
     const authorName =
-      input.resolveAuthorName?.(input.msg.authorId) ?? 'Someone';
+      input.resolveAuthorName?.(input.msg.authorId) ??
+      echoT('chat.labels.someone');
     return `${authorName}: ${preview}`;
   }
   if (isSelf) return `You: ${preview}`;

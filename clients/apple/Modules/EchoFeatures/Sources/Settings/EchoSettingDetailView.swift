@@ -33,7 +33,7 @@ struct EchoSettingDetailView: View {
   @AppStorage("echo.settings.voice.inputDevice") private var inputDevice = "default"
   @AppStorage("echo.settings.voice.outputDevice") private var outputDevice = "default"
   @AppStorage("echo.settings.video.cameraDevice") private var cameraDevice = "default"
-  @AppStorage("echo.settings.locale") private var localeIdentifier = "en-US"
+  @AppStorage(EchoAppLocale.storageKey) private var localeIdentifier = "en-US"
   @AppStorage("echo.settings.timezone") private var timezoneIdentifier = "system"
   // These controls intentionally remain device-local, matching the web client's
   // developer settings store. They never leave the device or alter account state.

@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { reportPrimaryFlowFailure } from '@/features/layout/failures/primaryFlowFailure';
 
 export const ECHO_APP_TOAST_EVENT = 'echo-app-toast';
@@ -146,7 +147,7 @@ export function notifyMissingAction(
         throw err;
       }
       reportPrimaryFlowFailure(path, err, undefined, { showBanner: false });
-      dispatchAppToast('Feature not available yet', 'info');
+      dispatchAppToast(echoT('layout.toast.featureNotAvailable'), 'info');
       break;
     }
     case 'required_binding': {
@@ -159,7 +160,10 @@ export function notifyMissingAction(
           path,
         });
       }
-      dispatchAppToast('Something went wrong. Try again or reload.', 'warning');
+      dispatchAppToast(
+        echoT('layout.toast.somethingWentWrongReload'),
+        'warning',
+      );
       break;
     }
     case 'deprecated_unwired': {
@@ -177,7 +181,7 @@ export function notifyMissingAction(
           { path },
           { showBanner: false },
         );
-        dispatchAppToast('Feature not available yet', 'info');
+        dispatchAppToast(echoT('layout.toast.featureNotAvailable'), 'info');
       }
       break;
     }

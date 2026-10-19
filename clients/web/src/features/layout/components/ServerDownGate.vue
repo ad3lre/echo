@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useCompactShell } from '@/features/layout/useCompactShell';
 
@@ -60,14 +61,16 @@ function formatDuration(ms: number): string {
 
 /** Live-updating label for how long the outage has been ongoing. */
 const outageDurationLabel = computed(() => {
-  if (!props.outageSinceMs) return 'Detecting outage…';
+  if (!props.outageSinceMs) return echoT('b32.sd.detecting');
   return formatDuration(nowMs.value - props.outageSinceMs);
 });
 
 /** Live-updating label for how long ago the last health check ran. */
 const checkedAgoLabel = computed(() => {
-  if (!props.lastCheckedAtMs) return 'Checking now…';
-  return `${formatDuration(nowMs.value - props.lastCheckedAtMs)} ago`;
+  if (!props.lastCheckedAtMs) return echoT('b32.sd.checkingNow');
+  return echoT('b32.sd.ago', {
+    duration: formatDuration(nowMs.value - props.lastCheckedAtMs),
+  });
 });
 
 const estimateSeconds = computed(() =>
@@ -90,7 +93,9 @@ const recoveryRemainingSeconds = computed(() =>
 );
 
 const typicalRecoveryTitle = computed(() =>
-  props.recoverySampleCount > 0 ? 'Avg. recovery' : 'Typical recovery',
+  props.recoverySampleCount > 0
+    ? echoT('b32.sd.avgRecovery')
+    : echoT('b32.sd.typicalRecovery'),
 );
 
 const typicalRecoveryValue = computed(() =>
@@ -99,25 +104,31 @@ const typicalRecoveryValue = computed(() =>
 
 const typicalRecoveryHint = computed(() => {
   if (props.recoverySampleCount > 0) {
-    return `Based on ${props.recoverySampleCount} past outage${props.recoverySampleCount === 1 ? '' : 's'} on this device`;
+    return echoT(
+      props.recoverySampleCount === 1
+        ? 'b32.sd.basedOnOne'
+        : 'b32.sd.basedOnMany',
+      { count: props.recoverySampleCount },
+    );
   }
-  return 'Default until we learn from your reconnects';
+  return echoT('b32.sd.defaultHint');
 });
 
 const recoveryTimerLine = computed(() => {
   if (!props.outageSinceMs) {
-    return `Typical window about ${formatDuration(estimateSeconds.value * 1000)}`;
+    return echoT('b32.sd.typicalWindow', {
+      duration: formatDuration(estimateSeconds.value * 1000),
+    });
   }
   const rem = recoveryRemainingSeconds.value;
   if (rem > 0) {
-    return `About ${rem}s remaining vs typical ${estimateSeconds.value}s`;
+    return echoT('b32.sd.remaining', { rem, est: estimateSeconds.value });
   }
-  return 'Past your usual recovery window — still reconnecting';
+  return echoT('b32.sd.pastWindow');
 });
 
-const progressAriaLabel = computed(
-  () =>
-    `Recovery progress versus typical ${estimateSeconds.value} second window`,
+const progressAriaLabel = computed(() =>
+  echoT('b32.sd.progressAria', { est: estimateSeconds.value }),
 );
 </script>
 
@@ -183,11 +194,10 @@ const progressAriaLabel = computed(
               id="server-down-title"
               class="text-xl font-extrabold tracking-tight sm:text-3xl"
             >
-              Echo server is currently down
+              {{ echoT('b32.sd.title') }}
             </h1>
             <p class="mt-2 text-sm leading-relaxed text-fg-soft sm:text-base">
-              We are retrying in real time and will reconnect automatically once
-              service is healthy again.
+              {{ echoT('b32.sd.body') }}
             </p>
 
             <div
@@ -197,7 +207,7 @@ const progressAriaLabel = computed(
                 <p
                   class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                 >
-                  Downtime
+                  {{ echoT('b32.sd.downtime') }}
                 </p>
                 <p class="mt-1 text-base font-semibold tabular-nums text-fg">
                   {{ outageDurationLabel }}
@@ -207,7 +217,7 @@ const progressAriaLabel = computed(
                 <p
                   class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                 >
-                  Last health check
+                  {{ echoT('b32.sd.lastCheck') }}
                 </p>
                 <p class="mt-1 text-base font-semibold tabular-nums text-fg">
                   {{ checkedAgoLabel }}
@@ -273,7 +283,9 @@ const progressAriaLabel = computed(
               />
               <span class="min-w-0 text-xs leading-snug text-fg-soft">
                 {{
-                  checking ? 'Checking server status…' : 'Waiting for recovery…'
+                  checking
+                    ? echoT('b32.sd.checkingStatus')
+                    : echoT('b32.sd.waiting')
                 }}
               </span>
             </div>
@@ -288,14 +300,14 @@ const progressAriaLabel = computed(
               class="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-glass-2 px-4 text-sm font-semibold text-fg transition-colors hover:bg-glass-hover sm:w-auto"
               @click="emit('retry')"
             >
-              Check again now
+              {{ echoT('b32.sd.checkAgain') }}
             </button>
             <button
               type="button"
               class="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-accent px-4 text-sm font-semibold text-accent-contrast-fg transition-colors hover:brightness-105 sm:w-auto"
               @click="emit('refresh')"
             >
-              Refresh app
+              {{ echoT('b32.sd.refresh') }}
             </button>
           </div>
         </div>

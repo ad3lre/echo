@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 /**
  * Opening step for `useSocket` `sendMessage`: diagnostics + hard guard when a live socket is expected.
  */
@@ -30,8 +31,6 @@ export function assertOutboundSendSocketReady(opts: {
       new Error('Realtime connection is not ready'),
       { channelId: opts.channelId },
     );
-    throw new Error(
-      'Realtime connection is not ready. Wait for Echo to reconnect, then try again.',
-    );
+    throw new Error(echoT('chat.status.realtimeNotReady'));
   }
 }

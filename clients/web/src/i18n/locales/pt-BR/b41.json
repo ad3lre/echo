@@ -1,0 +1,94 @@
+{
+  "voiceMirror": {
+    "title": "Espelho de voz do Discord",
+    "desc": "Mostre quem está conectado no Discord para o canal de voz vinculado. O Echo fica somente para exibição — entre na voz pelo Discord.",
+    "signIn": "Entre para configurar o espelho de voz.",
+    "guest": "Indisponível para sessões de convidado.",
+    "toggle": "Espelhar a lista de voz do Discord neste canal",
+    "loadErr": "Não foi possível carregar as configurações do espelho de voz.",
+    "saveErr": "Não foi possível salvar as configurações do espelho de voz.",
+    "loading": "Carregando…",
+    "saving": "Salvando…",
+    "save": "Salvar"
+  },
+  "iconPicker": {
+    "channelIcon": "Ícone do canal",
+    "chooseChannelIcon": "Escolher ícone do canal",
+    "searchEmoji": "Pesquisar emoji…",
+    "searchIcons": "Pesquisar ícones…",
+    "icons": "Ícones",
+    "emoji": "Emoji",
+    "loadingEmoji": "Carregando emoji",
+    "loadingEmojiEllipsis": "Carregando emoji…",
+    "untrusted": "Este emoji não pode ser usado como ícone do canal (URL de imagem não confiável ou inválida).",
+    "noEmojiMatch": "Nenhum emoji corresponde a \"{query}\""
+  },
+  "events": {
+    "upcoming": "Próximos eventos do servidor",
+    "slides": "Slides de eventos",
+    "goingLabel": "Vou",
+    "started": "Começou",
+    "startingMoments": "Começando em instantes",
+    "checkItOut": "Conferir",
+    "goThere": "Ir até lá",
+    "details": "Detalhes",
+    "openChannel": "Abrir canal",
+    "startsInDH": "Começa em {d}d {h}h",
+    "startsInHM": "Começa em {h}h {m}m",
+    "startsInMS": "Começa em {m}m {s}s",
+    "openEvent": "Abrir evento {title}",
+    "goingCount": "vão"
+  },
+  "bubble": {
+    "requestAccess": "Solicitar acesso",
+    "bold": "Negrito",
+    "italic": "Itálico",
+    "link": "Link",
+    "comment": "Comentar",
+    "insertLink": "Inserir link",
+    "isEditing": "{owner} está editando"
+  },
+  "folderModal": {
+    "folderName": "Nome da pasta",
+    "placeholder": "ex.: Comunidades, Trabalho, Favoritos",
+    "cancel": "Cancelar",
+    "newTitle": "Nova pasta de widget",
+    "editTitle": "Editar pasta de widget",
+    "createSub": "Agrupe servidores extras neste dispositivo. Arraste os ícones para reordenar ou clique com o botão direito na visualização compacta para atribuir servidores.",
+    "editSub": "Renomeie ou exclua esta pasta. As participações nos servidores não mudam — apenas este agrupamento local é removido.",
+    "defaultName": "Nova pasta",
+    "countOne": "{count} servidor nesta pasta — arraste os ícones no painel para adicionar, remover ou reordenar.",
+    "countMany": "{count} servidores nesta pasta — arraste os ícones no painel para adicionar, remover ou reordenar.",
+    "confirmDeleteMsg": "Excluir “{name}”? Os servidores continuam em Servidores extras; apenas o agrupamento da pasta é removido.",
+    "confirmDelete": "Confirmar exclusão",
+    "deleteFolder": "Excluir pasta",
+    "createFolder": "Criar pasta",
+    "save": "Salvar"
+  },
+  "assignMenu": {
+    "remove": "Remover da pasta",
+    "move": "Mover para a pasta",
+    "searchFolders": "Pesquisar pastas",
+    "searchFoldersEllipsis": "Pesquisar pastas…",
+    "moveTo": "Mover para “{name}”",
+    "noMatch": "Nenhuma pasta corresponde à sua pesquisa.",
+    "noOther": "Não há outras pastas para mover.",
+    "newFolder": "Nova pasta com este servidor…"
+  },
+  "memberList": {
+    "timeout": "Tempo limite de comunicação",
+    "timedOut": "Em castigo",
+    "roleColor": "Cor do cargo {name}"
+  },
+  "fontPicker": {
+    "search": "Pesquisar fontes",
+    "useDocFont": "Usar a fonte do documento",
+    "noMatch": "Nenhuma fonte corresponde",
+    "mixed": "Misto",
+    "font": "Fonte",
+    "fontLabel": "Fonte: {label}"
+  },
+  "appLayout": {
+    "skip": "Ir para as mensagens"
+  }
+}

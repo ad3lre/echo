@@ -231,8 +231,7 @@ watch(
         if (!isSafariLikeBrowser()) {
           nextTick(() => void submitPasskeyLogin());
         } else {
-          errorMessage.value =
-            'Tap Sign in with passkey below to continue with Face ID or Touch ID.';
+          errorMessage.value = echoT('auth.errors.safariPasskeyTap');
         }
       }
     }
@@ -290,55 +289,41 @@ function close() {
 
 function mapError(err: unknown): string {
   if (err instanceof Error && err.message === 'ACCOUNTS_DISABLED_PREVIEW') {
-    return 'Sign-in isn’t available while Echo is in preview mode.';
+    return echoT('auth.errors.previewMode');
   }
   if (err instanceof AuthApiError) {
     if (err.body.code === 'INVALID_MFA_CODE')
-      return 'That code doesn’t match. Try again.';
+      return echoT('auth.errors.codeMismatch');
     if (err.body.code === 'INVALID_MFA_TOKEN')
-      return 'The sign-in step expired. Close this and log in again with your password.';
+      return echoT('auth.errors.stepExpiredPassword');
     if (err.body.code === 'MFA_NOT_REQUIRED')
-      return 'Two-factor sign-in isn’t needed for this account.';
+      return echoT('auth.errors.mfaNotRequired');
     if (err.body.code === 'INVALID_CREDENTIALS')
-      return 'That username or password doesn’t match our records.';
+      return echoT('auth.errors.invalidCredentials');
     if (err.body.code === 'USERNAME_TAKEN')
-      return 'That username is already taken. Try another.';
+      return echoT('auth.errors.usernameTaken');
     if (err.body.code === 'INVALID_USERNAME')
-      return 'That username isn’t valid. Try a different one.';
+      return echoT('auth.errors.invalidUsername');
     if (err.body.code === 'INVALID_EMAIL')
-      return 'Please enter a valid email address.';
+      return echoT('auth.errors.invalidEmail');
     if (err.body.code === 'INVALID_EMAIL_PROVIDER')
-      return (
-        err.body.message ||
-        'That email provider cannot be used. Try a normal inbox you keep long term.'
-      );
+      return err.body.message || echoT('auth.errors.invalidEmailProvider');
     if (err.body.code === 'EMAIL_IN_USE')
-      return 'That email is already registered. Try logging in instead.';
+      return echoT('auth.guestOnboarding.errors.emailInUse');
     if (err.body.code === 'INVALID_DISPLAY_NAME')
-      return 'That display name is not valid. Try a different one.';
+      return echoT('auth.errors.invalidDisplayName');
     if (err.body.code === 'HWID_REQUIRED')
-      return (
-        err.body.message ||
-        'This server needs a device identifier to create an account. Update the app or try another browser.'
-      );
+      return err.body.message || echoT('auth.errors.hwidRequired');
     if (err.body.code === 'ACCOUNT_LIMIT_HWID_IP')
-      return (
-        err.body.message ||
-        'Too many accounts from this device on this network. Use an existing account or try again later.'
-      );
+      return err.body.message || echoT('auth.errors.accountLimit');
     if (err.body.code === 'NOT_AVAILABLE')
-      return (
-        err.body.message || 'That isn’t available right now. Try again later.'
-      );
+      return err.body.message || echoT('b12.login.notAvailable');
     if (err.body.code === 'NOT_CONFIGURED')
-      return (
-        err.body.message ||
-        'This sign-in method isn’t available on this server.'
-      );
+      return err.body.message || echoT('auth.errors.notConfigured');
     if (err.body.code === 'CHALLENGE_EXPIRED')
-      return 'That sign-in step expired. Try passkey again.';
+      return echoT('auth.errors.stepExpiredPasskey');
     if (err.body.code === 'VERIFICATION_FAILED')
-      return 'Passkey verification failed. Try again.';
+      return echoT('auth.passkeyErrors.verificationFailed');
     return translateApiErrorBody(err.body);
   }
   if (err instanceof Error) return err.message;
@@ -383,7 +368,7 @@ async function submitLogin() {
   const u = username.value.trim();
   const p = password.value;
   if (!u || !p) {
-    errorMessage.value = 'Enter your username or email and password.';
+    errorMessage.value = echoT('auth.errors.enterCredentials');
     return;
   }
   submitting.value = true;
@@ -402,18 +387,18 @@ async function submitMfa() {
   if (isMockDataMode) return;
   const token = mfaToken.value?.trim() ?? '';
   if (!token) {
-    errorMessage.value = 'Sign-in expired. Try logging in again.';
+    errorMessage.value = echoT('auth.errors.sessionExpired');
     return;
   }
   const useTotp = mfaFactor.value === 'totp';
   const code = mfaTotpCode.value.trim();
   const recoveryCode = mfaRecoveryCode.value.trim();
   if (useTotp && !/^\d{6}$/.test(code)) {
-    errorMessage.value = 'Enter the 6-digit code from your authenticator app.';
+    errorMessage.value = echoT('auth.errors.enterMfaCode');
     return;
   }
   if (!useTotp && !recoveryCode) {
-    errorMessage.value = 'Enter a recovery code.';
+    errorMessage.value = echoT('auth.errors.enterRecoveryCode');
     return;
   }
   submitting.value = true;
@@ -447,14 +432,14 @@ function cancelMfa() {
 async function resendEmailVerification() {
   const token = emailGateToken.value?.trim() ?? '';
   if (!token) {
-    errorMessage.value = 'Sign-in expired. Try logging in again.';
+    errorMessage.value = echoT('auth.errors.sessionExpired');
     return;
   }
   submitting.value = true;
   errorMessage.value = '';
   try {
     await authLoginResendVerification({ loginToken: token });
-    emailVerifyNotice.value = 'Verification email sent. Check your inbox.';
+    emailVerifyNotice.value = echoT('auth.emailVerify.sent');
   } catch (e) {
     errorMessage.value = mapError(e);
   } finally {
@@ -466,11 +451,11 @@ async function submitEmailIpCode() {
   const token = emailGateToken.value?.trim() ?? '';
   const code = emailIpCode.value.trim();
   if (!token) {
-    errorMessage.value = 'Sign-in expired. Try logging in again.';
+    errorMessage.value = echoT('auth.errors.sessionExpired');
     return;
   }
   if (!/^\d{4,8}$/.test(code)) {
-    errorMessage.value = 'Enter the code from your email.';
+    errorMessage.value = echoT('auth.errors.enterEmailCode');
     return;
   }
   submitting.value = true;
@@ -488,7 +473,7 @@ async function submitEmailIpCode() {
 async function resendEmailIpCode() {
   const token = emailGateToken.value?.trim() ?? '';
   if (!token) {
-    errorMessage.value = 'Sign-in expired. Try logging in again.';
+    errorMessage.value = echoT('auth.errors.sessionExpired');
     return;
   }
   submitting.value = true;
@@ -514,20 +499,19 @@ async function submitRegister() {
   const em = normalizeEmail(email.value);
   const d = displayName.value.trim();
   if (!u || !p) {
-    errorMessage.value = 'Choose a username and password.';
+    errorMessage.value = echoT('auth.errors.chooseUsernamePassword');
     return;
   }
   if (!em || !isValidEmailFormat(email.value)) {
-    errorMessage.value = 'Enter a valid email address.';
+    errorMessage.value = echoT('auth.guestOnboarding.errors.validEmail');
     return;
   }
   if (p.length < 8) {
-    errorMessage.value = 'Password must be at least 8 characters.';
+    errorMessage.value = echoT('b12.login.passwordMin8');
     return;
   }
   if (!registerPasswordOk.value) {
-    errorMessage.value =
-      'Pick a stronger password — use at least 8 characters and mix letters, numbers, or symbols.';
+    errorMessage.value = echoT('auth.errors.passwordTooWeak');
     return;
   }
   submitting.value = true;
@@ -563,7 +547,7 @@ async function submitForgot() {
   if (isMockDataMode) return;
   const em = normalizeEmail(forgotEmail.value);
   if (!em || !isValidEmailFormat(forgotEmail.value)) {
-    errorMessage.value = 'Enter a valid email address.';
+    errorMessage.value = echoT('auth.guestOnboarding.errors.validEmail');
     return;
   }
   submitting.value = true;
@@ -571,9 +555,7 @@ async function submitForgot() {
   forgotMessage.value = '';
   try {
     const out = await authForgotPassword({ email: em });
-    forgotMessage.value =
-      out.message ||
-      'If an account exists for that email, you will receive reset instructions.';
+    forgotMessage.value = out.message || echoT('auth.forgot.success');
   } catch (e) {
     errorMessage.value = mapError(e);
   } finally {
@@ -678,17 +660,25 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               id="auth-modal-title"
               class="text-[1.5rem] font-bold leading-snug tracking-tight text-foreground"
             >
-              <template v-if="signedInFullAccount">Account</template>
-              <template v-else-if="showEmailVerifyStep">Verify email</template>
-              <template v-else-if="showEmailIpStep">Confirm sign-in</template>
-              <template v-else-if="showMfaStep"
-                >Two-factor authentication</template
-              >
-              <template v-else-if="authSubView === 'forgot'"
-                >Forgot password</template
-              >
-              <template v-else-if="tab === 'login'">Log in</template>
-              <template v-else>Create an account</template>
+              <template v-if="signedInFullAccount">{{
+                echoT('b12.title.account')
+              }}</template>
+              <template v-else-if="showEmailVerifyStep">{{
+                echoT('b12.title.verifyEmail')
+              }}</template>
+              <template v-else-if="showEmailIpStep">{{
+                echoT('b12.title.confirmSignIn')
+              }}</template>
+              <template v-else-if="showMfaStep">{{
+                echoT('b12.title.mfa')
+              }}</template>
+              <template v-else-if="authSubView === 'forgot'">{{
+                echoT('b12.title.forgot')
+              }}</template>
+              <template v-else-if="tab === 'login'">{{
+                echoT('b12.title.login')
+              }}</template>
+              <template v-else>{{ echoT('b12.title.register') }}</template>
             </h2>
             <p
               v-if="
@@ -699,8 +689,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               "
               class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
-              Preview mode: connect the full app to sign in with a saved
-              account.
+              {{ echoT('b12.lead.preview') }}
             </p>
             <p
               v-else-if="
@@ -708,23 +697,27 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               "
               class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
-              Your account is locked until you verify
-              {{ emailGateMasked || 'your email' }}. Open the link we sent, then
-              sign in again.
+              {{
+                echoT('b12.lead.locked', {
+                  email: emailGateMasked || echoT('b12.login.yourEmail'),
+                })
+              }}
             </p>
             <p
               v-else-if="showAuthForms && showEmailIpStep && !isMockDataMode"
               class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
-              Enter the code we sent to
-              {{ emailGateMasked || 'your email' }} to confirm this new sign-in.
+              {{
+                echoT('b12.lead.ipCode', {
+                  email: emailGateMasked || echoT('b12.login.yourEmail'),
+                })
+              }}
             </p>
             <p
               v-else-if="showAuthForms && showMfaStep && !isMockDataMode"
               class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
-              Enter the code from your authenticator app, or use a one-time
-              recovery code.
+              {{ echoT('b12.lead.mfa') }}
             </p>
             <p
               v-else-if="
@@ -732,8 +725,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               "
               class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
-              Enter the email on your account. We will send a reset link if we
-              find a match.
+              {{ echoT('b12.lead.forgot') }}
             </p>
             <p
               v-else-if="
@@ -746,11 +738,10 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
               <template v-if="ECHO_PASSKEYS_ENABLED">
-                Sign in with Discord, a passkey, or your Echo username and
-                password.
+                {{ echoT('b12.lead.socialPasskey') }}
               </template>
               <template v-else>
-                Sign in with Discord or your Echo username and password.
+                {{ echoT('b12.lead.social') }}
               </template>
             </p>
             <p
@@ -763,7 +754,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               "
               class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
-              Welcome back — sign in with your Echo username or email.
+              {{ echoT('auth.modal.echoLead') }}
             </p>
             <p
               v-else-if="
@@ -774,7 +765,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               "
               class="mt-2 text-[0.8125rem] leading-snug text-fg-subtle"
             >
-              We’ll email you a link to verify your account.
+              {{ echoT('auth.modal.registerLead') }}
             </p>
             <p
               v-else-if="
@@ -782,14 +773,13 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               "
               class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
-              You’re viewing Echo in preview mode. Connect the full app to
-              create an account or sign in.
+              {{ echoT('b12.lead.previewViewing') }}
             </p>
             <p
               v-else-if="signedInFullAccount"
               class="auth-signed-in-hint mt-3 text-sm"
             >
-              Signed in as
+              {{ echoT('b12.lead.signedInAs') }}
               <span class="font-semibold text-foreground">{{
                 signedInAccountLabel
               }}</span>
@@ -798,7 +788,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
           <button
             type="button"
             class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground"
-            aria-label="Close"
+            :aria-label="echoT('b12.common.close')"
             @click="close"
           >
             <svg
@@ -822,8 +812,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             v-if="isMockDataMode && !isCompactShell"
             class="auth-alert-warning mt-8 rounded-xl px-5 py-3.5 text-sm leading-relaxed"
           >
-            Account actions are turned off in preview mode so sample data stays
-            local.
+            {{ echoT('b12.lead.actionsOff') }}
           </div>
 
           <div v-if="showEmailVerifyStep" class="mt-8 space-y-5">
@@ -847,14 +836,14 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               :disabled="submitting || isMockDataMode"
               @click="resendEmailVerification"
             >
-              Resend verification email
+              {{ echoT('auth.actions.resendVerificationEmail') }}
             </button>
             <button
               type="button"
               class="w-full text-center text-sm text-fg-subtle hover:text-fg-soft"
               @click="cancelMfa"
             >
-              Back to sign in
+              {{ echoT('auth.actions.backToSignIn') }}
             </button>
           </div>
 
@@ -864,9 +853,9 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             @submit.prevent="submitEmailIpCode"
           >
             <div>
-              <label class="auth-label" for="auth-email-ip-code"
-                >Email code</label
-              >
+              <label class="auth-label" for="auth-email-ip-code">{{
+                echoT('auth.fields.emailCode')
+              }}</label>
               <input
                 id="auth-email-ip-code"
                 v-model="emailIpCode"
@@ -891,7 +880,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               class="auth-submit mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45"
               :disabled="submitting || isMockDataMode"
             >
-              Continue
+              {{ echoT('auth.actions.continue') }}
             </button>
             <button
               type="button"
@@ -899,14 +888,14 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               :disabled="submitting"
               @click="resendEmailIpCode"
             >
-              Resend code
+              {{ echoT('auth.actions.resendCode') }}
             </button>
             <button
               type="button"
               class="w-full text-center text-sm text-fg-subtle hover:text-fg-soft"
               @click="cancelMfa"
             >
-              Back to sign in
+              {{ echoT('auth.actions.backToSignIn') }}
             </button>
           </form>
 
@@ -926,7 +915,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 "
                 @click="mfaFactor = 'totp'"
               >
-                Authenticator
+                {{ echoT('auth.fields.authenticator') }}
               </button>
               <button
                 type="button"
@@ -938,11 +927,13 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 "
                 @click="mfaFactor = 'recovery'"
               >
-                Recovery code
+                {{ echoT('auth.fields.recoveryCode') }}
               </button>
             </div>
             <div v-if="mfaFactor === 'totp'">
-              <label class="auth-label" for="auth-mfa-totp">6-digit code</label>
+              <label class="auth-label" for="auth-mfa-totp">{{
+                echoT('auth.fields.sixDigitCode')
+              }}</label>
               <input
                 id="auth-mfa-totp"
                 v-model="mfaTotpCode"
@@ -956,9 +947,9 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               />
             </div>
             <div v-else>
-              <label class="auth-label" for="auth-mfa-recovery"
-                >Recovery code</label
-              >
+              <label class="auth-label" for="auth-mfa-recovery">{{
+                echoT('auth.fields.recoveryCode')
+              }}</label>
               <input
                 id="auth-mfa-recovery"
                 v-model="mfaRecoveryCode"
@@ -985,13 +976,13 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 alt=""
                 class="h-4 w-4 filter invert opacity-90"
               />
-              Continue
+              {{ echoT('auth.actions.continue') }}
             </button>
             <p
               class="text-center text-[0.875rem] leading-relaxed text-fg-subtle"
             >
               <button type="button" class="auth-link-btn" @click="cancelMfa">
-                Back to password
+                {{ echoT('auth.actions.backToPassword') }}
               </button>
             </p>
           </form>
@@ -1002,7 +993,9 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             @submit.prevent="submitForgot"
           >
             <div>
-              <label class="auth-label" for="auth-forgot-email">Email</label>
+              <label class="auth-label" for="auth-forgot-email">{{
+                echoT('auth.email')
+              }}</label>
               <input
                 id="auth-forgot-email"
                 v-model="forgotEmail"
@@ -1033,7 +1026,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               class="auth-submit mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45"
               :disabled="submitting || isMockDataMode"
             >
-              Send reset link
+              {{ echoT('auth.actions.sendResetLink') }}
             </button>
             <p
               class="text-center text-[0.875rem] leading-relaxed text-fg-subtle"
@@ -1043,7 +1036,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 class="auth-link-btn"
                 @click="authSubView = null"
               >
-                Back to log in
+                {{ echoT('auth.actions.backToLogIn') }}
               </button>
             </p>
           </form>
@@ -1055,7 +1048,9 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
           >
             <div class="space-y-4 sm:space-y-5">
               <div>
-                <label class="auth-label" for="auth-email">Email</label>
+                <label class="auth-label" for="auth-email">{{
+                  echoT('auth.email')
+                }}</label>
                 <input
                   id="auth-email"
                   v-model="email"
@@ -1069,10 +1064,10 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               </div>
               <div>
                 <label class="auth-label" for="auth-display"
-                  >Display name
-                  <span class="font-normal text-fg-subtle"
-                    >(optional)</span
-                  ></label
+                  >{{ echoT('auth.displayName') }}
+                  <span class="font-normal text-fg-subtle">{{
+                    echoT('auth.fields.optional')
+                  }}</span></label
                 >
                 <input
                   id="auth-display"
@@ -1081,12 +1076,14 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                   autocomplete="nickname"
                   :disabled="isMockDataMode"
                   class="auth-input mt-2.5"
-                  placeholder="How others see you"
+                  :placeholder="echoT('auth.placeholders.displayNameHint')"
                 />
               </div>
             </div>
             <div>
-              <label class="auth-label" for="auth-username">Username</label>
+              <label class="auth-label" for="auth-username">{{
+                echoT('auth.username')
+              }}</label>
               <input
                 id="auth-username"
                 v-model="username"
@@ -1099,7 +1096,9 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               />
             </div>
             <div>
-              <label class="auth-label" for="auth-password">Password</label>
+              <label class="auth-label" for="auth-password">{{
+                echoT('auth.password')
+              }}</label>
               <input
                 id="auth-password"
                 v-model="password"
@@ -1118,7 +1117,9 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                   />
                 </div>
                 <div class="flex items-center justify-between text-xs">
-                  <span class="text-fg-subtle">Password strength</span>
+                  <span class="text-fg-subtle">{{
+                    echoT('auth.passwordStrength.title')
+                  }}</span>
                   <span
                     class="font-medium"
                     :class="{
@@ -1156,29 +1157,33 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 alt=""
                 class="h-4 w-4 filter invert opacity-90"
               />
-              Create account
+              {{ echoT('auth.createAccount') }}
             </button>
 
             <div class="auth-mode-switch">
               <p class="text-center text-[0.9375rem] leading-relaxed">
-                <span class="text-fg-subtle">Already have an account?</span>
+                <span class="text-fg-subtle">{{
+                  echoT('auth.login.alreadyHaveAccount')
+                }}</span>
                 <button
                   type="button"
                   class="auth-link-btn"
                   @click="tab = 'login'"
                 >
-                  Log in
+                  {{ echoT('auth.titles.logIn') }}
                 </button>
               </p>
               <p
                 class="mt-3 text-center text-[0.8125rem] leading-snug text-fg-subtle"
               >
-                By signing up, you agree to our
-                <a class="auth-link-btn" :href="legalTermsHref">T.O.S</a>
+                {{ echoT('auth.legal.signingUpComma') }}
+                <a class="auth-link-btn" :href="legalTermsHref">{{
+                  echoT('auth.legal.terms')
+                }}</a>
                 and
-                <a class="auth-link-btn" :href="legalPrivacyHref"
-                  >Privacy policy</a
-                >
+                <a class="auth-link-btn" :href="legalPrivacyHref">{{
+                  echoT('auth.legal.privacy')
+                }}</a>
                 .
               </p>
             </div>
@@ -1193,13 +1198,13 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             <div
               class="auth-sso-segmented w-full"
               role="group"
-              aria-label="Sign-in options"
+              :aria-label="echoT('auth.sso.signInOptions')"
             >
               <button
                 type="button"
                 class="auth-sso-segmented__btn auth-sso-segmented__btn--discord"
                 :disabled="submitting"
-                aria-label="Continue with Discord"
+                :aria-label="echoT('auth.sso.continueWithDiscord')"
                 @click="startDiscordLogin"
               >
                 <svg
@@ -1219,7 +1224,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 type="button"
                 class="auth-sso-segmented__btn auth-sso-segmented__btn--google"
                 :disabled="submitting"
-                aria-label="Continue with Google"
+                :aria-label="echoT('auth.sso.continueWithGoogle')"
                 @click="startGoogleLogin"
               >
                 <svg
@@ -1252,7 +1257,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 type="button"
                 class="auth-sso-segmented__btn auth-sso-segmented__btn--passkey"
                 :disabled="submitting"
-                aria-label="Sign in with a passkey"
+                :aria-label="echoT('auth.passkey.helpTitle')"
                 @pointerdown="prefetchPasskeyLoginFromForm"
                 @click="submitPasskeyLogin()"
               >
@@ -1288,7 +1293,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               :disabled="submitting"
               @click="loginEntryView = 'echo'"
             >
-              Continue with Echo account
+              {{ echoT('auth.sso.continueWithEcho') }}
             </button>
 
             <button
@@ -1297,7 +1302,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               :disabled="submitting"
               @click="tab = 'register'"
             >
-              Create an account
+              {{ echoT('auth.titles.createAnAccount') }}
             </button>
 
             <p
@@ -1309,16 +1314,16 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 :disabled="submitting"
                 @click="openForgotPasswordPage"
               >
-                Forgot your Echo password?
+                {{ echoT('auth.login.forgotYourPassword') }}
               </button>
             </p>
           </div>
 
           <form v-else class="mt-8 space-y-5" @submit.prevent="onSubmit">
             <div>
-              <label class="auth-label" for="auth-username"
-                >Username or email</label
-              >
+              <label class="auth-label" for="auth-username">{{
+                echoT('auth.fields.usernameOrEmail')
+              }}</label>
               <input
                 id="auth-username"
                 v-model="username"
@@ -1327,11 +1332,13 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 autocomplete="username"
                 :disabled="isMockDataMode"
                 class="auth-input mt-2.5"
-                placeholder="your_name or you@example.com"
+                :placeholder="echoT('b12.login.userOrEmailPh')"
               />
             </div>
             <div>
-              <label class="auth-label" for="auth-password">Password</label>
+              <label class="auth-label" for="auth-password">{{
+                echoT('auth.password')
+              }}</label>
               <input
                 id="auth-password"
                 v-model="password"
@@ -1362,7 +1369,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 alt=""
                 class="h-4 w-4 filter invert opacity-90"
               />
-              Log in
+              {{ echoT('auth.titles.logIn') }}
             </button>
 
             <button
@@ -1373,7 +1380,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               @pointerdown="prefetchPasskeyLoginFromForm"
               @click="submitPasskeyLogin()"
             >
-              Sign in with passkey
+              {{ echoT('auth.login.signInWithPasskey') }}
             </button>
 
             <div
@@ -1389,7 +1396,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                   :disabled="submitting"
                   @click="tab = 'register'"
                 >
-                  Create an account
+                  {{ echoT('auth.titles.createAnAccount') }}
                 </button>
                 <span class="auth-login-links-sep" aria-hidden="true">/</span>
                 <button
@@ -1397,7 +1404,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                   class="auth-link-btn auth-link-btn--solo"
                   @click="authSubView = 'forgot'"
                 >
-                  Forgot password?
+                  {{ echoT('auth.forgotPassword') }}
                 </button>
               </div>
               <div
@@ -1407,10 +1414,10 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 <button
                   type="button"
                   class="add-server-back-btn text-sm font-semibold"
-                  aria-label="Back to Discord sign-in"
+                  :aria-label="echoT('auth.login.backToDiscord')"
                   @click="loginEntryView = 'social'"
                 >
-                  Back
+                  {{ echoT('auth.actions.back') }}
                 </button>
               </div>
             </div>
@@ -1420,7 +1427,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             v-if="!isMockDataMode && !authSession.isAuthenticated"
             class="auth-support-contact mt-6 text-center text-[0.8125rem] leading-snug text-fg-subtle"
           >
-            Support, legal, or other concerns:
+            {{ echoT('auth.modal.supportContact') }}
             <a class="auth-link-btn" :href="echoPublicSupportMailtoHref">{{
               ECHO_PUBLIC_SUPPORT_EMAIL
             }}</a>
@@ -1431,10 +1438,18 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
           v-else
           class="mt-8 rounded-xl bg-glass-2 px-5 py-4 text-sm leading-relaxed text-fg-soft"
         >
-          To sign out, open
-          <span class="font-semibold text-fg">Settings</span>
-          from the Echo menu, then choose
-          <span class="font-semibold text-fg">Log out</span>.
+          <i18n-t keypath="b12.login.signOutHelp" scope="global">
+            <template #settings>
+              <span class="font-semibold text-fg">{{
+                echoT('auth.modal.settings')
+              }}</span>
+            </template>
+            <template #logOut>
+              <span class="font-semibold text-fg">{{
+                echoT('auth.modal.logOut')
+              }}</span>
+            </template>
+          </i18n-t>
         </div>
       </div>
     </div>
@@ -1443,14 +1458,14 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
   <AuthAlertModal
     :model-value="showAuthErrorModal"
     :message="errorMessage"
-    title="Sign-in issue"
+    :title="echoT('auth.titles.signInIssue')"
     variant="error"
     @update:model-value="onAuthErrorModalUpdate"
   />
   <AuthAlertModal
     :model-value="showMockWarningModal"
-    title="Preview mode"
-    message="Account actions are turned off in preview mode so sample data stays local."
+    :title="echoT('auth.titles.previewMode')"
+    :message="echoT('auth.modal.previewActionsOff')"
     variant="warning"
     @update:model-value="onMockWarningModalUpdate"
   />

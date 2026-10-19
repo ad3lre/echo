@@ -1,0 +1,94 @@
+{
+  "voiceMirror": {
+    "title": "Discord-Sprachspiegel",
+    "desc": "Zeige, wer im verknüpften Sprachkanal auf Discord verbunden ist. Echo bleibt reine Anzeige – tritt dem Sprachkanal in Discord bei.",
+    "signIn": "Melde dich an, um den Sprachspiegel zu konfigurieren.",
+    "guest": "Für Gastsitzungen nicht verfügbar.",
+    "toggle": "Discord-Sprachliste für diesen Kanal spiegeln",
+    "loadErr": "Einstellungen des Sprachspiegels konnten nicht geladen werden.",
+    "saveErr": "Einstellungen des Sprachspiegels konnten nicht gespeichert werden.",
+    "loading": "Wird geladen…",
+    "saving": "Wird gespeichert…",
+    "save": "Speichern"
+  },
+  "iconPicker": {
+    "channelIcon": "Kanalsymbol",
+    "chooseChannelIcon": "Kanalsymbol auswählen",
+    "searchEmoji": "Emoji suchen…",
+    "searchIcons": "Symbole suchen…",
+    "icons": "Symbole",
+    "emoji": "Emoji",
+    "loadingEmoji": "Emojis werden geladen",
+    "loadingEmojiEllipsis": "Emojis werden geladen…",
+    "untrusted": "Dieses Emoji kann nicht als Kanalsymbol verwendet werden (nicht vertrauenswürdige oder ungültige Bild-URL).",
+    "noEmojiMatch": "Keine Emojis passen zu „{query}“"
+  },
+  "events": {
+    "upcoming": "Anstehende Server-Events",
+    "slides": "Event-Folien",
+    "goingLabel": "Dabei",
+    "started": "Gestartet",
+    "startingMoments": "Startet in Kürze",
+    "checkItOut": "Schau vorbei",
+    "goThere": "Hingehen",
+    "details": "Details",
+    "openChannel": "Kanal öffnen",
+    "startsInDH": "Startet in {d} T. {h} Std.",
+    "startsInHM": "Startet in {h} Std. {m} Min.",
+    "startsInMS": "Startet in {m} Min. {s} Sek.",
+    "openEvent": "Event {title} öffnen",
+    "goingCount": "dabei"
+  },
+  "bubble": {
+    "requestAccess": "Zugriff anfragen",
+    "bold": "Fett",
+    "italic": "Kursiv",
+    "link": "Link",
+    "comment": "Kommentar",
+    "insertLink": "Link einfügen",
+    "isEditing": "{owner} bearbeitet gerade"
+  },
+  "folderModal": {
+    "folderName": "Ordnername",
+    "placeholder": "z. B. Communitys, Arbeit, Favoriten",
+    "cancel": "Abbrechen",
+    "newTitle": "Neuer Widget-Ordner",
+    "editTitle": "Widget-Ordner bearbeiten",
+    "createSub": "Gruppiere zusätzliche Server auf diesem Gerät. Ziehe Symbole, um sie neu anzuordnen, oder klicke in der kompakten Ansicht mit rechts, um Server zuzuweisen.",
+    "editSub": "Benenne diesen Ordner um oder lösche ihn. Server-Mitgliedschaften bleiben unverändert – nur diese lokale Gruppierung wird entfernt.",
+    "defaultName": "Neuer Ordner",
+    "countOne": "{count} Server in diesem Ordner – ziehe Symbole im Bereich, um sie hinzuzufügen, zu entfernen oder neu anzuordnen.",
+    "countMany": "{count} Server in diesem Ordner – ziehe Symbole im Bereich, um sie hinzuzufügen, zu entfernen oder neu anzuordnen.",
+    "confirmDeleteMsg": "„{name}“ löschen? Die Server bleiben in den zusätzlichen Servern; nur die Ordnergruppierung wird entfernt.",
+    "confirmDelete": "Löschen bestätigen",
+    "deleteFolder": "Ordner löschen",
+    "createFolder": "Ordner erstellen",
+    "save": "Speichern"
+  },
+  "assignMenu": {
+    "remove": "Aus Ordner entfernen",
+    "move": "In Ordner verschieben",
+    "searchFolders": "Ordner durchsuchen",
+    "searchFoldersEllipsis": "Ordner durchsuchen…",
+    "moveTo": "Nach „{name}“ verschieben",
+    "noMatch": "Keine Ordner passen zu deiner Suche.",
+    "noOther": "Keine anderen Ordner zum Verschieben.",
+    "newFolder": "Neuer Ordner mit diesem Server…"
+  },
+  "memberList": {
+    "timeout": "Kommunikations-Timeout",
+    "timedOut": "Im Timeout",
+    "roleColor": "Rollenfarbe von {name}"
+  },
+  "fontPicker": {
+    "search": "Schriftarten durchsuchen",
+    "useDocFont": "Dokumentschriftart verwenden",
+    "noMatch": "Keine passenden Schriftarten",
+    "mixed": "Gemischt",
+    "font": "Schriftart",
+    "fontLabel": "Schriftart: {label}"
+  },
+  "appLayout": {
+    "skip": "Zu den Nachrichten springen"
+  }
+}

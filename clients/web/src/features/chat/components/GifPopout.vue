@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   watch,
@@ -136,8 +137,8 @@ const imageFavoritePreviewUrls = computed(() =>
 
 const favoritesEmptyLabel = computed(() =>
   browseKind.value === 'gif'
-    ? 'Star GIFs while browsing to save them here.'
-    : 'Star images while browsing to save them here.',
+    ? echoT('b23.gif.starGifs')
+    : echoT('b23.gif.starImages'),
 );
 
 const imageSearchQuotaLabel = computed(() => {
@@ -146,7 +147,7 @@ const imageSearchQuotaLabel = computed(() => {
   const used = limits.imageSearchesUsedToday ?? 0;
   const cap = limits.imageSearchesPerDay;
   const remaining = Math.max(0, cap - used);
-  return `${remaining} of ${cap} searches left today`;
+  return echoT('b23.gif.quota', { remaining, cap });
 });
 
 function openEchoPlusSettings() {
@@ -582,7 +583,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
           class="mx-2 mt-2 flex gap-1 rounded-lg p-0.5"
           :class="props.theme === 'forum' ? 'bg-white/10' : 'bg-scrim-2'"
           role="tablist"
-          aria-label="Media type"
+          :aria-label="echoT('b23.gif.mediaType')"
         >
           <button
             type="button"
@@ -600,15 +601,19 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
             :class="tabBtnClass(activeTab === 'image')"
             @click="setTab('image')"
           >
-            Images
+            {{ echoT('b23.gif.images') }}
           </button>
           <button
             type="button"
             role="tab"
             :aria-selected="activeTab === 'favorites'"
             :class="tabBtnClass(activeTab === 'favorites', true)"
-            aria-label="Favorites"
-            :title="browseKind === 'gif' ? 'Favorite GIFs' : 'Favorite images'"
+            :aria-label="echoT('chat.labels.favorites')"
+            :title="
+              browseKind === 'gif'
+                ? echoT('b23.gif.favGifs')
+                : echoT('b23.gif.favImages')
+            "
             @click="setTab('favorites')"
           >
             <img
@@ -644,7 +649,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                     : 'text-foreground'
                 "
               >
-                No favorites yet
+                {{ echoT('b23.gif.noFavorites') }}
               </p>
               <p
                 class="text-xs leading-snug"
@@ -714,7 +719,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                         (fav.kind === 'image' && hoveredImageId === fav.id),
                     )
                   "
-                  aria-label="Remove from favorites"
+                  :aria-label="echoT('chat.actions.removeFromFavorites')"
                   @click="toggleSavedFavorite(fav, $event)"
                 >
                   <svg
@@ -745,7 +750,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
           <input
             v-model="gifSearchQuery"
             type="text"
-            placeholder="Search GIFs..."
+            :placeholder="echoT('b23.gif.searchGifs')"
             class="m-2 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
             :class="
               props.theme === 'forum'
@@ -792,9 +797,9 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                 <div
                   class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6"
                 >
-                  <span class="text-xs font-semibold text-white"
-                    >Favorites</span
-                  >
+                  <span class="text-xs font-semibold text-white">{{
+                    echoT('chat.labels.favorites')
+                  }}</span>
                 </div>
               </button>
               <button
@@ -853,7 +858,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               class="flex min-h-[10rem] items-center justify-center"
               role="status"
               aria-live="polite"
-              aria-label="Loading GIFs"
+              :aria-label="echoT('b23.gif.loadingGifs')"
             >
               <svg
                 class="echo-ios-spinner"
@@ -926,8 +931,8 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                   "
                   :aria-label="
                     isGifFavorited(gif)
-                      ? 'Remove from favorites'
-                      : 'Add to favorites'
+                      ? echoT('chat.actions.removeFromFavorites')
+                      : echoT('chat.actions.addToFavorites')
                   "
                   @click="toggleGifFavorite(gif, $event)"
                 >
@@ -961,7 +966,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
           <input
             v-model="imageSearchQuery"
             type="text"
-            placeholder="Search images..."
+            :placeholder="echoT('b23.gif.searchImages')"
             class="m-2 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
             :class="
               props.theme === 'forum'
@@ -1015,9 +1020,9 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                 <div
                   class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6"
                 >
-                  <span class="text-xs font-semibold text-white"
-                    >Favorites</span
-                  >
+                  <span class="text-xs font-semibold text-white">{{
+                    echoT('chat.labels.favorites')
+                  }}</span>
                 </div>
               </button>
               <button
@@ -1071,7 +1076,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                 class="mt-3 rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
                 @click="openEchoPlusSettings"
               >
-                View Echo+ plans
+                {{ echoT('b23.gif.viewPlans') }}
               </button>
             </div>
             <div
@@ -1079,7 +1084,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               class="flex min-h-[10rem] items-center justify-center"
               role="status"
               aria-live="polite"
-              aria-label="Loading images"
+              :aria-label="echoT('b23.gif.loadingImages')"
             >
               <svg
                 class="echo-ios-spinner"
@@ -1137,8 +1142,8 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                   "
                   :aria-label="
                     isImageFavorited(img)
-                      ? 'Remove from favorites'
-                      : 'Add to favorites'
+                      ? echoT('chat.actions.removeFromFavorites')
+                      : echoT('chat.actions.addToFavorites')
                   "
                   @click="toggleImageFavorite(img, $event)"
                 >
@@ -1191,7 +1196,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               class="mt-2 px-0.5 text-center text-[10px] leading-snug opacity-70"
               :class="props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'"
             >
-              Image results via
+              {{ echoT('b23.gif.imageResultsVia') }}
               <a
                 href="https://serper.dev"
                 target="_blank"

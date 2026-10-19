@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onUnmounted, watch } from 'vue';
 import type { PaperEditorPanelBridgeContext } from '@/features/paper/paperEditorPanelBridge';
 import { usePaperFormatActions } from '@/features/paper/composables/usePaperFormatActions';
@@ -42,22 +43,28 @@ const actions = usePaperFormatActions(editorRef);
 const shapeActions = usePaperShapeActions(editorRef);
 const { activeColorTarget, setColorTarget } = usePaperColorTarget();
 
-const colorTargets: { id: PaperColorTarget; label: string; hint: string }[] = [
-  { id: 'text', label: 'Text', hint: 'Applies to selected text' },
-  { id: 'highlight', label: 'Highlight', hint: 'Applies to text background' },
+const colorTargets = computed<
+  { id: PaperColorTarget; label: string; hint: string }[]
+>(() => [
+  { id: 'text', label: echoT('b19.pec.text'), hint: echoT('b19.pec.textHint') },
+  {
+    id: 'highlight',
+    label: echoT('b19.pec.highlight'),
+    hint: echoT('b19.pec.highlightHint'),
+  },
   {
     id: 'object',
-    label: 'Objects',
-    hint: 'Applies to shapes you add or select',
+    label: echoT('b19.pec.objects'),
+    hint: echoT('b19.pec.objectsHint'),
   },
-];
+]);
 
-const shapeTools: { id: PaperShapeKind; label: string }[] = [
-  { id: 'rectangle', label: 'Square' },
-  { id: 'circle', label: 'Circle' },
-  { id: 'triangle', label: 'Triangle' },
-  { id: 'line', label: 'Line' },
-];
+const shapeTools = computed<{ id: PaperShapeKind; label: string }[]>(() => [
+  { id: 'rectangle', label: echoT('b19.pec.square') },
+  { id: 'circle', label: echoT('b19.pec.circle') },
+  { id: 'triangle', label: echoT('b19.pec.triangle') },
+  { id: 'line', label: echoT('b19.pec.line') },
+]);
 
 const selectionActive = computed(
   () => props.editorEditable && actions.hasTextSelection(),
@@ -84,34 +91,41 @@ const objectFillIsNone = computed(
   () => shapeSelected.value && shapeActions.selectedShapeFillIsNone(),
 );
 
-const borderWidthOptions: EchoDropdownOption[] = PAPER_SHAPE_BORDER_WIDTHS.map(
-  (px) => ({
-    label: px === 0 ? 'No border' : `${px}px`,
+const borderWidthOptions = computed<EchoDropdownOption[]>(() =>
+  PAPER_SHAPE_BORDER_WIDTHS.map((px) => ({
+    label: px === 0 ? echoT('b19.pec.noBorder') : `${px}px`,
     value: String(px),
-  }),
+  })),
 );
 
-const borderStyleOptions: EchoDropdownOption[] = PAPER_SHAPE_BORDER_STYLES.map(
-  (entry) => ({
-    label: entry.label,
+const borderStyleLabel = (value: string): string => {
+  if (value === 'solid') return echoT('b19.pec.solid');
+  if (value === 'dashed') return echoT('b19.pec.dashed');
+  if (value === 'dotted') return echoT('b19.pec.dotted');
+  return value;
+};
+
+const borderStyleOptions = computed<EchoDropdownOption[]>(() =>
+  PAPER_SHAPE_BORDER_STYLES.map((entry) => ({
+    label: borderStyleLabel(entry.value),
     value: entry.value,
-  }),
+  })),
 );
 
 const targetHint = computed(() => {
-  const hit = colorTargets.find((t) => t.id === activeColorTarget.value);
+  const hit = colorTargets.value.find((t) => t.id === activeColorTarget.value);
   if (!hit) return '';
   if (activeColorTarget.value === 'object' && shapeSelected.value) {
-    return 'Selected shape — pick a fill color';
+    return echoT('b19.pec.hintShapeSelected');
   }
   if (activeColorTarget.value === 'object') {
-    return 'Pick a color, then add a shape below';
+    return echoT('b19.pec.hintPickThenAdd');
   }
   if (activeColorTarget.value === 'text' && !selectionActive.value) {
-    return 'Select text to apply a text color';
+    return echoT('b19.pec.hintSelectText');
   }
   if (activeColorTarget.value === 'highlight' && !selectionActive.value) {
-    return 'Select text to apply a highlight';
+    return echoT('b19.pec.hintSelectHighlight');
   }
   return hit.hint;
 });
@@ -137,15 +151,26 @@ onUnmounted(() => {
   editorRef.value?.off('selectionUpdate', onEditorSelectionUpdate);
 });
 
-const shapeSizeOptions: EchoDropdownOption[] = PAPER_SHAPE_SIZE_PRESETS.map(
-  (p) => ({ label: p.label, value: String(p.px) }),
+const shapeSizeLabel = (label: string): string => {
+  if (label === 'Small') return echoT('b19.pec.small');
+  if (label === 'Medium') return echoT('b19.pec.medium');
+  if (label === 'Large') return echoT('b19.pec.large');
+  if (label === 'XL') return echoT('b19.pec.xl');
+  return label;
+};
+
+const shapeSizeOptions = computed<EchoDropdownOption[]>(() =>
+  PAPER_SHAPE_SIZE_PRESETS.map((p) => ({
+    label: shapeSizeLabel(p.label),
+    value: String(p.px),
+  })),
 );
 
-const shapeAlignOptions: EchoDropdownOption[] = [
-  { label: 'Left', value: 'left' },
-  { label: 'Center', value: 'center' },
-  { label: 'Right', value: 'right' },
-];
+const shapeAlignOptions = computed<EchoDropdownOption[]>(() => [
+  { label: echoT('b19.pec.left'), value: 'left' },
+  { label: echoT('b19.pec.center'), value: 'center' },
+  { label: echoT('b19.pec.right'), value: 'right' },
+]);
 
 const currentShapeSize = computed(() => {
   const { width } = shapeActions.selectedShapeSizePx();
@@ -176,14 +201,14 @@ function stepShapeSize(direction: 'up' | 'down') {
       v-if="!editorEditable"
       class="paper-editor-tab__hint paper-editor-tab__hint--center"
     >
-      Switch to edit mode to style colors.
+      {{ echoT('b19.pec.switchEdit') }}
     </p>
 
     <template v-else>
       <div
         class="paper-colors-tab__targets"
         role="tablist"
-        aria-label="Color target"
+        :aria-label="echoT('b19.pec.colorTarget')"
       >
         <button
           v-for="target in colorTargets"
@@ -267,12 +292,14 @@ function stepShapeSize(direction: 'up' | 'down') {
           <div
             class="paper-editor-panel__tool-row paper-editor-panel__size-row"
           >
-            <span class="paper-editor-panel__control-label">Size</span>
+            <span class="paper-editor-panel__control-label">{{
+              echoT('b19.pec.size')
+            }}</span>
             <div class="paper-editor-panel__size-controls">
               <button
                 type="button"
                 class="paper-editor-panel__size-step"
-                aria-label="Decrease shape size"
+                :aria-label="echoT('b19.pec.decreaseSize')"
                 :disabled="!canDecreaseShapeSize"
                 @mousedown.prevent="stepShapeSize('down')"
               >
@@ -284,7 +311,7 @@ function stepShapeSize(direction: 'up' | 'down') {
                 :paper-appearance="appearance"
                 trigger-mode="label"
                 placement="below"
-                title="Shape size"
+                :title="echoT('b19.pec.shapeSize')"
                 @update:model-value="
                   (v) => shapeActions.setShapeSizePx(Number(v))
                 "
@@ -292,7 +319,7 @@ function stepShapeSize(direction: 'up' | 'down') {
               <button
                 type="button"
                 class="paper-editor-panel__size-step"
-                aria-label="Increase shape size"
+                :aria-label="echoT('b19.pec.increaseSize')"
                 :disabled="!canIncreaseShapeSize"
                 @mousedown.prevent="stepShapeSize('up')"
               >
@@ -301,11 +328,13 @@ function stepShapeSize(direction: 'up' | 'down') {
             </div>
           </div>
           <div class="paper-editor-panel__tool-row">
-            <span class="paper-editor-panel__control-label">Position</span>
+            <span class="paper-editor-panel__control-label">{{
+              echoT('b19.pec.position')
+            }}</span>
             <EchoDropdown
               :model-value="shapeActions.selectedShapeAlign()"
               :options="shapeAlignOptions"
-              label="Position"
+              :label="echoT('b19.pec.position')"
               compact
               @update:model-value="
                 (v) => shapeActions.setShapeAlign(v as PaperShapeAlign)
@@ -313,11 +342,13 @@ function stepShapeSize(direction: 'up' | 'down') {
             />
           </div>
           <div class="paper-editor-panel__tool-row">
-            <span class="paper-editor-panel__control-label">Border</span>
+            <span class="paper-editor-panel__control-label">{{
+              echoT('b19.pec.border')
+            }}</span>
             <EchoDropdown
               :model-value="String(shapeActions.selectedShapeBorderWidthPx())"
               :options="borderWidthOptions"
-              label="Border width"
+              :label="echoT('b19.pec.borderWidth')"
               compact
               @update:model-value="
                 (v) => shapeActions.setShapeBorderWidth(Number(v))
@@ -329,7 +360,7 @@ function stepShapeSize(direction: 'up' | 'down') {
             class="paper-editor-panel__tool-row paper-editor-panel__size-row"
           >
             <PaperEditorCanvasColorSection
-              label="Border color"
+              :label="echoT('b19.pec.borderColor')"
               kind="object"
               :color="shapeActions.selectedShapeBorderColor() ?? '#111111'"
               :quick-palette="
@@ -345,11 +376,13 @@ function stepShapeSize(direction: 'up' | 'down') {
             v-if="shapeActions.selectedShapeBorderWidthPx() > 0"
             class="paper-editor-panel__tool-row"
           >
-            <span class="paper-editor-panel__control-label">Border style</span>
+            <span class="paper-editor-panel__control-label">{{
+              echoT('b19.pec.borderStyle')
+            }}</span>
             <EchoDropdown
               :model-value="shapeActions.selectedShapeBorderStyle()"
               :options="borderStyleOptions"
-              label="Border style"
+              :label="echoT('b19.pec.borderStyle')"
               compact
               @update:model-value="
                 (v) =>
@@ -360,15 +393,25 @@ function stepShapeSize(direction: 'up' | 'down') {
         </section>
 
         <section v-if="shapeSelected" class="paper-colors-tab__shapes">
-          <h4 class="paper-editor-tab__label">Replace shape</h4>
+          <h4 class="paper-editor-tab__label">
+            {{ echoT('b19.pec.replaceShape') }}
+          </h4>
           <div class="paper-colors-tab__shape-grid">
             <button
               v-for="tool in shapeTools"
               :key="`replace-${tool.id}`"
               type="button"
               class="paper-colors-tab__shape-btn"
-              :title="`Replace with ${tool.label.toLowerCase()}`"
-              :aria-label="`Replace with ${tool.label.toLowerCase()}`"
+              :title="
+                echoT('b19.pec.replaceWith', {
+                  shape: tool.label.toLowerCase(),
+                })
+              "
+              :aria-label="
+                echoT('b19.pec.replaceWith', {
+                  shape: tool.label.toLowerCase(),
+                })
+              "
               @mousedown.prevent.stop="shapeActions.replaceShape(tool.id)"
             >
               <span
@@ -386,7 +429,11 @@ function stepShapeSize(direction: 'up' | 'down') {
 
         <section class="paper-colors-tab__shapes">
           <h4 class="paper-editor-tab__label">
-            {{ shapeSelected ? 'Add another shape' : 'Add shape' }}
+            {{
+              shapeSelected
+                ? echoT('b19.pec.addAnother')
+                : echoT('b19.pec.addShape')
+            }}
           </h4>
           <div class="paper-colors-tab__shape-grid">
             <button
@@ -394,8 +441,16 @@ function stepShapeSize(direction: 'up' | 'down') {
               :key="`add-${tool.id}`"
               type="button"
               class="paper-colors-tab__shape-btn"
-              :title="`Add ${tool.label.toLowerCase()}`"
-              :aria-label="`Add ${tool.label.toLowerCase()}`"
+              :title="
+                echoT('b19.pec.addShapeKind', {
+                  shape: tool.label.toLowerCase(),
+                })
+              "
+              :aria-label="
+                echoT('b19.pec.addShapeKind', {
+                  shape: tool.label.toLowerCase(),
+                })
+              "
               @mousedown.prevent.stop="shapeActions.insertShape(tool.id)"
             >
               <span

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import { useAuthSessionStore } from '@/features/auth/authSession';
@@ -38,7 +39,7 @@ async function load() {
     enabled.value = s.enabled === true;
   } catch (e) {
     error.value =
-      e instanceof Error ? e.message : 'Could not load voice mirror settings.';
+      e instanceof Error ? e.message : echoT('b41.voiceMirror.loadErr');
   } finally {
     loading.value = false;
   }
@@ -71,7 +72,7 @@ async function save() {
     await load();
   } catch (e) {
     error.value =
-      e instanceof Error ? e.message : 'Could not save voice mirror settings.';
+      e instanceof Error ? e.message : echoT('b41.voiceMirror.saveErr');
   } finally {
     saving.value = false;
   }
@@ -87,21 +88,22 @@ async function save() {
           alt=""
           class="h-5 w-5 shrink-0 opacity-90 filter invert"
         />
-        <div class="settings-subtitle">Discord voice mirror</div>
+        <div class="settings-subtitle">
+          {{ echoT('b41.voiceMirror.title') }}
+        </div>
       </div>
       <p class="mb-4 text-xs leading-relaxed text-fg-subtle">
-        Show who is connected on Discord for the linked voice channel. Echo
-        stays display-only — join voice in Discord.
+        {{ echoT('b41.voiceMirror.desc') }}
       </p>
 
       <div v-if="!authSession.isAuthenticated" class="text-sm text-fg-soft">
-        Sign in to configure voice mirror.
+        {{ echoT('b41.voiceMirror.signIn') }}
       </div>
       <div
         v-else-if="authSession.backendUser?.isGuest"
         class="text-sm text-fg-soft"
       >
-        Not available for guest sessions.
+        {{ echoT('b41.voiceMirror.guest') }}
       </div>
       <div v-else class="space-y-4">
         <label
@@ -113,20 +115,26 @@ async function save() {
             class="rounded border-border"
             :disabled="loading || saving"
           />
-          Mirror Discord voice roster for this channel
+          {{ echoT('b41.voiceMirror.toggle') }}
         </label>
 
         <div v-if="error" class="text-sm echo-destructive-text">
           {{ error }}
         </div>
-        <div v-if="loading" class="text-sm text-fg-subtle">Loading…</div>
+        <div v-if="loading" class="text-sm text-fg-subtle">
+          {{ echoT('b41.voiceMirror.loading') }}
+        </div>
         <button
           type="button"
           class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
           :disabled="loading || saving"
           @click="save"
         >
-          {{ saving ? 'Saving…' : 'Save' }}
+          {{
+            saving
+              ? echoT('b41.voiceMirror.saving')
+              : echoT('b41.voiceMirror.save')
+          }}
         </button>
       </div>
     </div>

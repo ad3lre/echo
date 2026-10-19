@@ -110,6 +110,11 @@ const ariaLabel = computed(() => `Status: ${hoverTitle.value}`);
 <style scoped lang="scss">
 .status-indicator {
   position: absolute;
+  /*
+   * Sit on the avatar rim so the glyph cuts into the PFP (Discord-style), not
+   * perched outside on the diagonal. The opaque ring punches a halo through
+   * whatever avatar pixels sit underneath.
+   */
   bottom: 0;
   right: 0;
   /* Sit above absolutely positioned avatars (e.g. PausedGifAvatar / LimitedGifImg). */
@@ -121,21 +126,29 @@ const ariaLabel = computed(() => `Status: ${hoverTitle.value}`);
   border-radius: 50%;
   background: transparent;
   box-sizing: border-box;
+  box-shadow: 0 0 0 3px
+    var(--status-indicator-ring-bg, var(--echo-avatar-ring-bg, var(--surface)));
 }
 
 .status-indicator--sm {
   width: 10px;
   height: 10px;
+  box-shadow: 0 0 0 2px
+    var(--status-indicator-ring-bg, var(--echo-avatar-ring-bg, var(--surface)));
 }
 
 .status-indicator--md {
   width: 12px;
   height: 12px;
+  box-shadow: 0 0 0 2.5px
+    var(--status-indicator-ring-bg, var(--echo-avatar-ring-bg, var(--surface)));
 }
 
 .status-indicator--lg {
   width: 16px;
   height: 16px;
+  box-shadow: 0 0 0 3px
+    var(--status-indicator-ring-bg, var(--echo-avatar-ring-bg, var(--surface)));
 }
 
 /* Online: green filled circle (full cell — no ring) */
@@ -202,7 +215,6 @@ const ariaLabel = computed(() => `Status: ${hoverTitle.value}`);
   height: 10px;
   border-radius: 50%;
   background: var(--echo-palette-5865f2-c240);
-  box-shadow: 0 0 0 2px var(--surface);
 }
 
 .status-indicator--md .status-discord-dot {

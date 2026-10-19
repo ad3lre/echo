@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 type ServerModerationForm = {
   explicitMediaFilterEnabled: boolean;
   raidProtectionEnabled: boolean;
@@ -27,23 +28,31 @@ function patchForm(patch: Partial<ServerModerationForm>) {
   <div class="space-y-6">
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div class="server-settings-panel rounded-2xl p-5">
-        <div class="settings-subtitle mb-4">Protection Signals</div>
+        <div class="settings-subtitle mb-4">
+          {{ echoT('b11.mod.protectionSignals') }}
+        </div>
         <div class="space-y-3">
           <p
             v-if="EXPLICIT_MEDIA_FILTER_COMING_SOON"
             class="rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-4 py-3 text-xs text-fg-soft"
           >
-            Explicit media filtering is
-            <span class="font-semibold text-accent">coming soon</span>.
+            <i18n-t keypath="b11.mod.comingSoonBanner" scope="global">
+              <template #soon>
+                <span class="font-semibold text-accent">{{
+                  echoT('b11.mod.comingSoonWord')
+                }}</span>
+              </template>
+            </i18n-t>
           </p>
           <label
             class="flex items-center justify-between gap-4 rounded-xl px-4 py-3 hover:bg-glass-1"
           >
             <div>
-              <div class="font-semibold text-fg">Raid Protection</div>
+              <div class="font-semibold text-fg">
+                {{ echoT('b11.mod.raidProtection') }}
+              </div>
               <div class="text-xs text-fg-subtle">
-                Detect burst joins and throttle suspicious activity
-                automatically.
+                {{ echoT('b11.mod.raidProtectionDesc') }}
               </div>
             </div>
             <input
@@ -68,12 +77,14 @@ function patchForm(patch: Partial<ServerModerationForm>) {
             "
           >
             <div>
-              <div class="font-semibold text-fg">Explicit Media Filter</div>
+              <div class="font-semibold text-fg">
+                {{ echoT('b11.mod.explicitFilter') }}
+              </div>
               <div class="text-xs text-fg-subtle">
                 {{
                   EXPLICIT_MEDIA_FILTER_COMING_SOON
-                    ? 'Coming soon - this server control is temporarily unavailable.'
-                    : 'Scan and blur media flagged as explicit by default.'
+                    ? echoT('b11.mod.comingSoonUnavailable')
+                    : echoT('b11.mod.explicitFilterDesc')
                 }}
               </div>
             </div>
@@ -95,10 +106,11 @@ function patchForm(patch: Partial<ServerModerationForm>) {
 
           <label class="block rounded-xl px-4 py-3 hover:bg-glass-1">
             <div class="mb-2">
-              <div class="font-semibold text-fg">Join threshold</div>
+              <div class="font-semibold text-fg">
+                {{ echoT('b11.mod.joinThreshold') }}
+              </div>
               <div class="text-xs text-fg-subtle">
-                Block new joins when this many accounts join inside the raid
-                window.
+                {{ echoT('b11.mod.joinThresholdDesc') }}
               </div>
             </div>
             <input
@@ -129,9 +141,11 @@ function patchForm(patch: Partial<ServerModerationForm>) {
 
           <label class="block rounded-xl px-4 py-3 hover:bg-glass-1">
             <div class="mb-2">
-              <div class="font-semibold text-fg">Raid window (seconds)</div>
+              <div class="font-semibold text-fg">
+                {{ echoT('b11.mod.raidWindow') }}
+              </div>
               <div class="text-xs text-fg-subtle">
-                Time window used to count recent joins for raid detection.
+                {{ echoT('b11.mod.raidWindowDesc') }}
               </div>
             </div>
             <input
@@ -163,15 +177,19 @@ function patchForm(patch: Partial<ServerModerationForm>) {
       </div>
 
       <div class="server-settings-panel rounded-2xl p-5">
-        <div class="settings-subtitle mb-4">AutoMod Defaults</div>
+        <div class="settings-subtitle mb-4">
+          {{ echoT('b11.mod.automodDefaults') }}
+        </div>
         <div class="space-y-3">
           <label
             class="flex items-center justify-between gap-4 rounded-xl px-4 py-3 hover:bg-glass-1"
           >
             <div>
-              <div class="font-semibold text-fg">Spam Filter</div>
+              <div class="font-semibold text-fg">
+                {{ echoT('b11.mod.spamFilter') }}
+              </div>
               <div class="text-xs text-fg-subtle">
-                Rate-limit repeated messages and excessive mention behavior.
+                {{ echoT('b11.mod.spamFilterDesc') }}
               </div>
             </div>
             <input
@@ -191,9 +209,11 @@ function patchForm(patch: Partial<ServerModerationForm>) {
             class="flex items-center justify-between gap-4 rounded-xl px-4 py-3 hover:bg-glass-1"
           >
             <div>
-              <div class="font-semibold text-fg">Mentions Require Role</div>
+              <div class="font-semibold text-fg">
+                {{ echoT('b11.mod.mentionsRequireRole') }}
+              </div>
               <div class="text-xs text-fg-subtle">
-                Only trusted roles can mass-mention server members.
+                {{ echoT('b11.mod.mentionsRequireRoleDesc') }}
               </div>
             </div>
             <input

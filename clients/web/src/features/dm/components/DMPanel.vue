@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, nextTick, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { LAYOUT_LEFT_CHROME_KEY } from '@/features/layout/layoutInjectionKeys';
@@ -85,7 +86,8 @@ const { inboxEntrySubtitle, peerUserSubtitle } = useDmConversationSubtitle({
   currentUserId: () => props.currentUserId,
   echoPeerByChannelId,
   resolveAuthorName: (userId) =>
-    props.users.find((u) => u.id === userId)?.name ?? 'Someone',
+    props.users.find((u) => u.id === userId)?.name ??
+    echoT('chat.labels.someone'),
 });
 
 function dmInboxEntrySubtitleText(entry: DmPanelInboxEntry): string {
@@ -430,15 +432,15 @@ function favoriteToggleLabelForDmContext(): string {
   const t = contextTarget.value;
   if (t?.type === 'dm-user') {
     return props.isDmInboxUserFavorite?.(t.userId)
-      ? 'Remove from favorites'
-      : 'Add to favorites';
+      ? echoT('chat.actions.removeFromFavorites')
+      : echoT('chat.actions.addToFavorites');
   }
   if (t?.type === 'dm-group') {
     return props.isDmInboxGroupFavorite?.(t.channelId)
-      ? 'Remove from favorites'
-      : 'Add to favorites';
+      ? echoT('chat.actions.removeFromFavorites')
+      : echoT('chat.actions.addToFavorites');
   }
-  return 'Add to favorites';
+  return echoT('chat.actions.addToFavorites');
 }
 
 function toggleFavoriteContextDm() {
@@ -480,10 +482,10 @@ const notificationUnreadCount = computed(
 /** Subtitle preview for the pinned row — newest mention first (rows are sorted desc). */
 const notificationLatestPreview = computed(() => {
   const latest = (props.dmMentionNotifications ?? [])[0];
-  if (!latest) return 'No mentions yet';
-  const who = latest.authorName?.trim() || 'Someone';
+  if (!latest) return echoT('b10.dm.noMentions');
+  const who = latest.authorName?.trim() || echoT('chat.labels.someone');
   const body = latest.preview?.trim();
-  return body ? `${who}: ${body}` : `${who} mentioned you`;
+  return body ? `${who}: ${body}` : echoT('b10.dm.mentionedYou', { who });
 });
 
 const notificationsRowSelected = computed(
@@ -549,7 +551,7 @@ const visibleSourceChips = computed<MentionNotificationSourceChip[]>(() =>
 const placeWidgets = computed<PlaceWidget[]>(() => {
   const unread: PlaceWidget = {
     key: UNREAD_FILTER_KEY,
-    label: 'Unread',
+    label: echoT('b10.dm.unread'),
     count: countRowsFor('unread', { kind: 'all' }),
     visual: { kind: 'none' },
   };
@@ -728,14 +730,16 @@ const friendsRowSelected = computed(() => props.activeTab === 'friends');
 
 const friendsLatestPreview = computed(() => {
   const count = friendUsers.value.length;
-  if (count === 0) return 'Add friends to get started';
+  if (count === 0) return echoT('b10.dm.addFriendsStart');
   const online = friendUsers.value.filter(
     (u) => friendRowPresence(u).status === 'online',
   ).length;
   if (online > 0) {
-    return `${online} online · ${count} total`;
+    return echoT('b10.dm.onlineTotal', { online, count });
   }
-  return `${count} friend${count === 1 ? '' : 's'}`;
+  return count === 1
+    ? echoT('b10.dm.friendOne')
+    : echoT('b10.dm.friendMany', { count });
 });
 
 const showSidebarRingtonePlayer = computed(
@@ -806,18 +810,18 @@ watch(
           <div
             class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
           >
-            Messages
+            {{ echoT('b10.dm.messages') }}
           </div>
           <h2 class="mt-0.5 truncate text-base font-bold text-foreground">
-            Direct Messages
+            {{ echoT('b10.dm.directMessages') }}
           </h2>
         </div>
         <button
           v-if="!isCompactShell"
           type="button"
           class="chat-focus-ring inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-glass-1 px-2.5 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
-          title="Collapse DM panel"
-          aria-label="Collapse DM panel"
+          :title="echoT('b10.dm.collapsePanel')"
+          :aria-label="echoT('b10.dm.collapsePanel')"
           @click="emit('close')"
         >
           <svg
@@ -832,7 +836,7 @@ watch(
           >
             <path d="M15 18l-6-6 6-6" />
           </svg>
-          <span>Collapse</span>
+          <span>{{ echoT('b10.dm.collapse') }}</span>
         </button>
       </div>
 
@@ -840,7 +844,7 @@ watch(
         <h2
           class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
         >
-          Messages
+          {{ echoT('b10.dm.messages') }}
         </h2>
       </div>
 
@@ -854,7 +858,7 @@ watch(
           "
           @click="setActiveTab('messages')"
         >
-          Messages
+          {{ echoT('b10.dm.messages') }}
         </button>
         <button
           type="button"
@@ -864,25 +868,29 @@ watch(
           "
           :title="
             guestFriendsLocked
-              ? 'Create an account to use Friends'
+              ? echoT('b10.dm.createAccountFriends')
               : pendingFriendRequestCount > 0
-                ? `${pendingFriendRequestCount} pending friend request(s)`
+                ? echoT('b10.dm.pendingFriendRequestsTitle', {
+                    count: pendingFriendRequestCount,
+                  })
                 : undefined
           "
           :aria-label="
             guestFriendsLocked
-              ? 'Friends (account required)'
+              ? echoT('b10.dm.friendsAccountRequired')
               : pendingFriendRequestCount > 0
-                ? `Friends, ${pendingFriendRequestCount} pending friend requests`
-                : 'Friends'
+                ? echoT('b10.dm.friendsPendingAria', {
+                    count: pendingFriendRequestCount,
+                  })
+                : echoT('chat.labels.friends')
           "
           @click="setActiveTab('friends')"
         >
-          Friends
+          {{ echoT('chat.labels.friends') }}
           <span
             v-if="guestFriendsLocked"
             class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"
-            title="Upgrade to unlock Friends"
+            :title="echoT('b10.dm.upgradeUnlockFriends')"
           />
           <span
             v-else-if="pendingFriendRequestCount > 0"
@@ -921,9 +929,9 @@ watch(
               <input
                 v-model="dmListSearch"
                 type="text"
-                placeholder="Search DMs"
+                :placeholder="echoT('b10.dm.searchDms')"
                 class="dm-list-search w-full rounded-lg border-0 bg-glass-1 py-2 pl-9 pr-3 text-sm text-foreground placeholder-muted outline-none transition-colors"
-                aria-label="Search DMs"
+                :aria-label="echoT('b10.dm.searchDms')"
               />
               <svg
                 class="dm-list-search-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
@@ -950,7 +958,7 @@ watch(
                   ? 'dm-user-row--selected'
                   : 'dm-user-row--idle'
               "
-              aria-label="Notifications"
+              :aria-label="echoT('b10.dm.notifications')"
               @click="setActiveTab('notifications')"
             >
               <div class="relative h-10 w-10 shrink-0">
@@ -981,9 +989,9 @@ watch(
               </div>
               <div class="min-w-0 flex-1 truncate">
                 <div class="flex min-w-0 items-center gap-2">
-                  <span class="truncate text-sm font-medium text-foreground"
-                    >Notifications</span
-                  >
+                  <span class="truncate text-sm font-medium text-foreground">{{
+                    echoT('b10.dm.notifications')
+                  }}</span>
                 </div>
                 <div class="truncate text-xs text-fg-soft">
                   {{ notificationLatestPreview }}
@@ -1002,17 +1010,21 @@ watch(
               "
               :title="
                 guestFriendsLocked
-                  ? 'Create an account to use Friends'
+                  ? echoT('b10.dm.createAccountFriends')
                   : pendingFriendRequestCount > 0
-                    ? `${pendingFriendRequestCount} pending friend request(s)`
+                    ? echoT('b10.dm.pendingFriendRequestsTitle', {
+                        count: pendingFriendRequestCount,
+                      })
                     : undefined
               "
               :aria-label="
                 guestFriendsLocked
-                  ? 'Friends (account required)'
+                  ? echoT('b10.dm.friendsAccountRequired')
                   : pendingFriendRequestCount > 0
-                    ? `Friends, ${pendingFriendRequestCount} pending friend requests`
-                    : 'Friends'
+                    ? echoT('b10.dm.friendsPendingAria', {
+                        count: pendingFriendRequestCount,
+                      })
+                    : echoT('chat.labels.friends')
               "
               @click="setActiveTab('friends')"
             >
@@ -1039,12 +1051,16 @@ watch(
                 <span
                   v-if="guestFriendsLocked"
                   class="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"
-                  title="Upgrade to unlock Friends"
+                  :title="echoT('b10.dm.upgradeUnlockFriends')"
                 />
                 <span
                   v-else-if="pendingFriendRequestCount > 0"
                   class="dm-unread-badge pointer-events-none absolute -right-1 -top-1 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full border-[2.5px] border-[var(--echo-dm-chrome-bg)] bg-[#f23f42] px-[5px] text-[10px] font-bold leading-none text-white shadow-sm"
-                  :title="`${pendingFriendRequestCount} pending`"
+                  :title="
+                    echoT('b10.dm.pendingCount', {
+                      count: pendingFriendRequestCount,
+                    })
+                  "
                 >
                   {{
                     pendingFriendRequestCount > 99
@@ -1055,9 +1071,9 @@ watch(
               </div>
               <div class="min-w-0 flex-1 truncate">
                 <div class="flex min-w-0 items-center gap-2">
-                  <span class="truncate text-sm font-medium text-foreground"
-                    >Friends</span
-                  >
+                  <span class="truncate text-sm font-medium text-foreground">{{
+                    echoT('chat.labels.friends')
+                  }}</span>
                 </div>
                 <div class="truncate text-xs text-fg-soft">
                   {{ friendsLatestPreview }}
@@ -1069,12 +1085,12 @@ watch(
             <div
               v-if="activeTab === 'notifications' && placeWidgets.length > 1"
               class="dm-notifications-places flex flex-col gap-1.5 pt-1"
-              aria-label="Filter mentions"
+              :aria-label="echoT('b10.dm.filterMentions')"
             >
               <p
                 class="px-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
               >
-                Place
+                {{ echoT('b10.dm.place') }}
               </p>
               <div class="flex flex-col gap-1">
                 <button
@@ -1140,7 +1156,7 @@ watch(
               <span
                 class="text-[13px] font-semibold text-[#c4b5fd] underline-offset-2 group-hover:underline"
               >
-                Message requests
+                {{ echoT('b10.dm.messageRequests') }}
               </span>
               <span
                 class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-glass-3 px-1.5 text-[11px] font-bold tabular-nums text-foreground"
@@ -1160,16 +1176,16 @@ watch(
               <div
                 class="custom-scrollbar mt-8 max-h-[min(72vh,440px)] min-h-0 overflow-y-auto rounded-2xl border border-border bg-[var(--echo-dm-inset-bg)] p-3 shadow-2xl"
                 role="dialog"
-                aria-label="Message requests"
+                :aria-label="echoT('b10.dm.messageRequests')"
                 @click.stop
               >
                 <div class="dm-list-search-wrap relative mb-2 shrink-0">
                   <input
                     v-model="requestListSearch"
                     type="text"
-                    placeholder="Search requests"
+                    :placeholder="echoT('b10.dm.searchRequests')"
                     class="dm-list-search w-full rounded-lg border-0 bg-glass-1 py-2 pl-9 pr-3 text-sm text-foreground placeholder-muted outline-none transition-colors"
-                    aria-label="Search message requests"
+                    :aria-label="echoT('b10.dm.searchMessageRequests')"
                   />
                   <svg
                     class="dm-list-search-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
@@ -1231,8 +1247,8 @@ watch(
                 >
                   {{
                     requestListSearch.trim()
-                      ? 'No requests match your search.'
-                      : 'No pending requests.'
+                      ? echoT('b10.dm.noRequestsMatch')
+                      : echoT('b10.dm.noPendingRequests')
                   }}
                 </p>
               </div>
@@ -1300,7 +1316,7 @@ watch(
                   <span
                     v-if="entry.kind === 'group'"
                     class="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-[var(--echo-dm-chrome-bg)] bg-indigo-500 flex items-center justify-center text-[9px] font-bold text-white"
-                    title="Group DM"
+                    :title="echoT('chat.labels.groupDm')"
                   >
                     G
                   </span>
@@ -1330,7 +1346,7 @@ watch(
                       viewBox="0 0 24 24"
                       fill="currentColor"
                       aria-hidden="true"
-                      title="Favorite"
+                      :title="echoT('b10.dm.favorite')"
                     >
                       <path
                         d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
@@ -1345,7 +1361,7 @@ watch(
                       :src="props.phoneCallIcon"
                       alt=""
                       class="h-4 w-4 shrink-0 opacity-85"
-                      title="In a call"
+                      :title="echoT('b10.dm.inCall')"
                     />
                   </div>
                   <div
@@ -1378,8 +1394,8 @@ watch(
             >
               {{
                 dmListSearch.trim()
-                  ? 'No conversations match your search.'
-                  : 'No direct messages yet.'
+                  ? echoT('b10.dm.noConversationsMatch')
+                  : echoT('b10.dm.noDmsYet')
               }}
             </p>
           </div>
@@ -1393,9 +1409,9 @@ watch(
               <input
                 v-model="friendListSearch"
                 type="text"
-                placeholder="Search Friends"
+                :placeholder="echoT('b10.dm.searchFriends')"
                 class="dm-list-search w-full rounded-lg border-0 bg-glass-1 py-2 pl-9 pr-3 text-sm text-foreground placeholder-muted outline-none transition-colors"
-                aria-label="Search Friends"
+                :aria-label="echoT('b10.dm.searchFriends')"
               />
               <svg
                 class="dm-list-search-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
@@ -1475,8 +1491,8 @@ watch(
             <p class="px-2 py-4 text-center text-xs text-fg-soft">
               {{
                 friendListSearch.trim()
-                  ? 'No friends match your search.'
-                  : 'Here you can see all your friends :)'
+                  ? echoT('b10.dm.noFriendsMatch')
+                  : echoT('b10.dm.friendsEmpty')
               }}
             </p>
           </div>
@@ -1520,7 +1536,10 @@ watch(
         v-if="showSidebarRingtonePlayer"
         class="dm-panel__ringtone-sticky shrink-0"
       >
-        <CallRingtoneInlinePlayer title="Waiting music" embedded />
+        <CallRingtoneInlinePlayer
+          :title="echoT('b10.dm.waitingMusic')"
+          embedded
+        />
       </div>
     </div>
   </aside>
@@ -1532,7 +1551,7 @@ watch(
       class="ellipsis-menu fixed z-[140] min-w-[220px] py-1"
       :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }"
       role="menu"
-      aria-label="DM options"
+      :aria-label="echoT('b10.dm.dmOptions')"
       @contextmenu.prevent
     >
       <div
@@ -1561,10 +1580,10 @@ watch(
         </svg>
         {{
           contextTarget.type === 'dm-group'
-            ? 'Open group'
+            ? echoT('b10.dm.openGroup')
             : contextTarget.type === 'message-request'
-              ? 'View request'
-              : 'Open DM'
+              ? echoT('b10.dm.viewRequest')
+              : echoT('b10.dm.openDm')
         }}
       </button>
       <button
@@ -1589,7 +1608,7 @@ watch(
             d="M5 13l4 4L19 7"
           />
         </svg>
-        Mark as read
+        {{ echoT('b10.dm.markAsRead') }}
       </button>
       <button
         v-if="
@@ -1634,7 +1653,7 @@ watch(
             d="M13 7H7v10h10V11m4-4h-4m0 0v4m0-4l-6 6"
           />
         </svg>
-        Remove from list
+        {{ echoT('b10.dm.removeFromList') }}
       </button>
       <button
         v-if="contextTarget.type !== 'dm-group'"
@@ -1668,7 +1687,7 @@ watch(
             d="M17.8 17.8A7.5 7.5 0 0012 15.5a7.5 7.5 0 00-5.8 2.3"
           />
         </svg>
-        Profile
+        {{ echoT('b10.dm.profile') }}
       </button>
       <button
         v-if="devModeIdsEnabled"

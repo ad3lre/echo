@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, watch } from 'vue';
 import { useThemeStore } from '@/features/settings/themeStore';
+import { useServerRailUiPreferencesStore } from '@/features/settings/serverRailUiPreferences';
 import { THEMES_SELECTION_COMING_SOON } from '@/features/settings/data';
 import {
   normalizeInterfaceDensityId,
@@ -28,6 +30,7 @@ const props = defineProps<{
 }>();
 
 const themeStore = useThemeStore();
+const railUiPrefs = useServerRailUiPreferencesStore();
 
 const styleSettingsLocked = computed(() => THEMES_SELECTION_COMING_SOON);
 
@@ -216,6 +219,42 @@ watch(
     }
   },
 );
+
+watch(
+  () => props.form.styleSettings.serversAlwaysOn,
+  (next: boolean) => {
+    if (next !== railUiPrefs.serversAlwaysOn) {
+      railUiPrefs.setServersAlwaysOn(next);
+    }
+  },
+);
+
+watch(
+  () => railUiPrefs.serversAlwaysOn,
+  (next) => {
+    if (props.form.styleSettings.serversAlwaysOn !== next) {
+      props.form.styleSettings.serversAlwaysOn = next;
+    }
+  },
+);
+
+watch(
+  () => props.form.styleSettings.extendedServerList,
+  (next: boolean) => {
+    if (next !== railUiPrefs.extendedServerList) {
+      railUiPrefs.setExtendedServerList(next);
+    }
+  },
+);
+
+watch(
+  () => railUiPrefs.extendedServerList,
+  (next) => {
+    if (props.form.styleSettings.extendedServerList !== next) {
+      props.form.styleSettings.extendedServerList = next;
+    }
+  },
+);
 </script>
 
 <template>
@@ -228,18 +267,18 @@ watch(
           id="theme-selection-heading"
           class="theme-selection-panel__label-text"
         >
-          Theme selection
+          {{ echoT('panes.appearance.themeSelection') }}
         </h2>
       </div>
       <p
         v-if="styleSettingsLocked"
         class="mb-4 rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-4 py-3 text-sm text-foreground"
       >
-        Style customization is
-        <span class="font-semibold text-[color:var(--vc-settings-accent-fg)]"
-          >coming soon</span
-        >
-        for everyone.
+        {{ echoT('panes.appearance.styleLockedLead') }}
+        <span class="font-semibold text-[color:var(--vc-settings-accent-fg)]">{{
+          echoT('panes.appearance.comingSoon')
+        }}</span>
+        {{ echoT('panes.appearance.styleLockedTail') }}
       </p>
       <div
         role="radiogroup"
@@ -285,13 +324,13 @@ watch(
             <span
               class="text-[11px] font-bold uppercase leading-tight tracking-[0.12em] text-white"
             >
-              {{ t.id }}
+              {{ echoT(`panes.appearance.themes.${t.id}`) }}
             </span>
             <span
               v-if="themeOptionDisabled(t) && !styleSettingsLocked"
               class="theme-card-caption__sub mt-0.5 text-[9px] font-semibold uppercase tracking-wide"
             >
-              Plus
+              {{ echoT('panes.appearance.plus') }}
             </span>
           </div>
         </button>
@@ -300,10 +339,11 @@ watch(
 
     <div class="grid gap-6 lg:grid-cols-2">
       <div class="settings-card rounded-2xl p-6">
-        <div class="settings-label mb-4">Action rail (desktop)</div>
+        <div class="settings-label mb-4">
+          {{ echoT('panes.appearance.serverRailTitle') }}
+        </div>
         <p class="mb-4 text-sm text-muted">
-          On phones, navigation uses a bottom tab bar. Tablet layouts (600px and
-          up) keep the side rail with a split channel view.
+          {{ echoT('panes.appearance.railDesc') }}
         </p>
         <ActionRailPlacementVisualPicker
           :model-value="form.actionRailPlacement"
@@ -314,7 +354,9 @@ watch(
       </div>
 
       <div class="settings-card rounded-2xl p-6">
-        <div class="settings-label mb-4">Interface Density</div>
+        <div class="settings-label mb-4">
+          {{ echoT('panes.appearance.interfaceDensity') }}
+        </div>
         <div class="flex flex-col gap-3">
           <button
             v-for="d in densityOptions"
@@ -332,8 +374,12 @@ watch(
             @click="!styleSettingsLocked && (form.density = d.id)"
           >
             <div class="text-left">
-              <div class="text-sm font-bold text-foreground">{{ d.id }}</div>
-              <div class="text-xs text-muted mt-0.5">{{ d.desc }}</div>
+              <div class="text-sm font-bold text-foreground">
+                {{ echoT(`panes.appearance.density.${d.id}`) }}
+              </div>
+              <div class="text-xs text-muted mt-0.5">
+                {{ echoT(`panes.appearance.density.${d.id}Desc`) }}
+              </div>
             </div>
             <div
               class="h-5 w-5 rounded-full border-2 border-border flex items-center justify-center"
@@ -349,7 +395,9 @@ watch(
       </div>
 
       <div class="settings-card rounded-2xl p-6">
-        <div class="settings-label mb-4">Appearance Settings</div>
+        <div class="settings-label mb-4">
+          {{ echoT('panes.appearance.appearanceSettings') }}
+        </div>
         <div class="flex flex-col gap-3">
           <button
             type="button"
@@ -365,12 +413,13 @@ watch(
             "
           >
             <span
-              ><span class="block text-sm font-semibold text-foreground"
-                >Sync with system</span
+              ><span class="block text-sm font-semibold text-foreground">{{
+                echoT('panes.appearance.syncSystem')
+              }}</span
               ><span class="block text-sm text-muted text-left">{{
                 styleSettingsLocked
-                  ? 'Coming soon — style settings are temporarily unavailable for everyone.'
-                  : 'Match your OS light/dark mode.'
+                  ? echoT('settingsUi.styleComingSoon')
+                  : echoT('settingsUi.matchOsTheme')
               }}</span></span
             >
             <span
@@ -395,15 +444,72 @@ watch(
             "
           >
             <span
-              ><span class="block text-sm font-semibold text-foreground"
-                >Vibrant Accents</span
-              ><span class="block text-sm text-muted text-left"
-                >Stronger accent, mention, and ping colors across the app.</span
-              ></span
+              ><span class="block text-sm font-semibold text-foreground">{{
+                echoT('panes.appearance.vibrantAccents')
+              }}</span
+              ><span class="block text-sm text-muted text-left">{{
+                echoT('panes.appearance.vibrant')
+              }}</span></span
             >
             <span
               :class="
                 form.styleSettings.saturateAccents
+                  ? 'toggle-pill toggle-pill--on'
+                  : 'toggle-pill'
+              "
+            />
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-card rounded-2xl p-6">
+        <div class="settings-label mb-4">
+          {{ echoT('panes.appearance.railTitle') }}
+        </div>
+        <div class="flex flex-col gap-3">
+          <button
+            type="button"
+            class="settings-toggle"
+            @click="
+              form.styleSettings.serversAlwaysOn =
+                !form.styleSettings.serversAlwaysOn
+            "
+          >
+            <span
+              ><span class="block text-sm font-semibold text-foreground">{{
+                echoT('panes.appearance.serversAlwaysOn')
+              }}</span
+              ><span class="block text-sm text-muted text-left">{{
+                echoT('panes.appearance.serversAlwaysOnDesc')
+              }}</span></span
+            >
+            <span
+              :class="
+                form.styleSettings.serversAlwaysOn
+                  ? 'toggle-pill toggle-pill--on'
+                  : 'toggle-pill'
+              "
+            />
+          </button>
+          <button
+            type="button"
+            class="settings-toggle"
+            @click="
+              form.styleSettings.extendedServerList =
+                !form.styleSettings.extendedServerList
+            "
+          >
+            <span
+              ><span class="block text-sm font-semibold text-foreground">{{
+                echoT('panes.appearance.extendedList')
+              }}</span
+              ><span class="block text-sm text-muted text-left">{{
+                echoT('panes.appearance.extendedListDesc')
+              }}</span></span
+            >
+            <span
+              :class="
+                form.styleSettings.extendedServerList
                   ? 'toggle-pill toggle-pill--on'
                   : 'toggle-pill'
               "

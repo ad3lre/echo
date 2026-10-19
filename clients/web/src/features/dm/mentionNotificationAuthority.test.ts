@@ -85,6 +85,51 @@ describe('mentionNotificationAuthority', () => {
     ]);
   });
 
+  it('anchors stubs on latestUnreadMentionMessageId, not a newer non-mention', () => {
+    const channelId = '00000000-0000-4000-8000-000000000015';
+    const rows = buildAttentionStubMentionRows({
+      channelAttentionByChannelId: {
+        [channelId]: serverSummary({
+          channelId,
+          unreadCount: 3,
+          pingKind: 'broadcast',
+          latestUnreadMessageId: '1420070400000000099',
+          latestUnreadMentionMessageId: '1420070400000000001',
+        }),
+      },
+      readStateByChannelId: {},
+      serverNotificationLevelByServerId: { 'server-1': 'all' },
+      resolveChannelLabel: () => 'bridge',
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        channelId,
+        messageId: '1420070400000000001',
+        preview: MENTION_NOTIFICATION_STUB_PREVIEW,
+      }),
+    ]);
+  });
+
+  it('skips phantom stubs when multi-unread and no mention-specific id', () => {
+    const channelId = '00000000-0000-4000-8000-000000000016';
+    const rows = buildAttentionStubMentionRows({
+      channelAttentionByChannelId: {
+        [channelId]: serverSummary({
+          channelId,
+          unreadCount: 4,
+          pingKind: 'broadcast',
+          latestUnreadMessageId: '1420070400000000099',
+        }),
+      },
+      readStateByChannelId: {},
+      serverNotificationLevelByServerId: { 'server-1': 'all' },
+      resolveChannelLabel: () => 'bridge',
+    });
+
+    expect(rows).toEqual([]);
+  });
+
   it('applyMentionNotificationHydrationFailures replaces unresolved stub previews', () => {
     const channelId = '00000000-0000-4000-8000-000000000012';
     const rows = buildAttentionStubMentionRows({

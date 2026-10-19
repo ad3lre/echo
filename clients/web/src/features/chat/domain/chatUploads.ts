@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import {
   ECHO_CLIENT_RAW_IMAGE_MAX_BYTES,
   ECHO_CLIENT_RAW_VIDEO_MAX_BYTES,
@@ -66,7 +67,7 @@ export function assertChatUploadFilesWithinClientLimits(opts: {
 }
 
 export function formatChatUploadErrorMessage(error: unknown): string {
-  if (!(error instanceof Error)) return 'Failed to send message';
+  if (!(error instanceof Error)) return echoT('chat.status.failedToSend');
   const message = error.message;
   if (
     /UPLOADS_NOT_CONFIGURED|503/i.test(message) ||

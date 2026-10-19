@@ -1,0 +1,88 @@
+{
+  "tabs": {
+    "overview": {
+      "title": "Übersicht",
+      "description": "Lege Kanalname, Kategorie, Langsammodus und weitere Kanaloptionen fest."
+    },
+    "permissions": {
+      "title": "Berechtigungen",
+      "description": "Steuere, wer diesen Kanal sehen kann und was dort erlaubt ist."
+    },
+    "webhooks": {
+      "title": "Eingehende Links",
+      "description": "Erlaube freigegebenen Apps, über einen hier erstellten privaten Link Nachrichten in diesen Kanal zu senden."
+    },
+    "discord_sync": {
+      "title": "Discord-Nachrichten",
+      "description": "Halte Nachrichten zwischen diesem Echo-Kanal und einem verknüpften Discord-Kanal synchron."
+    },
+    "discord_voice_mirror": {
+      "title": "Discord-Sprachaktivität",
+      "description": "Zeige in diesem Echo-Kanal, wer in Discord im Sprachkanal ist. Tritt in Discord dem Sprachkanal bei, um teilzunehmen."
+    },
+    "forum_creator": {
+      "title": "Forum-Standards",
+      "description": "Standardsortierung, Tags und Regeln für neue Forum-Threads."
+    },
+    "format": {
+      "title": "Format",
+      "description": "Langsammodus, automatisches Löschen und weitere Formatierungsoptionen für den Kanal."
+    },
+    "danger_zone": {
+      "title": "Gefahrenzone",
+      "description": "Sensible Aktionen, die diesen Kanal dauerhaft entfernen. Gehe vorsichtig vor."
+    },
+    "discord_chat_sync": {
+      "title": "Discord-Nachrichten (Kategorie)",
+      "description": "Aktiviere die gleiche Discord-Nachrichtenverknüpfung für jeden Text- und Forumkanal in dieser Kategorie."
+    }
+  },
+  "permissions": {
+    "viewChannel": "Kanal ansehen",
+    "manageChannel": "Kanal verwalten",
+    "managePermissions": "Berechtigungen verwalten",
+    "manageWebhooks": "Eingehende Links verwalten",
+    "createInvite": "Einladung erstellen",
+    "connect": "Verbinden",
+    "speak": "Sprechen",
+    "useVoiceActivity": "Sprachaktivierung verwenden",
+    "video": "Video",
+    "prioritySpeaker": "Prioritätssprecher verwenden",
+    "stream": "Streamen",
+    "requestToSpeak": "Um Redeerlaubnis bitten",
+    "muteMembers": "Mitglieder stummschalten",
+    "deafenMembers": "Mitglieder taubschalten",
+    "moveMembers": "Mitglieder verschieben",
+    "useEmbeddedActivities": "Aktivitäten nutzen",
+    "useSoundboard": "Soundboard nutzen",
+    "useExternalSounds": "Externe Sounds nutzen",
+    "createEvents": "Events erstellen",
+    "manageEvents": "Events verwalten",
+    "sendMessages": "Nachrichten senden",
+    "readMessageHistory": "Nachrichtenverlauf lesen",
+    "manageMessages": "Nachrichten verwalten",
+    "bypassSlowmode": "Langsammodus umgehen",
+    "sendTTS": "Text-zu-Sprache-Nachrichten senden",
+    "embedLinks": "Links einbetten",
+    "attachFiles": "Dateien anhängen",
+    "sendVoiceMessages": "Sprachnachrichten senden",
+    "addReactions": "Reaktionen hinzufügen",
+    "useExternalEmoji": "Externe Emojis verwenden",
+    "useExternalStickers": "Externe Sticker verwenden",
+    "mentionEveryone": "Alle Rollen erwähnen",
+    "useApplicationCommands": "App-Befehle verwenden",
+    "useExternalApps": "Externe Apps verwenden",
+    "createPolls": "Umfragen erstellen",
+    "sendMessagesInThreads": "Nachrichten in Threads senden",
+    "createPublicThreads": "Öffentliche Threads erstellen",
+    "createPrivateThreads": "Private Threads erstellen",
+    "manageThreads": "Threads verwalten",
+    "commentOnPaper": "Paper kommentieren",
+    "paper": {
+      "sendMessages": "Als Autor im Paper schreiben",
+      "manageMessages": "Kommentare verwalten",
+      "readMessageHistory": "Paper herunterladen / exportieren",
+      "commentOnPaper": "Paper kommentieren"
+    }
+  }
+}

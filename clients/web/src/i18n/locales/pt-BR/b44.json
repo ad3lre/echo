@@ -1,0 +1,96 @@
+{
+  "attach": {
+    "lottieSticker": "Sticker Lottie",
+    "clickToReveal": "— Clique para revelar",
+    "hide": "Ocultar",
+    "image": "Imagem"
+  },
+  "emojiInspect": {
+    "details": "Detalhes do emoji",
+    "animated": "Animado"
+  },
+  "docx": {
+    "missingUrl": "URL do documento ausente.",
+    "close": "Fechar",
+    "loading": "Carregando documento…",
+    "download": "Baixar {name}"
+  },
+  "vcCamera": {
+    "title": "Configuração da câmera",
+    "camera": "Câmera",
+    "cancel": "Cancelar",
+    "start": "Iniciar vídeo",
+    "help": "Escolha uma câmera da lista para visualizar e conceder acesso. A qualidade do vídeo é configurada em Configurações → Voz e vídeo."
+  },
+  "guest": {
+    "intro": "Primeiro um perfil simples (foto, nome, identificador). Depois proteja a conta com e-mail e senha.",
+    "uploadFailed": "Não foi possível enviar a foto de perfil: {detail}",
+    "created": "Conta criada — verifique {email} pelo link que enviamos e depois entre.",
+    "yourEmail": "seu e-mail",
+    "creating": "Criando…"
+  },
+  "paperPreset": {
+    "presets": "Predefinições",
+    "size": "Tamanho",
+    "fontSizePresets": "Predefinições de tamanho da fonte"
+  },
+  "layoutModals": {
+    "member": "Membro",
+    "server": "Servidor"
+  },
+  "chatSurface": {
+    "resizeMemberPanel": "Redimensionar painel de membros"
+  },
+  "discordOrigin": {
+    "fromDiscord": "Do Discord"
+  },
+  "pollEmoji": {
+    "change": "Alterar emoji",
+    "add": "Adicionar emoji",
+    "noMatch": "Nenhum emoji corresponde a \"{query}\"",
+    "remove": "Remover emoji"
+  },
+  "upload": {
+    "preparingImage": "Preparando imagem",
+    "preparingFile": "Preparando arquivo",
+    "checking": "Verificando envio",
+    "finalizing": "Finalizando",
+    "complete": "Concluído",
+    "percent": "Envio {percent}%",
+    "progress": "Progresso do envio"
+  },
+  "attachPopout": {
+    "upload": "Enviar arquivo",
+    "uploadHint": "Imagens, documentos e mais",
+    "poll": "Criar enquete",
+    "pollHint": "Faça uma pergunta com opções"
+  },
+  "legal": {
+    "title": "Jurídico",
+    "subtitle": "Revise os Termos de Serviço e a Política de Privacidade.",
+    "close": "Fechar documentos legais",
+    "docs": "Documentos legais"
+  },
+  "paperDesign": {
+    "pagePresets": "Predefinições de página",
+    "presets": {
+      "white": "Branco",
+      "cream": "Creme",
+      "warm": "Quente",
+      "amber": "Âmbar",
+      "mint": "Menta",
+      "sky": "Céu",
+      "lavender": "Lavanda"
+    }
+  },
+  "vcActivity": {
+    "inProgress": "{label} em andamento",
+    "eyebrow": "Em atividade",
+    "subtitle": "Entre na mesma sessão que todos na chamada de voz",
+    "joinLabel": "Entrar em {label}",
+    "join": "Entrar na atividade"
+  },
+  "badges": {
+    "profile": "Insígnias do perfil"
+  }
+}

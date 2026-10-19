@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type {
   Embed,
   MessageAttachmentPayload,
@@ -196,16 +197,19 @@ export function channelActiveMessagesFingerprint(
   const head = `${channelId}${KEY_SEP}${orderRevision}${KEY_SEP}${orderedIds.length}${KEY_SEP}`;
   if (orderedIds.length === 0) return head;
   let acc = head;
+  // Presence is folded once per unique author (not per message) so a single
+  // presence:update does not re-hash every row body in large channels.
+  const seenAuthors = new Set<string>();
   for (let i = 0; i < orderedIds.length; i += 1) {
     const id = orderedIds[i]!;
     const m = entitiesById.get(id);
     if (!m) continue;
     if (i > 0) acc += KEY_SEP;
-    acc += messageWithAuthorCacheKey(
-      m,
-      lookup.get(m.authorId),
-      presenceByUserId[m.authorId],
-    );
+    acc += messageWithAuthorCacheKey(m, lookup.get(m.authorId), undefined);
+    seenAuthors.add(m.authorId);
+  }
+  for (const authorId of seenAuthors) {
+    acc += `${KEY_SEP}p:${authorId}:${presenceByUserId[authorId] ?? ''}`;
   }
   return acc;
 }
@@ -236,7 +240,7 @@ export function buildMessageWithAuthor(
       }
     : {
         id: msg.authorId,
-        name: msg.authorDisplayName?.trim() || 'Unknown',
+        name: msg.authorDisplayName?.trim() || echoT('chat.labels.unknown'),
         avatar: messagePfp,
         ...(st ? { status: st } : {}),
         ...(shadow ? { isDiscordShadow: true } : {}),

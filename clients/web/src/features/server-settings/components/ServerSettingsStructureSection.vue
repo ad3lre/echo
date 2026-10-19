@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   onBeforeUnmount,
@@ -658,19 +659,17 @@ onBeforeUnmount(() => {
 <template>
   <div class="space-y-6 pb-6">
     <p v-if="busy" class="text-xs font-medium text-accent" aria-live="polite">
-      Applying…
+      {{ echoT('b21.structure.applying') }}
     </p>
 
     <section v-if="canReorderChannels" class="rounded-xl bg-glass-1 p-4 sm:p-5">
       <h4
         class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-subtle"
       >
-        Moving channels between categories
+        {{ echoT('b21.structure.movingTitle') }}
       </h4>
       <p class="mb-3 text-sm leading-snug text-fg-soft">
-        When you drag a channel into another category, choose whether its
-        permission overwrites should match that category (inherit its permission
-        rows) or stay independent.
+        {{ echoT('b21.structure.movingDesc') }}
       </p>
       <div class="flex flex-col gap-2 text-sm text-fg">
         <label
@@ -684,10 +683,11 @@ onBeforeUnmount(() => {
             :name="`echo-channel-move-perm-${props.serverId ?? 'global'}`"
           />
           <span>
-            <span class="font-medium text-fg">Keep channel overrides</span>
+            <span class="font-medium text-fg">{{
+              echoT('b21.structure.keepTitle')
+            }}</span>
             <span class="mt-0.5 block text-xs text-fg-subtle">
-              Leave the channel’s permission rows as they are (recommended if
-              you customized this channel).
+              {{ echoT('b21.structure.keepDesc') }}
             </span>
           </span>
         </label>
@@ -702,11 +702,11 @@ onBeforeUnmount(() => {
             :name="`echo-channel-move-perm-${props.serverId ?? 'global'}`"
           />
           <span>
-            <span class="font-medium text-fg">Sync with category</span>
+            <span class="font-medium text-fg">{{
+              echoT('b21.structure.syncTitle')
+            }}</span>
             <span class="mt-0.5 block text-xs text-fg-subtle">
-              Clear the channel’s permission overwrites so it inherits from the
-              destination category (same as “Sync with category” in channel
-              settings).
+              {{ echoT('b21.structure.syncDesc') }}
             </span>
           </span>
         </label>
@@ -721,10 +721,11 @@ onBeforeUnmount(() => {
             :name="`echo-channel-move-perm-${props.serverId ?? 'global'}`"
           />
           <span>
-            <span class="font-medium text-fg">Decide each time</span>
+            <span class="font-medium text-fg">{{
+              echoT('b21.structure.askTitle')
+            }}</span>
             <span class="mt-0.5 block text-xs text-fg-subtle">
-              Prompt on each channel move so you can pick keep or sync per
-              action.
+              {{ echoT('b21.structure.askDesc') }}
             </span>
           </span>
         </label>
@@ -738,10 +739,10 @@ onBeforeUnmount(() => {
       <h4
         class="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-subtle"
       >
-        Category order
+        {{ echoT('b21.structure.categoryOrder') }}
       </h4>
       <p class="mb-3 text-sm text-fg-soft">
-        Drag entire categories to change how they appear in the channel list.
+        {{ echoT('b21.structure.categoryOrderDesc') }}
       </p>
       <div @dragover.capture="onCategoryListDragOverCapture">
         <div v-for="(cat, i) in realCategories" :key="cat.id" class="relative">
@@ -766,7 +767,7 @@ onBeforeUnmount(() => {
                   ? 'text-fg-soft opacity-70 hover:opacity-100'
                   : 'pointer-events-none opacity-25'
               "
-              title="Drag to reorder category"
+              :title="echoT('b21.structure.dragCategory')"
               aria-hidden="true"
               :draggable="!busy && canReorderCategories"
               @dragstart="onCatDragStart(cat.id, $event)"
@@ -799,7 +800,7 @@ onBeforeUnmount(() => {
                 type="button"
                 class="echo-settings-field-btn rounded-md px-1.5 py-1 text-[10px] font-semibold transition hover:border-[var(--echo-control-border-hover)] hover:text-fg"
                 :disabled="busy || categoryPosition(cat.id) <= 1"
-                title="Move category up"
+                :title="echoT('b21.structure.moveCategoryUp')"
                 @click.stop="nudgeCategory(cat.id, -1)"
               >
                 ↑
@@ -810,7 +811,7 @@ onBeforeUnmount(() => {
                 :disabled="
                   busy || categoryPosition(cat.id) >= realCategoryIds.length
                 "
-                title="Move category down"
+                :title="echoT('b21.structure.moveCategoryDown')"
                 @click.stop="nudgeCategory(cat.id, 1)"
               >
                 ↓
@@ -822,7 +823,7 @@ onBeforeUnmount(() => {
                 :max="realCategoryIds.length"
                 :value="displayCatDraft(cat.id)"
                 :disabled="busy"
-                title="Set category position"
+                :title="echoT('b21.structure.setCategoryPosition')"
                 @click.stop
                 @focus="onCatPosFocus(cat.id)"
                 @input="onCatPosInput(cat.id, $event)"
@@ -865,7 +866,11 @@ onBeforeUnmount(() => {
           <span
             class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-soft"
           >
-            {{ topLevelChannels(cat.channels).length }} channels
+            {{
+              echoT('b21.structure.channelCount', {
+                count: topLevelChannels(cat.channels).length,
+              })
+            }}
           </span>
         </div>
       </div>
@@ -873,7 +878,7 @@ onBeforeUnmount(() => {
         v-if="!topLevelChannels(cat.channels).length"
         class="text-sm text-fg-subtle"
       >
-        No channels in this category.
+        {{ echoT('b21.structure.noChannelsInCategory') }}
       </p>
       <div v-else @dragover.capture="onChannelListDragOverCapture">
         <div
@@ -919,7 +924,7 @@ onBeforeUnmount(() => {
                   ? 'text-fg-soft opacity-70 hover:opacity-100'
                   : 'pointer-events-none opacity-25'
               "
-              title="Drag to reorder channel"
+              :title="echoT('serverSettingsUi.dragToReorderChannel')"
               aria-hidden="true"
               :draggable="!busy && canReorderChannels"
               @dragstart="
@@ -964,12 +969,12 @@ onBeforeUnmount(() => {
             <span
               v-if="ch.type === 'voice'"
               class="shrink-0 text-[10px] font-semibold uppercase text-fg-subtle"
-              >Voice</span
+              >{{ echoT('b21.structure.voice') }}</span
             >
             <span
               v-else-if="ch.type === 'forum'"
               class="shrink-0 text-[10px] font-semibold uppercase text-fg-subtle"
-              >Forum</span
+              >{{ echoT('b21.structure.forum') }}</span
             >
             <div class="flex shrink-0 items-center gap-1.5">
               <button
@@ -982,7 +987,7 @@ onBeforeUnmount(() => {
                     ch.id,
                   ) <= 1
                 "
-                title="Move channel up"
+                :title="echoT('serverSettingsUi.moveChannelUp')"
                 @click.stop="
                   nudgeChannel(bucketKeyForCategory(cat), cat, ch.id, -1)
                 "
@@ -999,7 +1004,7 @@ onBeforeUnmount(() => {
                     ch.id,
                   ) >= topLevelChannels(cat.channels).length
                 "
-                title="Move channel down"
+                :title="echoT('serverSettingsUi.moveChannelDown')"
                 @click.stop="
                   nudgeChannel(bucketKeyForCategory(cat), cat, ch.id, 1)
                 "
@@ -1019,7 +1024,7 @@ onBeforeUnmount(() => {
                   )
                 "
                 :disabled="busy"
-                title="Set channel position"
+                :title="echoT('b21.structure.setChannelPosition')"
                 @click.stop
                 @focus="
                   onChPosFocus(
@@ -1088,18 +1093,21 @@ onBeforeUnmount(() => {
           <h4
             class="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-soft"
           >
-            Other channels
+            {{ echoT('b21.structure.otherChannels') }}
           </h4>
           <span
             class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-soft"
           >
-            {{ mergedHideTopLevel.length }} channels
+            {{
+              echoT('b21.structure.channelCount', {
+                count: mergedHideTopLevel.length,
+              })
+            }}
           </span>
         </div>
       </div>
       <p class="mb-3 text-sm text-fg-soft">
-        Channels not grouped under a category header share one order (same as
-        the sidebar).
+        {{ echoT('b21.structure.otherChannelsDesc') }}
       </p>
       <div @dragover.capture="onChannelListDragOverCapture">
         <div
@@ -1137,7 +1145,7 @@ onBeforeUnmount(() => {
                   ? 'text-fg-soft opacity-70 hover:opacity-100'
                   : 'pointer-events-none opacity-25'
               "
-              title="Drag to reorder channel"
+              :title="echoT('serverSettingsUi.dragToReorderChannel')"
               aria-hidden="true"
               :draggable="!busy && canReorderChannels && !!hideBucketAnchor"
               @dragstart="onMergedHideDragStart(ch.id, $event)"
@@ -1180,12 +1188,12 @@ onBeforeUnmount(() => {
             <span
               v-if="ch.type === 'voice'"
               class="shrink-0 text-[10px] font-semibold uppercase text-fg-subtle"
-              >Voice</span
+              >{{ echoT('b21.structure.voice') }}</span
             >
             <span
               v-else-if="ch.type === 'forum'"
               class="shrink-0 text-[10px] font-semibold uppercase text-fg-subtle"
-              >Forum</span
+              >{{ echoT('b21.structure.forum') }}</span
             >
             <div class="flex shrink-0 items-center gap-1.5">
               <button
@@ -1198,7 +1206,7 @@ onBeforeUnmount(() => {
                     ch.id,
                   ) <= 1
                 "
-                title="Move channel up"
+                :title="echoT('serverSettingsUi.moveChannelUp')"
                 @click.stop="
                   hideBucketAnchor
                     ? nudgeChannel(MERGED_HIDE_KEY, hideBucketAnchor, ch.id, -1)
@@ -1217,7 +1225,7 @@ onBeforeUnmount(() => {
                     ch.id,
                   ) >= mergedHideTopLevel.length
                 "
-                title="Move channel down"
+                :title="echoT('serverSettingsUi.moveChannelDown')"
                 @click.stop="
                   hideBucketAnchor
                     ? nudgeChannel(MERGED_HIDE_KEY, hideBucketAnchor, ch.id, 1)
@@ -1238,7 +1246,7 @@ onBeforeUnmount(() => {
                   )
                 "
                 :disabled="busy || !hideBucketAnchor"
-                title="Set channel position"
+                :title="echoT('b21.structure.setChannelPosition')"
                 @click.stop
                 @focus="
                   onMergedPosFocus(
@@ -1295,7 +1303,7 @@ onBeforeUnmount(() => {
       "
       class="text-sm text-fg-subtle"
     >
-      No channels to show yet.
+      {{ echoT('b21.structure.noChannelsYet') }}
     </p>
   </div>
 </template>

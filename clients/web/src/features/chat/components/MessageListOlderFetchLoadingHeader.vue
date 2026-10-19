@@ -1,3 +1,7 @@
+<script setup lang="ts">
+import { echoT } from '@/i18n';
+</script>
+
 <template>
   <div
     class="message-list-older-fetch-header flex items-center justify-center gap-2 py-3"
@@ -11,7 +15,9 @@
       <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
       <circle class="echo-ios-spinner__arc" cx="22" cy="22" r="18" />
     </svg>
-    <span class="text-xs font-medium text-muted">Loading older messages</span>
+    <span class="text-xs font-medium text-muted">{{
+      echoT('chat.status.loadingOlder')
+    }}</span>
   </div>
 </template>
 

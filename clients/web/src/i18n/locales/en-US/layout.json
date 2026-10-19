@@ -1,0 +1,100 @@
+{
+  "toast": {
+    "featureNotAvailable": "Feature not available yet",
+    "somethingWentWrongReload": "Something went wrong. Try again or reload.",
+    "writeReply": "Write a reply…"
+  },
+  "tabs": {
+    "home": "Home",
+    "servers": "Servers",
+    "explore": "Explore",
+    "mainNavigation": "Main navigation"
+  },
+  "splash": {
+    "slowAria": "Loading is taking longer than usual",
+    "stillLoading": "Still loading…",
+    "canHappenWhen": "This can happen when:",
+    "slowConnection": "Your connection is slow or unstable",
+    "firstVisit": "This is your first visit (the app is downloading in the background)",
+    "blockedScripts": "A browser extension or strict privacy mode is blocking scripts",
+    "tryRefresh": "If nothing changes after a while, try refreshing the page."
+  },
+  "loadError": {
+    "timeout": "The download took too long and was stopped. Check your network and try again.",
+    "unreachable": "We could not reach the server to load this part of the app. Check your connection.",
+    "title": "Couldn’t load Echo",
+    "generic": "Something went wrong while loading the app. Try refreshing, or come back in a moment."
+  },
+  "deploy": {
+    "updateInProgress": "Update in progress",
+    "restartingSoon": "Restarting soon",
+    "secondsUntilRestart": "Seconds until restart",
+    "reconnecting": "Reconnecting automatically when the server is back…",
+    "dismiss": "Dismiss",
+    "welcomeBack": "Welcome back — Echo is online",
+    "dismissNoticeAria": "Dismiss update notice"
+  },
+  "realtime": {
+    "reconnecting": "Reconnecting",
+    "connected": "Connected"
+  },
+  "pins": {
+    "title": "Pinned messages",
+    "empty": "No pinned messages in this channel.",
+    "close": "Close"
+  },
+  "members": {
+    "searchServer": "Search {server}",
+    "search": "Search"
+  },
+  "myServers": {
+    "empty": "No servers found"
+  },
+  "mobile": {
+    "inviteUnavailable": "Invite is unavailable. Refresh and try again.",
+    "serverSettingsUnavailable": "Server settings are unavailable. Refresh and try again.",
+    "notificationSettingsUnavailable": "Notification settings are unavailable. Refresh and try again.",
+    "voiceSettingsUnavailable": "Voice settings are unavailable. Refresh and try again.",
+    "channels": "Channels",
+    "closeChannels": "Close channels",
+    "done": "Done",
+    "members": "Members",
+    "yourProfile": "Your profile",
+    "openYourProfile": "Open your profile",
+    "settings": "Settings",
+    "openSettings": "Open settings",
+    "serversTitle": "Servers",
+    "serversHintAll": "All your servers — pick one to open channels and chat.",
+    "serversHintPick": "Pick a server to open channels and chat.",
+    "noServersYet": "No servers yet",
+    "joinFromExplore": "Join one from Explore to get started."
+  },
+  "rail": {
+    "profilePicture": "{name} profile picture",
+    "serverIcon": "{name} icon",
+    "laneOptions": "{title} options",
+    "markAllRead": "Mark all as read",
+    "directMessages": "Direct messages",
+    "servers": "Servers",
+    "yourProfile": "Your profile",
+    "reportBug": "Report a bug",
+    "currentProfile": "Current profile",
+    "inCall": "in call",
+    "unreadCount": "{count} unread",
+    "openGroupMessage": "Open group message — {name}{suffix}",
+    "openDirectMessageFrom": "Open direct message from {name}{suffix}",
+    "unreadDirectMessages": "Unread direct messages",
+    "moreUnreadDms": "{count} more unread direct messages — open inbox",
+    "logoSettingsTitle": "Settings",
+    "logoSignInTitle": "Sign in to open settings",
+    "logoOpenSettings": "Open settings",
+    "logoAlt": "Echo Logo",
+    "serverOptions": "Server options",
+    "serverSettings": "Server settings",
+    "invitePeople": "Invite people",
+    "notificationSettings": "Notification settings",
+    "markAsRead": "Mark as read",
+    "copyServerId": "Copy server ID",
+    "leaveServer": "Leave server"
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "audit": {
+    "filters": "Audit filters",
+    "clear": "Clear filters",
+    "tabsAria": "Audit log tabs",
+    "actor": "Actor",
+    "timeWindow": "Time window",
+    "feed": "Event feed",
+    "feedDesc": "Recent moderation and administrative actions across the server.",
+    "empty": "No audit events match these filters.",
+    "emptyHint": "Try clearing filters or broadening the time window to see more activity.",
+    "time": {
+      "All": "All time",
+      "1h": "Last 1 hour",
+      "6h": "Last 6 hours",
+      "12h": "Last 12 hours",
+      "24h": "Last 24 hours",
+      "3d": "Last 3 days",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days"
+    },
+    "filterHelp": "Filter by category, actor, or time. Open {actor} and use the search field to find someone in the list.",
+    "entries": "{count} entries"
+  },
+  "paperShape": {
+    "toolbar": "Shape formatting",
+    "decrease": "Decrease shape size",
+    "increase": "Increase shape size",
+    "size": "Shape size",
+    "fillColor": "Fill color",
+    "borderColor": "Border color",
+    "borderWidth": "Border width",
+    "borderStyle": "Border style",
+    "addImage": "Add image to shape",
+    "removeImage": "Remove shape image",
+    "position": "Position",
+    "alignLeft": "Align left",
+    "alignCenter": "Align center",
+    "alignRight": "Align right",
+    "noBorder": "No border",
+    "sizes": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large"
+    },
+    "styles": {
+      "solid": "Solid",
+      "dashed": "Dashed",
+      "dotted": "Dotted"
+    }
+  },
+  "ringtone": {
+    "title": "Ringtone",
+    "settings": "Ringtone settings",
+    "previous": "Previous",
+    "next": "Next",
+    "hideList": "Hide ringtone list",
+    "browse": "Browse ringtones — click to show list",
+    "unmute": "Unmute ringtone",
+    "volume": "Volume"
+  },
+  "profileModal": {
+    "mutualServers": "Mutual Servers",
+    "mutualFriends": "Mutual Friends",
+    "discordNotOnEcho": "Discord profile (not on Echo)",
+    "checkingFriendship": "Checking friendship...",
+    "acceptRequest": "Accept friend request",
+    "pendingRequest": "Pending friend request",
+    "decline": "Decline",
+    "declineRequest": "Decline request",
+    "rolesInServer": "Roles in this server",
+    "member": "Member",
+    "aboutMe": "ABOUT ME",
+    "note": "NOTE",
+    "close": "Close",
+    "noMutualServers": "No mutual servers",
+    "noMutualFriends": "No mutual friends"
+  }
+}

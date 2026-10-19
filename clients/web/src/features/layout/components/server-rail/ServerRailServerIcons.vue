@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { echoT } from '@/i18n';
 import type { Server } from '@shared/types';
 import type { ServerPingBubbleDisplay } from '@shared/attentionPing';
 import type { ServerNotificationLevel } from '@/features/server-notifications/types';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import {
   type ServerPingChannelDotsForServerRail,
   type ServerPingKind,
@@ -81,7 +82,7 @@ function pingDotRingStyle(
 
 function serverIconTitle(server: Server, reorder: boolean): string {
   const hasActiveVoice = !!props.serverActiveVoiceByServerId?.[server.id];
-  const voiceLine = hasActiveVoice ? 'Active voice channel' : '';
+  const voiceLine = hasActiveVoice ? echoT('b38.rail.activeVoice') : '';
   const dotPack = props.serverPingChannelDots?.[server.id];
   const bubble = props.serverPingBubbles?.[server.id];
   const pingLine = dotPack?.dots?.length
@@ -100,7 +101,7 @@ function serverIconTitle(server: Server, reorder: boolean): string {
     : '';
   const plainUnreadLine =
     props.unreadBadgeEnabled && props.serverUnreadActivityDot?.[server.id]
-      ? 'Unread messages'
+      ? echoT('b38.rail.unread')
       : '';
   if (reorder) {
     const statusBits = [
@@ -110,7 +111,7 @@ function serverIconTitle(server: Server, reorder: boolean): string {
     const base = statusBits.length
       ? `${server.name} — ${statusBits.join('. ')}. `
       : `${server.name}. `;
-    return `${base}Hold and drag to reorder.`;
+    return `${base}${echoT('b38.rail.dragHint')}`;
   }
   if (voiceLine && pingLine)
     return `${server.name} — ${voiceLine}. ${pingLine}`;
@@ -529,7 +530,7 @@ function horizontalRingIconCssUrl(server: Server): string {
               }
             : undefined
         "
-        :title="`${moreServersCount} more servers`"
+        :title="echoT('b38.rail.moreServers', { count: moreServersCount })"
         @click="emit('toggle-more-servers')"
         @contextmenu="onMoreServersContextMenu"
       >

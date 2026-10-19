@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import type { CSSProperties } from 'vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import type { MoreServersMockServer } from '@/features/layout/composables/more-servers/useMoreServers';
@@ -76,7 +77,11 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
         "
         class="rounded-lg border border-dashed border-[color-mix(in_srgb,var(--border)_40%,transparent)] px-3 py-4 text-center text-[11px] text-fg-subtle"
       >
-        No servers match “{{ otherServersSearchQuery.trim() }}”.
+        {{
+          echoT('b28.ms.noServersMatch', {
+            query: otherServersSearchQuery.trim(),
+          })
+        }}
       </p>
       <template v-for="item in cardStack" :key="item.key">
         <div
@@ -160,8 +165,10 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
                 <p class="mt-0.5 text-[10px] font-medium text-fg-subtle">
                   {{
                     item.folder.serverIds.length === 1
-                      ? '1 server'
-                      : item.folder.serverIds.length + ' servers'
+                      ? echoT('b28.ms.oneServer')
+                      : echoT('b28.ms.nServers', {
+                          count: item.folder.serverIds.length,
+                        })
                   }}
                 </p>
               </div>
@@ -205,8 +212,8 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
                   class="widget-folder-chevron"
                   :title="
                     isFolderCollapsedInCard(item.folder.id)
-                      ? 'Show servers in folder'
-                      : 'Hide servers in folder'
+                      ? echoT('b28.ms.showServersInFolder')
+                      : echoT('b28.ms.hideServersInFolder')
                   "
                   :aria-expanded="
                     !isFolderCollapsedInCard(item.folder.id) ? 'true' : 'false'
@@ -236,7 +243,7 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
                 <button
                   type="button"
                   class="widget-folder-icon-btn opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-                  title="Folder options"
+                  :title="echoT('b28.ms.folderOptions')"
                   @click.stop="openFolderContextMenu(item.folder.id, $event)"
                 >
                   <svg
@@ -268,17 +275,19 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
           @drop.prevent="onDrop"
         >
           <div class="ungrouped-section__rule">
-            <span class="ungrouped-section__label">Other servers</span>
+            <span class="ungrouped-section__label">{{
+              echoT('b28.ms.otherServers')
+            }}</span>
           </div>
           <div
             v-if="draggingServerId && folders.length > 0"
             class="mt-2 flex flex-wrap items-center gap-1.5 px-1"
             role="group"
-            aria-label="Drop into widget folder"
+            :aria-label="echoT('b28.ms.dropIntoWidgetFolder')"
           >
-            <span class="w-full text-[10px] font-medium text-fg-subtle"
-              >Move into folder:</span
-            >
+            <span class="w-full text-[10px] font-medium text-fg-subtle">{{
+              echoT('b28.ms.moveIntoFolder')
+            }}</span>
             <button
               v-for="f in folders"
               :key="'ungrouped-folder-drop-' + f.id"
@@ -309,7 +318,11 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
             "
             class="mt-2 px-1 text-[10px] text-fg-subtle"
           >
-            No other servers match “{{ otherServersSearchQuery.trim() }}”.
+            {{
+              echoT('b28.ms.noOtherServersMatch', {
+                query: otherServersSearchQuery.trim(),
+              })
+            }}
           </p>
         </div>
         <article
@@ -342,7 +355,7 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
               : '',
           ]"
           draggable="true"
-          title="Drag to move between folders"
+          :title="echoT('b28.ms.dragToMove')"
           @dragstart="onCardServerDragStart(item.server, $event)"
           @dragend="onDragEnd"
           @dragover.prevent="
@@ -393,22 +406,26 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
                   <span
                     v-if="item.inFolderName"
                     class="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-fg-soft"
-                    :title="'In widget folder: ' + item.inFolderName"
+                    :title="
+                      echoT('b28.ms.inWidgetFolder', {
+                        name: item.inFolderName,
+                      })
+                    "
                   >
-                    Folder
+                    {{ echoT('b28.ms.folder') }}
                   </span>
                   <span
                     v-if="isPinned(item.server.id)"
                     class="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-contrast-fg)]"
                   >
-                    Pinned
+                    {{ echoT('b28.ms.pinned') }}
                   </span>
                   <svg
                     v-if="item.server.verified"
                     class="h-3.5 w-3.5 shrink-0 text-sky-400"
                     viewBox="0 0 24 24"
                     fill="currentColor"
-                    aria-label="Verified"
+                    :aria-label="echoT('b28.ms.verified')"
                   >
                     <path
                       d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
@@ -430,10 +447,12 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
                     <span
                       class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"
                     />
-                    {{ item.server.online }} online
+                    {{ echoT('b28.ms.nOnline', { count: item.server.online }) }}
                   </span>
                   <span class="text-fg-subtle">·</span>
-                  <span>{{ item.server.members }} members</span>
+                  <span>{{
+                    echoT('b28.ms.nMembers', { count: item.server.members })
+                  }}</span>
                 </div>
               </div>
             </div>
@@ -461,7 +480,7 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
                 data-no-card-drag
                 @click="openServer(item.server.id)"
               >
-                Open
+                {{ echoT('b28.ms.open') }}
               </button>
               <button
                 type="button"
@@ -470,8 +489,8 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
                 :class="isPinned(item.server.id) ? 'card-icon-btn--active' : ''"
                 :title="
                   isPinned(item.server.id)
-                    ? 'Unpin from server list'
-                    : 'Pin to server list'
+                    ? echoT('b28.ms.unpinFromList')
+                    : echoT('b28.ms.pinToList')
                 "
                 @click.stop="togglePin(item.server)"
               >
@@ -498,7 +517,7 @@ function onFolderCardDragStart(folderId: string, e: DragEvent) {
                   :class="
                     openMenuId === item.server.id ? 'card-icon-btn--active' : ''
                   "
-                  title="More options"
+                  :title="echoT('b28.ms.moreOptions')"
                   aria-haspopup="menu"
                   :aria-expanded="openMenuId === item.server.id"
                   @click.stop="toggleMenu(item.server.id)"

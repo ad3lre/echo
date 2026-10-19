@@ -5,7 +5,7 @@ import {
   ECHO_SOUND_SOURCE_FILES,
   type EchoSoundId,
 } from '@/audio/echoSoundAssets';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import {
   applyOutputSink,
   applyOutputSinkToAudioContext,

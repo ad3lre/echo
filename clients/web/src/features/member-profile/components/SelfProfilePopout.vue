@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import { echoT } from '@/i18n';
 import StatusIndicator from '@/components/StatusIndicator.vue';
 import { icons } from '@/assets/icons';
 import type {
@@ -45,20 +46,30 @@ watch(
   { immediate: true },
 );
 
-const statusOptionsPrimary: Array<{
-  id: PresenceStatus;
-  label: string;
-  description: string;
-}> = [
-  { id: 'online', label: 'Online', description: 'Show as active' },
-  { id: 'idle', label: 'Idle', description: 'Away for a bit' },
-];
+const statusOptionsPrimary = computed<
+  Array<{
+    id: PresenceStatus;
+    label: string;
+    description: string;
+  }>
+>(() => [
+  {
+    id: 'online',
+    label: echoT('b38.selfPop.online'),
+    description: echoT('b38.selfPop.onlineDesc'),
+  },
+  {
+    id: 'idle',
+    label: echoT('b38.selfPop.idle'),
+    description: echoT('b38.selfPop.idleDesc'),
+  },
+]);
 
-const statusOptionDnd = {
+const statusOptionDnd = computed(() => ({
   id: 'do_not_disturb' as const,
-  label: 'Do Not Disturb',
-  description: 'No notifications',
-};
+  label: echoT('b38.selfPop.dnd'),
+  description: echoT('b38.selfPop.dndDesc'),
+}));
 
 function openSettingsFromStatusTray() {
   emit('open-settings');
@@ -238,7 +249,9 @@ onUnmounted(() => {
           class="self-popout__panel self-popout__panel--status chat-liquid-glass-menu group"
           @click="beginCustomStatusEdit"
         >
-          <div class="self-popout__panel-label">Custom Status</div>
+          <div class="self-popout__panel-label">
+            {{ echoT('b38.selfPop.customStatus') }}
+          </div>
           <div class="self-popout__status-row">
             <div class="self-popout__quote-icon" aria-hidden="true">
               <svg
@@ -260,7 +273,7 @@ onUnmounted(() => {
                 rows="1"
                 :maxlength="CUSTOM_STATUS_MAX_LENGTH"
                 class="self-popout__status-input"
-                placeholder="Set a custom status..."
+                :placeholder="echoT('b38.selfPop.setStatusPlaceholder')"
                 @blur="commitCustomStatus"
                 @input="onStatusInput"
                 @keydown.esc.stop.prevent="cancelCustomStatusEdit"
@@ -269,7 +282,7 @@ onUnmounted(() => {
                 @click.stop
               />
               <p v-else class="self-popout__status-text">
-                {{ customStatus || 'Set a custom status' }}
+                {{ customStatus || echoT('b38.selfPop.setStatus') }}
               </p>
             </div>
           </div>
@@ -278,7 +291,9 @@ onUnmounted(() => {
         <section
           class="self-popout__panel self-popout__panel--presence chat-liquid-glass-menu"
         >
-          <div class="self-popout__panel-label">Online Status</div>
+          <div class="self-popout__panel-label">
+            {{ echoT('b38.selfPop.onlineStatus') }}
+          </div>
           <button
             v-for="option in statusOptionsPrimary"
             :key="option.id"
@@ -364,8 +379,8 @@ onUnmounted(() => {
             <button
               type="button"
               class="self-popout__presence-gear chat-focus-ring"
-              title="User settings"
-              aria-label="Open user settings"
+              :title="echoT('b38.selfPop.userSettings')"
+              :aria-label="echoT('b38.selfPop.openUserSettings')"
               @click.stop="openSettingsFromStatusTray"
             >
               <img

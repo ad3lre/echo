@@ -1,0 +1,71 @@
+{
+  "speakerPill": {
+    "someone": "Alguém",
+    "voice": "Voz",
+    "closeControls": "Fechar controles de voz",
+    "sessionIndicator": "Indicador de sessão de voz",
+    "speaking": "Falando",
+    "inVoice": "Em chamada de voz",
+    "controls": "Controles de voz",
+    "unmute": "Reativar microfone",
+    "mute": "Silenciar",
+    "undeafen": "Reativar áudio",
+    "deafen": "Ensurdecer",
+    "openChannel": "Abrir canal de voz",
+    "open": "Abrir",
+    "leaveVoice": "Sair da voz",
+    "leave": "Sair"
+  },
+  "createChannel": {
+    "type": {
+      "text": "Texto",
+      "forum": "Fórum",
+      "paper": "Paper",
+      "voice": "Voz",
+      "stage": "Palco",
+      "textSub": "Enviar mensagens",
+      "forumSub": "Tópicos organizados",
+      "paperSub": "Documento colaborativo",
+      "voiceSub": "Voz, vídeo, compartilhamento de tela",
+      "stageSub": "Eventos e painéis",
+      "categorySub": "Agrupar canais",
+      "label": "Tipo"
+    },
+    "name": "Nome",
+    "channelName": "Nome do canal",
+    "newCategory": "nova-categoria",
+    "newChannel": "novo-canal",
+    "creationType": "Tipo de criação",
+    "channelType": "Tipo de canal",
+    "in": "em",
+    "close": "Fechar",
+    "duplicate": "Já existe uma categoria com este nome.",
+    "cancel": "Cancelar"
+  },
+  "inlineAuth": {
+    "and": "e",
+    "verifyLocked": "Sua conta está bloqueada até você verificar {target}. Abra o link que enviamos e entre novamente.",
+    "codeSent": "Digite o código que enviamos para {target} para confirmar este novo acesso.",
+    "yourEmail": "seu e-mail",
+    "signingIn": "Entrando…",
+    "logIn": "Entrar",
+    "mfaFactor": "Fator de MFA",
+    "back": "Voltar",
+    "or": "ou",
+    "yourHandle": "seu_usuario",
+    "forgotBlurb": "Digite o e-mail da sua conta. Enviaremos um link de redefinição se encontrarmos uma correspondência."
+  },
+  "vcPresence": {
+    "youtube": "Em atividade do YouTube",
+    "watchTogether": "Em atividade do Watch Together",
+    "openguessr": "Em atividade do OpenGuessr",
+    "garticPhone": "Em atividade do Gartic Phone",
+    "krunker": "Em atividade do Krunker",
+    "richup": "Em atividade do Richup.io",
+    "gooberDash": "Em atividade do Goober Dash",
+    "smashKarts": "Em atividade do Smash Karts",
+    "clusterRush": "Em atividade do Cluster Rush",
+    "browsing": "Navegando por atividades",
+    "voiceActivity": "Atividade de voz"
+  }
+}

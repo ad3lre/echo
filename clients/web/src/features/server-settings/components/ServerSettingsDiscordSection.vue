@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, toRef, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import {
@@ -97,7 +98,7 @@ async function loadBridgeSettings() {
       s.hasWebhook === true || s.bridgeConfigured === true;
   } catch (e) {
     bridgeError.value =
-      e instanceof Error ? e.message : 'Could not load bridge settings.';
+      e instanceof Error ? e.message : echoT('srvSettingsA.discord.loadFail');
   } finally {
     bridgeLoading.value = false;
   }
@@ -136,9 +137,27 @@ async function saveBridgeSettings() {
     await props.onWorkspaceRefresh?.();
   } catch (e) {
     bridgeError.value =
-      e instanceof Error ? e.message : 'Could not save bridge settings.';
+      e instanceof Error ? e.message : echoT('srvSettingsA.discord.saveFail');
   } finally {
     bridgeSaving.value = false;
+  }
+}
+function nextStepLabel(step: string | null | undefined): string {
+  switch (step) {
+    case 'metadata':
+      return echoT('srvSettingsA.discord.stepMetadata');
+    case 'roles':
+      return echoT('srvSettingsA.discord.stepRoles');
+    case 'members':
+      return echoT('srvSettingsA.discord.stepMembers');
+    case 'channels':
+      return echoT('srvSettingsA.discord.stepChannels');
+    case 'complete':
+    case null:
+    case undefined:
+      return echoT('srvSettingsA.discord.stepComplete');
+    default:
+      return step;
   }
 }
 </script>
@@ -149,27 +168,31 @@ async function saveBridgeSettings() {
       v-if="channelsReady"
       class="server-settings-panel xl:col-span-2 rounded-2xl p-5"
     >
-      <div class="settings-subtitle mb-2">Discord realtime bridge</div>
-      <p class="mb-4 text-xs leading-relaxed text-fg-subtle">
-        Mirror messages between this Echo channel and Discord. Inbound requires
-        the Echo export bot online with
-        <code class="text-fg-soft">GuildMessages</code> + Message Content.
-        Outbound uses a Discord incoming webhook (paste the URL from Channel
-        settings → Integrations → Webhooks). Webhook messages show a custom name
-        and avatar per Echo user — they are not real Discord accounts.
-      </p>
+      <div class="settings-subtitle mb-2">
+        {{ echoT('srvSettingsA.discord.bridgeTitle') }}
+      </div>
+      <i18n-t
+        keypath="srvSettingsA.discord.bridgeIntro"
+        tag="p"
+        scope="global"
+        class="mb-4 text-xs leading-relaxed text-fg-subtle"
+      >
+        <template #perm>
+          <code class="text-fg-soft">GuildMessages</code>
+        </template>
+      </i18n-t>
       <div v-if="!canManageServer" class="text-sm text-fg-soft">
-        You need permission to manage this server to configure the bridge.
+        {{ echoT('srvSettingsA.discord.needPermBridge') }}
       </div>
       <div v-else class="space-y-4">
         <div v-if="!textChannelOptions.length" class="text-sm text-fg-soft">
-          No text channels in this server.
+          {{ echoT('srvSettingsA.discord.noTextChannels') }}
         </div>
         <template v-else>
           <div class="max-w-md">
             <EchoDropdown
               v-model="bridgeChannelId"
-              label="Echo text channel"
+              :label="echoT('srvSettingsA.discord.echoTextChannel')"
               :options="textChannelDropdownOptions"
               surface="server"
               teleport-menu
@@ -186,7 +209,7 @@ async function saveBridgeSettings() {
                 class="rounded border-border"
                 :disabled="bridgeLoading || bridgeSaving"
               />
-              Discord → Echo (live)
+              {{ echoT('srvSettingsA.discord.inbound') }}
             </label>
             <label
               class="flex cursor-pointer items-center gap-2 text-sm text-fg-soft"
@@ -197,13 +220,13 @@ async function saveBridgeSettings() {
                 class="rounded border-border"
                 :disabled="bridgeLoading || bridgeSaving"
               />
-              Echo → Discord
+              {{ echoT('srvSettingsA.discord.outbound') }}
             </label>
           </div>
           <div>
-            <label class="settings-label"
-              >Discord webhook URL (for Echo → Discord)</label
-            >
+            <label class="settings-label">{{
+              echoT('srvSettingsA.discord.webhookUrl')
+            }}</label>
             <input
               v-model="bridgeWebhookDraft"
               type="url"
@@ -216,15 +239,14 @@ async function saveBridgeSettings() {
               v-if="bridgeHasWebhook && !bridgeWebhookDraft.trim()"
               class="mt-1 text-[11px] text-fg-subtle"
             >
-              A webhook is already stored; leave blank to keep it, or paste a
-              new URL to replace.
+              {{ echoT('srvSettingsA.discord.webhookStored') }}
             </p>
           </div>
           <div v-if="bridgeError" class="text-sm echo-destructive-text">
             {{ bridgeError }}
           </div>
           <div v-if="bridgeLoading" class="text-sm text-fg-subtle">
-            Loading…
+            {{ echoT('srvSettingsA.discord.loading') }}
           </div>
           <button
             type="button"
@@ -232,19 +254,25 @@ async function saveBridgeSettings() {
             :disabled="bridgeLoading || bridgeSaving"
             @click="saveBridgeSettings"
           >
-            {{ bridgeSaving ? 'Saving…' : 'Save bridge' }}
+            {{
+              bridgeSaving
+                ? echoT('srvSettingsA.discord.saving')
+                : echoT('srvSettingsA.discord.saveBridge')
+            }}
           </button>
         </template>
       </div>
     </div>
 
     <div class="server-settings-panel rounded-2xl p-5">
-      <div class="settings-subtitle mb-4">Discord Import</div>
+      <div class="settings-subtitle mb-4">
+        {{ echoT('srvSettingsA.discord.importTitle') }}
+      </div>
       <p class="mb-4 text-xs leading-relaxed text-fg-subtle">
         {{ discordServerImportSeparateFromAccountLink() }}
       </p>
       <div v-if="!canManageServer" class="text-sm text-fg-soft">
-        You need permission to manage this server to run Discord import.
+        {{ echoT('srvSettingsA.discord.needPermImport') }}
       </div>
       <div v-else class="space-y-4">
         <div
@@ -252,14 +280,10 @@ async function saveBridgeSettings() {
           class="rounded-2xl bg-scrim-1 p-4 ring-1 ring-violet-500/25"
         >
           <div class="text-sm font-semibold text-fg">
-            Refresh from Discord export
+            {{ echoT('srvSettingsA.discord.refreshFromExport') }}
           </div>
           <p class="mt-2 text-sm leading-relaxed text-fg-soft">
-            After the export bot writes a new bundle to the server folder, run
-            this to re-apply branding and the imported emoji pack, then rebuild
-            categories and channels from the export. Use it to fix a bad import,
-            pick up new channels, or sync layout changes. All messages in guild
-            channels are removed when channels are replaced.
+            {{ echoT('srvSettingsA.discord.refreshDesc') }}
           </p>
           <button
             type="button"
@@ -274,17 +298,18 @@ async function saveBridgeSettings() {
           >
             {{
               refreshFromExportBusy
-                ? 'Refreshing…'
-                : 'Refresh from latest export'
+                ? echoT('srvSettingsA.discord.refreshing')
+                : echoT('srvSettingsA.discord.refreshLatest')
             }}
           </button>
         </div>
 
         <div class="rounded-2xl bg-scrim-1 p-4 ring-1 ring-white/8">
-          <div class="text-sm font-semibold text-fg">Source</div>
+          <div class="text-sm font-semibold text-fg">
+            {{ echoT('srvSettingsA.discord.source') }}
+          </div>
           <div class="mt-1 text-sm text-fg-soft">
-            The import reads from the fixed MTI export configured on the
-            backend.
+            {{ echoT('srvSettingsA.discord.sourceDesc') }}
           </div>
           <div
             v-if="state?.sourceLabel"
@@ -303,22 +328,21 @@ async function saveBridgeSettings() {
             @click="runStep('metadata')"
           >
             <div class="text-xs uppercase tracking-[0.18em] text-fg-subtle">
-              Step 1
+              {{ echoT('srvSettingsA.discord.step1') }}
             </div>
             <div class="mt-1 text-lg font-semibold text-fg">
-              Import metadata
+              {{ echoT('srvSettingsA.discord.importMetadata') }}
             </div>
             <div class="mt-2 text-sm text-fg-soft">
-              Pull the server name, description, icon, and banner from the
-              Discord export.
+              {{ echoT('srvSettingsA.discord.importMetadataDesc') }}
             </div>
             <div class="mt-3 text-xs font-semibold text-fg-soft">
               {{
                 metadataReady
-                  ? 'Imported'
+                  ? echoT('srvSettingsA.discord.imported')
                   : activeStep === 'metadata'
-                    ? 'Importing...'
-                    : 'Run import'
+                    ? echoT('serverSettingsUi.importing')
+                    : echoT('serverSettingsUi.runImport')
               }}
             </div>
           </button>
@@ -336,20 +360,23 @@ async function saveBridgeSettings() {
             @click="runStep('roles')"
           >
             <div class="text-xs uppercase tracking-[0.18em] text-fg-subtle">
-              Step 2
+              {{ echoT('srvSettingsA.discord.step2') }}
             </div>
-            <div class="mt-1 text-lg font-semibold text-fg">Import roles</div>
+            <div class="mt-1 text-lg font-semibold text-fg">
+              {{ echoT('srvSettingsA.discord.importRoles') }}
+            </div>
             <div class="mt-2 text-sm text-fg-soft">
-              Translate Discord roles into Echo roles and restore hierarchy
-              ordering.
+              {{ echoT('srvSettingsA.discord.importRolesDesc') }}
             </div>
             <div class="mt-3 text-xs font-semibold text-fg-soft">
               {{
                 rolesReady
-                  ? `${state?.roleCount ?? 0} roles imported`
+                  ? echoT('srvSettingsA.discord.rolesImported', {
+                      n: state?.roleCount ?? 0,
+                    })
                   : activeStep === 'roles'
-                    ? 'Importing...'
-                    : 'Run import'
+                    ? echoT('serverSettingsUi.importing')
+                    : echoT('serverSettingsUi.runImport')
               }}
             </div>
           </button>
@@ -367,23 +394,30 @@ async function saveBridgeSettings() {
             @click="runStep('members')"
           >
             <div class="text-xs uppercase tracking-[0.18em] text-fg-subtle">
-              Step 3
+              {{ echoT('srvSettingsA.discord.step3') }}
             </div>
             <div class="mt-1 text-lg font-semibold text-fg">
-              Import members &amp; roles
+              {{ echoT('srvSettingsA.discord.importMembersRoles') }}
             </div>
-            <div class="mt-2 text-sm text-fg-soft">
-              Build the Discord user -&gt; Echo user map from
-              <code class="text-fg-soft">members.jsonl</code> and restore each
-              member's roles so linked accounts keep them after merge.
-            </div>
+            <i18n-t
+              keypath="srvSettingsA.discord.step3Desc"
+              tag="div"
+              scope="global"
+              class="mt-2 text-sm text-fg-soft"
+            >
+              <template #file>
+                <code class="text-fg-soft">members.jsonl</code>
+              </template>
+            </i18n-t>
             <div class="mt-3 text-xs font-semibold text-fg-soft">
               {{
                 membersReady
-                  ? `${state?.userMapEntryCount ?? 0} users mapped`
+                  ? echoT('srvSettingsA.discord.usersMapped', {
+                      n: state?.userMapEntryCount ?? 0,
+                    })
                   : activeStep === 'members'
-                    ? 'Importing...'
-                    : 'Run import'
+                    ? echoT('serverSettingsUi.importing')
+                    : echoT('serverSettingsUi.runImport')
               }}
             </div>
           </button>
@@ -401,22 +435,24 @@ async function saveBridgeSettings() {
             @click="runStep('channels')"
           >
             <div class="text-xs uppercase tracking-[0.18em] text-fg-subtle">
-              Step 4
+              {{ echoT('srvSettingsA.discord.step4') }}
             </div>
             <div class="mt-1 text-lg font-semibold text-fg">
-              Import channels
+              {{ echoT('srvSettingsA.discord.importChannels') }}
             </div>
             <div class="mt-2 text-sm text-fg-soft">
-              Create categories, channels, and translated overwrite rows from
-              the export.
+              {{ echoT('srvSettingsA.discord.importChannelsDesc') }}
             </div>
             <div class="mt-3 text-xs font-semibold text-fg-soft">
               {{
                 channelsReady
-                  ? `${state?.categoryCount ?? 0} categories, ${state?.channelCount ?? 0} channels`
+                  ? echoT('srvSettingsA.discord.catsChans', {
+                      cats: state?.categoryCount ?? 0,
+                      chans: state?.channelCount ?? 0,
+                    })
                   : activeStep === 'channels'
-                    ? 'Importing...'
-                    : 'Run import'
+                    ? echoT('serverSettingsUi.importing')
+                    : echoT('serverSettingsUi.runImport')
               }}
             </div>
           </button>
@@ -426,95 +462,125 @@ async function saveBridgeSettings() {
 
     <div class="flex min-w-0 flex-col gap-4">
       <div class="server-settings-card rounded-2xl p-5">
-        <div class="settings-subtitle mb-3">Status</div>
+        <div class="settings-subtitle mb-3">
+          {{ echoT('srvSettingsA.discord.status') }}
+        </div>
         <div v-if="loading" class="text-sm text-fg-subtle">
-          Loading Discord import state...
+          {{ echoT('srvSettingsA.discord.loadingState') }}
         </div>
         <div v-else class="space-y-3">
           <div class="server-toggle-row">
             <div>
-              <div class="text-sm font-semibold text-fg">Metadata</div>
+              <div class="text-sm font-semibold text-fg">
+                {{ echoT('srvSettingsA.discord.metadata') }}
+              </div>
               <div class="mt-0.5 text-xs text-fg-subtle">
-                Server branding and top-level details.
+                {{ echoT('srvSettingsA.discord.metadataDesc') }}
               </div>
               <div
                 v-if="state?.metadataImportedAt"
                 class="mt-0.5 text-[11px] text-fg-subtle"
               >
-                Completed
+                {{ echoT('srvSettingsA.discord.completed') }}
                 {{ formatIsoDateTimeLocal(state.metadataImportedAt) }}
               </div>
             </div>
             <div class="server-pill">
-              {{ metadataReady ? 'Done' : 'Pending' }}
+              {{
+                metadataReady
+                  ? echoT('srvSettingsA.discord.done')
+                  : echoT('srvSettingsA.discord.pending')
+              }}
             </div>
           </div>
           <div class="server-toggle-row">
             <div>
-              <div class="text-sm font-semibold text-fg">Roles</div>
+              <div class="text-sm font-semibold text-fg">
+                {{ echoT('srvSettingsA.discord.roles') }}
+              </div>
               <div class="mt-0.5 text-xs text-fg-subtle">
-                Translated Echo roles and role order.
+                {{ echoT('srvSettingsA.discord.rolesDesc') }}
               </div>
               <div
                 v-if="state?.rolesImportedAt"
                 class="mt-0.5 text-[11px] text-fg-subtle"
               >
-                Completed
+                {{ echoT('srvSettingsA.discord.completed') }}
                 {{ formatIsoDateTimeLocal(state.rolesImportedAt) }}
               </div>
             </div>
-            <div class="server-pill">{{ rolesReady ? 'Done' : 'Pending' }}</div>
+            <div class="server-pill">
+              {{
+                rolesReady
+                  ? echoT('srvSettingsA.discord.done')
+                  : echoT('srvSettingsA.discord.pending')
+              }}
+            </div>
           </div>
           <div class="server-toggle-row">
             <div>
               <div class="text-sm font-semibold text-fg">
-                Members &amp; user map
+                {{ echoT('srvSettingsA.discord.membersUserMap') }}
               </div>
               <div class="mt-0.5 text-xs text-fg-subtle">
-                Discord -&gt; Echo user ids and per-member roles.
+                {{ echoT('srvSettingsA.discord.membersUserMapDesc') }}
               </div>
               <div
                 v-if="state?.membersImportedAt"
                 class="mt-0.5 text-[11px] text-fg-subtle"
               >
-                Completed
+                {{ echoT('srvSettingsA.discord.completed') }}
                 {{ formatIsoDateTimeLocal(state.membersImportedAt) }}
               </div>
             </div>
             <div class="server-pill">
-              {{ membersReady ? 'Done' : 'Pending' }}
+              {{
+                membersReady
+                  ? echoT('srvSettingsA.discord.done')
+                  : echoT('srvSettingsA.discord.pending')
+              }}
             </div>
           </div>
           <div class="server-toggle-row">
             <div>
-              <div class="text-sm font-semibold text-fg">Channels</div>
+              <div class="text-sm font-semibold text-fg">
+                {{ echoT('srvSettingsA.discord.channels') }}
+              </div>
               <div class="mt-0.5 text-xs text-fg-subtle">
-                Categories, channels, and role overwrite rows.
+                {{ echoT('srvSettingsA.discord.channelsDesc') }}
               </div>
               <div
                 v-if="state?.channelsImportedAt"
                 class="mt-0.5 text-[11px] text-fg-subtle"
               >
-                Completed
+                {{ echoT('srvSettingsA.discord.completed') }}
                 {{ formatIsoDateTimeLocal(state.channelsImportedAt) }}
               </div>
             </div>
             <div class="server-pill">
-              {{ channelsReady ? 'Done' : 'Pending' }}
+              {{
+                channelsReady
+                  ? echoT('srvSettingsA.discord.done')
+                  : echoT('srvSettingsA.discord.pending')
+              }}
             </div>
           </div>
           <div class="rounded-xl bg-glass-1 px-4 py-3 text-sm text-fg-soft">
-            <span class="font-semibold text-fg-soft">Resume behavior:</span>
-            Import picks up from the next incomplete step. Current next step:
+            <span class="font-semibold text-fg-soft">{{
+              echoT('srvSettingsA.discord.resumeBehavior')
+            }}</span>
+            {{ echoT('srvSettingsA.discord.resumeDesc') }}
             <span class="font-semibold text-fg">{{
-              state?.nextStep ?? 'complete'
+              nextStepLabel(state?.nextStep)
             }}</span>
           </div>
         </div>
       </div>
 
       <div class="server-settings-panel rounded-2xl p-5">
-        <div class="settings-subtitle mb-3">Warnings</div>
+        <div class="settings-subtitle mb-3">
+          {{ echoT('srvSettingsA.discord.warnings') }}
+        </div>
         <div v-if="localError" class="text-sm echo-destructive-text">
           {{ localError }}
         </div>
@@ -525,14 +591,18 @@ async function saveBridgeSettings() {
           v-if="(state?.roleImportIssues?.length ?? 0) > 0"
           class="mt-3 rounded-lg bg-glass-1 px-3 py-2 text-sm text-fg-soft"
         >
-          <div class="font-semibold text-fg">Role import report</div>
+          <div class="font-semibold text-fg">
+            {{ echoT('srvSettingsA.discord.roleReport') }}
+          </div>
           <ul class="mt-2 list-disc space-y-2 pl-5">
             <li
               v-for="(issue, idx) in state?.roleImportIssues ?? []"
               :key="idx"
             >
               <span class="font-medium text-fg">{{
-                issue.roleName || issue.discordRoleId || 'Role'
+                issue.roleName ||
+                issue.discordRoleId ||
+                echoT('srvSettingsA.discord.role')
               }}</span>
               <span class="text-fg-subtle"> · {{ issue.code }}</span>
               <div class="mt-0.5 text-fg-soft">{{ issue.detail }}</div>
@@ -543,8 +613,7 @@ async function saveBridgeSettings() {
           v-if="localError || state?.lastError"
           class="mt-3 text-xs text-fg-subtle"
         >
-          Fix the problem, then retry the failed step. Details above are also
-          saved on the import state for this server.
+          {{ echoT('srvSettingsA.discord.retryHint') }}
         </div>
         <div
           v-else-if="
@@ -553,7 +622,7 @@ async function saveBridgeSettings() {
           "
           class="text-sm text-fg-soft"
         >
-          No import warnings yet.
+          {{ echoT('srvSettingsA.discord.noWarnings') }}
         </div>
         <ul
           v-else-if="(state?.warnings?.length ?? 0) > 0"

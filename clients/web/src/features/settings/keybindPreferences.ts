@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 export type KeybindActionId =
   | 'voice.toggleMute'
   | 'voice.toggleDeafen'
@@ -55,23 +56,29 @@ const DEFAULT_KEYBINDS: Record<KeybindActionId, string> = {
   'paper.toggleSourceView': 'Ctrl+Alt+M',
 };
 
-const ACTION_TITLES: Record<KeybindActionId, string> = {
-  'voice.toggleMute': 'Mute / Unmute',
-  'voice.toggleDeafen': 'Toggle Deafen',
-  'navigation.quickSwitcher': 'Quick Switcher',
-  'navigation.openSearch': 'Open Search',
-  'navigation.markChannelRead': 'Mark Channel Read',
-  'navigation.selectRailServer1': 'Server rail: 1st slot',
-  'navigation.selectRailServer2': 'Server rail: 2nd slot',
-  'navigation.selectRailServer3': 'Server rail: 3rd slot',
-  'navigation.selectRailServer4': 'Server rail: 4th slot',
-  'navigation.selectRailServer5': 'Server rail: 5th slot',
-  'composer.bold': 'Bold (message composer)',
-  'composer.italic': 'Italic (message composer)',
-  'composer.inlineCode': 'Inline code (message composer)',
-  'composer.strike': 'Strikethrough (message composer)',
-  'composer.spoiler': 'Spoiler (message composer)',
-  'paper.toggleSourceView': 'Paper: toggle raw / rendered',
+const ACTION_TITLE_KEYS: Record<KeybindActionId, string> = {
+  'voice.toggleMute': 'panes.keybindActions.voice_toggleMute',
+  'voice.toggleDeafen': 'panes.keybindActions.voice_toggleDeafen',
+  'navigation.quickSwitcher': 'panes.keybindActions.navigation_quickSwitcher',
+  'navigation.openSearch': 'panes.keybindActions.navigation_openSearch',
+  'navigation.markChannelRead':
+    'panes.keybindActions.navigation_markChannelRead',
+  'navigation.selectRailServer1':
+    'panes.keybindActions.navigation_selectRailServer1',
+  'navigation.selectRailServer2':
+    'panes.keybindActions.navigation_selectRailServer2',
+  'navigation.selectRailServer3':
+    'panes.keybindActions.navigation_selectRailServer3',
+  'navigation.selectRailServer4':
+    'panes.keybindActions.navigation_selectRailServer4',
+  'navigation.selectRailServer5':
+    'panes.keybindActions.navigation_selectRailServer5',
+  'composer.bold': 'panes.keybindActions.composer_bold',
+  'composer.italic': 'panes.keybindActions.composer_italic',
+  'composer.inlineCode': 'panes.keybindActions.composer_inlineCode',
+  'composer.strike': 'panes.keybindActions.composer_strike',
+  'composer.spoiler': 'panes.keybindActions.composer_spoiler',
+  'paper.toggleSourceView': 'panes.keybindActions.paper_toggleSourceView',
 };
 
 export const KEYBIND_ACTION_ORDER: KeybindActionId[] = [
@@ -149,13 +156,13 @@ export function listKeybindDefinitions(): KeybindDefinition[] {
   const map = loadKeybindMap();
   return KEYBIND_ACTION_ORDER.map((id) => ({
     id,
-    action: ACTION_TITLES[id],
+    action: keybindActionTitle(id),
     binding: map[id],
   }));
 }
 
 export function keybindActionTitle(id: KeybindActionId): string {
-  return ACTION_TITLES[id];
+  return echoT(ACTION_TITLE_KEYS[id]);
 }
 
 export function normalizeBindingString(binding: string): string {

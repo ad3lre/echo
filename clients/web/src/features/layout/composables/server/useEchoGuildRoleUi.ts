@@ -4,8 +4,6 @@ import type { WorkspaceStateApi } from '@/features/layout/echoWorkspace/types';
 import type { useAuthSessionStore } from '@/features/auth/authSession';
 import {
   fetchEchoRoleUiBootstrap,
-  postEchoAssignMemberRole,
-  deleteEchoMemberRoleAssignment,
   type EchoServerRoleDto,
 } from '@/api/echoClient';
 import type { EchoRoleCategoryDto } from '@/api/echo/types';
@@ -16,6 +14,7 @@ import { useThemeStore } from '@/features/settings/themeStore';
 import type { Server } from '@shared/types/server';
 import { scheduleDeferredTask } from '@/features/layout/failures/scheduleDeferredTask';
 import { canMutateEchoMemberRole } from '@/features/layout/composables/members/echoMemberRoleMutateGate';
+import { createEchoMemberRoleToggleHandler } from '@/features/layout/composables/server/echoMemberRoleToggle';
 
 export function useEchoGuildRoleUi(deps: {
   serverStore: ReturnType<typeof useServerStore>;
@@ -57,6 +56,7 @@ export function useEchoGuildRoleUi(deps: {
     'idle',
   );
   const echoRoleMutationBusy = ref(false);
+  let echoRoleMutationInFlight = 0;
   /**
    * Monotonic generation for in-flight bootstrap responses. A newer server switch
    * bumps this so stale fetches never apply state (and we never "skip" a refresh
@@ -323,43 +323,17 @@ export function useEchoGuildRoleUi(deps: {
       },
       busy,
       resolveAssignedRoleIds: (userId: string) => assignmentsEcho[userId] ?? [],
-      onToggleRole: async (p: {
-        targetUserId: string;
-        roleId: string;
-        assign: boolean;
-      }) => {
-        const token = authSession.accessToken?.trim() ?? '';
-        if (!authSession.isAuthenticated) return;
-        echoRoleMutationBusy.value = true;
-        try {
-          if (p.assign)
-            await postEchoAssignMemberRole(
-              token,
-              sid,
-              p.targetUserId,
-              p.roleId,
-            );
-          else
-            await deleteEchoMemberRoleAssignment(
-              token,
-              sid,
-              p.targetUserId,
-              p.roleId,
-            );
-          const prev = echoMemberRoleIdsByUser.value[p.targetUserId] ?? [];
-          const set = new Set(prev);
-          if (p.assign) set.add(p.roleId);
-          else set.delete(p.roleId);
-          echoMemberRoleIdsByUser.value = {
-            ...echoMemberRoleIdsByUser.value,
-            [p.targetUserId]: Array.from(set),
-          };
-        } catch {
-          await refreshEchoRoleData();
-        } finally {
-          echoRoleMutationBusy.value = false;
-        }
-      },
+      onToggleRole: createEchoMemberRoleToggleHandler({
+        authSession,
+        serverId: sid,
+        echoMemberRoleIdsByUser,
+        echoRoleMutationBusy,
+        getInFlight: () => echoRoleMutationInFlight,
+        setInFlight: (n) => {
+          echoRoleMutationInFlight = n;
+        },
+        refreshEchoRoleData,
+      }),
     };
   });
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   nextTick,
@@ -236,7 +237,7 @@ function applyExternalImageUrl() {
     UIErrorBus.emit({
       context: 'role-icon-picker',
       severity: 'info',
-      userMessage: 'Paste a valid http(s) or // image URL.',
+      userMessage: echoT('b29.roleIcon.invalidUrl'),
     });
     return;
   }
@@ -307,8 +308,8 @@ onUnmounted(() => {
       type="button"
       class="role-icon-picker-trigger flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-glass-2 ring-1 ring-border transition-colors hover:bg-glass-hover disabled:cursor-not-allowed disabled:opacity-50"
       :disabled="disabled"
-      :title="triggerTitle ?? 'Role icon'"
-      :aria-label="triggerAriaLabel ?? 'Choose role icon'"
+      :title="triggerTitle ?? echoT('b29.roleIcon.title')"
+      :aria-label="triggerAriaLabel ?? echoT('b29.roleIcon.aria')"
       @click.stop="onTriggerClick"
     >
       <PausedGifAvatar
@@ -359,7 +360,9 @@ onUnmounted(() => {
               v-model="searchFieldModel"
               type="search"
               :placeholder="
-                activeTab === 'icons' ? 'Search icons…' : 'Search emoji…'
+                activeTab === 'icons'
+                  ? echoT('b29.roleIcon.searchIcons')
+                  : echoT('b29.roleIcon.searchEmoji')
               "
               class="min-w-0 flex-1 border-0 bg-transparent py-1 text-sm text-fg outline-none placeholder:text-fg-subtle"
               @keydown.escape.prevent="close"
@@ -379,7 +382,7 @@ onUnmounted(() => {
               "
               @click="activeTab = 'icons'"
             >
-              Icons
+              {{ echoT('b29.roleIcon.tabIcons') }}
             </button>
             <button
               type="button"
@@ -391,7 +394,7 @@ onUnmounted(() => {
               "
               @click="activeTab = 'emoji'"
             >
-              Emoji
+              {{ echoT('b29.roleIcon.tabEmoji') }}
             </button>
             <button
               type="button"
@@ -403,7 +406,7 @@ onUnmounted(() => {
               "
               @click="activeTab = 'upload'"
             >
-              Upload
+              {{ echoT('b29.roleIcon.tabUpload') }}
             </button>
           </div>
 
@@ -411,9 +414,7 @@ onUnmounted(() => {
             v-if="activeTab === 'emoji'"
             class="px-3 py-1.5 text-[11px] leading-snug text-fg-subtle"
           >
-            Standard emoji use Twemoji assets. Custom emoji from this server
-            stores the emoji id; emoji from other servers save the image URL
-            only. Use Upload → Image URL for any https icon.
+            {{ echoT('b29.roleIcon.help') }}
           </p>
 
           <AppIconPickerPanel
@@ -434,9 +435,9 @@ onUnmounted(() => {
               class="flex flex-1 items-center justify-center py-10 text-sm text-fg-subtle"
               role="status"
               aria-live="polite"
-              aria-label="Loading emoji"
+              :aria-label="echoT('b29.roleIcon.loadingEmoji')"
             >
-              Loading emoji…
+              {{ echoT('b29.roleIcon.loadingEmoji') }}
             </div>
             <div v-else class="flex min-h-0 flex-1 overflow-hidden">
               <div
@@ -483,7 +484,9 @@ onUnmounted(() => {
                   v-if="searchQuery.trim() && renderedCategories.length === 0"
                   class="py-8 text-center text-sm text-fg-subtle"
                 >
-                  No emojis match "{{ searchQuery.trim() }}"
+                  {{
+                    echoT('b29.roleIcon.noMatch', { query: searchQuery.trim() })
+                  }}
                 </div>
               </div>
             </div>
@@ -494,13 +497,12 @@ onUnmounted(() => {
             class="flex min-h-0 flex-1 flex-col items-stretch justify-center gap-3 px-4 py-6"
           >
             <p class="text-center text-sm text-fg-subtle">
-              PNG, JPEG, WebP, or GIF. Uploaded files are stored as your server
-              icon asset URL.
+              {{ echoT('b29.roleIcon.uploadHelp') }}
             </p>
             <label class="flex flex-col gap-1.5 text-left">
-              <span class="text-[11px] font-medium text-fg-soft"
-                >Image URL (any server or CDN)</span
-              >
+              <span class="text-[11px] font-medium text-fg-soft">{{
+                echoT('b29.roleIcon.imageUrlLabel')
+              }}</span>
               <input
                 v-model="externalImageUrlDraft"
                 type="url"
@@ -517,14 +519,14 @@ onUnmounted(() => {
               :disabled="!externalImageUrlDraft.trim()"
               @click="applyExternalImageUrl"
             >
-              Use image URL
+              {{ echoT('b29.roleIcon.useUrl') }}
             </button>
             <button
               type="button"
               class="rounded-xl bg-glass-2 px-4 py-3 text-sm font-semibold text-fg transition-colors hover:bg-glass-hover"
               @click="onUploadClick"
             >
-              Choose image…
+              {{ echoT('b29.roleIcon.chooseImage') }}
             </button>
           </div>
 
@@ -537,7 +539,7 @@ onUnmounted(() => {
               class="echo-destructive-action rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
               @click="onClear"
             >
-              Remove icon
+              {{ echoT('b29.roleIcon.remove') }}
             </button>
           </div>
         </div>

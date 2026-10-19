@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useAutofocusOnOpen } from '@/features/layout/useAutofocusOnOpen';
@@ -51,12 +52,12 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), banReasonInputRef, {
 });
 
 /** Presets in minutes (fewer choices + optional custom, matches backend max 40320). */
-const TIMEOUT_PRESETS = [
-  { label: '5 min', minutes: 5 },
-  { label: '1 hour', minutes: 60 },
-  { label: '1 day', minutes: 1440 },
-  { label: '1 week', minutes: 10080 },
-] as const;
+const TIMEOUT_PRESETS = computed(() => [
+  { label: echoT('b22.mam.min5'), minutes: 5 },
+  { label: echoT('b22.mam.hour1'), minutes: 60 },
+  { label: echoT('b22.mam.day1'), minutes: 1440 },
+  { label: echoT('b22.mam.week1'), minutes: 10080 },
+]);
 
 const MAX_TIMEOUT_MINUTES = 40320;
 
@@ -72,19 +73,19 @@ const customBanMinutesStr = ref(String(BAN_PRESET_ONE_MONTH_MINUTES));
 const banReason = ref('');
 
 /** compact: optional purge of this member’s recent messages across the server when banning. */
-const DELETE_MESSAGE_HISTORY_PRESETS = [
-  { label: 'Do not delete any messages', hours: 0 },
-  { label: 'Previous hour', hours: 1 },
-  { label: 'Previous 24 hours', hours: 24 },
-  { label: 'Previous 3 days', hours: 72 },
-  { label: 'Previous 7 days', hours: 168 },
-] as const;
+const DELETE_MESSAGE_HISTORY_PRESETS = computed(() => [
+  { label: echoT('b22.mam.noDelete'), hours: 0 },
+  { label: echoT('b22.mam.prevHour'), hours: 1 },
+  { label: echoT('b22.mam.prev24h'), hours: 24 },
+  { label: echoT('b22.mam.prev3d'), hours: 72 },
+  { label: echoT('b22.mam.prev7d'), hours: 168 },
+]);
 const selectedDeleteRecentMessagesHours = ref(0);
 
-const BAN_DURATION_PRESETS = [
-  { label: '1 month', minutes: BAN_PRESET_ONE_MONTH_MINUTES },
-  { label: '3 months', minutes: BAN_PRESET_THREE_MONTHS_MINUTES },
-] as const;
+const BAN_DURATION_PRESETS = computed(() => [
+  { label: echoT('b22.mam.month1'), minutes: BAN_PRESET_ONE_MONTH_MINUTES },
+  { label: echoT('b22.mam.months3'), minutes: BAN_PRESET_THREE_MONTHS_MINUTES },
+]);
 
 watch(
   () => props.modelValue,
@@ -108,13 +109,13 @@ watch(
 const title = computed(() => {
   switch (props.action) {
     case 'kick':
-      return 'Kick member';
+      return echoT('b22.mam.kickMember');
     case 'ban':
-      return 'Ban member';
+      return echoT('b22.mam.banMember');
     case 'timeout':
-      return 'Timeout member';
+      return echoT('b22.mam.timeoutMember');
     case 'untimeout':
-      return 'Remove timeout';
+      return echoT('b22.mam.removeTimeout');
     default:
       return 'Moderation';
   }
@@ -125,13 +126,13 @@ const description = computed(() => {
   const server = props.serverName;
   switch (props.action) {
     case 'kick':
-      return `${name} will be removed from ${server}. They can rejoin with a new invite if allowed.`;
+      return echoT('b22.mam.descKick', { name, server });
     case 'ban':
-      return `${name} will be removed from ${server} and blocked from rejoining until the ban ends (or permanently). Add an optional reason below; it appears in the ban list and audit log. You can optionally delete their recent messages in this server to clean up spam.`;
+      return echoT('b22.mam.descBan', { name, server });
     case 'timeout':
-      return `${name} won’t be able to send messages in ${server} until the timeout ends.`;
+      return echoT('b22.mam.descTimeout', { name, server });
     case 'untimeout':
-      return `${name} will be able to send messages and use communication features in ${server} again immediately.`;
+      return echoT('b22.mam.descUntimeout', { name, server });
     default:
       return '';
   }
@@ -261,7 +262,7 @@ function onConfirm() {
           <div
             class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
           >
-            Duration
+            {{ echoT('b22.mam.duration') }}
           </div>
           <div class="flex flex-wrap gap-2">
             <button
@@ -288,7 +289,7 @@ function onConfirm() {
               "
               @click="enableCustomTimeout"
             >
-              Custom…
+              {{ echoT('b22.mam.custom') }}
             </button>
           </div>
           <div
@@ -299,7 +300,7 @@ function onConfirm() {
               class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
               for="timeout-custom-min"
             >
-              Minutes (1–{{ MAX_TIMEOUT_MINUTES }})
+              {{ echoT('b22.mam.minutesRange', { max: MAX_TIMEOUT_MINUTES }) }}
             </label>
             <input
               id="timeout-custom-min"
@@ -318,7 +319,7 @@ function onConfirm() {
             <div
               class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
             >
-              Ban period
+              {{ echoT('b22.mam.banPeriod') }}
             </div>
             <div class="mt-2 flex flex-wrap gap-2">
               <button
@@ -331,7 +332,7 @@ function onConfirm() {
                 "
                 @click="selectPermanentBan"
               >
-                Permanent
+                {{ echoT('b22.mam.permanent') }}
               </button>
               <button
                 v-for="preset in BAN_DURATION_PRESETS"
@@ -359,7 +360,7 @@ function onConfirm() {
                 "
                 @click="enableCustomBan"
               >
-                Custom…
+                {{ echoT('b22.mam.custom') }}
               </button>
             </div>
             <div
@@ -370,7 +371,11 @@ function onConfirm() {
                 class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                 for="ban-custom-min"
               >
-                Minutes (1–{{ MAX_ECHO_BAN_DURATION_MINUTES }})
+                {{
+                  echoT('b22.mam.minutesRange', {
+                    max: MAX_ECHO_BAN_DURATION_MINUTES,
+                  })
+                }}
               </label>
               <input
                 id="ban-custom-min"
@@ -388,7 +393,7 @@ function onConfirm() {
               class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
               for="ban-reason-input"
             >
-              Reason (optional)
+              {{ echoT('b22.mam.reasonOptional') }}
             </label>
             <textarea
               id="ban-reason-input"
@@ -397,7 +402,7 @@ function onConfirm() {
               rows="3"
               maxlength="500"
               class="mt-2 w-full resize-y rounded-lg border border-border bg-scrim-1 px-3 py-2 text-sm text-foreground placeholder:text-fg-subtle focus:border-rose-400/40 focus:outline-none focus:ring-1 focus:ring-rose-400/30"
-              placeholder="Shown in audit and server ban list"
+              :placeholder="echoT('b22.mam.reasonPlaceholder')"
             />
             <div class="mt-1 text-right text-[11px] text-fg-subtle">
               {{ banReason.length }}/500
@@ -407,11 +412,10 @@ function onConfirm() {
             <div
               class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
             >
-              Delete message history
+              {{ echoT('b22.mam.deleteHistory') }}
             </div>
             <p class="text-xs leading-relaxed text-fg-subtle">
-              Removes this member’s messages in text channels for the selected
-              time window (max 10,000 messages). Requires Manage Messages.
+              {{ echoT('b22.mam.deleteHistoryHelp') }}
             </p>
             <div class="flex flex-col gap-1.5">
               <label
@@ -444,7 +448,7 @@ function onConfirm() {
             class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-white"
             @click="close"
           >
-            Cancel
+            {{ echoT('b22.mam.cancel') }}
           </button>
           <button
             type="button"
@@ -464,10 +468,12 @@ function onConfirm() {
               alt=""
               class="h-4 w-4 opacity-90 filter invert"
             />
-            <span v-if="action === 'kick'">Kick</span>
-            <span v-else-if="action === 'ban'">Ban</span>
-            <span v-else-if="action === 'untimeout'">Remove timeout</span>
-            <span v-else>Apply timeout</span>
+            <span v-if="action === 'kick'">{{ echoT('b22.mam.kick') }}</span>
+            <span v-else-if="action === 'ban'">{{ echoT('b22.mam.ban') }}</span>
+            <span v-else-if="action === 'untimeout'">{{
+              echoT('b22.mam.removeTimeout')
+            }}</span>
+            <span v-else>{{ echoT('b22.mam.applyTimeout') }}</span>
           </button>
         </div>
       </div>

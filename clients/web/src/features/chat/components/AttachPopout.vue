@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 const props = withDefaults(
   defineProps<{
     canUploadFiles?: boolean;
@@ -65,13 +66,13 @@ function handleCreatePoll() {
             class="text-sm font-medium"
             :class="props.theme === 'forum' ? 'text-fg' : 'text-foreground'"
           >
-            Upload file
+            {{ echoT('b44.attachPopout.upload') }}
           </div>
           <div
             class="text-[11px]"
             :class="props.theme === 'forum' ? 'text-fg-soft' : 'text-muted'"
           >
-            Images, documents, and more
+            {{ echoT('b44.attachPopout.uploadHint') }}
           </div>
         </div>
       </button>
@@ -104,13 +105,13 @@ function handleCreatePoll() {
             class="text-sm font-medium"
             :class="props.theme === 'forum' ? 'text-fg' : 'text-foreground'"
           >
-            Create poll
+            {{ echoT('b44.attachPopout.poll') }}
           </div>
           <div
             class="text-[11px]"
             :class="props.theme === 'forum' ? 'text-fg-soft' : 'text-muted'"
           >
-            Ask a question with options
+            {{ echoT('b44.attachPopout.pollHint') }}
           </div>
         </div>
       </button>

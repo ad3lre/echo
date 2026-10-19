@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import {
   ECHO_REPORT_CATEGORIES,
@@ -70,10 +71,10 @@ useAutofocusOnOpen(isOpen, targetSearchRef, {
 
 const title = computed(() => {
   const ctx = context.value;
-  if (!ctx) return 'Report';
-  if (ctx.kind === 'user') return 'Report user';
-  if (ctx.kind === 'message') return 'Report message';
-  return 'Report to Trust & Safety';
+  if (!ctx) return echoT('b18.report.title.default');
+  if (ctx.kind === 'user') return echoT('safety.reportUser');
+  if (ctx.kind === 'message') return echoT('safety.reportMessage');
+  return echoT('b18.report.title.general');
 });
 
 const subtitle = computed(() => {
@@ -82,14 +83,14 @@ const subtitle = computed(() => {
   if (ctx.kind === 'user') {
     const name = ctx.displayName?.trim();
     return name
-      ? `You are reporting ${name}. Our team reviews every submission.`
-      : 'Our team reviews every submission.';
+      ? echoT('b18.report.subtitle.user', { name })
+      : echoT('b18.report.subtitle.anon');
   }
   if (ctx.kind === 'message') {
-    const name = ctx.authorDisplayName?.trim() || 'someone';
-    return `You are reporting a message from ${name}.`;
+    const name = ctx.authorDisplayName?.trim() || echoT('b18.report.someone');
+    return echoT('b18.report.subtitle.message', { name });
   }
-  return 'Search for who or what to report. You can also enter IDs manually if needed.';
+  return echoT('b18.report.subtitle.general');
 });
 
 const targetCard = computed(() => {
@@ -98,13 +99,14 @@ const targetCard = computed(() => {
   if (ctx.kind === 'user') {
     return {
       kind: 'user' as const,
-      label: ctx.displayName?.trim() || 'User',
+      label: ctx.displayName?.trim() || echoT('b18.report.fallback.user'),
     };
   }
   if (ctx.kind === 'message') {
     return {
       kind: 'message' as const,
-      label: ctx.authorDisplayName?.trim() || 'Message',
+      label:
+        ctx.authorDisplayName?.trim() || echoT('b18.report.fallback.message'),
       preview: messagePreview.value,
     };
   }
@@ -269,7 +271,7 @@ async function handleSubmit() {
   // normal sessions and the transport ignores it. Trust isAuthenticated alone.
   const token = authSession.accessToken?.trim() ?? '';
   if (!authSession.isAuthenticated) {
-    errorMessage.value = 'Sign in to submit a report.';
+    errorMessage.value = echoT('b18.report.signIn');
     return;
   }
   submitting.value = true;
@@ -293,7 +295,7 @@ async function handleSubmit() {
         : {}),
     });
     submitted.value = true;
-    dispatchAppToast('Report submitted. Thank you.', 'success');
+    dispatchAppToast(echoT('b18.report.toast.submitted'), 'success');
     clearCloseAfterSuccessTimer();
     closeAfterSuccessTimer = setTimeout(() => {
       closeAfterSuccessTimer = null;
@@ -301,7 +303,7 @@ async function handleSubmit() {
     }, 1400);
   } catch (e) {
     errorMessage.value =
-      e instanceof Error ? e.message : 'Could not submit report.';
+      e instanceof Error ? e.message : echoT('b18.report.error.submit');
   } finally {
     submitting.value = false;
   }
@@ -356,10 +358,10 @@ async function handleSubmit() {
                 </div>
                 <div>
                   <p class="text-base font-semibold text-foreground">
-                    Report submitted
+                    {{ echoT('b18.report.submittedTitle') }}
                   </p>
                   <p class="mt-1 text-sm text-fg-subtle">
-                    Thank you — our Trust &amp; Safety team will review it.
+                    {{ echoT('b18.report.submittedBody') }}
                   </p>
                 </div>
               </div>
@@ -373,7 +375,7 @@ async function handleSubmit() {
             <button
               type="button"
               class="report-close-btn chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-glass-hover hover:text-foreground"
-              aria-label="Close"
+              :aria-label="echoT('b18.report.close')"
               :disabled="submitting"
               @click="handleClose"
             >
@@ -437,8 +439,8 @@ async function handleSubmit() {
                   >
                     {{
                       targetCard.kind === 'user'
-                        ? 'Reporting'
-                        : 'Message preview'
+                        ? echoT('b18.report.card.reporting')
+                        : echoT('b18.report.card.messagePreview')
                     }}
                   </span>
                   <span
@@ -467,7 +469,7 @@ async function handleSubmit() {
                 <div
                   class="flex rounded-xl border border-border bg-elevated p-1"
                   role="tablist"
-                  aria-label="Report type"
+                  :aria-label="echoT('b18.report.typeLabel')"
                 >
                   <button
                     type="button"
@@ -481,7 +483,7 @@ async function handleSubmit() {
                     "
                     @click="generalTargetType = 'user'"
                   >
-                    Report someone
+                    {{ echoT('b18.report.reportSomeone') }}
                   </button>
                   <button
                     type="button"
@@ -495,7 +497,7 @@ async function handleSubmit() {
                     "
                     @click="generalTargetType = 'message'"
                   >
-                    Report a message
+                    {{ echoT('b18.report.reportMessage') }}
                   </button>
                 </div>
 
@@ -513,10 +515,10 @@ async function handleSubmit() {
                     class="w-full rounded-xl border border-border bg-glass-2 py-2.5 pl-10 pr-3 text-sm text-foreground placeholder:text-fg-subtle outline-none transition-colors focus:border-border focus:bg-glass-2"
                     :placeholder="
                       generalTargetType === 'user'
-                        ? 'Search friends and members…'
+                        ? echoT('b18.report.search.users')
                         : pickedChannelId
-                          ? 'Search messages in this channel…'
-                          : 'Search channels…'
+                          ? echoT('b18.report.search.messages')
+                          : echoT('b18.report.search.channels')
                     "
                     autocomplete="off"
                   />
@@ -556,7 +558,7 @@ async function handleSubmit() {
                       class="text-xs font-medium text-fg-subtle transition-colors hover:text-foreground"
                       @click="pickedUserId = ''"
                     >
-                      Change
+                      {{ echoT('b18.report.change') }}
                     </button>
                   </div>
 
@@ -587,7 +589,7 @@ async function handleSubmit() {
                           <span
                             v-if="user.isFriend"
                             class="ml-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
-                            >Friend</span
+                            >{{ echoT('b18.report.friend') }}</span
                           >
                         </div>
                         <div
@@ -600,8 +602,7 @@ async function handleSubmit() {
                     </button>
                   </div>
                   <p v-else class="mt-4 text-center text-sm text-fg-subtle">
-                    No people match your search. Try another name or use manual
-                    entry below.
+                    {{ echoT('b18.report.noPeople') }}
                   </p>
                 </template>
 
@@ -626,7 +627,7 @@ async function handleSubmit() {
                         pickedMessageId = '';
                       "
                     >
-                      Change channel
+                      {{ echoT('b18.report.changeChannel') }}
                     </button>
                   </div>
 
@@ -660,8 +661,7 @@ async function handleSubmit() {
                     v-else-if="!pickedChannelId"
                     class="mt-4 text-center text-sm text-fg-subtle"
                   >
-                    No channels match. Open a server first or use manual entry
-                    below.
+                    {{ echoT('b18.report.noChannels') }}
                   </p>
 
                   <template v-if="pickedChannelId">
@@ -680,7 +680,7 @@ async function handleSubmit() {
                         class="mt-2 text-xs font-medium text-fg-subtle transition-colors hover:text-foreground"
                         @click="pickedMessageId = ''"
                       >
-                        Pick a different message
+                        {{ echoT('b18.report.pickDifferent') }}
                       </button>
                     </div>
                     <div
@@ -703,8 +703,7 @@ async function handleSubmit() {
                       </button>
                     </div>
                     <p v-else class="mt-4 text-center text-sm text-fg-subtle">
-                      No messages loaded in this channel yet. Scroll the chat to
-                      load history, or use manual entry below.
+                      {{ echoT('b18.report.noMessages') }}
                     </p>
                   </template>
                 </template>
@@ -716,8 +715,8 @@ async function handleSubmit() {
                 >
                   {{
                     showManualIds
-                      ? 'Hide manual entry'
-                      : "Can't find them? Enter IDs manually"
+                      ? echoT('b18.report.hideManual')
+                      : echoT('b18.report.cantFind')
                   }}
                 </button>
 
@@ -729,12 +728,12 @@ async function handleSubmit() {
                     v-if="generalTargetType === 'user'"
                     class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                   >
-                    User ID
+                    {{ echoT('b18.report.userId') }}
                     <input
                       v-model="generalTargetUserId"
                       type="text"
                       class="mt-1.5 w-full rounded-lg border border-border bg-scrim-2 px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-rose-400/40 focus:ring-1 focus:ring-rose-400/30"
-                      placeholder="Paste user ID"
+                      :placeholder="echoT('b18.report.pasteUserId')"
                       autocomplete="off"
                       @input="pickedUserId = ''"
                     />
@@ -743,12 +742,12 @@ async function handleSubmit() {
                     <label
                       class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                     >
-                      Message ID
+                      {{ echoT('b18.report.messageId') }}
                       <input
                         v-model="generalMessageId"
                         type="text"
                         class="mt-1.5 w-full rounded-lg border border-border bg-scrim-2 px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-rose-400/40 focus:ring-1 focus:ring-rose-400/30"
-                        placeholder="Paste message ID"
+                        :placeholder="echoT('b18.report.pasteMessageId')"
                         autocomplete="off"
                         @input="pickedMessageId = ''"
                       />
@@ -756,12 +755,12 @@ async function handleSubmit() {
                     <label
                       class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                     >
-                      Channel ID
+                      {{ echoT('b18.report.channelId') }}
                       <input
                         v-model="generalChannelId"
                         type="text"
                         class="mt-1.5 w-full rounded-lg border border-border bg-scrim-2 px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-rose-400/40 focus:ring-1 focus:ring-rose-400/30"
-                        placeholder="Paste channel ID"
+                        :placeholder="echoT('b18.report.pasteChannelId')"
                         autocomplete="off"
                         @input="pickedChannelId = ''"
                       />
@@ -774,7 +773,7 @@ async function handleSubmit() {
                 <legend
                   class="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                 >
-                  Category
+                  {{ echoT('b18.report.category') }}
                 </legend>
                 <div class="flex flex-wrap gap-2">
                   <button
@@ -801,10 +800,10 @@ async function handleSubmit() {
                 <span
                   class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                 >
-                  Additional details
+                  {{ echoT('b18.report.details') }}
                   <span
                     class="font-normal normal-case tracking-normal text-fg-subtle"
-                    >(optional)</span
+                    >{{ echoT('b18.report.optional') }}</span
                   >
                 </span>
                 <textarea
@@ -813,7 +812,7 @@ async function handleSubmit() {
                   rows="2"
                   class="mt-2 w-full min-h-[4.5rem] resize-y rounded-xl border border-border bg-scrim-1 px-3 py-2 text-sm text-foreground placeholder:text-fg-subtle focus:border-rose-400/40 focus:outline-none focus:ring-1 focus:ring-rose-400/30"
                   maxlength="2000"
-                  placeholder="Tell us what happened"
+                  :placeholder="echoT('b18.report.placeholder')"
                 />
               </label>
             </div>
@@ -833,7 +832,7 @@ async function handleSubmit() {
                   :disabled="submitting || submitted"
                   @click="handleClose"
                 >
-                  Cancel
+                  {{ echoT('b18.report.cancel') }}
                 </button>
                 <button
                   type="button"
@@ -841,7 +840,11 @@ async function handleSubmit() {
                   :disabled="submitting || submitted || !canSubmit"
                   @click="handleSubmit"
                 >
-                  {{ submitting ? 'Submitting…' : 'Submit report' }}
+                  {{
+                    submitting
+                      ? echoT('b18.report.submitting')
+                      : echoT('safety.submitReport')
+                  }}
                 </button>
               </div>
             </div>

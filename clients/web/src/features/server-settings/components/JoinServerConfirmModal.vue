@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, toRef } from 'vue';
+import { echoT } from '@/i18n';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { icons } from '@/assets/icons';
@@ -33,7 +34,9 @@ const emit = defineEmits<{
 const modalRef = ref<HTMLElement | null>(null);
 useFocusTrap(modalRef, toRef(props, 'modelValue'));
 
-const displayName = computed(() => props.serverName.trim() || 'Server');
+const displayName = computed(
+  () => props.serverName.trim() || echoT('b40.join.server'),
+);
 
 const iconSrc = computed(() =>
   safeImageUrl(serverGuildIconDisplayUrl(props.iconUrl)),
@@ -57,13 +60,15 @@ const bannerStyle = computed(() =>
 const memberBadge = computed(() => {
   const n = props.memberCount;
   if (n == null || n < 1) return '';
-  return `${n.toLocaleString()} member${n === 1 ? '' : 's'}`;
+  return echoT(n === 1 ? 'b40.join.memberOne' : 'b40.join.memberMany', {
+    count: n.toLocaleString(),
+  });
 });
 
 const voiceLiveLine = computed(() => {
   const n = props.voiceParticipantCount;
   if (typeof n !== 'number' || !Number.isFinite(n) || n < 1) return '';
-  return `${n.toLocaleString()} in voice`;
+  return echoT('b40.join.inVoice', { count: n.toLocaleString() });
 });
 
 const voiceMetaLine = computed(() => {
@@ -95,13 +100,18 @@ const topMembersSummary = computed(() => {
   const names = topMembers.value.map((m) => m.name);
   if (names.length === 0) return '';
   if (names.length === 1) return names[0]!;
-  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  if (names.length === 2)
+    return echoT('b40.join.two', { a: names[0], b: names[1] });
   const rest = names.length - 2;
   const others =
     typeof props.memberCount === 'number' && props.memberCount > names.length
-      ? ` and ${(props.memberCount - names.length).toLocaleString()} others`
+      ? echoT('b40.join.andOthers', {
+          count: (props.memberCount - names.length).toLocaleString(),
+        })
       : rest > 0
-        ? ` and ${rest} other${rest === 1 ? '' : 's'}`
+        ? echoT(rest === 1 ? 'b40.join.andOtherOne' : 'b40.join.andOthers', {
+            count: rest,
+          })
         : '';
   return `${names[0]}, ${names[1]}${others}`;
 });
@@ -166,7 +176,7 @@ function onConfirmJoin() {
             <div class="flex gap-4 -mt-11 sm:-mt-12">
               <img
                 :src="iconSrc"
-                :alt="`${displayName} icon`"
+                :alt="echoT('b40.join.iconAlt', { name: displayName })"
                 class="h-[4.5rem] w-[4.5rem] shrink-0 rounded-2xl border-2 border-border bg-[var(--elevated)] object-contain shadow-lg sm:h-[5.25rem] sm:w-[5.25rem]"
               />
               <div class="min-w-0 flex-1 pt-10 sm:pt-11">
@@ -175,7 +185,9 @@ function onConfirmJoin() {
                   class="text-lg font-bold leading-tight text-foreground sm:text-xl"
                 >
                   {{
-                    isVoiceInvite ? 'Join voice channel?' : 'Join this server?'
+                    isVoiceInvite
+                      ? echoT('b40.join.titleVoice')
+                      : echoT('b40.join.titleServer')
                   }}
                 </h2>
                 <p
@@ -183,8 +195,8 @@ function onConfirmJoin() {
                 >
                   {{
                     isVoiceInvite
-                      ? 'You’ll join the server and connect to voice when you confirm.'
-                      : 'You’ll become a member and can see channels based on your roles.'
+                      ? echoT('b40.join.descVoice')
+                      : echoT('b40.join.descServer')
                   }}
                 </p>
               </div>
@@ -225,7 +237,7 @@ function onConfirmJoin() {
                 <div
                   class="text-[10px] font-bold uppercase tracking-[0.12em] text-fg-soft"
                 >
-                  About
+                  {{ echoT('b40.join.about') }}
                 </div>
                 <p
                   class="join-server-confirm-modal__about mt-1.5 max-h-36 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-fg-subtle custom-scrollbar sm:max-h-40"
@@ -251,7 +263,7 @@ function onConfirmJoin() {
                   </div>
                   <div class="min-w-0">
                     <p class="text-xs font-semibold text-foreground">
-                      People here
+                      {{ echoT('b40.join.peopleHere') }}
                     </p>
                     <p class="text-[11px] leading-snug text-fg-soft">
                       {{ topMembersSummary }}
@@ -270,7 +282,7 @@ function onConfirmJoin() {
                 :disabled="busy"
                 @click="close"
               >
-                Cancel
+                {{ echoT('b40.join.cancel') }}
               </button>
               <button
                 type="button"
@@ -278,7 +290,7 @@ function onConfirmJoin() {
                 :disabled="busy"
                 @click="onConfirmJoin"
               >
-                {{ busy ? 'Joining…' : 'Join' }}
+                {{ busy ? echoT('b40.join.joining') : echoT('b40.join.join') }}
               </button>
             </div>
           </div>

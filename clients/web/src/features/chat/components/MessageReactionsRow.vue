@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/features/dev/devSettings';
 import { copyToClipboard } from '@/features/chat/copyToClipboard';
@@ -54,7 +55,14 @@ function onReactionPillContextMenu(ev: MouseEvent, emoji: string) {
             (messageId ? `${messageId}-${r.emoji}` : r.emoji),
         },
       ]"
-      :data-echo-hint="`Reacted by ${r.count} ${r.count === 1 ? 'person' : 'people'}`"
+      :data-echo-hint="
+        echoT(
+          r.count === 1
+            ? 'chatB.reactionsRow.byOne'
+            : 'chatB.reactionsRow.byMany',
+          { count: r.count },
+        )
+      "
       @click="onReactionClick(r.emoji)"
       @contextmenu="onReactionPillContextMenu($event, r.emoji)"
       @mouseenter="
@@ -79,8 +87,8 @@ function onReactionPillContextMenu(ev: MouseEvent, emoji: string) {
     <button
       type="button"
       class="add-react-pill reaction-pill chat-focus-ring flex items-center justify-center px-2 py-0.5 rounded-full text-sm transition-opacity opacity-0 pointer-events-none group-hover:opacity-60 group-hover:pointer-events-auto hover:opacity-100 pointer-coarse:opacity-100 pointer-coarse:pointer-events-auto"
-      title="Add reaction"
-      data-echo-hint="Add reaction"
+      :title="echoT('chat.actions.addReaction')"
+      :data-echo-hint="echoT('chat.actions.addReaction')"
       @click="onAddReaction"
     >
       <span

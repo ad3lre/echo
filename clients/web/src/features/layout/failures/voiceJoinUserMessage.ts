@@ -1,12 +1,14 @@
+import { echoT } from '@/i18n';
+
 /** Human-facing copy for voice join errors (API messages + light normalization). */
 export function normalizeVoiceUserMessage(raw: string): string {
   const msg = raw.trim();
   if (!msg) {
-    return 'Could not connect to voice. Check the network and try again.';
+    return echoT('dialogs.voiceJoin.connectFailedNetwork');
   }
   const lower = msg.toLowerCase();
   if (lower.includes('communication timeout') || lower.includes('timed out')) {
-    return 'You are in a communication timeout in this server and cannot join voice until it ends.';
+    return echoT('dialogs.voiceJoin.communicationTimeoutBlocked');
   }
   return msg;
 }

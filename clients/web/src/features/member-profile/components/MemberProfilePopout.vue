@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   roleHierarchyDisplayRank,
@@ -272,7 +273,8 @@ const displayedRoles = computed(() => {
       .filter((r): r is (typeof rm.assignableRoles)[number] => !!r)
       .map((r) => ({
         id: r.id,
-        name: r.name === '@everyone' ? 'Member' : r.name,
+        name:
+          r.name === '@everyone' ? echoT('b43.memberPopout.member') : r.name,
         color: r.color,
         darkColor: r.darkColor,
         lightColor: r.lightColor,
@@ -985,7 +987,7 @@ function handleViewportUpdate() {
               <div
                 v-if="showProfileMoreMenu || showBannerFriendButton"
                 class="flex items-center gap-2"
-                aria-label="Profile actions"
+                :aria-label="echoT('b43.memberPopout.actions')"
               >
                 <button
                   v-if="showBannerFriendButton"
@@ -993,12 +995,12 @@ function handleViewportUpdate() {
                   class="ep-profile-banner-friend-btn ep-profile-banner-friend-btn--labeled"
                   :title="
                     friendshipUi.kind === 'unknown'
-                      ? 'Checking friendship...'
+                      ? echoT('b43.memberPopout.checking')
                       : friendshipUi.kind === 'incoming_request'
-                        ? 'Accept friend request'
+                        ? echoT('b43.memberPopout.accept')
                         : friendshipUi.kind === 'outgoing_request'
-                          ? 'Pending friend request'
-                          : 'Add friend'
+                          ? echoT('b43.memberPopout.pending')
+                          : echoT('memberProfile.addFriend')
                   "
                   :aria-label="friendshipUi.primaryLabel"
                   :disabled="!friendshipUi.primaryEnabled"

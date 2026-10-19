@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import type { PollData, PollOption } from '@shared/types';
 import {
@@ -103,9 +104,9 @@ function voterLabel(userId: string): string {
   }
   const uid = props.currentUserId;
   if (uid && userId === uid) {
-    return props.currentUserDisplayName?.trim() || 'You';
+    return props.currentUserDisplayName?.trim() || echoT('b39.poll.you');
   }
-  return 'Unknown';
+  return echoT('chat.labels.unknown');
 }
 
 function isUsableAvatarUrl(url: string | undefined | null): boolean {
@@ -226,7 +227,14 @@ function handleVote(opt: PollOption) {
                   v-if="showVoteTallies"
                   class="poll-display__tally shrink-0 text-xs tabular-nums text-muted"
                 >
-                  {{ opt.votes }} {{ opt.votes === 1 ? 'vote' : 'votes' }}
+                  {{
+                    echoT(
+                      opt.votes === 1
+                        ? 'b39.poll.voteOne'
+                        : 'b39.poll.voteMany',
+                      { count: opt.votes },
+                    )
+                  }}
                   <template v-if="totalVotes > 0">
                     · {{ getPercent(opt) }}%
                   </template>
@@ -238,7 +246,7 @@ function handleVote(opt: PollOption) {
             v-else
             role="listitem"
             :class="optionShellClass(opt)"
-            aria-label="Poll option"
+            :aria-label="echoT('b39.poll.option')"
           >
             <div class="relative px-4 py-2.5">
               <div
@@ -260,7 +268,14 @@ function handleVote(opt: PollOption) {
                   v-if="showVoteTallies"
                   class="poll-display__tally shrink-0 text-xs tabular-nums text-muted"
                 >
-                  {{ opt.votes }} {{ opt.votes === 1 ? 'vote' : 'votes' }}
+                  {{
+                    echoT(
+                      opt.votes === 1
+                        ? 'b39.poll.voteOne'
+                        : 'b39.poll.voteMany',
+                      { count: opt.votes },
+                    )
+                  }}
                   <template v-if="totalVotes > 0">
                     · {{ getPercent(opt) }}%
                   </template>
@@ -275,10 +290,15 @@ function handleVote(opt: PollOption) {
       >
         <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <span v-if="showVoteTallies" class="poll-display__meta tabular-nums">
-            {{ totalVotes }} {{ totalVotes === 1 ? 'vote' : 'votes' }} total
+            {{
+              echoT(
+                totalVotes === 1 ? 'b39.poll.totalOne' : 'b39.poll.totalMany',
+                { count: totalVotes },
+              )
+            }}
           </span>
           <span v-else class="poll-display__meta poll-display__meta--hint">
-            Results hidden until you vote
+            {{ echoT('b39.poll.hidden') }}
           </span>
           <button
             v-if="showWhoVotedUi"
@@ -286,13 +306,13 @@ function handleVote(opt: PollOption) {
             class="poll-display__who-voted shrink-0 font-medium text-accent transition-[filter,color] hover:brightness-110"
             @click="votersModalOpen = true"
           >
-            View who voted
+            {{ echoT('b39.poll.viewVoters') }}
           </button>
           <span
             v-if="discordSynced"
             class="poll-display__discord-note text-muted"
           >
-            Vote in Discord
+            {{ echoT('b39.poll.voteInDiscord') }}
           </span>
         </div>
         <span
@@ -324,7 +344,7 @@ function handleVote(opt: PollOption) {
         @click.stop
       >
         <h2 id="poll-voters-title" class="shrink-0 text-lg font-semibold pr-8">
-          Who voted
+          {{ echoT('b39.poll.whoVoted') }}
         </h2>
         <p class="mt-1 shrink-0 text-sm text-muted line-clamp-2">
           {{ poll.question }}
@@ -332,7 +352,7 @@ function handleVote(opt: PollOption) {
         <button
           type="button"
           class="absolute top-4 right-4 p-1.5 rounded-md text-muted hover:text-foreground hover:bg-glass-hover transition-colors"
-          aria-label="Close"
+          :aria-label="echoT('b39.poll.close')"
           @click="closeVotersModal"
         >
           <svg
@@ -351,7 +371,7 @@ function handleVote(opt: PollOption) {
         </button>
         <div
           role="tablist"
-          aria-label="Votes by answer"
+          :aria-label="echoT('b39.poll.votesByAnswer')"
           class="mt-4 flex gap-1 overflow-x-auto pb-2 -mx-1 px-1 custom-scrollbar shrink-0 border-b border-border"
         >
           <button
@@ -421,7 +441,7 @@ function handleVote(opt: PollOption) {
                 </li>
               </ul>
               <p v-else class="py-6 text-center text-sm text-muted/80 italic">
-                No votes on this option yet
+                {{ echoT('b39.poll.noVotes') }}
               </p>
             </div>
           </template>
@@ -432,7 +452,7 @@ function handleVote(opt: PollOption) {
             class="px-4 py-2 rounded-lg text-sm font-medium text-muted hover:text-foreground hover:bg-glass-hover transition-colors"
             @click="closeVotersModal"
           >
-            Close
+            {{ echoT('b39.poll.close') }}
           </button>
         </div>
       </div>

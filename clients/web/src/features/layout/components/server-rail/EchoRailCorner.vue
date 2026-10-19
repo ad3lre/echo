@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { onBeforeUnmount } from 'vue';
 import { iconEcho } from '@/assets/branding';
 
@@ -375,8 +376,16 @@ onBeforeUnmount(() => {
       ]"
       :role="props.authenticated ? 'button' : undefined"
       :tabindex="props.authenticated ? 0 : undefined"
-      :title="props.authenticated ? 'Settings' : 'Sign in to open settings'"
-      :aria-label="props.authenticated ? 'Open settings' : 'Echo'"
+      :title="
+        props.authenticated
+          ? echoT('layout.rail.logoSettingsTitle')
+          : echoT('layout.rail.logoSignInTitle')
+      "
+      :aria-label="
+        props.authenticated
+          ? echoT('layout.rail.logoOpenSettings')
+          : echoT('common.appName')
+      "
       @keydown.enter.prevent="onEchoLogoClick"
       @keydown.space.prevent="onEchoLogoClick"
       @pointerdown="handleEchoLogoPress"
@@ -387,7 +396,7 @@ onBeforeUnmount(() => {
     >
       <img
         :src="iconEcho"
-        alt="Echo Logo"
+        :alt="echoT('layout.rail.logoAlt')"
         :width="props.compactTopBar ? 40 : 48"
         :height="props.compactTopBar ? 40 : 48"
         decoding="async"

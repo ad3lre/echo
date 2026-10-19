@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { AuthSessionInfo } from '@/api/authClient';
 import { formatAuthSessionSummary } from '@/features/auth/authSessionDeviceLabel';
@@ -38,7 +39,7 @@ function close() {
             id="new-auth-session-title"
             class="text-base font-bold text-foreground"
           >
-            New sign-in on your account
+            {{ echoT('auth.sessionAlert.title') }}
           </h2>
           <p class="mt-1 text-sm text-fg-subtle">
             A session was created from a device we have not seen in this browser

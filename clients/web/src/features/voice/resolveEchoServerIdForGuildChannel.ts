@@ -1,5 +1,10 @@
 import type { ChannelCategory } from '@/features/layout/channels/useChannels';
 import { isEchoGraphId } from '@/features/layout/ids/echoIds';
+import {
+  findVoiceChannelIdContainingUser,
+  listVoiceChannelIdsForServer,
+  type VoiceEphemeralByChannelId,
+} from '@/features/layout/echoWorkspace/workspaceVoiceEphemeral';
 
 /**
  * Guild voice join/leave APIs are scoped by server id. `selectedServer` can drift
@@ -25,16 +30,25 @@ export function resolveEchoServerIdContainingChannel(
 
 /**
  * Guild workspace snapshot: which voice channel lists this user as connected.
+ * Prefers the ephemeral roster map when provided (post voice-split).
  * Returns the first match if data is inconsistent.
  */
 export function findEchoVoiceChannelIdContainingUserOnServer(
   serverId: string,
   userId: string,
   categoriesByServer: Readonly<Record<string, ChannelCategory[]>>,
+  ephemeral?: VoiceEphemeralByChannelId | null,
 ): string | null {
   const sid = serverId?.trim() ?? '';
   const uid = userId?.trim() ?? '';
   if (!sid || !uid) return null;
+  if (ephemeral && ephemeral.size > 0) {
+    return findVoiceChannelIdContainingUser(
+      ephemeral,
+      listVoiceChannelIdsForServer(categoriesByServer, sid),
+      uid,
+    );
+  }
   const cats = categoriesByServer[sid];
   if (!cats?.length) return null;
   for (const cat of cats) {

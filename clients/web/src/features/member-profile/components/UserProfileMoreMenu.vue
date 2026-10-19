@@ -1,4 +1,5 @@
 ﻿<script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   inject,
@@ -28,7 +29,7 @@ const props = withDefaults(
     isBlocked: boolean;
     /** When true, offer unfriend action in the menu. */
     isFriend?: boolean;
-    /** When true, show "Add friend" action in the menu. */
+    /** When true, show echoT('memberProfile.addFriend') action in the menu. */
     canSendFriendRequest?: boolean;
     /** When true, show “Message” (opens DM) — e.g. member popout without a header Message button. */
     showMessageMenuItem?: boolean;
@@ -228,8 +229,8 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
       ref="moreBtnRef"
       type="button"
       :class="triggerClass ?? 'ep-header-btn ep-header-btn-more'"
-      title="More options"
-      aria-label="More options"
+      :title="echoT('b32.mm.moreOptions')"
+      :aria-label="echoT('b32.mm.moreOptions')"
       aria-haspopup="menu"
       :aria-expanded="menuOpen"
       @click.stop="() => toggleMenu()"
@@ -265,7 +266,7 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Message
+          {{ echoT('memberProfile.message') }}
         </button>
         <button
           v-if="quickMentionEnabled"
@@ -279,7 +280,7 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
             aria-hidden="true"
             >@</span
           >
-          Direct mention
+          {{ echoT('b32.mm.directMention') }}
         </button>
         <button
           v-if="devModeIdsEnabled"
@@ -293,7 +294,7 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Copy user ID
+          {{ echoT('memberProfile.copyUserId') }}
         </button>
         <button
           v-if="canSendFriendRequest"
@@ -307,7 +308,7 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Add friend
+          {{ echoT('memberProfile.addFriend') }}
         </button>
         <button
           v-if="isFriend"
@@ -321,7 +322,7 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Unfriend
+          {{ echoT('b32.mm.unfriend') }}
         </button>
         <button
           type="button"
@@ -344,7 +345,7 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
             />
             <path stroke-width="2" stroke-linecap="round" d="M4 22V4" />
           </svg>
-          Report user
+          {{ echoT('b32.mm.report') }}
         </button>
         <button
           v-if="!isBlocked"
@@ -358,7 +359,7 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Block user
+          {{ echoT('b32.mm.block') }}
         </button>
         <button
           v-else
@@ -372,7 +373,7 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
             alt=""
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
-          Unblock user
+          {{ echoT('b32.mm.unblock') }}
         </button>
       </div>
     </Teleport>

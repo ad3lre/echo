@@ -976,7 +976,10 @@ describe('assembleAppLayoutControllerContext parity', () => {
       "import { isEchoGraphId } from '@/features/layout/ids/echoIds'",
     );
     expect(WIRE_SRC).toContain(
-      "import { icons, getChannelDisplayName } from '@/assets/icons'",
+      "import { getChannelDisplayName } from '@/assets/channelDisplayName'",
+    );
+    expect(WIRE_SRC).toContain(
+      "import { iconsCritical as icons } from '@/assets/iconsCritical'",
     );
     expect(WIRE_SRC).not.toContain('isEchoGraphId: $.isEchoGraphId');
     expect(WIRE_SRC).not.toContain('icons: $.icons');

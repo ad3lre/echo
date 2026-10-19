@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
@@ -40,10 +41,12 @@ const displayInitial = computed(() => {
 <template>
   <div class="settings-google-root w-full min-w-0 max-w-5xl">
     <div v-if="echoSyncCapabilities.isMockDataMode" class="text-sm text-muted">
-      Preview mode doesn’t use a live account, so Google can’t be linked here.
+      {{ echoT('b34.google.preview') }}
     </div>
 
-    <div v-else-if="loading" class="text-sm text-muted">Loading…</div>
+    <div v-else-if="loading" class="text-sm text-muted">
+      {{ echoT('settingsUi.loading') }}
+    </div>
 
     <div v-else class="flex flex-col gap-6">
       <SettingsIntegrationPrivacyNotice />
@@ -56,11 +59,17 @@ const displayInitial = computed(() => {
         v-if="state && !googleConfigured"
         class="max-w-2xl text-sm leading-relaxed text-muted"
       >
-        Google linking isn’t enabled on this Echo server yet. An admin needs to
-        set
-        <code class="font-mono text-xs">GOOGLE_OAUTH_CLIENT_ID</code>,
-        <code class="font-mono text-xs">GOOGLE_OAUTH_CLIENT_SECRET</code>, and
-        <code class="font-mono text-xs">GOOGLE_OAUTH_REDIRECT_URI</code>.
+        <i18n-t keypath="b34.google.notConfigured" tag="span" scope="global">
+          <template #id>
+            <code class="font-mono text-xs">GOOGLE_OAUTH_CLIENT_ID</code>
+          </template>
+          <template #secret>
+            <code class="font-mono text-xs">GOOGLE_OAUTH_CLIENT_SECRET</code>
+          </template>
+          <template #redirect>
+            <code class="font-mono text-xs">GOOGLE_OAUTH_REDIRECT_URI</code>
+          </template>
+        </i18n-t>
       </p>
 
       <div
@@ -104,29 +113,33 @@ const displayInitial = computed(() => {
                   {{ googleSettingsSectionTitle() }}
                 </span>
                 <h4 class="mt-1 text-2xl font-bold text-foreground">
-                  {{ state.profile.name || 'Google account' }}
+                  {{ state.profile.name || echoT('b34.google.account') }}
                 </h4>
                 <p
                   class="mt-2 text-sm font-medium text-[color:var(--set-positive-label-fg)]"
                 >
-                  Connected
+                  {{ echoT('b34.google.connected') }}
                 </p>
               </div>
             </div>
 
             <div class="mt-10 grid grid-cols-1 gap-x-12 gap-y-8 sm:grid-cols-2">
               <div class="min-w-0">
-                <div class="settings-label mb-1.5">Email</div>
+                <div class="settings-label mb-1.5">
+                  {{ echoT('b34.google.email') }}
+                </div>
                 <div class="text-sm leading-snug text-foreground/95">
                   {{
                     state.profile.emailPresent
-                      ? 'Shared with Echo'
-                      : 'Not shared'
+                      ? echoT('b34.google.sharedWithEcho')
+                      : echoT('settingsUi.notShared')
                   }}
                 </div>
               </div>
               <div class="min-w-0">
-                <div class="settings-label mb-1.5">Google account ID</div>
+                <div class="settings-label mb-1.5">
+                  {{ echoT('b34.google.accountId') }}
+                </div>
                 <div
                   class="font-mono text-xs leading-snug break-all text-foreground/90"
                 >
@@ -196,11 +209,10 @@ const displayInitial = computed(() => {
             </svg>
             <div>
               <h4 class="text-lg font-bold text-foreground">
-                Link Google for YouTube live
+                {{ echoT('b34.google.linkTitle') }}
               </h4>
               <p class="mt-1 max-w-xl text-sm text-muted">
-                Connect the Google account you use for Echo sign-in or YouTube.
-                YouTube channel linking in Settings requires this step first.
+                {{ echoT('b34.google.linkBody') }}
               </p>
             </div>
           </div>
@@ -210,7 +222,11 @@ const displayInitial = computed(() => {
             :disabled="connectBusy"
             @click="onConnect"
           >
-            {{ connectBusy ? 'Opening Google…' : googleConnectCta() }}
+            {{
+              connectBusy
+                ? echoT('settingsUi.openingGoogle')
+                : googleConnectCta()
+            }}
           </button>
         </div>
       </template>

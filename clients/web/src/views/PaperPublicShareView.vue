@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, ref, watch } from 'vue';
 import { fetchPublicPaperByToken } from '@/features/paper/paperApi';
 import { usePaperEditorState } from '@/features/paper/composables/usePaperEditorState';
@@ -17,8 +18,11 @@ import {
   detectGlobalAppearance,
   type PaperAppearanceMode,
 } from '@/features/paper/composables/usePaperAppearance';
-import { paperFontFamilyCss } from '@/features/paper/editor/paperTypography';
-import { preloadPaperFontCatalog } from '@/features/paper/editor/paperFontLoader';
+import {
+  paperFontFamilyCss,
+  paperFontIdFromFamily,
+} from '@/features/paper/editor/paperTypography';
+import { warmPaperFontsForDocument } from '@/features/paper/editor/paperFontLoader';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import 'katex/dist/katex.min.css';
 import '@/features/paper/styles/paperTheme.scss';
@@ -106,7 +110,7 @@ async function loadDoc() {
     contentJson.value = doc.contentJson;
   } catch (e) {
     const msg =
-      e instanceof Error ? e.message : 'This shared paper is unavailable';
+      e instanceof Error ? e.message : echoT('b27.paperShare.unavailable');
     error.value = msg;
     notFound.value =
       msg.toLowerCase().includes('not found') ||
@@ -117,8 +121,9 @@ async function loadDoc() {
 }
 
 onMounted(async () => {
-  preloadPaperFontCatalog();
   await loadDoc();
+  const docFontId = paperFontIdFromFamily(paperPageFontFamily.value);
+  warmPaperFontsForDocument(docFontId ? [docFontId] : []);
 });
 </script>
 
@@ -136,7 +141,9 @@ onMounted(async () => {
         <h1 class="truncate text-base font-semibold text-fg">
           {{ channelName }}
         </h1>
-        <p class="text-[11px] text-fg-subtle">Public view — read only</p>
+        <p class="text-[11px] text-fg-subtle">
+          {{ echoT('b27.paperShare.publicView') }}
+        </p>
       </div>
       <div class="flex shrink-0 items-center gap-2">
         <button
@@ -149,20 +156,24 @@ onMounted(async () => {
           }"
           :title="
             paperSourceView.mode.value === 'inline'
-              ? 'Rendered preview — click for markdown source'
-              : 'Markdown source — click for rendered preview'
+              ? echoT('b27.paperShare.renderedTitle')
+              : echoT('b27.paperShare.sourceTitle')
           "
           @click="paperSourceView.toggleMode()"
         >
-          {{ paperSourceView.mode.value === 'inline' ? 'Rendered' : 'Raw' }}
+          {{
+            paperSourceView.mode.value === 'inline'
+              ? echoT('b27.paperShare.rendered')
+              : echoT('b27.paperShare.raw')
+          }}
         </button>
         <button
           type="button"
           class="rounded-lg border border-border p-1.5 text-fg-subtle transition-colors hover:bg-glass-hover"
           :title="
             appearance === 'dark'
-              ? 'Switch to light preview'
-              : 'Switch to dark preview'
+              ? echoT('b27.paperShare.toLight')
+              : echoT('b27.paperShare.toDark')
           "
           @click="toggleAppearance"
         >
@@ -211,11 +222,15 @@ onMounted(async () => {
           <path d="M12 8v4M12 16h.01" />
         </svg>
         <p class="text-sm font-medium text-fg">
-          {{ notFound ? 'Paper not found' : 'Could not load this paper' }}
+          {{
+            notFound
+              ? echoT('b27.paperShare.notFound')
+              : echoT('b27.paperShare.loadFailed')
+          }}
         </p>
         <p class="text-xs text-fg-subtle">{{ error }}</p>
         <p v-if="notFound" class="text-xs text-fg-subtle">
-          The link may have expired or sharing was turned off.
+          {{ echoT('b27.paperShare.expired') }}
         </p>
         <button
           v-if="!notFound"
@@ -223,7 +238,7 @@ onMounted(async () => {
           class="mt-1 rounded-lg border border-border bg-elevated px-4 py-2 text-sm text-fg transition-colors hover:bg-glass-hover"
           @click="loadDoc"
         >
-          Try again
+          {{ echoT('b27.paperShare.tryAgain') }}
         </button>
       </div>
       <PaperPageCanvas
@@ -240,15 +255,15 @@ onMounted(async () => {
     <footer
       class="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-fg-subtle"
     >
-      <span>Shared via Echo</span>
+      <span>{{ echoT('b27.paperShare.sharedVia') }}</span>
       <button
         v-if="isLoggedIn"
         type="button"
         class="rounded-lg border border-border px-3 py-1.5 text-fg transition-colors hover:bg-glass-hover"
-        title="Go to Echo"
+        :title="echoT('b27.paperShare.goToEcho')"
         @click="openInEcho"
       >
-        Open Echo
+        {{ echoT('b27.paperShare.openEcho') }}
       </button>
     </footer>
   </div>

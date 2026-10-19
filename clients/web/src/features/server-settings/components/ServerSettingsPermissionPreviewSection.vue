@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import PermissionDiff from './PermissionDiff.vue';
 import { toRef } from 'vue';
@@ -31,34 +32,35 @@ const {
 
 <template>
   <div class="server-settings-panel rounded-2xl p-5">
-    <div class="settings-subtitle mb-1">Permission preview</div>
+    <div class="settings-subtitle mb-1">
+      {{ echoT('b40.permPreview.title') }}
+    </div>
     <p class="mb-4 text-sm text-fg-soft">
-      Effective permissions for your account (server fold, then category and
-      channel layers). Requires manage roles or manage server.
+      {{ echoT('b40.permPreview.desc') }}
     </p>
     <div v-if="!canLoad" class="text-sm text-fg-subtle">
-      Sign in with Echo (non-mock) to load this panel.
+      {{ echoT('b40.permPreview.signIn') }}
     </div>
     <template v-else>
       <div class="mb-4 flex flex-wrap items-center gap-3">
         <EchoDropdown
           v-model="selectedChannelId"
           :options="channelOptions"
-          label="Channel context"
+          :label="echoT('b40.permPreview.channelContext')"
           surface="server"
           teleport-menu
         />
         <EchoDropdown
           v-model="traceMode"
           :options="TRACE_OPTIONS"
-          label="Trace"
+          :label="echoT('b40.permPreview.trace')"
           surface="server"
           teleport-menu
         />
         <EchoDropdown
           v-model="compareRoleId"
           :options="roleOptions"
-          label="Compare to role"
+          :label="echoT('b40.permPreview.compare')"
           surface="server"
           teleport-menu
         />
@@ -68,16 +70,18 @@ const {
           :disabled="loading"
           @click="loadExplain"
         >
-          Refresh
+          {{ echoT('b40.permPreview.refresh') }}
         </button>
       </div>
       <div v-if="error" class="echo-error-banner rounded-lg px-3 py-2 text-sm">
         {{ error }}
       </div>
-      <div v-else-if="loading" class="text-sm text-fg-subtle">Loading…</div>
+      <div v-else-if="loading" class="text-sm text-fg-subtle">
+        {{ echoT('b40.permPreview.loading') }}
+      </div>
       <div v-else class="space-y-3 text-sm">
         <div v-if="ownerBypass" class="echo-warn-banner rounded-lg px-3 py-2">
-          Owner bypass: all permissions.
+          {{ echoT('b40.permPreview.owner') }}
         </div>
         <div class="text-fg-soft">{{ summary }}</div>
         <div

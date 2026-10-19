@@ -1,6 +1,7 @@
+import { echoT } from '@/i18n';
 import type { ChannelCategory } from '@/features/layout/channels/useChannels';
 import type { ChannelSummary } from '@shared/types';
-import { getChannelDisplayName } from '@/assets/icons';
+import { getChannelDisplayName } from '@/assets/channelDisplayName';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import {
   MENTION_NOTIFICATION_FAILED_PREVIEW,
@@ -75,16 +76,16 @@ export function resolveMentionNotificationChannelLabel(input: {
   if (isDmThreadId(cid) || input.echoDmThreadIds.has(cid)) {
     const group = input.groupDMs[cid];
     if (group?.name?.trim()) return group.name.trim();
-    if (cid.startsWith('dm-group-')) return 'Group DM';
+    if (cid.startsWith('dm-group-')) return echoT('chat.labels.groupDm');
     const peerFromShell = cid.startsWith('dm-') ? cid.slice('dm-'.length) : '';
     const partnerId =
       input.echoDmPeerByChannelId.get(cid) ?? peerFromShell ?? '';
     if (partnerId) {
       const user = input.users.find((u) => u.id === partnerId);
       if (user?.name?.trim()) return user.name.trim();
-      return 'Direct message';
+      return echoT('chat.labels.directMessage');
     }
-    return 'Direct message';
+    return echoT('chat.labels.directMessage');
   }
 
   return 'Channel';
@@ -100,7 +101,7 @@ export function resolveMentionNotificationAuthorName(input: {
   serverMemberNicknames?: Readonly<Record<string, Record<string, string>>>;
 }): string {
   const uid = input.userId.trim();
-  if (!uid) return 'Someone';
+  if (!uid) return echoT('chat.labels.someone');
 
   const fromMessage = input.authorDisplayName?.trim() ?? '';
   let base: string;
@@ -120,7 +121,7 @@ export function resolveMentionNotificationAuthorName(input: {
         const self = input.selfDisplayName?.trim();
         base = self || 'Someone';
       } else {
-        base = 'Someone';
+        base = echoT('chat.labels.someone');
       }
     }
   }
@@ -159,7 +160,7 @@ export function resolveMentionNotificationRowAuthorName(input: {
     if (input.authorDisplayName?.trim()) {
       return input.authorDisplayName.trim();
     }
-    return 'Someone';
+    return echoT('chat.labels.someone');
   }
 
   const serverId = resolveEchoServerIdContainingChannel(

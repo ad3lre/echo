@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   nextTick,
@@ -66,6 +67,12 @@ const unavailable = computed(
   () => !isTrustedMediaUrl(props.url) || loadFailed.value,
 );
 
+/** Empty `src` while CDN signing finishes must not flip to "unavailable". */
+function onStillError(): void {
+  if (!resolved.value?.trim()) return;
+  loadFailed.value = true;
+}
+
 const { shellStyle, showLayoutSkeleton, onMediaDecoded } =
   useChatBitmapMediaLayout({
     url: toRef(props, 'url'),
@@ -101,7 +108,7 @@ onUnmounted(() => {
 <template>
   <MediaUnavailablePanel
     v-if="unavailable"
-    headline="Image unavailable"
+    :headline="echoT('chat.status.imageUnavailable')"
     :href="isTrustedMediaUrl(url) ? resolved : undefined"
   />
   <button
@@ -118,6 +125,7 @@ onUnmounted(() => {
         aria-hidden="true"
       />
       <img
+        v-if="resolved"
         :src="resolved"
         :srcset="srcset || undefined"
         :sizes="srcset ? sizes : undefined"
@@ -126,7 +134,7 @@ onUnmounted(() => {
         class="message-image message-image--boxed"
         :class="{ 'message-image--hidden': showLayoutSkeleton }"
         @load="onImageLoad"
-        @error="loadFailed = true"
+        @error="onStillError"
       />
     </div>
   </button>
@@ -137,6 +145,7 @@ onUnmounted(() => {
       aria-hidden="true"
     />
     <img
+      v-if="resolved"
       :src="resolved"
       :srcset="srcset || undefined"
       :sizes="srcset ? sizes : undefined"
@@ -145,7 +154,7 @@ onUnmounted(() => {
       class="message-image message-image--boxed"
       :class="{ 'message-image--hidden': showLayoutSkeleton }"
       @load="onImageLoad"
-      @error="loadFailed = true"
+      @error="onStillError"
     />
   </div>
 </template>

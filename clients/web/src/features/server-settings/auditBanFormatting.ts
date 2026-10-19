@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type { AuditLogEntry } from '@/features/server-settings/composables/useServerSettingsAudit';
 import { formatTimestamp } from '@/features/chat/formatTimestamp';
 

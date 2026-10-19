@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import StatusIndicator from '@/components/StatusIndicator.vue';
@@ -121,7 +122,11 @@ function memberAt(index: number): MemberListVirtualMember | null {
             :style="{
               backgroundColor: headerAt(vItem.index)!.role.color,
             }"
-            :title="`${headerAt(vItem.index)!.role.name} role color`"
+            :title="
+              echoT('b41.memberList.roleColor', {
+                name: headerAt(vItem.index)!.role.name,
+              })
+            "
             aria-hidden="true"
           />
           <PausedGifAvatar
@@ -208,10 +213,10 @@ function memberAt(index: number): MemberListVirtualMember | null {
                   isUserCommunicationTimedOut(memberAt(vItem.index)!.user.id)
                 "
                 class="inline-flex shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-400/20"
-                title="Communication timeout"
-                aria-label="Communication timeout"
+                :title="echoT('b41.memberList.timeout')"
+                :aria-label="echoT('b41.memberList.timeout')"
               >
-                Timed out
+                {{ echoT('b41.memberList.timedOut') }}
               </span>
             </div>
             <div class="truncate text-xs text-muted">
@@ -230,7 +235,9 @@ function memberAt(index: number): MemberListVirtualMember | null {
           <span
             class="h-2 w-2 shrink-0 rounded-full"
             :style="{ backgroundColor: section.role.color }"
-            :title="`${section.role.name} role color`"
+            :title="
+              echoT('b41.memberList.roleColor', { name: section.role.name })
+            "
             aria-hidden="true"
           />
           <PausedGifAvatar
@@ -298,10 +305,10 @@ function memberAt(index: number): MemberListVirtualMember | null {
                 <span
                   v-if="isUserCommunicationTimedOut(user.id)"
                   class="inline-flex shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-400/20"
-                  title="Communication timeout"
-                  aria-label="Communication timeout"
+                  :title="echoT('b41.memberList.timeout')"
+                  :aria-label="echoT('b41.memberList.timeout')"
                 >
-                  Timed out
+                  {{ echoT('b41.memberList.timedOut') }}
                 </span>
               </div>
               <div class="truncate text-xs text-muted">

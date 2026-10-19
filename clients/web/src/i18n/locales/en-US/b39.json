@@ -1,0 +1,88 @@
+{
+  "moreServers": {
+    "menu": {
+      "serverOptions": "Server options",
+      "viewInfo": "View server info",
+      "invite": "Invite people",
+      "unpin": "Remove from rail",
+      "pin": "Pin to rail",
+      "widgetFolder": "Widget folder",
+      "leave": "Leave server",
+      "editFolder": "Edit folder…",
+      "newFolder": "New folder…",
+      "deleteFolder": "Delete folder…"
+    },
+    "compact": {
+      "dropIntoFolderGroup": "Drop into widget folder",
+      "pinned": "Pinned to rail",
+      "emptyFolder": "Empty — drag a server here.",
+      "dropInto": "Drop into {name}",
+      "serverTitle": "{name} — drag to move · right-click for folder options",
+      "folderAria": {
+        "expanded": "{name}, {count} servers. Click to collapse.",
+        "collapsed": "{name}, {count} servers. Click to expand."
+      },
+      "folderTitle": {
+        "expanded": "{name} — {count} server(s). Click to collapse; drag to reorder folder.",
+        "collapsed": "{name} — {count} server(s). Click to expand; drag to reorder folder."
+      }
+    }
+  },
+  "dmSection": {
+    "acceptFriend": "Accept Friend Request",
+    "cancelFriend": "Cancel Friend Request",
+    "sendFriend": "Send Friend Request",
+    "thisUser": "this user",
+    "selectConversation": "Select a conversation from your DMs, or open Friends to start messaging.",
+    "channelLoadFailed": "This channel could not be loaded.",
+    "viewLoadFailed": "Something went wrong loading this view.",
+    "backToChannels": "Back to channels",
+    "historyIntro": "This is the beginning of your direct message history with {name}."
+  },
+  "msgReq": {
+    "title": "Message requests",
+    "selectHint": "Select a request from the sidebar to review the conversation, reply if needed, then accept, ignore, or report it.",
+    "single": "Message request",
+    "back": "Back to messages",
+    "accept": "Accept",
+    "ignore": "Ignore",
+    "notFriends": "Not friends yet",
+    "canReply": "You can reply before accepting",
+    "reviewHint": "Review the conversation first. Accept moves this thread into your normal direct messages, while Ignore removes the request from your queue."
+  },
+  "poll": {
+    "voteOne": "{count} vote",
+    "voteMany": "{count} votes",
+    "totalOne": "{count} vote total",
+    "totalMany": "{count} votes total",
+    "you": "You",
+    "option": "Poll option",
+    "hidden": "Results hidden until you vote",
+    "viewVoters": "View who voted",
+    "voteInDiscord": "Vote in Discord",
+    "whoVoted": "Who voted",
+    "close": "Close",
+    "votesByAnswer": "Votes by answer",
+    "noVotes": "No votes on this option yet"
+  },
+  "chatView": {
+    "backToForum": "Back to forum",
+    "onThisPage": "On this page",
+    "markdownPreview": "Markdown preview",
+    "collapsePreview": "Collapse preview",
+    "ageRestricted": "Age-restricted channel",
+    "nsfwNotice": "This channel is marked as NSFW. By continuing you confirm you are 18 or older and choose to view potentially mature content.",
+    "goBack": "Go back",
+    "enterChannel": "Enter channel"
+  },
+  "fsStream": {
+    "previewPaused": "Preview paused to save CPU and battery",
+    "stillSharing": "You are still sharing. Click anywhere or use the button to show your preview again.",
+    "showPreview": "Show preview",
+    "unmute": "Unmute stream audio",
+    "mute": "Mute stream audio",
+    "pip": "Picture in picture",
+    "closeFullscreen": "Close fullscreen",
+    "theirVolume": "Their volume"
+  }
+}

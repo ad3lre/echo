@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, ref } from 'vue';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import { LAYOUT_CHAT_SURFACE_KEY } from '@/features/layout/layoutInjectionKeys';
 import VoiceChannelUserLimitBadge from '@/features/voice/VoiceChannelUserLimitBadge.vue';
 import type { VoiceChannelUserLimitUi } from '@/features/voice/voiceChannelUserLimit';
@@ -153,17 +154,19 @@ function toggleNetworkPopup() {
 const statusLabel = computed(() => {
   switch (props.vcConnectionStatus) {
     case 'awaiting_mic':
-      return 'Waiting for microphone…';
+      return echoT('b08.vcPanel.status.awaitingMic');
     case 'connecting':
-      return 'Connecting…';
+      return echoT('b08.vcPanel.status.connecting');
     case 'error':
-      return 'Connection Failed';
+      return echoT('b08.vcPanel.status.error');
     case 'connected':
-      return props.voiceE2eeActive ? 'Encrypted Voice' : 'Voice Connected';
+      return props.voiceE2eeActive
+        ? echoT('b08.vcPanel.status.encryptedVoice')
+        : echoT('b08.vcPanel.status.voiceConnected');
     case 'idle':
-      return 'Voice';
+      return echoT('b08.vcPanel.status.voice');
     default:
-      return 'Voice';
+      return echoT('b08.vcPanel.status.voice');
   }
 });
 
@@ -196,9 +199,9 @@ const networkIconClass = computed(() => {
 });
 
 function e2eeStatusLabel(encrypted: boolean | null): string {
-  if (encrypted === true) return 'Encrypted';
-  if (encrypted === false) return 'Not encrypted';
-  return 'Pending';
+  if (encrypted === true) return echoT('b08.vcPanel.e2ee.encrypted');
+  if (encrypted === false) return echoT('b08.vcPanel.e2ee.notEncrypted');
+  return echoT('b08.vcPanel.e2ee.pending');
 }
 
 function e2eeStatusClass(encrypted: boolean | null): string {
@@ -231,7 +234,7 @@ function formatBitrate(kbps: number): string {
             <button
               type="button"
               class="vc-voice-status-trigger group min-w-0 max-w-full"
-              title="Connection info"
+              :title="echoT('b08.vcPanel.connectionInfo')"
               @click.stop="toggleNetworkPopup"
             >
               <img
@@ -261,7 +264,7 @@ function formatBitrate(kbps: number): string {
               <span
                 v-if="voiceE2eeActive"
                 class="vc-e2ee-pill shrink-0"
-                title="Voice and camera use end-to-end encryption (LiveKit E2EE)."
+                :title="echoT('b08.vcPanel.e2eeHint')"
               >
                 <img :src="icons.chatLock" alt="" class="vc-e2ee-pill-icon" />
                 E2EE
@@ -270,23 +273,32 @@ function formatBitrate(kbps: number): string {
                 v-if="focusGuildVoiceChannelInSidebar"
                 type="button"
                 class="min-w-0 flex-1 truncate text-left text-[12px] text-fg-subtle transition hover:text-fg cursor-pointer rounded-sm border-0 bg-transparent p-0"
-                title="Go to voice channel"
+                :title="echoT('b08.vcPanel.goToVoiceChannel')"
                 @click="focusGuildVoiceChannelInSidebar()"
               >
-                {{ currentVoiceChannelName || 'Voice Channel' }}
+                {{
+                  currentVoiceChannelName || echoT('b08.vcPanel.voiceChannel')
+                }}
               </button>
               <span
                 v-else
                 class="min-w-0 flex-1 truncate text-[12px] text-fg-subtle"
               >
-                {{ currentVoiceChannelName || 'Voice Channel' }}
+                {{
+                  currentVoiceChannelName || echoT('b08.vcPanel.voiceChannel')
+                }}
               </span>
               <VoiceChannelUserLimitBadge
                 v-if="currentVoiceChannelLimitUi"
                 :label="currentVoiceChannelLimitUi.label"
                 :tone="currentVoiceChannelLimitUi.tone"
                 size="md"
-                :title="`${currentVoiceChannelLimitUi.count} of ${currentVoiceChannelLimitUi.limit} users in voice`"
+                :title="
+                  echoT('b08.vcPanel.usersInVoice', {
+                    count: currentVoiceChannelLimitUi.count,
+                    limit: currentVoiceChannelLimitUi.limit,
+                  })
+                "
               />
             </div>
 
@@ -296,18 +308,26 @@ function formatBitrate(kbps: number): string {
                 class="vc-network-popup"
               >
                 <div class="vc-network-popup-header">
-                  <span class="vc-network-popup-title">Voice Connection</span>
+                  <span class="vc-network-popup-title">{{
+                    echoT('b08.vcPanel.voiceConnection')
+                  }}</span>
                   <span
                     class="vc-network-popup-badge"
                     :class="vcNetworkGood ? 'vc-badge-good' : 'vc-badge-warn'"
                   >
-                    {{ vcNetworkGood ? 'Good' : 'Unstable' }}
+                    {{
+                      vcNetworkGood
+                        ? echoT('b08.vcPanel.good')
+                        : echoT('b08.vcPanel.unstable')
+                    }}
                   </span>
                 </div>
 
                 <div class="vc-network-popup-stats">
                   <div class="vc-stat-row">
-                    <span class="vc-stat-label">Latency</span>
+                    <span class="vc-stat-label">{{
+                      echoT('b08.vcPanel.latency')
+                    }}</span>
                     <span
                       class="vc-stat-value"
                       :class="
@@ -324,7 +344,9 @@ function formatBitrate(kbps: number): string {
                     </span>
                   </div>
                   <div class="vc-stat-row">
-                    <span class="vc-stat-label">Packet Loss</span>
+                    <span class="vc-stat-label">{{
+                      echoT('b08.vcPanel.packetLoss')
+                    }}</span>
                     <span
                       class="vc-stat-value"
                       :class="
@@ -341,7 +363,9 @@ function formatBitrate(kbps: number): string {
                     </span>
                   </div>
                   <div class="vc-stat-row">
-                    <span class="vc-stat-label">Jitter</span>
+                    <span class="vc-stat-label">{{
+                      echoT('b08.vcPanel.jitter')
+                    }}</span>
                     <span
                       class="vc-stat-value"
                       :class="
@@ -358,7 +382,9 @@ function formatBitrate(kbps: number): string {
                     </span>
                   </div>
                   <div class="vc-stat-row">
-                    <span class="vc-stat-label">Bitrate</span>
+                    <span class="vc-stat-label">{{
+                      echoT('b08.vcPanel.bitrate')
+                    }}</span>
                     <span class="vc-stat-value vc-stat-ok">
                       {{
                         vcNetworkStats
@@ -368,11 +394,17 @@ function formatBitrate(kbps: number): string {
                     </span>
                   </div>
                   <div v-if="vcScreenshare" class="vc-stat-row">
-                    <span class="vc-stat-label">Screen Share</span>
-                    <span class="vc-stat-value vc-stat-ok">Active</span>
+                    <span class="vc-stat-label">{{
+                      echoT('b08.vcPanel.screenShare')
+                    }}</span>
+                    <span class="vc-stat-value vc-stat-ok">{{
+                      echoT('b08.vcPanel.active')
+                    }}</span>
                   </div>
                   <div class="vc-stat-row">
-                    <span class="vc-stat-label">Codec</span>
+                    <span class="vc-stat-label">{{
+                      echoT('b08.vcPanel.codec')
+                    }}</span>
                     <span
                       class="vc-stat-value vc-stat-ok min-w-0 max-w-[10rem] truncate text-right"
                     >
@@ -380,7 +412,9 @@ function formatBitrate(kbps: number): string {
                     </span>
                   </div>
                   <div class="vc-stat-row">
-                    <span class="vc-stat-label">Server</span>
+                    <span class="vc-stat-label">{{
+                      echoT('b08.vcPanel.server')
+                    }}</span>
                     <span class="vc-stat-value vc-stat-ok">
                       {{ vcNetworkStats?.serverRegion || '—' }}
                     </span>
@@ -392,7 +426,7 @@ function formatBitrate(kbps: number): string {
                   class="vc-network-popup-e2ee"
                 >
                   <div class="vc-network-popup-e2ee-title">
-                    End-to-end encryption
+                    {{ echoT('b08.vcPanel.e2eeTitle') }}
                   </div>
                   <div
                     v-for="row in voiceE2eeParticipants"
@@ -417,8 +451,8 @@ function formatBitrate(kbps: number): string {
             <button
               type="button"
               class="vc-activities-btn shrink-0"
-              title="Activities"
-              aria-label="Voice activities"
+              :title="echoT('b08.vcPanel.activities')"
+              :aria-label="echoT('b08.vcPanel.voiceActivities')"
               @click="openVoiceActivities"
             >
               <img
@@ -430,8 +464,8 @@ function formatBitrate(kbps: number): string {
             <button
               type="button"
               class="vc-leave-btn shrink-0"
-              title="Leave"
-              aria-label="Leave voice channel"
+              :title="echoT('b08.vcPanel.leave')"
+              :aria-label="echoT('b08.vcPanel.leaveVoiceChannel')"
               @click="onLeaveVoice"
             >
               <img
@@ -450,12 +484,14 @@ function formatBitrate(kbps: number): string {
           class="vc-server-mod-banner mx-3 mt-2 mb-1"
           role="status"
         >
-          <span v-if="vcSelfServerDeafened" class="font-medium"
-            >Server deafened</span
-          >
-          <span v-else class="font-medium">Server muted</span>
+          <span v-if="vcSelfServerDeafened" class="font-medium">{{
+            echoT('b08.vcPanel.serverDeafened')
+          }}</span>
+          <span v-else class="font-medium">{{
+            echoT('b08.vcPanel.serverMuted')
+          }}</span>
           <span class="vc-server-mod-banner-detail mt-0.5 block text-[11px]">
-            A moderator applied this. Only they can remove it.
+            {{ echoT('b08.vcPanel.modApplied') }}
           </span>
         </div>
 
@@ -512,19 +548,15 @@ function formatBitrate(kbps: number): string {
                   class="vc-device-output-hint"
                 >
                   <template v-if="audioOutputSelectionLimited === 'ios'">
-                    On iPad and iPhone Safari, voice output follows the system
-                    speaker. Use Control Center to switch to AirPods or other
-                    headphones.
+                    {{ echoT('b08.vcPanel.limited.ios') }}
                   </template>
                   <template
                     v-else-if="audioOutputSelectionLimited === 'mac-desktop'"
                   >
-                    In the Mac app, voice output follows the system default
-                    speaker.
+                    {{ echoT('b08.vcPanel.limited.mac') }}
                   </template>
                   <template v-else>
-                    This browser cannot route voice to a specific speaker from
-                    Echo — output stays on the system default.
+                    {{ echoT('b08.vcPanel.limited.other') }}
                   </template>
                 </p>
                 <Transition name="vc-device-list">
@@ -552,7 +584,9 @@ function formatBitrate(kbps: number): string {
                   class="vc-device-volume vc-device-volume--stacked"
                 >
                   <div class="vc-volume-label-row">
-                    <span class="vc-volume-label">Output</span>
+                    <span class="vc-volume-label">{{
+                      echoT('b08.vcPanel.output')
+                    }}</span>
                     <span class="vc-settings-value"
                       >{{ vcOutputDisplayPercent }}%</span
                     >
@@ -565,7 +599,11 @@ function formatBitrate(kbps: number): string {
                       :max="voiceSliderMax"
                       class="vc-settings-slider"
                       :style="{ '--value': sliderFillPercent(vcOutputVolume) }"
-                      :aria-label="'Output ' + vcOutputDisplayPercent + '%'"
+                      :aria-label="
+                        echoT('b08.vcPanel.outputPercent', {
+                          percent: vcOutputDisplayPercent,
+                        })
+                      "
                       @input="
                         setOutputVolume(
                           Number(($event.target as HTMLInputElement).value),
@@ -626,7 +664,9 @@ function formatBitrate(kbps: number): string {
                   class="vc-device-volume vc-device-volume--stacked"
                 >
                   <div class="vc-volume-label-row">
-                    <span class="vc-volume-label">Input</span>
+                    <span class="vc-volume-label">{{
+                      echoT('b08.vcPanel.input')
+                    }}</span>
                     <span class="vc-settings-value"
                       >{{ vcInputDisplayPercent }}%</span
                     >
@@ -651,7 +691,11 @@ function formatBitrate(kbps: number): string {
                       :max="voiceSliderMax"
                       class="vc-settings-slider vc-settings-slider--input-gain"
                       :style="{ '--value': sliderFillPercent(vcInputVolume) }"
-                      :aria-label="'Input ' + vcInputDisplayPercent + '%'"
+                      :aria-label="
+                        echoT('b08.vcPanel.inputPercent', {
+                          percent: vcInputDisplayPercent,
+                        })
+                      "
                       @input="
                         setInputVolume(
                           Number(($event.target as HTMLInputElement).value),
@@ -683,7 +727,9 @@ function formatBitrate(kbps: number): string {
                     class="vc-device-name-icon"
                     aria-hidden="true"
                   />
-                  <span>{{ currentCameraLabel || 'Camera' }}</span>
+                  <span>{{
+                    currentCameraLabel || echoT('b08.vcPanel.camera')
+                  }}</span>
                   <svg
                     class="vc-device-name-chevron"
                     viewBox="0 0 24 24"
@@ -720,7 +766,7 @@ function formatBitrate(kbps: number): string {
               <button
                 type="button"
                 class="vc-device-name vc-device-name--link"
-                aria-label="Open voice and video settings"
+                :aria-label="echoT('b08.vcPanel.openVoiceVideoSettings')"
                 @click="onOpenVoiceAudioSettings"
               >
                 <img
@@ -729,7 +775,7 @@ function formatBitrate(kbps: number): string {
                   class="vc-device-name-icon"
                   aria-hidden="true"
                 />
-                <span>Voice & video</span>
+                <span>{{ echoT('b08.vcPanel.voiceVideo') }}</span>
                 <svg
                   class="vc-device-name-chevron vc-device-name-chevron--forward"
                   viewBox="0 0 24 24"
@@ -761,17 +807,17 @@ function formatBitrate(kbps: number): string {
             }"
             :title="
               canUseVideo === false
-                ? 'Video not allowed for this role'
+                ? echoT('b08.vcPanel.videoNotAllowed')
                 : vcVideo
-                  ? 'Stop video'
-                  : 'Start video'
+                  ? echoT('b08.vcPanel.stopVideo')
+                  : echoT('b08.vcPanel.startVideo')
             "
             :disabled="canUseVideo === false"
             @click="toggleVcVideo"
           >
             <img
               :src="icons.cameraOn"
-              alt="Video"
+              :alt="echoT('b08.vcPanel.video')"
               class="vc-icon w-[20px] h-[20px]"
             />
           </button>
@@ -782,12 +828,16 @@ function formatBitrate(kbps: number): string {
               'vc-ctrl-btn--active': vcScreenshare,
               'vc-ctrl-btn--screenshare-on': vcScreenshare,
             }"
-            :title="vcScreenshare ? 'Stop share' : 'Share screen'"
+            :title="
+              vcScreenshare
+                ? echoT('b08.vcPanel.stopShare')
+                : echoT('b08.vcPanel.shareScreen')
+            "
             @click="toggleVcScreenshare"
           >
             <img
               :src="icons.desktop"
-              alt="Screen share"
+              :alt="echoT('b08.vcPanel.screenShareAlt')"
               class="vc-icon w-[20px] h-[20px]"
             />
           </button>
@@ -795,7 +845,11 @@ function formatBitrate(kbps: number): string {
             type="button"
             class="vc-ctrl-btn"
             :class="{ 'vc-ctrl-btn--server-mod': serverModActive }"
-            :title="isVcMicOff() ? 'Unmute' : 'Mute'"
+            :title="
+              isVcMicOff()
+                ? echoT('b08.vcPanel.unmute')
+                : echoT('b08.vcPanel.mute')
+            "
             @click="toggleVcMute"
           >
             <span
@@ -803,7 +857,11 @@ function formatBitrate(kbps: number): string {
             >
               <img
                 :src="icons.mic"
-                :alt="isVcMicOff() ? 'Unmute' : 'Mute'"
+                :alt="
+                  isVcMicOff()
+                    ? echoT('b08.vcPanel.unmute')
+                    : echoT('b08.vcPanel.mute')
+                "
                 class="vc-icon vc-icon-mic w-[17px] h-[17px]"
                 :class="{
                   'vc-icon--off': isVcMicOff(),
@@ -824,7 +882,11 @@ function formatBitrate(kbps: number): string {
             type="button"
             class="vc-ctrl-btn"
             :class="{ 'vc-ctrl-btn--server-mod': vcSelfServerDeafened }"
-            :title="isVcHeadphonesOff() ? 'Undeafen' : 'Deafen'"
+            :title="
+              isVcHeadphonesOff()
+                ? echoT('b08.vcPanel.undeafen')
+                : echoT('b08.vcPanel.deafen')
+            "
             @click="toggleVcDeafen"
           >
             <span
@@ -832,7 +894,11 @@ function formatBitrate(kbps: number): string {
             >
               <img
                 :src="icons.headphones"
-                :alt="isVcHeadphonesOff() ? 'Undeafen' : 'Deafen'"
+                :alt="
+                  isVcHeadphonesOff()
+                    ? echoT('b08.vcPanel.undeafen')
+                    : echoT('b08.vcPanel.deafen')
+                "
                 class="vc-icon w-[20px] h-[20px]"
                 :class="{
                   'vc-icon--off': isVcHeadphonesOff(),
@@ -853,8 +919,8 @@ function formatBitrate(kbps: number): string {
             type="button"
             class="vc-ctrl-btn"
             :class="{ 'vc-ctrl-btn--active': isVcSettingsOpen }"
-            title="Voice settings"
-            aria-label="Voice settings"
+            :title="echoT('b08.vcPanel.voiceSettings')"
+            :aria-label="echoT('b08.vcPanel.voiceSettings')"
             @click="toggleVcSettings"
           >
             <img

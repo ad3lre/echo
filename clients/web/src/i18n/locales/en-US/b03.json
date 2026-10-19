@@ -1,0 +1,114 @@
+{
+  "sidebar": {
+    "kicker": "Channel",
+    "typeTitle": "Channel type",
+    "voiceChannel": "Voice channel",
+    "forumChannel": "Forum channel",
+    "textChannel": "Text channel",
+    "settings": "Settings",
+    "serverDesc": "Configure this channel for {serverName}."
+  },
+  "common": {
+    "close": "Close",
+    "syncWithCategory": "Sync with category",
+    "off": "Off"
+  },
+  "slowmodeOptions": {
+    "0": "Off",
+    "5": "5 seconds",
+    "10": "10 seconds",
+    "15": "15 seconds",
+    "30": "30 seconds",
+    "60": "1 minute",
+    "300": "5 minutes",
+    "600": "10 minutes",
+    "900": "15 minutes",
+    "3600": "1 hour",
+    "21600": "6 hours",
+    "86400": "24 hours"
+  },
+  "autoDeleteOptions": {
+    "off": "Off",
+    "86400": "1 day",
+    "604800": "7 days",
+    "2592000": "30 days"
+  },
+
+  "overview": {
+    "name": "Name",
+    "category": "Category",
+    "namePlaceholder": "channel-name",
+    "slowmode": "Slowmode",
+    "slowmodeHint": "Wait time between messages per member.",
+    "nsfw": "Age-restricted (NSFW)",
+    "nsfwHint": "Members must confirm their age before viewing.",
+    "nsfwAria": "Age-restricted channel"
+  },
+  "paper": {
+    "title": "Paper",
+    "hint": "Shared document with live co-editing and margin comments.",
+    "allowComments": "Allow margin comments",
+    "showAuthors": "Show author names in margin",
+    "shareVisibility": "Share visibility",
+    "shareVisibilityHint": "Who can open this paper when using a share link.",
+    "serverMembers": "Server members (RBAC)",
+    "authorsOnly": "Authors only",
+    "anyoneWithLink": "Anyone with link"
+  },
+  "voice": {
+    "userLimit": "User limit",
+    "bitrate": "Bitrate",
+    "useServerDefault": "Use server default",
+    "useServerDefaultAria": "Use server default bitrate",
+    "e2ee": "End-to-end encryption",
+    "e2eeHint": "LiveKit E2EE for voice and camera. No recording, transcription, or audio bots.",
+    "e2eeAria": "End-to-end encryption for voice",
+    "bitrateHint": "Off lets you pick {min}–{max} kbps below.",
+    "default": "Default",
+    "kbps": "{value} kbps"
+  },
+
+  "format": {
+    "defaultText": "Default message text",
+    "enforcement": "Enforcement",
+    "soft": "Soft",
+    "hard": "Hard",
+    "softHint": "Users can delete or edit the default text.",
+    "hardHint": "Prefix stays at the start of the input and must appear on sent messages.",
+    "intro": "This text is inserted into the message input for everyone in the channel. Use {soft} if it should be a default they can remove, or {hard} to keep it as a fixed prefix (also enforced when sending text)."
+  },
+  "forum": {
+    "managePost": "Manage post (pin, lock, archive, tags)",
+    "managePostHint": "Lets the author change listing pin, lock, archive, and tags without Manage Channel on the post.",
+    "deleteOwn": "Delete own post",
+    "deleteOwnHint": "Lets the author delete the entire post channel (thread).",
+    "deleteOthers": "Delete others’ messages in their post",
+    "deleteOthersHint": "Like scoped message moderation inside their thread only.",
+    "intro": "Members who start a post get these extras on {own} thread only. Server roles and channel permissions still apply for everything else.",
+    "own": "their own"
+  },
+  "danger": {
+    "intro": "These actions are sensitive and may be irreversible. Proceed carefully.",
+    "autoDelete": "Auto-delete messages",
+    "autoDeleteHint": "Remove messages older than the retention period. When synced, the category setting applies. Deleted messages remain in the database for 14 days before purge.",
+    "inherited": "Inherited from category: {value}",
+    "retention": "Retention",
+    "deleteChannel": "Delete channel",
+    "deleteDesc": "Permanently delete {name}. All messages in this channel will be removed. This cannot be undone."
+  },
+  "perm": {
+    "paperNote": "Permissions apply when share visibility is set to {mode}. Change the share visibility in the Overview tab to enable permission controls.",
+    "syncHint": "When enabled, this channel inherits category-level overwrites from {category}. Turn it off to apply channel-specific rules for roles or individual members.",
+    "inheriting": "This channel is currently inheriting permissions from {category}. Disable sync to add channel-specific overwrites.",
+    "defaultsHint": "When enabled, this channel uses defaults from {category} (edit in category settings). Turn off to set overrides only for this channel.",
+    "showingDefaults": "Showing defaults for {category} — use the gear on that category in the sidebar to edit. Uncheck sync above to override only this channel."
+  },
+  "footer": {
+    "changesApply": "Changes apply when you save.",
+    "cancel": "Cancel"
+  },
+  "confirm": {
+    "title": "Delete channel “{label}”?",
+    "message": "This cannot be undone.\n\nAll messages in this channel will be removed from the mock."
+  }
+}

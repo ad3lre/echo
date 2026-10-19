@@ -1,0 +1,96 @@
+{
+  "attach": {
+    "lottieSticker": "Lottie-Sticker",
+    "clickToReveal": "— Zum Anzeigen klicken",
+    "hide": "Ausblenden",
+    "image": "Bild"
+  },
+  "emojiInspect": {
+    "details": "Emoji-Details",
+    "animated": "Animiert"
+  },
+  "docx": {
+    "missingUrl": "Dokument-URL fehlt.",
+    "close": "Schließen",
+    "loading": "Dokument wird geladen…",
+    "download": "{name} herunterladen"
+  },
+  "vcCamera": {
+    "title": "Kamera einrichten",
+    "camera": "Kamera",
+    "cancel": "Abbrechen",
+    "start": "Video starten",
+    "help": "Wähle eine Kamera aus der Liste, um die Vorschau zu sehen und den Zugriff zu erlauben. Die Videoqualität stellst du unter Einstellungen → Sprache & Video ein."
+  },
+  "guest": {
+    "intro": "Zuerst ein minimales Profil (Foto, Name, Handle). Danach sicherst du es mit E-Mail + Passwort.",
+    "uploadFailed": "Profilfoto konnte nicht hochgeladen werden: {detail}",
+    "created": "Konto erstellt – bestätige {email} über den Link, den wir gesendet haben, und melde dich dann an.",
+    "yourEmail": "deine E-Mail",
+    "creating": "Wird erstellt…"
+  },
+  "paperPreset": {
+    "presets": "Voreinstellungen",
+    "size": "Größe",
+    "fontSizePresets": "Voreinstellungen für die Schriftgröße"
+  },
+  "layoutModals": {
+    "member": "Mitglied",
+    "server": "Server"
+  },
+  "chatSurface": {
+    "resizeMemberPanel": "Größe der Mitgliederleiste ändern"
+  },
+  "discordOrigin": {
+    "fromDiscord": "Von Discord"
+  },
+  "pollEmoji": {
+    "change": "Emoji ändern",
+    "add": "Emoji hinzufügen",
+    "noMatch": "Keine Emojis passen zu \"{query}\"",
+    "remove": "Emoji entfernen"
+  },
+  "upload": {
+    "preparingImage": "Bild wird vorbereitet",
+    "preparingFile": "Datei wird vorbereitet",
+    "checking": "Upload wird geprüft",
+    "finalizing": "Wird abgeschlossen",
+    "complete": "Fertig",
+    "percent": "Upload {percent}%",
+    "progress": "Upload-Fortschritt"
+  },
+  "attachPopout": {
+    "upload": "Datei hochladen",
+    "uploadHint": "Bilder, Dokumente und mehr",
+    "poll": "Umfrage erstellen",
+    "pollHint": "Stelle eine Frage mit Antwortoptionen"
+  },
+  "legal": {
+    "title": "Rechtliches",
+    "subtitle": "Lies die Nutzungsbedingungen und die Datenschutzerklärung.",
+    "close": "Rechtliche Dokumente schließen",
+    "docs": "Rechtliche Dokumente"
+  },
+  "paperDesign": {
+    "pagePresets": "Seitenvorlagen",
+    "presets": {
+      "white": "Weiß",
+      "cream": "Creme",
+      "warm": "Warm",
+      "amber": "Bernstein",
+      "mint": "Mint",
+      "sky": "Himmel",
+      "lavender": "Lavendel"
+    }
+  },
+  "vcActivity": {
+    "inProgress": "{label} läuft",
+    "eyebrow": "In Aktivität",
+    "subtitle": "Tritt derselben Sitzung wie alle im Sprachkanal bei",
+    "joinLabel": "{label} beitreten",
+    "join": "Aktivität beitreten"
+  },
+  "badges": {
+    "profile": "Profilabzeichen"
+  }
+}

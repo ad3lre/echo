@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import { icons } from '@/assets/icons';
 import { withBasePath } from '@/features/layout/urlNavigation';
@@ -109,7 +110,7 @@ const shouldRender = computed(
           class="inline-flex items-center gap-1.5 rounded-md bg-red-600/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
         >
           <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
-          YouTube live
+          {{ echoT('b35.ytLive.badge') }}
         </span>
         <a
           v-if="stream?.watchUrl"
@@ -118,7 +119,7 @@ const shouldRender = computed(
           rel="noopener noreferrer"
           class="max-w-[12rem] truncate text-xs font-medium text-accent hover:underline"
         >
-          Open stream
+          {{ echoT('b35.ytLive.openStream') }}
         </a>
         <span
           v-else-if="isStreamKeyLive && canManage"
@@ -136,12 +137,12 @@ const shouldRender = computed(
           :disabled="actionBusy || loading"
           @click="openSetupModal"
         >
-          Go live on YouTube
+          {{ echoT('b35.ytLive.goLive') }}
         </button>
       </template>
 
       <p v-else class="text-xs leading-relaxed text-muted">
-        A moderator with Manage Channels can start the YouTube live stream.
+        {{ echoT('b35.ytLive.modHint') }}
       </p>
     </div>
 
@@ -152,7 +153,7 @@ const shouldRender = computed(
       <select
         :value="egressLayout"
         class="rounded-lg border border-border bg-bg px-2 py-1 text-xs text-fg"
-        title="Program layout sent to YouTube"
+        :title="echoT('b35.ytLive.layoutTitle')"
         :disabled="actionBusy || loading"
         @change="
           setEgressLayout(
@@ -163,9 +164,9 @@ const shouldRender = computed(
           )
         "
       >
-        <option value="grid">Grid</option>
-        <option value="spotlight">Spotlight</option>
-        <option value="screen">Screen first</option>
+        <option value="grid">{{ echoT('b35.ytLive.grid') }}</option>
+        <option value="spotlight">{{ echoT('b35.ytLive.spotlight') }}</option>
+        <option value="screen">{{ echoT('b35.ytLive.screen') }}</option>
       </select>
       <button
         type="button"
@@ -173,7 +174,7 @@ const shouldRender = computed(
         :disabled="actionBusy || loading"
         @click="endLive"
       >
-        End live
+        {{ echoT('b35.ytLive.end') }}
       </button>
     </div>
 

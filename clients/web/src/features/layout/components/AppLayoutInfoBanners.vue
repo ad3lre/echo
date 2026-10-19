@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, unref } from 'vue';
 import type { MaybeRef } from 'vue';
 import {
@@ -43,9 +44,7 @@ const showWelcomeBackHintRef = pick('showWelcomeBackHint');
 const showWelcomeBackHint = computed(() => !!showWelcomeBackHintRef.value);
 const welcomeBackHintTextRef = pick('welcomeBackHintText');
 const welcomeBackHintText = computed(
-  () =>
-    welcomeBackHintTextRef.value ??
-    'Welcome back — log in to restore your workspace.',
+  () => welcomeBackHintTextRef.value ?? echoT('b15.banners.welcomeBack'),
 );
 const emailVerificationFlash = pick('emailVerificationFlash');
 const showUnverifiedEmailBannerRef = pick('showUnverifiedEmailBanner');
@@ -220,7 +219,7 @@ const hasVisibleInfoBanner = computed(() => {
           class="rounded-md bg-indigo-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-400"
           @click="fireUiErrorCreateAccount"
         >
-          Create an account
+          {{ echoT('b15.banners.createAccount') }}
         </button>
         <button
           v-if="uiErrorShowRetry"
@@ -229,7 +228,11 @@ const hasVisibleInfoBanner = computed(() => {
           :disabled="uiErrorRetryBusy"
           @click="fireUiErrorRetry"
         >
-          {{ uiErrorRetryBusy ? 'Retrying…' : 'Retry' }}
+          {{
+            uiErrorRetryBusy
+              ? echoT('b15.banners.retrying')
+              : echoT('b15.banners.retry')
+          }}
         </button>
         <button
           type="button"
@@ -243,7 +246,7 @@ const hasVisibleInfoBanner = computed(() => {
           }"
           @click="fireUiErrorDismiss"
         >
-          Dismiss
+          {{ echoT('b15.banners.dismiss') }}
         </button>
       </div>
     </div>
@@ -255,20 +258,35 @@ const hasVisibleInfoBanner = computed(() => {
       <span
         class="min-h-0 min-w-0 flex-1 text-center text-[11px] leading-snug break-words line-clamp-3 sm:text-left"
       >
-        Discord export is ready for
-        <strong class="font-semibold">{{
-          discordBotExportReadyGuildName
-        }}</strong
-        >. Open <strong class="font-semibold">Add a server</strong> →
-        <strong class="font-semibold">Create My Own</strong> →
-        <strong class="font-semibold">Import from Discord</strong> to finish.
+        <i18n-t keypath="b15.banners.discordReady" scope="global">
+          <template #guild
+            ><strong class="font-semibold">{{
+              discordBotExportReadyGuildName
+            }}</strong></template
+          >
+          <template #add
+            ><strong class="font-semibold">{{
+              echoT('b15.banners.addServer')
+            }}</strong></template
+          >
+          <template #create
+            ><strong class="font-semibold">{{
+              echoT('b15.banners.createMyOwn')
+            }}</strong></template
+          >
+          <template #import
+            ><strong class="font-semibold">{{
+              echoT('b15.banners.importDiscord')
+            }}</strong></template
+          >
+        </i18n-t>
       </span>
       <button
         type="button"
         class="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text)]/70 transition-colors hover:bg-glass-hover hover:text-[var(--text)]"
         @click="fireDiscordBotExportReadyDismiss"
       >
-        Dismiss
+        {{ echoT('b15.banners.dismiss') }}
       </button>
     </div>
     <div
@@ -279,16 +297,19 @@ const hasVisibleInfoBanner = computed(() => {
       <span
         class="min-h-0 min-w-0 flex-1 text-center text-[11px] leading-snug break-words line-clamp-3 sm:text-left"
       >
-        You're on a
-        <strong class="font-semibold text-indigo-100/95">guest account</strong>.
-        Upgrade to a full account to keep your workspace and unlock every
-        feature.
+        <i18n-t keypath="b15.banners.guestIntro" scope="global">
+          <template #guest
+            ><strong class="font-semibold text-indigo-100/95">{{
+              echoT('b15.banners.guestAccount')
+            }}</strong></template
+          >
+        </i18n-t>
         <button
           type="button"
           class="ml-0.5 inline font-semibold text-indigo-200 underline decoration-indigo-400/80 underline-offset-2 transition-colors hover:text-white hover:decoration-white/90"
           @click="fireGuestUpgradeOpenSettings"
         >
-          Upgrade your account
+          {{ echoT('b15.banners.upgradeAccount') }}
         </button>
       </span>
       <div class="flex shrink-0 flex-wrap items-center justify-center gap-1.5">
@@ -297,14 +318,14 @@ const hasVisibleInfoBanner = computed(() => {
           class="rounded-md bg-glass-3 px-2.5 py-1 text-[11px] font-semibold text-fg transition-colors hover:bg-glass-active"
           @click="fireGuestUpgradeOpenSettings"
         >
-          Open Account settings
+          {{ echoT('b15.banners.openAccountSettings') }}
         </button>
         <button
           type="button"
           class="rounded-md px-2 py-1 text-[11px] font-medium text-indigo-100/75 transition-colors hover:bg-glass-hover hover:text-indigo-50"
           @click="fireGuestUpgradeDismiss"
         >
-          Dismiss
+          {{ echoT('b15.banners.dismiss') }}
         </button>
       </div>
     </div>
@@ -323,7 +344,7 @@ const hasVisibleInfoBanner = computed(() => {
         class="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-emerald-100/70 transition-colors hover:bg-glass-hover hover:text-emerald-50"
         @click="fireEmailVerificationFlashDismiss"
       >
-        Dismiss
+        {{ echoT('b15.banners.dismiss') }}
       </button>
     </div>
     <div
@@ -334,8 +355,7 @@ const hasVisibleInfoBanner = computed(() => {
       <span
         class="min-h-0 min-w-0 flex-1 text-center text-[11px] leading-snug break-words line-clamp-3 sm:text-left"
       >
-        Verify your email to secure your account. Check your inbox for the link
-        we sent.
+        {{ echoT('b15.banners.verifyEmail') }}
         <span
           v-if="emailBannerResendMessage"
           class="mt-0.5 block font-medium text-sky-100/95"
@@ -354,21 +374,25 @@ const hasVisibleInfoBanner = computed(() => {
           :disabled="emailBannerResendBusy"
           @click="fireUnverifiedEmailResend"
         >
-          {{ emailBannerResendBusy ? 'Sending…' : 'Resend email' }}
+          {{
+            emailBannerResendBusy
+              ? echoT('b15.banners.sending')
+              : echoT('b15.banners.resendEmail')
+          }}
         </button>
         <button
           type="button"
           class="rounded-md bg-glass-2 px-2.5 py-1 text-[11px] font-semibold text-sky-50 transition-colors hover:bg-glass-active"
           @click="fireUnverifiedEmailChangeEmail"
         >
-          Change email
+          {{ echoT('b15.banners.changeEmail') }}
         </button>
         <button
           type="button"
           class="rounded-md px-2 py-1 text-[11px] font-medium text-sky-100/80 transition-colors hover:bg-glass-hover hover:text-sky-50"
           @click="fireUnverifiedEmailDismiss"
         >
-          Dismiss
+          {{ echoT('b15.banners.dismiss') }}
         </button>
       </div>
     </div>
@@ -378,9 +402,9 @@ const hasVisibleInfoBanner = computed(() => {
     >
       <p
         class="text-center text-[11px] leading-snug text-amber-100/95 line-clamp-2 break-words"
-        :title="`${apiErrorText} Showing saved copy from this device.`"
+        :title="echoT('b15.banners.savedCopy', { error: apiErrorText })"
       >
-        {{ apiErrorText }} Showing saved copy from this device.
+        {{ echoT('b15.banners.savedCopy', { error: apiErrorText }) }}
       </p>
     </div>
     <div
@@ -401,7 +425,7 @@ const hasVisibleInfoBanner = computed(() => {
           v-if="sessionReturningUserHint"
           class="mt-0.5 block text-[10px] leading-snug text-amber-100/65"
         >
-          Log in to restore your workspace.
+          {{ echoT('b15.banners.restoreWorkspace') }}
         </span>
       </span>
       <div class="flex shrink-0 items-center gap-2">
@@ -410,14 +434,14 @@ const hasVisibleInfoBanner = computed(() => {
           class="rounded-md bg-glass-2 px-2.5 py-1 text-[11px] font-semibold text-fg transition-colors hover:bg-glass-active"
           @click="fireSessionSignIn"
         >
-          Sign in
+          {{ echoT('b15.banners.signIn') }}
         </button>
         <button
           type="button"
           class="rounded-md px-2 py-1 text-[11px] font-medium text-amber-100/70 transition-colors hover:bg-glass-hover hover:text-amber-50"
           @click="fireSessionDismiss"
         >
-          Dismiss
+          {{ echoT('b15.banners.dismiss') }}
         </button>
       </div>
     </div>
@@ -429,7 +453,7 @@ const hasVisibleInfoBanner = computed(() => {
       <span
         class="min-h-0 min-w-0 flex-1 text-center text-[11px] leading-snug break-words line-clamp-3 sm:text-left"
       >
-        Welcome back — log in to restore your workspace.
+        {{ echoT('b15.banners.welcomeBack') }}
       </span>
       <div class="flex shrink-0 flex-wrap items-center justify-center gap-1.5">
         <button
@@ -437,7 +461,7 @@ const hasVisibleInfoBanner = computed(() => {
           class="rounded-md bg-glass-3 px-2.5 py-1 text-[11px] font-semibold text-fg transition-colors hover:bg-glass-active"
           @click="fireWelcomeBackSignIn"
         >
-          Log in
+          {{ echoT('b15.banners.logIn') }}
         </button>
       </div>
     </div>
@@ -476,7 +500,7 @@ const hasVisibleInfoBanner = computed(() => {
         class="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-rose-100/80 transition-colors hover:bg-glass-hover hover:text-rose-50"
         @click="firePrimaryFlowFailureDismiss"
       >
-        Dismiss
+        {{ echoT('b15.banners.dismiss') }}
       </button>
     </div>
   </div>

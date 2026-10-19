@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import type { EchoChannelType } from '@shared/types';
 import { computed, nextTick, ref, toRef, watch } from 'vue';
-import { icons, getChannelDisplayName } from '@/assets/icons';
+import { getChannelDisplayName } from '@/assets/channelDisplayName';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import { useChannelIconResolver } from '@/features/layout/channels/useChannelIconResolver';
 import {
   getParentChannelIdOrNull,
@@ -1526,7 +1528,7 @@ watch(
       v-else
       ref="channelListRef"
       role="tree"
-      aria-label="Channels"
+      :aria-label="echoT('b14.chList.channelsAria')"
       class="channel-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain py-3 px-3 custom-scrollbar touch-pan-y"
       :class="{ 'channel-list--mobile': isCompactShell }"
       v-scrollbar-on-scroll
@@ -1537,20 +1539,19 @@ watch(
         class="px-3 py-6"
       >
         <template v-if="canCreateChannels">
-          <div class="text-sm text-fg-soft">No channels yet</div>
+          <div class="text-sm text-fg-soft">
+            {{ echoT('channelPanel.noChannels') }}
+          </div>
           <p class="mt-2 max-w-[16rem] text-sm leading-snug text-fg-subtle">
-            Use the quick create tray below to start with a category, then keep
-            adding channels without leaving the panel.
+            {{ echoT('b14.chList.quickHint') }}
           </p>
         </template>
         <template v-else>
           <div class="text-sm font-medium text-fg-soft">
-            No channels to show
+            {{ echoT('b14.chList.noneToShow') }}
           </div>
           <p class="mt-2 max-w-[18rem] text-sm leading-snug text-fg-soft">
-            Nothing in this server is visible with your current roles, or the
-            server has no channels yet. If you expected to see channels here,
-            ask a server admin to check your role and channel permissions.
+            {{ echoT('b14.chList.noneVisible') }}
           </p>
         </template>
       </div>
@@ -1642,7 +1643,7 @@ watch(
                 :draggable="categoryReorderEnabledFor(category)"
                 :title="
                   categoryReorderEnabledFor(category)
-                    ? 'Drag to reorder · Click to expand or collapse'
+                    ? echoT('b14.chList.dragReorderToggle')
                     : undefined
                 "
                 @click.stop="onCategoryToggleClick(category.id, $event)"
@@ -1678,8 +1679,8 @@ watch(
                   type="button"
                   draggable="false"
                   class="channel-category-gear chat-focus-ring flex h-5 w-5 items-center justify-center rounded text-fg-subtle opacity-0 transition-all pointer-fine:hover:bg-glass-hover pointer-fine:hover:text-fg group-hover:opacity-100 pointer-coarse:opacity-100"
-                  title="Category settings"
-                  aria-label="Category settings"
+                  :title="echoT('b14.chList.categorySettings')"
+                  :aria-label="echoT('b14.chList.categorySettings')"
                   @click.stop="openCategorySettings(category.id, $event)"
                 >
                   <img
@@ -1693,8 +1694,8 @@ watch(
                   type="button"
                   draggable="false"
                   class="channel-category-add flex h-5 w-5 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg"
-                  title="Create channel"
-                  aria-label="Create channel in this category"
+                  :title="echoT('channelPanel.createChannel')"
+                  :aria-label="echoT('b14.chList.createInCategory')"
                   @click.stop="emit('open-create-channel', category.id)"
                 >
                   <span class="text-[14px] font-semibold leading-none">+</span>
@@ -1762,9 +1763,9 @@ watch(
                     isVoiceLikeChannelType(channel.type) &&
                     canJoinVoice &&
                     !canJoinVoice(channel.id)
-                      ? 'You do not have permission to join this voice channel'
+                      ? echoT('b14.chList.noJoinVoice')
                       : channelReorderEnabledFor(category)
-                        ? 'Drag to reorder'
+                        ? echoT('b14.chList.dragReorder')
                         : undefined
                   "
                   @dragstart="onReorderDragStart(channel.id, $event)"
@@ -1881,8 +1882,8 @@ watch(
                       "
                       type="button"
                       class="channel-row-gear chat-focus-ring absolute right-1 top-1/2 z-[3] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-fg-subtle opacity-0 pointer-events-none transition-opacity pointer-fine:hover:bg-glass-hover pointer-fine:hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
-                      title="Channel settings"
-                      aria-label="Channel settings"
+                      :title="echoT('channelPanel.channelSettings')"
+                      :aria-label="echoT('channelPanel.channelSettings')"
                       @click.stop="
                         openChannelSettings(
                           {
@@ -1911,8 +1912,8 @@ watch(
                         "
                         type="button"
                         class="vc-row-btn chat-focus-ring opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
-                        title="Channel settings"
-                        aria-label="Channel settings"
+                        :title="echoT('channelPanel.channelSettings')"
+                        :aria-label="echoT('channelPanel.channelSettings')"
                         @click="
                           openChannelSettings(
                             {
@@ -1938,7 +1939,7 @@ watch(
                             hoveredChannelId !== channel.id)
                         "
                         class="text-[11px] text-indigo-300 tabular-nums"
-                        title="Discord voice (mirror)"
+                        :title="echoT('b14.chList.discordVoiceMirror')"
                       >
                         {{ discordMirrorMembers(channel.id).length }}
                       </span>
@@ -1947,8 +1948,8 @@ watch(
                           v-if="canInvite && selectedServerId !== 'echo'"
                           type="button"
                           class="vc-row-btn"
-                          title="Invite people"
-                          aria-label="Invite people"
+                          :title="echoT('channelPanel.invitePeople')"
+                          :aria-label="echoT('channelPanel.invitePeople')"
                           @click="
                             emit('invite', {
                               voiceChannelId: channel.id,
@@ -1971,9 +1972,15 @@ watch(
                           "
                           type="button"
                           class="vc-row-btn"
-                          :title="sideChatCollapsed ? 'Show chat' : 'Hide chat'"
+                          :title="
+                            sideChatCollapsed
+                              ? echoT('b14.chList.showChat')
+                              : echoT('b14.chList.hideChat')
+                          "
                           :aria-label="
-                            sideChatCollapsed ? 'Show chat' : 'Hide chat'
+                            sideChatCollapsed
+                              ? echoT('b14.chList.showChat')
+                              : echoT('b14.chList.hideChat')
                           "
                           @click="emit('toggle-side-chat')"
                         >
@@ -2063,7 +2070,7 @@ watch(
                       <div
                         class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
                       >
-                        Speakers
+                        {{ echoT('b14.chList.speakers') }}
                       </div>
                       <ChannelPanelVoiceParticipant
                         v-for="userId in partitionStageParticipants(channel)
@@ -2106,7 +2113,7 @@ watch(
                       <div
                         class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle mt-1"
                       >
-                        Audience
+                        {{ echoT('b14.chList.audience') }}
                       </div>
                       <ChannelPanelVoiceParticipant
                         v-for="userId in partitionStageParticipants(channel)
@@ -2155,7 +2162,7 @@ watch(
                     <div
                       class="text-[10px] font-semibold uppercase tracking-wide text-indigo-300/90"
                     >
-                      Discord voice
+                      {{ echoT('b14.chList.discordVoice') }}
                     </div>
                     <ChannelPanelDiscordMirrorParticipant
                       v-for="m in discordMirrorMembers(channel.id)"
@@ -2192,7 +2199,7 @@ watch(
                       'bg-glass-2':
                         activeChannelId === sub.id && sub.type !== 'voice',
                     }"
-                    title="Forum post"
+                    :title="echoT('b14.chList.forumPost')"
                     @click="emit('channel-click', sub)"
                     @contextmenu.stop.prevent="
                       emit(
@@ -2262,9 +2269,9 @@ watch(
                       <span
                         v-if="isForumPostPinned(sub)"
                         class="ml-auto text-[10px] font-semibold text-amber-300/90"
-                        title="Pinned"
-                        aria-label="Pinned"
-                        >PIN</span
+                        :title="echoT('b14.chList.pinned')"
+                        :aria-label="echoT('b14.chList.pinned')"
+                        >{{ echoT('b14.chList.pin') }}</span
                       >
                     </div>
                   </div>
@@ -2313,7 +2320,7 @@ watch(
             key="channel-quick-create-trigger"
             type="button"
             class="channel-quick-create__trigger group flex w-full min-w-0 flex-col rounded-lg text-left outline-none"
-            aria-label="Create channel or category"
+            :aria-label="echoT('b14.chList.createChannelOrCategory')"
             @click="expandQuickCreate"
           >
             <div
@@ -2326,7 +2333,7 @@ watch(
               >
               <span
                 class="channel-quick-create__trigger-label truncate min-w-0 flex-1 text-[14px] font-medium leading-none text-fg-subtle/85 group-hover:text-fg-soft"
-                >Create…</span
+                >{{ echoT('b14.chList.createEllipsis') }}</span
               >
             </div>
           </button>
@@ -2344,7 +2351,7 @@ watch(
                     <button
                       type="button"
                       class="channel-quick-create__widget-back"
-                      aria-label="Close"
+                      :aria-label="echoT('b14.chList.close')"
                       @click="collapseQuickCreate"
                     >
                       <img
@@ -2354,7 +2361,7 @@ watch(
                       />
                     </button>
                     <div class="channel-quick-create__toolbar-title">
-                      Create
+                      {{ echoT('b14.chList.create') }}
                     </div>
                   </div>
                 </div>
@@ -2377,10 +2384,10 @@ watch(
                     />
                     <div class="channel-quick-create__widget-copy">
                       <div class="channel-quick-create__widget-title">
-                        Text channel
+                        {{ echoT('channelPanel.textChannel') }}
                       </div>
                       <div class="channel-quick-create__widget-subtitle">
-                        Create a chat channel
+                        {{ echoT('b14.chList.createChat') }}
                       </div>
                     </div>
                   </div>
@@ -2404,10 +2411,10 @@ watch(
                     />
                     <div class="channel-quick-create__widget-copy">
                       <div class="channel-quick-create__widget-title">
-                        Voice channel
+                        {{ echoT('channelPanel.voiceChannel') }}
                       </div>
                       <div class="channel-quick-create__widget-subtitle">
-                        Create a voice room
+                        {{ echoT('b14.chList.createVoiceRoom') }}
                       </div>
                     </div>
                   </div>
@@ -2432,10 +2439,10 @@ watch(
                     />
                     <div class="channel-quick-create__widget-copy">
                       <div class="channel-quick-create__widget-title">
-                        Stage channel
+                        {{ echoT('channelPanel.stageChannel') }}
                       </div>
                       <div class="channel-quick-create__widget-subtitle">
-                        Moderated voice with speakers
+                        {{ echoT('b14.chList.stageSub') }}
                       </div>
                     </div>
                   </div>
@@ -2459,10 +2466,10 @@ watch(
                     />
                     <div class="channel-quick-create__widget-copy">
                       <div class="channel-quick-create__widget-title">
-                        Forum
+                        {{ echoT('b14.chList.forum') }}
                       </div>
                       <div class="channel-quick-create__widget-subtitle">
-                        Create a forum channel
+                        {{ echoT('b14.chList.createForum') }}
                       </div>
                     </div>
                   </div>
@@ -2487,10 +2494,10 @@ watch(
                     />
                     <div class="channel-quick-create__widget-copy">
                       <div class="channel-quick-create__widget-title">
-                        Paper channel
+                        {{ echoT('b14.chList.paperChannel') }}
                       </div>
                       <div class="channel-quick-create__widget-subtitle">
-                        Shared vertical document
+                        {{ echoT('b14.chList.paperSub') }}
                       </div>
                     </div>
                   </div>
@@ -2509,10 +2516,10 @@ watch(
                     />
                     <div class="channel-quick-create__widget-copy">
                       <div class="channel-quick-create__widget-title">
-                        Category
+                        {{ echoT('channelPanel.category') }}
                       </div>
                       <div class="channel-quick-create__widget-subtitle">
-                        Create a new section
+                        {{ echoT('b14.chList.createSection') }}
                       </div>
                     </div>
                   </div>
@@ -2522,7 +2529,7 @@ watch(
                   v-if="!quickCreateCanUseChannels"
                   class="channel-quick-create__widget channel-quick-create__widget--note"
                 >
-                  Create a category first, then add channels into it.
+                  {{ echoT('b14.chList.categoryFirst') }}
                 </div>
               </template>
 
@@ -2534,7 +2541,7 @@ watch(
                     <button
                       type="button"
                       class="channel-quick-create__widget-back"
-                      aria-label="Back to channel types"
+                      :aria-label="echoT('b14.chList.backToTypes')"
                       @click="backToQuickCreateTypePick"
                     >
                       <img
@@ -2546,21 +2553,20 @@ watch(
                     <div
                       class="channel-quick-create__widget-title channel-quick-create__widget-title--header-grow"
                     >
-                      Create
                       {{
                         quickCreateType === 'category'
-                          ? 'category'
+                          ? echoT('b14.chList.createCategory')
                           : quickCreateType === 'voice'
-                            ? 'voice channel'
+                            ? echoT('b14.chList.createVoiceChannel')
                             : quickCreateType === 'forum'
-                              ? 'forum channel'
-                              : 'text channel'
+                              ? echoT('b14.chList.createForumChannel')
+                              : echoT('b14.chList.createTextChannel')
                       }}
                     </div>
                     <button
                       type="button"
                       class="channel-quick-create__widget-close"
-                      aria-label="Close"
+                      :aria-label="echoT('b14.chList.close')"
                       @click="collapseQuickCreate"
                     >
                       <span class="channel-quick-create__widget-close-glyph"
@@ -2569,7 +2575,7 @@ watch(
                     </button>
                   </div>
                   <div class="channel-quick-create__widget-subtitle">
-                    Press Enter to create. Esc to cancel.
+                    {{ echoT('b14.chList.pressEnter') }}
                   </div>
                   <div class="channel-quick-create__name-row">
                     <ChannelIconPickerPopover
@@ -2611,7 +2617,7 @@ watch(
                 >
                   <EchoDropdown
                     v-model="quickCreateCategoryId"
-                    label="Category"
+                    :label="echoT('channelPanel.category')"
                     class="channel-quick-create__dropdown"
                     :options="quickCreateCategoryDropdownOptions"
                     :disabled="!quickCreateCanUseChannels"
@@ -2622,7 +2628,7 @@ watch(
                   v-if="quickCreateDuplicateCategory"
                   class="channel-quick-create__widget channel-quick-create__widget--note channel-quick-create__widget--warning"
                 >
-                  A category with this name already exists.
+                  {{ echoT('b14.chList.duplicateCategory') }}
                 </div>
               </template>
             </div>

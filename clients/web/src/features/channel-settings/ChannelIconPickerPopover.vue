@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   ref,
@@ -300,8 +301,7 @@ function handleEmojiPick(entry: EmojiEntry) {
       UIErrorBus.emit({
         context: 'channel-icon-emoji',
         severity: 'info',
-        userMessage:
-          'This emoji cannot be used as the channel icon (untrusted or invalid image URL).',
+        userMessage: echoT('b41.iconPicker.untrusted'),
       });
       return;
     }
@@ -373,8 +373,8 @@ onUnmounted(() => {
           ? 'h-full min-h-[44px] w-12 rounded-none border-0 bg-transparent hover:bg-glass-2'
           : 'h-11 w-11 rounded-xl bg-glass-2 ring-1 ring-border hover:bg-glass-hover'
       "
-      title="Channel icon"
-      aria-label="Choose channel icon"
+      :title="echoT('b41.iconPicker.channelIcon')"
+      :aria-label="echoT('b41.iconPicker.chooseChannelIcon')"
       @click="open()"
     >
       <span
@@ -414,7 +414,9 @@ onUnmounted(() => {
               v-model="combinedSearch"
               type="search"
               :placeholder="
-                activeTab === 'emoji' ? 'Search emoji…' : 'Search icons…'
+                activeTab === 'emoji'
+                  ? echoT('b41.iconPicker.searchEmoji')
+                  : echoT('b41.iconPicker.searchIcons')
               "
               class="min-w-0 flex-1 border-0 bg-transparent py-1 text-sm text-foreground outline-none placeholder:text-fg-subtle"
               @keydown="handleSearchInputKeydown"
@@ -433,7 +435,7 @@ onUnmounted(() => {
               "
               @click="activeTab = 'icons'"
             >
-              Icons
+              {{ echoT('b41.iconPicker.icons') }}
             </button>
             <button
               type="button"
@@ -445,7 +447,7 @@ onUnmounted(() => {
               "
               @click="activeTab = 'emoji'"
             >
-              Emoji
+              {{ echoT('b41.iconPicker.emoji') }}
             </button>
           </div>
 
@@ -464,9 +466,9 @@ onUnmounted(() => {
               class="flex flex-1 items-center justify-center py-10 text-sm text-fg-subtle"
               role="status"
               aria-live="polite"
-              aria-label="Loading emoji"
+              :aria-label="echoT('b41.iconPicker.loadingEmoji')"
             >
-              Loading emoji…
+              {{ echoT('b41.iconPicker.loadingEmojiEllipsis') }}
             </div>
             <div v-else class="flex min-h-0 flex-1 overflow-hidden">
               <div
@@ -520,7 +522,11 @@ onUnmounted(() => {
                   "
                   class="py-8 text-center text-sm text-fg-subtle"
                 >
-                  No emojis match "{{ emojiSearchQuery.trim() }}"
+                  {{
+                    echoT('b41.iconPicker.noEmojiMatch', {
+                      query: emojiSearchQuery.trim(),
+                    })
+                  }}
                 </div>
               </div>
             </div>

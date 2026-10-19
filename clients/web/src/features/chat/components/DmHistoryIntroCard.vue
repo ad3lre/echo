@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import StatusIndicator from '@/components/StatusIndicator.vue';
 import { useCompactShell } from '@/features/layout/useCompactShell';
@@ -26,7 +27,7 @@ const { isCompactShell } = useCompactShell();
     class="dm-history-intro"
     :class="{ 'dm-history-intro--compact': isCompactShell }"
     role="region"
-    aria-label="Direct message history intro"
+    :aria-label="echoT('chatB.dmIntro.aria')"
   >
     <div class="dm-history-intro__avatar-wrap">
       <div class="dm-history-intro__avatar">
@@ -58,8 +59,13 @@ const { isCompactShell } = useCompactShell();
       v-if="typeof props.mutualCommunitiesCount === 'number'"
       class="dm-history-intro__meta"
     >
-      {{ props.mutualCommunitiesCount }} mutual server{{
-        props.mutualCommunitiesCount === 1 ? '' : 's'
+      {{
+        echoT(
+          props.mutualCommunitiesCount === 1
+            ? 'chatB.dmIntro.mutualOne'
+            : 'chatB.dmIntro.mutualMany',
+          { count: props.mutualCommunitiesCount },
+        )
       }}
     </p>
 

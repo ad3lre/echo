@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { toRaw } from 'vue';
 import type {
   TrackPublishOptions,
@@ -29,7 +30,7 @@ export function formatVoiceClientError(e: unknown): string {
   } catch {
     /* ignore */
   }
-  return 'Unknown error';
+  return echoT('voiceChrome.unknownError');
 }
 
 /**

@@ -17,11 +17,23 @@ import termsEnUs from '../../../../../marketing/terms/en-US/terms.md?raw';
 import communityEnUs from '../../../../../marketing/terms/en-US/community-guidelines.md?raw';
 import attributionsEnUs from '../../../../../marketing/terms/en-US/ATTRIBUTIONS.md?raw';
 
+import privacyPtBr from '../../../../../marketing/terms/pt-BR/privacy.md?raw';
+import termsPtBr from '../../../../../marketing/terms/pt-BR/terms.md?raw';
+import communityPtBr from '../../../../../marketing/terms/pt-BR/community-guidelines.md?raw';
+import attributionsPtBr from '../../../../../marketing/terms/pt-BR/ATTRIBUTIONS.md?raw';
+
 const EN_US_MARKDOWN: Record<LegalDocTabId, string> = {
   privacy: privacyEnUs,
   terms: termsEnUs,
   community: communityEnUs,
   attributions: attributionsEnUs,
+};
+
+const PT_BR_MARKDOWN: Record<LegalDocTabId, string> = {
+  privacy: privacyPtBr,
+  terms: termsPtBr,
+  community: communityPtBr,
+  attributions: attributionsPtBr,
 };
 
 /** en-GB uses en-US legal text until dedicated files exist under marketing/terms/en-GB/. */
@@ -30,6 +42,7 @@ const LOCALE_MARKDOWN: Partial<
 > = {
   'en-US': EN_US_MARKDOWN,
   'en-GB': EN_US_MARKDOWN,
+  'pt-BR': PT_BR_MARKDOWN,
 };
 
 function resolveLegalMarkdown(
@@ -40,7 +53,7 @@ function resolveLegalMarkdown(
   if (catalog) {
     return {
       markdown: catalog,
-      fallbackLocale: locale !== 'en-US' && locale !== 'en-GB',
+      fallbackLocale: false,
     };
   }
   return {

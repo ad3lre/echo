@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { defineAsyncComponent, computed } from 'vue';
 import type { ReactionFavorite } from '@/features/chat/emoji/useReactionFavorites';
 import type {
@@ -345,21 +346,21 @@ const dmHistoryIntro = computed(() => {
   let primaryActionLabel: string | undefined;
   let onPrimaryAction: (() => void | Promise<void>) | undefined;
   if (!isFriend && incoming) {
-    primaryActionLabel = 'Accept Friend Request';
+    primaryActionLabel = echoT('b39.dmSection.acceptFriend');
     onPrimaryAction = () => props.acceptFriendRequest(incoming.id);
   } else if (!isFriend && outgoing) {
-    primaryActionLabel = 'Cancel Friend Request';
+    primaryActionLabel = echoT('b39.dmSection.cancelFriend');
     onPrimaryAction = () => props.cancelFriendRequest(outgoing.id);
   } else if (!isFriend) {
-    primaryActionLabel = 'Send Friend Request';
+    primaryActionLabel = echoT('b39.dmSection.sendFriend');
     onPrimaryAction = () => props.sendFriendRequest(partnerId);
   }
 
-  const displayName = partner.name.trim() || 'this user';
+  const displayName = partner.name.trim() || echoT('b39.dmSection.thisUser');
 
   return {
     title: displayName,
-    subtitle: `This is the beginning of your direct message history with ${displayName}.`,
+    subtitle: echoT('b39.dmSection.historyIntro', { name: displayName }),
     avatarUrl: partner.pfp,
     presenceStatus:
       partnerRich?.status?.trim() || partner.status?.trim() || 'offline',
@@ -457,7 +458,7 @@ async function handleDmCallLeave() {
     class="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm text-fg-subtle"
   >
     <p>
-      Select a conversation from your DMs, or open Friends to start messaging.
+      {{ echoT('b39.dmSection.selectConversation') }}
     </p>
   </div>
 
@@ -657,7 +658,7 @@ async function handleDmCallLeave() {
     v-else-if="mainSurface.type === 'unknown'"
     class="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-fg-soft"
   >
-    <p>This channel could not be loaded.</p>
+    <p>{{ echoT('b39.dmSection.channelLoadFailed') }}</p>
     <p v-if="isDev" class="text-xs text-fg-subtle">
       {{ mainSurface.reason }} — {{ mainSurface.channelId }}
     </p>
@@ -671,12 +672,12 @@ async function handleDmCallLeave() {
     <template v-if="isDev"
       >Unexpected main column surface: {{ mainSurface.type }}</template
     >
-    <template v-else>Something went wrong loading this view.</template>
+    <template v-else>{{ echoT('b39.dmSection.viewLoadFailed') }}</template>
     <button
       v-if="onMobileBackToChannels"
       type="button"
       class="inline-flex items-center gap-2 rounded-lg border border-border bg-white/5 px-3 py-2 text-sm text-fg-soft transition hover:bg-white/10 md:hidden"
-      aria-label="Back to channels"
+      :aria-label="echoT('b39.dmSection.backToChannels')"
       @click="onMobileBackToChannels"
     >
       <img
@@ -684,7 +685,7 @@ async function handleDmCallLeave() {
         alt=""
         class="h-3.5 w-3.5 opacity-90 filter invert"
       />
-      <span>Back to channels</span>
+      <span>{{ echoT('b39.dmSection.backToChannels') }}</span>
     </button>
   </div>
 </template>

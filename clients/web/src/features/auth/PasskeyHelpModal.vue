@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 /**
  * Passkey help modal — the explicit fallback for passkey sign-in.
  *
@@ -83,7 +84,7 @@ async function submit() {
           </svg>
         </div>
         <h2 id="passkey-help-title" class="passkey-help__title">
-          Sign in with a passkey
+          {{ echoT('auth.passkey.helpTitle') }}
         </h2>
         <p class="passkey-help__blurb">
           If your passkey lives on another device, continue and pick “a phone,
@@ -94,8 +95,10 @@ async function submit() {
         <form class="passkey-help__form" @submit.prevent="submit">
           <label class="passkey-help__field">
             <span class="passkey-help__label">
-              Username or email
-              <span class="passkey-help__muted">(optional)</span>
+              {{ echoT('auth.fields.usernameOrEmail') }}
+              <span class="passkey-help__muted">{{
+                echoT('auth.fields.optional')
+              }}</span>
             </span>
             <input
               ref="identInput"
@@ -129,7 +132,7 @@ async function submit() {
               class="passkey-help__btn passkey-help__btn--primary"
               :disabled="busy"
             >
-              {{ busy ? 'Waiting…' : 'Continue with a passkey' }}
+              {{ busy ? 'Waiting…' : echoT('auth.passkey.continueWith') }}
             </button>
           </div>
         </form>

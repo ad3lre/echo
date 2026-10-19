@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { computed, onMounted, ref } from 'vue';
 import {
   AuthApiError,
@@ -17,25 +18,25 @@ function baseHomeHref() {
 
 function mapForgotPasswordError(err: unknown): string {
   if (err instanceof AuthApiError) {
-    return err.body.message || 'Something went wrong.';
+    return err.body.message || echoT('auth.errors.somethingWentWrong');
   }
   if (err instanceof Error) return err.message;
-  return 'Something went wrong.';
+  return echoT('auth.errors.somethingWentWrong');
 }
 
 function mapResetPasswordError(err: unknown): string {
   if (err instanceof AuthApiError) {
     if (err.body.code === 'TOTP_REQUIRED') return '';
     if (err.body.code === 'INVALID_TOTP') {
-      return 'That authenticator code is not valid.';
+      return echoT('auth.errors.invalidTotp');
     }
     if (err.body.code === 'INVALID_TOKEN') {
-      return 'This reset link is invalid or has expired.';
+      return echoT('auth.errors.resetLinkInvalid');
     }
-    return err.body.message || 'Something went wrong.';
+    return err.body.message || echoT('auth.errors.somethingWentWrong');
   }
   if (err instanceof Error) return err.message;
-  return 'Something went wrong.';
+  return echoT('auth.errors.somethingWentWrong');
 }
 
 export function useForgotPasswordFlow(onDone: () => void) {
@@ -60,9 +61,7 @@ export function useForgotPasswordFlow(onDone: () => void) {
       const normalizedEmail = normalizeEmail(email.value);
       if (!normalizedEmail) return;
       const result = await authForgotPassword({ email: normalizedEmail });
-      successMessage.value =
-        result.message ||
-        'If an account exists for that email, you will receive reset instructions.';
+      successMessage.value = result.message || echoT('auth.forgot.success');
     } catch (e) {
       errorMessage.value = mapForgotPasswordError(e);
     } finally {
@@ -124,9 +123,7 @@ export function useResetPasswordFlow(onDone: () => void) {
         newPassword: newPassword.value,
         ...(totpCode.value.trim() ? { totpCode: totpCode.value.trim() } : {}),
       });
-      successMessage.value =
-        result.message ||
-        'Password updated. You can close this page and sign in.';
+      successMessage.value = result.message || echoT('auth.resetPage.success');
       showTotp.value = false;
       try {
         sessionStorage.setItem('echo_post_password_reset', '1');
@@ -142,8 +139,7 @@ export function useResetPasswordFlow(onDone: () => void) {
     } catch (e) {
       if (e instanceof AuthApiError && e.body.code === 'TOTP_REQUIRED') {
         showTotp.value = true;
-        errorMessage.value =
-          'Enter the 6-digit code from your authenticator app to finish resetting your password.';
+        errorMessage.value = echoT('auth.errors.resetTotpPrompt');
       } else {
         errorMessage.value = mapResetPasswordError(e);
       }

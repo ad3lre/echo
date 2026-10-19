@@ -1,0 +1,90 @@
+{
+  "actions": {
+    "addReaction": "Add reaction",
+    "moreOptions": "More options",
+    "reply": "Reply",
+    "edit": "Edit",
+    "delete": "Delete",
+    "copy": "Copy",
+    "copyText": "Copy text",
+    "copyLink": "Copy link",
+    "forward": "Forward",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "report": "Report",
+    "markUnread": "Mark as unread",
+    "download": "Download",
+    "openInBrowser": "Open in browser",
+    "openLink": "Open link",
+    "addToFavorites": "Add to favorites",
+    "removeFromFavorites": "Remove from favorites",
+    "smallerEmbed": "Smaller embed",
+    "largerEmbed": "Larger embed",
+    "exitFullScreen": "Exit full screen",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "spoiler": "Spoiler",
+    "removeAttachment": "Remove attachment"
+  },
+  "empty": {
+    "noMessagesYet": "No messages here yet",
+    "noChannelsToShow": "No channels to show"
+  },
+  "status": {
+    "loadingOlder": "Loading older messages",
+    "loadingMention": "Loading mention…",
+    "uploading": "Uploading",
+    "slowmodeActive": "Slowmode active",
+    "sendBlocked": "Send blocked",
+    "failedToSend": "Failed to send message",
+    "imageUnavailable": "Image unavailable",
+    "videoUnavailable": "Video unavailable",
+    "imageCopied": "Image copied",
+    "couldNotCopyImage": "Could not copy image",
+    "couldNotCopyClipboard": "Could not copy to clipboard",
+    "nothingToCopy": "Nothing to copy",
+    "couldNotFillImageSlot": "Could not fill image slot",
+    "realtimeNotReady": "Realtime connection is not ready. Wait for Echo to reconnect, then try again.",
+    "communicationTimeout": "You are in a communication timeout in this server."
+  },
+  "search": {
+    "emoji": "Search emoji...",
+    "messages": "Search messages",
+    "placeholder": "Search"
+  },
+  "labels": {
+    "favorites": "Favorites",
+    "attachment": "Attachment",
+    "document": "Document",
+    "linkPreview": "Link preview",
+    "someone": "Someone",
+    "unknown": "Unknown",
+    "directMessage": "Direct message",
+    "groupDm": "Group DM",
+    "friends": "Friends",
+    "voiceChannel": "Voice channel",
+    "outline": "Outline"
+  },
+  "dm": {
+    "changeGroupIcon": "Change group icon",
+    "addMembers": "Add members",
+    "editGroupName": "Edit group name"
+  },
+  "format": {
+    "bold": "Bold",
+    "italic": "Italic",
+    "strikethrough": "Strikethrough",
+    "code": "Code",
+    "spoiler": "Spoiler"
+  },
+  "composer": {
+    "messagePlaceholder": "Message {channel}",
+    "messagePlaceholderDm": "Message {'@'}{name}",
+    "messagePlaceholderGeneric": "Message"
+  },
+  "jumpFab": {
+    "latest": "Jump to latest",
+    "ariaLatest": "Jump to latest messages",
+    "ariaNew": "{count} new messages — jump to latest"
+  }
+}

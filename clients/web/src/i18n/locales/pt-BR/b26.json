@@ -1,0 +1,80 @@
+{
+  "audit": {
+    "filters": "Filtros de auditoria",
+    "clear": "Limpar filtros",
+    "tabsAria": "Abas do registro de auditoria",
+    "actor": "Autor",
+    "timeWindow": "Período",
+    "feed": "Feed de eventos",
+    "feedDesc": "Ações recentes de moderação e administração em todo o servidor.",
+    "empty": "Nenhum evento de auditoria corresponde a esses filtros.",
+    "emptyHint": "Tente limpar os filtros ou ampliar o período para ver mais atividade.",
+    "time": {
+      "All": "Todo o período",
+      "1h": "Última hora",
+      "6h": "Últimas 6 horas",
+      "12h": "Últimas 12 horas",
+      "24h": "Últimas 24 horas",
+      "3d": "Últimos 3 dias",
+      "7d": "Últimos 7 dias",
+      "30d": "Últimos 30 dias",
+      "90d": "Últimos 90 dias"
+    },
+    "filterHelp": "Filtre por categoria, autor ou período. Abra {actor} e use o campo de busca para encontrar alguém na lista.",
+    "entries": "{count} entradas"
+  },
+  "paperShape": {
+    "toolbar": "Formatação da forma",
+    "decrease": "Diminuir tamanho da forma",
+    "increase": "Aumentar tamanho da forma",
+    "size": "Tamanho da forma",
+    "fillColor": "Cor de preenchimento",
+    "borderColor": "Cor da borda",
+    "borderWidth": "Largura da borda",
+    "borderStyle": "Estilo da borda",
+    "addImage": "Adicionar imagem à forma",
+    "removeImage": "Remover imagem da forma",
+    "position": "Posição",
+    "alignLeft": "Alinhar à esquerda",
+    "alignCenter": "Centralizar",
+    "alignRight": "Alinhar à direita",
+    "noBorder": "Sem borda",
+    "sizes": {
+      "small": "Pequeno",
+      "medium": "Médio",
+      "large": "Grande"
+    },
+    "styles": {
+      "solid": "Sólida",
+      "dashed": "Tracejada",
+      "dotted": "Pontilhada"
+    }
+  },
+  "ringtone": {
+    "title": "Toque",
+    "settings": "Configurações do toque",
+    "previous": "Anterior",
+    "next": "Próximo",
+    "hideList": "Ocultar lista de toques",
+    "browse": "Explorar toques — clique para mostrar a lista",
+    "unmute": "Reativar som do toque",
+    "volume": "Volume"
+  },
+  "profileModal": {
+    "mutualServers": "Servidores em comum",
+    "mutualFriends": "Amigos em comum",
+    "discordNotOnEcho": "Perfil do Discord (não está no Echo)",
+    "checkingFriendship": "Verificando amizade...",
+    "acceptRequest": "Aceitar pedido de amizade",
+    "pendingRequest": "Pedido de amizade pendente",
+    "decline": "Recusar",
+    "declineRequest": "Recusar pedido",
+    "rolesInServer": "Cargos neste servidor",
+    "member": "Membro",
+    "aboutMe": "SOBRE MIM",
+    "note": "NOTA",
+    "close": "Fechar",
+    "noMutualServers": "Nenhum servidor em comum",
+    "noMutualFriends": "Nenhum amigo em comum"
+  }
+}

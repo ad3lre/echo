@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { AuthApiError } from '@/api/authClient';
@@ -12,17 +13,17 @@ export function getPasskeyWebCeremonyBlockReason(
   mode: PasskeyCeremonyMode,
 ): string | null {
   if (!ECHO_PASSKEYS_ENABLED) {
-    return 'Passkeys are disabled for this deployment.';
+    return echoT('auth.passkeyErrors.disabled');
   }
   if (echoSyncCapabilities.isMockDataMode) {
-    return 'Passkeys are not available in preview mode.';
+    return echoT('auth.passkeyErrors.previewMode');
   }
   if (typeof window !== 'undefined') {
     if (!window.isSecureContext) {
-      return 'Passkeys require a secure connection (HTTPS).';
+      return echoT('auth.passkeyErrors.insecure');
     }
     if (!window.PublicKeyCredential) {
-      return 'This browser does not support passkeys. Try Chrome, Safari, or Edge.';
+      return echoT('auth.passkeyErrors.unsupportedBrowser');
     }
   }
   return null;
@@ -34,20 +35,20 @@ export function mapPasskeyCeremonyError(
 ): string {
   if (err instanceof PasskeyCeremonyNotReadyError) {
     return mode === 'register'
-      ? 'Passkey setup is still loading. Wait a moment, then tap Add passkey again.'
-      : 'Passkey sign-in is still loading. Wait a moment, then tap Sign in with passkey again.';
+      ? echoT('auth.passkeyErrors.setupLoading')
+      : echoT('auth.passkeyErrors.signInLoading');
   }
   if (err instanceof AuthApiError) {
     if (err.body.code === 'NOT_AVAILABLE') {
       return mode === 'register'
-        ? 'Passkeys need a database-backed server.'
-        : err.body.message || 'Passkeys are not available on this server.';
+        ? echoT('auth.passkeyErrors.needsDatabase')
+        : err.body.message || echoT('auth.passkeyErrors.notAvailable');
     }
     if (err.body.code === 'CHALLENGE_EXPIRED') {
-      return 'That passkey step expired. Try again.';
+      return echoT('auth.passkeyErrors.stepExpired');
     }
     if (err.body.code === 'VERIFICATION_FAILED') {
-      return 'Passkey verification failed. Try again.';
+      return echoT('auth.passkeyErrors.verificationFailed');
     }
     return err.message;
   }
@@ -55,24 +56,24 @@ export function mapPasskeyCeremonyError(
     const name = err.name;
     if (name === 'NotAllowedError') {
       return mode === 'register'
-        ? 'Passkey registration was cancelled.'
-        : 'Passkey sign-in was cancelled.';
+        ? echoT('auth.passkeyErrors.registerCancelled')
+        : echoT('auth.passkeyErrors.signInCancelled');
     }
     if (name === 'AbortError') {
-      return 'Passkey was interrupted. Try again.';
+      return echoT('auth.passkeyErrors.interrupted');
     }
     if (name === 'SecurityError') {
-      return 'Passkeys cannot run on this page. Open Echo in a supported browser at your usual sign-in URL.';
+      return echoT('auth.passkeyErrors.securityError');
     }
     if (name === 'InvalidStateError') {
-      return 'This passkey is already registered on this device.';
+      return echoT('auth.passkeyErrors.alreadyRegistered');
     }
     if (name === 'NotSupportedError') {
-      return 'This device or browser does not support passkeys.';
+      return echoT('auth.passkeyErrors.deviceUnsupported');
     }
     if (err.message?.trim()) return err.message;
   }
   return mode === 'register'
-    ? 'Could not register passkey. Try again.'
-    : 'Could not sign in with passkey. Try again.';
+    ? echoT('auth.passkeyErrors.registerFailed')
+    : echoT('auth.passkeyErrors.signInFailed');
 }

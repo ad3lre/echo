@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { type Ref } from 'vue';
 import {
   AuthApiError,
@@ -37,9 +38,7 @@ export function createAuthPasswordFlowController(deps: {
         const normalizedEmail = normalizeEmail(email);
         if (!normalizedEmail) return;
         const result = await authForgotPassword({ email: normalizedEmail });
-        successMessage.value =
-          result.message ||
-          'If an account exists for that email, you will receive reset instructions.';
+        successMessage.value = result.message || echoT('auth.forgot.success');
       } catch (e) {
         errorMessage.value = mapForgotPasswordError(e);
       } finally {
@@ -58,8 +57,7 @@ export function createAuthPasswordFlowController(deps: {
           ...(opts.totpCode?.trim() ? { totpCode: opts.totpCode.trim() } : {}),
         });
         successMessage.value =
-          result.message ||
-          'Password updated. You can close this page and sign in.';
+          result.message || echoT('auth.resetPage.success');
         if (showTotp) showTotp.value = false;
 
         try {
@@ -71,8 +69,7 @@ export function createAuthPasswordFlowController(deps: {
       } catch (e) {
         if (e instanceof AuthApiError && e.body.code === 'TOTP_REQUIRED') {
           if (showTotp) showTotp.value = true;
-          errorMessage.value =
-            'Enter the 6-digit code from your authenticator app to finish resetting your password.';
+          errorMessage.value = echoT('auth.errors.resetTotpPrompt');
           return { success: false, totpRequired: true };
         } else {
           errorMessage.value = mapResetPasswordError(e);

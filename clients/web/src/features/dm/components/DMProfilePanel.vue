@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   nextTick,
@@ -96,10 +97,10 @@ const emit = defineEmits<{
 type TabId = 'mutual-servers' | 'mutual-friends';
 const activeTab = ref<TabId>('mutual-servers');
 
-const tabs: { id: TabId; label: string }[] = [
-  { id: 'mutual-servers', label: 'Mutual Servers' },
-  { id: 'mutual-friends', label: 'Mutual Friends' },
-];
+const tabs = computed<{ id: TabId; label: string }[]>(() => [
+  { id: 'mutual-servers', label: echoT('b28.dmp.mutualServers') },
+  { id: 'mutual-friends', label: echoT('b28.dmp.mutualFriends') },
+]);
 
 const layoutLeft = inject<LayoutLeftChromeContext | null>(
   LAYOUT_LEFT_CHROME_KEY,
@@ -284,6 +285,27 @@ const friendshipUi = computed(() => {
   });
 });
 
+const friendshipPrimaryLabel = computed(() => {
+  switch (friendshipUi.value.primaryLabel) {
+    case 'Checking…':
+      return echoT('b28.dmp.lblChecking');
+    case 'Unavailable':
+      return echoT('b28.dmp.lblUnavailable');
+    case 'Blocked':
+      return echoT('b28.dmp.lblBlocked');
+    case 'Friends':
+      return echoT('b28.dmp.lblFriends');
+    case 'Accept':
+      return echoT('b28.dmp.lblAccept');
+    case 'Pending':
+      return echoT('b28.dmp.lblPending');
+    case 'Add friend':
+      return echoT('b28.dmp.addFriend');
+    default:
+      return friendshipUi.value.primaryLabel;
+  }
+});
+
 const noteInputRef = ref<HTMLTextAreaElement | null>(null);
 
 function resizeNoteInput(el?: HTMLTextAreaElement | null) {
@@ -325,18 +347,18 @@ const tabBarRef = ref<HTMLElement | null>(null);
 
 function onTabBarKeydown(e: KeyboardEvent) {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-  const idx = tabs.findIndex((t) => t.id === activeTab.value);
+  const idx = tabs.value.findIndex((t) => t.id === activeTab.value);
   const nextIdx =
     e.key === 'ArrowLeft'
       ? idx > 0
         ? idx - 1
         : idx
-      : idx < tabs.length - 1
+      : idx < tabs.value.length - 1
         ? idx + 1
         : idx;
   if (nextIdx === idx) return;
   e.preventDefault();
-  activeTab.value = tabs[nextIdx]!.id;
+  activeTab.value = tabs.value[nextIdx]!.id;
   void nextTick(() => {
     const tabs = tabBarRef.value?.querySelectorAll<HTMLElement>('[role="tab"]');
     tabs?.[nextIdx]?.focus();
@@ -471,12 +493,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                   ]"
                   :title="
                     friendshipUi.kind === 'unknown'
-                      ? 'Checking friendship...'
+                      ? echoT('b28.dmp.checkingFriendship')
                       : friendshipUi.kind === 'incoming_request'
-                        ? 'Accept friend request'
+                        ? echoT('b28.dmp.acceptFriendRequest')
                         : friendshipUi.kind === 'outgoing_request'
-                          ? 'Pending friend request'
-                          : 'Add friend'
+                          ? echoT('b28.dmp.pendingFriendRequest')
+                          : echoT('b28.dmp.addFriend')
                   "
                   :disabled="!friendshipUi.primaryEnabled"
                   @click="handleAddFriendClick"
@@ -495,7 +517,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                     v-if="friendshipUi.primaryLabel !== 'Add friend'"
                     class="text-[11px] font-semibold text-fg-subtle"
                   >
-                    {{ friendshipUi.primaryLabel }}
+                    {{ friendshipPrimaryLabel }}
                   </span>
                 </button>
                 <button
@@ -506,11 +528,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                   "
                   type="button"
                   class="ep-header-btn ep-header-btn-decline"
-                  title="Decline request"
+                  :title="echoT('b28.dmp.declineRequest')"
                   @click="handleDeclineFriendClick"
                 >
                   <span class="text-[11px] font-semibold text-fg-soft">
-                    Decline
+                    {{ echoT('b28.dmp.decline') }}
                   </span>
                 </button>
                 <UserProfileMoreMenu
@@ -557,7 +579,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
               "
             >
               <template v-if="profile.bio?.trim()">
-                <div class="ep-about-label">ABOUT ME</div>
+                <div class="ep-about-label">{{ echoT('b28.dmp.aboutMe') }}</div>
                 <ProfileBioText :text="profile.bio" body-class="ep-card-body" />
               </template>
               <ProfileMemberSinceInline
@@ -570,7 +592,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
             </div>
 
             <div>
-              <div class="ep-about-label">NOTE</div>
+              <div class="ep-about-label">{{ echoT('b28.dmp.note') }}</div>
               <textarea
                 ref="noteInputRef"
                 v-model="draftNote"
@@ -607,7 +629,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                 <button
                   type="button"
                   class="ep-close"
-                  aria-label="Close"
+                  :aria-label="echoT('b28.dmp.close')"
                   @click="close"
                 >
                   <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true">
@@ -627,7 +649,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                 <!-- Mutual Servers -->
                 <div v-show="activeTab === 'mutual-servers'" role="tabpanel">
                   <p v-if="profile.mutualServers.length === 0" class="ep-empty">
-                    No mutual servers
+                    {{ echoT('b28.dmp.noMutualServers') }}
                   </p>
                   <ul v-else class="ep-server-list">
                     <li
@@ -653,7 +675,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                 <!-- Mutual Friends -->
                 <div v-show="activeTab === 'mutual-friends'" role="tabpanel">
                   <p v-if="profile.mutualFriends.length === 0" class="ep-empty">
-                    No mutual friends
+                    {{ echoT('b28.dmp.noMutualFriends') }}
                   </p>
                   <ul v-else class="ep-friend-list">
                     <li

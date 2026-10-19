@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   computed,
@@ -215,7 +216,8 @@ const authorLabel = computed(() =>
   resolveGuildMemberDisplayName({
     serverId: props.serverId,
     userId: message.value.authorId,
-    fallbackName: message.value.author?.name?.trim() || 'Unknown',
+    fallbackName:
+      message.value.author?.name?.trim() || echoT('chat.labels.unknown'),
     serverMemberNicknames: workspace.serverMemberNicknames.value,
   }),
 );
@@ -377,7 +379,11 @@ const {
     );
     return ok
       ? { ok: true }
-      : failResult('FILL_FAILED', 'Could not fill image slot', true);
+      : failResult(
+          'FILL_FAILED',
+          echoT('chat.status.couldNotFillImageSlot'),
+          true,
+        );
   },
 });
 
@@ -482,12 +488,12 @@ const bodyRenderMode = computed((): BubbleBodyMode => {
   if (!isEchoContentSchemaSupportedForRender(cs)) {
     return {
       kind: 'error',
-      message: 'This message uses a newer format and could not be displayed.',
+      message: echoT('b35.bubble.newerFormat'),
     };
   }
   const v = validateEchoContentJsonForRender(message.value.contentJson);
   if (!v.ok) {
-    return { kind: 'error', message: 'This message could not be displayed.' };
+    return { kind: 'error', message: echoT('b35.bubble.cannotDisplay') };
   }
   return { kind: 'json', doc: v.doc };
 });
@@ -681,26 +687,27 @@ function messagePlainTextForCopy(): string {
 async function copyMessage() {
   const text = messagePlainTextForCopy();
   if (!text) {
-    dispatchAppToast('Nothing to copy', 'info');
+    dispatchAppToast(echoT('chat.status.nothingToCopy'), 'info');
     menuOpen.value = false;
     return;
   }
   const ok = await copyToClipboard(text);
   menuOpen.value = false;
-  if (!ok) dispatchAppToast('Could not copy to clipboard', 'warning');
+  if (!ok)
+    dispatchAppToast(echoT('chat.status.couldNotCopyClipboard'), 'warning');
 }
 
 async function copyMessageImage() {
   const url = copyableMessageImageUrl.value;
   if (!url) {
-    dispatchAppToast('No image to copy', 'info');
+    dispatchAppToast(echoT('b35.bubble.noImageToCopy'), 'info');
     menuOpen.value = false;
     return;
   }
   const ok = await copyImageFromUrl(url);
   menuOpen.value = false;
-  if (ok) dispatchAppToast('Image copied', 'info');
-  else dispatchAppToast('Could not copy image', 'warning');
+  if (ok) dispatchAppToast(echoT('chat.status.imageCopied'), 'info');
+  else dispatchAppToast(echoT('chat.status.couldNotCopyImage'), 'warning');
 }
 
 async function copyRawMessage() {
@@ -715,45 +722,50 @@ async function copyRawMessage() {
     raw = message.value.contentText ?? message.value.content ?? '';
   }
   if (!raw.trim()) {
-    dispatchAppToast('Nothing to copy', 'info');
+    dispatchAppToast(echoT('chat.status.nothingToCopy'), 'info');
     menuOpen.value = false;
     return;
   }
   const ok = await copyToClipboard(raw);
   menuOpen.value = false;
-  if (!ok) dispatchAppToast('Could not copy to clipboard', 'warning');
+  if (!ok)
+    dispatchAppToast(echoT('chat.status.couldNotCopyClipboard'), 'warning');
 }
 
 async function copyMessageLink() {
   const url = messageLink.value;
   if (!url.trim()) {
-    dispatchAppToast('Nothing to copy', 'info');
+    dispatchAppToast(echoT('chat.status.nothingToCopy'), 'info');
     menuOpen.value = false;
     return;
   }
   const ok = await copyToClipboard(url);
   menuOpen.value = false;
-  if (!ok) dispatchAppToast('Could not copy to clipboard', 'warning');
+  if (!ok)
+    dispatchAppToast(echoT('chat.status.couldNotCopyClipboard'), 'warning');
 }
 
 async function copyMessageId() {
   if (!message.value.id) return;
   const ok = await copyToClipboard(message.value.id);
   menuOpen.value = false;
-  if (!ok) dispatchAppToast('Could not copy to clipboard', 'warning');
+  if (!ok)
+    dispatchAppToast(echoT('chat.status.couldNotCopyClipboard'), 'warning');
 }
 
 async function copyAuthorId() {
   const ok = await copyToClipboard(message.value.authorId);
   menuOpen.value = false;
-  if (!ok) dispatchAppToast('Could not copy to clipboard', 'warning');
+  if (!ok)
+    dispatchAppToast(echoT('chat.status.couldNotCopyClipboard'), 'warning');
 }
 
 async function copyChannelIdFromMessage() {
   if (!props.channelId) return;
   const ok = await copyToClipboard(props.channelId);
   menuOpen.value = false;
-  if (!ok) dispatchAppToast('Could not copy to clipboard', 'warning');
+  if (!ok)
+    dispatchAppToast(echoT('chat.status.couldNotCopyClipboard'), 'warning');
 }
 
 /** How the message menu was opened — drives expanded dev ID list on right-click. */
@@ -814,7 +826,8 @@ async function copyQuotedReplyMessageId() {
   if (!id) return;
   const ok = await copyToClipboard(linkTokenMessage(id));
   menuOpen.value = false;
-  if (!ok) dispatchAppToast('Could not copy to clipboard', 'warning');
+  if (!ok)
+    dispatchAppToast(echoT('chat.status.couldNotCopyClipboard'), 'warning');
 }
 
 /** Right-click while dev IDs are enabled: full developer copy list in the context menu. */
@@ -872,8 +885,8 @@ async function confirmModDeleteMessage() {
       menuOpen.value = false;
     },
     {
-      title: 'Delete this message?',
-      confirmLabel: 'Delete',
+      title: echoT('b35.bubble.deleteTitle'),
+      confirmLabel: echoT('chat.actions.delete'),
       danger: true,
     },
   );
@@ -955,13 +968,14 @@ function openReportMessageFromMenu() {
 async function copyAuthorUsername() {
   const name = message.value.author?.name?.trim() || authorLabel.value.trim();
   if (!name) {
-    dispatchAppToast('Nothing to copy', 'info');
+    dispatchAppToast(echoT('chat.status.nothingToCopy'), 'info');
     menuOpen.value = false;
     return;
   }
   const ok = await copyToClipboard(name);
   menuOpen.value = false;
-  if (!ok) dispatchAppToast('Could not copy to clipboard', 'warning');
+  if (!ok)
+    dispatchAppToast(echoT('chat.status.couldNotCopyClipboard'), 'warning');
 }
 
 function forwardMessageFromMenu() {
@@ -1050,13 +1064,13 @@ watch(
     :class="{
       'message-list__unread-separator--first': row.layout.isFirstInList,
     }"
-    aria-label="First unread message"
+    :aria-label="echoT('b35.bubble.firstUnread')"
   >
     <span class="h-px flex-1 bg-rose-400/45" aria-hidden="true" />
     <span
       class="shrink-0 rounded-full border border-rose-300/30 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-200"
     >
-      New
+      {{ echoT('b35.bubble.new') }}
     </span>
     <span class="h-px flex-1 bg-rose-400/45" aria-hidden="true" />
   </div>
@@ -1157,7 +1171,7 @@ watch(
         class="chat-focus-ring shrink-0 rounded-md px-2 py-0.5 font-semibold text-accent hover:underline"
         @click="emitExpandDmCallRoll"
       >
-        See more
+        {{ echoT('b35.bubble.seeMore') }}
       </button>
     </div>
 
@@ -1213,7 +1227,7 @@ watch(
           <div
             class="text-[10px] font-semibold uppercase tracking-wide text-muted"
           >
-            Forwarded
+            {{ echoT('b35.bubble.forwarded') }}
           </div>
           <div class="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span class="font-medium text-foreground">{{
@@ -1230,7 +1244,7 @@ watch(
                 )
               "
             >
-              Jump to message
+              {{ echoT('b35.bubble.jump') }}
             </button>
           </div>
           <p
@@ -1299,23 +1313,26 @@ watch(
             :open-document-viewer="openDocumentViewer"
           />
           <MessageInlineGifEmbeds
-            v-if="hasInlineGifEmbeds"
+            v-if="hasInlineGifEmbeds && !throttleHeavyDescendants"
             :embeds="linkEmbedsForDisplay ?? []"
             :open-image-viewer="openImageViewer"
             :alt="message.content || 'GIF'"
           />
           <MessageLinkEmbeds
-            v-if="linkEmbedsForLinkCards?.some((e) => !e.echoJump)"
+            v-if="
+              !throttleHeavyDescendants &&
+              linkEmbedsForLinkCards?.some((e) => !e.echoJump)
+            "
             class="mt-2"
             :embeds="linkEmbedsForLinkCards"
           />
           <MessageDiscordComponents
-            v-if="showStandaloneMessageComponents"
+            v-if="showStandaloneMessageComponents && !throttleHeavyDescendants"
             :components="message.components"
             :message-flags="message.messageFlags"
           />
           <PollDisplay
-            v-if="pollForDisplay"
+            v-if="pollForDisplay && !throttleHeavyDescendants"
             :poll="pollForDisplay"
             :message-id="message.id"
             :current-user-id="currentUserId"
@@ -1333,6 +1350,7 @@ watch(
             (edited)
           </span>
           <MessageReactions
+            v-if="!throttleHeavyDescendants"
             ref="reactionsRef"
             v-model:reaction-popover-open="reactionPopoverOpen"
             :message="message"

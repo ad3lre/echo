@@ -3,7 +3,7 @@ import type {
   LiveKitVoiceRoomApi,
   UseLiveKitVoiceRoomOptions,
 } from '@/features/voice/livekitVoiceRoom.types';
-import { createLiveKitVoiceSession } from '@/features/voice/livekit/createLiveKitVoiceSession';
+import { createDeferredLiveKitVoiceRoom } from '@/features/voice/livekit/createDeferredLiveKitVoiceRoom';
 
 export type {
   DesktopStreamingControlMode,
@@ -22,8 +22,13 @@ export type {
 
 export { buildRemoteParticipantTrackInfoFromPublications };
 
+/**
+ * Voice room API for the shell. LiveKit itself loads lazily on first connect
+ * (see `createDeferredLiveKitVoiceRoom`) so AppLayout does not sync-import
+ * `livekit-client` on cold boot.
+ */
 export function useLiveKitVoiceRoom(
   opts?: UseLiveKitVoiceRoomOptions,
 ): LiveKitVoiceRoomApi {
-  return createLiveKitVoiceSession(opts);
+  return createDeferredLiveKitVoiceRoom(opts);
 }

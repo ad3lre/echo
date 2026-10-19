@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
 import type { VideoQualityPreset } from '@/features/voice/useLiveKitVoiceRoom';
 
@@ -56,11 +57,11 @@ async function startPreview(deviceId?: string) {
   } catch (e) {
     const err = e as Error;
     if (err.name === 'NotAllowedError') {
-      errorMessage.value = 'Camera access denied. Check browser permissions.';
+      errorMessage.value = echoT('b17.camera.denied');
     } else if (err.name === 'NotFoundError') {
-      errorMessage.value = 'No camera found.';
+      errorMessage.value = echoT('b17.camera.notFound');
     } else {
-      errorMessage.value = `Camera error: ${err.message}`;
+      errorMessage.value = echoT('b17.camera.error', { message: err.message });
     }
   }
 }
@@ -150,7 +151,7 @@ onUnmounted(() => {
             stroke-linejoin="round"
           />
         </svg>
-        <span>Choose a camera to start preview</span>
+        <span>{{ echoT('b17.camera.chooseCamera') }}</span>
       </div>
     </div>
   </div>

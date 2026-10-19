@@ -1,4 +1,4 @@
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import { userAvatars, userAvatarsHiRes } from '@/assets/userAvatars';
 import {
   isTrustedMediaUrl,

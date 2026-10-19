@@ -1,0 +1,99 @@
+{
+  "media": {
+    "pause": "Pause",
+    "play": "Abspielen",
+    "playbackSpeed": "Wiedergabegeschwindigkeit",
+    "unmute": "Stummschaltung aufheben",
+    "volume": "Lautstärke",
+    "volumeLevel": "Lautstärkepegel",
+    "downloadOriginal": "Originalvideo herunterladen",
+    "exitFullscreen": "Vollbild beenden",
+    "fullscreen": "Vollbild"
+  },
+  "search": {
+    "video": "Video",
+    "audio": "Audio",
+    "doc": "Dokument",
+    "sticker": "Sticker",
+    "gif": "GIF",
+    "image": "Bild"
+  },
+  "reactors": {
+    "title": "Wer reagiert hat",
+    "close": "Schließen",
+    "loading": "Wird geladen…",
+    "loadError": "Vollständige Liste konnte nicht geladen werden",
+    "byEmoji": "Reagierende nach Emoji",
+    "none": "Niemand hat mit diesem Emoji reagiert",
+    "you": "Du",
+    "person": "Person",
+    "people": "Personen",
+    "emoji": "Emoji",
+    "emojis": "Emojis"
+  },
+  "imageViewer": {
+    "copyImage": "Bild kopieren",
+    "copyImageLink": "Bildlink kopieren",
+    "close": "Schließen",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "gif": "GIF",
+    "image": "Bild"
+  },
+  "docViewer": {
+    "close": "Schließen",
+    "loadingPreview": "Vorschau wird geladen…",
+    "previewTitle": "Dokumentvorschau",
+    "unsupported": "Dieser Dokumenttyp kann in Echo nicht in der Vorschau angezeigt werden. Versuche es mit Herunterladen oder Öffnen.",
+    "timeout": "Zeitüberschreitung bei der Vorschau. Die Datei benötigt möglicherweise eine öffentliche URL oder dein Browser hat die Einbettung blockiert. Versuche es mit Herunterladen oder Öffnen.",
+    "loadFailed": "Die Dokumentvorschau konnte nicht geladen werden. Versuche es mit Herunterladen oder Öffnen.",
+    "ariaLabel": "Dokument: {title}"
+  },
+  "invite": {
+    "inAppUnavailable": "Der Beitritt in der App ist in dieser Ansicht nicht verfügbar.",
+    "redundant": "Beitritt unnötig – du bist bereits Mitglied dieses Servers. Wir haben ihn für dich geöffnet.",
+    "joined": "Server beigetreten.",
+    "ariaLabel": "Servereinladung",
+    "invitedVoice": "Du wurdest zu einem Sprachkanal eingeladen",
+    "invitedServer": "Du wurdest zu einem Server eingeladen",
+    "joinTitle": "Diesem Server in Echo beitreten",
+    "joining": "Beitritt läuft…",
+    "join": "Server beitreten",
+    "server": "Server",
+    "memberOne": "{count} Mitglied",
+    "memberMany": "{count} Mitglieder",
+    "icon": "Symbol von {name}",
+    "inviteToken": "Einladung: {token}"
+  },
+  "empty": {
+    "noServersAria": "Noch keine Server",
+    "noServersTitle": "Du bist noch auf keinem Server",
+    "noServersBody": "Entdecke öffentliche Communitys oder tritt mit einer Einladung einer bei, um hier zu chatten.",
+    "explore": "Server entdecken",
+    "noChannelsBody": "Mit deinen aktuellen Rollen ist auf diesem Server nichts sichtbar, oder der Server hat noch keine Kanäle.",
+    "noMessagesAria": "Keine Nachrichten in diesem Kanal",
+    "noMessagesBody": "Sobald jemand eine Nachricht sendet, erscheint sie hier. Sag Hallo, um die Unterhaltung zu starten."
+  },
+  "header": {
+    "openProfile": "Profil öffnen",
+    "saved": "Gespeichert",
+    "edited": "Bearbeitet",
+    "messageSaved": "Nachricht gespeichert",
+    "messageEdited": "Nachricht bearbeitet",
+    "editedTag": "(bearbeitet)",
+    "pinned": "Angeheftet",
+    "pinnedMessage": "Angeheftete Nachricht",
+    "sent": "Gesendet {time}",
+    "postedIn": "Gepostet in #{name}"
+  },
+  "actionBar": {
+    "edit": "Bearbeiten",
+    "delete": "Löschen (Umschalttaste gedrückt halten)",
+    "deleteMessage": "Nachricht löschen (Umschalttaste gedrückt halten)",
+    "kick": "Vom Server kicken (Umschalttaste gedrückt halten)",
+    "ban": "Vom Server sperren (Umschalttaste gedrückt halten)",
+    "removeTimeout": "Timeout aufheben (Umschalttaste gedrückt halten)",
+    "timeout1h": "Timeout für 1 Stunde (Umschalttaste gedrückt halten)",
+    "react": "Mit {emoji} reagieren · Rechtsklick, um aus der Schnellleiste zu entfernen"
+  }
+}

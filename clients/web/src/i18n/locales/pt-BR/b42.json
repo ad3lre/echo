@@ -1,0 +1,99 @@
+{
+  "media": {
+    "pause": "Pausar",
+    "play": "Reproduzir",
+    "playbackSpeed": "Velocidade de reprodução",
+    "unmute": "Ativar som",
+    "volume": "Volume",
+    "volumeLevel": "Nível de volume",
+    "downloadOriginal": "Baixar vídeo original",
+    "exitFullscreen": "Sair da tela cheia",
+    "fullscreen": "Tela cheia"
+  },
+  "search": {
+    "video": "vídeo",
+    "audio": "áudio",
+    "doc": "doc",
+    "sticker": "figurinha",
+    "gif": "GIF",
+    "image": "Imagem"
+  },
+  "reactors": {
+    "title": "Quem reagiu",
+    "close": "Fechar",
+    "loading": "Carregando…",
+    "loadError": "Não foi possível carregar a lista completa",
+    "byEmoji": "Reações por emoji",
+    "none": "Ninguém reagiu com este emoji",
+    "you": "Você",
+    "person": "pessoa",
+    "people": "pessoas",
+    "emoji": "emoji",
+    "emojis": "emojis"
+  },
+  "imageViewer": {
+    "copyImage": "Copiar imagem",
+    "copyImageLink": "Copiar link da imagem",
+    "close": "Fechar",
+    "previous": "Anterior",
+    "next": "Próxima",
+    "gif": "GIF",
+    "image": "Imagem"
+  },
+  "docViewer": {
+    "close": "Fechar",
+    "loadingPreview": "Carregando pré-visualização…",
+    "previewTitle": "Pré-visualização do documento",
+    "unsupported": "Este tipo de documento não pode ser pré-visualizado no Echo. Tente Baixar ou Abrir.",
+    "timeout": "A pré-visualização expirou. O arquivo pode exigir uma URL pública ou o navegador bloqueou a incorporação. Tente Baixar ou Abrir.",
+    "loadFailed": "Não foi possível carregar a pré-visualização do documento. Tente Baixar ou Abrir.",
+    "ariaLabel": "Documento: {title}"
+  },
+  "invite": {
+    "inAppUnavailable": "A entrada pelo app não está disponível nesta tela.",
+    "redundant": "Você já é membro deste servidor. Abrimos ele para você.",
+    "joined": "Você entrou no servidor.",
+    "ariaLabel": "Convite de servidor",
+    "invitedVoice": "Você foi convidado para entrar em um canal de voz",
+    "invitedServer": "Você foi convidado para entrar em um servidor",
+    "joinTitle": "Entrar neste servidor no Echo",
+    "joining": "Entrando…",
+    "join": "Entrar no servidor",
+    "server": "Servidor",
+    "memberOne": "{count} membro",
+    "memberMany": "{count} membros",
+    "icon": "Ícone de {name}",
+    "inviteToken": "Convite: {token}"
+  },
+  "empty": {
+    "noServersAria": "Nenhum servidor ainda",
+    "noServersTitle": "Você ainda não está em nenhum servidor",
+    "noServersBody": "Explore comunidades públicas ou entre em uma com um convite para começar a conversar por aqui.",
+    "explore": "Explorar servidores",
+    "noChannelsBody": "Nada neste servidor está visível com seus cargos atuais, ou o servidor ainda não tem canais.",
+    "noMessagesAria": "Nenhuma mensagem neste canal",
+    "noMessagesBody": "Quando alguém enviar uma mensagem, ela aparecerá aqui. Diga olá para começar a conversa."
+  },
+  "header": {
+    "openProfile": "Abrir perfil",
+    "saved": "Salvo",
+    "edited": "Editada",
+    "messageSaved": "Mensagem salva",
+    "messageEdited": "Mensagem editada",
+    "editedTag": "(editada)",
+    "pinned": "Fixada",
+    "pinnedMessage": "Mensagem fixada",
+    "sent": "Enviada {time}",
+    "postedIn": "Publicada em #{name}"
+  },
+  "actionBar": {
+    "edit": "Editar",
+    "delete": "Excluir (segure Shift)",
+    "deleteMessage": "Excluir mensagem (segure Shift)",
+    "kick": "Expulsar do servidor (segure Shift)",
+    "ban": "Banir do servidor (segure Shift)",
+    "removeTimeout": "Remover castigo (segure Shift)",
+    "timeout1h": "Castigo de 1 hora (segure Shift)",
+    "react": "Reagir com {emoji} · clique com o botão direito para remover da barra rápida"
+  }
+}

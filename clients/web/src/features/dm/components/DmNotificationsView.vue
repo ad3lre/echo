@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, ref, watch } from 'vue';
 import type { ChannelCategory } from '@/features/layout/channels/useChannels';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -206,7 +207,7 @@ const visibleSourceChips = computed<MentionNotificationSourceChip[]>(() =>
 const placeWidgets = computed<PlaceWidget[]>(() => {
   const unread: PlaceWidget = {
     key: UNREAD_FILTER_KEY,
-    label: 'Unread',
+    label: echoT('b37.dmn.unread'),
     count: countRowsFor('unread', { kind: 'all' }),
     visual: { kind: 'none' },
   };
@@ -270,9 +271,9 @@ const notificationListItems = computed((): DmNotificationListItem[] => {
 
 const listEmptyMessage = computed(() => {
   if (props.rows.length === 0) {
-    return "You're all caught up — no mentions yet.";
+    return echoT('b37.dmn.caughtUp');
   }
-  return 'No mentions match these filters.';
+  return echoT('b37.dmn.noMatch');
 });
 
 function isLoadingStubRow(row: DmMentionNotificationRow): boolean {
@@ -324,11 +325,11 @@ function pfpFor(userId: string): string {
 
 /** Maps the raw mention kind array to the display label shown beside the author name. */
 function formatKinds(kinds: readonly string[]): string {
-  if (!kinds.length) return 'Mention';
+  if (!kinds.length) return echoT('b37.dmn.mention');
   if (kinds.includes('user')) return '@you';
   if (kinds.includes('everyone')) return '@everyone';
   if (kinds.includes('active')) return '@active';
-  return 'Mention';
+  return echoT('b37.dmn.mention');
 }
 </script>
 
@@ -343,7 +344,7 @@ function formatKinds(kinds: readonly string[]): string {
         <button
           type="button"
           class="inline-flex h-9 items-center gap-2 rounded-xl px-2 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-2 hover:text-fg"
-          aria-label="Back to messages"
+          :aria-label="echoT('b37.dmn.backToMessages')"
           @click="emit('back-to-messages')"
         >
           <img
@@ -351,7 +352,7 @@ function formatKinds(kinds: readonly string[]): string {
             alt=""
             class="echo-ink-icon h-5 w-5 shrink-0 opacity-90"
           />
-          <span>Messages</span>
+          <span>{{ echoT('b37.dmn.messages') }}</span>
         </button>
       </div>
       <div class="flex items-center gap-3">
@@ -376,16 +377,21 @@ function formatKinds(kinds: readonly string[]): string {
           <p
             class="dm-notifications__kicker text-[11px] font-bold uppercase tracking-[0.18em] text-fg-subtle"
           >
-            Notifications
+            {{ echoT('b37.dmn.notifications') }}
           </p>
           <h1
             class="dm-notifications__title text-lg font-semibold text-fg-strong"
           >
-            Mentions & pings
+            {{ echoT('b37.dmn.mentionsPings') }}
           </h1>
           <p class="truncate text-xs text-fg-subtle">
-            @{{ usersById.get(currentUserId)?.name?.trim() || 'you' }} in
-            channels you’ve loaded
+            {{
+              echoT('b37.dmn.inLoaded', {
+                name:
+                  usersById.get(currentUserId)?.name?.trim() ||
+                  echoT('b37.dmn.you'),
+              })
+            }}
           </p>
         </div>
       </div>
@@ -401,7 +407,7 @@ function formatKinds(kinds: readonly string[]): string {
           :aria-busy="props.hydrationLoading && props.rows.length === 0"
         >
           <p v-if="props.hydrationLoading && props.rows.length === 0">
-            Loading mentions from your channels…
+            {{ echoT('b37.dmn.loading') }}
           </p>
           <p v-else>{{ listEmptyMessage }}</p>
         </div>
@@ -482,7 +488,7 @@ function formatKinds(kinds: readonly string[]): string {
                 class="dm-notification-card__jump mt-2 hidden shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold sm:inline-flex"
                 aria-hidden="true"
               >
-                Jump
+                {{ echoT('b37.dmn.jump') }}
                 <span>›</span>
               </span>
             </button>
@@ -501,7 +507,7 @@ function formatKinds(kinds: readonly string[]): string {
           top: `${menuPosition.top}px`,
         }"
         role="menu"
-        aria-label="Notification options"
+        :aria-label="echoT('b37.dmn.options')"
         @contextmenu.prevent
       >
         <div
@@ -515,7 +521,7 @@ function formatKinds(kinds: readonly string[]): string {
           role="menuitem"
           @click="openContextRow"
         >
-          Open mention
+          {{ echoT('b37.dmn.open') }}
         </button>
         <button
           type="button"
@@ -523,7 +529,7 @@ function formatKinds(kinds: readonly string[]): string {
           role="menuitem"
           @click="markContextRowRead"
         >
-          Mark as read
+          {{ echoT('b37.dmn.markRead') }}
         </button>
       </div>
     </Teleport>

@@ -1,0 +1,100 @@
+{
+  "toast": {
+    "featureNotAvailable": "Funktion noch nicht verfügbar",
+    "somethingWentWrongReload": "Etwas ist schiefgelaufen. Versuche es erneut oder lade neu.",
+    "writeReply": "Antwort schreiben…"
+  },
+  "tabs": {
+    "home": "Start",
+    "servers": "Server",
+    "explore": "Entdecken",
+    "mainNavigation": "Hauptnavigation"
+  },
+  "splash": {
+    "slowAria": "Das Laden dauert länger als gewöhnlich",
+    "stillLoading": "Lädt noch…",
+    "canHappenWhen": "Das kann passieren, wenn:",
+    "slowConnection": "deine Verbindung langsam oder instabil ist",
+    "firstVisit": "dies dein erster Besuch ist (die App wird im Hintergrund heruntergeladen)",
+    "blockedScripts": "eine Browser-Erweiterung oder ein strenger Datenschutzmodus Skripte blockiert",
+    "tryRefresh": "Wenn sich nach einer Weile nichts ändert, lade die Seite neu."
+  },
+  "loadError": {
+    "timeout": "Der Download hat zu lange gedauert und wurde abgebrochen. Prüfe dein Netzwerk und versuche es erneut.",
+    "unreachable": "Wir konnten den Server nicht erreichen, um diesen Teil der App zu laden. Prüfe deine Verbindung.",
+    "title": "Echo konnte nicht geladen werden",
+    "generic": "Beim Laden der App ist etwas schiefgelaufen. Lade die Seite neu oder komm gleich wieder."
+  },
+  "deploy": {
+    "updateInProgress": "Update läuft",
+    "restartingSoon": "Neustart in Kürze",
+    "secondsUntilRestart": "Sekunden bis zum Neustart",
+    "reconnecting": "Verbindung wird automatisch wiederhergestellt, sobald der Server zurück ist…",
+    "dismiss": "Ausblenden",
+    "welcomeBack": "Willkommen zurück – Echo ist online",
+    "dismissNoticeAria": "Update-Hinweis ausblenden"
+  },
+  "realtime": {
+    "reconnecting": "Verbindung wird wiederhergestellt",
+    "connected": "Verbunden"
+  },
+  "pins": {
+    "title": "Angeheftete Nachrichten",
+    "empty": "Keine angehefteten Nachrichten in diesem Kanal.",
+    "close": "Schließen"
+  },
+  "members": {
+    "searchServer": "{server} durchsuchen",
+    "search": "Suchen"
+  },
+  "myServers": {
+    "empty": "Keine Server gefunden"
+  },
+  "mobile": {
+    "inviteUnavailable": "Einladung nicht verfügbar. Lade neu und versuche es erneut.",
+    "serverSettingsUnavailable": "Servereinstellungen nicht verfügbar. Lade neu und versuche es erneut.",
+    "notificationSettingsUnavailable": "Benachrichtigungseinstellungen nicht verfügbar. Lade neu und versuche es erneut.",
+    "voiceSettingsUnavailable": "Spracheinstellungen nicht verfügbar. Lade neu und versuche es erneut.",
+    "channels": "Kanäle",
+    "closeChannels": "Kanäle schließen",
+    "done": "Fertig",
+    "members": "Mitglieder",
+    "yourProfile": "Dein Profil",
+    "openYourProfile": "Dein Profil öffnen",
+    "settings": "Einstellungen",
+    "openSettings": "Einstellungen öffnen",
+    "serversTitle": "Server",
+    "serversHintAll": "Alle deine Server – wähle einen, um Kanäle zu öffnen und zu chatten.",
+    "serversHintPick": "Wähle einen Server, um Kanäle zu öffnen und zu chatten.",
+    "noServersYet": "Noch keine Server",
+    "joinFromExplore": "Tritt über „Entdecken“ einem bei, um loszulegen."
+  },
+  "rail": {
+    "profilePicture": "Profilbild von {name}",
+    "serverIcon": "Symbol von {name}",
+    "laneOptions": "Optionen für {title}",
+    "markAllRead": "Alle als gelesen markieren",
+    "directMessages": "Direktnachrichten",
+    "servers": "Server",
+    "yourProfile": "Dein Profil",
+    "reportBug": "Fehler melden",
+    "currentProfile": "Aktuelles Profil",
+    "inCall": "im Anruf",
+    "unreadCount": "{count} ungelesen",
+    "openGroupMessage": "Gruppennachricht öffnen – {name}{suffix}",
+    "openDirectMessageFrom": "Direktnachricht von {name}{suffix} öffnen",
+    "unreadDirectMessages": "Ungelesene Direktnachrichten",
+    "moreUnreadDms": "{count} weitere ungelesene Direktnachrichten – Posteingang öffnen",
+    "logoSettingsTitle": "Einstellungen",
+    "logoSignInTitle": "Melde dich an, um die Einstellungen zu öffnen",
+    "logoOpenSettings": "Einstellungen öffnen",
+    "logoAlt": "Echo-Logo",
+    "serverOptions": "Serveroptionen",
+    "serverSettings": "Servereinstellungen",
+    "invitePeople": "Leute einladen",
+    "notificationSettings": "Benachrichtigungseinstellungen",
+    "markAsRead": "Als gelesen markieren",
+    "copyServerId": "Server-ID kopieren",
+    "leaveServer": "Server verlassen"
+  }
+}

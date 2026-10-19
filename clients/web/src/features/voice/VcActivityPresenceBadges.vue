@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import { iconYoutubeSvgPath, icons } from '@/assets/icons';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
@@ -30,33 +31,33 @@ const visibleKinds = computed(() => {
 function titleFor(k: VcActivityPresenceKind): string {
   switch (k) {
     case 'youtube':
-      return 'In YouTube activity';
+      return echoT('b30.vcPresence.youtube');
     case 'watch_together':
-      return 'In Watch Together activity';
+      return echoT('b30.vcPresence.watchTogether');
     case 'wordle':
       return 'In Wordline activity';
     case 'hangman':
       return 'In Hangman activity';
     case 'openguessr':
-      return 'In OpenGuessr activity';
+      return echoT('b30.vcPresence.openguessr');
     case 'skribbl_io':
       return 'In skribbl.io activity';
     case 'gartic_phone':
-      return 'In Gartic Phone activity';
+      return echoT('b30.vcPresence.garticPhone');
     case 'krunker':
-      return 'In Krunker activity';
+      return echoT('b30.vcPresence.krunker');
     case 'codenames':
       return 'In Echoed Names activity';
     case 'richup':
-      return 'In Richup.io activity';
+      return echoT('b30.vcPresence.richup');
     case 'goober_dash':
-      return 'In Goober Dash activity';
+      return echoT('b30.vcPresence.gooberDash');
     case 'smash_karts':
-      return 'In Smash Karts activity';
+      return echoT('b30.vcPresence.smashKarts');
     case 'cluster_rush':
-      return 'In Cluster Rush activity';
+      return echoT('b30.vcPresence.clusterRush');
     case 'activities':
-      return 'Browsing activities';
+      return echoT('b30.vcPresence.browsing');
     default:
       return '';
   }
@@ -68,7 +69,7 @@ function titleFor(k: VcActivityPresenceKind): string {
     v-if="visibleKinds.length"
     class="vc-act-pres-badges inline-flex items-center"
     :class="size === 'md' ? 'gap-0.5' : 'gap-px'"
-    aria-label="Voice activity"
+    :aria-label="echoT('b30.vcPresence.voiceActivity')"
   >
     <span
       v-for="k in visibleKinds"

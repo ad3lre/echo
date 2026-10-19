@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   inject,
@@ -275,15 +276,15 @@ const communicationTimeoutCountdownLabel = computed(() =>
 );
 const communicationTimeoutLockTitle = computed(() =>
   communicationTimeoutActive.value
-    ? 'Communication timeout active'
-    : 'Message input locked',
+    ? echoT('b28.ci.timeoutActive')
+    : echoT('b28.ci.inputLocked'),
 );
 const communicationTimeoutLockDetail = computed(() => {
   if (!communicationTimeoutActive.value) return permissionLockMessage.value;
   const countdown = communicationTimeoutCountdownLabel.value;
   return countdown
-    ? `You are in a communication timeout in this server. You can chat again in ${countdown}.`
-    : 'You are in a communication timeout in this server.';
+    ? echoT('b28.ci.timeoutDetail', { countdown })
+    : echoT('chat.status.communicationTimeout');
 });
 
 const composerBarDisabled = computed(() => composerDisabled.value);
@@ -454,13 +455,13 @@ function formatComposerError(raw: string | null): string {
     /\b429\b/.test(t) ||
     lower.includes('retry-after')
   ) {
-    return 'You’re sending messages too quickly. Wait a moment and try again.';
+    return echoT('b28.ci.tooQuick');
   }
   if (lower.includes('slowmode')) {
-    return 'Slowmode is active in this channel. Wait before sending another message.';
+    return echoT('b28.ci.slowmodeWait');
   }
   if (lower.includes('communication timeout') || lower.includes('timed out')) {
-    return 'You are in a communication timeout in this server.';
+    return echoT('chat.status.communicationTimeout');
   }
   if (t.length > 220) {
     return `${t.slice(0, 200).trim()}…`;
@@ -760,7 +761,7 @@ watch(
 );
 
 const composerPlaceholder = computed(() => {
-  if (props.editingMessage) return 'Edit message…';
+  if (props.editingMessage) return echoT('b28.ci.editMessage');
   if (
     pendingImages.value.length ||
     pendingVideos.value.length ||
@@ -769,10 +770,10 @@ const composerPlaceholder = computed(() => {
     pendingExternalImages.value.length ||
     pendingGifs.value.length
   )
-    return 'Add a caption...';
+    return echoT('b28.ci.addCaption');
   const p =
     typeof props.placeholder === 'string' ? props.placeholder.trim() : '';
-  return p || `Message ${props.channelName}`;
+  return p || echoT('b28.ci.messageChannel', { channel: props.channelName });
 });
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const chatInputFocused = ref(false);
@@ -796,7 +797,7 @@ function insertEmoji(emoji: string) {
       context: composerSource,
     });
     if (!ext.allowed) {
-      sendError.value = ext.blockReason ?? 'You cannot use custom emoji here.';
+      sendError.value = ext.blockReason ?? echoT('b28.ci.noCustomEmoji');
       closePopout();
       return;
     }
@@ -834,7 +835,8 @@ function sendSticker(
       context: composerSource,
     });
   } catch (e) {
-    sendError.value = e instanceof Error ? e.message : 'Send blocked';
+    sendError.value =
+      e instanceof Error ? e.message : echoT('chat.status.sendBlocked');
     closePopout();
     return;
   }
@@ -1289,7 +1291,7 @@ async function handleEditSubmit() {
           reason: 'onSaveEdit_returned_false',
         },
       });
-      sendError.value = 'Could not save edit. Try again.';
+      sendError.value = echoT('b28.ci.saveEditFailedRetry');
       return;
     }
     emitDiagnostic({
@@ -1337,7 +1339,8 @@ async function handleEditSubmit() {
           ? { message: e.message, stack: e.stack }
           : { message: String(e) },
     });
-    sendError.value = e instanceof Error ? e.message : 'Failed to save edit';
+    sendError.value =
+      e instanceof Error ? e.message : echoT('b28.ci.saveEditFailed');
   }
 }
 
@@ -1376,7 +1379,8 @@ async function handleSubmit() {
       context: composerSource,
     });
   } catch (e) {
-    sendError.value = e instanceof Error ? e.message : 'Send blocked';
+    sendError.value =
+      e instanceof Error ? e.message : echoT('chat.status.sendBlocked');
     return;
   }
 
@@ -1429,7 +1433,8 @@ async function handleSubmit() {
       });
     });
   } catch (e) {
-    sendError.value = e instanceof Error ? e.message : 'Failed to send message';
+    sendError.value =
+      e instanceof Error ? e.message : echoT('chat.status.failedToSend');
   }
 }
 
@@ -1818,13 +1823,13 @@ onMounted(() => {
         class="edit-retained-attachment-tag flex max-w-full items-center gap-1 rounded-md bg-glass-2 px-2 py-1 text-xs text-fg-soft"
       >
         <span class="truncate">{{
-          att.filename || att.kind || 'Attachment'
+          att.filename || att.kind || echoT('chat.labels.attachment')
         }}</span>
         <button
           type="button"
           class="edit-retained-attachment-remove chat-focus-ring shrink-0 rounded p-0.5 text-muted hover:text-foreground"
-          title="Remove attachment"
-          aria-label="Remove attachment"
+          :title="echoT('chat.actions.removeAttachment')"
+          :aria-label="echoT('chat.actions.removeAttachment')"
           @click="removeEditRetainedAttachment(idx)"
         >
           ×
@@ -1846,7 +1851,7 @@ onMounted(() => {
       <button
         type="button"
         class="chat-focus-ring shrink-0 self-start rounded px-1.5 py-0.5 text-[13px] leading-none text-red-200/80 hover:bg-glass-hover hover:text-red-100"
-        aria-label="Dismiss error"
+        :aria-label="echoT('b28.ci.dismissError')"
         @click="dismissSendError"
       >
         ×
@@ -1875,10 +1880,12 @@ onMounted(() => {
         </svg>
         <div class="chat-slowmode-text">
           <div class="chat-slowmode-line">
-            <span class="chat-slowmode-label" v-if="slowmodeActive"
-              >Slowmode active</span
-            >
-            <span class="chat-slowmode-label" v-else>Slowmode interval</span>
+            <span class="chat-slowmode-label" v-if="slowmodeActive">{{
+              echoT('chat.status.slowmodeActive')
+            }}</span>
+            <span class="chat-slowmode-label" v-else>{{
+              echoT('b28.ci.slowmodeInterval')
+            }}</span>
             <span class="chat-slowmode-time">{{
               slowmodeActive
                 ? `${slowmodeRemainingSeconds}s`
@@ -1933,12 +1940,15 @@ onMounted(() => {
           >Replying to {{ replyingTo.authorName }}</span
         >
         <p class="reply-bar__preview text-sm truncate">
-          {{ truncateForReply(replyingTo.content) || 'Attachment' }}
+          {{
+            truncateForReply(replyingTo.content) ||
+            echoT('chat.labels.attachment')
+          }}
         </p>
       </div>
       <button
         type="button"
-        aria-label="Cancel reply"
+        :aria-label="echoT('b28.ci.cancelReply')"
         class="reply-bar__close chat-focus-ring rounded p-1"
         @click="emit('clear-reply')"
       >
@@ -1980,21 +1990,24 @@ onMounted(() => {
         class="min-w-0 flex-1 cursor-pointer"
         role="button"
         tabindex="0"
-        aria-label="Scroll to message being edited"
+        :aria-label="echoT('b28.ci.scrollToEdited')"
         @click="scrollToEditTarget"
         @keydown.enter="scrollToEditTarget"
         @keydown.space.prevent="scrollToEditTarget"
       >
-        <span class="reply-bar__label text-xs font-medium"
-          >Editing your message</span
-        >
+        <span class="reply-bar__label text-xs font-medium">{{
+          echoT('b28.ci.editingYourMessage')
+        }}</span>
         <p class="reply-bar__preview text-sm truncate">
-          {{ truncateForReply(editingMessage.previewContent) || 'Attachment' }}
+          {{
+            truncateForReply(editingMessage.previewContent) ||
+            echoT('chat.labels.attachment')
+          }}
         </p>
       </div>
       <button
         type="button"
-        aria-label="Cancel edit"
+        :aria-label="echoT('b28.ci.cancelEdit')"
         class="reply-bar__close chat-focus-ring rounded p-1"
         @click="handleClearEdit"
       >
@@ -2033,7 +2046,9 @@ onMounted(() => {
         </svg>
         <div class="chat-slowmode-copy">
           <div class="chat-slowmode-row">
-            <span class="chat-slowmode-label">Slowmode active</span>
+            <span class="chat-slowmode-label">{{
+              echoT('chat.status.slowmodeActive')
+            }}</span>
             <span class="chat-slowmode-seconds"
               >{{ slowmodeRemainingSeconds }}s</span
             >
@@ -2085,7 +2100,9 @@ onMounted(() => {
             class="chat-timeout-lock-pill"
             aria-live="polite"
           >
-            <span class="chat-timeout-lock-pill-label">Ends in</span>
+            <span class="chat-timeout-lock-pill-label">{{
+              echoT('b28.ci.endsIn')
+            }}</span>
             <span class="chat-timeout-lock-pill-value">{{
               communicationTimeoutCountdownLabel
             }}</span>

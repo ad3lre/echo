@@ -22,6 +22,8 @@ public struct EchoRootView: View {
   @AppStorage(EchoDisplayPreferences.Keys.dyslexiaFont) private var dyslexiaFont = false
   @AppStorage(EchoDisplayPreferences.Keys.solidGlass) private var solidGlass = false
 
+  @AppStorage(EchoAppLocale.storageKey) private var localeIdentifier = "en-US"
+
   @State private var displayPrefs = EchoDisplayPreferences()
   @State private var authPage: EchoAuthPage = .welcome
 
@@ -62,6 +64,7 @@ public struct EchoRootView: View {
         .task(id: session.accessToken) {
           await EchoPushRegistration.shared.start(
             baseURL: model.apiBaseURL, accessToken: session.accessToken)
+          await syncLocaleFromProfile(accessToken: session.accessToken)
         }
         .task(id: session.refreshToken) {
           await runProactiveTokenRefresh()
@@ -86,6 +89,7 @@ public struct EchoRootView: View {
     // Environment must wrap modifiers that read `EchoDisplayPreferences`
     // (glass / reduce-motion); applying it earlier crashes on launch.
     .environment(displayPrefs)
+    .environment(\.locale, EchoAppLocale.swiftUILocale(from: localeIdentifier))
     .task {
       EchoDisplayPreferences.registerBundledFontsIfNeeded()
       EchoNetworkPath.startMonitoring()
@@ -161,6 +165,20 @@ public struct EchoRootView: View {
       updates()
     } else {
       withAnimation(.easeInOut(duration: 0.28), updates)
+    }
+  }
+
+  /// Apply the auth-profile locale so in-app language matches the server after sign-in.
+  private func syncLocaleFromProfile(accessToken: String) async {
+    do {
+      let client = EchoSettingsClient(baseURL: model.apiBaseURL)
+      let identity = try await client.loadAccountIdentity(accessToken: accessToken)
+      guard let value = identity.locale,
+        EchoAppLocale.supportedIdentifiers.contains(value)
+      else { return }
+      localeIdentifier = value
+    } catch {
+      // Non-fatal: keep the locally stored language preference.
     }
   }
 

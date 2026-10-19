@@ -1,0 +1,98 @@
+{
+  "report": {
+    "title": {
+      "general": "Report to Trust & Safety",
+      "default": "Report"
+    },
+    "subtitle": {
+      "anon": "Our team reviews every submission.",
+      "general": "Search for who or what to report. You can also enter IDs manually if needed.",
+      "user": "You are reporting {name}. Our team reviews every submission.",
+      "message": "You are reporting a message from {name}."
+    },
+    "signIn": "Sign in to submit a report.",
+    "toast": {
+      "submitted": "Report submitted. Thank you."
+    },
+    "error": {
+      "submit": "Could not submit report."
+    },
+    "submittedTitle": "Report submitted",
+    "submittedBody": "Thank you — our Trust &amp; Safety team will review it.",
+    "close": "Close",
+    "card": {
+      "reporting": "Reporting",
+      "messagePreview": "Message preview"
+    },
+    "typeLabel": "Report type",
+    "reportSomeone": "Report someone",
+    "reportMessage": "Report a message",
+    "search": {
+      "users": "Search friends and members…",
+      "messages": "Search messages in this channel…",
+      "channels": "Search channels…"
+    },
+    "change": "Change",
+    "friend": "Friend",
+    "noPeople": "No people match your search. Try another name or use manual entry below.",
+    "changeChannel": "Change channel",
+    "noChannels": "No channels match. Open a server first or use manual entry below.",
+    "pickDifferent": "Pick a different message",
+    "noMessages": "No messages loaded in this channel yet. Scroll the chat to load history, or use manual entry below.",
+    "hideManual": "Hide manual entry",
+    "userId": "User ID",
+    "pasteUserId": "Paste user ID",
+    "messageId": "Message ID",
+    "pasteMessageId": "Paste message ID",
+    "channelId": "Channel ID",
+    "pasteChannelId": "Paste channel ID",
+    "category": "Category",
+    "details": "Additional details",
+    "optional": "(optional)",
+    "placeholder": "Tell us what happened",
+    "cancel": "Cancel",
+    "someone": "someone",
+    "fallback": {
+      "user": "User",
+      "message": "Message"
+    },
+    "submitting": "Submitting…",
+    "cantFind": "Can't find them? Enter IDs manually"
+  },
+  "stage": {
+    "toast": {
+      "requestSent": "Request to speak sent. A moderator can invite you to the stage.",
+      "fallbackErr": "Something didn't work. Try again.",
+      "cancelled": "Speak request cancelled.",
+      "cancelFail": "Could not cancel"
+    },
+    "audience": "You are in the audience",
+    "raiseHand": "Raise your hand to ask moderators for the mic.",
+    "cancelRequest": "Cancel request",
+    "requestToSpeak": "Request to speak",
+    "requestsToSpeak": "Requests to speak",
+    "invite": "Invite",
+    "deny": "Deny",
+    "empty": "Stage is empty",
+    "emptyHint": "Be the first to join — moderators can go live on YouTube above.",
+    "noSpeakers": "No speakers yet",
+    "noSpeakersHint": "Moderators can invite audience members to speak or start a YouTube live stream from the bar above.",
+    "you": "You",
+    "speaker": "Speaker",
+    "requestedToSpeak": "Requested to speak",
+    "quickMention": "Quick mention",
+    "inviteToSpeak": "Invite to speak",
+    "moveToAudience": "Move to audience",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "turnOffCamera": "Turn off camera",
+    "stopScreenShare": "Stop screen share",
+    "couldNotRequest": "Could not request to speak: {msg}",
+    "speakersListening": "{count} {speakers} · {listening} listening",
+    "speaker1": "speaker",
+    "speakerN": "speakers",
+    "goToChannel": "{name} — Go to channel",
+    "limitTitle": "{count} of {limit} users in stage",
+    "openProfile": "Open {name} profile"
+  }
+}

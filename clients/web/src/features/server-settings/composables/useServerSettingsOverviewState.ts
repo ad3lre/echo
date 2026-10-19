@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { computed, reactive, ref, type Ref } from 'vue';
 import { useServerStore } from '@/features/layout/server';
 import { isEchoGraphId } from '@/features/layout/ids/echoIds';
@@ -338,7 +339,7 @@ export function useServerSettingsOverviewState(
 
   function syncFormFieldsFromServer() {
     const s = opts.server.value;
-    form.name = s?.name ?? 'Echo Server';
+    form.name = s?.name ?? echoT('serverSettingsUi.echoServer');
     if (s && isEchoGraphId(s.id)) {
       form.description = s.description ?? '';
     } else {

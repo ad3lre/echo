@@ -1,0 +1,28 @@
+{
+  "reportAbuse": "Missbrauch melden",
+  "reportUser": "Benutzer melden",
+  "reportMessage": "Nachricht melden",
+  "reason": "Grund",
+  "details": "Details",
+  "submitReport": "Meldung senden",
+  "spam": "Spam",
+  "harassment": "Belästigung",
+  "harassmentOrBullying": "Belästigung oder Mobbing",
+  "hateSpeech": "Hassrede",
+  "sexualContent": "Sexuelle Inhalte",
+  "violence": "Gewalt",
+  "violenceOrThreats": "Gewalt oder Drohungen",
+  "impersonation": "Identitätsmissbrauch",
+  "other": "Sonstiges",
+  "thanks": "Danke – wir haben deine Meldung erhalten.",
+  "failed": "Meldung konnte nicht gesendet werden. Versuche es erneut.",
+  "hints": {
+    "spam": "Unerwünschte Werbung, Betrug oder sich wiederholende Nachrichten",
+    "harassment": "Mobbing, Drohungen oder gezielte Angriffe",
+    "hate": "Angriffe aufgrund von Identität oder geschützten Merkmalen",
+    "sexual": "NSFW-Inhalte, die ohne Einwilligung geteilt wurden",
+    "violence": "Gewaltandrohungen oder Gewaltverherrlichung",
+    "impersonation": "Sich als jemand anderes ausgeben",
+    "other": "Etwas anderes, das oben nicht aufgeführt ist"
+  }
+}

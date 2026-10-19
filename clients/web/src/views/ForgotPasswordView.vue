@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { useI18n } from 'vue-i18n';
 import { useForgotPasswordFlow } from '@/features/auth/useAuthPasswordFlow';
 
@@ -48,13 +49,17 @@ const { email, busy, errorMessage, successMessage, canSubmit, submit, goHome } =
           class="forgot-submit"
           :disabled="!canSubmit || busy"
         >
-          {{ busy ? 'Sending…' : 'Send reset link' }}
+          {{
+            busy
+              ? echoT('b16.forgot.sending')
+              : echoT('auth.actions.sendResetLink')
+          }}
         </button>
       </form>
 
       <p class="forgot-footer">
         <button type="button" class="forgot-link" @click="goHome">
-          Back to Echo
+          {{ echoT('auth.actions.backToEcho') }}
         </button>
       </p>
     </div>

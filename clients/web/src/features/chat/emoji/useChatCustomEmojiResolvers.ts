@@ -1,6 +1,7 @@
-import { computed, ref, watch, type ComputedRef, type Ref } from 'vue';
+import { computed, ref, watch, type Ref } from 'vue';
 import { useServerStore } from '@/features/layout/server';
 import { useServerEmojiLibrary } from '@/features/chat/emoji/useServerEmojiLibrary';
+import { useUserEmojiLibrary } from '@/features/chat/emoji/useUserEmojiLibrary';
 import {
   resolveCustomEmojiImageUrlForDisplay,
   safeCustomEmojiUrl,
@@ -31,6 +32,53 @@ function snapshotEmojiLibraryFromPacks(
   return s;
 }
 
+type EmojiUrlRow = { id: string; imageUrl: string };
+type EmojiNameRow = { id: string; name: string; animated: boolean };
+
+/** Earlier row layers win; then global id→url. Matches emoji-inspect fallbacks. */
+export function mergeCustomEmojiUrlLayers(opts: {
+  serverRows: Iterable<EmojiUrlRow>;
+  userRows: Iterable<EmojiUrlRow>;
+  globalById: ReadonlyMap<string, string>;
+}): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const row of opts.serverRows) {
+    if (m.has(row.id)) continue;
+    const safe = safeCustomEmojiUrl(row.imageUrl);
+    if (safe) m.set(row.id, safe);
+  }
+  for (const row of opts.userRows) {
+    if (m.has(row.id)) continue;
+    const safe = safeCustomEmojiUrl(row.imageUrl);
+    if (safe) m.set(row.id, safe);
+  }
+  for (const [id, url] of opts.globalById) {
+    if (m.has(id)) continue;
+    const safe = safeCustomEmojiUrl(url);
+    if (safe) m.set(id, safe);
+  }
+  return m;
+}
+
+/** Earlier layers win for shortcode → id. */
+export function mergeCustomEmojiNameLayers(
+  layers: readonly Iterable<EmojiNameRow>[],
+): Map<string, EmojiNameRow> {
+  const m = new Map<string, EmojiNameRow>();
+  for (const layer of layers) {
+    for (const row of layer) {
+      const n = row.name.trim().toLowerCase();
+      if (!n || m.has(n)) continue;
+      m.set(n, {
+        id: row.id,
+        name: row.name,
+        animated: row.animated,
+      });
+    }
+  }
+  return m;
+}
+
 export type UseChatCustomEmojiResolversOptions = {
   serverId: Ref<string | undefined>;
   users?: Ref<UserForAuthor[] | undefined>;
@@ -42,6 +90,11 @@ export type UseChatCustomEmojiResolversOptions = {
 
 /**
  * Shared custom-emoji id→url map, global resolve queue, and id-token resolvers for chat UI.
+ *
+ * DM ChatView passes `serverId: undefined`, so the guild emoji catalog is empty
+ * there. The emoji inspect popover already falls back to the local user emoji
+ * library — message rendering must use the same layers or DM bubbles show
+ * pending/broken custom emoji while inspect previews load fine.
  */
 export function useChatCustomEmojiResolvers(
   options: UseChatCustomEmojiResolversOptions,
@@ -49,38 +102,24 @@ export function useChatCustomEmojiResolvers(
   const serverStore = useServerStore();
   const globalEmojiResolver = useGlobalEmojiTokenResolver();
   const serverEmojiLibrary = useServerEmojiLibrary(options.serverId);
+  const userEmojiLibrary = useUserEmojiLibrary();
 
   const customEmojiUrlById = computed(() => {
     void globalEmojiResolver.cacheVersion.value;
-    const m = new Map<string, string>();
-    for (const [id, row] of serverEmojiLibrary.emojiById.value) {
-      const safe = safeCustomEmojiUrl(row.imageUrl);
-      if (safe) m.set(id, safe);
-    }
-    for (const [id, url] of globalEmojiResolver.urlById.value) {
-      if (m.has(id)) continue;
-      const safe = safeCustomEmojiUrl(url);
-      if (safe) m.set(id, safe);
-    }
-    return m;
+    return mergeCustomEmojiUrlLayers({
+      serverRows: serverEmojiLibrary.emojiById.value.values(),
+      userRows: userEmojiLibrary.emojiById.value.values(),
+      globalById: globalEmojiResolver.urlById.value,
+    });
   });
 
   const customEmojiByName = computed(() => {
     void globalEmojiResolver.cacheVersion.value;
-    const m = new Map<
-      string,
-      { id: string; name: string; animated: boolean }
-    >();
-    for (const row of serverEmojiLibrary.emojiById.value.values()) {
-      const n = row.name.trim().toLowerCase();
-      if (!n || m.has(n)) continue;
-      m.set(n, { id: row.id, name: row.name, animated: row.animated });
-    }
-    for (const [n, meta] of globalEmojiResolver.emojiByName.value) {
-      if (m.has(n)) continue;
-      m.set(n, { id: meta.id, name: meta.name, animated: meta.animated });
-    }
-    return m;
+    return mergeCustomEmojiNameLayers([
+      serverEmojiLibrary.emojiById.value.values(),
+      userEmojiLibrary.emojiById.value.values(),
+      globalEmojiResolver.emojiByName.value.values(),
+    ]);
   });
 
   let _resolverCacheVer = 0;
@@ -107,6 +146,8 @@ export function useChatCustomEmojiResolvers(
       .join('\x1e');
     const emojiSnapshotKey = `${snapshotEmojiLibraryFromPacks(
       serverEmojiLibrary.packs.value,
+    )}\x1f${snapshotEmojiLibraryFromPacks(
+      userEmojiLibrary.packsForSnapshot.value,
     )}\x1f${globalEmojiResolver.cacheVersion.value}\x1f${customEmojiByName.value.size}`;
     const iconCatalogKey = iconCatalogReady.value ? '1' : '0';
     if (

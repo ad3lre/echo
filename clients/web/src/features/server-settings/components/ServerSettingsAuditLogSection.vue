@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
+import { auditTabLabel } from '@/i18n/labels';
 import { computed } from 'vue';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
@@ -34,21 +36,21 @@ const auditTabOptions = computed(() =>
   props.auditTabOptions.length ? props.auditTabOptions : ['All'],
 );
 
-const TIME_OPTION_LABELS: Record<string, string> = {
-  All: 'All time',
-  '1h': 'Last 1 hour',
-  '6h': 'Last 6 hours',
-  '12h': 'Last 12 hours',
-  '24h': 'Last 24 hours',
-  '3d': 'Last 3 days',
-  '7d': 'Last 7 days',
-  '30d': 'Last 30 days',
-  '90d': 'Last 90 days',
-};
+const timeOptionLabels = (): Record<string, string> => ({
+  All: echoT('b26.audit.time.All'),
+  '1h': echoT('b26.audit.time.1h'),
+  '6h': echoT('b26.audit.time.6h'),
+  '12h': echoT('b26.audit.time.12h'),
+  '24h': echoT('b26.audit.time.24h'),
+  '3d': echoT('b26.audit.time.3d'),
+  '7d': echoT('b26.audit.time.7d'),
+  '30d': echoT('b26.audit.time.30d'),
+  '90d': echoT('b26.audit.time.90d'),
+});
 
 const auditTimeDropdownOptions = computed(() =>
   props.auditTimeOptions.map((option) => ({
-    label: TIME_OPTION_LABELS[option] ?? option,
+    label: timeOptionLabels()[option] ?? option,
     value: option,
   })),
 );
@@ -62,12 +64,16 @@ const auditTimeDropdownOptions = computed(() =>
           <div
             class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
           >
-            Audit filters
+            {{ echoT('b26.audit.filters') }}
           </div>
           <div class="mt-1 text-sm text-fg-soft">
-            Filter by category, actor, or time. Open
-            <span class="font-medium text-fg-soft">Actor</span> and use the
-            search field to find someone in the list.
+            <i18n-t keypath="b26.audit.filterHelp" scope="global">
+              <template #actor>
+                <span class="font-medium text-fg-soft">{{
+                  echoT('b26.audit.actor')
+                }}</span>
+              </template>
+            </i18n-t>
           </div>
         </div>
         <button
@@ -75,7 +81,7 @@ const auditTimeDropdownOptions = computed(() =>
           class="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
           @click="props.clearAuditLogFilters"
         >
-          Clear filters
+          {{ echoT('b26.audit.clear') }}
         </button>
       </div>
 
@@ -83,7 +89,7 @@ const auditTimeDropdownOptions = computed(() =>
         <div
           class="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1"
           role="tablist"
-          aria-label="Audit log tabs"
+          :aria-label="echoT('b26.audit.tabsAria')"
         >
           <button
             v-for="tab in auditTabOptions"
@@ -99,7 +105,7 @@ const auditTimeDropdownOptions = computed(() =>
             "
             @click="$emit('update:auditTabFilter', tab)"
           >
-            {{ tab }}
+            {{ auditTabLabel(tab) }}
           </button>
         </div>
       </div>
@@ -108,7 +114,7 @@ const auditTimeDropdownOptions = computed(() =>
         <EchoDropdown
           :model-value="props.auditActorFilter"
           :options="props.auditActorSelectOptions"
-          label="Actor"
+          :label="echoT('b26.audit.actor')"
           searchable
           surface="server"
           teleport-menu
@@ -118,7 +124,7 @@ const auditTimeDropdownOptions = computed(() =>
         <EchoDropdown
           :model-value="props.auditTimeFilter"
           :options="auditTimeDropdownOptions"
-          label="Time window"
+          :label="echoT('b26.audit.timeWindow')"
           surface="server"
           teleport-menu
           @update:model-value="$emit('update:auditTimeFilter', $event)"
@@ -132,16 +138,20 @@ const auditTimeDropdownOptions = computed(() =>
           <div
             class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
           >
-            Event feed
+            {{ echoT('b26.audit.feed') }}
           </div>
           <div class="mt-1 text-sm text-fg-soft">
-            Recent moderation and administrative actions across the server.
+            {{ echoT('b26.audit.feedDesc') }}
           </div>
         </div>
         <div
           class="shrink-0 rounded-full bg-glass-1 px-2.5 py-1 text-xs font-semibold text-fg-soft"
         >
-          {{ props.filteredAuditEntries.length }} entries
+          {{
+            echoT('b26.audit.entries', {
+              count: props.filteredAuditEntries.length,
+            })
+          }}
         </div>
       </div>
 
@@ -208,11 +218,10 @@ const auditTimeDropdownOptions = computed(() =>
             class="w-full max-w-md rounded-2xl bg-glass-1 px-6 py-8 text-center ring-1 ring-border"
           >
             <div class="text-sm font-semibold text-fg-soft">
-              No audit events match these filters.
+              {{ echoT('b26.audit.empty') }}
             </div>
             <div class="mt-2 text-xs leading-5 text-fg-subtle">
-              Try clearing filters or broadening the time window to see more
-              activity.
+              {{ echoT('b26.audit.emptyHint') }}
             </div>
           </div>
         </div>

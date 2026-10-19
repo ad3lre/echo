@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import {
@@ -536,7 +537,9 @@ function removeRow(index: number) {
     class="vc-wt-lobby custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-8"
   >
     <div class="mx-auto w-full max-w-2xl">
-      <h2 class="text-lg font-bold tracking-tight text-fg">Watch Together</h2>
+      <h2 class="text-lg font-bold tracking-tight text-fg">
+        {{ echoT('voiceChrome.watchTogether') }}
+      </h2>
       <p class="mt-1 text-[13px] leading-snug text-fg-subtle">
         Upload videos to a shared queue and play them in sync over voice. Host
         drives playback until they leave; everyone else follows automatically.

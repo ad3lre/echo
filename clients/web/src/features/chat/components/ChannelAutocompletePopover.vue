@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import type { EchoChannelType } from '@shared/types';
 import { computed, unref, toRef } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 import type { ChannelOption } from '@/features/chat/composables/useChannelAutocomplete';
-import { getChannelDisplayName } from '@/assets/icons';
+import { getChannelDisplayName } from '@/assets/channelDisplayName';
 import { useChannelIconResolver } from '@/features/layout/channels/useChannelIconResolver';
 
 const props = defineProps<{
@@ -39,9 +40,9 @@ function handleClick(option: ChannelOption) {
 }
 
 function channelSecondaryText(option: { type?: EchoChannelType }): string {
-  if (option.type === 'voice') return 'Voice channel';
-  if (option.type === 'forum') return 'Forum channel';
-  return 'Text channel';
+  if (option.type === 'voice') return echoT('chat.labels.voiceChannel');
+  if (option.type === 'forum') return echoT('chatB.channelAc.forum');
+  return echoT('chatB.channelAc.text');
 }
 
 function getOptionEmojiOrNull(option: {
@@ -121,7 +122,7 @@ function optionIconUsesInvert(option: {
       role="status"
       aria-live="polite"
     >
-      No channels found
+      {{ echoT('chatB.channelAc.none') }}
     </div>
   </div>
 </template>

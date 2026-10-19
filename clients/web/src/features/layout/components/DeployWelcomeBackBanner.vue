@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref } from 'vue';
 
 defineProps<{
@@ -46,7 +47,7 @@ function dismiss() {
         </div>
         <div class="min-w-0 flex-1 text-left">
           <p class="text-sm font-semibold text-fg">
-            Welcome back — Echo is online
+            {{ echoT('layout.deploy.welcomeBack') }}
           </p>
           <p class="mt-1 text-sm leading-relaxed text-fg-soft">
             {{ message }}
@@ -55,10 +56,10 @@ function dismiss() {
         <button
           type="button"
           class="deploy-welcome-back-dismiss shrink-0 rounded-xl px-2 py-1 text-xs font-semibold text-fg-soft hover:bg-glass-hover hover:text-fg"
-          aria-label="Dismiss update notice"
+          :aria-label="echoT('layout.deploy.dismissNoticeAria')"
           @click="dismiss"
         >
-          Dismiss
+          {{ echoT('layout.deploy.dismiss') }}
         </button>
       </div>
     </div>

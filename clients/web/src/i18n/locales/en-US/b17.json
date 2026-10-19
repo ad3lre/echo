@@ -1,0 +1,50 @@
+{
+  "friends": {
+    "title": "Friends",
+    "backToMessages": "Back to messages",
+    "tabAll": "All",
+    "tabOnline": "Online",
+    "tabPending": "Pending",
+    "addFriend": "Add friend",
+    "add": "Add",
+    "noMatchAll": "No friends or requests match your search.",
+    "incoming": "Incoming",
+    "wantsFriend": "Wants to be your friend",
+    "accept": "Accept",
+    "decline": "Decline",
+    "outgoing": "Outgoing",
+    "awaiting": "Awaiting their response",
+    "cancel": "Cancel",
+    "noMatchOnline": "No online friends match your search.",
+    "noMatchPending": "No pending requests match your search.",
+    "pendingRequests": "Pending requests",
+    "suggestions": "Suggestions are the newest Echo sign-ups. Search by display name or username to find someone specific.",
+    "searchPlaceholder": "Search by name or username",
+    "noMatchEcho": "No Echo users match your search.",
+    "noProfile": "No profile",
+    "sendRequest": "Send request",
+    "viewProfile": "View profile for {name}",
+    "message": "Message {name}",
+    "someone": "Someone"
+  },
+  "rail": {
+    "directMessages": "Direct messages",
+    "servers": "Servers",
+    "exploreServers": "Explore servers",
+    "reportBug": "Report a bug",
+    "loginOrRegister": "Log in or register",
+    "logIn": "Log in",
+    "explorePublic": "Explore public servers",
+    "continue": "Continue",
+    "signIn": "Sign in",
+    "showChannels": "Show channels",
+    "showMembers": "Show members",
+    "showDirectMessages": "Show direct messages"
+  },
+  "camera": {
+    "chooseCamera": "Choose a camera to start preview",
+    "denied": "Camera access denied. Check browser permissions.",
+    "notFound": "No camera found.",
+    "error": "Camera error: {message}"
+  }
+}

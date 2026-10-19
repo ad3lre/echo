@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { icons } from '@/assets/icons';
 import { openReportModal } from '@/features/safety/reportModal';
 
@@ -22,10 +23,9 @@ function openReportForm() {
           />
         </span>
         <div class="min-w-0 flex-1">
-          <div class="settings-label">Trust &amp; Safety</div>
+          <div class="settings-label">{{ echoT('b40.report.tns') }}</div>
           <p class="mt-2 text-sm leading-relaxed text-muted">
-            Reports go to Echo's Trust &amp; Safety team for review. Most
-            reports are handled within a few business days.
+            {{ echoT('b40.report.intro') }}
           </p>
           <ul class="mt-4 space-y-2 text-sm text-fg-soft">
             <li class="flex items-start gap-2">
@@ -33,22 +33,34 @@ function openReportForm() {
                 class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400/80"
                 aria-hidden="true"
               />
-              <span
-                >From a user profile — open their profile menu and choose
-                <span class="font-semibold text-foreground">Report</span></span
+              <i18n-t
+                keypath="b40.report.fromProfile"
+                tag="span"
+                scope="global"
               >
+                <template #report>
+                  <span class="font-semibold text-foreground">{{
+                    echoT('b40.report.report')
+                  }}</span>
+                </template>
+              </i18n-t>
             </li>
             <li class="flex items-start gap-2">
               <span
                 class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400/80"
                 aria-hidden="true"
               />
-              <span
-                >From a message — right-click or long-press and choose
-                <span class="font-semibold text-foreground"
-                  >Report message</span
-                ></span
+              <i18n-t
+                keypath="b40.report.fromMessage"
+                tag="span"
+                scope="global"
               >
+                <template #report>
+                  <span class="font-semibold text-foreground">{{
+                    echoT('b40.report.reportMessage')
+                  }}</span>
+                </template>
+              </i18n-t>
             </li>
           </ul>
         </div>
@@ -56,17 +68,16 @@ function openReportForm() {
     </div>
 
     <div class="settings-card rounded-2xl p-6">
-      <div class="settings-label">Manual report</div>
+      <div class="settings-label">{{ echoT('b40.report.manual') }}</div>
       <p class="mt-2 text-sm leading-relaxed text-muted">
-        Use this when you have a user or message ID but cannot open those menus
-        — for example, content shared outside Echo.
+        {{ echoT('b40.report.manualDesc') }}
       </p>
       <button
         type="button"
         class="mt-4 rounded-lg bg-rose-600/85 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-600"
         @click="openReportForm"
       >
-        Open report form
+        {{ echoT('b40.report.openForm') }}
       </button>
     </div>
   </div>

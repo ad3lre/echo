@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import { serverGuildIconDisplayUrl } from '@/features/layout/display/serverGuildIconDisplayUrl';
 import ServerBannerLimitedGif from '@/features/server-settings/ServerBannerLimitedGif.vue';
 import { useChannelPanelMenu } from '@/features/channel-panel/composables/useChannelPanelMenu';
@@ -77,8 +78,8 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
             v-if="!isEcho"
             type="button"
             class="server-menu-trigger ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-glass-hover"
-            aria-label="Server options"
-            title="Server options"
+            :aria-label="echoT('b37.cph.serverOptions')"
+            :title="echoT('b37.cph.serverOptions')"
             aria-haspopup="menu"
             :aria-expanded="isServerMenuOpen"
             @click.stop="toggleServerMenu"
@@ -110,7 +111,7 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
               alt=""
               class="h-4 w-4 shrink-0 opacity-80 filter invert"
             />
-            Invite People
+            {{ echoT('b37.cph.invite') }}
           </button>
           <button
             v-if="showServerSettingsMenuItem"
@@ -126,7 +127,7 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
               alt=""
               class="h-4 w-4 shrink-0 opacity-80 filter invert"
             />
-            Server Settings
+            {{ echoT('b37.cph.serverSettings') }}
           </button>
           <button
             v-if="canCreateChannels"
@@ -142,7 +143,7 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
               alt=""
               class="h-4 w-4 shrink-0 opacity-80 filter invert"
             />
-            Create Channel
+            {{ echoT('b37.cph.createChannel') }}
           </button>
           <button
             v-if="canCreateChannels"
@@ -158,7 +159,7 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
               alt=""
               class="h-4 w-4 shrink-0 opacity-80 filter invert"
             />
-            Create Category
+            {{ echoT('b37.cph.createCategory') }}
           </button>
           <button
             type="button"
@@ -173,7 +174,7 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
               alt=""
               class="h-4 w-4 shrink-0 opacity-80 filter invert"
             />
-            Notification Settings
+            {{ echoT('b37.cph.notifSettings') }}
           </button>
           <button
             v-if="devModeIdsEnabled"
@@ -197,7 +198,7 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
                 d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
               />
             </svg>
-            Copy server ID
+            {{ echoT('b37.cph.copyId') }}
           </button>
           <div class="my-1 mx-3 h-px bg-glass-2" role="separator" />
           <button
@@ -214,15 +215,14 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
               alt=""
               class="h-4 w-4 shrink-0 opacity-90 filter invert"
             />
-            Leave server
+            {{ echoT('b37.cph.leave') }}
           </button>
           <div
             v-else
             class="px-4 py-2 text-left text-xs leading-snug text-fg-subtle"
             role="note"
           >
-            You own this server. Transfer ownership in Server settings (Danger
-            Zone) before you can leave.
+            {{ echoT('b37.cph.owner') }}
           </div>
         </div>
       </Transition>
@@ -232,7 +232,9 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
       class="channel-notification-banner shrink-0 border-b border-black/25 bg-amber-500/[0.09] px-3 py-2 text-xs leading-snug text-amber-100/95"
       role="status"
     >
-      <span class="font-semibold text-amber-200/95">Notifications:</span>
+      <span class="font-semibold text-amber-200/95">{{
+        echoT('b37.cph.notifications')
+      }}</span>
       {{ serverNotificationBannerText }}
     </div>
     <div class="h-px w-full bg-scrim-2"></div>

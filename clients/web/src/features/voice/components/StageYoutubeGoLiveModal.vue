@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, ref, toRef, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
@@ -61,37 +62,41 @@ const customThumbnailPreview = ref<string | null>(null);
 const thumbnailInputRef = ref<HTMLInputElement | null>(null);
 const titleInputRef = ref<HTMLInputElement | null>(null);
 
-const PRIVACY_OPTIONS: {
-  value: YoutubeGoLivePrivacy;
-  label: string;
-  description: string;
-}[] = [
+const PRIVACY_OPTIONS = computed<
+  {
+    value: YoutubeGoLivePrivacy;
+    label: string;
+    description: string;
+  }[]
+>(() => [
   {
     value: 'unlisted',
-    label: 'Unlisted',
-    description: 'Anyone with the link can watch',
+    label: echoT('b27.goLive.unlisted'),
+    description: echoT('b27.goLive.unlistedDesc'),
   },
   {
     value: 'public',
-    label: 'Public',
-    description: 'Listed on your channel and in search',
+    label: echoT('b27.goLive.public'),
+    description: echoT('b27.goLive.publicDesc'),
   },
   {
     value: 'private',
-    label: 'Private',
-    description: 'Only you and people you invite',
+    label: echoT('b27.goLive.private'),
+    description: echoT('b27.goLive.privateDesc'),
   },
-];
+]);
 
-const privacyDropdownOptions = PRIVACY_OPTIONS.map((o) => ({
-  value: o.value,
-  label: o.label,
-}));
+const privacyDropdownOptions = computed(() =>
+  PRIVACY_OPTIONS.value.map((o) => ({
+    value: o.value,
+    label: o.label,
+  })),
+);
 
 const selectedPrivacyMeta = computed(
   () =>
-    PRIVACY_OPTIONS.find((o) => o.value === draftPrivacy.value) ??
-    PRIVACY_OPTIONS[0]!,
+    PRIVACY_OPTIONS.value.find((o) => o.value === draftPrivacy.value) ??
+    PRIVACY_OPTIONS.value[0]!,
 );
 
 const linkedThumbnailUrl = computed(() => {
@@ -203,7 +208,7 @@ function clearCustomThumbnail() {
               <button
                 type="button"
                 class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--glass-tint)] hover:text-[var(--text)]"
-                aria-label="Close"
+                :aria-label="echoT('b27.goLive.close')"
                 @click="close"
               >
                 <svg
@@ -236,7 +241,7 @@ function clearCustomThumbnail() {
             >
               <span
                 class="font-semibold uppercase tracking-[0.12em] text-fg-subtle"
-                >Channel</span
+                >{{ echoT('b27.goLive.channel') }}</span
               >
               <span class="truncate font-medium text-[var(--text)]">{{
                 youtubeChannelTitle
@@ -263,13 +268,15 @@ function clearCustomThumbnail() {
                       alt=""
                       class="h-10 w-10 opacity-40"
                     />
-                    <span class="text-xs">Stream preview</span>
+                    <span class="text-xs">{{
+                      echoT('b27.goLive.streamPreview')
+                    }}</span>
                   </div>
                   <div
                     class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-10"
                   >
                     <p class="truncate text-sm font-semibold text-white">
-                      {{ draftTitle.trim() || 'Untitled stream' }}
+                      {{ draftTitle.trim() || echoT('b27.goLive.untitled') }}
                     </p>
                     <p
                       v-if="youtubeChannelTitle && !usesStreamKeyDelivery"
@@ -302,14 +309,14 @@ function clearCustomThumbnail() {
                       class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[var(--muted)] hover:bg-[var(--glass-tint)] hover:text-[var(--text)]"
                       @click="clearCustomThumbnail"
                     >
-                      Reset
+                      {{ echoT('b27.goLive.reset') }}
                     </button>
                     <button
                       type="button"
                       class="rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[var(--glass-tint)]"
                       @click="thumbnailInputRef?.click()"
                     >
-                      Preview image
+                      {{ echoT('b27.goLive.previewImage') }}
                     </button>
                   </div>
                 </div>
@@ -320,7 +327,7 @@ function clearCustomThumbnail() {
                   for="stage-youtube-go-live-title-input"
                   class="stage-youtube-field-label"
                 >
-                  Title
+                  {{ echoT('b27.goLive.title') }}
                 </label>
                 <input
                   id="stage-youtube-go-live-title-input"
@@ -328,7 +335,7 @@ function clearCustomThumbnail() {
                   v-model="draftTitle"
                   type="text"
                   maxlength="100"
-                  placeholder="What are you streaming?"
+                  :placeholder="echoT('b27.goLive.titlePlaceholder')"
                   class="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--text)] outline-none transition focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20"
                 />
                 <p
@@ -343,7 +350,7 @@ function clearCustomThumbnail() {
                   for="stage-youtube-go-live-description"
                   class="stage-youtube-field-label"
                 >
-                  Description
+                  {{ echoT('b27.goLive.description') }}
                 </label>
                 <textarea
                   id="stage-youtube-go-live-description"
@@ -358,7 +365,7 @@ function clearCustomThumbnail() {
               <div v-if="!usesStreamKeyDelivery">
                 <EchoDropdown
                   v-model="draftPrivacy"
-                  label="Privacy"
+                  :label="echoT('b27.goLive.privacy')"
                   :options="privacyDropdownOptions"
                   teleport-menu
                 />
@@ -377,7 +384,7 @@ function clearCustomThumbnail() {
                 :disabled="busy"
                 @click="close"
               >
-                Cancel
+                {{ echoT('b27.goLive.cancel') }}
               </button>
               <button
                 type="submit"
@@ -389,7 +396,7 @@ function clearCustomThumbnail() {
                   class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
                   aria-hidden="true"
                 />
-                Go live on YouTube
+                {{ echoT('b27.goLive.goLive') }}
               </button>
             </div>
           </div>

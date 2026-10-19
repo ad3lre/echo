@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { PaperCommentPayload } from '@shared/types/paper';
 import type { PaperGutterRow } from '@/features/paper/composables/usePaperAuthorGutter';
@@ -140,9 +141,9 @@ const composerStyle = computed(() => {
 });
 
 const composerPlaceholder = computed(() => {
-  if (props.replyParentId) return 'Write a reply…';
-  if (props.pendingQuote) return 'Comment on selection…';
-  return 'Add a comment…';
+  if (props.replyParentId) return echoT('b36.paperComments.writeReply');
+  if (props.pendingQuote) return echoT('b36.paperComments.commentSelection');
+  return echoT('b36.paperComments.addComment');
 });
 
 const resolvedCount = computed(
@@ -162,7 +163,7 @@ function onDraftInput(ev: Event) {
 <template>
   <div
     class="paper-floating-comments pointer-events-none absolute inset-0 z-20 overflow-visible"
-    aria-label="Document comments"
+    :aria-label="echoT('b36.paperComments.docComments')"
   >
     <button
       v-for="pin in pins"
@@ -173,8 +174,12 @@ function onDraftInput(ev: Event) {
         top: `${pin.top}px`,
         left: `${pin.left}px`,
       }"
-      :title="`${pin.count} comment${pin.count === 1 ? '' : 's'}`"
-      :aria-label="`${pin.count} comments on block`"
+      :title="
+        pin.count === 1
+          ? echoT('b36.paperComments.pinOne')
+          : echoT('b36.paperComments.pinMany', { count: pin.count })
+      "
+      :aria-label="echoT('b36.paperComments.pinAria', { count: pin.count })"
       @click="emit('scrollToBlock', pin.paperBlockId)"
     >
       {{ pinLabel(pin.count) }}
@@ -223,7 +228,7 @@ function onDraftInput(ev: Event) {
                   class="paper-icon-btn px-1 text-[10px] text-fg-subtle hover:text-fg"
                   @click="emit('reply', c.id)"
                 >
-                  Reply
+                  {{ echoT('b36.paperComments.reply') }}
                 </button>
                 <button
                   v-if="canManage || c.authorId === currentUserId"
@@ -231,21 +236,25 @@ function onDraftInput(ev: Event) {
                   class="paper-icon-btn px-1 text-[10px] text-fg-subtle hover:text-fg"
                   @click="emit('resolve', c.id, !c.resolvedAt)"
                 >
-                  {{ c.resolvedAt ? 'Reopen' : 'Resolve' }}
+                  {{
+                    c.resolvedAt
+                      ? echoT('b36.paperComments.reopen')
+                      : echoT('b36.paperComments.resolve')
+                  }}
                 </button>
                 <button
                   v-if="canManage || c.authorId === currentUserId"
                   type="button"
                   class="paper-icon-btn px-1 text-[10px] text-fg-subtle hover:text-red-400"
-                  title="Delete comment"
+                  :title="echoT('b36.paperComments.deleteComment')"
                   @click="emit('delete', c.id)"
                 >
-                  Delete
+                  {{ echoT('paperUi.delete') }}
                 </button>
               </div>
             </div>
             <p v-if="orphaned" class="text-[10px] text-amber-500">
-              Location lost
+              {{ echoT('b36.paperComments.locationLost') }}
             </p>
           </div>
         </header>
@@ -298,7 +307,11 @@ function onDraftInput(ev: Event) {
         >
           <path d="M20 6L9 17l-5-5" />
         </svg>
-        {{ showResolved ? 'Hide resolved' : `Show ${resolvedCount} resolved` }}
+        {{
+          showResolved
+            ? echoT('b36.paperComments.hideResolved')
+            : echoT('b36.paperComments.showResolved', { count: resolvedCount })
+        }}
       </button>
     </Transition>
 
@@ -334,7 +347,7 @@ function onDraftInput(ev: Event) {
             class="paper-icon-btn rounded-lg px-2.5 py-1 text-xs text-fg-subtle hover:bg-glass-hover"
             @click="emit('update:composerOpen', false)"
           >
-            Cancel
+            {{ echoT('b36.paperComments.cancel') }}
           </button>
           <button
             type="button"
@@ -342,7 +355,7 @@ function onDraftInput(ev: Event) {
             :disabled="!commentDraft.trim()"
             @click="emit('submit')"
           >
-            Post
+            {{ echoT('b36.paperComments.post') }}
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { emptyWatchTogetherUiFields } from '@/features/voice/vcActivityTypes';
 import { computed, createApp, h, nextTick, ref } from 'vue';
 import { createPinia } from 'pinia';
 import { channelIcons } from '@/assets/icons';
+import { i18n } from '@/i18n';
 
 /* `__esModule: true` lets Vue's defineAsyncComponent unwrap `.default`
  * from the vitest mock namespace (its proxy throws on unknown probes). */
@@ -88,6 +89,7 @@ async function mountWithoutConsoleNoise(
 
   const app = createApp(component as never, props);
   app.use(createPinia());
+  app.use(i18n);
   app.config.warnHandler = (msg) => {
     warnings.push(String(msg));
   };

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import {
   authUpgradeGuest,
@@ -78,12 +79,11 @@ watch(
 async function submit() {
   const em = normalizeEmail(email.value);
   if (!em || !isValidEmailFormat(email.value)) {
-    err.value = 'Enter a valid email address.';
+    err.value = echoT('b25.guest.errEmail');
     return;
   }
   if (password.value.length < 8 || !registerPasswordOk.value) {
-    err.value =
-      'Pick a stronger password (8+ chars, mix letters/numbers/symbols).';
+    err.value = echoT('b25.guest.errPassword');
     return;
   }
   if (!auth.isAuthenticated) return;
@@ -98,20 +98,22 @@ async function submit() {
         : {}),
     });
     if (isAuthLoginEmailVerificationChallenge(result)) {
-      err.value = `Account saved — verify ${result.maskedEmail || 'your email'} via the link we sent, then sign in.`;
+      err.value = echoT('b25.guest.errVerifyEmail', {
+        email: result.maskedEmail || echoT('b25.guest.yourEmail'),
+      });
       return;
     }
     if (
       isAuthLoginMfaChallenge(result) ||
       isAuthLoginEmailIpChallenge(result)
     ) {
-      err.value = 'Account saved — sign in again to finish verification.';
+      err.value = echoT('b25.guest.errSignInAgain');
       return;
     }
     auth.setSession(result);
     emit('upgraded');
   } catch (e: unknown) {
-    err.value = e instanceof Error ? e.message : 'Upgrade failed';
+    err.value = e instanceof Error ? e.message : echoT('b25.guest.errFailed');
   } finally {
     busy.value = false;
   }
@@ -161,24 +163,25 @@ function onDismiss() {
               class="h-3.5 w-3.5 opacity-90"
               aria-hidden="true"
             />
-            Guest
+            {{ echoT('b25.guest.badge') }}
           </span>
         </div>
         <h4
           class="mt-3 text-xl font-bold tracking-tight text-foreground sm:text-2xl"
         >
-          Upgrade your account
+          {{ echoT('b25.guest.title') }}
         </h4>
         <p class="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-          Turn this guest session into a full Echo account—takes under a minute.
+          {{ echoT('b25.guest.leadEmbedded') }}
         </p>
       </div>
 
       <div v-else-if="showIntro" class="flex flex-col gap-1">
-        <h4 class="text-lg font-bold text-foreground">Upgrade your account</h4>
+        <h4 class="text-lg font-bold text-foreground">
+          {{ echoT('b25.guest.title') }}
+        </h4>
         <p class="text-sm leading-relaxed text-muted">
-          You’re on a guest session. Sign up to send messages, unlock Friends,
-          and use Echo without guest limits.
+          {{ echoT('b25.guest.leadModal') }}
         </p>
       </div>
 
@@ -192,10 +195,10 @@ function onDismiss() {
       >
         <div class="guest-account-upgrade-field">
           <label class="guest-account-upgrade-label" for="guest-upgrade-display"
-            >Display name
-            <span class="guest-account-upgrade-label__opt"
-              >(optional)</span
-            ></label
+            >{{ echoT('b25.guest.displayName') }}
+            <span class="guest-account-upgrade-label__opt">{{
+              echoT('b25.guest.optional')
+            }}</span></label
           >
           <input
             id="guest-upgrade-display"
@@ -203,13 +206,15 @@ function onDismiss() {
             type="text"
             maxlength="80"
             :class="inputClass"
-            placeholder="How others see you"
+            :placeholder="echoT('b25.guest.displayNamePlaceholder')"
             autocomplete="nickname"
           />
         </div>
         <div class="guest-account-upgrade-field mt-4">
-          <label class="guest-account-upgrade-label" for="guest-upgrade-email"
-            >Email</label
+          <label
+            class="guest-account-upgrade-label"
+            for="guest-upgrade-email"
+            >{{ echoT('b25.guest.email') }}</label
           >
           <input
             id="guest-upgrade-email"
@@ -224,7 +229,7 @@ function onDismiss() {
           <label
             class="guest-account-upgrade-label"
             for="guest-upgrade-password"
-            >Password</label
+            >{{ echoT('b25.guest.password') }}</label
           >
           <input
             id="guest-upgrade-password"
@@ -244,7 +249,9 @@ function onDismiss() {
               />
             </div>
             <div class="flex items-center justify-between text-xs">
-              <span class="text-muted">Password strength</span>
+              <span class="text-muted">{{
+                echoT('b25.guest.passwordStrength')
+              }}</span>
               <span
                 class="font-medium"
                 :class="{
@@ -282,7 +289,7 @@ function onDismiss() {
           class="order-2 rounded-xl px-4 py-3 text-sm font-semibold text-muted transition-colors hover:bg-glass-tint hover:text-foreground sm:order-1 sm:mr-auto"
           @click="onDismiss"
         >
-          Not now
+          {{ echoT('b25.guest.notNow') }}
         </button>
         <button
           type="button"
@@ -295,7 +302,9 @@ function onDismiss() {
           :disabled="busy"
           @click="submit"
         >
-          {{ busy ? 'Saving…' : 'Create account' }}
+          {{
+            busy ? echoT('b25.guest.saving') : echoT('b25.guest.createAccount')
+          }}
         </button>
       </div>
 
@@ -307,7 +316,7 @@ function onDismiss() {
         <span
           class="shrink-0 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-muted"
         >
-          Or
+          {{ echoT('b25.guest.or') }}
         </span>
         <span class="h-px flex-1 bg-[var(--border)] opacity-80" />
       </div>
@@ -333,10 +342,10 @@ function onDismiss() {
         </div>
         <div class="min-w-0">
           <div class="font-semibold text-foreground">
-            Sign in to an existing account
+            {{ echoT('b25.guest.signInExisting') }}
           </div>
           <div class="mt-0.5 text-sm text-muted">
-            Already registered? Use your Echo email and password.
+            {{ echoT('b25.guest.signInExistingHint') }}
           </div>
         </div>
       </button>

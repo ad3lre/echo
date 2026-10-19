@@ -1,0 +1,90 @@
+{
+  "actions": {
+    "addReaction": "Reaktion hinzufügen",
+    "moreOptions": "Weitere Optionen",
+    "reply": "Antworten",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "copy": "Kopieren",
+    "copyText": "Text kopieren",
+    "copyLink": "Link kopieren",
+    "forward": "Weiterleiten",
+    "pin": "Anheften",
+    "unpin": "Lösen",
+    "report": "Melden",
+    "markUnread": "Als ungelesen markieren",
+    "download": "Herunterladen",
+    "openInBrowser": "Im Browser öffnen",
+    "openLink": "Link öffnen",
+    "addToFavorites": "Zu Favoriten hinzufügen",
+    "removeFromFavorites": "Aus Favoriten entfernen",
+    "smallerEmbed": "Kleinere Einbettung",
+    "largerEmbed": "Größere Einbettung",
+    "exitFullScreen": "Vollbild beenden",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "spoiler": "Spoiler",
+    "removeAttachment": "Anhang entfernen"
+  },
+  "empty": {
+    "noMessagesYet": "Hier gibt es noch keine Nachrichten",
+    "noChannelsToShow": "Keine Kanäle anzuzeigen"
+  },
+  "status": {
+    "loadingOlder": "Ältere Nachrichten werden geladen",
+    "loadingMention": "Erwähnung wird geladen…",
+    "uploading": "Wird hochgeladen",
+    "slowmodeActive": "Langsammodus aktiv",
+    "sendBlocked": "Senden blockiert",
+    "failedToSend": "Nachricht konnte nicht gesendet werden",
+    "imageUnavailable": "Bild nicht verfügbar",
+    "videoUnavailable": "Video nicht verfügbar",
+    "imageCopied": "Bild kopiert",
+    "couldNotCopyImage": "Bild konnte nicht kopiert werden",
+    "couldNotCopyClipboard": "Konnte nicht in die Zwischenablage kopieren",
+    "nothingToCopy": "Nichts zu kopieren",
+    "couldNotFillImageSlot": "Bildplatz konnte nicht gefüllt werden",
+    "realtimeNotReady": "Die Echtzeitverbindung ist nicht bereit. Warte, bis Echo sich neu verbunden hat, und versuch es dann erneut.",
+    "communicationTimeout": "Du bist auf diesem Server in einem Kommunikations-Timeout."
+  },
+  "search": {
+    "emoji": "Emoji suchen...",
+    "messages": "Nachrichten durchsuchen",
+    "placeholder": "Suchen"
+  },
+  "labels": {
+    "favorites": "Favoriten",
+    "attachment": "Anhang",
+    "document": "Dokument",
+    "linkPreview": "Linkvorschau",
+    "someone": "Jemand",
+    "unknown": "Unbekannt",
+    "directMessage": "Direktnachricht",
+    "groupDm": "Gruppen-DM",
+    "friends": "Freunde",
+    "voiceChannel": "Sprachkanal",
+    "outline": "Gliederung"
+  },
+  "dm": {
+    "changeGroupIcon": "Gruppensymbol ändern",
+    "addMembers": "Mitglieder hinzufügen",
+    "editGroupName": "Gruppennamen bearbeiten"
+  },
+  "format": {
+    "bold": "Fett",
+    "italic": "Kursiv",
+    "strikethrough": "Durchgestrichen",
+    "code": "Code",
+    "spoiler": "Spoiler"
+  },
+  "composer": {
+    "messagePlaceholder": "Nachricht an {channel}",
+    "messagePlaceholderDm": "Nachricht an {'@'}{name}",
+    "messagePlaceholderGeneric": "Nachricht"
+  },
+  "jumpFab": {
+    "latest": "Zu den neuesten springen",
+    "ariaLatest": "Zu den neuesten Nachrichten springen",
+    "ariaNew": "{count} neue Nachrichten – zu den neuesten springen"
+  }
+}

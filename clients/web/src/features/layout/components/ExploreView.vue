@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onBeforeUnmount, onMounted, ref, unref, watch } from 'vue';
 import { iconEchoRounded } from '@/assets/branding';
 import { icons } from '@/assets/icons';
@@ -111,13 +112,13 @@ const quickFilterRowWidth = ref(0);
 let quickFilterResizeObserver: ResizeObserver | null = null;
 let quickFilterResizeFallback: (() => void) | null = null;
 
-const sortDropdownOptions = [
-  { label: 'Recommended', value: 'default' },
-  { label: 'Alphabetical', value: 'alphabetical' },
-  { label: 'Trendy', value: 'trendy' },
-  { label: 'Most members', value: 'members' },
-  { label: 'Recent', value: 'recent' },
-] as const;
+const sortDropdownOptions = computed(() => [
+  { label: echoT('b13.explore.sortRecommended'), value: 'default' },
+  { label: echoT('b13.explore.sortAlphabetical'), value: 'alphabetical' },
+  { label: echoT('b13.explore.sortTrendy'), value: 'trendy' },
+  { label: echoT('b13.explore.sortMembers'), value: 'members' },
+  { label: echoT('b13.explore.sortRecent'), value: 'recent' },
+]);
 
 const compactCountFormatter = new Intl.NumberFormat(undefined, {
   notation: 'compact',
@@ -156,21 +157,23 @@ function clearQuickFilters() {
 }
 
 function formatMemberCount(memberCount: number): string {
-  if (memberCount <= 0) return 'New';
-  return `${compactCountFormatter.format(memberCount)} members`;
+  if (memberCount <= 0) return echoT('b13.explore.memberNew');
+  return echoT('b13.explore.memberCount', {
+    count: compactCountFormatter.format(memberCount),
+  });
 }
 
 function formatVoiceActivityLabel(voiceParticipantCount: number): string {
   if (voiceParticipantCount <= 0) return '';
-  if (voiceParticipantCount === 1) return 'In voice';
-  return `${voiceParticipantCount} in voice`;
+  if (voiceParticipantCount === 1) return echoT('b13.explore.inVoice');
+  return echoT('b13.explore.inVoiceCount', { count: voiceParticipantCount });
 }
 
 const sortTriggerLabel = computed(() => {
   if (sortMode.value !== 'alphabetical') return undefined;
   return alphabeticalDescending.value
-    ? 'Alphabetical - Z-A'
-    : 'Alphabetical - A-Z';
+    ? echoT('b13.explore.sortAlphaZA')
+    : echoT('b13.explore.sortAlphaAZ');
 });
 
 const discoverableList = computed(() => {
@@ -231,13 +234,12 @@ const listedServers = computed<ListedServer[]>(() =>
   }),
 );
 
-const guestJoinLockedHint =
-  'This server requires a full Echo account to join from Explore.';
+const guestJoinLockedHint = () => echoT('b13.explore.guestJoinLockedHint');
 
 async function onExploreServerJoinClick(server: ListedServer) {
   if (props.directoryJoinBusy) return;
   if (server.joinLocked) {
-    await requestGuestExploreJoinBlockedModal(guestJoinLockedHint);
+    await requestGuestExploreJoinBlockedModal(guestJoinLockedHint());
     return;
   }
   emit('join-suggested', {
@@ -453,7 +455,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="explore-ghost-btn inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-fg-soft"
-          aria-label="Back to servers"
+          :aria-label="echoT('b13.explore.backAria')"
           @click="emit('back')"
         >
           <img
@@ -461,7 +463,7 @@ onBeforeUnmount(() => {
             alt=""
             class="h-4 w-4 shrink-0 opacity-90 brightness-0 invert"
           />
-          <span>Back</span>
+          <span>{{ echoT('b13.explore.back') }}</span>
         </button>
       </div>
       <header class="py-5 sm:py-6 lg:py-8">
@@ -475,10 +477,10 @@ onBeforeUnmount(() => {
                 alt=""
                 class="h-3.5 w-3.5 filter invert opacity-70"
               />
-              Explore
+              {{ echoT('b13.explore.exploreLabel') }}
             </span>
             <span class="text-fg-subtle">/</span>
-            <span>Public servers</span>
+            <span>{{ echoT('b13.explore.publicServers') }}</span>
           </div>
 
           <div class="mt-4 min-w-0">
@@ -486,15 +488,14 @@ onBeforeUnmount(() => {
               <h1
                 class="text-[2rem] font-bold leading-[1.05] tracking-[-0.03em] text-foreground sm:whitespace-nowrap sm:text-[2.45rem] xl:text-[2.85rem]"
               >
-                Find your next corner of Echo.
+                {{ echoT('b13.explore.heroTitle') }}
               </h1>
               <p
                 class="mt-3 max-w-[46rem] text-sm leading-relaxed text-fg-soft sm:text-[15px] lg:max-w-[40rem] xl:max-w-[48rem]"
               >
-                Scroll communities until one clicks.
+                {{ echoT('b13.explore.heroLine1') }}
                 <br class="hidden lg:block" />
-                Land somewhere that feels like yours, and keep it open on
-                desktop without the usual clutter.
+                {{ echoT('b13.explore.heroLine2') }}
               </p>
 
               <div
@@ -505,14 +506,14 @@ onBeforeUnmount(() => {
                   class="explore-primary-btn rounded-2xl px-5 py-3 text-sm font-semibold text-white"
                   @click="emit('create-server')"
                 >
-                  Create server
+                  {{ echoT('b13.explore.createServer') }}
                 </button>
                 <button
                   type="button"
                   class="explore-secondary-btn rounded-2xl px-5 py-3 text-sm font-semibold text-foreground"
                   @click="emit('join-server')"
                 >
-                  Join with invite
+                  {{ echoT('b13.explore.joinWithInvite') }}
                 </button>
               </div>
             </div>
@@ -525,9 +526,11 @@ onBeforeUnmount(() => {
         class="flex flex-col gap-3 @[1100px]:hidden"
       >
         <div class="flex items-center justify-between gap-3">
-          <h2 class="text-base font-semibold text-foreground">Featured now</h2>
+          <h2 class="text-base font-semibold text-foreground">
+            {{ echoT('b13.explore.featuredNow') }}
+          </h2>
           <span class="text-xs uppercase tracking-[0.14em] text-fg-subtle">
-            Swipe
+            {{ echoT('b13.explore.swipe') }}
           </span>
         </div>
         <ul class="explore-featured-strip flex gap-3 overflow-x-auto pb-1">
@@ -606,11 +609,16 @@ onBeforeUnmount(() => {
         <div class="min-w-0">
           <div class="mb-4 px-0 sm:mb-5">
             <h2 class="text-xl font-semibold text-foreground">
-              Recommended communities
+              {{ echoT('b13.explore.recommendedCommunities') }}
             </h2>
             <p class="mt-1 text-sm text-fg-subtle">
-              {{ sortedServers.length }} result{{
-                sortedServers.length === 1 ? '' : 's'
+              {{
+                echoT(
+                  sortedServers.length === 1
+                    ? 'b13.explore.resultOne'
+                    : 'b13.explore.resultMany',
+                  { count: sortedServers.length },
+                )
               }}
             </p>
           </div>
@@ -628,7 +636,7 @@ onBeforeUnmount(() => {
                 <input
                   v-model="searchQuery"
                   type="text"
-                  placeholder="Search by name, description, or tag"
+                  :placeholder="echoT('b13.explore.searchPlaceholder')"
                   class="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-fg-subtle"
                 />
               </label>
@@ -641,7 +649,7 @@ onBeforeUnmount(() => {
                   clearQuickFilters();
                 "
               >
-                Clear
+                {{ echoT('b13.explore.clear') }}
               </button>
             </div>
 
@@ -664,7 +672,7 @@ onBeforeUnmount(() => {
                     "
                     @click="clearQuickFilters"
                   >
-                    All
+                    {{ echoT('b13.explore.all') }}
                   </button>
                   <button
                     v-for="filter in collapsedVisibleQuickFilters"
@@ -694,8 +702,10 @@ onBeforeUnmount(() => {
                   >
                     {{
                       quickFilterExpanded
-                        ? 'Less'
-                        : `More ${hiddenQuickFilters.length}`
+                        ? echoT('b13.explore.less')
+                        : echoT('b13.explore.more', {
+                            count: hiddenQuickFilters.length,
+                          })
                     }}
                   </button>
                 </div>
@@ -706,13 +716,13 @@ onBeforeUnmount(() => {
                 >
                   <span
                     class="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
-                    >Sort</span
+                    >{{ echoT('b13.explore.sort') }}</span
                   >
                   <div class="flex min-w-0 items-stretch gap-1.5">
                     <EchoDropdown
                       class="explore-sort-dropdown min-w-0"
                       :model-value="sortMode"
-                      :options="[...sortDropdownOptions]"
+                      :options="sortDropdownOptions"
                       :trigger-label="sortTriggerLabel"
                       compact
                       @update:model-value="onSortModeChange"
@@ -723,8 +733,8 @@ onBeforeUnmount(() => {
                       class="explore-alpha-toggle shrink-0 rounded-xl px-3 py-2 text-xs font-semibold tabular-nums text-fg-soft transition-colors"
                       :title="
                         alphabeticalDescending
-                          ? 'Switch to A-Z'
-                          : 'Switch to Z-A'
+                          ? echoT('b13.explore.switchToAZ')
+                          : echoT('b13.explore.switchToZA')
                       "
                       @click="toggleAlphabeticalDirection"
                     >
@@ -811,14 +821,14 @@ onBeforeUnmount(() => {
                   <div
                     v-if="server.joinLocked"
                     class="explore-join-locked-badge pointer-events-none absolute right-3 top-3 z-[2] inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide"
-                    title="Full account required to join"
+                    :title="echoT('b13.explore.accountRequiredTitle')"
                   >
                     <img
                       :src="icons.chatLock"
                       alt=""
                       class="h-3 w-3 shrink-0 opacity-90 brightness-0 invert"
                     />
-                    <span>Account required</span>
+                    <span>{{ echoT('b13.explore.accountRequired') }}</span>
                   </div>
                   <div
                     v-else-if="server.voiceParticipantCount > 0"
@@ -905,7 +915,9 @@ onBeforeUnmount(() => {
                         alt=""
                         class="h-4 w-4 shrink-0 opacity-85 brightness-0 invert"
                       />
-                      <span>Create account to join</span>
+                      <span>{{
+                        echoT('b13.explore.createAccountToJoin')
+                      }}</span>
                     </button>
                     <button
                       v-else-if="server.alreadyMember"
@@ -914,7 +926,7 @@ onBeforeUnmount(() => {
                       :disabled="directoryJoinBusy"
                       @click="onExploreServerJoinClick(server)"
                     >
-                      <span>Open server</span>
+                      <span>{{ echoT('b13.explore.openServer') }}</span>
                       <span class="opacity-80" aria-hidden="true">-></span>
                     </button>
                     <button
@@ -924,7 +936,7 @@ onBeforeUnmount(() => {
                       :disabled="directoryJoinBusy"
                       @click="onExploreServerJoinClick(server)"
                     >
-                      <span>Join server</span>
+                      <span>{{ echoT('b13.explore.joinServer') }}</span>
                       <span class="text-fg-soft" aria-hidden="true">-></span>
                     </button>
                   </div>
@@ -936,7 +948,7 @@ onBeforeUnmount(() => {
           <nav
             v-if="exploreTotalPages > 1"
             class="mt-8 flex flex-wrap items-center justify-center gap-2 sm:justify-between"
-            aria-label="Explore directory pages"
+            :aria-label="echoT('b13.explore.pagesAria')"
           >
             <button
               type="button"
@@ -944,10 +956,15 @@ onBeforeUnmount(() => {
               :disabled="exploreListPage <= 1"
               @click="goExplorePage(exploreListPage - 1)"
             >
-              Previous
+              {{ echoT('b13.explore.previous') }}
             </button>
             <span class="text-sm tabular-nums text-fg-subtle">
-              Page {{ exploreListPage }} of {{ exploreTotalPages }}
+              {{
+                echoT('b13.explore.pageOf', {
+                  page: exploreListPage,
+                  total: exploreTotalPages,
+                })
+              }}
             </span>
             <button
               type="button"
@@ -955,7 +972,7 @@ onBeforeUnmount(() => {
               :disabled="exploreListPage >= exploreTotalPages"
               @click="goExplorePage(exploreListPage + 1)"
             >
-              Next
+              {{ echoT('b13.explore.next') }}
             </button>
           </nav>
 
@@ -964,10 +981,10 @@ onBeforeUnmount(() => {
             class="explore-empty mt-2 rounded-[1.5rem] px-6 py-12 text-center"
           >
             <p class="text-base font-medium text-foreground">
-              No servers match
+              {{ echoT('b13.explore.noMatchTitle') }}
             </p>
             <p class="mt-2 text-sm text-fg-subtle">
-              Try a different search or clear the filter.
+              {{ echoT('b13.explore.noMatchBody') }}
             </p>
           </div>
         </div>
@@ -979,7 +996,7 @@ onBeforeUnmount(() => {
           <h3
             class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
           >
-            Featured
+            {{ echoT('b13.explore.featured') }}
           </h3>
           <ul class="mt-4 flex flex-col gap-4">
             <li v-for="server in featuredServers" :key="server.id">

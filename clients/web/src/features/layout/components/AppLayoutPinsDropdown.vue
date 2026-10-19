@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import MessagePreviewSnippet from '@/features/chat/components/MessagePreviewSnippet.vue';
 import { messagePreviewPlainText } from '@/features/chat/domain/messagePreviewPlain';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
@@ -53,19 +54,21 @@ const anchoredDropdownStyle = computed(() => {
         class="fixed inset-0 z-[95] flex flex-col bg-[var(--echo-server-rail-bg)] text-foreground"
         role="dialog"
         aria-modal="true"
-        aria-label="Pinned messages"
+        :aria-label="echoT('layout.pins.title')"
       >
         <header
           class="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3"
           style="padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem)"
         >
-          <h3 class="text-base font-semibold text-fg">Pinned messages</h3>
+          <h3 class="text-base font-semibold text-fg">
+            {{ echoT('layout.pins.title') }}
+          </h3>
           <button
             type="button"
             class="rounded-lg px-3 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-white"
             @click="closePinsDropdown"
           >
-            Close
+            {{ echoT('layout.pins.close') }}
           </button>
         </header>
         <div class="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
@@ -73,7 +76,7 @@ const anchoredDropdownStyle = computed(() => {
             v-if="!pinnedMessages.length"
             class="px-4 py-10 text-center text-sm text-muted"
           >
-            No pinned messages in this channel.
+            {{ echoT('layout.pins.empty') }}
           </p>
           <template v-else>
             <button
@@ -129,18 +132,20 @@ const anchoredDropdownStyle = computed(() => {
         class="pins-dropdown fixed z-[91] flex max-h-[min(70vh,400px)] min-w-[320px] max-w-[min(420px,calc(100vw-24px))] flex-col overflow-hidden rounded-xl"
         :style="anchoredDropdownStyle"
         role="dialog"
-        aria-label="Pinned messages"
+        :aria-label="echoT('layout.pins.title')"
         @click.stop
       >
         <div class="flex shrink-0 items-center justify-between gap-2 px-4 py-3">
-          <h3 class="text-sm font-semibold text-fg">Pinned messages</h3>
+          <h3 class="text-sm font-semibold text-fg">
+            {{ echoT('layout.pins.title') }}
+          </h3>
         </div>
         <div class="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
           <p
             v-if="!pinnedMessages.length"
             class="px-4 py-6 text-center text-sm text-muted"
           >
-            No pinned messages in this channel.
+            {{ echoT('layout.pins.empty') }}
           </p>
           <template v-else>
             <button

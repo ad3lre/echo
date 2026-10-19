@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
-import { icons } from '@/assets/icons';
+import { iconsCritical as icons } from '@/assets/iconsCritical';
 import type { MobileBottomTabId } from '@/features/layout/mobileBottomTab';
 
 const props = defineProps<{
@@ -24,21 +25,21 @@ defineExpose({ barEl });
 const tabs = computed(() => [
   {
     id: 'home' as const,
-    label: 'Home',
+    label: echoT('layout.tabs.home'),
     icon: icons.message,
     iconActive: icons.messageFilled,
     badge: (props.dmUnreadTotal ?? 0) > 0 ? props.dmUnreadTotal : null,
   },
   {
     id: 'servers' as const,
-    label: 'Servers',
+    label: echoT('layout.tabs.servers'),
     icon: icons.community,
     iconActive: icons.communityFilled,
     badge: props.serversHasActivity ? ('dot' as const) : null,
   },
   {
     id: 'explore' as const,
-    label: 'Explore',
+    label: echoT('layout.tabs.explore'),
     icon: icons.explore,
     iconActive: icons.exploreFilled,
     badge: props.exploreHasActivity ? ('dot' as const) : null,
@@ -59,7 +60,7 @@ function formatBadge(n: number): string {
   <div ref="barEl" class="mobile-bottom-tab-bar">
     <nav
       class="mobile-bottom-tab-bar__pill echo-dark-chrome"
-      aria-label="Main navigation"
+      :aria-label="echoT('layout.tabs.mainNavigation')"
     >
       <button
         v-for="tab in tabs"

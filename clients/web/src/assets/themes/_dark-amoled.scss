@@ -52,6 +52,7 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
   --echo-dev-pill-bg: var(--elevated);
   --echo-dev-pill-bg-hover: var(--surface);
   --echo-avatar-ring-bg: var(--surface);
+  --status-indicator-ring-bg: var(--bg);
 
   /* Settings shell: drop purple wash so AMOLED stays ink-black */
   --set-modal-backdrop: linear-gradient(

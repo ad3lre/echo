@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, nextTick, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 
@@ -87,8 +88,7 @@ watch(
       return;
     }
     if (!key.trim()) {
-      loadErr.value =
-        'Verification is not configured. Try again later or create an account.';
+      loadErr.value = echoT('auth.guestCaptcha.notConfigured');
       return;
     }
     loadErr.value = '';
@@ -105,13 +105,12 @@ watch(
           emit('verified', token);
         },
         'error-callback': () => {
-          loadErr.value = 'Verification widget error. Close and try again.';
+          loadErr.value = echoT('auth.guestCaptcha.widgetError');
         },
       });
       widgetId.value = id;
     } catch {
-      loadErr.value =
-        'Could not load verification. Try again or create an account.';
+      loadErr.value = echoT('auth.guestCaptcha.loadFailed');
     }
   },
 );
@@ -129,7 +128,9 @@ watch(
       aria-modal="true"
       class="w-full max-w-md rounded-2xl border border-border bg-[var(--echo-modal-bg)] p-6 text-foreground shadow-xl"
     >
-      <h2 class="text-lg font-semibold">Quick verification</h2>
+      <h2 class="text-lg font-semibold">
+        {{ echoT('auth.guestCaptcha.title') }}
+      </h2>
       <p class="mt-1 text-sm text-fg-soft">
         We use this to keep guest access fair. Complete the check, then
         continue.

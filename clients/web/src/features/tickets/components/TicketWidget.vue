@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, computed, onMounted } from 'vue';
 import { useServerTicketsStore } from '@/features/tickets/serverTickets';
 import TicketCreateModal from './TicketCreateModal.vue';
@@ -56,10 +57,11 @@ function handleTicketCreated(ticket: { id: string; channelId: string }) {
         </svg>
       </div>
       <div class="ticket-widget__content">
-        <h3 class="ticket-widget__title">Support Tickets</h3>
+        <h3 class="ticket-widget__title">
+          {{ echoT('b04.ticketWidget.title') }}
+        </h3>
         <p class="ticket-widget__desc">
-          Need help or want to report something? Create a private ticket and a
-          staff member will assist you.
+          {{ echoT('b04.ticketWidget.desc') }}
         </p>
         <div
           v-if="config.ticketCategories?.length"
@@ -75,7 +77,7 @@ function handleTicketCreated(ticket: { id: string; channelId: string }) {
         </div>
       </div>
       <button class="ticket-widget__btn" @click="showModal = true">
-        Create Ticket
+        {{ echoT('b04.ticketWidget.create') }}
       </button>
     </div>
 

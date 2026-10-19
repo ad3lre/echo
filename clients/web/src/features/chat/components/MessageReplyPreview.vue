@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type {
   MessageAttachmentPayload,
@@ -49,7 +50,7 @@ function truncateForReply(text: string, maxLen = 60): string {
     type="button"
     class="reply-line chat-focus-ring mb-1 flex w-full items-center gap-1.5 overflow-hidden pl-1 py-1 min-h-0 cursor-pointer text-left hover:opacity-90 transition-opacity rounded-sm"
     data-dev-hit="reply"
-    title="Jump to message"
+    :title="echoT('b40.reply.jump')"
     @click="$emit('scrollToQuotedMessage')"
   >
     <div
@@ -80,13 +81,13 @@ function truncateForReply(text: string, maxLen = 60): string {
         <template
           v-if="replyToMessage.videoUrl || replyAttachmentKind === 'video'"
         >
-          <span class="italic">[Video]</span>
+          <span class="italic">{{ echoT('b40.reply.video') }}</span>
           <span v-if="replyToMessage.content">
             {{ truncateForReply(replyToMessage.content, 50) }}</span
           >
         </template>
         <template v-else-if="replyAttachmentKind === 'gif'">
-          <span class="italic">[GIF]</span>
+          <span class="italic">{{ echoT('b40.reply.gif') }}</span>
           <span v-if="replyToMessage.content">
             {{ truncateForReply(replyToMessage.content, 50) }}</span
           >
@@ -94,19 +95,19 @@ function truncateForReply(text: string, maxLen = 60): string {
         <template
           v-else-if="replyToMessage.imageUrl || replyAttachmentKind === 'image'"
         >
-          <span class="italic">[Image]</span>
+          <span class="italic">{{ echoT('b40.reply.image') }}</span>
           <span v-if="replyToMessage.content">
             {{ truncateForReply(replyToMessage.content, 50) }}</span
           >
         </template>
         <template v-else-if="replyAttachmentKind === 'audio'">
-          <span class="italic">[Audio]</span>
+          <span class="italic">{{ echoT('b40.reply.audio') }}</span>
           <span v-if="replyToMessage.content">
             {{ truncateForReply(replyToMessage.content, 50) }}</span
           >
         </template>
         <template v-else-if="replyAttachmentKind === 'document'">
-          <span class="italic">[File]</span>
+          <span class="italic">{{ echoT('b40.reply.file') }}</span>
           <span v-if="replyToMessage.content">
             {{ truncateForReply(replyToMessage.content, 50) }}</span
           >
@@ -115,10 +116,10 @@ function truncateForReply(text: string, maxLen = 60): string {
           {{ truncateForReply(replyToMessage.content, 50) }}
         </template>
         <template v-else-if="replyToMessage.poll">
-          <span class="italic">[Poll]</span>
+          <span class="italic">{{ echoT('b40.reply.poll') }}</span>
         </template>
         <template v-else-if="replyToMessage.stickers?.length">
-          <span class="italic">[Sticker]</span>
+          <span class="italic">{{ echoT('b40.reply.sticker') }}</span>
         </template>
         <template v-else>
           <span class="italic">—</span>
@@ -128,7 +129,7 @@ function truncateForReply(text: string, maxLen = 60): string {
         {{
           message.replyTo.content
             ? truncateForReply(message.replyTo.content, 50)
-            : 'Attachment'
+            : echoT('chat.labels.attachment')
         }}
       </template>
     </span>

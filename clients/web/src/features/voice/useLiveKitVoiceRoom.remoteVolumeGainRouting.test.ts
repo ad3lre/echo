@@ -25,7 +25,7 @@ vi.mock('@/features/voice/livekit/livekitTrackAdapter', () => ({
   parseRtcStatsReport: adapterMocks.parseRtcStatsReport,
 }));
 
-import { useLiveKitVoiceRoom } from './useLiveKitVoiceRoom';
+import { createLiveKitVoiceSession } from '@/features/voice/livekit/createLiveKitVoiceSession';
 
 type FakeTrack = { sid: string };
 type FakePublication = { track: FakeTrack };
@@ -61,7 +61,7 @@ describe('useLiveKitVoiceRoom per-participant output gain routing', () => {
   });
 
   it('applies slider changes only to targeted participant track', () => {
-    const api = useLiveKitVoiceRoom();
+    const api = createLiveKitVoiceSession();
     const { room, aliceTrack, bobTrack } = buildRoomWithRemoteAudioTracks();
     api.lkRoom.value = room as never;
 
@@ -80,7 +80,7 @@ describe('useLiveKitVoiceRoom per-participant output gain routing', () => {
   });
 
   it('mutes and restores only targeted participant on slider 0 -> >0', () => {
-    const api = useLiveKitVoiceRoom();
+    const api = createLiveKitVoiceSession();
     const { room, aliceTrack, bobTrack } = buildRoomWithRemoteAudioTracks();
     api.lkRoom.value = room as never;
 
@@ -127,7 +127,7 @@ describe('useLiveKitVoiceRoom per-participant output gain routing', () => {
       remoteParticipants: new Map([['sid-carol', participant]]),
     };
 
-    const api = useLiveKitVoiceRoom();
+    const api = createLiveKitVoiceSession();
     api.lkRoom.value = room as never;
     api.setRemoteParticipantVolume('carol', 50);
 
@@ -163,7 +163,7 @@ describe('useLiveKitVoiceRoom per-participant output gain routing', () => {
       remoteParticipants: new Map([['sid-dave', participant]]),
     };
 
-    const api = useLiveKitVoiceRoom();
+    const api = createLiveKitVoiceSession();
     api.lkRoom.value = room as never;
     api.setRemoteParticipantVolume('dave', 50);
 
@@ -196,7 +196,7 @@ describe('useLiveKitVoiceRoom per-participant output gain routing', () => {
       remoteParticipants: new Map([['sid-erin', participant]]),
     };
 
-    const api = useLiveKitVoiceRoom();
+    const api = createLiveKitVoiceSession();
     api.lkRoom.value = room as never;
     api.setRemoteParticipantVolume('erin', 60);
 

@@ -1,4 +1,5 @@
 import type { MessageFailedCode } from '@shared/types';
+import { echoT } from '@/i18n';
 
 /**
  * User-visible copy for `message_failed` Socket.IO payloads (edits, reactions, pins, etc.).
@@ -11,54 +12,48 @@ export function realtimeMessageFailedUserMessage(
   const d = rawDetail.trim();
   switch (code) {
     case 'RATE_LIMIT':
-      return 'Too many actions. Wait a moment and try again.';
+      return echoT('dialogs.messageFailed.rateLimit');
     case 'SLOWMODE':
-      return 'Slowmode is on for this channel. Wait before editing or sending.';
+      return echoT('dialogs.messageFailed.slowmode');
     case 'SPAM_FILTER':
-      return d || 'Spam filter blocked that message. Wait a bit and try again.';
+      return d || echoT('dialogs.messageFailed.spamFilter');
     case 'FORBIDDEN':
       if (
         d.toLowerCase().includes('communication timeout') ||
         d.toLowerCase().includes('timed out')
       ) {
-        return 'You are in a communication timeout in this server.';
+        return echoT('dialogs.messageFailed.communicationTimeout');
       }
       if (
         d.toLowerCase().includes('@everyone') ||
         d.toLowerCase().includes('@active')
       ) {
-        return 'You cannot mention @everyone or @active in this channel.';
+        return echoT('dialogs.messageFailed.mentionBroadcastForbidden');
       }
-      return "You don't have permission to do that.";
+      return echoT('dialogs.messageFailed.forbidden');
     case 'UNAUTHENTICATED':
-      return 'Sign in again, then retry.';
+      return echoT('dialogs.messageFailed.unauthenticated');
     case 'PERSIST_FAILED':
-      return 'Echo could not save your change. Try again.';
+      return echoT('dialogs.messageFailed.persistFailed');
     case 'E2EE_STORAGE_UNAVAILABLE':
-      return (
-        d ||
-        'Private message storage is not available on this server yet. Regular messages still work.'
-      );
+      return d || echoT('dialogs.messageFailed.e2eeStorageUnavailable');
     case 'E2EE_UNKNOWN_DEVICE':
-      return (
-        d ||
-        'This device is not set up for private messages. Check Settings → Account.'
-      );
+      return d || echoT('dialogs.messageFailed.e2eeUnknownDevice');
     case 'E2EE_DEVICE_REVOKED':
-      return d || 'This device was removed from private messaging.';
+      return d || echoT('dialogs.messageFailed.e2eeDeviceRevoked');
     case 'E2EE_ENVELOPE_TOO_LARGE':
-      return d || 'That private message was too large to send.';
+      return d || echoT('dialogs.messageFailed.e2eeEnvelopeTooLarge');
     case 'VALIDATION':
-      return d || 'That change was rejected.';
+      return d || echoT('dialogs.messageFailed.validation');
     case 'UNKNOWN_CHANNEL':
-      return 'This channel is no longer available.';
+      return echoT('dialogs.messageFailed.unknownChannel');
     case 'IDEMPOTENCY_EXPIRED':
-      return 'That action expired. Try again.';
+      return echoT('dialogs.messageFailed.idempotencyExpired');
     case 'GUEST_LIMIT':
-      return d || 'Create an account to send messages.';
+      return d || echoT('dialogs.messageFailed.guestLimit');
     case 'GUEST_ABUSE_COOLDOWN':
-      return d || 'Action temporarily blocked. Try again later.';
+      return d || echoT('dialogs.messageFailed.guestAbuseCooldown');
     default:
-      return d || "Something didn't work. Try again.";
+      return d || echoT('dialogs.messageFailed.default');
   }
 }

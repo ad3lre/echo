@@ -1,42 +1,57 @@
 import { createI18n, type I18n } from 'vue-i18n';
 
-import common from './locales/en-US/common.json';
-import bootstrap from './locales/en-US/bootstrap.json';
-import time from './locales/en-US/time.json';
-import legal from './locales/en-US/legal.json';
-import errors from './locales/en-US/errors.json';
-import dialogs from './locales/en-US/dialogs.json';
-import auth from './locales/en-US/auth.json';
-import integrations from './locales/en-US/integrations.json';
-import settings from './locales/en-US/settings.json';
-import serverSettings from './locales/en-US/serverSettings.json';
-import serverNotifications from './locales/en-US/serverNotifications.json';
-import channelSettings from './locales/en-US/channelSettings.json';
+type LocaleNamespaces = Record<string, Record<string, unknown>>;
+
+/**
+ * Namespaces are auto-discovered from `locales/<locale>/*.json` (file name = namespace).
+ * `errors.json` is nested under `errors.api` for historical key compatibility.
+ */
+function buildMessages(modules: Record<string, unknown>): LocaleNamespaces {
+  const out: LocaleNamespaces = {};
+  for (const [file, mod] of Object.entries(modules)) {
+    const ns = file.replace(/^.*\//, '').replace(/\.json$/, '');
+    const data = ((mod as { default?: unknown }).default ?? mod) as Record<
+      string,
+      unknown
+    >;
+    if (ns === 'errors') out.errors = { api: data };
+    else out[ns] = data;
+  }
+  return out;
+}
+
+const enUsModules = import.meta.glob('./locales/en-US/*.json', {
+  eager: true,
+});
+const ptBrModules = import.meta.glob('./locales/pt-BR/*.json', {
+  eager: true,
+});
 
 /** BCP-47 locales with UI message catalogs. */
-export const SUPPORTED_ECHO_UI_LOCALES = ['en-US', 'en-GB'] as const;
+export const SUPPORTED_ECHO_UI_LOCALES = [
+  'en-US',
+  'en-GB',
+  'pt-BR',
+  'de',
+] as const;
 export type EchoUiLocale = (typeof SUPPORTED_ECHO_UI_LOCALES)[number];
 
 export const DEFAULT_ECHO_LOCALE: EchoUiLocale = 'en-US';
 
-function buildEnUsMessages() {
-  return {
-    common,
-    bootstrap,
-    time,
-    legal,
-    errors: { api: errors },
-    dialogs,
-    auth,
-    integrations,
-    settings,
-    serverSettings,
-    serverNotifications,
-    channelSettings,
-  };
+/** German loads lazily (separate chunks) — only users on `de` pay for it. */
+const deModuleLoaders = import.meta.glob('./locales/de/*.json');
+
+async function loadDeMessages(): Promise<LocaleNamespaces> {
+  const entries = await Promise.all(
+    Object.entries(deModuleLoaders).map(
+      async ([file, load]) => [file, await load()] as const,
+    ),
+  );
+  return buildMessages(Object.fromEntries(entries));
 }
 
-const enUsMessages = buildEnUsMessages();
+const enUsMessages = buildMessages(enUsModules);
+const ptBrMessages = buildMessages(ptBrModules);
 
 const localeLoaders: Record<
   EchoUiLocale,
@@ -44,6 +59,13 @@ const localeLoaders: Record<
 > = {
   'en-US': () => Promise.resolve({ default: enUsMessages }),
   'en-GB': () => import('./locales/en-GB.json'),
+  'pt-BR': () => Promise.resolve({ default: ptBrMessages }),
+  de: async () => ({
+    default: (await loadDeMessages()) as Record<
+      string,
+      string | Record<string, unknown>
+    >,
+  }),
 };
 
 export const i18n: I18n = createI18n({
@@ -67,9 +89,13 @@ export function isEchoUiLocale(value: unknown): value is EchoUiLocale {
 export function normalizeEchoUiLocale(value: unknown): EchoUiLocale {
   if (isEchoUiLocale(value)) return value;
   if (typeof value === 'string') {
-    const lower = value.toLowerCase();
-    if (lower === 'en-gb' || lower === 'en_gb') return 'en-GB';
+    const lower = value.toLowerCase().replace(/_/g, '-');
+    if (lower === 'en-gb') return 'en-GB';
     if (lower.startsWith('en')) return 'en-US';
+    if (lower === 'pt-br' || lower === 'pt' || lower.startsWith('pt-')) {
+      return 'pt-BR';
+    }
+    if (lower === 'de' || lower.startsWith('de-')) return 'de';
   }
   return DEFAULT_ECHO_LOCALE;
 }
@@ -78,8 +104,7 @@ export function resolveBrowserEchoLocale(): EchoUiLocale {
   if (typeof navigator === 'undefined') return DEFAULT_ECHO_LOCALE;
   const lang = navigator.language?.trim();
   if (!lang) return DEFAULT_ECHO_LOCALE;
-  if (lang.toLowerCase() === 'en-gb') return 'en-GB';
-  return DEFAULT_ECHO_LOCALE;
+  return normalizeEchoUiLocale(lang);
 }
 
 export async function ensureEchoLocaleLoaded(

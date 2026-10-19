@@ -1,0 +1,28 @@
+{
+  "reportAbuse": "Denunciar abuso",
+  "reportUser": "Denunciar usuário",
+  "reportMessage": "Denunciar mensagem",
+  "reason": "Motivo",
+  "details": "Detalhes",
+  "submitReport": "Enviar denúncia",
+  "spam": "Spam",
+  "harassment": "Assédio",
+  "harassmentOrBullying": "Assédio ou bullying",
+  "hateSpeech": "Discurso de ódio",
+  "sexualContent": "Conteúdo sexual",
+  "violence": "Violência",
+  "violenceOrThreats": "Violência ou ameaças",
+  "impersonation": "Personificação",
+  "other": "Outro",
+  "thanks": "Obrigado — recebemos sua denúncia.",
+  "failed": "Não foi possível enviar a denúncia. Tente de novo.",
+  "hints": {
+    "spam": "Anúncios indesejados, golpes ou mensagens repetitivas",
+    "harassment": "Bullying, ameaças ou abuso direcionado",
+    "hate": "Ataques com base em identidade ou características protegidas",
+    "sexual": "Conteúdo NSFW compartilhado sem consentimento",
+    "violence": "Ameaças de dano ou glorificação da violência",
+    "impersonation": "Fingir ser outra pessoa",
+    "other": "Algo que não está na lista acima"
+  }
+}

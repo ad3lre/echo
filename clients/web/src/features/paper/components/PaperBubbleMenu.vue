@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import { BubbleMenu } from '@tiptap/vue-3/menus';
 import type { Editor } from '@tiptap/core';
@@ -64,14 +65,14 @@ function onLinkConfirm(href: string) {
     >
       <template v-if="lockedBlock">
         <span class="paper-bubble-lock-hint px-2 text-xs text-muted">
-          {{ lockedBlock.owner }} is editing
+          {{ echoT('b41.bubble.isEditing', { owner: lockedBlock.owner }) }}
         </span>
         <button
           type="button"
           class="paper-bubble-btn paper-bubble-btn--comment"
           @click="emit('requestAccess', lockedBlock.blockId)"
         >
-          Request access
+          {{ echoT('b41.bubble.requestAccess') }}
         </button>
       </template>
       <template v-else-if="canAuthor">
@@ -79,7 +80,7 @@ function onLinkConfirm(href: string) {
           type="button"
           class="paper-bubble-btn"
           :class="{ 'paper-bubble-btn--active': editor.isActive('bold') }"
-          aria-label="Bold"
+          :aria-label="echoT('b41.bubble.bold')"
           @click="editor.chain().focus().toggleBold().run()"
         >
           <svg
@@ -97,7 +98,7 @@ function onLinkConfirm(href: string) {
           type="button"
           class="paper-bubble-btn"
           :class="{ 'paper-bubble-btn--active': editor.isActive('italic') }"
-          aria-label="Italic"
+          :aria-label="echoT('b41.bubble.italic')"
           @click="editor.chain().focus().toggleItalic().run()"
         >
           <svg
@@ -115,7 +116,7 @@ function onLinkConfirm(href: string) {
         <button
           type="button"
           class="paper-bubble-btn"
-          aria-label="Link"
+          :aria-label="echoT('b41.bubble.link')"
           @click="linkDialogOpen = true"
         >
           <svg
@@ -145,14 +146,14 @@ function onLinkConfirm(href: string) {
         class="paper-bubble-btn paper-bubble-btn--comment"
         @click="emit('comment')"
       >
-        Comment
+        {{ echoT('b41.bubble.comment') }}
       </button>
     </div>
   </BubbleMenu>
 
   <PaperPromptDialog
     :open="linkDialogOpen"
-    title="Insert link"
+    :title="echoT('b41.bubble.insertLink')"
     label="URL"
     placeholder="https://"
     :initial-value="

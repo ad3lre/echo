@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, ref, watch } from 'vue';
 import type { PaperEditorPanelBridgeContext } from '@/features/paper/paperEditorPanelBridge';
 import {
@@ -37,12 +38,14 @@ const canCustomize = computed(() => props.context.canCustomize.value);
 const editorEditable = computed(() => props.context.editorEditable.value);
 const editorRef = computed(() => props.context.editor.value);
 
-const tabs: { id: PaperEditorPanelTab; label: string; icon: string }[] = [
-  { id: 'design', label: 'Design', icon: 'design' },
-  { id: 'colors', label: 'Colors', icon: 'palette' },
-  { id: 'text', label: 'Text', icon: 'type' },
-  { id: 'assets', label: 'Assets', icon: 'image' },
-];
+const tabs = computed<
+  { id: PaperEditorPanelTab; label: string; icon: string }[]
+>(() => [
+  { id: 'design', label: echoT('b33.paperShell.tabDesign'), icon: 'design' },
+  { id: 'colors', label: echoT('b33.paperShell.tabColors'), icon: 'palette' },
+  { id: 'text', label: echoT('b33.paperShell.tabText'), icon: 'type' },
+  { id: 'assets', label: echoT('b33.paperShell.tabAssets'), icon: 'image' },
+]);
 
 const tabListRef = ref<HTMLElement | null>(null);
 const isCoarsePointer = ref(false);
@@ -62,14 +65,16 @@ function onPanelMouseDown(ev: MouseEvent) {
 }
 
 function onTabKeydown(ev: KeyboardEvent) {
-  const idx = tabs.findIndex((t) => t.id === bridge.activeTab.value);
+  const idx = tabs.value.findIndex((t) => t.id === bridge.activeTab.value);
   if (idx < 0) return;
   if (ev.key === 'ArrowDown' || ev.key === 'ArrowRight') {
     ev.preventDefault();
-    bridge.setActiveTab(tabs[(idx + 1) % tabs.length].id);
+    bridge.setActiveTab(tabs.value[(idx + 1) % tabs.value.length].id);
   } else if (ev.key === 'ArrowUp' || ev.key === 'ArrowLeft') {
     ev.preventDefault();
-    bridge.setActiveTab(tabs[(idx - 1 + tabs.length) % tabs.length].id);
+    bridge.setActiveTab(
+      tabs.value[(idx - 1 + tabs.value.length) % tabs.value.length].id,
+    );
   }
 }
 
@@ -110,10 +115,12 @@ watch(
         >
           <path d="M15 18l-6-6 6-6" />
         </svg>
-        Channels
+        {{ echoT('b33.paperShell.channels') }}
       </button>
       <div class="min-w-0 flex-1">
-        <p class="paper-editor-panel__eyebrow">Paper editor</p>
+        <p class="paper-editor-panel__eyebrow">
+          {{ echoT('b33.paperShell.eyebrow') }}
+        </p>
         <h2 class="paper-editor-panel__title truncate">
           {{ context.channelName }}
         </h2>
@@ -121,7 +128,7 @@ watch(
       <button
         type="button"
         class="paper-editor-panel__icon-btn"
-        :title="`Switch to ${nextAppearanceTitle}`"
+        :title="echoT('b33.paperShell.switchTo', { name: nextAppearanceTitle })"
         @click="context.toggleAppearance()"
       >
         <img
@@ -146,7 +153,7 @@ watch(
         ref="tabListRef"
         class="paper-editor-panel__tabs"
         role="tablist"
-        aria-label="Editor tools"
+        :aria-label="echoT('b33.paperShell.editorTools')"
         @keydown="onTabKeydown"
       >
         <button
@@ -255,7 +262,7 @@ watch(
             v-else
             class="paper-editor-tab__hint paper-editor-tab__hint--center"
           >
-            Switch to edit mode to customize the canvas.
+            {{ echoT('b33.paperShell.customizeHint') }}
           </p>
         </div>
         <div
@@ -300,7 +307,7 @@ watch(
     <footer class="paper-editor-panel__footer">
       <label class="paper-editor-panel__setting">
         <input v-model="hideFormatBarWhenEditorPinned" type="checkbox" />
-        <span>Hide bottom toolbar while editor is open</span>
+        <span>{{ echoT('b33.paperShell.hideToolbar') }}</span>
       </label>
     </footer>
   </aside>

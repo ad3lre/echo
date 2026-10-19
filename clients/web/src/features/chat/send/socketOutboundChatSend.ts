@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { ECHO_CONTENT_SCHEMA_VERSION } from '@shared/echoMessageFormatV2';
 import type {
@@ -87,9 +88,7 @@ export function sendOneOutboundChatMessage(opts: {
         new Error('Socket adapter missing'),
         { channelId: opts.channelId },
       );
-      throw new Error(
-        'Realtime connection is not ready. Wait for Echo to reconnect, then try again.',
-      );
+      throw new Error(echoT('chat.status.realtimeNotReady'));
     }
     const clientMessageId = opts.authorId
       ? opts.newClientMessageId()

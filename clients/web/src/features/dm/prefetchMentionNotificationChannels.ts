@@ -6,7 +6,7 @@ import {
   applyAttentionNotificationLevel,
   isDmChannelMentionUnread,
   isServerChannelUnreadForPingBubble,
-  resolveEchoUnreadUpperBoundMessageId,
+  resolveEchoUnreadMentionMessageId,
 } from '@shared/attentionPing';
 import {
   fetchEchoChannelMessage,
@@ -77,7 +77,7 @@ function mentionPrefetchSummaryPriority(input: {
       : isDmChannelMentionUnread(input.summary, effectiveRead ?? null);
   if (!unreadPing) return null;
 
-  const anchor = resolveEchoUnreadUpperBoundMessageId(input.summary);
+  const anchor = resolveEchoUnreadMentionMessageId(input.summary);
   const anchorMissing =
     !!anchor &&
     !cachedMessagesIncludeId(input.messagesByChannelId[channelId], anchor);
@@ -157,7 +157,7 @@ export function resolveMentionNotificationPrefetchTargets(input: {
     if (!unreadPing && cachedCount > 0) continue;
 
     const anchor = unreadPing
-      ? resolveEchoUnreadUpperBoundMessageId(summary)
+      ? resolveEchoUnreadMentionMessageId(summary)
       : undefined;
 
     seen.add(channelId);
@@ -229,11 +229,9 @@ export function mergeMentionNotificationPrefetchTargets(
  * Best-effort background hydrate for mention notification rows: first page when
  * empty, then paginate (or direct fetch) until an unread ping anchor is local.
  *
- * For Discord-bridged guild channels, attention often anchors on
- * `latestUnreadMessageId` (newest unread), which may be a non-mention that
- * arrived after the @ping. When `selfUserId` is provided we also stop once any
- * self-pinging mention is in the local cache — that is enough for the inbox
- * collector to replace the attention stub.
+ * Prefetch targets prefer `latestUnreadMentionMessageId` (the actual @ping).
+ * When `selfUserId` is provided we also stop once any self-pinging mention is
+ * in the local cache — enough for the inbox collector to replace the stub.
  */
 export async function prefetchMentionNotificationChannelBackground(
   token: string,

@@ -1,4 +1,8 @@
 import type { WorkspaceStateRefs } from './types';
+import {
+  patchEphemeralMoveUserBetweenChannels,
+  patchEphemeralRemoveUserFromChannel,
+} from '@/features/layout/echoWorkspace/workspaceVoiceEphemeral';
 
 export function useWorkspaceModerationActions(refs: WorkspaceStateRefs) {
   const {
@@ -8,6 +12,7 @@ export function useWorkspaceModerationActions(refs: WorkspaceStateRefs) {
     vcServerMuteByChannel,
     vcServerDeafenByChannel,
     categoriesByServer,
+    voiceEphemeralByChannelId,
   } = refs;
 
   function kickUserFromServer(_serverId: string, _userId: string): boolean {
@@ -115,29 +120,12 @@ export function useWorkspaceModerationActions(refs: WorkspaceStateRefs) {
     channelId: string,
     userId: string,
   ): boolean {
-    const list = categoriesByServer.value[serverId];
-    if (list === undefined) return false;
-    let changed = false;
-    const nextList = list.map((cat) => ({
-      ...cat,
-      channels: cat.channels.map((ch) => {
-        if (ch.id !== channelId || (ch.type !== 'voice' && ch.type !== 'stage'))
-          return ch;
-        const ids =
-          (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
-        if (!ids.includes(userId)) return ch;
-        changed = true;
-        return {
-          ...ch,
-          voiceParticipantIds: ids.filter((id) => id !== userId),
-        } as typeof ch;
-      }),
-    }));
-    if (!changed) return false;
-    categoriesByServer.value = {
-      ...categoriesByServer.value,
-      [serverId]: nextList,
-    };
+    if (categoriesByServer.value[serverId] === undefined) return false;
+    const next = new Map(voiceEphemeralByChannelId.value);
+    if (!patchEphemeralRemoveUserFromChannel(next, channelId, userId)) {
+      return false;
+    }
+    voiceEphemeralByChannelId.value = next;
     clearVcModerationForUserOnChannel(channelId, userId);
     return true;
   }
@@ -151,45 +139,30 @@ export function useWorkspaceModerationActions(refs: WorkspaceStateRefs) {
     if (fromChannelId === toChannelId) return true;
     const list = categoriesByServer.value[serverId];
     if (list === undefined) return false;
-    let fromHasUser = false;
     let toExists = false;
     for (const cat of list) {
       for (const ch of cat.channels) {
-        if (ch.type !== 'voice' && ch.type !== 'stage') continue;
-        const ids =
-          (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
-        if (ch.id === fromChannelId && ids.includes(userId)) fromHasUser = true;
-        if (ch.id === toChannelId) toExists = true;
+        if (
+          ch.id === toChannelId &&
+          (ch.type === 'voice' || ch.type === 'stage')
+        ) {
+          toExists = true;
+        }
       }
     }
-    if (!fromHasUser || !toExists) return false;
-    const nextList = list.map((cat) => ({
-      ...cat,
-      channels: cat.channels.map((ch) => {
-        if (ch.type !== 'voice' && ch.type !== 'stage') return ch;
-        const ids =
-          (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
-        if (ch.id === fromChannelId) {
-          if (!ids.includes(userId)) return ch;
-          return {
-            ...ch,
-            voiceParticipantIds: ids.filter((id) => id !== userId),
-          } as typeof ch;
-        }
-        if (ch.id === toChannelId) {
-          if (ids.includes(userId)) return ch;
-          return {
-            ...ch,
-            voiceParticipantIds: [...ids, userId],
-          } as typeof ch;
-        }
-        return ch;
-      }),
-    }));
-    categoriesByServer.value = {
-      ...categoriesByServer.value,
-      [serverId]: nextList,
-    };
+    if (!toExists) return false;
+    const next = new Map(voiceEphemeralByChannelId.value);
+    if (
+      !patchEphemeralMoveUserBetweenChannels(
+        next,
+        fromChannelId,
+        toChannelId,
+        userId,
+      )
+    ) {
+      return false;
+    }
+    voiceEphemeralByChannelId.value = next;
     clearVcModerationForUserOnChannel(fromChannelId, userId);
     return true;
   }

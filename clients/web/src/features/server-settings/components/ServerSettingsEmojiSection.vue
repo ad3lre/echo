@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, nextTick } from 'vue';
 import { storeToRefs } from 'pinia';
 import { safeImageUrl } from '@/features/layout/display/safeImageUrl';
@@ -287,7 +288,7 @@ watch(
             :value="props.emojiSearchQuery"
             class="roles-toolbar-search min-w-0 flex-1"
             type="text"
-            placeholder="Search emojis & stickers"
+            :placeholder="echoT('b07.emoji.searchPlaceholder')"
             @input="
               $emit(
                 'update:emojiSearchQuery',
@@ -302,7 +303,7 @@ watch(
             :disabled="!props.canImportMorePacks"
             @click="props.forkSelectedEmojiPack"
           >
-            Fork Pack
+            {{ echoT('b07.emoji.forkPack') }}
           </button>
         </div>
 
@@ -381,10 +382,10 @@ watch(
                 </div>
                 <div class="min-w-0">
                   <div class="truncate font-semibold text-fg text-sm">
-                    Pack settings
+                    {{ echoT('b07.emoji.packSettings') }}
                   </div>
                   <div class="truncate text-[11px] text-fg-subtle">
-                    Marketplace &amp; listing
+                    {{ echoT('b07.emoji.marketplaceListing') }}
                   </div>
                 </div>
               </div>
@@ -454,7 +455,7 @@ watch(
                       {{ s.name }}
                     </div>
                     <div class="truncate text-[11px] text-fg-subtle">
-                      Sticker
+                      {{ echoT('b07.emoji.sticker') }}
                     </div>
                   </div>
                 </div>
@@ -491,10 +492,10 @@ watch(
                 </div>
                 <div class="min-w-0">
                   <div class="truncate font-semibold text-fg text-sm">
-                    Add emoji
+                    {{ echoT('b07.emoji.addEmoji') }}
                   </div>
                   <div class="truncate text-[11px] text-fg-subtle">
-                    Click, double-click to browse, or drop an image
+                    {{ echoT('b07.emoji.addEmojiHint') }}
                   </div>
                 </div>
               </div>
@@ -523,10 +524,10 @@ watch(
                 </div>
                 <div class="min-w-0">
                   <div class="truncate font-semibold text-fg text-sm">
-                    Add sticker
+                    {{ echoT('b07.emoji.addSticker') }}
                   </div>
                   <div class="truncate text-[11px] text-fg-subtle">
-                    PNG, APNG, or GIF · auto-compressed to 512KB
+                    {{ echoT('b07.emoji.stickerHint') }}
                   </div>
                 </div>
               </div>
@@ -540,7 +541,7 @@ watch(
             "
             class="px-2 py-6 text-center text-sm text-fg-subtle"
           >
-            No emojis or stickers match.
+            {{ echoT('b07.emoji.noMatch') }}
           </div>
         </div>
       </div>
@@ -564,8 +565,8 @@ watch(
             >
               {{
                 props.selectedEmojiPack.source === 'custom'
-                  ? 'Server Pack'
-                  : 'Market'
+                  ? echoT('b07.emoji.serverPack')
+                  : echoT('b07.emoji.market')
               }}
             </div>
           </div>
@@ -574,12 +575,13 @@ watch(
             <div
               class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
             >
-              Marketplace listing
+              {{ echoT('b07.emoji.marketplaceListingTitle') }}
             </div>
-            <label class="block text-xs text-fg-subtle"
-              >Description (min
-              {{ props.emojiPackDescriptionMinLen }} chars)</label
-            >
+            <label class="block text-xs text-fg-subtle">{{
+              echoT('b07.emoji.descMin', {
+                n: props.emojiPackDescriptionMinLen,
+              })
+            }}</label>
             <textarea
               :value="props.packEditDescription"
               rows="3"
@@ -594,8 +596,8 @@ watch(
             <EmojiPackTagsField
               v-model="packEditTagsModel"
               flat-chrome
-              label="Tags (up to 8)"
-              hint="Type each tag and press Enter. Paste comma- or line-separated lists still works."
+              :label="echoT('b07.emoji.tagsLabel')"
+              :hint="echoT('b07.emoji.tagsHint')"
             />
             <label
               class="flex cursor-pointer items-center gap-2 text-sm text-fg-soft"
@@ -611,21 +613,25 @@ watch(
                   )
                 "
               />
-              List this pack on the public emoji market
+              {{ echoT('b07.emoji.listPublic') }}
             </label>
             <button
               type="button"
               class="rounded-lg bg-glass-2 px-3 py-2 text-xs font-semibold text-fg transition-colors hover:bg-glass-active"
               @click="props.saveCustomPackMarketDetails()"
             >
-              Save pack settings
+              {{ echoT('b07.emoji.savePackSettings') }}
             </button>
           </div>
 
           <div v-else-if="showAddEmojiPanel" class="space-y-4">
             <div class="text-sm text-fg-subtle">
-              {{ packExpressionCount(props.selectedEmojiPack) }} /
-              {{ props.maxEmojisPerPack }} expressions
+              {{
+                echoT('b07.emoji.expressionsCount', {
+                  count: packExpressionCount(props.selectedEmojiPack),
+                  max: props.maxEmojisPerPack,
+                })
+              }}
             </div>
             <button
               type="button"
@@ -644,11 +650,14 @@ watch(
               </span>
               <div class="min-w-0 text-left">
                 <div class="text-sm font-semibold text-fg">
-                  {{ isEmojiDropActive ? 'Drop image here' : 'Add an emoji' }}
+                  {{
+                    isEmojiDropActive
+                      ? echoT('b07.emoji.dropImageHere')
+                      : echoT('b07.emoji.addAnEmoji')
+                  }}
                 </div>
                 <div class="mt-0.5 text-xs text-fg-subtle">
-                  Images are fitted inside square slots · auto-compressed to
-                  512KB (quality-first)
+                  {{ echoT('b07.emoji.imagesFitted') }}
                 </div>
               </div>
             </button>
@@ -656,8 +665,12 @@ watch(
 
           <div v-else-if="showAddStickerPanel" class="space-y-4">
             <div class="text-sm text-fg-subtle">
-              {{ packExpressionCount(props.selectedEmojiPack) }} /
-              {{ props.maxEmojisPerPack }} expressions
+              {{
+                echoT('b07.emoji.expressionsCount', {
+                  count: packExpressionCount(props.selectedEmojiPack),
+                  max: props.maxEmojisPerPack,
+                })
+              }}
             </div>
             <button
               type="button"
@@ -670,9 +683,11 @@ watch(
                 +
               </span>
               <div class="min-w-0 text-left">
-                <div class="text-sm font-semibold text-fg">Add a sticker</div>
+                <div class="text-sm font-semibold text-fg">
+                  {{ echoT('b07.emoji.addASticker') }}
+                </div>
                 <div class="mt-0.5 text-xs text-fg-subtle">
-                  PNG, APNG, or GIF · auto-compressed to 512KB where possible
+                  {{ echoT('b07.emoji.stickerHintWhere') }}
                 </div>
               </div>
             </button>
@@ -680,8 +695,12 @@ watch(
 
           <template v-else-if="showEmojiDetailPanel">
             <div class="text-sm text-fg-subtle">
-              {{ packExpressionCount(props.selectedEmojiPack) }} /
-              {{ props.maxEmojisPerPack }} expressions
+              {{
+                echoT('b07.emoji.expressionsCount', {
+                  count: packExpressionCount(props.selectedEmojiPack),
+                  max: props.maxEmojisPerPack,
+                })
+              }}
             </div>
 
             <div class="space-y-5">
@@ -705,7 +724,7 @@ watch(
                   <div
                     class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
                   >
-                    Name
+                    {{ echoT('b07.emoji.name') }}
                   </div>
                   <input
                     :value="props.selectedEmoji!.name"
@@ -723,17 +742,19 @@ watch(
                     v-if="props.selectedEmojiPack.source !== 'custom'"
                     class="mt-1 text-[11px] text-fg-subtle"
                   >
-                    Fork this market pack to rename emojis.
+                    {{ echoT('b07.emoji.forkToRename') }}
                   </div>
                 </div>
                 <div>
                   <div
                     class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
                   >
-                    Usage
+                    {{ echoT('b07.emoji.usage') }}
                   </div>
                   <div class="mt-1 font-semibold text-fg-soft">
-                    {{ props.selectedEmoji!.used }} uses
+                    {{
+                      echoT('b07.emoji.uses', { n: props.selectedEmoji!.used })
+                    }}
                   </div>
                 </div>
               </div>
@@ -745,14 +766,18 @@ watch(
               class="echo-destructive-fill mt-auto w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors"
               @click="props.removeEmoji(props.selectedEmoji!.id)"
             >
-              Delete Emoji
+              {{ echoT('b07.emoji.deleteEmoji') }}
             </button>
           </template>
 
           <template v-else-if="showStickerDetailPanel">
             <div class="text-sm text-fg-subtle">
-              {{ packExpressionCount(props.selectedEmojiPack) }} /
-              {{ props.maxEmojisPerPack }} expressions
+              {{
+                echoT('b07.emoji.expressionsCount', {
+                  count: packExpressionCount(props.selectedEmojiPack),
+                  max: props.maxEmojisPerPack,
+                })
+              }}
             </div>
 
             <div class="space-y-5">
@@ -773,7 +798,7 @@ watch(
                   <div
                     class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
                   >
-                    Name
+                    {{ echoT('b07.emoji.name') }}
                   </div>
                   <div class="mt-2 font-semibold text-fg-soft">
                     :{{ props.selectedSticker!.name }}:
@@ -783,7 +808,7 @@ watch(
                   <div
                     class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
                   >
-                    Format
+                    {{ echoT('b07.emoji.format') }}
                   </div>
                   <div class="mt-1 font-semibold uppercase text-fg-soft">
                     {{ props.selectedSticker!.format }}
@@ -793,10 +818,14 @@ watch(
                   <div
                     class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
                   >
-                    Usage
+                    {{ echoT('b07.emoji.usage') }}
                   </div>
                   <div class="mt-1 font-semibold text-fg-soft">
-                    {{ props.selectedSticker!.used }} uses
+                    {{
+                      echoT('b07.emoji.uses', {
+                        n: props.selectedSticker!.used,
+                      })
+                    }}
                   </div>
                 </div>
               </div>
@@ -808,16 +837,15 @@ watch(
               class="echo-destructive-fill mt-auto w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors"
               @click="props.removeSticker(props.selectedSticker!.id)"
             >
-              Delete Sticker
+              {{ echoT('b07.emoji.deleteSticker') }}
             </button>
           </template>
 
           <div v-else class="py-8 text-center text-sm text-fg-subtle">
-            <span v-if="props.selectedEmojiPack.source === 'custom'"
-              >Choose an emoji, sticker, pack settings, or add from the
-              list.</span
-            >
-            <span v-else>Select an emoji from the list.</span>
+            <span v-if="props.selectedEmojiPack.source === 'custom'">{{
+              echoT('b07.emoji.chooseItem')
+            }}</span>
+            <span v-else>{{ echoT('b07.emoji.selectEmoji') }}</span>
           </div>
 
           <div
@@ -839,7 +867,7 @@ watch(
           v-else
           class="flex h-full items-center justify-center py-16 text-sm text-fg-subtle"
         >
-          No pack selected.
+          {{ echoT('b07.emoji.noPackSelected') }}
         </div>
       </div>
     </div>
@@ -854,11 +882,13 @@ watch(
         @click.stop
       >
         <div class="flex shrink-0 items-center justify-between gap-3 px-5 pt-5">
-          <div class="text-base font-semibold text-fg">Add Emoji Pack</div>
+          <div class="text-base font-semibold text-fg">
+            {{ echoT('b07.emoji.addEmojiPack') }}
+          </div>
           <button
             type="button"
             class="rounded-lg px-2 py-1 text-lg leading-none text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
-            aria-label="Close"
+            :aria-label="echoT('b07.emoji.close')"
             @click="props.closeEmojiPackModal"
           >
             ×
@@ -868,7 +898,7 @@ watch(
           <div
             class="emoji-pack-modal__tab-strip"
             role="tablist"
-            aria-label="Pack source"
+            :aria-label="echoT('b07.emoji.packSource')"
           >
             <button
               type="button"
@@ -881,7 +911,7 @@ watch(
               :aria-selected="props.emojiPackModalTab === 'market'"
               @click="$emit('update:emojiPackModalTab', 'market')"
             >
-              Market
+              {{ echoT('b07.emoji.market') }}
             </button>
             <button
               type="button"
@@ -894,7 +924,7 @@ watch(
               :aria-selected="props.emojiPackModalTab === 'create'"
               @click="$emit('update:emojiPackModalTab', 'create')"
             >
-              Create Pack
+              {{ echoT('b07.emoji.createPack') }}
             </button>
           </div>
         </div>
@@ -922,7 +952,7 @@ watch(
               :value="props.emojiPackMarketSearch"
               type="text"
               class="server-input w-full"
-              placeholder="Search market packs..."
+              :placeholder="echoT('b07.emoji.searchMarket')"
               :disabled="
                 !props.canImportMorePacks || props.marketEmojiPacksLoading
               "
@@ -941,7 +971,7 @@ watch(
                 class="h-9 w-9 shrink-0 animate-spin rounded-full border-2 border-border border-t-accent/55"
                 aria-hidden="true"
               />
-              <span>Loading market…</span>
+              <span>{{ echoT('b07.emoji.loadingMarket') }}</span>
             </div>
             <div
               v-else-if="props.marketEmojiPacksError"
@@ -953,7 +983,7 @@ watch(
                 class="mt-3 rounded-lg bg-glass-2 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-glass-hover"
                 @click="props.refreshMarketEmojiPacks()"
               >
-                Retry
+                {{ echoT('b07.emoji.retry') }}
               </button>
             </div>
             <div
@@ -999,8 +1029,12 @@ watch(
                             ? `${pack.authorServerName} · `
                             : ''
                         }}
-                        {{ pack.totalUseCount ?? 0 }} uses ·
-                        {{ pack.emojiCount ?? pack.emojis?.length ?? 0 }} emojis
+                        {{
+                          echoT('b07.emoji.usesEmojis', {
+                            uses: pack.totalUseCount ?? 0,
+                            emojis: pack.emojiCount ?? pack.emojis?.length ?? 0,
+                          })
+                        }}
                       </div>
                     </div>
                   </div>
@@ -1011,8 +1045,8 @@ watch(
                 >
                   {{
                     props.canImportMorePacks
-                      ? 'No packs match.'
-                      : 'Pack limit reached.'
+                      ? echoT('b07.emoji.noPacksMatch')
+                      : echoT('b07.emoji.packLimit')
                   }}
                 </div>
               </div>
@@ -1048,9 +1082,14 @@ watch(
                     <div class="mt-0.5 text-[11px] text-fg-subtle">
                       {{
                         selectedMarketPreviewPack.authorServerName ??
-                        'Community pack'
+                        echoT('b07.emoji.communityPack')
                       }}
-                      · {{ selectedMarketPreviewPack.totalUseCount ?? 0 }} uses
+                      ·
+                      {{
+                        echoT('b07.emoji.uses', {
+                          n: selectedMarketPreviewPack.totalUseCount ?? 0,
+                        })
+                      }}
                     </div>
                     <div class="mt-1 text-sm text-fg-subtle">
                       {{ selectedMarketPreviewPack.description }}
@@ -1076,7 +1115,7 @@ watch(
                 <div
                   class="mt-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
                 >
-                  Included Emojis
+                  {{ echoT('b07.emoji.includedEmojis') }}
                 </div>
                 <div
                   class="emoji-pack-preview-grid mt-2 grid max-h-44 grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-1.5 overflow-y-auto pr-1 custom-scrollbar"
@@ -1106,14 +1145,14 @@ watch(
                     props.importMarketEmojiPack(selectedMarketPreviewPack.id)
                   "
                 >
-                  Import Pack
+                  {{ echoT('b07.emoji.importPack') }}
                 </button>
               </div>
               <div
                 v-else
                 class="emoji-pack-modal__surface flex min-h-[200px] items-center justify-center p-4 text-center text-sm text-fg-subtle"
               >
-                Select a pack to preview.
+                {{ echoT('b07.emoji.selectPackPreview') }}
               </div>
             </div>
           </div>
@@ -1123,14 +1162,14 @@ watch(
               <label
                 class="settings-label mb-2 block"
                 for="emoji-pack-create-name"
-                >Pack name</label
+                >{{ echoT('b07.emoji.packName') }}</label
               >
               <input
                 id="emoji-pack-create-name"
                 :value="props.customEmojiPackName"
                 type="text"
                 class="server-input w-full"
-                placeholder="New server pack name..."
+                :placeholder="echoT('b07.emoji.newPackNamePh')"
                 @input="
                   $emit(
                     'update:customEmojiPackName',
@@ -1139,15 +1178,16 @@ watch(
                 "
               />
             </div>
-            <label class="block text-xs text-fg-subtle"
-              >Description (required, min
-              {{ props.emojiPackDescriptionMinLen }} characters)</label
-            >
+            <label class="block text-xs text-fg-subtle">{{
+              echoT('b07.emoji.descRequiredMin', {
+                n: props.emojiPackDescriptionMinLen,
+              })
+            }}</label>
             <textarea
               :value="props.customEmojiPackDescription"
               rows="3"
               class="server-input w-full resize-y"
-              placeholder="What is this pack for? Who is it for?"
+              :placeholder="echoT('b07.emoji.packDescPh')"
               @input="
                 $emit(
                   'update:customEmojiPackDescription',
@@ -1158,8 +1198,8 @@ watch(
             <EmojiPackTagsField
               v-model="customEmojiPackTagsModel"
               flat-chrome
-              label="Tags (optional, up to 8)"
-              hint="Type each tag and press Enter. Comma or newline in pasted text splits into tags."
+              :label="echoT('b07.emoji.tagsOptional')"
+              :hint="echoT('b07.emoji.tagsHint2')"
             />
             <label
               class="flex cursor-pointer items-center gap-2 text-sm text-fg-soft"
@@ -1175,8 +1215,7 @@ watch(
                   )
                 "
               />
-              List on public market (requires description; appears after you add
-              emojis)
+              {{ echoT('b07.emoji.listOnMarket') }}
             </label>
             <button
               type="button"
@@ -1184,12 +1223,12 @@ watch(
               :disabled="!props.canImportMorePacks"
               :title="
                 !props.canImportMorePacks
-                  ? `Maximum of ${props.maxEmojiPacks} packs per server`
+                  ? echoT('b07.emoji.maxPacks', { n: props.maxEmojiPacks })
                   : undefined
               "
               @click="props.createCustomEmojiPack"
             >
-              Create Pack
+              {{ echoT('b07.emoji.createPack') }}
             </button>
           </div>
         </div>

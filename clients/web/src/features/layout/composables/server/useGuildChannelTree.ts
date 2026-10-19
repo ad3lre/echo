@@ -1,4 +1,10 @@
-import { computed, watch, type ComputedRef, type Ref } from 'vue';
+import {
+  computed,
+  watch,
+  type ComputedRef,
+  type Ref,
+  type ShallowRef,
+} from 'vue';
 import type { RolePreviewState } from '@/features/server-settings/composables/useRolePreview';
 import type { useServerStore } from '@/features/layout/server';
 import type { WorkspaceStateApi } from '@/features/layout/echoWorkspace/types';
@@ -11,6 +17,13 @@ import type { ChannelPermissionKey, ChannelSummary } from '@shared/types';
 import type { ChannelCategory } from '@/features/layout/channels/useChannels';
 import type { Server } from '@shared/types/server';
 import { logShellNav } from '@/features/layout/shellNavDebugLog';
+import {
+  emptyVoiceEphemeralMap,
+  mergeVoiceEphemeralIntoCategories,
+  type VoiceChannelEphemeral,
+} from '@/features/layout/echoWorkspace/workspaceVoiceEphemeral';
+
+const EMPTY_VOICE_EPHEMERAL = emptyVoiceEphemeralMap();
 
 export function useGuildChannelTree(deps: {
   serverStore: ReturnType<typeof useServerStore>;
@@ -19,6 +32,10 @@ export function useGuildChannelTree(deps: {
   rolePreview: ComputedRef<RolePreviewState | null>;
   isRolePreviewActiveForServer: ComputedRef<boolean>;
   previewHasUiPermission: (permission: string) => boolean;
+  /** When omitted (tests), voice fields on channel rows are left as-is / empty. */
+  voiceEphemeralByChannelId?:
+    | ShallowRef<Map<string, VoiceChannelEphemeral>>
+    | Ref<Map<string, VoiceChannelEphemeral>>;
 }) {
   const {
     serverStore,
@@ -27,13 +44,18 @@ export function useGuildChannelTree(deps: {
     rolePreview,
     isRolePreviewActiveForServer,
     previewHasUiPermission,
+    voiceEphemeralByChannelId,
   } = deps;
 
   const rawCategoriesForServer = computed(() => {
     const sid =
       selectedServer.value?.id ?? serverStore.selectedServerId ?? null;
     if (!sid || sid === 'echo') return [];
-    return workspace.categoriesByServer.value[sid] ?? [];
+    const structural = workspace.categoriesByServer.value[sid] ?? [];
+    return mergeVoiceEphemeralIntoCategories(
+      structural,
+      voiceEphemeralByChannelId?.value ?? EMPTY_VOICE_EPHEMERAL,
+    );
   });
 
   function resolvePreviewChannelPermission(

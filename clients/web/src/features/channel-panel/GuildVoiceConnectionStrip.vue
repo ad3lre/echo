@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, ref, unref, watch } from 'vue';
 import { useEchoWorkspace } from '@/features/layout/echoWorkspace/useEchoWorkspace';
 import { dispatchAppToast } from '@/features/layout/failures/controllerMissingAction';
@@ -273,8 +274,8 @@ async function toggleVcMute() {
   if (s.serverMuted || s.serverDeafened) {
     dispatchAppToast(
       s.serverDeafened
-        ? 'You are server deafened. A moderator must undeafen you.'
-        : 'You are server muted. A moderator must unmute you.',
+        ? echoT('b43.voiceStrip.serverDeafened')
+        : echoT('b43.voiceStrip.serverMuted'),
       'warning',
     );
     return;
@@ -288,14 +289,14 @@ async function toggleVcMute() {
     if (sid && token && isEchoGraphId(sid)) {
       try {
         await requestEchoStageSpeak(token, sid, row.id);
-        dispatchAppToast(
-          'Request to speak sent. A moderator can invite you to the stage.',
-          'success',
-        );
+        dispatchAppToast(echoT('b43.voiceStrip.speakSent'), 'success');
       } catch (e) {
         const msg =
-          e instanceof Error ? e.message : "Something didn't work. Try again.";
-        dispatchAppToast(`Could not request to speak: ${msg}`, 'warning');
+          e instanceof Error ? e.message : echoT('b43.voiceStrip.genericError');
+        dispatchAppToast(
+          echoT('b43.voiceStrip.speakFailed', { msg }),
+          'warning',
+        );
       }
     }
     return;
@@ -308,10 +309,7 @@ async function toggleVcMute() {
 function toggleVcDeafen() {
   const s = vcSelfServerModeration.value;
   if (s.serverDeafened) {
-    dispatchAppToast(
-      'You are server deafened. A moderator must undeafen you.',
-      'warning',
-    );
+    dispatchAppToast(echoT('b43.voiceStrip.serverDeafened'), 'warning');
     return;
   }
   const next = !(props.vcDeafened ?? false);

@@ -81,13 +81,13 @@ xcodebuild -project EchoApple.xcodeproj -scheme EchoMacOS \
 - Domain/Persistence/Networking stay free of Features/UIKit/SwiftUI imports
 - No `print(` in Apps/Modules
 - EchoFeatures raw `Text(`/`Button(`/`Label(`/`TextField(` English literals must use `EchoCopy` (theme/welcome/markdown allowlisted)
-- `Localizable.xcstrings` keys must include **en** and **es** localizations
+- `Localizable.xcstrings` keys must include **en**, **es**, **pt-BR** (Brazilian Portuguese), and **de** (German) localizations
 
 Local emergency bypass only: `ECHO_APPLE_MAINTAINABILITY_BYPASS=1`.
 
 User-facing copy for EchoFeatures goes through `EchoCopy` +
 `Modules/EchoFeatures/Resources/Localizable.xcstrings` (SPM
-`defaultLocalization: "en"`, second locale **es**). Add keys to the catalog when introducing new
+`defaultLocalization: "en"`, additional locales **es**, **pt-BR** and **de**). Add keys to the catalog when introducing new
 English UI strings. Prefer `EchoCopy.format` for interpolations.
 
 `project.yml` is the source of truth. Regenerate the Xcode project after

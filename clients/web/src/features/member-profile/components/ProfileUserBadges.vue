@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import {
   echoPublicBadgeLabel,
@@ -42,7 +43,7 @@ function badgeIconUrl(id: EchoPublicBadgeId): string | null {
   <ul
     class="profile-user-badges inline-flex list-none flex-wrap items-center gap-1.5 p-0 m-0"
     :class="sizeClass"
-    aria-label="Profile badges"
+    :aria-label="echoT('b44.badges.profile')"
   >
     <li v-for="id in normalized" :key="id">
       <span

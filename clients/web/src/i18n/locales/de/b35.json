@@ -1,0 +1,77 @@
+{
+  "voiceMirror": {
+    "loadError": "Einstellungen für die Sprachspiegelung konnten nicht geladen werden.",
+    "saveError": "Einstellungen für die Sprachspiegelung konnten nicht gespeichert werden.",
+    "title": "Discord-Sprachspiegelung",
+    "desc": "Wenn aktiviert, zeigt Echo live die Discord-Sprachlisten für Sprachkanäle in dieser Kategorie. Der Sprachbeitritt in Echo bleibt deaktiviert – nutze Discord, um an der Sprache teilzunehmen.",
+    "signIn": "Melde dich an, um die Sprachspiegelung zu konfigurieren.",
+    "guest": "Für Gastsitzungen nicht verfügbar.",
+    "enable": "Discord-Sprachaktivität für diese Kategorie spiegeln",
+    "catId": "Discord-Kategorie-ID (optionaler Filter)",
+    "catIdPh": "Leer lassen, um alle Discord-Sprachkanäle in diese Echo-Kategorie zu spiegeln",
+    "catIdHelp": "Wenn gesetzt, werden nur Discord-Sprachkanäle unter dieser Discord-Kategorie-ID in diese Echo-Kategorie gespiegelt. Entwicklermodus → Rechtsklick auf die Discord-Kategorie → ID kopieren."
+  },
+  "common": {
+    "loading": "Wird geladen…",
+    "saving": "Wird gespeichert…",
+    "save": "Speichern"
+  },
+  "ytLive": {
+    "badge": "YouTube Live",
+    "openStream": "Stream öffnen",
+    "goLive": "Auf YouTube live gehen",
+    "modHint": "Ein Moderator mit der Berechtigung „Kanäle verwalten“ kann den YouTube-Livestream starten.",
+    "layoutTitle": "An YouTube gesendetes Programmlayout",
+    "grid": "Raster",
+    "spotlight": "Spotlight",
+    "screen": "Bildschirm zuerst",
+    "end": "Live beenden"
+  },
+  "lobby": {
+    "close": "Schließen",
+    "voiceChannel": "Sprachkanal",
+    "voice": "Sprache",
+    "empty": "Noch niemand hier – sei der Erste.",
+    "join": "Sprache beitreten",
+    "unmuteMic": "Mikrofon einschalten",
+    "muteMic": "Mikrofon stummschalten",
+    "unmute": "Stummschaltung aufheben",
+    "mute": "Stummschalten",
+    "openChat": "Chat öffnen, ohne beizutreten",
+    "chat": "Chat",
+    "settings": "Einstellungen"
+  },
+  "ticket": {
+    "subjectRequired": "Betreff ist erforderlich",
+    "categoryRequired": "Bitte wähle eine Kategorie",
+    "failed": "Ticket konnte nicht erstellt werden",
+    "title": "Ticket erstellen",
+    "intro": "Sende eine Meldung oder Anfrage. Es wird ein privater Kanal erstellt, in dem du dich mit dem Server-Team austauschen kannst.",
+    "subject": "Betreff *",
+    "subjectPh": "Kurze Beschreibung deines Anliegens",
+    "select": "Auswählen...",
+    "cancel": "Abbrechen",
+    "creating": "Wird erstellt...",
+    "create": "Ticket erstellen"
+  },
+  "ringtone": {
+    "waiting": "Wartemusik",
+    "choose": "Klingelton wählen",
+    "none": "Keine Klingeltöne verfügbar",
+    "label": "Klingelton",
+    "unmute": "Klingelton einschalten",
+    "vol": "Lautst.",
+    "closePicker": "Klingelton-Auswahl schließen"
+  },
+  "bubble": {
+    "newerFormat": "Diese Nachricht verwendet ein neueres Format und konnte nicht angezeigt werden.",
+    "cannotDisplay": "Diese Nachricht konnte nicht angezeigt werden.",
+    "noImageToCopy": "Kein Bild zum Kopieren",
+    "deleteTitle": "Diese Nachricht löschen?",
+    "firstUnread": "Erste ungelesene Nachricht",
+    "new": "Neu",
+    "seeMore": "Mehr anzeigen",
+    "forwarded": "Weitergeleitet",
+    "jump": "Zur Nachricht springen"
+  }
+}

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import type { MoreServersMockServer } from '@/features/layout/composables/more-servers/useMoreServers';
 import type { MoreServerWidgetFolder } from '@/features/layout/composables/more-servers/useMoreServerFolders';
@@ -78,7 +79,7 @@ defineProps<{
             v-if="draggingServerId && folders.length > 0"
             class="mt-1.5 flex flex-wrap justify-center gap-1"
             role="group"
-            aria-label="Drop into widget folder"
+            :aria-label="echoT('b39.moreServers.compact.dropIntoFolderGroup')"
           >
             <button
               v-for="f in folders"
@@ -97,7 +98,9 @@ defineProps<{
                   ? 'border-emerald-400/60 bg-emerald-500/12 text-fg'
                   : 'border-[color-mix(in_srgb,var(--border)_50%,transparent)] text-fg-subtle'
               "
-              :title="'Drop into ' + f.name"
+              :title="
+                echoT('b39.moreServers.compact.dropInto', { name: f.name })
+              "
               @dragover.prevent="onFolderDragOverCompact(f.id, 0, $event)"
               @drop.prevent="onDrop"
             >
@@ -126,15 +129,16 @@ defineProps<{
           <span
             v-if="isPinned(row.server.id)"
             class="compact-pinned-dot"
-            title="Pinned to rail"
+            :title="echoT('b39.moreServers.compact.pinned')"
           />
           <button
             type="button"
             class="compact-circle overflow-hidden"
             draggable="true"
             :title="
-              row.server.name +
-              ' — drag to move · right-click for folder options'
+              echoT('b39.moreServers.compact.serverTitle', {
+                name: row.server.name,
+              })
             "
             @click="openServer(row.server.id)"
             @contextmenu.prevent="openServerContextMenu(row.server, $event)"
@@ -191,23 +195,20 @@ defineProps<{
                   isFolderExpandedInCompact(row.folder.id) ? 'true' : 'false'
                 "
                 :aria-label="
-                  row.folder.name +
-                  ', ' +
-                  row.servers.length +
-                  ' servers. ' +
-                  (isFolderExpandedInCompact(row.folder.id)
-                    ? 'Click to collapse.'
-                    : 'Click to expand.')
+                  echoT(
+                    isFolderExpandedInCompact(row.folder.id)
+                      ? 'b39.moreServers.compact.folderAria.expanded'
+                      : 'b39.moreServers.compact.folderAria.collapsed',
+                    { name: row.folder.name, count: row.servers.length },
+                  )
                 "
                 :title="
-                  row.folder.name +
-                  ' — ' +
-                  row.servers.length +
-                  ' server(s). Click to ' +
-                  (isFolderExpandedInCompact(row.folder.id)
-                    ? 'collapse'
-                    : 'expand') +
-                  '; drag to reorder folder.'
+                  echoT(
+                    isFolderExpandedInCompact(row.folder.id)
+                      ? 'b39.moreServers.compact.folderTitle.expanded'
+                      : 'b39.moreServers.compact.folderTitle.collapsed',
+                    { name: row.folder.name, count: row.servers.length },
+                  )
                 "
                 @click="toggleFolderExpandedInCompact(row.folder.id)"
                 @contextmenu.prevent="
@@ -272,7 +273,7 @@ defineProps<{
                 v-if="!row.servers.length"
                 class="px-1 text-center text-[10px] leading-snug text-fg-subtle"
               >
-                Empty — drag a server here.
+                {{ echoT('b39.moreServers.compact.emptyFolder') }}
               </p>
               <div
                 v-for="(s, si) in row.servers"
@@ -299,14 +300,16 @@ defineProps<{
                 <span
                   v-if="isPinned(s.id)"
                   class="compact-pinned-dot"
-                  title="Pinned to rail"
+                  :title="echoT('b39.moreServers.compact.pinned')"
                 />
                 <button
                   type="button"
                   class="compact-circle overflow-hidden"
                   draggable="true"
                   :title="
-                    s.name + ' — drag to move · right-click for folder options'
+                    echoT('b39.moreServers.compact.serverTitle', {
+                      name: s.name,
+                    })
                   "
                   @click="openServer(s.id)"
                   @contextmenu.prevent="openServerContextMenu(s, $event)"

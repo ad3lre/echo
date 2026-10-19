@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import type {
   MessageWithAuthor,
@@ -47,7 +48,10 @@ const mediaCollageItems = computed<CollageSourceItem[]>(() =>
       return {
         url: a.url,
         storageKey: a.storageKey,
-        alt: a.filename || props.message.content || (gif ? 'GIF' : 'Image'),
+        alt:
+          a.filename ||
+          props.message.content ||
+          (gif ? 'GIF' : echoT('b44.attach.image')),
         spoiler: a.spoiler,
         isGif: gif,
       };
@@ -61,7 +65,9 @@ const legacyImageItems = computed<CollageSourceItem[]>(() => {
   return [
     {
       url,
-      alt: props.message.content || (props.message.gif ? 'GIF' : 'Image'),
+      alt:
+        props.message.content ||
+        (props.message.gif ? 'GIF' : echoT('b44.attach.image')),
       spoiler: props.message.imageSpoiler,
       isGif: props.message.gif === true || isLikelyGifUrl(url),
     },
@@ -113,7 +119,7 @@ function mediaAspectStyle(
           <div
             class="text-[10px] font-semibold uppercase tracking-wide text-muted"
           >
-            Lottie sticker
+            {{ echoT('b44.attach.lottieSticker') }}
           </div>
           <a
             :href="safeImageUrl(sticker.url)"
@@ -171,8 +177,10 @@ function mediaAspectStyle(
           class="media-spoiler-btn chat-focus-ring inline-flex items-center gap-2 rounded-lg px-4 py-3 bg-overlay-heavy hover:bg-overlay-heavy text-amber-400/90 hover:text-amber-400 text-xs font-semibold uppercase tracking-wider transition-colors"
           @click="mediaRevealed = true"
         >
-          <span>Spoiler</span>
-          <span class="text-[10px] opacity-80">— Click to reveal</span>
+          <span>{{ echoT('chat.format.spoiler') }}</span>
+          <span class="text-[10px] opacity-80">{{
+            echoT('b44.attach.clickToReveal')
+          }}</span>
         </button>
         <div v-else class="message-video-shell">
           <MessageChatVideo :url="message.videoUrl" />
@@ -181,7 +189,7 @@ function mediaAspectStyle(
             class="media-spoiler-hide chat-focus-ring absolute right-3 top-3 rounded px-2 py-1 text-[10px] font-semibold uppercase bg-overlay-heavy text-amber-400 hover:bg-overlay-heavy z-10"
             @click="mediaRevealed = false"
           >
-            Hide
+            {{ echoT('b44.attach.hide') }}
           </button>
         </div>
       </div>

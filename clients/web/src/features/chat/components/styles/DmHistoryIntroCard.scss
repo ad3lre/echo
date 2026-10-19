@@ -26,9 +26,9 @@
 }
 
 .dm-history-intro__status {
-  /* Discord-style: status sits on the avatar ring, not a separate pill. */
-  bottom: -0.05rem;
-  right: -0.05rem;
+  /* Discord-style: status cuts into the avatar rim, not perched outside. */
+  bottom: 0.1rem;
+  right: 0.1rem;
 }
 
 .dm-history-intro__title {

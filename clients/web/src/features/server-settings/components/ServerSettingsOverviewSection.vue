@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   nextTick,
@@ -114,7 +115,9 @@ function onBannerBlackoutInput(e: Event) {
 const channelIconResolver = useChannelIconResolver(serverIdRef);
 
 const welcomeChannelDropdownOptions = computed((): EchoDropdownOption[] => {
-  const opts: EchoDropdownOption[] = [{ value: '', label: 'None' }];
+  const opts: EchoDropdownOption[] = [
+    { value: '', label: echoT('b24.overview.none') },
+  ];
   for (const cat of props.categories ?? []) {
     for (const ch of cat.channels ?? []) {
       if (ch.type !== 'text') continue;
@@ -242,10 +245,14 @@ function saveReposition(nextY: number) {
     class="server-settings-overview--borderless grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]"
   >
     <div class="server-settings-panel min-w-0 rounded-2xl p-5">
-      <div class="settings-subtitle mb-4">Server Details</div>
+      <div class="settings-subtitle mb-4">
+        {{ echoT('b24.overview.serverDetails') }}
+      </div>
       <div class="space-y-4">
         <div>
-          <label class="settings-label">Server Name</label>
+          <label class="settings-label">{{
+            echoT('b24.overview.serverName')
+          }}</label>
           <input
             v-model="props.form.name"
             class="server-input mt-2 w-full"
@@ -255,7 +262,9 @@ function saveReposition(nextY: number) {
           />
         </div>
         <div>
-          <label class="settings-label">Description</label>
+          <label class="settings-label">{{
+            echoT('b24.overview.description')
+          }}</label>
           <textarea
             v-model="props.form.description"
             class="server-input mt-2 min-h-[140px] w-full resize-none"
@@ -265,16 +274,16 @@ function saveReposition(nextY: number) {
         </div>
         <EmojiPackTagsField
           v-model="props.form.tags"
-          label="Server Tags"
-          hint="Used in Explore for quick filters when this server is listed publicly."
+          :label="echoT('b24.overview.serverTags')"
+          :hint="echoT('b24.overview.serverTagsHint')"
           :popular-tags="props.popularTagSuggestions"
           @blur="emit('tags-blur')"
         />
         <div class="grid min-w-0 gap-4 md:grid-cols-2">
           <div class="min-w-0 md:col-span-2">
-            <label class="settings-label" for="server-settings-vanity-code"
-              >Vanity URL</label
-            >
+            <label class="settings-label" for="server-settings-vanity-code">{{
+              echoT('b24.overview.vanityUrl')
+            }}</label>
             <div
               class="server-vanity-input mt-2 flex w-full min-w-0 items-stretch overflow-hidden rounded-[0.9rem] bg-[var(--srv-input-bg)] shadow-[inset_0_0_0_1px_var(--srv-input-ring)] focus-within:shadow-[inset_0_0_0_1px_var(--srv-input-focus-ring)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--accent)]"
             >
@@ -363,8 +372,8 @@ function saveReposition(nextY: number) {
                 ref="bannerMenuTriggerRef"
                 type="button"
                 class="echo-dark-chrome inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white shadow-sm backdrop-blur-sm ring-1 ring-white/15 transition-colors hover:bg-black/65 [html[data-theme='light']_&]:ring-black/20"
-                title="Banner options"
-                aria-label="Banner options"
+                :title="echoT('serverSettingsUi.bannerOptions')"
+                :aria-label="echoT('serverSettingsUi.bannerOptions')"
                 aria-haspopup="menu"
                 :aria-expanded="bannerMenuOpen"
                 @click.stop="toggleBannerMenu"
@@ -380,7 +389,7 @@ function saveReposition(nextY: number) {
                   v-if="bannerMenuOpen"
                   ref="bannerMenuRef"
                   role="menu"
-                  aria-label="Banner options"
+                  :aria-label="echoT('serverSettingsUi.bannerOptions')"
                   class="ellipsis-menu chat-liquid-glass-menu--over-modal fixed z-[200] min-w-[180px] py-1"
                   :style="bannerMenuStyle"
                   @click.stop
@@ -396,7 +405,7 @@ function saveReposition(nextY: number) {
                       alt=""
                       class="echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-90"
                     />
-                    Change banner
+                    {{ echoT('b24.overview.changeBanner') }}
                   </button>
                   <button
                     v-if="hasServerBanner"
@@ -410,7 +419,7 @@ function saveReposition(nextY: number) {
                       alt=""
                       class="echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-90"
                     />
-                    Reposition
+                    {{ echoT('b24.overview.reposition') }}
                   </button>
                   <button
                     v-if="hasServerBanner && props.canManageBanner"
@@ -424,7 +433,7 @@ function saveReposition(nextY: number) {
                       alt=""
                       class="echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-90"
                     />
-                    Remove
+                    {{ echoT('b24.overview.remove') }}
                   </button>
                 </div>
               </Teleport>
@@ -435,7 +444,7 @@ function saveReposition(nextY: number) {
           <div class="relative min-h-[3.25rem] px-5 pb-5 pt-0 sm:px-6">
             <label
               class="group/icon server-settings-icon-picker absolute left-5 top-0 z-10 -translate-y-1/2 cursor-pointer sm:left-6"
-              title="Change server icon"
+              :title="echoT('b24.overview.changeServerIcon')"
               @mouseenter="serverIconHover = true"
               @mouseleave="serverIconHover = false"
             >
@@ -493,7 +502,7 @@ function saveReposition(nextY: number) {
 
       <BannerRepositionModal
         v-model="repositionOpen"
-        title="Reposition server banner"
+        :title="echoT('b24.overview.repositionServerBanner')"
         :image-url="props.serverBannerUrl"
         :position-y="props.bannerPositionY"
         session-key="server-settings-banner-reposition"
@@ -501,13 +510,17 @@ function saveReposition(nextY: number) {
       />
 
       <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
-        <div class="settings-subtitle mb-3">Channel banner</div>
+        <div class="settings-subtitle mb-3">
+          {{ echoT('b24.overview.channelBanner') }}
+        </div>
         <div class="flex flex-col gap-2">
           <div class="server-toggle-row">
             <div>
-              <div class="text-sm font-semibold text-fg">Blur banner</div>
+              <div class="text-sm font-semibold text-fg">
+                {{ echoT('b24.overview.blurBanner') }}
+              </div>
               <div class="mt-0.5 text-xs text-fg-subtle">
-                Frosted overlay on the channel header (matches preview above).
+                {{ echoT('b24.overview.blurBannerDesc') }}
               </div>
             </div>
             <input
@@ -515,15 +528,17 @@ function saveReposition(nextY: number) {
               class="server-toggle shrink-0"
               :checked="props.bannerBlurEnabled"
               :disabled="props.bannerChannelPrefsPersisting"
-              aria-label="Blur server banner in channel header"
+              :aria-label="echoT('b24.overview.blurAria')"
               @change="onBannerBlurInput"
             />
           </div>
           <div class="server-toggle-row">
             <div>
-              <div class="text-sm font-semibold text-fg">Blackout</div>
+              <div class="text-sm font-semibold text-fg">
+                {{ echoT('b24.overview.blackout') }}
+              </div>
               <div class="mt-0.5 text-xs text-fg-subtle">
-                Extra darkening on the banner image (stacked with blur).
+                {{ echoT('b24.overview.blackoutDesc') }}
               </div>
             </div>
             <input
@@ -531,7 +546,7 @@ function saveReposition(nextY: number) {
               class="server-toggle shrink-0"
               :checked="props.bannerBlackoutEnabled"
               :disabled="props.bannerChannelPrefsPersisting"
-              aria-label="Dark overlay on server banner in channel header"
+              :aria-label="echoT('b24.overview.blackoutAria')"
               @change="onBannerBlackoutInput"
             />
           </div>
@@ -539,9 +554,11 @@ function saveReposition(nextY: number) {
       </div>
 
       <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
-        <div class="settings-subtitle mb-1">Welcome channel</div>
+        <div class="settings-subtitle mb-1">
+          {{ echoT('b24.overview.welcomeChannel') }}
+        </div>
         <p class="mb-3 text-xs text-fg-subtle">
-          Post a system message when someone joins. Leave unset to disable.
+          {{ echoT('b24.overview.welcomeChannelDesc') }}
         </p>
         <div class="max-w-md">
           <EchoDropdown

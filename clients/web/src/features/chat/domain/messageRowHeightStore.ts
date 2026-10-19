@@ -138,6 +138,128 @@ export function buildInitialMeasurementsCacheForChannel(
   return items;
 }
 
+/**
+ * Incremental TanStack measurements update for pure prepend/append (or
+ * drop-from-start/end). Returns `null` when the id delta is not a simple edge
+ * splice — callers should fall back to a full rebuild.
+ *
+ * Keeps measured sizes for stable rows; only `estimateSize`s newly introduced
+ * indices.
+ */
+export function trySpliceVirtualMeasurementsCache(
+  prevIds: readonly string[],
+  nextIds: readonly string[],
+  prevCache: readonly VirtualItem[],
+  estimateSize: (index: number) => number,
+): VirtualItem[] | null {
+  if (prevIds.length === 0 || nextIds.length === 0) return null;
+  if (prevCache.length !== prevIds.length) return null;
+
+  if (prevIds.length === nextIds.length) {
+    for (let i = 0; i < prevIds.length; i++) {
+      if (prevIds[i] !== nextIds[i]) return null;
+    }
+    return prevCache as VirtualItem[];
+  }
+
+  if (nextIds.length > prevIds.length) {
+    const added = nextIds.length - prevIds.length;
+    let isPrepend = true;
+    for (let i = 0; i < prevIds.length; i++) {
+      if (nextIds[i + added] !== prevIds[i]) {
+        isPrepend = false;
+        break;
+      }
+    }
+    if (isPrepend) {
+      const head: VirtualItem[] = [];
+      let start = 0;
+      for (let i = 0; i < added; i++) {
+        const size = estimateSize(i);
+        const end = start + size;
+        head.push({
+          key: nextIds[i] ?? i,
+          index: i,
+          start,
+          end,
+          size,
+          lane: 0,
+        });
+        start = end;
+      }
+      const shiftPx = start;
+      const tail = prevCache.map((item, j) => ({
+        ...item,
+        index: j + added,
+        start: item.start + shiftPx,
+        end: item.end + shiftPx,
+        key: nextIds[j + added] ?? item.key,
+      }));
+      return [...head, ...tail];
+    }
+
+    let isAppend = true;
+    for (let i = 0; i < prevIds.length; i++) {
+      if (nextIds[i] !== prevIds[i]) {
+        isAppend = false;
+        break;
+      }
+    }
+    if (isAppend) {
+      const out = prevCache.slice();
+      let start = prevCache[prevCache.length - 1]?.end ?? 0;
+      for (let i = prevIds.length; i < nextIds.length; i++) {
+        const size = estimateSize(i);
+        const end = start + size;
+        out.push({
+          key: nextIds[i] ?? i,
+          index: i,
+          start,
+          end,
+          size,
+          lane: 0,
+        });
+        start = end;
+      }
+      return out;
+    }
+    return null;
+  }
+
+  const removed = prevIds.length - nextIds.length;
+  let dropStart = true;
+  for (let i = 0; i < nextIds.length; i++) {
+    if (nextIds[i] !== prevIds[i + removed]) {
+      dropStart = false;
+      break;
+    }
+  }
+  if (dropStart) {
+    const firstKept = prevCache[removed];
+    if (!firstKept) return [];
+    const shiftPx = firstKept.start;
+    return prevCache.slice(removed).map((item, j) => ({
+      ...item,
+      index: j,
+      start: item.start - shiftPx,
+      end: item.end - shiftPx,
+      key: nextIds[j] ?? item.key,
+    }));
+  }
+
+  let dropEnd = true;
+  for (let i = 0; i < nextIds.length; i++) {
+    if (nextIds[i] !== prevIds[i]) {
+      dropEnd = false;
+      break;
+    }
+  }
+  if (dropEnd) {
+    return prevCache.slice(0, nextIds.length);
+  }
+  return null;
+}
+
 /** Test-only reset. */
 export function resetMessageRowHeightStoreForTests(): void {
   channelHeights.clear();

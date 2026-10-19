@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 
@@ -54,20 +55,27 @@ function onConfirmLeave() {
           id="leave-server-title"
           class="text-lg font-bold leading-tight text-foreground"
         >
-          <template v-if="variant === 'confirm'">Leave server?</template>
-          <template v-else>Can't leave this server</template>
+          <template v-if="variant === 'confirm'">{{
+            echoT('srvSettingsB.leave.confirmTitle')
+          }}</template>
+          <template v-else>{{
+            echoT('srvSettingsB.leave.cantLeaveTitle')
+          }}</template>
         </h2>
 
-        <p
+        <i18n-t
           v-if="variant === 'confirm'"
+          keypath="srvSettingsB.leave.confirmBody"
+          tag="p"
+          scope="global"
           class="mt-3 text-sm leading-relaxed text-fg-soft"
         >
-          Leave <span class="font-semibold text-fg">{{ serverName }}</span
-          >? You won't be able to rejoin unless you have an invite.
-        </p>
+          <template #server>
+            <span class="font-semibold text-fg">{{ serverName }}</span>
+          </template>
+        </i18n-t>
         <p v-else class="mt-3 text-sm leading-relaxed text-fg-soft">
-          You own this server. Transfer ownership to another member in Server
-          settings (Danger Zone) before you can leave.
+          {{ echoT('srvSettingsB.leave.ownerBody') }}
         </p>
 
         <div
@@ -79,14 +87,14 @@ function onConfirmLeave() {
               class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-white"
               @click="close"
             >
-              Cancel
+              {{ echoT('srvSettingsB.leave.cancel') }}
             </button>
             <button
               type="button"
               class="rounded-lg bg-rose-600/85 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-rose-600"
               @click="onConfirmLeave"
             >
-              Leave server
+              {{ echoT('srvSettingsB.leave.leave') }}
             </button>
           </template>
           <button
@@ -95,7 +103,7 @@ function onConfirmLeave() {
             class="rounded-lg bg-indigo-600/85 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-600"
             @click="close"
           >
-            OK
+            {{ echoT('srvSettingsB.leave.ok') }}
           </button>
         </div>
       </div>

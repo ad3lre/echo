@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, onUnmounted, ref } from 'vue';
 import { iconEchoRounded } from '@/assets/branding';
 import { useEchoInvitePreview } from '@/features/chat/useEchoInvitePreview';
@@ -54,7 +55,7 @@ async function onJoinClick() {
   if (!joinEchoServerWithInvite) {
     joinHint.value = {
       kind: 'error',
-      text: 'In-app join is unavailable in this view.',
+      text: echoT('b42.invite.inAppUnavailable'),
     };
     joinHintTimer = setTimeout(() => {
       joinHint.value = null;
@@ -74,10 +75,10 @@ async function onJoinClick() {
     if (r.alreadyMember) {
       joinHint.value = {
         kind: 'redundant',
-        text: 'Redundant join — you’re already a member of this server. Opened it for you.',
+        text: echoT('b42.invite.redundant'),
       };
     } else {
-      joinHint.value = { kind: 'ok', text: 'Joined the server.' };
+      joinHint.value = { kind: 'ok', text: echoT('b42.invite.joined') };
     }
     joinHintTimer = setTimeout(() => {
       joinHint.value = null;
@@ -100,12 +101,14 @@ const isVoiceInvite = computed(
 const voiceChannelLabel = computed(() => {
   const n = preview.value?.voiceChannel?.name?.trim();
   if (n) return n;
-  return 'Voice channel';
+  return echoT('chat.labels.voiceChannel');
 });
 
 const serverName = computed(() => preview.value?.name?.trim() ?? '');
 
-const displayName = computed(() => serverName.value || 'Server');
+const displayName = computed(
+  () => serverName.value || echoT('b42.invite.server'),
+);
 
 const iconSrc = computed(() =>
   safeImageUrl(serverGuildIconDisplayUrl(preview.value?.iconUrl)),
@@ -123,7 +126,9 @@ const bannerImageUrl = computed(() => {
 const memberLine = computed(() => {
   const n = preview.value?.memberCount;
   if (n == null || n < 1) return '';
-  return `${n.toLocaleString()} member${n === 1 ? '' : 's'}`;
+  return echoT(n === 1 ? 'b42.invite.memberOne' : 'b42.invite.memberMany', {
+    count: n.toLocaleString(),
+  });
 });
 
 /** Second line under server name (compact “in …” / stats). */
@@ -146,7 +151,7 @@ const infoSubline = computed(() => {
     class="invite-embed"
     :class="{ 'invite-embed--loading': previewLoading }"
     :aria-busy="previewLoading"
-    aria-label="Server invite"
+    :aria-label="echoT('b42.invite.ariaLabel')"
   >
     <!-- compact: wide image header -->
     <div class="invite-embed__banner">
@@ -172,15 +177,15 @@ const infoSubline = computed(() => {
       <p class="invite-embed__subtitle">
         {{
           isVoiceInvite
-            ? 'You’re invited to join a voice channel'
-            : 'You’re invited to join a server'
+            ? echoT('b42.invite.invitedVoice')
+            : echoT('b42.invite.invitedServer')
         }}
       </p>
 
       <div class="invite-embed__widget">
         <img
           :src="iconSrc"
-          :alt="`${displayName} icon`"
+          :alt="echoT('b42.invite.icon', { name: displayName })"
           class="invite-embed__guild-icon"
         />
         <div class="invite-embed__info">
@@ -195,17 +200,21 @@ const infoSubline = computed(() => {
           type="button"
           class="invite-embed__join"
           :disabled="joinBusy"
-          :title="joinEchoServerWithInvite ? 'Join this server in Echo' : href"
+          :title="
+            joinEchoServerWithInvite ? echoT('b42.invite.joinTitle') : href
+          "
           @click="onJoinClick"
         >
           <span class="invite-embed__join-label">{{
-            joinBusy ? 'Joining…' : 'Join Server'
+            joinBusy ? echoT('b42.invite.joining') : echoT('b42.invite.join')
           }}</span>
         </button>
       </div>
     </div>
 
-    <span v-if="token" class="sr-only">Invite: {{ token }}</span>
+    <span v-if="token" class="sr-only">{{
+      echoT('b42.invite.inviteToken', { token })
+    }}</span>
   </article>
 </template>
 

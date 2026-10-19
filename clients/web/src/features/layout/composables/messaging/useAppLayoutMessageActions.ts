@@ -4,7 +4,7 @@ import { useAuthSessionStore } from '@/features/auth/authSession';
 import { useEchoSessionStore } from '@/features/layout/echoSession';
 import { authPatchMe } from '@/api/authClient';
 import { postEchoPresenceHttp } from '@/api/echoClient';
-import { buildComposerDocFromPlain } from '@/features/chat/editor/composerModel';
+import { buildComposerDocFromPlain } from '@/features/chat/editor/composerPlainDoc';
 import { plainTextFromEchoContentJson } from '@/features/chat/editor/echoContentJsonPlainText';
 import { relocateMentionsInEditableText } from '@/features/chat/editor/messageEditDraft';
 import {

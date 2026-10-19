@@ -1,0 +1,84 @@
+{
+  "fwd": {
+    "forwarded": "Forwarded",
+    "close": "Close",
+    "title": "Forward message",
+    "subtitle": "Send to a DM or channel",
+    "preview": "Preview",
+    "searchPlaceholder": "Search people, servers, channels…",
+    "searchLabel": "Search destinations",
+    "dms": "Direct messages",
+    "servers": "Servers",
+    "escHint": "Press Esc to cancel",
+    "noDest1": "There is nowhere else to forward this message.",
+    "noDest2": "Open another DM or server channel first.",
+    "noResults": "No results for \"{query}\""
+  },
+  "vcp": {
+    "drag": "Drag to move to another voice channel",
+    "serverDeafened": "Server deafened",
+    "deafened": "Deafened",
+    "unknown": "Unknown",
+    "serverMuted": "Server muted",
+    "muted": "Muted",
+    "sharingScreen": "Sharing screen",
+    "cameraOn": "Camera on"
+  },
+  "gif": {
+    "defaultDetail": "This file could not be loaded. It may be missing, moved, or no longer accessible.",
+    "bucketHint": "If uploads work but images do not load, your bucket may deny anonymous GET — enable public read for this prefix (or use a public R2/custom domain).",
+    "avatarUnavailable": "Avatar unavailable",
+    "gifUnavailable": "GIF unavailable",
+    "imageUnavailable": "Image unavailable"
+  },
+  "roles": {
+    "title": "Self-assignable roles",
+    "desc": "Choose the roles you qualify for. You can only pick roles whose permissions are a subset of what you already have.",
+    "summary": "Role assignment summary",
+    "assigned": "assigned",
+    "available": "available",
+    "loading": "Loading roles…",
+    "syncedTitle": "Synced from role category",
+    "synced": "synced",
+    "emptyTitle": "Nothing to assign yet",
+    "categoriesLabel": "{title} categories",
+    "emptyDesc": "A server admin needs to mark roles as {selfSelectable} and expose them in synced role categories or channels under Server Settings.",
+    "selfSelectable": "Self-selectable",
+    "removeRole": "Remove role {name}",
+    "assignRole": "Assign role {name}"
+  },
+  "selfPop": {
+    "online": "Online",
+    "onlineDesc": "Show as active",
+    "idle": "Idle",
+    "idleDesc": "Away for a bit",
+    "dnd": "Do Not Disturb",
+    "dndDesc": "No notifications",
+    "setStatusPlaceholder": "Set a custom status...",
+    "setStatus": "Set a custom status",
+    "customStatus": "Custom Status",
+    "onlineStatus": "Online Status",
+    "userSettings": "User settings",
+    "openUserSettings": "Open user settings"
+  },
+  "vact": {
+    "chatActions": "Voice chat actions",
+    "inVoice": "In voice with you",
+    "theirVolume": "Their volume",
+    "participantVolume": "Participant volume",
+    "moderation": "Voice moderation",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "undeafen": "Undeafen",
+    "deafen": "Deafen",
+    "stopCamera": "Stop camera",
+    "stopShare": "Stop share",
+    "disconnect": "Disconnect"
+  },
+  "rail": {
+    "activeVoice": "Active voice channel",
+    "unread": "Unread messages",
+    "dragHint": "Hold and drag to reorder.",
+    "moreServers": "{count} more servers"
+  }
+}

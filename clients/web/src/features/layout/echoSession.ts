@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import { defineStore } from 'pinia';
 import type { EchoWorkspaceState } from '@/api/echoClient';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
@@ -28,6 +28,10 @@ import {
   setLiveSyncConnectedOnEchoSession,
   sessionAcceptsIncomingVersion,
 } from '@/features/layout/echoWorkspace/workspaceSession';
+import {
+  emptyVoiceEphemeralMap,
+  type VoiceChannelEphemeral,
+} from '@/features/layout/echoWorkspace/workspaceVoiceEphemeral';
 import type { EchoWorkspaceEvent } from '@shared/types/socket';
 import {
   fetchDiscordVoiceMirrorRoster,
@@ -49,6 +53,10 @@ export const useEchoSessionStore = defineStore('echoSession', () => {
   const lastOnlineAtByUserId = ref<Record<string, string>>({});
   const servers = ref<EchoWorkspaceState['servers']>([]);
   const categoriesByServer = ref<Record<string, ChannelCategory[]>>({});
+  /** Guild voice roster / mute maps — updated by voice_roster_delta without rewriting the channel tree. */
+  const voiceEphemeralByChannelId = shallowRef<
+    Map<string, VoiceChannelEphemeral>
+  >(emptyVoiceEphemeralMap());
   const discoverableServers = ref<EchoWorkspaceDiscoverableServer[]>([]);
   const messages = ref<Record<string, RawMessage[]>>({});
   const serverMemberIds = ref<Record<string, string[]>>({});
@@ -75,6 +83,7 @@ export const useEchoSessionStore = defineStore('echoSession', () => {
     lastOnlineAtByUserId,
     servers,
     categoriesByServer,
+    voiceEphemeralByChannelId,
     discoverableServers,
     messages,
     serverMemberIds,
@@ -226,6 +235,7 @@ export const useEchoSessionStore = defineStore('echoSession', () => {
     users.value = [];
     servers.value = [];
     categoriesByServer.value = {};
+    voiceEphemeralByChannelId.value = emptyVoiceEphemeralMap();
     discoverableServers.value = [];
     serverMemberIds.value = {};
     workspaceMembersByServer.value = {};
@@ -246,6 +256,7 @@ export const useEchoSessionStore = defineStore('echoSession', () => {
     lastOnlineAtByUserId,
     servers,
     categoriesByServer,
+    voiceEphemeralByChannelId,
     discoverableServers,
     messages,
     serverMemberIds,

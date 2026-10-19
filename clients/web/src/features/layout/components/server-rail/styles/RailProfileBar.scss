@@ -145,11 +145,15 @@
 
 .rail-profile__face :deep(.status-indicator) {
   z-index: 5;
-  right: -1px;
-  bottom: -1px;
+  /* Inset so the badge + cutout ring bite into the PFP, not float outside it. */
+  right: 1px;
+  bottom: 1px;
   left: auto;
   top: auto;
   pointer-events: none;
+  /* Halo must match the rail chrome behind the avatar. */
+  box-shadow: 0 0 0 2.5px
+    var(--echo-server-rail-bg, var(--status-indicator-ring-bg));
 }
 
 @keyframes rail-profile-idle {

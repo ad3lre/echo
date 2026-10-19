@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, onUnmounted } from 'vue';
 import {
   docxLoadErrorMessage,
@@ -28,7 +29,7 @@ async function loadDocument() {
   const url = props.url?.trim();
   if (!url) {
     loading.value = false;
-    loadError.value = 'Missing document URL.';
+    loadError.value = echoT('b44.docx.missingUrl');
     html.value = '';
     return;
   }
@@ -78,8 +79,8 @@ onUnmounted(() => {
         :href="downloadUrl"
         class="viewer-icon-btn rounded-full p-2 transition-colors"
         :download="downloadFilename"
-        :title="`Download ${documentLabel}`"
-        :aria-label="`Download ${documentLabel}`"
+        :title="echoT('b44.docx.download', { name: documentLabel })"
+        :aria-label="echoT('b44.docx.download', { name: documentLabel })"
         @click.stop
       >
         <svg
@@ -99,8 +100,8 @@ onUnmounted(() => {
       <button
         type="button"
         class="viewer-icon-btn rounded-full p-2 transition-colors"
-        title="Open in browser"
-        aria-label="Open in browser"
+        :title="echoT('chat.actions.openInBrowser')"
+        :aria-label="echoT('chat.actions.openInBrowser')"
         @click="openInBrowser"
       >
         <svg
@@ -120,8 +121,8 @@ onUnmounted(() => {
       <button
         type="button"
         class="viewer-icon-btn rounded-full p-2 transition-colors"
-        aria-label="Close"
-        title="Close"
+        :aria-label="echoT('b44.docx.close')"
+        :title="echoT('b44.docx.close')"
         @click="emit('close')"
       >
         <svg
@@ -154,7 +155,9 @@ onUnmounted(() => {
       <div
         class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"
       />
-      <span class="text-xs text-fg-subtle">Loading document…</span>
+      <span class="text-xs text-fg-subtle">{{
+        echoT('b44.docx.loading')
+      }}</span>
     </div>
     <div
       v-else-if="loadError"
@@ -166,7 +169,7 @@ onUnmounted(() => {
         class="viewer-icon-btn rounded-lg px-3 py-2 text-sm"
         @click="openInBrowser"
       >
-        Open in browser
+        {{ echoT('chat.actions.openInBrowser') }}
       </button>
     </div>
     <div

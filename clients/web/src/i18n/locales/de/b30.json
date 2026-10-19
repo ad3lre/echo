@@ -1,0 +1,71 @@
+{
+  "speakerPill": {
+    "someone": "Jemand",
+    "voice": "Sprache",
+    "closeControls": "Sprachsteuerung schließen",
+    "sessionIndicator": "Anzeige der Sprachsitzung",
+    "speaking": "Spricht",
+    "inVoice": "Im Sprachkanal",
+    "controls": "Sprachsteuerung",
+    "unmute": "Stummschaltung aufheben",
+    "mute": "Stummschalten",
+    "undeafen": "Taubschaltung aufheben",
+    "deafen": "Taubschalten",
+    "openChannel": "Sprachkanal öffnen",
+    "open": "Öffnen",
+    "leaveVoice": "Sprachkanal verlassen",
+    "leave": "Verlassen"
+  },
+  "createChannel": {
+    "type": {
+      "text": "Text",
+      "forum": "Forum",
+      "paper": "Paper",
+      "voice": "Sprache",
+      "stage": "Stage",
+      "textSub": "Nachrichten senden",
+      "forumSub": "Organisierte Threads",
+      "paperSub": "Gemeinsames Dokument",
+      "voiceSub": "Sprache, Video, Bildschirmfreigabe",
+      "stageSub": "Events und Panels",
+      "categorySub": "Kanäle gruppieren",
+      "label": "Typ"
+    },
+    "name": "Name",
+    "channelName": "Kanalname",
+    "newCategory": "neue-kategorie",
+    "newChannel": "neuer-kanal",
+    "creationType": "Erstellungstyp",
+    "channelType": "Kanaltyp",
+    "in": "in",
+    "close": "Schließen",
+    "duplicate": "Eine Kategorie mit diesem Namen existiert bereits.",
+    "cancel": "Abbrechen"
+  },
+  "inlineAuth": {
+    "and": "und",
+    "verifyLocked": "Dein Konto ist gesperrt, bis du {target} bestätigst. Öffne den Link, den wir gesendet haben, und melde dich dann erneut an.",
+    "codeSent": "Gib den Code ein, den wir an {target} gesendet haben, um diese neue Anmeldung zu bestätigen.",
+    "yourEmail": "deine E-Mail-Adresse",
+    "signingIn": "Anmeldung läuft…",
+    "logIn": "Anmelden",
+    "mfaFactor": "MFA-Faktor",
+    "back": "Zurück",
+    "or": "oder",
+    "yourHandle": "dein_handle",
+    "forgotBlurb": "Gib die E-Mail-Adresse deines Kontos ein. Wir senden dir einen Link zum Zurücksetzen, falls wir eine Übereinstimmung finden."
+  },
+  "vcPresence": {
+    "youtube": "In der YouTube-Aktivität",
+    "watchTogether": "In der Watch-Together-Aktivität",
+    "openguessr": "In der OpenGuessr-Aktivität",
+    "garticPhone": "In der Gartic-Phone-Aktivität",
+    "krunker": "In der Krunker-Aktivität",
+    "richup": "In der Richup.io-Aktivität",
+    "gooberDash": "In der Goober-Dash-Aktivität",
+    "smashKarts": "In der Smash-Karts-Aktivität",
+    "clusterRush": "In der Cluster-Rush-Aktivität",
+    "browsing": "Stöbert in Aktivitäten",
+    "voiceActivity": "Sprachaktivität"
+  }
+}

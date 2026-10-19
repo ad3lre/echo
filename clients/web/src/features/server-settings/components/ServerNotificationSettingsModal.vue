@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import {
@@ -63,13 +64,18 @@ function selectLevel(level: ServerNotificationLevel) {
       @keydown.escape.prevent="close"
     >
       <h2 id="server-notif-title" class="text-xl font-bold text-foreground">
-        Notification settings
+        {{ echoT('srvSettingsB.notif.title') }}
       </h2>
-      <p class="mt-1 text-sm text-muted">
-        Choose what you get from
-        <span class="font-semibold text-foreground">{{ serverName }}</span
-        >. This applies only to you and syncs across your devices.
-      </p>
+      <i18n-t
+        keypath="srvSettingsB.notif.body"
+        tag="p"
+        scope="global"
+        class="mt-1 text-sm text-muted"
+      >
+        <template #server>
+          <span class="font-semibold text-foreground">{{ serverName }}</span>
+        </template>
+      </i18n-t>
 
       <ul
         class="mt-5 flex flex-col gap-2"
@@ -110,7 +116,7 @@ function selectLevel(level: ServerNotificationLevel) {
           class="rounded-lg px-4 py-2 text-sm font-semibold text-muted transition-colors hover:bg-glass-tint hover:text-foreground"
           @click="close"
         >
-          Done
+          {{ echoT('srvSettingsB.notif.done') }}
         </button>
       </div>
     </div>

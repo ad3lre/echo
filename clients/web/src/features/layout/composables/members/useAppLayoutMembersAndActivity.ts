@@ -8,6 +8,7 @@ import { buildGuildVoiceActivityCardsForJoinedServers } from '@/features/layout/
 import { buildGuildEventActivityCardsFromMyRsvps } from '@/features/layout/buildGuildEventActivityCards';
 import { resolveCallTileAvatarUrl } from '@/features/layout/display/avatarDisplay';
 import { useEchoSessionStore } from '@/features/layout/echoSession';
+import { mergeVoiceEphemeralIntoCategoriesByServer } from '@/features/layout/echoWorkspace/workspaceVoiceEphemeral';
 import type { MainSurface } from '@/features/layout/mainSurface';
 import type { MemberRole } from '@/features/member-profile/memberProfiles';
 
@@ -133,14 +134,18 @@ function serverHasActiveVoiceChannel(
 }
 
 function createGuildActivityCards(deps: AppLayoutMembersActivityDeps) {
+  const echoSession = useEchoSessionStore();
+  const categoriesWithVoice = computed(() =>
+    mergeVoiceEphemeralIntoCategoriesByServer(
+      (unref(deps.categoriesByServer) as Record<string, never>) ?? {},
+      echoSession.voiceEphemeralByChannelId,
+    ),
+  );
+
   const serverActiveVoiceByServerId = computed<Record<string, boolean>>(() => {
     const out: Record<string, boolean> = {};
-    const categoriesByServer = unref(deps.categoriesByServer) as Record<
-      string,
-      { channels?: { type?: string; voiceParticipantIds?: string[] }[] }[]
-    >;
     for (const [serverId, categories] of Object.entries(
-      categoriesByServer ?? {},
+      categoriesWithVoice.value ?? {},
     )) {
       if (serverHasActiveVoiceChannel(categories ?? [])) out[serverId] = true;
     }
@@ -150,16 +155,14 @@ function createGuildActivityCards(deps: AppLayoutMembersActivityDeps) {
   const guildVoiceActivityCards = computed<GuildVoiceActivityCard[]>(() =>
     buildGuildVoiceActivityCardsForJoinedServers({
       joinedServers: deps.joinedServers as never,
-      categoriesByServer: unref(deps.categoriesByServer) as never,
+      categoriesByServer: categoriesWithVoice.value as never,
       roster: unref(deps.rosterUsers) as never,
       getChannelDisplayName: deps.getChannelDisplayName,
       resolveCallTileAvatarUrl,
     }),
   );
 
-  const echoSessionStore = useEchoSessionStore();
-  const { myEventRsvps, upcomingEventsByServerId } =
-    storeToRefs(echoSessionStore);
+  const { myEventRsvps, upcomingEventsByServerId } = storeToRefs(echoSession);
   const guildEventActivityCards = computed<GuildEventActivityCard[]>(() =>
     buildGuildEventActivityCardsFromMyRsvps({
       rsvps: myEventRsvps.value,

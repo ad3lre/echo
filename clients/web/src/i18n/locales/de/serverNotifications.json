@@ -1,0 +1,20 @@
+{
+  "options": {
+    "all": {
+      "label": "Alle Nachrichten",
+      "description": "Werde benachrichtigt, wenn jemand auf diesem Server eine Nachricht sendet."
+    },
+    "mentions": {
+      "label": "Erwähnungen und direkte Erwähnungen",
+      "description": "Benachrichtigung bei {'@'}du, Antworten und Sammel-Pings wie {'@'}everyone, {'@'}here, {'@'}channel oder rollenartigen Erwähnungen."
+    },
+    "mentions_direct": {
+      "label": "Nur direkte Erwähnungen",
+      "description": "Nur wenn du persönlich mit {'@'} erwähnt wirst, nicht über {'@'}everyone, {'@'}here, {'@'}channel oder Rollen."
+    },
+    "none": {
+      "label": "Nichts",
+      "description": "Keine Push- oder Desktop-Hinweise von diesem Server (wird weiterhin in der App angezeigt)."
+    }
+  }
+}

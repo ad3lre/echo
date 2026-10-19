@@ -109,6 +109,7 @@ function finalizeChannelAttentionWhenEffectivelyRead(
           lastReadMessageId: c,
           latestUnreadMessageId: c,
           firstUnreadMessageId: c,
+          latestUnreadMentionMessageId: c,
         }
       : {}),
   };
@@ -131,6 +132,7 @@ function finalizeChannelAttentionForReadCursor(
             lastReadMessageId: c,
             latestUnreadMessageId: c,
             firstUnreadMessageId: c,
+            latestUnreadMentionMessageId: c,
           }
         : {}),
     };
@@ -290,6 +292,9 @@ function mergeChannelAttentionByChannelId(params: {
           firstUnreadMessageId:
             incomingSummary.firstUnreadMessageId ??
             currentSummary?.firstUnreadMessageId,
+          latestUnreadMentionMessageId:
+            incomingSummary.latestUnreadMentionMessageId ??
+            currentSummary?.latestUnreadMentionMessageId,
         };
         if (currentReadState) {
           const cursorAheadOfIncoming =
@@ -558,6 +563,9 @@ export const useEchoAttentionStore = defineStore('echoAttention', () => {
         existing?.latestUnreadMessageId,
       firstUnreadMessageId:
         channelAttention.firstUnreadMessageId ?? existing?.firstUnreadMessageId,
+      latestUnreadMentionMessageId:
+        channelAttention.latestUnreadMentionMessageId ??
+        existing?.latestUnreadMentionMessageId,
       kind: channelAttention.kind ?? existing?.kind ?? 'server',
       serverId: channelAttention.serverId ?? existing?.serverId,
       peerUserId: channelAttention.peerUserId ?? existing?.peerUserId,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   inject,
@@ -96,7 +97,7 @@ const liveDominant = computed((): SpeakerPerson | null => {
   }
   if (!bestId) return null;
   const p = participants.find((x) => x.id === bestId);
-  return p ?? { id: bestId, name: 'Someone', pfp: '' };
+  return p ?? { id: bestId, name: echoT('b30.speakerPill.someone'), pfp: '' };
 });
 
 watch(
@@ -134,7 +135,7 @@ const voiceChannelName = computed(() => {
     const match = channels.find((c) => c.id === voiceId);
     if (match?.name) return getName?.(match.name) ?? match.name;
   }
-  return 'Voice';
+  return echoT('b30.speakerPill.voice');
 });
 
 const primaryLabel = computed(
@@ -212,7 +213,7 @@ function leaveVoice() {
       v-if="expanded"
       type="button"
       class="guild-vc-speaker-bar__backdrop"
-      aria-label="Close voice controls"
+      :aria-label="echoT('b30.speakerPill.closeControls')"
       @click="collapseIfExpanded"
     />
 
@@ -221,7 +222,7 @@ function leaveVoice() {
         type="button"
         class="guild-vc-speaker-bar__main"
         :aria-expanded="expanded"
-        aria-label="Voice session indicator"
+        :aria-label="echoT('b30.speakerPill.sessionIndicator')"
         @click="toggleExpanded"
       >
         <div class="guild-vc-speaker-bar__avatar-wrap">
@@ -257,7 +258,11 @@ function leaveVoice() {
             class="guild-vc-speaker-bar__status truncate"
             :class="{ 'guild-vc-speaker-bar__status--live': isSpeaking }"
           >
-            {{ isSpeaking ? 'Speaking' : 'In voice' }}
+            {{
+              isSpeaking
+                ? echoT('b30.speakerPill.speaking')
+                : echoT('b30.speakerPill.inVoice')
+            }}
             <template v-if="displayPerson"> · {{ voiceChannelName }} </template>
           </span>
         </div>
@@ -283,14 +288,22 @@ function leaveVoice() {
           v-if="expanded"
           class="guild-vc-speaker-bar__controls"
           role="toolbar"
-          aria-label="Voice controls"
+          :aria-label="echoT('b30.speakerPill.controls')"
         >
           <button
             type="button"
             class="guild-vc-speaker-bar__ctrl"
             :class="{ 'guild-vc-speaker-bar__ctrl--on': muted }"
-            :title="muted ? 'Unmute' : 'Mute'"
-            :aria-label="muted ? 'Unmute' : 'Mute'"
+            :title="
+              muted
+                ? echoT('b30.speakerPill.unmute')
+                : echoT('b30.speakerPill.mute')
+            "
+            :aria-label="
+              muted
+                ? echoT('b30.speakerPill.unmute')
+                : echoT('b30.speakerPill.mute')
+            "
             @click.stop="toggleMute"
           >
             <img
@@ -299,15 +312,25 @@ function leaveVoice() {
               class="guild-vc-speaker-bar__glyph h-5 w-5"
             />
             <span class="guild-vc-speaker-bar__ctrl-label">{{
-              muted ? 'Unmute' : 'Mute'
+              muted
+                ? echoT('b30.speakerPill.unmute')
+                : echoT('b30.speakerPill.mute')
             }}</span>
           </button>
           <button
             type="button"
             class="guild-vc-speaker-bar__ctrl"
             :class="{ 'guild-vc-speaker-bar__ctrl--on': deafened }"
-            :title="deafened ? 'Undeafen' : 'Deafen'"
-            :aria-label="deafened ? 'Undeafen' : 'Deafen'"
+            :title="
+              deafened
+                ? echoT('b30.speakerPill.undeafen')
+                : echoT('b30.speakerPill.deafen')
+            "
+            :aria-label="
+              deafened
+                ? echoT('b30.speakerPill.undeafen')
+                : echoT('b30.speakerPill.deafen')
+            "
             @click.stop="toggleDeafen"
           >
             <img
@@ -316,14 +339,16 @@ function leaveVoice() {
               class="guild-vc-speaker-bar__glyph h-5 w-5"
             />
             <span class="guild-vc-speaker-bar__ctrl-label">{{
-              deafened ? 'Undeafen' : 'Deafen'
+              deafened
+                ? echoT('b30.speakerPill.undeafen')
+                : echoT('b30.speakerPill.deafen')
             }}</span>
           </button>
           <button
             type="button"
             class="guild-vc-speaker-bar__ctrl guild-vc-speaker-bar__ctrl--accent"
-            title="Open voice channel"
-            aria-label="Open voice channel"
+            :title="echoT('b30.speakerPill.openChannel')"
+            :aria-label="echoT('b30.speakerPill.openChannel')"
             @click.stop="goToVoiceChannel"
           >
             <svg
@@ -340,13 +365,15 @@ function leaveVoice() {
               <polyline points="10 17 15 12 10 7" />
               <line x1="15" y1="12" x2="3" y2="12" />
             </svg>
-            <span class="guild-vc-speaker-bar__ctrl-label">Open</span>
+            <span class="guild-vc-speaker-bar__ctrl-label">{{
+              echoT('b30.speakerPill.open')
+            }}</span>
           </button>
           <button
             type="button"
             class="guild-vc-speaker-bar__ctrl guild-vc-speaker-bar__ctrl--danger"
-            title="Leave voice"
-            aria-label="Leave voice"
+            :title="echoT('b30.speakerPill.leaveVoice')"
+            :aria-label="echoT('b30.speakerPill.leaveVoice')"
             @click.stop="leaveVoice"
           >
             <img
@@ -354,7 +381,9 @@ function leaveVoice() {
               alt=""
               class="guild-vc-speaker-bar__glyph h-5 w-5"
             />
-            <span class="guild-vc-speaker-bar__ctrl-label">Leave</span>
+            <span class="guild-vc-speaker-bar__ctrl-label">{{
+              echoT('b30.speakerPill.leave')
+            }}</span>
           </button>
         </div>
       </Transition>

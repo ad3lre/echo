@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { EmojiInspectInfo } from '@/features/chat/emoji/resolveEmojiInspectInfo';
 
@@ -91,7 +92,7 @@ const previewSizeClass = computed(() =>
       class="emoji-inspect-card fixed z-[115] w-[220px] max-w-[calc(100vw-16px)] rounded-xl border border-border bg-[color-mix(in_srgb,var(--echo-popover-bg)_95%,transparent)] px-3 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-sm"
       :style="cardStyle"
       role="dialog"
-      aria-label="Emoji details"
+      :aria-label="echoT('b44.emojiInspect.details')"
       data-echo-emoji-inspect-card
       @mousedown.stop
     >
@@ -122,7 +123,7 @@ const previewSizeClass = computed(() =>
             v-if="info.animated"
             class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
           >
-            Animated
+            {{ echoT('b44.emojiInspect.animated') }}
           </div>
         </div>
       </div>

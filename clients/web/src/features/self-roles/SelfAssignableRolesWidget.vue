@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useServerSelfRolesStore } from '@/features/self-roles/serverSelfRoles';
@@ -51,8 +52,8 @@ const topInsetPx = computed(() => {
 const resolvedTitle = computed(() => {
   const raw = props.channelDisplayName?.trim();
   if (raw && raw !== ECHO_SELF_ROLES_CHANNEL_NAME) return raw;
-  if (raw === ECHO_SELF_ROLES_CHANNEL_NAME) return 'Self-assignable roles';
-  return config.value?.channelName?.trim() || 'Self-assignable roles';
+  if (raw === ECHO_SELF_ROLES_CHANNEL_NAME) return echoT('b38.roles.title');
+  return config.value?.channelName?.trim() || echoT('b38.roles.title');
 });
 
 const categories = computed(() => panel.value?.categories ?? []);
@@ -155,27 +156,30 @@ function roleAccentStyle(role: SelfRolesPanelRole) {
             {{ resolvedTitle }}
           </h2>
           <p class="self-roles-widget__desc">
-            Choose the roles you qualify for. You can only pick roles whose
-            permissions are a subset of what you already have.
+            {{ echoT('b38.roles.desc') }}
           </p>
         </div>
         <div
           v-if="totalRoleCount > 0"
           class="self-roles-widget__stats"
-          aria-label="Role assignment summary"
+          :aria-label="echoT('b38.roles.summary')"
         >
           <span class="self-roles-widget__stat">
             <span class="self-roles-widget__stat-value">{{
               assignedCount
             }}</span>
-            <span class="self-roles-widget__stat-label">assigned</span>
+            <span class="self-roles-widget__stat-label">{{
+              echoT('b38.roles.assigned')
+            }}</span>
           </span>
           <span class="self-roles-widget__stat-divider" aria-hidden="true" />
           <span class="self-roles-widget__stat">
             <span class="self-roles-widget__stat-value">{{
               totalRoleCount
             }}</span>
-            <span class="self-roles-widget__stat-label">available</span>
+            <span class="self-roles-widget__stat-label">{{
+              echoT('b38.roles.available')
+            }}</span>
           </span>
         </div>
       </header>
@@ -184,7 +188,7 @@ function roleAccentStyle(role: SelfRolesPanelRole) {
         v-if="panelLoading || (loading && !panel)"
         class="self-roles-widget__loading text-sm text-fg-soft"
       >
-        Loading roles…
+        {{ echoT('b38.roles.loading') }}
       </div>
 
       <template v-else>
@@ -192,7 +196,9 @@ function roleAccentStyle(role: SelfRolesPanelRole) {
           v-if="categories.length > 1"
           class="self-roles-widget__tabs"
           role="tablist"
-          :aria-label="`${resolvedTitle} categories`"
+          :aria-label="
+            echoT('b38.roles.categoriesLabel', { title: resolvedTitle })
+          "
         >
           <button
             v-for="cat in categories"
@@ -213,9 +219,9 @@ function roleAccentStyle(role: SelfRolesPanelRole) {
             <span
               v-if="cat.source === 'derived'"
               class="self-roles-widget__tab-badge"
-              title="Synced from role category"
+              :title="echoT('b38.roles.syncedTitle')"
             >
-              synced
+              {{ echoT('b38.roles.synced') }}
             </span>
           </button>
         </div>
@@ -225,12 +231,21 @@ function roleAccentStyle(role: SelfRolesPanelRole) {
           class="self-roles-widget__empty"
           role="status"
         >
-          <p class="self-roles-widget__empty-title">Nothing to assign yet</p>
-          <p class="self-roles-widget__empty-desc">
-            A server admin needs to mark roles as
-            <span class="text-fg-soft">Self-selectable</span> and expose them in
-            synced role categories or channels under Server Settings.
+          <p class="self-roles-widget__empty-title">
+            {{ echoT('b38.roles.emptyTitle') }}
           </p>
+          <i18n-t
+            keypath="b38.roles.emptyDesc"
+            tag="p"
+            scope="global"
+            class="self-roles-widget__empty-desc"
+          >
+            <template #selfSelectable>
+              <span class="text-fg-soft">{{
+                echoT('b38.roles.selfSelectable')
+              }}</span>
+            </template>
+          </i18n-t>
         </div>
 
         <ul
@@ -265,8 +280,8 @@ function roleAccentStyle(role: SelfRolesPanelRole) {
                 :disabled="mutating || busyRoleId === role.id"
                 :aria-label="
                   assignedSet.has(role.id)
-                    ? `Remove role ${role.name}`
-                    : `Assign role ${role.name}`
+                    ? echoT('b38.roles.removeRole', { name: role.name })
+                    : echoT('b38.roles.assignRole', { name: role.name })
                 "
                 @change="
                   onToggleRole(

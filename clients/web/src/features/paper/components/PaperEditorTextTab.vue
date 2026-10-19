@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { PaperEditorPanelBridgeContext } from '@/features/paper/paperEditorPanelBridge';
 import { usePaperFormatActions } from '@/features/paper/composables/usePaperFormatActions';
@@ -85,11 +86,11 @@ const lineHeightSliderLabel = computed(() =>
   ),
 );
 
-const textOutlinePresetOptions: EchoDropdownOption[] = [
-  { label: 'Off', value: '' },
-  { label: 'Thin', value: 'thin' },
-  { label: 'Medium', value: 'medium' },
-];
+const textOutlinePresetOptions = computed<EchoDropdownOption[]>(() => [
+  { label: echoT('b14.paperText.off'), value: '' },
+  { label: echoT('b14.paperText.thin'), value: 'thin' },
+  { label: echoT('b14.paperText.medium'), value: 'medium' },
+]);
 
 function onFontSizePresetSelect(value: string) {
   const n = Number.parseInt(value, 10);
@@ -132,7 +133,9 @@ function cycleAlignInPanel() {
 }
 
 function alignDisplayLabel(align: string): string {
-  if (align === 'mixed') return 'Mixed';
+  if (align === 'mixed') return echoT('b14.paperText.mixed');
+  const known = ['left', 'center', 'right', 'justify'];
+  if (known.includes(align)) return echoT(`b14.paperText.align_${align}`);
   return align.charAt(0).toUpperCase() + align.slice(1);
 }
 
@@ -161,7 +164,9 @@ function onPanelFontMouseDown(ev: MouseEvent) {
 <template>
   <div class="paper-editor-tab">
     <section v-if="canCustomize" class="paper-editor-tab__block">
-      <h4 class="paper-editor-tab__label">Document font</h4>
+      <h4 class="paper-editor-tab__label">
+        {{ echoT('b14.paperText.documentFont') }}
+      </h4>
       <PaperFontPicker
         :model-value="documentFontId"
         :document-default-family="context.documentFontFamily.value"
@@ -176,9 +181,11 @@ function onPanelFontMouseDown(ev: MouseEvent) {
 
     <template v-if="editorEditable">
       <section class="paper-editor-tab__block">
-        <h4 class="paper-editor-tab__label">Typeface</h4>
+        <h4 class="paper-editor-tab__label">
+          {{ echoT('b14.paperText.typeface') }}
+        </h4>
         <p class="paper-editor-tab__hint paper-editor-tab__hint--inline">
-          Applies to selected text, or to what you type next at the cursor.
+          {{ echoT('b14.paperText.typefaceHint') }}
         </p>
         <div class="paper-editor-panel__tool-row">
           <PaperFontPicker
@@ -194,13 +201,13 @@ function onPanelFontMouseDown(ev: MouseEvent) {
           />
         </div>
         <h4 class="paper-editor-tab__label paper-editor-tab__label--spaced">
-          Selection
+          {{ echoT('b14.paperText.selection') }}
         </h4>
         <p
           v-if="!selectionActive"
           class="paper-editor-tab__hint paper-editor-tab__hint--inline"
         >
-          Select text to change size, weight, and layout.
+          {{ echoT('b14.paperText.selectHint') }}
         </p>
 
         <div
@@ -213,7 +220,7 @@ function onPanelFontMouseDown(ev: MouseEvent) {
             <button
               type="button"
               class="paper-editor-panel__size-step"
-              aria-label="Decrease font size"
+              :aria-label="echoT('b14.paperText.decreaseSize')"
               :disabled="!canDecreaseFontSize"
               @mousedown.prevent="stepFontSize('down')"
             >
@@ -223,9 +230,13 @@ function onPanelFontMouseDown(ev: MouseEvent) {
               type="text"
               class="paper-editor-panel__size-input"
               :readonly="actions.fmt.value.fontSizeMixed || !selectionActive"
-              :placeholder="actions.fmt.value.fontSizeMixed ? 'Mixed' : 'Size'"
+              :placeholder="
+                actions.fmt.value.fontSizeMixed
+                  ? echoT('b14.paperText.mixed')
+                  : echoT('b14.paperText.size')
+              "
               :value="fontSizeDisplay"
-              aria-label="Font size in pixels"
+              :aria-label="echoT('b14.paperText.sizePx')"
               @change="
                 (e) => {
                   const raw = (e.target as HTMLInputElement).value.trim();
@@ -246,13 +257,13 @@ function onPanelFontMouseDown(ev: MouseEvent) {
               trigger-mode="chevron"
               placement="below"
               position-target="parent"
-              title="Font size presets"
+              :title="echoT('b14.paperText.sizePresets')"
               @update:model-value="onFontSizePresetSelect"
             />
             <button
               type="button"
               class="paper-editor-panel__size-step"
-              aria-label="Increase font size"
+              :aria-label="echoT('b14.paperText.increaseSize')"
               :disabled="!canIncreaseFontSize"
               @mousedown.prevent="stepFontSize('up')"
             >
@@ -306,10 +317,20 @@ function onPanelFontMouseDown(ev: MouseEvent) {
                   actions.fmt.value.textAlign !== 'left',
               }"
               :disabled="!selectionActive"
-              :title="`Alignment: ${actions.fmt.value.textAlign} (click to cycle)`"
+              :title="
+                echoT('b14.paperText.alignTitle', {
+                  align: alignDisplayLabel(
+                    actions.fmt.value.textAlign,
+                  ).toLowerCase(),
+                })
+              "
               @click="cycleAlignInPanel"
             >
-              Align: {{ alignDisplayLabel(actions.fmt.value.textAlign) }}
+              {{
+                echoT('b14.paperText.alignLabel', {
+                  align: alignDisplayLabel(actions.fmt.value.textAlign),
+                })
+              }}
             </button>
           </div>
           <div class="paper-editor-panel__heading-row">
@@ -359,7 +380,7 @@ function onPanelFontMouseDown(ev: MouseEvent) {
               :disabled="!selectionActive"
               @click="actions.setHeading(0)"
             >
-              Body
+              {{ echoT('b14.paperText.body') }}
             </button>
           </div>
 
@@ -374,7 +395,7 @@ function onPanelFontMouseDown(ev: MouseEvent) {
               :disabled="!selectionActive"
               @click="actions.toggleList('toggleBulletList')"
             >
-              Bullet
+              {{ echoT('b14.paperText.bullet') }}
             </button>
             <button
               type="button"
@@ -386,7 +407,7 @@ function onPanelFontMouseDown(ev: MouseEvent) {
               :disabled="!selectionActive"
               @click="actions.toggleList('toggleOrderedList')"
             >
-              Numbered
+              {{ echoT('b14.paperText.numbered') }}
             </button>
           </div>
 
@@ -397,16 +418,18 @@ function onPanelFontMouseDown(ev: MouseEvent) {
               :disabled="!selectionActive"
               @click="actions.insertHorizontalRule()"
             >
-              Insert horizontal rule
+              {{ echoT('b14.paperText.hr') }}
             </button>
           </div>
 
           <div class="paper-editor-panel__divider" />
 
-          <h4 class="paper-editor-tab__label">Spacing</h4>
+          <h4 class="paper-editor-tab__label">
+            {{ echoT('b14.paperText.spacing') }}
+          </h4>
           <PaperTypographySlider
             v-model="letterSpacingSliderModel"
-            label="Letter spacing"
+            :label="echoT('b14.paperText.letterSpacing')"
             :min="PAPER_LETTER_SPACING_RANGE.min"
             :max="PAPER_LETTER_SPACING_RANGE.max"
             :step="PAPER_LETTER_SPACING_RANGE.step"
@@ -415,7 +438,7 @@ function onPanelFontMouseDown(ev: MouseEvent) {
           />
           <PaperTypographySlider
             v-model="lineHeightSliderModel"
-            label="Line height"
+            :label="echoT('b14.paperText.lineHeight')"
             :min="PAPER_LINE_HEIGHT_RANGE.min"
             :max="PAPER_LINE_HEIGHT_RANGE.max"
             :step="PAPER_LINE_HEIGHT_RANGE.step"
@@ -425,9 +448,13 @@ function onPanelFontMouseDown(ev: MouseEvent) {
 
           <div class="paper-editor-panel__divider" />
 
-          <h4 class="paper-editor-tab__label">Effects</h4>
+          <h4 class="paper-editor-tab__label">
+            {{ echoT('b14.paperText.effects') }}
+          </h4>
           <div class="paper-editor-panel__tool-row">
-            <span class="paper-editor-panel__control-label">Outline</span>
+            <span class="paper-editor-panel__control-label">{{
+              echoT('b14.paperText.outline')
+            }}</span>
             <div class="paper-editor-panel__chip-row">
               <button
                 v-for="opt in textOutlinePresetOptions"
@@ -452,7 +479,9 @@ function onPanelFontMouseDown(ev: MouseEvent) {
 
           <div class="paper-editor-panel__divider" />
 
-          <h4 class="paper-editor-tab__label">Indent</h4>
+          <h4 class="paper-editor-tab__label">
+            {{ echoT('b14.paperText.indent') }}
+          </h4>
           <div class="paper-editor-panel__tool-row">
             <button
               type="button"
@@ -460,10 +489,12 @@ function onPanelFontMouseDown(ev: MouseEvent) {
               :disabled="!selectionActive || actions.fmt.value.indent <= 0"
               @click="runOutdent"
             >
-              ← Outdent
+              {{ echoT('b14.paperText.outdent') }}
             </button>
             <span class="paper-editor-panel__indent-display">{{
-              actions.fmt.value.indentMixed ? 'Mixed' : actions.fmt.value.indent
+              actions.fmt.value.indentMixed
+                ? echoT('b14.paperText.mixed')
+                : actions.fmt.value.indent
             }}</span>
             <button
               type="button"
@@ -471,7 +502,7 @@ function onPanelFontMouseDown(ev: MouseEvent) {
               :disabled="!selectionActive || actions.fmt.value.indent >= 4"
               @click="runIndent"
             >
-              Indent →
+              {{ echoT('b14.paperText.indentBtn') }}
             </button>
           </div>
         </div>
@@ -482,7 +513,7 @@ function onPanelFontMouseDown(ev: MouseEvent) {
       v-if="!canCustomize && !editorEditable"
       class="paper-editor-tab__hint paper-editor-tab__hint--center"
     >
-      Switch to edit mode to customize typography.
+      {{ echoT('b14.paperText.editHint') }}
     </p>
   </div>
 </template>

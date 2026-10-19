@@ -5,6 +5,8 @@ enum EchoLocaleOptions {
     ("en-US", "English (US)"),
     ("en-GB", "English (UK)"),
     ("es", "Español"),
+    ("pt-BR", "Português (Brasil)"),
+    ("de", "Deutsch"),
   ]
 
   static let timeZones: [(String, String)] = {

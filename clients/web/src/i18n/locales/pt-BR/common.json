@@ -1,0 +1,14 @@
+{
+  "appName": "Echo",
+  "loading": "Carregando o Echo",
+  "ok": "OK",
+  "cancel": "Cancelar",
+  "save": "Salvar",
+  "close": "Fechar",
+  "back": "Voltar",
+  "refreshPage": "Atualizar página",
+  "requestFailed": "Algo não funcionou. Tente de novo.",
+  "somethingWentWrong": "Algo deu errado. Tente novamente.",
+  "notAvailableNow": "Isso não está disponível no momento. Tente mais tarde.",
+  "skipToContent": "Ir para o conteúdo"
+}

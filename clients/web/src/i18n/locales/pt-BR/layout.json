@@ -1,0 +1,100 @@
+{
+  "toast": {
+    "featureNotAvailable": "Recurso ainda não disponível",
+    "somethingWentWrongReload": "Algo deu errado. Tente novamente ou recarregue.",
+    "writeReply": "Escreva uma resposta…"
+  },
+  "tabs": {
+    "home": "Início",
+    "servers": "Servidores",
+    "explore": "Explorar",
+    "mainNavigation": "Navegação principal"
+  },
+  "splash": {
+    "slowAria": "O carregamento está demorando mais que o normal",
+    "stillLoading": "Ainda carregando…",
+    "canHappenWhen": "Isso pode acontecer quando:",
+    "slowConnection": "Sua conexão está lenta ou instável",
+    "firstVisit": "É a sua primeira visita (o app está sendo baixado em segundo plano)",
+    "blockedScripts": "Uma extensão do navegador ou o modo de privacidade rigoroso está bloqueando scripts",
+    "tryRefresh": "Se nada mudar depois de um tempo, tente atualizar a página."
+  },
+  "loadError": {
+    "timeout": "O download demorou demais e foi interrompido. Verifique sua rede e tente novamente.",
+    "unreachable": "Não foi possível acessar o servidor para carregar esta parte do app. Verifique sua conexão.",
+    "title": "Não foi possível carregar o Echo",
+    "generic": "Algo deu errado ao carregar o app. Tente atualizar ou volte em instantes."
+  },
+  "deploy": {
+    "updateInProgress": "Atualização em andamento",
+    "restartingSoon": "Reiniciando em breve",
+    "secondsUntilRestart": "Segundos até reiniciar",
+    "reconnecting": "Reconectando automaticamente quando o servidor voltar…",
+    "dismiss": "Dispensar",
+    "welcomeBack": "Bem-vindo de volta — o Echo está online",
+    "dismissNoticeAria": "Dispensar aviso de atualização"
+  },
+  "realtime": {
+    "reconnecting": "Reconectando",
+    "connected": "Conectado"
+  },
+  "pins": {
+    "title": "Mensagens fixadas",
+    "empty": "Nenhuma mensagem fixada neste canal.",
+    "close": "Fechar"
+  },
+  "members": {
+    "searchServer": "Pesquisar em {server}",
+    "search": "Pesquisar"
+  },
+  "myServers": {
+    "empty": "Nenhum servidor encontrado"
+  },
+  "mobile": {
+    "inviteUnavailable": "O convite não está disponível. Atualize e tente novamente.",
+    "serverSettingsUnavailable": "As configurações do servidor não estão disponíveis. Atualize e tente novamente.",
+    "notificationSettingsUnavailable": "As configurações de notificação não estão disponíveis. Atualize e tente novamente.",
+    "voiceSettingsUnavailable": "As configurações de voz não estão disponíveis. Atualize e tente novamente.",
+    "channels": "Canais",
+    "closeChannels": "Fechar canais",
+    "done": "Concluído",
+    "members": "Membros",
+    "yourProfile": "Seu perfil",
+    "openYourProfile": "Abrir seu perfil",
+    "settings": "Configurações",
+    "openSettings": "Abrir configurações",
+    "serversTitle": "Servidores",
+    "serversHintAll": "Todos os seus servidores — escolha um para abrir os canais e conversar.",
+    "serversHintPick": "Escolha um servidor para abrir os canais e conversar.",
+    "noServersYet": "Nenhum servidor ainda",
+    "joinFromExplore": "Entre em um pelo Explorar para começar."
+  },
+  "rail": {
+    "profilePicture": "Foto de perfil de {name}",
+    "serverIcon": "Ícone de {name}",
+    "laneOptions": "Opções de {title}",
+    "markAllRead": "Marcar tudo como lido",
+    "directMessages": "Mensagens diretas",
+    "servers": "Servidores",
+    "yourProfile": "Seu perfil",
+    "reportBug": "Relatar um bug",
+    "currentProfile": "Perfil atual",
+    "inCall": "em chamada",
+    "unreadCount": "{count} não lida(s)",
+    "openGroupMessage": "Abrir mensagem em grupo — {name}{suffix}",
+    "openDirectMessageFrom": "Abrir mensagem direta de {name}{suffix}",
+    "unreadDirectMessages": "Mensagens diretas não lidas",
+    "moreUnreadDms": "Mais {count} mensagens diretas não lidas — abrir caixa de entrada",
+    "logoSettingsTitle": "Configurações",
+    "logoSignInTitle": "Entre para abrir as configurações",
+    "logoOpenSettings": "Abrir configurações",
+    "logoAlt": "Logotipo do Echo",
+    "serverOptions": "Opções do servidor",
+    "serverSettings": "Configurações do servidor",
+    "invitePeople": "Convidar pessoas",
+    "notificationSettings": "Configurações de notificação",
+    "markAsRead": "Marcar como lido",
+    "copyServerId": "Copiar ID do servidor",
+    "leaveServer": "Sair do servidor"
+  }
+}

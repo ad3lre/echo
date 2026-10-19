@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import { useAuthSessionStore } from '@/features/auth/authSession';
@@ -40,7 +41,7 @@ async function load() {
     discordCategoryId.value = (s.discordCategoryId ?? '').trim();
   } catch (e) {
     error.value =
-      e instanceof Error ? e.message : 'Could not load voice mirror settings.';
+      e instanceof Error ? e.message : echoT('b35.voiceMirror.loadError');
   } finally {
     loading.value = false;
   }
@@ -82,7 +83,7 @@ async function save() {
     await load();
   } catch (e) {
     error.value =
-      e instanceof Error ? e.message : 'Could not save voice mirror settings.';
+      e instanceof Error ? e.message : echoT('b35.voiceMirror.saveError');
   } finally {
     saving.value = false;
   }
@@ -98,22 +99,22 @@ async function save() {
           alt=""
           class="h-5 w-5 shrink-0 opacity-90 filter invert"
         />
-        <div class="settings-subtitle">Discord voice mirror</div>
+        <div class="settings-subtitle">
+          {{ echoT('b35.voiceMirror.title') }}
+        </div>
       </div>
       <p class="mb-4 text-xs leading-relaxed text-fg-subtle">
-        When enabled, Echo shows live Discord voice rosters for voice channels
-        in this category. Echo voice join stays off — use Discord to participate
-        in voice.
+        {{ echoT('b35.voiceMirror.desc') }}
       </p>
 
       <div v-if="!authSession.isAuthenticated" class="text-sm text-fg-soft">
-        Sign in to configure voice mirror.
+        {{ echoT('b35.voiceMirror.signIn') }}
       </div>
       <div
         v-else-if="authSession.backendUser?.isGuest"
         class="text-sm text-fg-soft"
       >
-        Not available for guest sessions.
+        {{ echoT('b35.voiceMirror.guest') }}
       </div>
       <div v-else class="space-y-4">
         <label
@@ -125,39 +126,39 @@ async function save() {
             class="rounded border-border"
             :disabled="loading || saving"
           />
-          Mirror Discord voice activity for this category
+          {{ echoT('b35.voiceMirror.enable') }}
         </label>
 
         <div>
-          <label class="settings-label"
-            >Discord category ID (optional filter)</label
-          >
+          <label class="settings-label">{{
+            echoT('b35.voiceMirror.catId')
+          }}</label>
           <input
             v-model="discordCategoryId"
             type="text"
             class="server-input mt-2 w-full max-w-xl"
-            placeholder="Leave empty to mirror all Discord VCs into this Echo category"
+            :placeholder="echoT('b35.voiceMirror.catIdPh')"
             autocomplete="off"
             :disabled="loading || saving"
           />
           <p class="mt-1 text-[11px] text-fg-subtle">
-            When set, only Discord voice channels under this Discord category id
-            are mirrored into this Echo category. Developer Mode → right-click
-            Discord category → Copy ID.
+            {{ echoT('b35.voiceMirror.catIdHelp') }}
           </p>
         </div>
 
         <div v-if="error" class="text-sm echo-destructive-text">
           {{ error }}
         </div>
-        <div v-if="loading" class="text-sm text-fg-subtle">Loading…</div>
+        <div v-if="loading" class="text-sm text-fg-subtle">
+          {{ echoT('b35.common.loading') }}
+        </div>
         <button
           type="button"
           class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
           :disabled="loading || saving"
           @click="save"
         >
-          {{ saving ? 'Saving…' : 'Save' }}
+          {{ saving ? echoT('b35.common.saving') : echoT('b35.common.save') }}
         </button>
       </div>
     </div>

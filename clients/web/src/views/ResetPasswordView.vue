@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { useResetPasswordFlow } from '@/features/auth/useAuthPasswordFlow';
 
 const emit = defineEmits<{
@@ -25,10 +26,9 @@ const {
 <template>
   <div class="reset-page">
     <div class="reset-card">
-      <h1 class="reset-title">Reset password</h1>
+      <h1 class="reset-title">{{ echoT('auth.resetPassword') }}</h1>
       <p class="reset-lead">
-        Choose a new password for your Echo account. If you use two-factor
-        authentication, you will be asked for a code.
+        {{ echoT('b12.reset.lead') }}
       </p>
 
       <form class="reset-form" @submit.prevent="submit">
@@ -37,21 +37,25 @@ const {
           class="reset-token-hint"
           role="status"
         >
-          Reset link from email is ready. Enter your new password below.
+          {{ echoT('auth.resetPage.tokenReady') }}
         </div>
         <div v-else class="reset-field">
-          <label class="reset-label" for="rp-token">Reset token</label>
+          <label class="reset-label" for="rp-token">{{
+            echoT('auth.fields.resetToken')
+          }}</label>
           <input
             id="rp-token"
             v-model="token"
             type="text"
             autocomplete="one-time-code"
             class="reset-input"
-            placeholder="Paste from email link"
+            :placeholder="echoT('auth.placeholders.pasteResetToken')"
           />
         </div>
         <div class="reset-field">
-          <label class="reset-label" for="rp-new">New password</label>
+          <label class="reset-label" for="rp-new">{{
+            echoT('auth.fields.newPassword')
+          }}</label>
           <input
             id="rp-new"
             v-model="newPassword"
@@ -61,12 +65,13 @@ const {
             :minlength="minPasswordLength"
           />
           <p class="reset-hint">
-            At least {{ minPasswordLength }} characters (same as when you signed
-            up).
+            {{ echoT('b12.reset.minHint', { min: minPasswordLength }) }}
           </p>
         </div>
         <div class="reset-field">
-          <label class="reset-label" for="rp-confirm">Confirm password</label>
+          <label class="reset-label" for="rp-confirm">{{
+            echoT('auth.fields.confirmPassword')
+          }}</label>
           <input
             id="rp-confirm"
             v-model="confirmPassword"
@@ -76,7 +81,9 @@ const {
           />
         </div>
         <div v-if="showTotp" class="reset-field">
-          <label class="reset-label" for="rp-totp">Authenticator code</label>
+          <label class="reset-label" for="rp-totp">{{
+            echoT('auth.fields.authenticatorCode')
+          }}</label>
           <input
             id="rp-totp"
             v-model="totpCode"
@@ -101,12 +108,18 @@ const {
           class="reset-submit"
           :disabled="!canSubmit || busy"
         >
-          {{ busy ? 'Updating…' : 'Update password' }}
+          {{
+            busy
+              ? echoT('b12.reset.updating')
+              : echoT('auth.actions.updatePassword')
+          }}
         </button>
       </form>
 
       <p class="reset-footer">
-        <a class="reset-link" :href="homeHref">Back to Echo</a>
+        <a class="reset-link" :href="homeHref">{{
+          echoT('auth.actions.backToEcho')
+        }}</a>
       </p>
     </div>
   </div>

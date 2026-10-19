@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { UIErrorBus } from '@/features/layout/failures/uiErrorBus';
 import {
   echoCameraPublishPermissionDeniedHint,
@@ -94,7 +95,9 @@ export function screenShareFailureUserMessage(e: unknown): string {
   }
 
   const hint =
-    domMediaExceptionMessage(e) || domMediaExceptionName(e) || 'Unknown error';
+    domMediaExceptionMessage(e) ||
+    domMediaExceptionName(e) ||
+    echoT('voiceChrome.unknownError');
   const short = hint.length > 140 ? `${hint.slice(0, 137)}…` : hint;
   return `Could not start screen share (${short}). Check browser permissions and try again.`;
 }
@@ -140,7 +143,9 @@ export function cameraPublishFailureUserMessage(e: unknown): string {
   }
 
   const hint =
-    domMediaExceptionMessage(e) || domMediaExceptionName(e) || 'Unknown error';
+    domMediaExceptionMessage(e) ||
+    domMediaExceptionName(e) ||
+    echoT('voiceChrome.unknownError');
   const short = hint.length > 120 ? `${hint.slice(0, 117)}…` : hint;
   return `Could not start camera (${short}). Check Voice & Video settings and browser permissions, then try again.`;
 }

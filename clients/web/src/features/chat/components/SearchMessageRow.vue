@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, type ComputedRef } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import {
@@ -161,25 +162,26 @@ const timestampLabel = computed(() => formatTimestamp(props.message.timestamp));
           <span
             v-if="hasVideo"
             class="text-[10px] px-1.5 py-0.5 rounded bg-glass-2 text-muted"
-            >video</span
+            >{{ echoT('b42.search.video') }}</span
           >
           <span
             v-if="hasAudio"
             class="text-[10px] px-1.5 py-0.5 rounded bg-glass-2 text-muted"
-            >audio</span
+            >{{ echoT('b42.search.audio') }}</span
           >
           <span
             v-if="hasDocs"
             class="text-[10px] px-1.5 py-0.5 rounded bg-glass-2 text-muted"
-            >doc</span
+            >{{ echoT('b42.search.doc') }}</span
           >
         </div>
         <div
           v-else-if="!hasImage && hasSticker"
           class="mt-1 flex flex-wrap gap-1"
         >
-          <span class="text-[10px] px-1.5 py-0.5 rounded bg-glass-2 text-muted"
-            >sticker</span
+          <span
+            class="text-[10px] px-1.5 py-0.5 rounded bg-glass-2 text-muted"
+            >{{ echoT('b42.search.sticker') }}</span
           >
         </div>
       </div>
@@ -198,7 +200,7 @@ const timestampLabel = computed(() => formatTimestamp(props.message.timestamp));
           v-else-if="isGif"
           :src="safeImageUrl(previewImageUrl)"
           :session-key="`${message.id ?? ''}-${previewImageUrl}`"
-          :alt="message.content || 'GIF'"
+          :alt="message.content || echoT('b42.search.gif')"
           wrapper-class="flex h-full w-full items-center justify-center"
           img-class="max-h-full max-w-full object-contain"
           :respect-reduced-motion="true"
@@ -206,7 +208,7 @@ const timestampLabel = computed(() => formatTimestamp(props.message.timestamp));
         <img
           v-else
           :src="safeImageUrl(previewImageUrl)"
-          :alt="message.content || 'Image'"
+          :alt="message.content || echoT('b42.search.image')"
           class="max-h-full max-w-full object-contain"
         />
       </div>

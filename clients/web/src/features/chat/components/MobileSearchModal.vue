@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useEdgeSwipe } from '@/features/layout/useEdgeSwipe';
@@ -38,7 +39,7 @@ const props = withDefaults(
     searchError?: string | null;
   }>(),
   {
-    title: 'Search',
+    title: echoT('chat.search.placeholder'),
     subtitle: '',
     dmMode: false,
     searchScopeHint: '',
@@ -113,7 +114,7 @@ onBeforeUnmount(() => {
         class="mobile-search-modal fixed inset-0 z-[220] bg-[var(--echo-server-rail-bg)] text-foreground"
         role="dialog"
         aria-modal="true"
-        aria-label="Search"
+        :aria-label="echoT('chat.search.placeholder')"
         @keydown="onKeydown"
       >
         <div
@@ -164,7 +165,7 @@ onBeforeUnmount(() => {
                 :total-results="totalResults"
                 :current-page="currentPage"
                 :total-pages="totalPages"
-                :placeholder="placeholder || 'Search'"
+                :placeholder="placeholder || echoT('chat.search.placeholder')"
                 :dropdown-panel-selector="MOBILE_SEARCH_PANEL_SELECTOR"
                 :reserved-right-px="0"
                 :dropdown-horizontal-pad-px="0"

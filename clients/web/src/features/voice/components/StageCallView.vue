@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   inject,
@@ -309,14 +310,11 @@ async function requestToSpeak() {
   try {
     await requestEchoStageSpeak('', sid, cid);
     selfRequestedSpeakLocal.value = true;
-    dispatchAppToast(
-      'Request to speak sent. A moderator can invite you to the stage.',
-      'success',
-    );
+    dispatchAppToast(echoT('b18.stage.toast.requestSent'), 'success');
   } catch (e) {
     const msg =
-      e instanceof Error ? e.message : "Something didn't work. Try again.";
-    dispatchAppToast(`Could not request to speak: ${msg}`, 'warning');
+      e instanceof Error ? e.message : echoT('b18.stage.toast.fallbackErr');
+    dispatchAppToast(echoT('b18.stage.couldNotRequest', { msg }), 'warning');
   } finally {
     requestSpeakBusy.value = false;
   }
@@ -330,9 +328,10 @@ async function cancelSpeakRequest() {
   try {
     await cancelEchoStageSpeakRequest('', sid, cid);
     selfRequestedSpeakLocal.value = false;
-    dispatchAppToast('Speak request cancelled.', 'success');
+    dispatchAppToast(echoT('b18.stage.toast.cancelled'), 'success');
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Could not cancel';
+    const msg =
+      e instanceof Error ? e.message : echoT('b18.stage.toast.cancelFail');
     dispatchAppToast(msg, 'warning');
   } finally {
     requestSpeakBusy.value = false;
@@ -451,7 +450,7 @@ watch(
         v-if="onGoToVoiceChannelInSidebar"
         type="button"
         class="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-[15px] font-semibold text-foreground transition hover:underline"
-        :title="`${channelName} — Go to channel`"
+        :title="echoT('b18.stage.goToChannel', { name: channelName })"
         @click="onGoToVoiceChannelInSidebar()"
       >
         {{ channelName }}
@@ -464,18 +463,27 @@ watch(
       <span
         class="ml-auto flex shrink-0 items-center gap-2 text-xs tabular-nums text-fg-subtle"
       >
-        <span class="hidden sm:inline"
-          >{{ speakerParticipants.length }} speaker{{
-            speakerParticipants.length === 1 ? '' : 's'
-          }}
-          · {{ audienceParticipants.length }} listening</span
-        >
+        <span class="hidden sm:inline">{{
+          echoT('b18.stage.speakersListening', {
+            count: speakerParticipants.length,
+            speakers:
+              speakerParticipants.length === 1
+                ? echoT('b18.stage.speaker1')
+                : echoT('b18.stage.speakerN'),
+            listening: audienceParticipants.length,
+          })
+        }}</span>
         <VoiceChannelUserLimitBadge
           v-if="voiceChannelLimitUi"
           :label="voiceChannelLimitUi.label"
           :tone="voiceChannelLimitUi.tone"
           size="md"
-          :title="`${voiceChannelLimitUi.count} of ${voiceChannelLimitUi.limit} users in stage`"
+          :title="
+            echoT('b18.stage.limitTitle', {
+              count: voiceChannelLimitUi.count,
+              limit: voiceChannelLimitUi.limit,
+            })
+          "
         />
       </span>
     </div>
@@ -499,9 +507,11 @@ watch(
         class="stage-self-bar flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-elevated px-3 py-2"
       >
         <div class="min-w-0">
-          <p class="text-xs font-semibold text-fg">You are in the audience</p>
+          <p class="text-xs font-semibold text-fg">
+            {{ echoT('b18.stage.audience') }}
+          </p>
           <p class="text-[11px] text-fg-subtle">
-            Raise your hand to ask moderators for the mic.
+            {{ echoT('b18.stage.raiseHand') }}
           </p>
         </div>
         <button
@@ -511,7 +521,7 @@ watch(
           :disabled="requestSpeakBusy"
           @click="cancelSpeakRequest"
         >
-          Cancel request
+          {{ echoT('b18.stage.cancelRequest') }}
         </button>
         <button
           v-else
@@ -520,7 +530,7 @@ watch(
           :disabled="requestSpeakBusy"
           @click="requestToSpeak"
         >
-          Request to speak
+          {{ echoT('b18.stage.requestToSpeak') }}
         </button>
       </div>
 
@@ -531,7 +541,7 @@ watch(
         <p
           class="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-200/90"
         >
-          Requests to speak
+          {{ echoT('b18.stage.requestsToSpeak') }}
         </p>
         <div class="flex flex-wrap gap-2">
           <div
@@ -554,7 +564,7 @@ watch(
               :disabled="speakRequestsBusy"
               @click="resolveSpeakRequest(p.id, true)"
             >
-              Invite
+              {{ echoT('b18.stage.invite') }}
             </button>
             <button
               type="button"
@@ -562,7 +572,7 @@ watch(
               :disabled="speakRequestsBusy"
               @click="resolveSpeakRequest(p.id, false)"
             >
-              Deny
+              {{ echoT('b18.stage.deny') }}
             </button>
           </div>
         </div>
@@ -599,9 +609,9 @@ watch(
           class="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-fg-subtle"
         >
           <img :src="icons.sofa" alt="" class="h-10 w-10 opacity-40" />
-          <p class="text-sm">Stage is empty</p>
+          <p class="text-sm">{{ echoT('b18.stage.empty') }}</p>
           <p class="text-xs">
-            Be the first to join — moderators can go live on YouTube above.
+            {{ echoT('b18.stage.emptyHint') }}
           </p>
         </div>
 
@@ -609,10 +619,11 @@ watch(
           <div
             class="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-fg-subtle"
           >
-            <p class="text-sm font-medium text-fg">No speakers yet</p>
+            <p class="text-sm font-medium text-fg">
+              {{ echoT('b18.stage.noSpeakers') }}
+            </p>
             <p class="max-w-xs text-xs">
-              Moderators can invite audience members to speak or start a YouTube
-              live stream from the bar above.
+              {{ echoT('b18.stage.noSpeakersHint') }}
             </p>
           </div>
         </template>
@@ -699,18 +710,20 @@ watch(
               <span
                 v-if="currentUserId === p.id"
                 class="stage-tile-badge stage-tile-badge--you"
-                >You</span
+                >{{ echoT('b18.stage.you') }}</span
               >
-              <span class="stage-tile-badge stage-tile-badge--speaker"
-                >Speaker</span
-              >
+              <span class="stage-tile-badge stage-tile-badge--speaker">{{
+                echoT('b18.stage.speaker')
+              }}</span>
               <div class="stage-tile-avatar-area">
                 <div class="stage-avatar-ring-host rounded-full">
                   <button
                     v-if="onOpenProfile"
                     type="button"
                     class="stage-avatar-btn"
-                    :aria-label="`Open ${p.name} profile`"
+                    :aria-label="
+                      echoT('b18.stage.openProfile', { name: p.name })
+                    "
                     @click="handleOpenProfile(p.id, $event)"
                     @contextmenu.stop.prevent="onTileContextMenu(p, $event)"
                   >
@@ -801,7 +814,7 @@ watch(
               <span
                 v-if="pendingUserIds.includes(p.id)"
                 class="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-black"
-                title="Requested to speak"
+                :title="echoT('b18.stage.requestedToSpeak')"
                 >!</span
               >
               <span
@@ -836,7 +849,7 @@ watch(
           class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-glass-hover"
           @click="mentionFromMenu"
         >
-          Quick mention
+          {{ echoT('b18.stage.quickMention') }}
         </button>
         <template v-if="vcModAllowed(vcModerationTarget.id, 'inviteToSpeak')">
           <button
@@ -846,7 +859,7 @@ watch(
             @click="emitVcModerate('inviteToSpeak', vcModerationTarget.id)"
           >
             <img :src="icons.mic" alt="" class="h-4 w-4 opacity-80" />
-            Invite to speak
+            {{ echoT('b18.stage.inviteToSpeak') }}
           </button>
           <button
             v-else
@@ -855,7 +868,7 @@ watch(
             @click="emitVcModerate('moveToAudience', vcModerationTarget.id)"
           >
             <img :src="icons.mic" alt="" class="h-4 w-4 opacity-50" />
-            Move to audience
+            {{ echoT('b18.stage.moveToAudience') }}
           </button>
         </template>
         <button
@@ -864,7 +877,11 @@ watch(
           class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-500/15 dark:text-red-200"
           @click="emitVcModerate('serverMute', vcModerationTarget.id)"
         >
-          {{ vcModerationTarget.serverMuted ? 'Unmute' : 'Mute' }}
+          {{
+            vcModerationTarget.serverMuted
+              ? echoT('b18.stage.unmute')
+              : echoT('b18.stage.mute')
+          }}
         </button>
         <button
           v-if="
@@ -875,7 +892,7 @@ watch(
           class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-500/15 dark:text-red-200"
           @click="emitVcModerate('stopCamera', vcModerationTarget.id)"
         >
-          Turn off camera
+          {{ echoT('b18.stage.turnOffCamera') }}
         </button>
         <button
           v-if="
@@ -886,7 +903,7 @@ watch(
           class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-500/15 dark:text-red-200"
           @click="emitVcModerate('stopScreenShare', vcModerationTarget.id)"
         >
-          Stop screen share
+          {{ echoT('b18.stage.stopScreenShare') }}
         </button>
         <button
           v-if="vcModAllowed(vcModerationTarget.id, 'disconnect')"
@@ -894,7 +911,7 @@ watch(
           class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-500/15 dark:text-red-200"
           @click="emitVcModerate('disconnect', vcModerationTarget.id)"
         >
-          Disconnect
+          {{ echoT('voiceChrome.disconnect') }}
         </button>
       </div>
     </Teleport>

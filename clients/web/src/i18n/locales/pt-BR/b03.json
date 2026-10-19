@@ -1,0 +1,114 @@
+{
+  "sidebar": {
+    "kicker": "Canal",
+    "typeTitle": "Tipo de canal",
+    "voiceChannel": "Canal de voz",
+    "forumChannel": "Canal de fórum",
+    "textChannel": "Canal de texto",
+    "settings": "Configurações",
+    "serverDesc": "Configure este canal para {serverName}."
+  },
+  "common": {
+    "close": "Fechar",
+    "syncWithCategory": "Sincronizar com a categoria",
+    "off": "Desativado"
+  },
+  "slowmodeOptions": {
+    "0": "Desativado",
+    "5": "5 segundos",
+    "10": "10 segundos",
+    "15": "15 segundos",
+    "30": "30 segundos",
+    "60": "1 minuto",
+    "300": "5 minutos",
+    "600": "10 minutos",
+    "900": "15 minutos",
+    "3600": "1 hora",
+    "21600": "6 horas",
+    "86400": "24 horas"
+  },
+  "autoDeleteOptions": {
+    "off": "Desativado",
+    "86400": "1 dia",
+    "604800": "7 dias",
+    "2592000": "30 dias"
+  },
+
+  "overview": {
+    "name": "Nome",
+    "category": "Categoria",
+    "namePlaceholder": "nome-do-canal",
+    "slowmode": "Modo lento",
+    "slowmodeHint": "Tempo de espera entre mensagens por membro.",
+    "nsfw": "Restrito por idade (NSFW)",
+    "nsfwHint": "Os membros precisam confirmar a idade antes de visualizar.",
+    "nsfwAria": "Canal restrito por idade"
+  },
+  "paper": {
+    "title": "Paper",
+    "hint": "Documento compartilhado com coedição ao vivo e comentários na margem.",
+    "allowComments": "Permitir comentários na margem",
+    "showAuthors": "Mostrar nomes dos autores na margem",
+    "shareVisibility": "Visibilidade do compartilhamento",
+    "shareVisibilityHint": "Quem pode abrir este paper ao usar um link de compartilhamento.",
+    "serverMembers": "Membros do servidor (RBAC)",
+    "authorsOnly": "Somente autores",
+    "anyoneWithLink": "Qualquer pessoa com o link"
+  },
+  "voice": {
+    "userLimit": "Limite de usuários",
+    "bitrate": "Taxa de bits",
+    "useServerDefault": "Usar padrão do servidor",
+    "useServerDefaultAria": "Usar taxa de bits padrão do servidor",
+    "e2ee": "Criptografia de ponta a ponta",
+    "e2eeHint": "E2EE do LiveKit para voz e câmera. Sem gravação, transcrição ou bots de áudio.",
+    "e2eeAria": "Criptografia de ponta a ponta para voz",
+    "bitrateHint": "Desativado permite escolher {min}–{max} kbps abaixo.",
+    "default": "Padrão",
+    "kbps": "{value} kbps"
+  },
+
+  "format": {
+    "defaultText": "Texto padrão da mensagem",
+    "enforcement": "Aplicação",
+    "soft": "Flexível",
+    "hard": "Rígido",
+    "softHint": "Os usuários podem apagar ou editar o texto padrão.",
+    "hardHint": "O prefixo permanece no início do campo e deve aparecer nas mensagens enviadas.",
+    "intro": "Este texto é inserido no campo de mensagem para todos no canal. Use {soft} se ele deve ser um padrão que pode ser removido, ou {hard} para mantê-lo como prefixo fixo (também aplicado ao enviar texto)."
+  },
+  "forum": {
+    "managePost": "Gerenciar post (fixar, bloquear, arquivar, tags)",
+    "managePostHint": "Permite que o autor altere fixação, bloqueio, arquivamento e tags da listagem sem Gerenciar Canal no post.",
+    "deleteOwn": "Excluir o próprio post",
+    "deleteOwnHint": "Permite que o autor exclua todo o canal do post (tópico).",
+    "deleteOthers": "Excluir mensagens de outros no próprio post",
+    "deleteOthersHint": "Moderação de mensagens restrita apenas ao próprio tópico.",
+    "intro": "Membros que iniciam um post recebem estes extras apenas no {own} tópico. Cargos do servidor e permissões do canal continuam valendo para todo o resto.",
+    "own": "próprio"
+  },
+  "danger": {
+    "intro": "Estas ações são sensíveis e podem ser irreversíveis. Prossiga com cuidado.",
+    "autoDelete": "Excluir mensagens automaticamente",
+    "autoDeleteHint": "Remove mensagens mais antigas que o período de retenção. Quando sincronizado, vale a configuração da categoria. As mensagens excluídas permanecem no banco de dados por 14 dias antes da remoção definitiva.",
+    "inherited": "Herdado da categoria: {value}",
+    "retention": "Retenção",
+    "deleteChannel": "Excluir canal",
+    "deleteDesc": "Excluir {name} permanentemente. Todas as mensagens deste canal serão removidas. Isso não pode ser desfeito."
+  },
+  "perm": {
+    "paperNote": "As permissões se aplicam quando a visibilidade do compartilhamento está definida como {mode}. Altere a visibilidade do compartilhamento na aba Visão geral para ativar os controles de permissão.",
+    "syncHint": "Quando ativado, este canal herda as substituições de nível de categoria de {category}. Desative para aplicar regras específicas do canal para cargos ou membros individuais.",
+    "inheriting": "Este canal está herdando permissões de {category}. Desative a sincronização para adicionar substituições específicas do canal.",
+    "defaultsHint": "Quando ativado, este canal usa os padrões de {category} (edite nas configurações da categoria). Desative para definir substituições apenas para este canal.",
+    "showingDefaults": "Mostrando os padrões de {category} — use a engrenagem dessa categoria na barra lateral para editar. Desmarque a sincronização acima para substituir apenas este canal."
+  },
+  "footer": {
+    "changesApply": "As alterações serão aplicadas quando você salvar.",
+    "cancel": "Cancelar"
+  },
+  "confirm": {
+    "title": "Excluir o canal “{label}”?",
+    "message": "Isso não pode ser desfeito.\n\nTodas as mensagens deste canal serão removidas do mock."
+  }
+}

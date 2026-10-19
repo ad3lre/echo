@@ -222,6 +222,47 @@ describe('channelActiveMessagesFingerprint', () => {
       }),
     );
   });
+
+  it('changes when an author presence overlay changes (once per author)', () => {
+    const lookup = new Map<string, UserForAuthor>([
+      ['u1', { id: 'u1', name: 'A', pfp: '', status: 'offline' }],
+    ]);
+    const m1: RawMessage = {
+      id: 'm1',
+      authorId: 'u1',
+      timestamp: 't',
+      content: 'a',
+    };
+    const m2: RawMessage = {
+      id: 'm2',
+      authorId: 'u1',
+      timestamp: 't',
+      content: 'b',
+    };
+    const entities = new Map<string, RawMessage>([
+      ['m1', m1],
+      ['m2', m2],
+    ]);
+    expect(
+      channelActiveMessagesFingerprint(
+        'c1',
+        0,
+        ['m1', 'm2'],
+        entities,
+        lookup,
+        { u1: 'online' },
+      ),
+    ).not.toBe(
+      channelActiveMessagesFingerprint(
+        'c1',
+        0,
+        ['m1', 'm2'],
+        entities,
+        lookup,
+        { u1: 'idle' },
+      ),
+    );
+  });
 });
 
 describe('buildMessageWithAuthor', () => {

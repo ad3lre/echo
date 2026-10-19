@@ -486,7 +486,7 @@
   position: absolute;
   right: 2px;
   bottom: 2px;
-  box-shadow: 0 0 0 3px var(--vue-auto-071);
+  /* Cutout ring comes from StatusIndicator itself. */
 }
 
 /* Text */

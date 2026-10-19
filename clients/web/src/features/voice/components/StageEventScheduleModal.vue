@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch } from 'vue';
 import { createGuildEvent } from '@/features/server-events/echoServerEventsHttp';
 import EchoDateTimePicker from '@/components/EchoDateTimePicker.vue';
@@ -64,29 +65,29 @@ async function submit() {
   endsError.value = '';
   const title = draftTitle.value.trim();
   if (!title) {
-    dispatchAppToast('Event title is required.', 'warning');
+    dispatchAppToast(echoT('b10.stage.titleRequired'), 'warning');
     return;
   }
   const startsIso = parseDateTimeLocalToUtcIso(draftStarts.value);
   const endsIso = parseDateTimeLocalToUtcIso(draftEnds.value);
   if (!startsIso) {
-    startsError.value = 'Pick a valid start date and time.';
-    dispatchAppToast('Pick valid start and end times.', 'warning');
+    startsError.value = echoT('b10.stage.pickValidStart');
+    dispatchAppToast(echoT('b10.stage.pickValidTimes'), 'warning');
     return;
   }
   if (isDateTimeLocalInPast(draftStarts.value)) {
-    startsError.value = 'Start cannot be in the past.';
-    dispatchAppToast('Start cannot be in the past.', 'warning');
+    startsError.value = echoT('b10.stage.startPast');
+    dispatchAppToast(echoT('b10.stage.startPast'), 'warning');
     return;
   }
   if (!endsIso) {
-    endsError.value = 'Pick a valid end date and time.';
-    dispatchAppToast('Pick valid start and end times.', 'warning');
+    endsError.value = echoT('b10.stage.pickValidEnd');
+    dispatchAppToast(echoT('b10.stage.pickValidTimes'), 'warning');
     return;
   }
   if (new Date(endsIso) <= new Date(startsIso)) {
-    endsError.value = 'End must be after start.';
-    dispatchAppToast('End time must be after start.', 'warning');
+    endsError.value = echoT('b10.stage.endAfterStart');
+    dispatchAppToast(echoT('b10.stage.endTimeAfterStart'), 'warning');
     return;
   }
 
@@ -105,11 +106,12 @@ async function submit() {
       customLocation: null,
       maxAttendees: null,
     });
-    dispatchAppToast('Event scheduled.', 'success');
+    dispatchAppToast(echoT('b10.stage.scheduled'), 'success');
     emit('created');
     emit('close');
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Could not schedule event';
+    const msg =
+      e instanceof Error ? e.message : echoT('b10.stage.couldNotSchedule');
     dispatchAppToast(msg, 'warning');
   } finally {
     saving.value = false;
@@ -136,10 +138,10 @@ async function submit() {
               id="stage-schedule-event-title"
               class="text-lg font-bold text-foreground"
             >
-              Schedule stage event
+              {{ echoT('b10.stage.scheduleStageEvent') }}
             </h2>
             <p class="mt-1 text-sm text-muted">
-              {{ stageChannelName }} · members can RSVP from the sidebar
+              {{ echoT('b10.stage.membersRsvp', { name: stageChannelName }) }}
             </p>
           </div>
           <button
@@ -147,24 +149,28 @@ async function submit() {
             class="rounded-lg px-2 py-1 text-xs text-fg-soft hover:bg-glass-hover"
             @click="emit('close')"
           >
-            Close
+            {{ echoT('b10.stage.close') }}
           </button>
         </div>
 
         <div class="space-y-3">
           <div>
-            <label class="text-xs font-semibold text-fg-soft">Title</label>
+            <label class="text-xs font-semibold text-fg-soft">{{
+              echoT('b10.stage.title')
+            }}</label>
             <input
               v-model="draftTitle"
               type="text"
               maxlength="200"
               class="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg"
-              placeholder="Weekly show, AMA, launch party…"
+              :placeholder="echoT('b10.stage.titlePlaceholder')"
             />
           </div>
           <div class="grid gap-3 sm:grid-cols-2">
             <div>
-              <label class="text-xs font-semibold text-fg-soft">Starts</label>
+              <label class="text-xs font-semibold text-fg-soft">{{
+                echoT('b10.stage.starts')
+              }}</label>
               <EchoDateTimePicker
                 v-model="draftStarts"
                 class="mt-1"
@@ -176,12 +182,14 @@ async function submit() {
               </p>
             </div>
             <div>
-              <label class="text-xs font-semibold text-fg-soft">Ends</label>
+              <label class="text-xs font-semibold text-fg-soft">{{
+                echoT('b10.stage.ends')
+              }}</label>
               <EchoDateTimePicker
                 v-model="draftEnds"
                 class="mt-1"
                 :min-date-time="minEndDateTime"
-                min-error-message="End must be after start."
+                :min-error-message="echoT('b10.stage.endAfterStart')"
                 :invalid="!!endsError"
               />
               <p v-if="endsError" class="mt-1 text-xs text-red-400">
@@ -190,15 +198,15 @@ async function submit() {
             </div>
           </div>
           <div>
-            <label class="text-xs font-semibold text-fg-soft"
-              >Description (optional)</label
-            >
+            <label class="text-xs font-semibold text-fg-soft">{{
+              echoT('b10.stage.descriptionOptional')
+            }}</label>
             <textarea
               v-model="draftDescription"
               rows="3"
               maxlength="4000"
               class="mt-1 w-full resize-none rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg"
-              placeholder="What should people expect?"
+              :placeholder="echoT('b10.stage.descriptionPlaceholder')"
             />
           </div>
           <label
@@ -206,9 +214,9 @@ async function submit() {
             class="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-glass-1 px-3 py-2.5"
           >
             <input v-model="youtubeLive" type="checkbox" class="rounded" />
-            <span class="text-sm text-foreground"
-              >Plan to go live on YouTube during this event</span
-            >
+            <span class="text-sm text-foreground">{{
+              echoT('b10.stage.planYoutube')
+            }}</span>
           </label>
         </div>
 
@@ -219,7 +227,7 @@ async function submit() {
             :disabled="saving"
             @click="emit('close')"
           >
-            Cancel
+            {{ echoT('b10.stage.cancel') }}
           </button>
           <button
             type="button"
@@ -227,7 +235,11 @@ async function submit() {
             :disabled="saving"
             @click="submit"
           >
-            {{ saving ? 'Saving…' : 'Schedule event' }}
+            {{
+              saving
+                ? echoT('b10.stage.saving')
+                : echoT('b10.stage.scheduleEvent')
+            }}
           </button>
         </div>
       </div>

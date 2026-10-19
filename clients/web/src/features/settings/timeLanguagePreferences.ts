@@ -192,6 +192,14 @@ export function languageOptions(): TimeLanguageOption[] {
       label: echoT('time.languages.en-GB'),
       value: 'en-GB',
     },
+    {
+      label: echoT('time.languages.pt-BR'),
+      value: 'pt-BR',
+    },
+    {
+      label: echoT('time.languages.de'),
+      value: 'de',
+    },
   ];
 }
 

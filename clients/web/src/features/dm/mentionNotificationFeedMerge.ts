@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import type { EchoMentionNotificationRow } from '@shared/types';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import { messageContentPreviewPlainText } from '@/features/chat/domain/messagePreviewPlain';
@@ -17,7 +18,7 @@ function isPlaceholderPreview(preview: string): boolean {
 /**
  * Map server-authoritative mention rows into the client's row shape. The server
  * already hydrated the body + author, so previews resolve immediately (no
- * "Loading mention…" stub). Channel labels / nicknames are still resolved on
+ * echoT('chat.status.loadingMention') stub). Channel labels / nicknames are still resolved on
  * the client downstream, so a sensible fallback is used here.
  */
 export function mapServerMentionRowsToDmRows(
@@ -29,7 +30,7 @@ export function mapServerMentionRowsToDmRows(
     channelLabel: '',
     messageId: row.messageId,
     authorId: row.authorId,
-    authorName: row.authorName || 'Someone',
+    authorName: row.authorName || echoT('chat.labels.someone'),
     preview: messageContentPreviewPlainText(row.content, 220) || '…',
     timestamp: row.timestamp,
     mentionKinds: [...row.mentionKinds],

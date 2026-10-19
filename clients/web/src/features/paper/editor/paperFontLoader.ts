@@ -56,9 +56,27 @@ export async function ensurePaperFontLoaded(fontId: string): Promise<void> {
   return promise;
 }
 
-/** Preload the full Paper font catalog (call once when opening Paper). */
-export function preloadPaperFontCatalog(): void {
-  for (const font of PAPER_FONT_CATALOG) {
-    void ensurePaperFontLoaded(font.id);
+/** Default fonts warmed when opening Paper (not the full catalog). */
+export const PAPER_WARM_DEFAULT_FONT_IDS = ['inter'] as const;
+
+/**
+ * Warm a small default set plus any fonts the open document actually uses.
+ * Prefer this over loading the entire catalog on Paper mount.
+ */
+export function warmPaperFontsForDocument(fontIds: Iterable<string>): void {
+  for (const id of PAPER_WARM_DEFAULT_FONT_IDS) {
+    void ensurePaperFontLoaded(id);
   }
+  for (const raw of fontIds) {
+    const id = raw.trim().toLowerCase();
+    if (id) void ensurePaperFontLoaded(id);
+  }
+}
+
+/**
+ * @deprecated Prefer {@link warmPaperFontsForDocument} — full catalog preload
+ * bursts dozens of @fontsource CSS imports on every Paper open.
+ */
+export function preloadPaperFontCatalog(): void {
+  warmPaperFontsForDocument(PAPER_FONT_CATALOG.map((font) => font.id));
 }

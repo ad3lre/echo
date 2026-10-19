@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import type { WaveformBar } from '@/features/chat/composables/media/audioWaveformPeaks';
 
@@ -107,7 +108,7 @@ function barStyle(bar: WaveformBar): Record<string, string> {
       'echo-audio-waveform--scrubbing': scrubbing,
     }"
     role="slider"
-    aria-label="Audio waveform"
+    :aria-label="echoT('chatB.waveform.aria')"
     :aria-valuemin="0"
     :aria-valuemax="duration"
     :aria-valuenow="currentTime"

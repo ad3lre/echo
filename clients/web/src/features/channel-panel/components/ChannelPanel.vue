@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   inject,
@@ -24,7 +25,7 @@ import {
 import { requestAppConfirmFromContextMenu } from '@/features/layout/failures/appDialogs';
 import type { ChannelSummary } from '@shared/types';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
-import { getChannelDisplayName } from '@/assets/icons';
+import { getChannelDisplayName } from '@/assets/channelDisplayName';
 import { getPopoutAnchorRect } from '@/features/member-profile/memberProfiles';
 import type { PopoutAnchorRect } from '@/features/member-profile/memberProfiles';
 import {
@@ -813,7 +814,9 @@ function channelMenuOpenChannel() {
   const ch = c.channel;
   closeMenu();
   onChannelRowClick(ch);
-  toastPanelMenuAction(`Opened “${getChannelDisplayName(ch.name)}”.`);
+  toastPanelMenuAction(
+    echoT('b34.cp.opened', { name: getChannelDisplayName(ch.name) }),
+  );
 }
 
 function channelMenuCopyId() {
@@ -821,7 +824,7 @@ function channelMenuCopyId() {
   if (!c || c.type !== 'channel') return;
   copyToClipboard(linkTokenChannel(c.channel.id));
   closeMenu();
-  toastPanelMenuAction('Copied channel ID.');
+  toastPanelMenuAction(echoT('b34.cp.copiedChannelId'));
 }
 
 function channelMenuCopyLink() {
@@ -830,7 +833,7 @@ function channelMenuCopyLink() {
   const url = `${window.location.origin}/channels/${props.selectedServer.id}/${c.channel.id}`;
   copyToClipboard(url);
   closeMenu();
-  toastPanelMenuAction('Copied channel link.');
+  toastPanelMenuAction(echoT('b34.cp.copiedChannelLink'));
 }
 
 function channelMenuMarkRead() {
@@ -845,7 +848,7 @@ function channelMenuChannelSettings() {
   const c = panelContext.value;
   if (!c || c.type !== 'channel') return;
   closeMenu();
-  toastPanelMenuAction('Opening channel settings.');
+  toastPanelMenuAction(echoT('b34.cp.openingChannelSettings'));
   emit('open-channel-settings', {
     channel: c.channel,
     categoryId: c.categoryId,
@@ -860,7 +863,9 @@ function channelMenuInvite() {
     (c.channel.type === 'voice' || c.channel.type === 'stage')
   ) {
     toastPanelMenuAction(
-      `Opening invite for “${getChannelDisplayName(c.channel.name)}”.`,
+      echoT('b34.cp.openingInviteFor', {
+        name: getChannelDisplayName(c.channel.name),
+      }),
     );
     emit('invite', {
       voiceChannelId: c.channel.id,
@@ -868,7 +873,7 @@ function channelMenuInvite() {
     });
     return;
   }
-  toastPanelMenuAction('Opening invite.');
+  toastPanelMenuAction(echoT('b34.cp.openingInvite'));
   emit('invite');
 }
 
@@ -877,14 +882,16 @@ function categoryMenuCopyName() {
   if (!c || c.type !== 'category') return;
   copyToClipboard(c.categoryName);
   closeMenu();
-  toastPanelMenuAction(`Copied category name “${c.categoryName}”.`);
+  toastPanelMenuAction(
+    echoT('b34.cp.copiedCategoryName', { name: c.categoryName }),
+  );
 }
 
 function categoryMenuCopyServerId() {
   if (!props.selectedServer) return;
   copyToClipboard(linkTokenServer(props.selectedServer.id));
   closeMenu();
-  toastPanelMenuAction('Copied server ID.');
+  toastPanelMenuAction(echoT('b34.cp.copiedServerId'));
 }
 
 function categoryMenuCreateChannel() {
@@ -892,7 +899,7 @@ function categoryMenuCreateChannel() {
   if (!c || c.type !== 'category') return;
   const id = c.categoryId;
   closeMenu();
-  toastPanelMenuAction('Opening create channel.');
+  toastPanelMenuAction(echoT('b34.cp.openingCreateChannel'));
   emit('open-create-channel', id);
 }
 
@@ -901,7 +908,7 @@ function categoryMenuSettings() {
   if (!c || c.type !== 'category') return;
   const id = c.categoryId;
   closeMenu();
-  toastPanelMenuAction('Opening category settings.');
+  toastPanelMenuAction(echoT('b34.cp.openingCategorySettings'));
   emit('open-category-settings', id);
 }
 
@@ -911,10 +918,9 @@ async function channelMenuDelete() {
   const id = c.channel.id;
   const label = c.channel.name;
   const ok = await requestAppConfirmFromContextMenu(closeMenu, {
-    title: `Delete channel “${label}”?`,
-    message:
-      'This cannot be undone.\n\nAll messages in this channel will be removed from the mock.',
-    confirmLabel: 'Delete channel',
+    title: echoT('b34.cp.deleteChannelTitle', { name: label }),
+    message: echoT('b34.cp.deleteChannelMessage'),
+    confirmLabel: echoT('channelPanel.deleteChannel'),
     danger: true,
   });
   if (!ok) return;
@@ -934,9 +940,14 @@ async function categoryMenuDelete() {
     effectiveCategories.value.find((cat) => cat.id === id)?.channels.length ??
     0;
   const ok = await requestAppConfirmFromContextMenu(closeMenu, {
-    title: `Delete category “${label}”?`,
-    message: `Delete this category and all ${n} channel${n === 1 ? '' : 's'} inside it? This cannot be undone.`,
-    confirmLabel: 'Delete category',
+    title: echoT('b34.cp.deleteCategoryTitle', { name: label }),
+    message: echoT(
+      n === 1
+        ? 'b34.cp.deleteCategoryMessageOne'
+        : 'b34.cp.deleteCategoryMessageMany',
+      { n },
+    ),
+    confirmLabel: echoT('b34.cp.deleteCategory'),
     danger: true,
   });
   if (!ok) return;
@@ -988,7 +999,7 @@ function vcMenuCopyUserId() {
   if (!c || c.type !== 'vc') return;
   copyToClipboard(linkTokenUser(c.userId));
   closeMenu();
-  toastPanelMenuAction('Copied user ID.');
+  toastPanelMenuAction(echoT('b34.cp.copiedUserId'));
 }
 
 function vcModerateFromMenu(
@@ -1171,7 +1182,7 @@ function forwardInvite(payload?: {
 <template>
   <nav
     ref="channelPanelRef"
-    aria-label="Channels"
+    :aria-label="echoT('b34.cp.channels')"
     class="channel-panel-wrapper group/channel flex flex-col relative min-w-0 min-h-0 overflow-hidden"
   >
     <div
@@ -1231,7 +1242,7 @@ function forwardInvite(payload?: {
         class="channel-list custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-2 py-2"
         role="status"
         aria-live="polite"
-        aria-label="Loading channel panel"
+        :aria-label="echoT('b34.cp.loadingPanel')"
       >
         <div
           v-for="section in channelPanelSkeletonSections"
@@ -1341,10 +1352,14 @@ function forwardInvite(payload?: {
               'paper-editor-panel-dock__btn--active': showPaperEditorPanel,
             }"
             :title="
-              showPaperEditorPanel ? 'Close editor tools' : 'Open editor tools'
+              showPaperEditorPanel
+                ? echoT('b34.cp.closeEditorTools')
+                : echoT('b34.cp.openEditorTools')
             "
             :aria-label="
-              showPaperEditorPanel ? 'Close editor tools' : 'Open editor tools'
+              showPaperEditorPanel
+                ? echoT('b34.cp.closeEditorTools')
+                : echoT('b34.cp.openEditorTools')
             "
             :aria-pressed="showPaperEditorPanel"
             @click="togglePaperEditorPanel"
@@ -1362,7 +1377,9 @@ function forwardInvite(payload?: {
               <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
             <span class="paper-editor-panel-dock__label">{{
-              showPaperEditorPanel ? 'Close' : 'Editor'
+              showPaperEditorPanel
+                ? echoT('b34.cp.close')
+                : echoT('b34.cp.editor')
             }}</span>
           </button>
         </div>
@@ -1406,7 +1423,7 @@ function forwardInvite(payload?: {
       v-if="!collapsed && resizeHandlers"
       class="absolute right-0 top-0 bottom-0 w-2 -mr-1 cursor-col-resize z-[50]"
       style="background: transparent; border: none"
-      aria-label="Resize channel panel"
+      :aria-label="echoT('b34.cp.resizePanel')"
       @mousedown="resizeHandlers.onResizeStart"
       @dblclick="resizeHandlers.onReset"
     />

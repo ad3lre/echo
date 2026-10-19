@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref } from 'vue';
 import type { Editor } from '@tiptap/core';
 import type { PaperPageLayout } from '@/features/paper/composables/usePaperPageLayout';
@@ -23,6 +24,17 @@ import {
   PAPER_SHAPE_BORDER_WIDTHS,
 } from '@/features/paper/editor/paperShapeUtils';
 import type { PaperShapeBorderStyle } from '@/features/paper/editor/paperShapeExtension';
+
+const SIZE_LABEL_KEYS: Record<string, string> = {
+  Small: 'b26.paperShape.sizes.small',
+  Medium: 'b26.paperShape.sizes.medium',
+  Large: 'b26.paperShape.sizes.large',
+};
+const STYLE_LABEL_KEYS: Record<string, string> = {
+  solid: 'b26.paperShape.styles.solid',
+  dashed: 'b26.paperShape.styles.dashed',
+  dotted: 'b26.paperShape.styles.dotted',
+};
 
 const props = defineProps<{
   editor: Editor | null;
@@ -50,7 +62,9 @@ const sizeOptions = computed<EchoDropdownOption[]>(() => {
       : [];
   return [
     ...PAPER_SHAPE_SIZE_PRESETS.map((p) => ({
-      label: p.label,
+      label: SIZE_LABEL_KEYS[p.label]
+        ? echoT(SIZE_LABEL_KEYS[p.label]!)
+        : p.label,
       value: String(p.px),
     })),
     ...custom,
@@ -134,14 +148,16 @@ const shapeBorderStyle = computed(() =>
 
 const borderWidthOptions = computed<EchoDropdownOption[]>(() =>
   PAPER_SHAPE_BORDER_WIDTHS.map((px) => ({
-    label: px === 0 ? 'No border' : `${px}px`,
+    label: px === 0 ? echoT('b26.paperShape.noBorder') : `${px}px`,
     value: String(px),
   })),
 );
 
 const borderStyleOptions = computed<EchoDropdownOption[]>(() =>
   PAPER_SHAPE_BORDER_STYLES.map((entry) => ({
-    label: entry.label,
+    label: STYLE_LABEL_KEYS[entry.value]
+      ? echoT(STYLE_LABEL_KEYS[entry.value]!)
+      : entry.label,
     value: entry.value,
   })),
 );
@@ -164,7 +180,7 @@ const barStyle = computed(() => {
     class="paper-format-bar paper-shape-format-bar pointer-events-none fixed bottom-20 z-40"
     :style="barStyle"
     role="toolbar"
-    aria-label="Shape formatting"
+    :aria-label="echoT('b26.paperShape.toolbar')"
   >
     <div
       class="pointer-events-auto flex items-center gap-1 overflow-x-auto overflow-y-visible rounded-full border border-border px-2 py-1 shadow-lg backdrop-blur-md"
@@ -173,7 +189,7 @@ const barStyle = computed(() => {
       <button
         type="button"
         class="paper-format-btn"
-        aria-label="Decrease shape size"
+        :aria-label="echoT('b26.paperShape.decrease')"
         :disabled="!canDecreaseShapeSize"
         @mousedown.prevent="stepSize('down')"
       >
@@ -185,13 +201,13 @@ const barStyle = computed(() => {
         :paper-appearance="paperAppearance ?? 'light'"
         trigger-mode="label"
         placement="above"
-        title="Shape size"
+        :title="echoT('b26.paperShape.size')"
         @update:model-value="setSize"
       />
       <button
         type="button"
         class="paper-format-btn"
-        aria-label="Increase shape size"
+        :aria-label="echoT('b26.paperShape.increase')"
         :disabled="!canIncreaseShapeSize"
         @mousedown.prevent="stepSize('up')"
       >
@@ -201,7 +217,7 @@ const barStyle = computed(() => {
       <span class="paper-format-divider" aria-hidden="true" />
 
       <PaperColorControl
-        label="Fill color"
+        :label="echoT('b26.paperShape.fillColor')"
         variant="object"
         :color="shapeFillColor"
         :is-default="shapeFillIsNone"
@@ -213,7 +229,7 @@ const barStyle = computed(() => {
       />
 
       <PaperColorControl
-        label="Border color"
+        :label="echoT('b26.paperShape.borderColor')"
         variant="border"
         :color="shapeBorderColor"
         :is-default="shapeActions.selectedShapeBorderWidthPx() === 0"
@@ -227,7 +243,7 @@ const barStyle = computed(() => {
       <EchoDropdown
         :model-value="shapeBorderWidth"
         :options="borderWidthOptions"
-        label="Border width"
+        :label="echoT('b26.paperShape.borderWidth')"
         compact
         @update:model-value="(v) => shapeActions.setShapeBorderWidth(Number(v))"
       />
@@ -236,7 +252,7 @@ const barStyle = computed(() => {
         v-if="shapeActions.selectedShapeBorderWidthPx() > 0"
         :model-value="shapeBorderStyle"
         :options="borderStyleOptions"
-        label="Border style"
+        :label="echoT('b26.paperShape.borderStyle')"
         compact
         @update:model-value="
           (v) => shapeActions.setShapeBorderStyle(v as PaperShapeBorderStyle)
@@ -249,8 +265,8 @@ const barStyle = computed(() => {
         type="button"
         class="paper-format-btn"
         :class="{ 'paper-format-btn--active': hasShapeImage }"
-        title="Add image to shape"
-        aria-label="Add image to shape"
+        :title="echoT('b26.paperShape.addImage')"
+        :aria-label="echoT('b26.paperShape.addImage')"
         :disabled="imageUpload?.uploading.value"
         @mousedown.prevent="openShapeImagePicker"
       >
@@ -271,8 +287,8 @@ const barStyle = computed(() => {
         v-if="hasShapeImage"
         type="button"
         class="paper-format-btn"
-        title="Remove shape image"
-        aria-label="Remove shape image"
+        :title="echoT('b26.paperShape.removeImage')"
+        :aria-label="echoT('b26.paperShape.removeImage')"
         @mousedown.prevent="shapeActions.clearShapeImage()"
       >
         <svg
@@ -298,13 +314,17 @@ const barStyle = computed(() => {
 
       <span class="paper-format-divider" aria-hidden="true" />
 
-      <div class="paper-shape-align-group" role="group" aria-label="Position">
+      <div
+        class="paper-shape-align-group"
+        role="group"
+        :aria-label="echoT('b26.paperShape.position')"
+      >
         <button
           type="button"
           class="paper-format-btn"
           :class="{ 'paper-format-btn--active': currentAlign === 'left' }"
-          title="Align left"
-          aria-label="Align left"
+          :title="echoT('b26.paperShape.alignLeft')"
+          :aria-label="echoT('b26.paperShape.alignLeft')"
           @mousedown.prevent="setAlign('left')"
         >
           <svg
@@ -324,8 +344,8 @@ const barStyle = computed(() => {
           type="button"
           class="paper-format-btn"
           :class="{ 'paper-format-btn--active': currentAlign === 'center' }"
-          title="Align center"
-          aria-label="Align center"
+          :title="echoT('b26.paperShape.alignCenter')"
+          :aria-label="echoT('b26.paperShape.alignCenter')"
           @mousedown.prevent="setAlign('center')"
         >
           <svg
@@ -345,8 +365,8 @@ const barStyle = computed(() => {
           type="button"
           class="paper-format-btn"
           :class="{ 'paper-format-btn--active': currentAlign === 'right' }"
-          title="Align right"
-          aria-label="Align right"
+          :title="echoT('b26.paperShape.alignRight')"
+          :aria-label="echoT('b26.paperShape.alignRight')"
           @mousedown.prevent="setAlign('right')"
         >
           <svg

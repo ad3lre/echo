@@ -12,6 +12,7 @@ import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useNotificationPreferencesStore } from '@/features/settings/notificationPreferences';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import { useThemeStore } from '@/features/settings/themeStore';
+import { useServerRailUiPreferencesStore } from '@/features/settings/serverRailUiPreferences';
 import { useUiAudioDevicesStore } from '@/features/settings/uiAudioDevices';
 import { useCameraPreferencesStore } from '@/features/voice/cameraPreferences';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
@@ -23,7 +24,11 @@ import type {
   SettingsSection,
 } from '@/features/settings/types';
 import { SECTION_GROUPS } from '@/features/settings/types';
-import { settingsSectionBlurb } from '@/i18n/labels';
+import {
+  settingsGroupLabel,
+  settingsSectionBlurb,
+  settingsSectionLabel,
+} from '@/i18n/labels';
 import { echoT } from '@/i18n';
 import { isSettingsSectionVisibleForUser } from '@/features/settings/settingsSectionVisibility';
 import { SETTINGS_SECTION_NAV_ICON } from '@/features/settings/sectionNavIcons';
@@ -116,6 +121,7 @@ function isValidSettingsSectionId(
 }
 
 const themeStore = useThemeStore();
+const railUiPrefs = useServerRailUiPreferencesStore();
 const uiAudioDevices = useUiAudioDevicesStore();
 const cameraPreferences = useCameraPreferencesStore();
 
@@ -379,6 +385,8 @@ watch(
     form.theme = themeStore.theme;
     form.styleSettings.syncThemeWithSystem = themeStore.syncWithSystem;
     form.styleSettings.saturateAccents = themeStore.vibrantAccents;
+    form.styleSettings.serversAlwaysOn = railUiPrefs.serversAlwaysOn;
+    form.styleSettings.extendedServerList = railUiPrefs.extendedServerList;
     form.density = themeStore.interfaceDensity;
     form.actionRailPlacement = themeStore.actionRailPlacement;
     form.dateFormat = formatDateTimeWithPreferences(new Date());
@@ -536,10 +544,10 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
         >
           <div class="mb-5 shrink-0 px-3">
             <h2 id="settings-modal-title" class="text-2xl font-bold">
-              Settings
+              {{ echoT('b07.settingsModal.title') }}
             </h2>
             <p class="mt-1 text-sm text-muted">
-              Tune your account, app, and billing.
+              {{ echoT('b07.settingsModal.subtitle') }}
             </p>
           </div>
 
@@ -554,7 +562,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                     group.label === 'Session' ? 'text-red-400/80' : 'text-muted'
                   "
                 >
-                  {{ group.label }}
+                  {{ settingsGroupLabel(group.label) }}
                 </div>
                 <div class="flex flex-col gap-1">
                   <button
@@ -585,7 +593,9 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                       ]"
                       aria-hidden="true"
                     />
-                    <span class="min-w-0 truncate">{{ item }}</span>
+                    <span class="min-w-0 truncate">{{
+                      settingsSectionLabel(item)
+                    }}</span>
                   </button>
                 </div>
               </div>
@@ -603,12 +613,10 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
           >
             <div class="min-w-0">
               <h2 id="settings-modal-title" class="text-2xl font-bold">
-                Settings
+                {{ echoT('b07.settingsModal.title') }}
               </h2>
               <p class="mt-1 text-sm text-muted">
-                Tap a section or swipe left to open it (also works from the
-                right screen edge). On a section page, swipe sideways to change
-                tabs; swipe right on the first tab to return here.
+                {{ echoT('b07.settingsModal.mobileHint') }}
               </p>
             </div>
             <button
@@ -616,7 +624,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
               class="close-btn shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
               @click="close"
             >
-              Exit
+              {{ echoT('b07.settingsModal.exit') }}
             </button>
           </div>
 
@@ -629,7 +637,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                     group.label === 'Session' ? 'text-red-400/80' : 'text-muted'
                   "
                 >
-                  {{ group.label }}
+                  {{ settingsGroupLabel(group.label) }}
                 </div>
                 <div class="flex flex-col gap-1">
                   <button
@@ -657,7 +665,9 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                         ]"
                         aria-hidden="true"
                       />
-                      <span class="min-w-0 truncate">{{ item }}</span>
+                      <span class="min-w-0 truncate">{{
+                        settingsSectionLabel(item)
+                      }}</span>
                     </span>
                     <span class="text-muted" aria-hidden="true">&gt;</span>
                   </button>
@@ -694,7 +704,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                       : 'text-indigo-300/80'
                 "
               >
-                {{ activeGroup }}
+                {{ settingsGroupLabel(activeGroup) }}
               </div>
               <h3
                 class="mt-2 text-3xl font-bold"
@@ -708,7 +718,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                       : ''
                 "
               >
-                {{ activeSection }}
+                {{ settingsSectionLabel(activeSection) }}
               </h3>
               <p class="mt-2 max-w-2xl text-sm text-muted">
                 {{ activeContent.blurb }}
@@ -722,14 +732,14 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                 class="rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
                 @click="onMobileBack"
               >
-                Back
+                {{ echoT('b07.settingsModal.back') }}
               </button>
               <button
                 type="button"
                 class="close-btn rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
                 @click="close"
               >
-                Exit
+                {{ echoT('b07.settingsModal.exit') }}
               </button>
             </div>
           </div>
@@ -814,9 +824,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
               >
                 <div class="settings-card rounded-2xl p-6">
                   <p class="text-sm leading-relaxed text-muted">
-                    You’ll return to the sign-in experience on this device.
-                    Server lists, DMs, and other account data stay on the server
-                    until you sign in again.
+                    {{ echoT('b07.settingsModal.logoutNote') }}
                   </p>
                   <button
                     type="button"
@@ -824,7 +832,11 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                     :disabled="logoutSubmitting"
                     @click="handleSettingsLogout"
                   >
-                    {{ logoutSubmitting ? 'Signing out…' : 'Log out' }}
+                    {{
+                      logoutSubmitting
+                        ? echoT('settingsUi.signingOut')
+                        : settingsSectionLabel('Log out')
+                    }}
                   </button>
                 </div>
               </div>

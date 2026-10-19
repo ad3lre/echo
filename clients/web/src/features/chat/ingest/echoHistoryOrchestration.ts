@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { onScopeDispose, ref, watch, type Ref, type ShallowRef } from 'vue';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import { useEchoAttentionStore } from '@/features/layout/echoAttention';
@@ -1503,7 +1504,7 @@ export function createEchoHistoryController(
       // Eagerly mark loading so MessageList shows skeletons immediately after
       // the channel window clears — without this, there is a render gap between
       // setActiveChannel (orderedIds → []) and the async loadHistory watcher
-      // where isEmpty=true and initialLoading=false causes "No messages here yet"
+      // where isEmpty=true and initialLoading=false causes echoT('chat.empty.noMessagesYet')
       // to flash before the skeleton appears.
       if (cid && auth.isAuthenticated && canLoadHistoryForChannelId(cid)) {
         initialLoading.value = true;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -41,7 +42,7 @@ function onInput(ev: Event): void {
     step="0.1"
     :value="progressPercent"
     :style="seekStyle"
-    aria-label="Seek"
+    :aria-label="echoT('chatB.seekBar.aria')"
     @input="onInput"
   />
 </template>

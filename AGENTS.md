@@ -4,7 +4,7 @@ Canonical rules: **[docs/overview/agents.md](./docs/overview/agents.md)**.
 **Repo layout (client vs kit):** **[docs/overview/repo-layout.md](./docs/overview/repo-layout.md)**.  
 **Frontend file placement:** **[docs/overview/code-placement.md](./docs/overview/code-placement.md)** (CI-enforced).  
 **Public docs index:** **[docs/README.md](./docs/README.md)**. Internal plans/reviews: local **`docs-dev/`** (gitignored).  
-**Product versioning:** **[docs/operations/versioning.md](./docs/operations/versioning.md)** — before pushing `main`, `bun run version:bump -- patch|minor|major`.
+**Product versioning:** **[docs/operations/versioning.md](./docs/operations/versioning.md)** — before pushing `main`, `bun run version:bump -- <level> --attest compatible|breaking|evolution --summary "…" --why "…"`. Never default to `patch`; the gate requires a real self-host judgment.
 
 ## GitHub vs GitLab (hard rule)
 

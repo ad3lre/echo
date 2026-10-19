@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   computed,
   defineAsyncComponent,
@@ -208,12 +209,15 @@ const ringVisualActive = computed(
 );
 
 const headerTitle = computed(() => {
-  if (props.ringRemoteVanishing) return 'No answer';
-  if (props.lobbyAwaitingRejoin) return `Call active · ${props.partnerName}`;
+  if (props.ringRemoteVanishing) return echoT('b04.dmCall.noAnswer');
+  if (props.lobbyAwaitingRejoin)
+    return echoT('b04.dmCall.callActive', { name: props.partnerName });
   if (props.incoming && props.ringing)
-    return `Incoming call from ${props.partnerName}`;
-  if (props.ringing) return `Calling ${props.partnerName}…`;
-  if (props.fullscreen) return `In a call with ${props.partnerName}`;
+    return echoT('b04.dmCall.incomingFrom', { name: props.partnerName });
+  if (props.ringing)
+    return echoT('b04.dmCall.callingName', { name: props.partnerName });
+  if (props.fullscreen)
+    return echoT('b04.dmCall.inCallWith', { name: props.partnerName });
   return props.partnerName;
 });
 
@@ -626,8 +630,16 @@ onUnmounted(() => {
         <button
           type="button"
           class="call-dm-fs-btn rounded-md p-1.5 text-muted transition-colors hover:bg-glass-tint hover:text-foreground"
-          :title="fullscreen ? 'Exit full screen' : 'Full screen'"
-          :aria-label="fullscreen ? 'Exit full screen' : 'Full screen'"
+          :title="
+            fullscreen
+              ? echoT('chat.actions.exitFullScreen')
+              : echoT('b04.dmCall.fullScreen')
+          "
+          :aria-label="
+            fullscreen
+              ? echoT('chat.actions.exitFullScreen')
+              : echoT('b04.dmCall.fullScreen')
+          "
           @click="emit('toggle-fullscreen')"
         >
           <svg
@@ -669,18 +681,24 @@ onUnmounted(() => {
       <div class="flex items-center gap-2">
         <div class="min-w-0 flex-1">
           <p class="truncate text-[12px] font-semibold text-foreground">
-            Waiting music
+            {{ echoT('b04.dmCall.waitingMusic') }}
           </p>
           <p class="truncate text-[11px] text-muted">
-            {{ selectedEntry?.label ?? 'Ringtone' }}
+            {{ selectedEntry?.label ?? echoT('b04.dmCall.ringtone') }}
           </p>
         </div>
         <button
           type="button"
           class="call-vc-ctrl !h-8 !w-8 disabled:pointer-events-none disabled:opacity-35"
-          :title="ringtoneCanStepBack ? 'Previous ringtone' : 'First ringtone'"
+          :title="
+            ringtoneCanStepBack
+              ? echoT('b04.dmCall.prevRingtone')
+              : echoT('b04.dmCall.firstRingtone')
+          "
           :aria-label="
-            ringtoneCanStepBack ? 'Previous ringtone' : 'First ringtone'
+            ringtoneCanStepBack
+              ? echoT('b04.dmCall.prevRingtone')
+              : echoT('b04.dmCall.firstRingtone')
           "
           :disabled="!ringtoneCanStepBack"
           @click="ringtoneStore.stepRingtone(-1)"
@@ -699,8 +717,12 @@ onUnmounted(() => {
           type="button"
           class="call-vc-ctrl !h-8 !w-8"
           :class="{ 'call-vc-ctrl--on': ringtoneMuted }"
-          :title="ringtoneMuted ? 'Unmute ringtone' : 'Mute ringtone'"
-          aria-label="Mute ringtone"
+          :title="
+            ringtoneMuted
+              ? echoT('b04.dmCall.unmuteRingtone')
+              : echoT('b04.dmCall.muteRingtone')
+          "
+          :aria-label="echoT('b04.dmCall.muteRingtone')"
           @click="ringtoneStore.toggleMuted()"
         >
           <img
@@ -713,9 +735,15 @@ onUnmounted(() => {
         <button
           type="button"
           class="call-vc-ctrl !h-8 !w-8 disabled:pointer-events-none disabled:opacity-35"
-          :title="ringtoneCanStepForward ? 'Next ringtone' : 'Last ringtone'"
+          :title="
+            ringtoneCanStepForward
+              ? echoT('b04.dmCall.nextRingtone')
+              : echoT('b04.dmCall.lastRingtone')
+          "
           :aria-label="
-            ringtoneCanStepForward ? 'Next ringtone' : 'Last ringtone'
+            ringtoneCanStepForward
+              ? echoT('b04.dmCall.nextRingtone')
+              : echoT('b04.dmCall.lastRingtone')
           "
           :disabled="!ringtoneCanStepForward"
           @click="ringtoneStore.stepRingtone(1)"
@@ -732,7 +760,9 @@ onUnmounted(() => {
         </button>
       </div>
       <div class="mt-2 flex items-center gap-2">
-        <span class="w-10 shrink-0 text-[10px] text-muted">Vol</span>
+        <span class="w-10 shrink-0 text-[10px] text-muted">{{
+          echoT('b04.dmCall.vol')
+        }}</span>
         <input
           type="range"
           class="call-ringtone-inline-range h-1.5 w-full cursor-pointer"
@@ -838,16 +868,16 @@ onUnmounted(() => {
               }}
             </p>
             <p v-if="ringRemoteVanishing" class="mt-1 text-[11px] text-muted">
-              Didn't pick up — ending call…
+              {{ echoT('b04.dmCall.noPickup') }}
             </p>
             <p
               v-else-if="lobbyAwaitingRejoin"
               class="mt-1 text-[11px] text-muted"
             >
-              You left — others may still be in the call.
+              {{ echoT('b04.dmCall.youLeft') }}
             </p>
             <p v-else-if="ringing" class="mt-1 text-[11px] text-muted">
-              Calling the whole group...
+              {{ echoT('b04.dmCall.callingGroup') }}
             </p>
           </div>
         </div>
@@ -892,21 +922,23 @@ onUnmounted(() => {
               {{ partnerName }}
             </p>
             <p v-if="ringRemoteVanishing" class="text-xs text-muted">
-              Didn't pick up — ending call…
+              {{ echoT('b04.dmCall.noPickup') }}
             </p>
             <p v-else-if="lobbyAwaitingRejoin" class="text-xs text-muted">
-              You left — tap Rejoin to return.
+              {{ echoT('b04.dmCall.youLeftRejoin') }}
             </p>
             <p v-else-if="ringing" class="text-xs text-muted">
               {{
                 incoming
-                  ? 'Waiting for you to answer...'
-                  : 'Waiting for response...'
+                  ? echoT('b04.dmCall.waitingYou')
+                  : echoT('b04.dmCall.waitingResponse')
               }}
             </p>
-            <p v-else-if="fullscreen" class="text-sm text-muted">In the call</p>
+            <p v-else-if="fullscreen" class="text-sm text-muted">
+              {{ echoT('b04.dmCall.inCall') }}
+            </p>
             <p v-else-if="showDmQuarterSelfPip" class="text-[11px] text-muted">
-              In the call
+              {{ echoT('b04.dmCall.inCall') }}
             </p>
           </div>
         </div>
@@ -935,22 +967,28 @@ onUnmounted(() => {
         </div>
         <span
           class="max-w-[88px] truncate text-[10px] font-medium text-foreground"
-          >You</span
+          >{{ echoT('b04.dmCall.you') }}</span
         >
         <div
           v-if="muted || deafened || !video"
           class="flex max-w-[100px] flex-wrap items-center justify-center gap-0.5 text-center text-muted"
         >
           <template v-if="muted"
-            ><span class="text-[9px]">Muted</span></template
+            ><span class="text-[9px]">{{
+              echoT('b04.dmCall.muted')
+            }}</span></template
           >
           <span v-if="muted && (deafened || !video)">·</span>
           <template v-if="deafened"
-            ><span class="text-[9px]">Deafened</span></template
+            ><span class="text-[9px]">{{
+              echoT('b04.dmCall.deafened')
+            }}</span></template
           >
           <span v-if="deafened && !video">·</span>
           <template v-if="!video"
-            ><span class="text-[9px]">Camera off</span></template
+            ><span class="text-[9px]">{{
+              echoT('b04.dmCall.cameraOff')
+            }}</span></template
           >
         </div>
       </div>
@@ -969,23 +1007,30 @@ onUnmounted(() => {
             img-class="rounded-xl object-cover"
           />
         </div>
-        <span class="text-xs font-medium text-foreground truncate max-w-[120px]"
-          >You</span
+        <span
+          class="text-xs font-medium text-foreground truncate max-w-[120px]"
+          >{{ echoT('b04.dmCall.you') }}</span
         >
         <div
           v-if="muted || deafened || !video"
           class="flex flex-wrap items-center gap-1 text-muted"
         >
           <template v-if="muted"
-            ><span class="text-[10px]">Muted</span></template
+            ><span class="text-[10px]">{{
+              echoT('b04.dmCall.muted')
+            }}</span></template
           >
           <span v-if="muted && (deafened || !video)">·</span>
           <template v-if="deafened"
-            ><span class="text-[10px]">Deafened</span></template
+            ><span class="text-[10px]">{{
+              echoT('b04.dmCall.deafened')
+            }}</span></template
           >
           <span v-if="deafened && !video">·</span>
           <template v-if="!video"
-            ><span class="text-[10px]">Camera off</span></template
+            ><span class="text-[10px]">{{
+              echoT('b04.dmCall.cameraOff')
+            }}</span></template
           >
         </div>
       </div>
@@ -1009,17 +1054,17 @@ onUnmounted(() => {
           v-if="canAnswerIncomingCall"
           type="button"
           class="call-vc-accept rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-400"
-          title="Answer call"
-          aria-label="Answer call"
+          :title="echoT('b04.dmCall.answerCall')"
+          :aria-label="echoT('b04.dmCall.answerCall')"
           @click="emit('accept')"
         >
-          Answer
+          {{ echoT('b04.dmCall.answer') }}
         </button>
         <button
           type="button"
           class="call-vc-leave"
-          title="Decline call"
-          aria-label="Decline call"
+          :title="echoT('b04.dmCall.declineCall')"
+          :aria-label="echoT('b04.dmCall.declineCall')"
           @click="emit('decline')"
         >
           <img :src="icons.logOut" alt="" class="call-vc-icon h-5 w-5" />
@@ -1029,18 +1074,18 @@ onUnmounted(() => {
         <button
           type="button"
           class="call-vc-accept rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-400"
-          title="Rejoin voice"
-          aria-label="Rejoin voice"
+          :title="echoT('b04.dmCall.rejoinVoice')"
+          :aria-label="echoT('b04.dmCall.rejoinVoice')"
           @click="emit('rejoin')"
         >
-          Rejoin
+          {{ echoT('b04.dmCall.rejoin') }}
         </button>
         <button
           v-if="fullscreen"
           type="button"
           class="call-vc-ctrl"
-          title="Exit full screen — return to chat beside the call"
-          aria-label="Exit full screen"
+          :title="echoT('b04.dmCall.exitFullscreenTitle')"
+          :aria-label="echoT('chat.actions.exitFullScreen')"
           @click="exitFullscreen"
         >
           <svg
@@ -1061,8 +1106,8 @@ onUnmounted(() => {
         <button
           type="button"
           class="call-vc-leave"
-          title="End call for you"
-          aria-label="End call"
+          :title="echoT('b04.dmCall.endCallForYou')"
+          :aria-label="echoT('b04.dmCall.endCall')"
           @click="emit('leave')"
         >
           <img :src="icons.logOut" alt="" class="call-vc-icon h-5 w-5" />
@@ -1077,8 +1122,12 @@ onUnmounted(() => {
             'call-vc-ctrl--on': video,
             'call-vc-ctrl--video-on': video,
           }"
-          :title="video ? 'Turn off camera' : 'Turn on camera'"
-          aria-label="Video"
+          :title="
+            video
+              ? echoT('b04.dmCall.cameraOffAction')
+              : echoT('b04.dmCall.cameraOnAction')
+          "
+          :aria-label="echoT('b04.dmCall.video')"
           @click="emit('toggle-video')"
         >
           <img :src="icons.cameraOn" alt="" class="call-vc-icon h-5 w-5" />
@@ -1090,8 +1139,12 @@ onUnmounted(() => {
             'call-vc-ctrl--on': screenshare,
             'call-vc-ctrl--screenshare-on': screenshare,
           }"
-          :title="screenshare ? 'Stop sharing' : 'Share screen'"
-          aria-label="Share screen"
+          :title="
+            screenshare
+              ? echoT('b04.dmCall.stopSharing')
+              : echoT('b04.dmCall.shareScreen')
+          "
+          :aria-label="echoT('b04.dmCall.shareScreen')"
           @click="emit('toggle-screenshare')"
         >
           <img :src="icons.desktop" alt="" class="call-vc-icon h-5 w-5" />
@@ -1100,8 +1153,8 @@ onUnmounted(() => {
           type="button"
           class="call-vc-ctrl"
           :class="{ 'call-vc-ctrl--on': muted }"
-          :title="muted ? 'Unmute' : 'Mute'"
-          aria-label="Mute"
+          :title="muted ? echoT('b04.dmCall.unmute') : echoT('b04.dmCall.mute')"
+          :aria-label="echoT('b04.dmCall.mute')"
           @click="emit('toggle-mute')"
         >
           <span class="relative inline-flex items-center justify-center">
@@ -1118,8 +1171,10 @@ onUnmounted(() => {
           type="button"
           class="call-vc-ctrl"
           :class="{ 'call-vc-ctrl--on': deafened }"
-          :title="deafened ? 'Undeafen' : 'Deafen'"
-          aria-label="Deafen"
+          :title="
+            deafened ? echoT('b04.dmCall.undeafen') : echoT('b04.dmCall.deafen')
+          "
+          :aria-label="echoT('b04.dmCall.deafen')"
           @click="emit('toggle-deafen')"
         >
           <span class="relative inline-flex items-center justify-center">
@@ -1136,8 +1191,8 @@ onUnmounted(() => {
           v-if="fullscreen"
           type="button"
           class="call-vc-ctrl"
-          title="Exit full screen — return to chat beside the call"
-          aria-label="Exit full screen"
+          :title="echoT('b04.dmCall.exitFullscreenTitle')"
+          :aria-label="echoT('chat.actions.exitFullScreen')"
           @click="exitFullscreen"
         >
           <svg
@@ -1159,8 +1214,8 @@ onUnmounted(() => {
           v-if="onOpenVoiceAudioSettings"
           type="button"
           class="call-vc-ctrl"
-          title="Audio settings"
-          aria-label="Audio settings"
+          :title="echoT('b04.dmCall.audioSettings')"
+          :aria-label="echoT('b04.dmCall.audioSettings')"
           @click="onOpenVoiceAudioSettings()"
         >
           <img :src="icons.settings" alt="" class="call-vc-icon h-5 w-5" />
@@ -1168,8 +1223,8 @@ onUnmounted(() => {
         <button
           type="button"
           class="call-vc-leave"
-          title="Leave call"
-          aria-label="Leave call"
+          :title="echoT('b04.dmCall.leaveCall')"
+          :aria-label="echoT('b04.dmCall.leaveCall')"
           @click="emit('leave')"
         >
           <img :src="icons.logOut" alt="" class="call-vc-icon h-5 w-5" />
@@ -1208,7 +1263,7 @@ onUnmounted(() => {
             aria-hidden="true"
             >@</span
           >
-          Mention
+          {{ echoT('b04.dmCall.mention') }}
         </button>
         <div
           v-if="hasDmPeerVolumeControl"
@@ -1222,7 +1277,7 @@ onUnmounted(() => {
               alt=""
               class="app-inline-icon h-3.5 w-3.5 shrink-0 opacity-80"
             />
-            Their volume
+            {{ echoT('b04.dmCall.theirVolume') }}
           </p>
           <button
             type="button"
@@ -1233,12 +1288,16 @@ onUnmounted(() => {
             :aria-pressed="dmPfpVolumeMenuMuted"
             :title="
               dmPfpVolumeMenuMuted
-                ? 'Restore their audio for you'
-                : 'Mute their audio for you only'
+                ? echoT('b04.dmCall.restoreTheirAudio')
+                : echoT('b04.dmCall.muteTheirAudio')
             "
             @click="toggleDmPfpVolumeMuteForMe"
           >
-            {{ dmPfpVolumeMenuMuted ? 'Unmute for me' : 'Mute for me' }}
+            {{
+              dmPfpVolumeMenuMuted
+                ? echoT('b04.dmCall.unmuteForMe')
+                : echoT('b04.dmCall.muteForMe')
+            }}
           </button>
         </div>
         <div v-if="hasDmPeerVolumeControl" class="mt-2 flex items-center gap-2">
@@ -1249,7 +1308,7 @@ onUnmounted(() => {
             max="200"
             step="1"
             :value="dmPfpVolumeMenuDraft"
-            aria-label="Participant volume"
+            :aria-label="echoT('b04.dmCall.participantVolume')"
             @input="onDmPfpVolumeInput"
           />
           <span

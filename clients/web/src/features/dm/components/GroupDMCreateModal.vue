@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, computed, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import { useAutofocusOnOpen } from '@/features/layout/useAutofocusOnOpen';
@@ -122,24 +123,29 @@ function toggleSelection(id: string) {
 function submit() {
   submitError.value = null;
   if (overMaxMembers.value) {
-    submitError.value = `Groups can include at most ${effectiveMaxGroupMembers.value} people (including you).`;
+    submitError.value = echoT('b34.gc.maxPeople', {
+      n: effectiveMaxGroupMembers.value,
+    });
     return;
   }
   if (isAddMembersMode.value) {
     if (selectedIds.value.length <= baseSelectedCount.value) {
-      submitError.value = 'Select at least one person to add.';
+      submitError.value = echoT('b34.gc.selectOne');
       return;
     }
   } else if (totalMembers.value < 3) {
-    submitError.value =
-      'A group DM needs at least 3 people including you — pick at least two friends.';
+    submitError.value = echoT('b34.gc.needThree');
     return;
   }
   const baseName =
     groupName.value.trim() ||
     (selectedIds.value.length === 1
-      ? `Group with ${props.friends.find((f) => f.id === selectedIds.value[0])?.name ?? 'friend'}`
-      : `Group with ${selectedIds.value.length} people`);
+      ? echoT('b34.gc.groupWithFriend', {
+          name:
+            props.friends.find((f) => f.id === selectedIds.value[0])?.name ??
+            echoT('b34.gc.friendFallback'),
+        })
+      : echoT('b34.gc.groupWithN', { n: selectedIds.value.length }));
   const memberIds = [...selectedIds.value];
   emit('create-group', { name: clampEchoChannelName(baseName), memberIds });
   emit('update:modelValue', false);
@@ -168,13 +174,17 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), groupNameInputRef);
         @click.stop
       >
         <h2 id="group-dm-modal-title" class="text-center text-2xl font-bold">
-          {{ isAddMembersMode ? 'Add members' : 'New group DM' }}
+          {{
+            isAddMembersMode
+              ? echoT('chat.dm.addMembers')
+              : echoT('b34.gc.newTitle')
+          }}
         </h2>
         <p class="mt-1.5 text-center text-sm text-muted">
           {{
             isAddMembersMode
-              ? `Select friends to add to this group (up to ${effectiveMaxGroupMembers} people including you).`
-              : `Choose friends to add to this private conversation (up to ${effectiveMaxGroupMembers} people including you; minimum 3).`
+              ? echoT('b34.gc.addSubtitle', { n: effectiveMaxGroupMembers })
+              : echoT('b34.gc.newSubtitle', { n: effectiveMaxGroupMembers })
           }}
         </p>
 
@@ -183,14 +193,14 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), groupNameInputRef);
             for="group-dm-name"
             class="block text-xs font-semibold uppercase tracking-wider text-fg-subtle"
           >
-            Group name
+            {{ echoT('b34.gc.groupName') }}
           </label>
           <input
             id="group-dm-name"
             ref="groupNameInputRef"
             v-model="groupName"
             type="text"
-            placeholder="Group DM"
+            :placeholder="echoT('chat.labels.groupDm')"
             :maxlength="ECHO_CHANNEL_NAME_MAX_LENGTH"
             class="chat-focus-ring mt-2 min-h-[44px] w-full rounded-lg border border-border bg-elevated px-3 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-fg-subtle focus:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))]"
           />
@@ -201,10 +211,15 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), groupNameInputRef);
             <span
               class="text-xs font-semibold uppercase tracking-wider text-fg-subtle"
             >
-              Friends
+              {{ echoT('chat.labels.friends') }}
             </span>
             <span class="text-xs text-muted">
-              {{ selectedIds.length }} / {{ maxFriendSlots }} friends
+              {{
+                echoT('b34.gc.friendsCount', {
+                  selected: selectedIds.length,
+                  max: maxFriendSlots,
+                })
+              }}
             </span>
           </div>
 
@@ -215,7 +230,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), groupNameInputRef);
             <p
               class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
             >
-              Already in this conversation
+              {{ echoT('b34.gc.alreadyIn') }}
             </p>
             <div class="space-y-2">
               <div
@@ -240,7 +255,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), groupNameInputRef);
                   <p
                     class="group-dm-create-included-hint text-[10px] font-semibold uppercase tracking-wide text-emerald-300"
                   >
-                    Included · cannot remove
+                    {{ echoT('b34.gc.included') }}
                   </p>
                 </div>
                 <div
@@ -307,11 +322,10 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), groupNameInputRef);
             v-else-if="friends.length === 0"
             class="mt-4 text-center text-xs text-muted"
           >
-            You have no friends yet. Add some from the Friends tab first.
+            {{ echoT('b34.gc.noFriends') }}
           </p>
           <p v-else class="mt-4 text-center text-xs text-muted">
-            No additional friends to add yet. Add friends from the Friends tab,
-            then open this dialog again.
+            {{ echoT('b34.gc.noMore') }}
           </p>
         </div>
 
@@ -329,7 +343,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), groupNameInputRef);
             class="chat-focus-ring rounded-md px-1 py-0.5 text-sm font-semibold text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
             @click="close"
           >
-            Cancel
+            {{ echoT('b34.gc.cancel') }}
           </button>
           <button
             type="button"
@@ -337,7 +351,11 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), groupNameInputRef);
             :disabled="isPrimaryDisabled"
             @click="submit"
           >
-            {{ isAddMembersMode ? 'Add Members' : 'Create Group DM' }}
+            {{
+              isAddMembersMode
+                ? echoT('b34.gc.addMembers')
+                : echoT('b34.gc.create')
+            }}
           </button>
         </div>
       </div>

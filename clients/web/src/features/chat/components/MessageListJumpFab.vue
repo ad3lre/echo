@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue';
+import { echoT } from '@/i18n';
 import {
   MESSAGE_LIST_JUMP_UI_KEY,
   type MessageListJumpUi,
@@ -36,8 +37,8 @@ const badgeText = computed(() => {
 
 const ariaLabel = computed(() =>
   badgeText.value
-    ? `${badgeText.value} new messages — jump to latest`
-    : 'Jump to latest messages',
+    ? echoT('chat.jumpFab.ariaNew', { count: badgeText.value })
+    : echoT('chat.jumpFab.ariaLatest'),
 );
 </script>
 
@@ -49,7 +50,7 @@ const ariaLabel = computed(() =>
     :aria-label="ariaLabel"
     @click="emit('jump')"
   >
-    <span class="whitespace-nowrap">Jump to latest</span>
+    <span class="whitespace-nowrap">{{ echoT('chat.jumpFab.latest') }}</span>
     <span
       v-if="badgeText"
       class="max-w-[3.25rem] truncate rounded-md bg-accent/25 px-1.5 py-0.5 text-xs font-bold tabular-nums text-foreground"

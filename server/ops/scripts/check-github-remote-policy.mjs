@@ -68,6 +68,35 @@ if (!prePush.includes('ECHO_SKIP_VERSION_GATE')) {
   process.exit(1);
 }
 
+const bump = fs.readFileSync(
+  path.join(root, 'server/ops/scripts/bump-echo-version.mjs'),
+  'utf8',
+);
+const versionLib = fs.readFileSync(
+  path.join(root, 'server/ops/scripts/echo-version.mjs'),
+  'utf8',
+);
+const checkVersion = fs.readFileSync(
+  path.join(root, 'server/ops/scripts/check-echo-version-bump.mjs'),
+  'utf8',
+);
+for (const [label, hay, needle] of [
+  ['bump-echo-version.mjs', bump, '--attest'],
+  ['bump-echo-version.mjs', bump, '--summary'],
+  ['bump-echo-version.mjs', bump, '--why'],
+  ['bump-echo-version.mjs', bump, 'formatReleaseCommitMessage'],
+  ['echo-version.mjs', versionLib, 'validateBumpAttestation'],
+  ['echo-version.mjs', versionLib, 'Echo-Version-Attest'],
+  ['check-echo-version-bump.mjs', checkVersion, 'validateReleaseCommitForBump'],
+]) {
+  if (!hay.includes(needle)) {
+    console.error(
+      `check-github-remote-policy: ${label} must keep attested version bumps (${needle})`,
+    );
+    process.exit(1);
+  }
+}
+
 if (!mirror.includes('GITHUB_BRANCH="${GITHUB_BRANCH:-main}"')) {
   console.error(
     'check-github-remote-policy: mirror-release-to-github.sh must default GITHUB_BRANCH to main',

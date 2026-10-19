@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, onUnmounted, ref, useId, watch } from 'vue';
 import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
 
@@ -38,13 +39,17 @@ const panelId = useId();
 
 const selectedLabel = computed(() => {
   const hit = props.options.find((o) => o.value === props.modelValue);
-  return hit?.label ?? props.options[0]?.label ?? 'Presets';
+  return (
+    hit?.label ?? props.options[0]?.label ?? echoT('b44.paperPreset.presets')
+  );
 });
 
 const triggerTitle = computed(
   () =>
     props.title ??
-    (props.triggerMode === 'label' ? 'Size' : 'Font size presets'),
+    (props.triggerMode === 'label'
+      ? echoT('b44.paperPreset.size')
+      : echoT('b44.paperPreset.fontSizePresets')),
 );
 
 function getAnchorEl(): HTMLElement | null {

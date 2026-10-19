@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { computed, ref, watch, type Ref } from 'vue';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { useAuthSessionStore } from '@/features/auth/authSession';
@@ -872,7 +873,10 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
           if (!isEchoObjectStorageNotConfiguredError(e)) {
             emojiUploadFeedback.value = {
               tone: 'error',
-              message: e instanceof Error ? e.message : 'Upload failed',
+              message:
+                e instanceof Error
+                  ? e.message
+                  : echoT('serverSettingsUi.uploadFailed'),
             };
             return;
           }
@@ -1031,7 +1035,10 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
         if (!isEchoObjectStorageNotConfiguredError(e)) {
           emojiUploadFeedback.value = {
             tone: 'error',
-            message: e instanceof Error ? e.message : 'Upload failed',
+            message:
+              e instanceof Error
+                ? e.message
+                : echoT('serverSettingsUi.uploadFailed'),
           };
           return;
         }
@@ -1069,7 +1076,10 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
     } catch (e) {
       emojiUploadFeedback.value = {
         tone: 'error',
-        message: e instanceof Error ? e.message : 'Upload failed',
+        message:
+          e instanceof Error
+            ? e.message
+            : echoT('serverSettingsUi.uploadFailed'),
       };
     }
   }

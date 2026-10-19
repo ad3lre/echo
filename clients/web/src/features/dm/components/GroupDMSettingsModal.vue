@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { nextTick, ref, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -112,10 +113,10 @@ watch(
           id="group-settings-modal-title"
           class="text-center text-2xl font-bold"
         >
-          Group settings
+          {{ echoT('b37.gds.title') }}
         </h2>
         <p class="mt-1.5 text-center text-sm text-muted">
-          Update this group DM’s name and picture.
+          {{ echoT('b37.gds.sub') }}
         </p>
 
         <div class="mt-5 flex items-center gap-4">
@@ -124,7 +125,7 @@ watch(
           >
             <PausedGifAvatar
               :src="safeImageUrl(draftPfp || pfp)"
-              alt="Group avatar"
+              :alt="echoT('b37.gds.avatarAlt')"
               session-key="group-dm-settings-icon"
               img-class="rounded-2xl object-cover"
             />
@@ -132,8 +133,8 @@ watch(
               ref="changeIconButtonRef"
               type="button"
               class="absolute -bottom-1 -right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-overlay-heavy text-[11px] font-semibold text-foreground border border-border hover:bg-overlay-heavy"
-              title="Change icon"
-              aria-label="Change group icon"
+              :title="echoT('b37.gds.changeIcon')"
+              :aria-label="echoT('chat.dm.changeGroupIcon')"
               @click="fileInputRef?.click()"
             >
               ✎
@@ -151,7 +152,7 @@ watch(
               for="group-settings-name"
               class="block text-xs font-semibold uppercase tracking-wider text-gray-400"
             >
-              Group name
+              {{ echoT('b37.gds.groupName') }}
             </label>
             <input
               id="group-settings-name"
@@ -169,14 +170,14 @@ watch(
             <p
               class="text-xs font-semibold uppercase tracking-wider text-gray-400"
             >
-              Members
+              {{ echoT('b37.gds.members') }}
             </p>
             <button
               type="button"
               class="text-xs font-semibold text-indigo-200 hover:text-indigo-100"
               @click="emit('add-members')"
             >
-              Add members
+              {{ echoT('chat.dm.addMembers') }}
             </button>
           </div>
           <div class="max-h-44 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
@@ -202,7 +203,7 @@ watch(
                 class="rounded px-2 py-1 text-[11px] font-semibold text-orange-200 hover:bg-orange-500/15"
                 @click="removeMember(member.id)"
               >
-                Remove
+                {{ echoT('b37.gds.remove') }}
               </button>
             </div>
           </div>
@@ -214,7 +215,7 @@ watch(
             class="w-full rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/20"
             @click="leaveGroup"
           >
-            Leave group
+            {{ echoT('b37.gds.leave') }}
           </button>
         </div>
 
@@ -224,14 +225,14 @@ watch(
             class="text-sm font-semibold text-fg-soft hover:text-foreground"
             @click="close"
           >
-            Cancel
+            {{ echoT('b37.gds.cancel') }}
           </button>
           <button
             type="button"
             class="rounded-md bg-glass-2 px-5 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover"
             @click="save"
           >
-            Save Changes
+            {{ echoT('b37.gds.save') }}
           </button>
         </div>
       </div>

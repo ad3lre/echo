@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { ServerSettingsSection } from '@/features/server-settings/types';
-import { serverSettingsSectionCopy } from '@/i18n/labels';
+import { echoT } from '@/i18n';
+import {
+  serverSettingsSectionCopy,
+  serverSettingsSectionLabel,
+} from '@/i18n/labels';
 
 withDefaults(
   defineProps<{
@@ -33,7 +37,7 @@ const emit = defineEmits<{
         class="font-semibold uppercase tracking-[0.18em] text-fg-soft"
         :class="compact ? 'text-[10px]' : 'text-xs'"
       >
-        Server
+        {{ echoT('srvSettingsB.header.server') }}
       </div>
       <div
         class="mt-2 flex min-w-0 items-center gap-3"
@@ -45,7 +49,7 @@ const emit = defineEmits<{
           class="rounded-lg px-2 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
           @click="emit('back')"
         >
-          Back
+          {{ echoT('common.back') }}
         </button>
         <img
           :src="getSectionIcon(activeSection)"
@@ -57,7 +61,7 @@ const emit = defineEmits<{
           class="min-w-0 flex-1 truncate font-bold leading-tight"
           :class="compact ? 'text-xl' : 'text-3xl'"
         >
-          {{ activeSection }}
+          {{ serverSettingsSectionLabel(activeSection) }}
         </h3>
       </div>
       <p v-if="!compact" class="mt-2 max-w-2xl text-sm text-fg-soft">
@@ -76,7 +80,7 @@ const emit = defineEmits<{
       class="close-btn shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
       @click="emit('close')"
     >
-      Close
+      {{ echoT('srvSettingsB.header.close') }}
     </button>
   </div>
 </template>

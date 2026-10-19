@@ -1,0 +1,10 @@
+{
+  "dialogHost": {
+    "ok": "OK",
+    "confirm": "Bestätigen",
+    "cancel": "Abbrechen"
+  },
+  "crown": {
+    "serverOwner": "Serverinhaber"
+  }
+}

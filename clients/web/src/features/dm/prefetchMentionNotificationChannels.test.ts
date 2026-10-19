@@ -44,6 +44,26 @@ describe('resolveMentionNotificationPrefetchTargets', () => {
     expect(targets).toEqual([{ channelId, anchorMessageId: 'msg-100' }]);
   });
 
+  it('anchors prefetch on latestUnreadMentionMessageId for multi-unread channels', () => {
+    const channelId = '00000000-0000-4000-8000-000000000012';
+    const targets = resolveMentionNotificationPrefetchTargets({
+      channelAttentionByChannelId: {
+        [channelId]: serverSummary({
+          channelId,
+          unreadCount: 5,
+          pingKind: 'broadcast',
+          latestUnreadMessageId: 'msg-newer',
+          latestUnreadMentionMessageId: 'msg-everyone',
+        }),
+      },
+      readStateByChannelId: {},
+      serverNotificationLevelByServerId: { 'server-1': 'all' },
+      messagesByChannelId: {},
+    });
+
+    expect(targets).toEqual([{ channelId, anchorMessageId: 'msg-everyone' }]);
+  });
+
   it('prioritizes channels that still have loading stub rows', () => {
     const lowPriority = '00000000-0000-4000-8000-000000000020';
     const highPriority = '00000000-0000-4000-8000-000000000021';

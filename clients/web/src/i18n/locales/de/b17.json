@@ -1,0 +1,50 @@
+{
+  "friends": {
+    "title": "Freunde",
+    "backToMessages": "Zurück zu den Nachrichten",
+    "tabAll": "Alle",
+    "tabOnline": "Online",
+    "tabPending": "Ausstehend",
+    "addFriend": "Freund hinzufügen",
+    "add": "Hinzufügen",
+    "noMatchAll": "Keine Freunde oder Anfragen passen zu deiner Suche.",
+    "incoming": "Eingehend",
+    "wantsFriend": "Möchte mit dir befreundet sein",
+    "accept": "Annehmen",
+    "decline": "Ablehnen",
+    "outgoing": "Ausgehend",
+    "awaiting": "Warte auf Antwort",
+    "cancel": "Abbrechen",
+    "noMatchOnline": "Keine Online-Freunde passen zu deiner Suche.",
+    "noMatchPending": "Keine ausstehenden Anfragen passen zu deiner Suche.",
+    "pendingRequests": "Ausstehende Anfragen",
+    "suggestions": "Vorschläge sind die neuesten Echo-Registrierungen. Suche nach Anzeigename oder Benutzername, um jemand Bestimmtes zu finden.",
+    "searchPlaceholder": "Nach Name oder Benutzername suchen",
+    "noMatchEcho": "Keine Echo-Nutzer passen zu deiner Suche.",
+    "noProfile": "Kein Profil",
+    "sendRequest": "Anfrage senden",
+    "viewProfile": "Profil von {name} ansehen",
+    "message": "Nachricht an {name}",
+    "someone": "Jemand"
+  },
+  "rail": {
+    "directMessages": "Direktnachrichten",
+    "servers": "Server",
+    "exploreServers": "Server entdecken",
+    "reportBug": "Fehler melden",
+    "loginOrRegister": "Anmelden oder registrieren",
+    "logIn": "Anmelden",
+    "explorePublic": "Öffentliche Server entdecken",
+    "continue": "Weiter",
+    "signIn": "Anmelden",
+    "showChannels": "Kanäle anzeigen",
+    "showMembers": "Mitglieder anzeigen",
+    "showDirectMessages": "Direktnachrichten anzeigen"
+  },
+  "camera": {
+    "chooseCamera": "Wähle eine Kamera, um die Vorschau zu starten",
+    "denied": "Kamerazugriff verweigert. Prüfe die Browserberechtigungen.",
+    "notFound": "Keine Kamera gefunden.",
+    "error": "Kamerafehler: {message}"
+  }
+}

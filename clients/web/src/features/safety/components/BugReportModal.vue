@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, toRef, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
@@ -46,7 +47,7 @@ async function submit() {
     emit('update:modelValue', false);
   } catch (e) {
     errorMessage.value =
-      e instanceof Error ? e.message : 'Could not submit report.';
+      e instanceof Error ? e.message : echoT('b25.bug.errSubmit');
   } finally {
     submitting.value = false;
   }
@@ -79,7 +80,7 @@ async function submit() {
             <button
               type="button"
               class="chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-glass-hover hover:text-foreground"
-              aria-label="Close"
+              :aria-label="echoT('b25.bug.close')"
               :disabled="submitting"
               @click="close"
             >
@@ -114,11 +115,10 @@ async function submit() {
                     id="bug-report-title"
                     class="text-lg font-bold leading-tight tracking-tight text-foreground"
                   >
-                    Report a bug
+                    {{ echoT('b25.bug.title') }}
                   </h2>
                   <p class="mt-0.5 text-sm leading-relaxed text-fg-subtle">
-                    Describe what went wrong. If Bug Hunter is enabled, recent
-                    technical traces are included automatically.
+                    {{ echoT('b25.bug.lead') }}
                   </p>
                 </div>
               </div>
@@ -127,13 +127,13 @@ async function submit() {
                 <span
                   class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
                 >
-                  What happened?
+                  {{ echoT('b25.bug.whatHappened') }}
                 </span>
                 <textarea
                   ref="descriptionInputRef"
                   v-model="description"
                   class="mt-2 w-full min-h-[120px] resize-y rounded-xl border border-border bg-scrim-1 px-3 py-2 text-sm text-foreground placeholder:text-fg-subtle focus:border-indigo-400/40 focus:outline-none focus:ring-1 focus:ring-indigo-400/30"
-                  placeholder="What happened? What did you expect?"
+                  :placeholder="echoT('b25.bug.placeholder')"
                 />
               </label>
 
@@ -155,7 +155,7 @@ async function submit() {
                 :disabled="submitting"
                 @click="close"
               >
-                Cancel
+                {{ echoT('b25.bug.cancel') }}
               </button>
               <button
                 type="button"
@@ -163,7 +163,11 @@ async function submit() {
                 :disabled="submitting || !description.trim()"
                 @click="submit"
               >
-                {{ submitting ? 'Sending…' : 'Submit report' }}
+                {{
+                  submitting
+                    ? echoT('b25.bug.sending')
+                    : echoT('safety.submitReport')
+                }}
               </button>
             </div>
           </div>

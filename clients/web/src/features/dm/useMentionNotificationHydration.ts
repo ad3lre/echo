@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { onScopeDispose, ref, watch, type Ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
@@ -22,7 +23,7 @@ import { useAuthSessionStore } from '@/features/auth/authSession';
 import { useEchoAttentionStore } from '@/features/layout/echoAttention';
 
 /**
- * Upper bound on how long a row may stay a "Loading mention…" stub before we
+ * Upper bound on how long a row may stay a echoT('chat.status.loadingMention') stub before we
  * give up and surface the actionable failure preview. `echoFetch` has no request
  * timeout and the hydrate pipeline is gated behind a single in-flight promise, so
  * one stalled prefetch would otherwise pin the stub forever. The eager server

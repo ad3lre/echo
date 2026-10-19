@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 import { computed, ref, type Ref } from 'vue';
 
 export type AuditTab =

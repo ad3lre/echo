@@ -6,11 +6,11 @@
     },
     "mentions": {
       "label": "Mentions and direct mentions",
-      "description": "Notify for @you, replies, and broadcast pings such as @everyone, @here, @channel, or role-style mentions."
+      "description": "Notify for {'@'}you, replies, and broadcast pings such as {'@'}everyone, {'@'}here, {'@'}channel, or role-style mentions."
     },
     "mentions_direct": {
       "label": "Direct mentions only",
-      "description": "Only when you are personally @mentioned, not via @everyone, @here, @channel, or roles."
+      "description": "Only when you are personally {'@'}mentioned, not via {'@'}everyone, {'@'}here, {'@'}channel, or roles."
     },
     "none": {
       "label": "Nothing",

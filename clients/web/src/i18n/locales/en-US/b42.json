@@ -1,0 +1,99 @@
+{
+  "media": {
+    "pause": "Pause",
+    "play": "Play",
+    "playbackSpeed": "Playback speed",
+    "unmute": "Unmute",
+    "volume": "Volume",
+    "volumeLevel": "Volume level",
+    "downloadOriginal": "Download original video",
+    "exitFullscreen": "Exit fullscreen",
+    "fullscreen": "Fullscreen"
+  },
+  "search": {
+    "video": "video",
+    "audio": "audio",
+    "doc": "doc",
+    "sticker": "sticker",
+    "gif": "GIF",
+    "image": "Image"
+  },
+  "reactors": {
+    "title": "Who reacted",
+    "close": "Close",
+    "loading": "Loading…",
+    "loadError": "Could not load full list",
+    "byEmoji": "Reactors by emoji",
+    "none": "No reactors for this emoji",
+    "you": "You",
+    "person": "person",
+    "people": "people",
+    "emoji": "emoji",
+    "emojis": "emojis"
+  },
+  "imageViewer": {
+    "copyImage": "Copy image",
+    "copyImageLink": "Copy image link",
+    "close": "Close",
+    "previous": "Previous",
+    "next": "Next",
+    "gif": "GIF",
+    "image": "Image"
+  },
+  "docViewer": {
+    "close": "Close",
+    "loadingPreview": "Loading preview…",
+    "previewTitle": "Document preview",
+    "unsupported": "This document type cannot be previewed in Echo. Try Download or Open.",
+    "timeout": "Preview timed out. The file may require a public URL, or your browser blocked the embed. Try Download or Open.",
+    "loadFailed": "Could not load the document preview. Try Download or Open.",
+    "ariaLabel": "Document: {title}"
+  },
+  "invite": {
+    "inAppUnavailable": "In-app join is unavailable in this view.",
+    "redundant": "Redundant join — you’re already a member of this server. Opened it for you.",
+    "joined": "Joined the server.",
+    "ariaLabel": "Server invite",
+    "invitedVoice": "You’re invited to join a voice channel",
+    "invitedServer": "You’re invited to join a server",
+    "joinTitle": "Join this server in Echo",
+    "joining": "Joining…",
+    "join": "Join Server",
+    "server": "Server",
+    "memberOne": "{count} member",
+    "memberMany": "{count} members",
+    "icon": "{name} icon",
+    "inviteToken": "Invite: {token}"
+  },
+  "empty": {
+    "noServersAria": "No servers yet",
+    "noServersTitle": "You're not in any servers yet",
+    "noServersBody": "Explore public communities or join one with an invite to start chatting here.",
+    "explore": "Explore servers",
+    "noChannelsBody": "Nothing in this server is visible with your current roles, or the server has no channels yet.",
+    "noMessagesAria": "No messages in this channel",
+    "noMessagesBody": "When someone sends a message, it will appear here. Say hello to start the conversation."
+  },
+  "header": {
+    "openProfile": "Open profile",
+    "saved": "Saved",
+    "edited": "Edited",
+    "messageSaved": "Message saved",
+    "messageEdited": "Message edited",
+    "editedTag": "(edited)",
+    "pinned": "Pinned",
+    "pinnedMessage": "Pinned message",
+    "sent": "Sent {time}",
+    "postedIn": "Posted in #{name}"
+  },
+  "actionBar": {
+    "edit": "Edit",
+    "delete": "Delete (hold Shift)",
+    "deleteMessage": "Delete message (hold Shift)",
+    "kick": "Kick from server (hold Shift)",
+    "ban": "Ban from server (hold Shift)",
+    "removeTimeout": "Remove timeout (hold Shift)",
+    "timeout1h": "Timeout 1 hour (hold Shift)",
+    "react": "React with {emoji} · right-click to remove from quick bar"
+  }
+}

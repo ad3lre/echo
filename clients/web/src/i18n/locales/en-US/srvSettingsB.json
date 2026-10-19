@@ -1,0 +1,39 @@
+{
+  "header": {
+    "server": "Server",
+    "close": "Close"
+  },
+  "notif": {
+    "title": "Notification settings",
+    "done": "Done",
+    "body": "Choose what you get from {server}. This applies only to you and syncs across your devices."
+  },
+  "leave": {
+    "confirmTitle": "Leave server?",
+    "cantLeaveTitle": "Can't leave this server",
+    "cancel": "Cancel",
+    "leave": "Leave server",
+    "ok": "OK",
+    "confirmBody": "Leave {server}? You won't be able to rejoin unless you have an invite.",
+    "ownerBody": "You own this server. Transfer ownership to another member in Server settings (Danger Zone) before you can leave."
+  },
+  "permDiff": {
+    "title": "Permission diff",
+    "none": "No comparison available.",
+    "added": "Added",
+    "removed": "Removed",
+    "trace": "Trace timeline (preview)"
+  },
+  "banner": {
+    "hint": "Drag up or down to choose what shows in the cut.",
+    "close": "Close",
+    "reset": "Reset",
+    "cancel": "Cancel",
+    "save": "Save",
+    "title": "Reposition banner"
+  },
+  "emojiTags": {
+    "placeholder": "Type a tag, then Enter",
+    "max": "Maximum {n} tags"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "dmIntro": {
+    "mutualOne": "{count} servidor em comum",
+    "mutualMany": "{count} servidores em comum",
+    "aria": "Histórico de mensagens diretas"
+  },
+  "channelAc": {
+    "forum": "Canal de fórum",
+    "text": "Canal de texto",
+    "none": "Nenhum canal encontrado"
+  },
+  "audio": {
+    "clickReveal": "— Clique para revelar",
+    "unavailable": "Áudio indisponível"
+  },
+  "reactionHover": {
+    "countOne": "{count} reação",
+    "countMany": "{count} reações",
+    "more": "+{count} mais",
+    "aria": "Detalhes da reação",
+    "you": "Você"
+  },
+  "imageSlot": {
+    "ariaUploading": "Enviando imagem para o espaço {w}:{h}",
+    "ariaAdd": "Adicionar imagem ao espaço {w}:{h}",
+    "ariaSlot": "Espaço de imagem {w}:{h}",
+    "label": "Imagem {w}:{h}",
+    "uploading": "Enviando…",
+    "add": "Clique para adicionar imagem"
+  },
+  "discordComponents": {
+    "displayOnlyNamed": "O botão \"{label}\" é apenas de exibição no Echo (custom_id: {id}).",
+    "displayOnly": "Este botão é apenas de exibição no Echo."
+  },
+  "mediaUnavailable": {
+    "detail": "Não foi possível carregar este arquivo. Ele pode estar ausente, ter sido movido ou não estar mais acessível."
+  },
+  "typing": {
+    "one": "{name} está digitando",
+    "two": "{a} e {b} estão digitando",
+    "many": "Várias pessoas estão digitando"
+  },
+  "historySkeleton": {
+    "loading": "Carregando mensagens"
+  },
+  "pdfPreview": {
+    "renderFail": "Não foi possível renderizar a prévia do PDF."
+  },
+  "mdPreview": {
+    "title": "Prévia do Markdown"
+  },
+  "discordBadge": {
+    "from": "Do Discord"
+  },
+  "seekBar": {
+    "aria": "Buscar"
+  },
+  "waveform": {
+    "aria": "Forma de onda do áudio"
+  },
+  "sendPending": {
+    "aria": "Enviando"
+  },
+  "mentionAc": {
+    "none": "Nenhuma correspondência encontrada"
+  },
+  "emojiPopover": {
+    "noMatch": "Nenhum emoji corresponde a \"{query}\""
+  },
+  "reactionsRow": {
+    "byOne": "Reagido por {count} pessoa",
+    "byMany": "Reagido por {count} pessoas"
+  }
+}

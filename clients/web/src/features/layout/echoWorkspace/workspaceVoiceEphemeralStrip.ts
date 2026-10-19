@@ -24,11 +24,12 @@ export function stripEphemeralVoiceFromWorkspaceSnapshot(
         ...cat,
         channels: channels.map((chan) => {
           const c = chan as Record<string, unknown>;
-          if (c.type !== 'voice') return chan;
+          if (c.type !== 'voice' && c.type !== 'stage') return chan;
           const copy = { ...c };
           delete copy.voiceParticipantIds;
           delete copy.voiceServerMuteByUserId;
           delete copy.voiceServerDeafenByUserId;
+          delete copy.voiceStageSpeakerByUserId;
           return copy as typeof chan;
         }),
       };

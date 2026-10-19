@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 
@@ -61,7 +62,7 @@ defineEmits<{
       type="button"
       class="msg-action-btn msg-action-emoji chat-focus-ring flex items-center justify-center rounded p-1 hover:bg-glass-hover"
       :class="{ 'msg-action-emoji--pop': poppingQuickEmoji === fav.emoji }"
-      :title="`React with ${fav.emoji} · right-click to remove from quick bar`"
+      :title="echoT('b42.actionBar.react', { emoji: fav.emoji })"
       v-html="parseSingleEmojiForReactions(fav.emoji)"
       @click="$emit('quickReact', fav.emoji, $event)"
       @contextmenu.prevent.stop="
@@ -76,7 +77,7 @@ defineEmits<{
     <button
       type="button"
       class="msg-action-btn chat-focus-ring rounded p-1 hover:bg-glass-hover"
-      title="Add reaction"
+      :title="echoT('chat.actions.addReaction')"
       @click="$emit('openReactionPopover', $event)"
     >
       <svg
@@ -96,7 +97,7 @@ defineEmits<{
     <button
       type="button"
       class="msg-action-btn chat-focus-ring rounded p-1 hover:bg-glass-hover"
-      title="Reply"
+      :title="echoT('chat.actions.reply')"
       @click="$emit('reply')"
     >
       <svg
@@ -117,7 +118,7 @@ defineEmits<{
       <button
         type="button"
         class="msg-action-btn chat-focus-ring rounded p-1 hover:bg-glass-hover"
-        title="Edit"
+        :title="echoT('b42.actionBar.edit')"
         @click="$emit('enterEditMode')"
       >
         <svg
@@ -138,7 +139,7 @@ defineEmits<{
         v-show="shiftPressed"
         type="button"
         class="msg-action-btn chat-focus-ring p-1 rounded hover:bg-red-500/20 text-muted hover:text-red-400"
-        title="Delete (hold Shift)"
+        :title="echoT('b42.actionBar.delete')"
         @click="$emit('handleDelete')"
       >
         <svg
@@ -161,7 +162,7 @@ defineEmits<{
         v-show="shiftPressed"
         type="button"
         class="msg-action-btn chat-focus-ring p-1 rounded hover:bg-red-500/20 text-muted hover:text-red-400"
-        title="Delete message (hold Shift)"
+        :title="echoT('b42.actionBar.deleteMessage')"
         @click="$emit('confirmModDelete')"
       >
         <svg
@@ -184,8 +185,8 @@ defineEmits<{
         class="msg-action-btn chat-focus-ring p-1 rounded hover:bg-amber-500/15 text-muted hover:text-amber-200"
         :title="
           timeoutActive
-            ? 'Remove timeout (hold Shift)'
-            : 'Timeout 1 hour (hold Shift)'
+            ? echoT('b42.actionBar.removeTimeout')
+            : echoT('b42.actionBar.timeout1h')
         "
         @click="$emit('moderate', 'timeout', 60)"
       >
@@ -207,7 +208,7 @@ defineEmits<{
         v-show="shiftPressed"
         type="button"
         class="msg-action-btn chat-focus-ring p-1 rounded hover:bg-orange-500/15 text-muted hover:text-orange-200"
-        title="Kick from server (hold Shift)"
+        :title="echoT('b42.actionBar.kick')"
         @click="$emit('moderate', 'kick')"
       >
         <svg
@@ -228,7 +229,7 @@ defineEmits<{
         v-show="shiftPressed"
         type="button"
         class="msg-action-btn chat-focus-ring p-1 rounded hover:bg-red-500/20 text-muted hover:text-red-300"
-        title="Ban from server (hold Shift)"
+        :title="echoT('b42.actionBar.ban')"
         @click="$emit('moderate', 'ban')"
       >
         <svg
@@ -251,7 +252,7 @@ defineEmits<{
         ref="ellipsisRef"
         type="button"
         class="msg-action-btn chat-focus-ring shrink-0 rounded p-1 hover:bg-glass-hover"
-        title="More options"
+        :title="echoT('chat.actions.moreOptions')"
         @click="$emit('toggleMenu', $event)"
       >
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

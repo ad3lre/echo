@@ -1,0 +1,88 @@
+{
+  "tabs": {
+    "overview": {
+      "title": "Visão geral",
+      "description": "Defina o nome do canal, categoria, modo lento e outras opções."
+    },
+    "permissions": {
+      "title": "Permissões",
+      "description": "Controle quem pode ver este canal e o que pode fazer aqui."
+    },
+    "webhooks": {
+      "title": "Links de entrada",
+      "description": "Permita que apps aprovados publiquem mensagens neste canal com um link privado criado aqui."
+    },
+    "discord_sync": {
+      "title": "Mensagens do Discord",
+      "description": "Mantenha as mensagens sincronizadas entre este canal Echo e um canal Discord vinculado."
+    },
+    "discord_voice_mirror": {
+      "title": "Atividade de voz do Discord",
+      "description": "Mostre quem está na voz do Discord neste canal Echo. Entre na voz pelo Discord para participar."
+    },
+    "forum_creator": {
+      "title": "Padrões do fórum",
+      "description": "Ordenação padrão, tags e regras de postagem para novos tópicos do fórum."
+    },
+    "format": {
+      "title": "Formato",
+      "description": "Modo lento, exclusão automática e outras opções de formatação do canal."
+    },
+    "danger_zone": {
+      "title": "Zona de perigo",
+      "description": "Ações sensíveis que removem este canal permanentemente. Prossiga com cuidado."
+    },
+    "discord_chat_sync": {
+      "title": "Mensagens do Discord (categoria)",
+      "description": "Ative o mesmo vínculo de mensagens do Discord para todos os canais de texto e fórum nesta categoria."
+    }
+  },
+  "permissions": {
+    "viewChannel": "Ver canal",
+    "manageChannel": "Gerenciar canal",
+    "managePermissions": "Gerenciar permissões",
+    "manageWebhooks": "Gerenciar links de entrada",
+    "createInvite": "Criar convite",
+    "connect": "Conectar",
+    "speak": "Falar",
+    "useVoiceActivity": "Usar atividade de voz",
+    "video": "Vídeo",
+    "prioritySpeaker": "Usar prioridade de fala",
+    "stream": "Transmitir",
+    "requestToSpeak": "Pedir para falar",
+    "muteMembers": "Silenciar membros",
+    "deafenMembers": "Ensurdecer membros",
+    "moveMembers": "Mover membros",
+    "useEmbeddedActivities": "Usar atividades",
+    "useSoundboard": "Usar soundboard",
+    "useExternalSounds": "Usar sons externos",
+    "createEvents": "Criar eventos",
+    "manageEvents": "Gerenciar eventos",
+    "sendMessages": "Enviar mensagens",
+    "readMessageHistory": "Ler histórico de mensagens",
+    "manageMessages": "Gerenciar mensagens",
+    "bypassSlowmode": "Ignorar modo lento",
+    "sendTTS": "Enviar mensagens de texto para fala",
+    "embedLinks": "Incorporar links",
+    "attachFiles": "Anexar arquivos",
+    "sendVoiceMessages": "Enviar mensagens de voz",
+    "addReactions": "Adicionar reações",
+    "useExternalEmoji": "Usar emoji externo",
+    "useExternalStickers": "Usar figurinhas externas",
+    "mentionEveryone": "Mencionar todos os cargos",
+    "useApplicationCommands": "Usar comandos de aplicativo",
+    "useExternalApps": "Usar apps externos",
+    "createPolls": "Criar enquetes",
+    "sendMessagesInThreads": "Enviar mensagens em tópicos",
+    "createPublicThreads": "Criar tópicos públicos",
+    "createPrivateThreads": "Criar tópicos privados",
+    "manageThreads": "Gerenciar tópicos",
+    "commentOnPaper": "Comentar no paper",
+    "paper": {
+      "sendMessages": "Escrever no paper",
+      "manageMessages": "Gerenciar comentários",
+      "readMessageHistory": "Baixar / exportar paper",
+      "commentOnPaper": "Comentar no paper"
+    }
+  }
+}

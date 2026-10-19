@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 const props = defineProps<{
   baseline: string[]; // permissions strings
@@ -19,20 +20,24 @@ const removed = computed(() =>
 
 <template>
   <div class="permission-diff rounded-lg bg-scrim-1 p-3 text-sm space-y-3">
-    <div class="font-semibold">Permission diff</div>
+    <div class="font-semibold">{{ echoT('srvSettingsB.permDiff.title') }}</div>
     <div v-if="!baseline || !current" class="text-fg-soft">
-      No comparison available.
+      {{ echoT('srvSettingsB.permDiff.none') }}
     </div>
     <div v-else class="grid grid-cols-2 gap-3">
       <div>
-        <div class="text-xs text-fg-soft mb-1">Added</div>
+        <div class="text-xs text-fg-soft mb-1">
+          {{ echoT('srvSettingsB.permDiff.added') }}
+        </div>
         <ul class="list-disc list-inside">
           <li v-for="p in added" :key="p" class="echo-success-text">{{ p }}</li>
           <li v-if="added.length === 0" class="text-fg-subtle">—</li>
         </ul>
       </div>
       <div>
-        <div class="text-xs text-fg-soft mb-1">Removed</div>
+        <div class="text-xs text-fg-soft mb-1">
+          {{ echoT('srvSettingsB.permDiff.removed') }}
+        </div>
         <ul class="list-disc list-inside">
           <li v-for="p in removed" :key="p" class="echo-destructive-text">
             {{ p }}
@@ -43,7 +48,9 @@ const removed = computed(() =>
     </div>
 
     <div v-if="traces && traces.length" class="mt-2">
-      <div class="text-xs text-fg-soft mb-1">Trace timeline (preview)</div>
+      <div class="text-xs text-fg-soft mb-1">
+        {{ echoT('srvSettingsB.permDiff.trace') }}
+      </div>
       <div
         class="max-h-36 overflow-y-auto rounded-md bg-scrim-1 p-2 text-[12px]"
       >

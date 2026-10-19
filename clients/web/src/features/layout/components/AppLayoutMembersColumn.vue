@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, inject, ref, unref, watch } from 'vue';
 import type { MaybeRef } from 'vue';
 import MemberList from '@/features/layout/components/MemberList.vue';
@@ -292,7 +293,11 @@ const searchHeaderEngaged = ref(false);
           :current-page="resolvedSearchResultPage"
           :total-pages="resolvedTotalPages"
           :placeholder="
-            `Search ${resolvedSelectedServerName}`.trim() || 'Search'
+            resolvedSelectedServerName
+              ? echoT('layout.members.searchServer', {
+                  server: resolvedSelectedServerName,
+                })
+              : echoT('layout.members.search')
           "
           :dropdown-gap-px="0"
           :dropdown-horizontal-pad-px="0"

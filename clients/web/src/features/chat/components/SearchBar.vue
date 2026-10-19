@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import {
   ref,
   computed,
@@ -144,25 +145,43 @@ const inputValue = computed({
   set: (v: string) => emit('update:modelValue', v),
 });
 
-const HAS_TYPES: { id: HasType; label: string }[] = [
-  { id: 'image', label: 'Image' },
+const HAS_TYPES = computed((): { id: HasType; label: string }[] => [
+  { id: 'image', label: echoT('b20.searchBar.image') },
   { id: 'gif', label: 'GIF' },
-  { id: 'link', label: 'Link (excl. GIF links)' },
-  { id: 'video', label: 'Video' },
-  { id: 'audio', label: 'Audio' },
-  { id: 'docs', label: 'Document' },
-];
+  { id: 'link', label: echoT('b20.searchBar.linkNoGif') },
+  { id: 'video', label: echoT('b20.searchBar.video') },
+  { id: 'audio', label: echoT('b20.searchBar.audio') },
+  { id: 'docs', label: echoT('chat.labels.document') },
+]);
 
-const filterOptionsFull = [
-  { id: 'in' as const, label: 'In channel', icon: channelIcons.text },
-  { id: 'from' as const, label: 'From user', icon: icons.usersAvatar },
-  { id: 'mentions' as const, label: 'Mentions', icon: null },
-  { id: 'has' as const, label: 'Has (image, gif, link…)', icon: icons.list },
-];
+const filterOptionsFull = computed(() => [
+  {
+    id: 'in' as const,
+    label: echoT('b20.searchBar.inChannel'),
+    icon: channelIcons.text,
+  },
+  {
+    id: 'from' as const,
+    label: echoT('b20.searchBar.fromUser'),
+    icon: icons.usersAvatar,
+  },
+  {
+    id: 'mentions' as const,
+    label: echoT('b20.searchBar.mentions'),
+    icon: null,
+  },
+  {
+    id: 'has' as const,
+    label: echoT('b20.searchBar.hasHint'),
+    icon: icons.list,
+  },
+]);
 const filterOptions = computed(() =>
   props.dmMode
-    ? filterOptionsFull.filter((o) => o.id === 'mentions' || o.id === 'has')
-    : filterOptionsFull,
+    ? filterOptionsFull.value.filter(
+        (o) => o.id === 'mentions' || o.id === 'has',
+      )
+    : filterOptionsFull.value,
 );
 const pickerFilterOptions = computed(() =>
   filterOptions.value.filter((o) => o.id !== dropdownMode.value),
@@ -484,7 +503,7 @@ const dropdownOptions = computed(() => {
     return props.users.filter((u) => u.name.toLowerCase().includes(p));
   }
   if (dropdownMode.value === 'has') {
-    return HAS_TYPES.filter(
+    return HAS_TYPES.value.filter(
       (t) => t.label.toLowerCase().includes(p) || t.id.includes(p),
     );
   }
@@ -699,7 +718,7 @@ const searchResultsByChannel = computed(() => {
   const groups: { channelName: string; messages: MessageWithChannel[] }[] = [];
   const seen = new Map<string, number>();
   for (const msg of results) {
-    const name = msg.channelName ?? 'Unknown';
+    const name = msg.channelName ?? echoT('chat.labels.unknown');
     const idx = seen.get(name);
     if (idx !== undefined) {
       groups[idx]!.messages.push(msg);
@@ -1027,7 +1046,7 @@ onBeforeUnmount(() => {
           :placeholder="
             showSearchPlaceholder &&
             segmentIndex === compositeInputSegments.length - 1
-              ? placeholder || 'Search'
+              ? placeholder || echoT('chat.search.placeholder')
               : undefined
           "
           class="search-text-segment search-bar-input min-w-0 bg-transparent text-foreground placeholder:text-muted outline-none"
@@ -1072,8 +1091,14 @@ onBeforeUnmount(() => {
             spellcheck="false"
             data-lpignore="true"
             class="search-filter-tag__value-input"
-            :aria-label="`${segment.mode} filter value`"
-            :placeholder="segment.mode === 'has' ? 'type…' : 'search…'"
+            :aria-label="
+              echoT('b20.searchBar.filterValue', { mode: segment.mode })
+            "
+            :placeholder="
+              segment.mode === 'has'
+                ? echoT('b20.searchBar.typeHint')
+                : echoT('b20.searchBar.searchHint')
+            "
             @input="onFilterValueInput(segment, $event)"
             @focus="onFilterValueFocus(segment)"
             @keydown="onFilterValueKeydown($event, segment)"
@@ -1110,7 +1135,7 @@ onBeforeUnmount(() => {
         autocapitalize="off"
         spellcheck="false"
         data-lpignore="true"
-        :placeholder="placeholder || 'Search'"
+        :placeholder="placeholder || echoT('chat.search.placeholder')"
         class="search-text-segment search-bar-input flex-1 min-w-[3rem] bg-transparent text-foreground placeholder:text-muted outline-none"
         :class="mobilePanelLayout ? 'text-base' : 'text-sm'"
         @input="onTrailingTextInput"
@@ -1124,7 +1149,7 @@ onBeforeUnmount(() => {
       <button
         v-if="isSearchActive || isDropdownOpen"
         type="button"
-        aria-label="Close search"
+        :aria-label="echoT('b20.searchBar.closeSearch')"
         class="ml-auto flex-shrink-0 rounded p-0.5 text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
         @click="closeSearch"
       >
@@ -1168,7 +1193,7 @@ onBeforeUnmount(() => {
                 {{ searchScopeHint }}
               </div>
               <div v-if="searchLoading" class="px-4 py-0.5 text-xs text-muted">
-                Searching…
+                {{ echoT('b20.searchBar.searching') }}
               </div>
               <div
                 v-if="searchError"
@@ -1235,7 +1260,7 @@ onBeforeUnmount(() => {
                     inputmode="numeric"
                     pattern="[0-9]*"
                     class="search-page-input w-[3ch] min-w-[1.5rem] max-w-[3rem] rounded border border-border bg-glass-2 px-0.5 py-0 text-center text-xs text-foreground tabular-nums focus:outline-none focus:ring-1 focus:ring-accent"
-                    aria-label="Page number"
+                    :aria-label="echoT('b20.searchBar.pageNumber')"
                     @keydown="onPageInputKeydown"
                     @blur="commitPageInput"
                     @click.stop
@@ -1257,7 +1282,7 @@ onBeforeUnmount(() => {
                   :disabled="(currentPage ?? 0) >= (totalPages ?? 1) - 1"
                   @click="emit('goToPage', (currentPage ?? 0) + 1)"
                 >
-                  Next →
+                  {{ echoT('b20.searchBar.next') }}
                 </button>
               </div>
             </template>
@@ -1271,7 +1296,7 @@ onBeforeUnmount(() => {
                 <div
                   class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
                 >
-                  Add filter
+                  {{ echoT('b20.searchBar.addFilter') }}
                 </div>
                 <button
                   v-for="opt in pickerFilterOptions"
@@ -1302,7 +1327,7 @@ onBeforeUnmount(() => {
               <div
                 class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
               >
-                Select channel
+                {{ echoT('b20.searchBar.selectChannel') }}
               </div>
               <button
                 v-for="(ch, idx) in channelOptions"
@@ -1326,7 +1351,7 @@ onBeforeUnmount(() => {
                 v-if="channelOptions.length === 0"
                 class="px-3 py-4 text-sm text-muted text-center"
               >
-                No channels match
+                {{ echoT('b20.searchBar.noChannels') }}
               </div>
             </template>
             <template v-else-if="dropdownMode === 'from'">
@@ -1337,7 +1362,7 @@ onBeforeUnmount(() => {
                 <div
                   class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
                 >
-                  Add filter
+                  {{ echoT('b20.searchBar.addFilter') }}
                 </div>
                 <button
                   v-for="opt in pickerFilterOptions"
@@ -1368,7 +1393,7 @@ onBeforeUnmount(() => {
               <div
                 class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
               >
-                From user
+                {{ echoT('b20.searchBar.fromUser') }}
               </div>
               <button
                 v-for="(u, idx) in userOptions"
@@ -1393,7 +1418,7 @@ onBeforeUnmount(() => {
                 v-if="userOptions.length === 0"
                 class="px-3 py-4 text-sm text-muted text-center"
               >
-                No users match
+                {{ echoT('b20.searchBar.noUsers') }}
               </div>
             </template>
             <template v-else-if="dropdownMode === 'mentions'">
@@ -1404,7 +1429,7 @@ onBeforeUnmount(() => {
                 <div
                   class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
                 >
-                  Add filter
+                  {{ echoT('b20.searchBar.addFilter') }}
                 </div>
                 <button
                   v-for="opt in pickerFilterOptions"
@@ -1435,7 +1460,7 @@ onBeforeUnmount(() => {
               <div
                 class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
               >
-                Mentions
+                {{ echoT('b20.searchBar.mentions') }}
               </div>
               <button
                 v-for="(u, idx) in userOptions"
@@ -1460,7 +1485,7 @@ onBeforeUnmount(() => {
                 v-if="userOptions.length === 0"
                 class="px-3 py-4 text-sm text-muted text-center"
               >
-                No users match
+                {{ echoT('b20.searchBar.noUsers') }}
               </div>
             </template>
             <template v-else-if="dropdownMode === 'has'">
@@ -1471,7 +1496,7 @@ onBeforeUnmount(() => {
                 <div
                   class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
                 >
-                  Add filter
+                  {{ echoT('b20.searchBar.addFilter') }}
                 </div>
                 <button
                   v-for="opt in pickerFilterOptions"
@@ -1502,7 +1527,7 @@ onBeforeUnmount(() => {
               <div
                 class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
               >
-                Has media type
+                {{ echoT('b20.searchBar.hasMediaType') }}
               </div>
               <button
                 v-for="(t, idx) in hasTypeOptions"
@@ -1520,7 +1545,7 @@ onBeforeUnmount(() => {
                 v-if="hasTypeOptions.length === 0"
                 class="px-3 py-4 text-sm text-muted text-center"
               >
-                No types match
+                {{ echoT('b20.searchBar.noTypes') }}
               </div>
             </template>
 
@@ -1533,7 +1558,7 @@ onBeforeUnmount(() => {
                 <div
                   class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
                 >
-                  Recent searches
+                  {{ echoT('b20.searchBar.recent') }}
                 </div>
                 <button
                   v-for="term in recentSearches"
@@ -1553,7 +1578,7 @@ onBeforeUnmount(() => {
               <div
                 class="px-3 py-1.5 text-xs text-muted uppercase tracking-wider"
               >
-                Add filter
+                {{ echoT('b20.searchBar.addFilter') }}
               </div>
               <button
                 v-for="opt in filterOptions"
@@ -1581,10 +1606,12 @@ onBeforeUnmount(() => {
                 <span class="text-foreground">{{ opt.label }}</span>
               </button>
               <p class="px-3 pt-2 text-xs text-muted">
-                Or type <code class="bg-glass-2 px-1 rounded">in:</code>,
+                {{ echoT('b20.searchBar.orType') }}
+                <code class="bg-glass-2 px-1 rounded">in:</code>,
                 <code class="bg-glass-2 px-1 rounded">from:</code>,
                 <code class="bg-glass-2 px-1 rounded">mentions:</code>,
-                <code class="bg-glass-2 px-1 rounded">has:image</code> etc.
+                <code class="bg-glass-2 px-1 rounded">has:image</code>
+                {{ echoT('b20.searchBar.etc') }}
               </p>
             </template>
           </div>

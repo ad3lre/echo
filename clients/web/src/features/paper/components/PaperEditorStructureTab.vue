@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed } from 'vue';
 import type { PaperEditorPanelBridgeContext } from '@/features/paper/paperEditorPanelBridge';
 import { usePaperFormatActions } from '@/features/paper/composables/usePaperFormatActions';
@@ -16,39 +17,43 @@ const actions = usePaperFormatActions(editorRef);
   <div class="paper-editor-tab">
     <template v-if="editorEditable">
       <section class="paper-editor-tab__block">
-        <h4 class="paper-editor-tab__label">Lists</h4>
+        <h4 class="paper-editor-tab__label">
+          {{ echoT('b43.paperStructure.lists') }}
+        </h4>
         <div class="paper-editor-panel__tool-row">
           <button
             type="button"
             class="paper-editor-panel__chip"
             @click="actions.toggleList('toggleBulletList')"
           >
-            Bullet list
+            {{ echoT('b43.paperStructure.bullet') }}
           </button>
           <button
             type="button"
             class="paper-editor-panel__chip"
             @click="actions.toggleList('toggleOrderedList')"
           >
-            Numbered list
+            {{ echoT('b43.paperStructure.numbered') }}
           </button>
         </div>
       </section>
 
       <section class="paper-editor-tab__block">
-        <h4 class="paper-editor-tab__label">Dividers</h4>
+        <h4 class="paper-editor-tab__label">
+          {{ echoT('b43.paperStructure.dividers') }}
+        </h4>
         <button
           type="button"
           class="paper-editor-panel__asset-btn paper-editor-panel__asset-btn--ghost"
           @click="actions.insertHorizontalRule()"
         >
-          Insert horizontal rule
+          {{ echoT('b43.paperStructure.hr') }}
         </button>
       </section>
     </template>
 
     <p v-else class="paper-editor-tab__hint paper-editor-tab__hint--center">
-      Switch to edit mode to add structure.
+      {{ echoT('b43.paperStructure.switchEdit') }}
     </p>
   </div>
 </template>

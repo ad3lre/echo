@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { ref, shallowRef, watch, onUnmounted, nextTick, computed } from 'vue';
 import type {
   PDFDocumentLoadingTask,
@@ -62,9 +63,12 @@ const canGoNext = computed(
   () => !!pdfRef.value && pageNum.value < numPages.value,
 );
 const zoomPct = computed(() => Math.round(userZoom.value * 100));
-const canvasAriaLabel = computed(
-  () =>
-    `${props.documentLabel}, page ${pageNum.value} of ${numPages.value || '?'}`,
+const canvasAriaLabel = computed(() =>
+  echoT('b34.pdf.pageOf', {
+    label: props.documentLabel,
+    page: pageNum.value,
+    total: numPages.value || '?',
+  }),
 );
 
 function flattenOutline(items: OutlineNode[], depth = 0): FlatOutlineRow[] {
@@ -145,7 +149,7 @@ async function renderCurrentPage(): Promise<boolean> {
     if (gen !== loadGeneration) return false;
     const msg = e instanceof Error ? e.message : String(e);
     if (!msg.toLowerCase().includes('rendering cancelled')) {
-      loadError.value = msg || 'Render failed.';
+      loadError.value = msg || echoT('b34.pdf.renderFailed');
     }
     return false;
   } finally {
@@ -172,7 +176,7 @@ async function loadDocument() {
   const url = props.url?.trim();
   if (!url) {
     loading.value = false;
-    loadError.value = 'Missing document URL.';
+    loadError.value = echoT('b34.pdf.missingUrl');
     return;
   }
 
@@ -316,8 +320,8 @@ onUnmounted(() => {
         class="viewer-icon-btn rounded-full p-2 transition-colors"
         :class="outlineOpen ? 'is-active' : ''"
         :aria-pressed="outlineOpen"
-        aria-label="Toggle outline"
-        title="Outline"
+        :aria-label="echoT('b34.pdf.toggleOutline')"
+        :title="echoT('chat.labels.outline')"
         @click="outlineOpen = !outlineOpen"
       >
         <svg
@@ -339,8 +343,8 @@ onUnmounted(() => {
         :href="downloadUrl"
         class="viewer-icon-btn rounded-full p-2 transition-colors"
         :download="downloadFilename"
-        :title="`Download ${documentLabel}`"
-        :aria-label="`Download ${documentLabel}`"
+        :title="echoT('b34.pdf.download', { label: documentLabel })"
+        :aria-label="echoT('b34.pdf.download', { label: documentLabel })"
         @click.stop
       >
         <svg
@@ -360,8 +364,8 @@ onUnmounted(() => {
       <button
         type="button"
         class="viewer-icon-btn rounded-full p-2 transition-colors"
-        title="Open in browser"
-        aria-label="Open in browser"
+        :title="echoT('chat.actions.openInBrowser')"
+        :aria-label="echoT('chat.actions.openInBrowser')"
         @click="openInBrowser"
       >
         <svg
@@ -381,8 +385,8 @@ onUnmounted(() => {
       <button
         type="button"
         class="viewer-icon-btn rounded-full p-2 transition-colors"
-        aria-label="Close"
-        title="Close"
+        :aria-label="echoT('b34.pdf.close')"
+        :title="echoT('b34.pdf.close')"
         @click="emit('close')"
       >
         <svg
@@ -412,7 +416,7 @@ onUnmounted(() => {
       v-if="canGoPrev && !loading && !loadError"
       type="button"
       class="viewer-nav-btn absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-lg p-3"
-      aria-label="Previous page"
+      :aria-label="echoT('b34.pdf.prevPage')"
       @click="goPrev"
     >
       <svg
@@ -434,7 +438,7 @@ onUnmounted(() => {
       v-if="canGoNext && !loading && !loadError"
       type="button"
       class="viewer-nav-btn absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-lg p-3"
-      aria-label="Next page"
+      :aria-label="echoT('b34.pdf.nextPage')"
       @click="goNext"
     >
       <svg
@@ -459,7 +463,7 @@ onUnmounted(() => {
       <button
         type="button"
         class="viewer-icon-btn rounded-lg p-2 transition-colors"
-        aria-label="Zoom out"
+        :aria-label="echoT('chat.actions.zoomOut')"
         @click="zoomOut"
       >
         <svg
@@ -482,7 +486,7 @@ onUnmounted(() => {
       <button
         type="button"
         class="viewer-icon-btn rounded-lg p-2 transition-colors"
-        aria-label="Zoom in"
+        :aria-label="echoT('chat.actions.zoomIn')"
         @click="zoomIn"
       >
         <svg
@@ -506,7 +510,7 @@ onUnmounted(() => {
         :class="fitMode === 'width' ? 'is-active' : ''"
         @click="setFitWidth"
       >
-        Width
+        {{ echoT('b34.pdf.width') }}
       </button>
       <button
         type="button"
@@ -514,7 +518,7 @@ onUnmounted(() => {
         :class="fitMode === 'page' ? 'is-active' : ''"
         @click="setFitPage"
       >
-        Page
+        {{ echoT('b34.pdf.page') }}
       </button>
     </div>
 
@@ -525,7 +529,7 @@ onUnmounted(() => {
       <div
         class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"
       />
-      <span class="text-xs text-fg-subtle">Loading PDF…</span>
+      <span class="text-xs text-fg-subtle">{{ echoT('b34.pdf.loading') }}</span>
     </div>
     <div
       v-else-if="loadError"
@@ -537,7 +541,7 @@ onUnmounted(() => {
         class="viewer-icon-btn rounded-lg px-3 py-2 text-sm"
         @click="openInBrowser"
       >
-        Open in browser
+        {{ echoT('chat.actions.openInBrowser') }}
       </button>
     </div>
     <div
@@ -570,13 +574,14 @@ onUnmounted(() => {
       <div
         class="flex shrink-0 items-center justify-between border-b border-border px-3 py-2"
       >
-        <span class="text-xs font-semibold uppercase tracking-wide text-fg-soft"
-          >Outline</span
+        <span
+          class="text-xs font-semibold uppercase tracking-wide text-fg-soft"
+          >{{ echoT('chat.labels.outline') }}</span
         >
         <button
           type="button"
           class="viewer-icon-btn rounded-md p-1"
-          aria-label="Close outline"
+          :aria-label="echoT('b34.pdf.closeOutline')"
           @click="outlineOpen = false"
         >
           <svg
@@ -602,7 +607,7 @@ onUnmounted(() => {
             :style="{ paddingLeft: `${6 + row.depth * 10}px` }"
             @click="onOutlineRowClick(row)"
           >
-            {{ row.title || 'Untitled' }}
+            {{ row.title || echoT('b34.pdf.untitled') }}
           </button>
         </li>
       </ul>

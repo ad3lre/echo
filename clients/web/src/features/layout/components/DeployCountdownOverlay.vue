@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import {
   deployCountdownActive,
@@ -41,7 +42,9 @@ const showPostCutover = computed(
 );
 
 const title = computed(() =>
-  showPostCutover.value ? 'Update in progress' : 'Restarting soon',
+  showPostCutover.value
+    ? echoT('layout.deploy.updateInProgress')
+    : echoT('layout.deploy.restartingSoon'),
 );
 
 const subtitle = computed(() => deployCountdownActive.value?.message ?? '');
@@ -80,12 +83,12 @@ const subtitle = computed(() => deployCountdownActive.value?.message ?? '');
         <div
           v-if="!showPostCutover"
           class="mt-5 text-5xl font-bold tabular-nums text-white"
-          aria-label="Seconds until restart"
+          :aria-label="echoT('layout.deploy.secondsUntilRestart')"
         >
           {{ remainSeconds }}
         </div>
         <p v-else class="mt-4 text-sm text-fg-subtle">
-          Reconnecting automatically when the server is back…
+          {{ echoT('layout.deploy.reconnecting') }}
         </p>
         <button
           v-if="showPostCutover"
@@ -93,7 +96,7 @@ const subtitle = computed(() => deployCountdownActive.value?.message ?? '');
           class="mt-5 w-full rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/15"
           @click="clearDeployCountdown()"
         >
-          Dismiss
+          {{ echoT('layout.deploy.dismiss') }}
         </button>
       </div>
     </div>

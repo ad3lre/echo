@@ -1,5 +1,6 @@
+import { echoT } from '@/i18n';
 /**
- * Attributes for chat "Save" / "Download" links on attachments.
+ * Attributes for chat "Save" / echoT('chat.actions.download') links on attachments.
  *
  * For cross-origin URLs (Discord CDN, public R2/S3, etc.) the HTML `download` attribute is ignored;
  * the browser follows the link in the **current tab**, leaving the SPA. The URL path often ends in

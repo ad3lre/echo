@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, nextTick, ref } from 'vue';
 import type { Embed } from '@shared/types';
 import {
@@ -187,7 +188,9 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
         isVideoExpanded(i, embed) ? 'scroll-my-4' : '',
       ]"
       :aria-label="
-        embed.title ? `Link preview: ${embed.title}` : 'Link preview'
+        embed.title
+          ? echoT('b43.linkEmbeds.preview', { title: embed.title })
+          : echoT('chat.labels.linkPreview')
       "
     >
       <div class="flex min-w-0">
@@ -238,7 +241,7 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
                 rel="noopener noreferrer"
                 @click.stop
               >
-                {{ embed.title || 'Open link' }}
+                {{ embed.title || echoT('chat.actions.openLink') }}
               </a>
               <span v-else class="text-[#f2f3f5]">{{ embed.title }}</span>
             </h3>
@@ -301,22 +304,30 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
               class="absolute right-2 top-2 z-[1] rounded-md bg-overlay-heavy px-2 py-1 text-[11px] font-semibold text-fg shadow-md backdrop-blur-sm ring-1 ring-border transition-opacity duration-150 pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 hover:bg-overlay-heavy focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00a8fc]"
               :aria-expanded="isVideoExpanded(i, embed)"
               :aria-label="
-                isVideoExpanded(i, embed) ? 'Smaller embed' : 'Larger embed'
+                isVideoExpanded(i, embed)
+                  ? echoT('chat.actions.smallerEmbed')
+                  : echoT('chat.actions.largerEmbed')
               "
               :title="
-                isVideoExpanded(i, embed) ? 'Smaller embed' : 'Larger embed'
+                isVideoExpanded(i, embed)
+                  ? echoT('chat.actions.smallerEmbed')
+                  : echoT('chat.actions.largerEmbed')
               "
               @click.stop="toggleVideoExpand(i, embed, $event)"
             >
-              {{ isVideoExpanded(i, embed) ? 'Smaller' : 'Larger' }}
+              {{
+                isVideoExpanded(i, embed)
+                  ? echoT('b43.linkEmbeds.smaller')
+                  : echoT('b43.linkEmbeds.larger')
+              }}
             </button>
             <iframe
               class="absolute inset-0 h-full w-full border-0"
               :src="videoIframeSrc(embed)"
               :title="
                 embed.title
-                  ? `Play video: ${embed.title}`
-                  : 'Embedded video player'
+                  ? echoT('b43.linkEmbeds.playVideo', { title: embed.title })
+                  : echoT('b43.linkEmbeds.videoPlayer')
               "
               :allow="iframeAllow"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"

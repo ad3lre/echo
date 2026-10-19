@@ -20,6 +20,7 @@ import type {
 } from '@/features/server-settings/types';
 import type { EchoRoleCategoryDto } from '@/api/echo/types';
 
+import { rolePermissionLabel } from '@/i18n/labels';
 import { fetchManagedRolesFromEcho } from '@/features/server-settings/fetchManagedRolesFromEcho';
 import {
   cloneRoleManagerState,
@@ -83,13 +84,18 @@ export function useServerSettingsRolesEchoPersistence(
     return !deps.canManageRoles.value;
   });
 
-  const visibleRolePermissionDefsForServer = computed(() =>
-    deps.serverId.value && isEchoGraphId(deps.serverId.value)
-      ? ROLE_PERMISSION_DEFS.filter((d) =>
-          ECHO_SERVER_SETTINGS_ROLE_PERMISSION_KEYS.includes(d.key),
-        )
-      : ROLE_PERMISSION_DEFS,
-  );
+  const visibleRolePermissionDefsForServer = computed(() => {
+    const defs =
+      deps.serverId.value && isEchoGraphId(deps.serverId.value)
+        ? ROLE_PERMISSION_DEFS.filter((d) =>
+            ECHO_SERVER_SETTINGS_ROLE_PERMISSION_KEYS.includes(d.key),
+          )
+        : ROLE_PERMISSION_DEFS;
+    return defs.map((def) => ({
+      ...def,
+      label: rolePermissionLabel(def.key),
+    }));
+  });
 
   async function createRoleWrapped(name?: string) {
     const sid = deps.serverId.value;

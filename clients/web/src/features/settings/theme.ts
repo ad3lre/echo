@@ -1,3 +1,4 @@
+import { echoT } from '@/i18n';
 /**
  * Theme — types, persistence, and DOM contract.
  *

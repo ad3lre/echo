@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { echoT } from '@/i18n';
 import { computed, ref, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/features/layout/useFocusTrap';
 import {
@@ -125,7 +126,7 @@ async function onImportFromDiscord() {
     error.value =
       e instanceof Error
         ? e.message
-        : 'Could not connect Discord right now. Try again.';
+        : echoT('auth.guestOnboarding.errors.discordConnect');
   } finally {
     busy.value = false;
   }
@@ -154,8 +155,8 @@ async function onAvatarFileChange(ev: Event) {
   } catch (e) {
     const detail = extractUploadErrorMessage(e);
     error.value = detail
-      ? `Could not upload profile photo: ${detail}`
-      : 'Could not upload profile photo.';
+      ? echoT('b44.guest.uploadFailed', { detail })
+      : echoT('auth.guestOnboarding.errors.uploadPhoto');
   } finally {
     busy.value = false;
   }
@@ -164,18 +165,18 @@ async function onAvatarFileChange(ev: Event) {
 function goNextFromProfile() {
   error.value = '';
   if (!pfp.value.trim()) {
-    error.value = 'Add a profile picture to continue.';
+    error.value = echoT('auth.guestOnboarding.errors.addPhoto');
     return;
   }
   if (!displayName.value.trim()) {
-    error.value = 'Enter a name to continue.';
+    error.value = echoT('auth.guestOnboarding.errors.enterName');
     return;
   }
   const vr = validateRegistrationUsername(username.value);
   if (!vr.ok) {
     error.value =
       describeEchoUsernameFieldIssue(username.value) ??
-      'Choose a valid handle to continue.';
+      echoT('auth.guestOnboarding.errors.validHandle');
     return;
   }
   step.value = 'credentials';
@@ -191,24 +192,23 @@ async function submit() {
   if (!vr.ok) {
     error.value =
       describeEchoUsernameFieldIssue(username.value) ??
-      'Choose a valid handle to continue.';
+      echoT('auth.guestOnboarding.errors.validHandle');
     step.value = 'profile';
     return;
   }
   if (!pfp.value.trim() || !displayName.value.trim()) {
-    error.value = 'Finish your profile first.';
+    error.value = echoT('auth.guestOnboarding.errors.finishProfile');
     step.value = 'profile';
     return;
   }
 
   const em = normalizeEmail(email.value);
   if (!em || !isValidEmailFormat(email.value)) {
-    error.value = 'Enter a valid email address.';
+    error.value = echoT('auth.guestOnboarding.errors.validEmail');
     return;
   }
   if (password.value.length < 8 || !registerPasswordOk.value) {
-    error.value =
-      'Pick a stronger password (8+ chars, mix letters/numbers/symbols).';
+    error.value = echoT('auth.guestOnboarding.errors.strongerPassword');
     return;
   }
 
@@ -230,7 +230,9 @@ async function submit() {
       pfp: pfp.value,
     });
     if (isAuthLoginEmailVerificationChallenge(result)) {
-      error.value = `Account created — verify ${result.maskedEmail || 'your email'} via the link we sent, then sign in.`;
+      error.value = echoT('b44.guest.created', {
+        email: result.maskedEmail || echoT('b44.guest.yourEmail'),
+      });
       emit('update:modelValue', false);
       return;
     }
@@ -238,8 +240,7 @@ async function submit() {
       isAuthLoginMfaChallenge(result) ||
       isAuthLoginEmailIpChallenge(result)
     ) {
-      error.value =
-        'Account created — sign in again to finish verification steps.';
+      error.value = echoT('auth.guestOnboarding.errors.createdSignInAgain');
       emit('update:modelValue', false);
       return;
     }
@@ -248,22 +249,23 @@ async function submit() {
     emit('update:modelValue', false);
   } catch (e) {
     if (e instanceof AuthApiError && e.body.code === 'EMAIL_IN_USE') {
-      error.value = 'That email is already registered. Try logging in instead.';
+      error.value = echoT('auth.guestOnboarding.errors.emailInUse');
       return;
     }
     if (e instanceof AuthApiError && e.body.code === 'USERNAME_TAKEN') {
-      error.value =
-        'That handle is already taken. Try adding a number or underscore.';
+      error.value = echoT('auth.guestOnboarding.errors.handleTaken');
       step.value = 'profile';
       return;
     }
     if (e instanceof AuthApiError && e.body.code === 'INVALID_USERNAME') {
-      error.value = 'That handle isn’t valid. Try a different one.';
+      error.value = echoT('auth.guestOnboarding.errors.handleInvalid');
       step.value = 'profile';
       return;
     }
     error.value =
-      e instanceof Error ? e.message : 'Could not create your account.';
+      e instanceof Error
+        ? e.message
+        : echoT('auth.guestOnboarding.errors.createFailed');
   } finally {
     busy.value = false;
   }
@@ -292,11 +294,10 @@ function onSignInExisting() {
             id="guest-onboarding-title"
             class="text-[1.65rem] font-bold leading-snug tracking-tight text-foreground sm:text-[1.8rem]"
           >
-            Create your profile
+            {{ echoT('auth.guestOnboarding.title') }}
           </h2>
           <p class="mt-2.5 text-[0.98rem] leading-relaxed text-fg-soft">
-            Minimal profile first (photo, name, handle). Then secure it with
-            email + password.
+            {{ echoT('b44.guest.intro') }}
           </p>
         </div>
         <div class="shrink-0 flex items-center gap-2">
@@ -306,7 +307,7 @@ function onSignInExisting() {
             :disabled="busy"
             @click="onSignInExisting"
           >
-            Log in
+            {{ echoT('auth.titles.logIn') }}
           </button>
         </div>
       </div>
@@ -329,7 +330,7 @@ function onSignInExisting() {
               <div
                 class="text-xs font-semibold uppercase tracking-[0.16em] text-fg-subtle"
               >
-                Profile picture
+                {{ echoT('auth.fields.profilePicture') }}
               </div>
               <label
                 class="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-full bg-glass-2 px-4 py-2.5 text-sm font-semibold text-fg hover:bg-glass-3"
@@ -339,7 +340,7 @@ function onSignInExisting() {
                   alt=""
                   class="h-4 w-4 opacity-80 filter invert"
                 />
-                Upload photo
+                {{ echoT('auth.fields.uploadPhoto') }}
                 <input
                   type="file"
                   accept="image/*"
@@ -352,8 +353,10 @@ function onSignInExisting() {
 
           <div class="mt-5 grid gap-4">
             <div>
-              <label class="guest-onboarding-label" for="guest-onboarding-name"
-                >Name</label
+              <label
+                class="guest-onboarding-label"
+                for="guest-onboarding-name"
+                >{{ echoT('auth.fields.name') }}</label
               >
               <input
                 id="guest-onboarding-name"
@@ -361,7 +364,7 @@ function onSignInExisting() {
                 type="text"
                 maxlength="80"
                 class="guest-onboarding-input mt-2"
-                placeholder="How others see you"
+                :placeholder="echoT('auth.placeholders.displayNameHint')"
                 autocomplete="nickname"
               />
             </div>
@@ -369,7 +372,7 @@ function onSignInExisting() {
               <label
                 class="guest-onboarding-label"
                 for="guest-onboarding-handle"
-                >Handle</label
+                >{{ echoT('auth.fields.handle') }}</label
               >
               <input
                 id="guest-onboarding-handle"
@@ -394,7 +397,7 @@ function onSignInExisting() {
               :disabled="busy"
               @click="onSignInExisting"
             >
-              Already have an account? Log in
+              {{ echoT('auth.guestOnboarding.alreadyHaveAccountLogIn') }}
             </button>
             <button
               type="button"
@@ -402,7 +405,7 @@ function onSignInExisting() {
               :disabled="busy || !canProceedProfile"
               @click="goNextFromProfile"
             >
-              Continue
+              {{ echoT('auth.actions.continue') }}
             </button>
           </div>
         </div>
@@ -413,8 +416,10 @@ function onSignInExisting() {
         >
           <div class="grid gap-3">
             <div>
-              <label class="guest-onboarding-label" for="guest-onboarding-email"
-                >Email</label
+              <label
+                class="guest-onboarding-label"
+                for="guest-onboarding-email"
+                >{{ echoT('auth.email') }}</label
               >
               <input
                 id="guest-onboarding-email"
@@ -427,8 +432,10 @@ function onSignInExisting() {
               />
             </div>
             <div>
-              <label class="guest-onboarding-label" for="guest-onboarding-pass"
-                >Password</label
+              <label
+                class="guest-onboarding-label"
+                for="guest-onboarding-pass"
+                >{{ echoT('auth.password') }}</label
               >
               <input
                 id="guest-onboarding-pass"
@@ -447,7 +454,9 @@ function onSignInExisting() {
                   />
                 </div>
                 <div class="flex items-center justify-between text-xs">
-                  <span class="text-fg-subtle">Password strength</span>
+                  <span class="text-fg-subtle">{{
+                    echoT('auth.passwordStrength.title')
+                  }}</span>
                   <span class="font-medium text-fg-soft">
                     {{ passwordStrength.label }}
                   </span>
@@ -465,7 +474,7 @@ function onSignInExisting() {
               :disabled="busy"
               @click="step = 'profile'"
             >
-              Back
+              {{ echoT('auth.actions.back') }}
             </button>
             <button
               type="button"
@@ -473,7 +482,11 @@ function onSignInExisting() {
               :disabled="busy"
               @click="submit"
             >
-              {{ busy ? 'Creating…' : 'Create Echo account' }}
+              {{
+                busy
+                  ? echoT('b44.guest.creating')
+                  : echoT('auth.guestOnboarding.createEchoAccount')
+              }}
             </button>
           </div>
         </div>
@@ -485,10 +498,10 @@ function onSignInExisting() {
             class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div class="text-sm leading-relaxed text-fg-soft">
-              Have a Discord account?
-              <span class="text-fg-soft"
-                >Import your profile and we’ll suggest your email.</span
-              >
+              {{ echoT('auth.guestOnboarding.discordPrompt') }}
+              <span class="text-fg-soft">{{
+                echoT('auth.guestOnboarding.discordBlurb')
+              }}</span>
             </div>
             <button
               type="button"
@@ -496,7 +509,7 @@ function onSignInExisting() {
               :disabled="busy || echoSyncCapabilities.isMockDataMode"
               @click="onImportFromDiscord"
             >
-              Import from Discord
+              {{ echoT('auth.guestOnboarding.importFromDiscord') }}
             </button>
           </div>
         </div>
