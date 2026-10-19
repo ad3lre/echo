@@ -11,6 +11,7 @@ export async function tryJoinOfficialEchoServerOnSignup(
   userId: string,
   opts?: { joinClientIp?: string | null; io?: SocketIoServer },
 ): Promise<void> {
+  if (process.env.ECHO_CONFIG_TEST_ISOLATION === '1') return; // avoid pool stalls in suites
   const { enabled, pool } = await getEchoStore();
   if (!enabled || !pool) return;
   try {
@@ -32,10 +33,7 @@ export async function tryJoinOfficialEchoServerOnSignup(
   }
 }
 
-/**
- * Idempotent backfill for accounts that missed signup auto-join (server limit at
- * signup, transient failure, or accounts created before onboarding existed).
- */
+/** Idempotent backfill for accounts that missed signup auto-join. */
 export async function ensureOfficialEchoServerMembership(
   pool: pg.Pool,
   userId: string,

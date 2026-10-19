@@ -80,10 +80,9 @@ async function pollMutualFriendsVisible(
 
 async function run(): Promise<void> {
   const watchdog = setTimeout(() => {
-    console.error('echo.pipeline.integration: watchdog timeout (120s)');
+    console.error('echo.pipeline.integration: watchdog timeout (90s)');
     process.exit(1);
-  }, 120_000);
-  watchdog.unref?.();
+  }, 90_000);
 
   let enabled = false;
   let pool: Awaited<ReturnType<typeof getEchoStore>>['pool'] = null;
@@ -156,6 +155,7 @@ async function run(): Promise<void> {
     });
     const reg2Body = await reg2.text();
     assert.equal(reg2.status, 201, reg2Body);
+    console.log('echo.pipeline.integration: registered u2');
     const t2 = JSON.parse(reg2Body) as {
       user: { id: string };
       csrfToken: string;
@@ -165,6 +165,7 @@ async function run(): Promise<void> {
       ?.split(';')
       .find((c) => c.trim().startsWith('echo_sid='))
       ?.split('=')[1];
+    assert.ok(t2Sid, 'u2 session cookie missing');
     const t2UserId = t2.user.id;
     const t1UserId = t1.user.id;
 
