@@ -27,8 +27,10 @@ import { shouldApplyRemoteChannelTyping } from '@/features/layout/realtime/socke
 import {
   ensureChannelBucket,
   syncChannelMessages,
+  updateChannelMessageInBucket,
 } from '@/features/chat/domain/channelMessageAuthority';
 import { getChannelIndex } from '@/features/chat/domain/channelMessageIndex';
+import { reconcilePendingReactionTogglesOnSnapshot } from '@/features/chat/domain/messageReactionPendingReconcile';
 
 export type EchoRealtimeChatIngestPort = {
   onMessage: (payload: unknown) => void;
@@ -175,11 +177,31 @@ export function createEchoRealtimeChatIngestPort(opts: {
         {
           ...indexSink,
           viewerUserId: opts.getViewerUserId?.(),
-          onAfterReactions: (channelId, messageId) =>
-            opts.uiTx.commitPendingReactionTogglesForMessage(
+          onAfterReactions: (channelId, messageId) => {
+            // Stale/out-of-order snapshots must not drop optimistic toggles.
+            const pending = opts.uiTx.listPendingReactionTogglesForMessage(
               channelId,
               messageId,
-            ),
+            );
+            if (pending.length === 0) return;
+            const current =
+              getChannelIndex(channelId).byId.get(messageId)?.reactions;
+            const reconciled = reconcilePendingReactionTogglesOnSnapshot(
+              current,
+              pending,
+            );
+            if (reconciled.reactions !== current) {
+              updateChannelMessageInBucket(channelId, messageId, {
+                reactions: reconciled.reactions,
+              });
+            }
+            if (reconciled.allSatisfied) {
+              opts.uiTx.commitPendingReactionTogglesForMessage(
+                channelId,
+                messageId,
+              );
+            }
+          },
         },
       );
     },

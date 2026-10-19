@@ -538,7 +538,9 @@ function emitSeenMessageId(next: string | null): void {
 function distanceFromBottomPx(): number {
   const el = containerRef.value;
   const v = virtualizer.value;
-  if (!el || !v) return 0;
+  // Missing virtualizer must NOT read as "at bottom" — that force-follows
+  // the tail (composer yank) during mount/remeasure races.
+  if (!el || !v) return Number.POSITIVE_INFINITY;
   return Math.max(0, v.getTotalSize() - el.scrollTop - el.clientHeight);
 }
 
@@ -1567,7 +1569,7 @@ watch(
 function isNearBottom(threshold = NEAR_BOTTOM_PX) {
   const el = containerRef.value;
   const v = virtualizer.value;
-  if (!el || !v) return true;
+  if (!el || !v) return false;
   const total = v.getTotalSize();
   return total - el.scrollTop - el.clientHeight < threshold;
 }

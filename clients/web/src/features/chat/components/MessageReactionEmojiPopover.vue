@@ -14,6 +14,7 @@ import { useEmojiPicker } from '@/features/chat/emoji/useEmojiPicker';
 import { useRecentlyUsedEmojis } from '@/features/chat/emoji/useRecentlyUsedEmojis';
 import EmojiCategorySection from '@/components/EmojiCategorySection.vue';
 import { preloadEmojiImagesOnce } from '@/features/chat/emoji/useEmojiPreload';
+import { ensureEmojiCategoriesLoaded } from '@/features/chat/emoji/useEmojiData';
 import { useServerEmojiLibrary } from '@/features/chat/emoji/useServerEmojiLibrary';
 import { useUserEmojiLibrary } from '@/features/chat/emoji/useUserEmojiLibrary';
 import { useChannelCustomEmojiPickerAllowed } from '@/features/chat/emoji/useChannelCustomEmojiPickerAllowed';
@@ -98,9 +99,13 @@ watch(
   () => [props.modelValue, props.triggerRect],
   () => {
     if (props.modelValue) {
+      // Unicode catalog is async; without this the body can open empty while
+      // phase-1 waits for the first unicode section that is not loaded yet.
+      void ensureEmojiCategoriesLoaded();
       preloadEmojiImagesOnce();
       updatePosition();
-      nextTick(() => requestAnimationFrame(advanceToPhase2));
+      // Reaction popover is small — skip the empty phase-1 window entirely.
+      advanceToPhase2();
     }
   },
   { immediate: true },

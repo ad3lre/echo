@@ -157,6 +157,39 @@ describe('useMessageListRowPresentations', () => {
     expect(patched[0]).toContain('m1');
   });
 
+  it('still patches reaction-only changes while the user is scrolling', async () => {
+    const { api, messages, entities, userScrollActive, patched } = mountHarness(
+      {
+        ids: ['m1', 'm2'],
+        userScrollActive: true,
+      },
+    );
+    await nextTick();
+    expect(
+      api.messageListRowPresentations.value[0]?.message.reactions,
+    ).toBeUndefined();
+
+    const nextMessages = new Map(messages.value);
+    const nextEntities = new Map(entities.value);
+    const withRx = {
+      ...nextEntities.get('m1')!,
+      reactions: [{ emoji: '👍', count: 1, userIds: ['u1'] }],
+    };
+    nextEntities.set('m1', withRx);
+    nextMessages.set('m1', {
+      ...nextMessages.get('m1')!,
+      reactions: withRx.reactions,
+    });
+    messages.value = nextMessages;
+    entities.value = nextEntities;
+    await nextTick();
+
+    expect(api.messageListRowPresentations.value[0]?.message.reactions).toEqual(
+      [{ emoji: '👍', count: 1, userIds: ['u1'] }],
+    );
+    expect(patched.some((ids) => ids.includes('m1'))).toBe(true);
+  });
+
   it('reconciles more than the drain budget after scroll settle', async () => {
     const ids = Array.from({ length: 48 }, (_, i) => `m${i}`);
     const { api, messages, entities, userScrollActive } = mountHarness({

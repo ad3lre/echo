@@ -20,7 +20,7 @@
   "clients/web/src/features/chat/components/ImageViewerModal.vue": 849,
   "clients/web/src/features/chat/components/MessageBubble.vue": 1432,
   "clients/web/src/features/chat/components/MessageList.runtime.test.ts": 851,
-  "clients/web/src/features/chat/components/MessageList.vue": 2007,
+  "clients/web/src/features/chat/components/MessageList.vue": 2009,
   "clients/web/src/features/chat/components/SearchBar.vue": 1623,
   "clients/web/src/features/chat/composables/useSearch.test.ts": 911,
   "clients/web/src/features/chat/editor/composerModel.ts": 886,

@@ -12,6 +12,7 @@ import {
   type MessageWithAuthorRow,
   type OrderedIdsStructuralChange,
 } from '@/features/chat/domain/messageListRowFacts';
+import { fingerprintMessageReactions } from '@/features/chat/domain/messageWithAuthor';
 import {
   buildMessageListRowPresentationAtIndex,
   buildMessageListRowPresentations,
@@ -55,6 +56,8 @@ type RebuildKind = 'chrome' | 'full_struct';
 type PresentationState = {
   rows: Ref<MessageListRowPresentation[]>;
   fingerprints: Map<string, string>;
+  /** Separate from full row fp so reaction-only edits can patch during scroll. */
+  reactionFingerprints: Map<string, string>;
   invalidation: ReturnType<typeof createMessageListRowInvalidationController>;
   pendingRefreshAfterScroll: boolean;
   prevOrderedIds: string[] | null;
@@ -69,6 +72,13 @@ function nowMs(): number {
   return typeof performance !== 'undefined' ? performance.now() : 0;
 }
 
+function reactionFingerprintForId(
+  messageId: string,
+  entities: ReadonlyMap<string, RawMessage>,
+): string {
+  return fingerprintMessageReactions(entities.get(messageId)?.reactions);
+}
+
 function resetFingerprints(
   state: PresentationState,
   ids: readonly string[],
@@ -76,11 +86,13 @@ function resetFingerprints(
   entities: ReadonlyMap<string, RawMessage>,
 ): void {
   state.fingerprints.clear();
+  state.reactionFingerprints.clear();
   for (const id of ids) {
     state.fingerprints.set(
       id,
       fingerprintMessageListRowFactsInputs(id, messages, entities),
     );
+    state.reactionFingerprints.set(id, reactionFingerprintForId(id, entities));
   }
 }
 
@@ -184,14 +196,34 @@ function collectChangedIds(
       curr.messages,
       curr.entities,
     );
+    const rx = reactionFingerprintForId(id, curr.entities);
     if (fp !== state.fingerprints.get(id)) {
       changed.add(id);
       state.fingerprints.set(id, fp);
     }
+    state.reactionFingerprints.set(id, rx);
   }
   const idSet = new Set(curr.ids);
   for (const k of state.fingerprints.keys()) {
-    if (!idSet.has(k)) state.fingerprints.delete(k);
+    if (!idSet.has(k)) {
+      state.fingerprints.delete(k);
+      state.reactionFingerprints.delete(k);
+    }
+  }
+  return changed;
+}
+
+/** Ids whose reaction aggregate changed (may also have other field changes). */
+function collectReactionChangedIds(
+  state: PresentationState,
+  curr: MessageListRowPresentationInputs,
+): Set<string> {
+  const changed = new Set<string>();
+  for (const id of curr.ids) {
+    const rx = reactionFingerprintForId(id, curr.entities);
+    if (rx !== state.reactionFingerprints.get(id)) {
+      changed.add(id);
+    }
   }
   return changed;
 }
@@ -291,8 +323,38 @@ function onInputsChanged(
     curr.ids,
   );
   if (shouldDeferDuringUserScroll(state, curr, struct)) {
-    // Defer work until scroll settles — do not seed every ordered id into the
-    // invalidation drain (that + a 32-id budget left most rows stale forever).
+    // Reaction pills must still update while scrolling — otherwise store and
+    // visible row diverge and read as on/off flicker when scroll settles.
+    const reactionChanged = collectReactionChangedIds(state, curr);
+    if (
+      reactionChanged.size > 0 &&
+      state.rows.value.length === curr.ids.length
+    ) {
+      const patchIndices = collectMessageListRowFactsPatchIndices(
+        curr.ids,
+        curr.messages,
+        curr.entities,
+        reactionChanged,
+      );
+      applyInPlacePatches(state, curr, patchIndices);
+      for (const id of reactionChanged) {
+        state.fingerprints.set(
+          id,
+          fingerprintMessageListRowFactsInputs(
+            id,
+            curr.messages,
+            curr.entities,
+          ),
+        );
+        state.reactionFingerprints.set(
+          id,
+          reactionFingerprintForId(id, curr.entities),
+        );
+      }
+      state.options.onPatchedRows([...reactionChanged]);
+    }
+    // Defer non-reaction work until scroll settles — do not seed every ordered
+    // id into the invalidation drain (that + a 32-id budget left rows stale).
     state.pendingRefreshAfterScroll = true;
     return;
   }
@@ -334,6 +396,10 @@ function patchDirtyIdsAfterScroll(state: PresentationState): void {
       state.fingerprints.set(
         id,
         fingerprintMessageListRowFactsInputs(id, curr.messages, curr.entities),
+      );
+      state.reactionFingerprints.set(
+        id,
+        reactionFingerprintForId(id, curr.entities),
       );
     }
     state.options.onPatchedRows(
@@ -388,6 +454,7 @@ export function useMessageListRowPresentations(
   const state: PresentationState = {
     rows: ref([]),
     fingerprints: new Map(),
+    reactionFingerprints: new Map(),
     invalidation: createMessageListRowInvalidationController(),
     pendingRefreshAfterScroll: false,
     prevOrderedIds: null,

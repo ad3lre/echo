@@ -212,10 +212,10 @@
       "maxNestingSpaces": 14
     },
     "clients/web/src/features/chat/composables/useMessageListRowPresentations.ts": {
-      "lines": 411,
-      "longestFunction": 36,
+      "lines": 478,
+      "longestFunction": 63,
       "deepNestingLines": 0,
-      "maxNestingSpaces": 8
+      "maxNestingSpaces": 12
     },
     "clients/web/src/features/chat/composables/useMessageListVirtualizer.ts": {
       "lines": 426,

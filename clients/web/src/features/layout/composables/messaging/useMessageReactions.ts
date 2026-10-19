@@ -122,6 +122,12 @@ export function useMessageReactions(
         ?.find((r) => r.emoji === emoji)
         ?.userIds.includes(userId);
 
+      // Replace any prior in-flight toggle for the same emoji (rapid click).
+      options.uiTransactions?.dropPendingReactionToggleForEmoji(
+        channelId,
+        messageId,
+        emoji,
+      );
       options.uiTransactions?.beginTransaction({
         id: correlationId,
         type: 'reaction-toggle',
@@ -130,6 +136,9 @@ export function useMessageReactions(
         messageId,
         correlationId,
         previousReactions,
+        emoji,
+        userId,
+        removing,
       });
 
       applyOptimisticToggle(channelId, messageId, emoji, userId);

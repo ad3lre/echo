@@ -17,6 +17,10 @@ export type UITransactionReactionToggle = {
   messageId: string;
   correlationId: string;
   previousReactions: MessageReaction[] | undefined;
+  /** Emoji being toggled — required to re-assert intent over stale snapshots. */
+  emoji: string;
+  userId: string;
+  removing: boolean;
 };
 
 export type UITransactionMessageEdit = {
@@ -111,7 +115,49 @@ export function createUiTransactionManager() {
     byId.delete(id);
   }
 
-  /** After `message:reactions`, server snapshot is authoritative — drop pending reaction txs for that message. */
+  function listPendingReactionTogglesForMessage(
+    channelId: string,
+    messageId: string,
+  ): UITransactionReactionToggle[] {
+    const out: UITransactionReactionToggle[] = [];
+    for (const tx of byId.values()) {
+      if (
+        tx.type === 'reaction-toggle' &&
+        tx.state === 'pending' &&
+        tx.channelId === channelId &&
+        tx.messageId === messageId
+      ) {
+        out.push(tx);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Drop a prior in-flight toggle for the same emoji without rolling back UI —
+   * the newer toggle already replaced optimistic state.
+   */
+  function dropPendingReactionToggleForEmoji(
+    channelId: string,
+    messageId: string,
+    emoji: string,
+  ): void {
+    const toDrop: string[] = [];
+    for (const [id, tx] of byId) {
+      if (
+        tx.type === 'reaction-toggle' &&
+        tx.state === 'pending' &&
+        tx.channelId === channelId &&
+        tx.messageId === messageId &&
+        tx.emoji === emoji
+      ) {
+        toDrop.push(id);
+      }
+    }
+    for (const id of toDrop) byId.delete(id);
+  }
+
+  /** After `message:reactions`, drop pending reaction txs whose intent the snapshot already satisfies. */
   function commitPendingReactionTogglesForMessage(
     channelId: string,
     messageId: string,
@@ -189,6 +235,8 @@ export function createUiTransactionManager() {
     getPending,
     rollbackTransaction,
     commitTransaction,
+    listPendingReactionTogglesForMessage,
+    dropPendingReactionToggleForEmoji,
     commitPendingReactionTogglesForMessage,
     commitPendingMessageEditForMessage,
     commitPendingMessageDeleteForMessage,

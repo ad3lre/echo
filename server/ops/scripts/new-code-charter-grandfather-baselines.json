@@ -1238,7 +1238,7 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/chat/components/MessageList.vue": {
-      "lines": 2007,
+      "lines": 2009,
       "longestFunction": 167,
       "deepNestingLines": 12,
       "maxNestingSpaces": 14
@@ -1262,7 +1262,7 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/chat/components/MessageReactionEmojiPopover.vue": {
-      "lines": 301,
+      "lines": 306,
       "longestFunction": 27,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -2198,10 +2198,10 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/chat/ingest/echoRealtimeChatIngest.ts": {
-      "lines": 235,
-      "longestFunction": 166,
-      "deepNestingLines": 3,
-      "maxNestingSpaces": 14
+      "lines": 257,
+      "longestFunction": 186,
+      "deepNestingLines": 13,
+      "maxNestingSpaces": 16
     },
     "clients/web/src/features/chat/ingest/echoRealtimeMessageStoreBridge.ts": {
       "lines": 106,
@@ -3722,8 +3722,8 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/layout/composables/messaging/useMessageReactions.ts": {
-      "lines": 167,
-      "longestFunction": 74,
+      "lines": 176,
+      "longestFunction": 83,
       "deepNestingLines": 6,
       "maxNestingSpaces": 16
     },
@@ -5060,8 +5060,8 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/layout/uiTransactionManager.ts": {
-      "lines": 202,
-      "longestFunction": 122,
+      "lines": 250,
+      "longestFunction": 166,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },

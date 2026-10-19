@@ -45,6 +45,29 @@ describe('createUiTransactionManager', () => {
     expect(tm.getPending('mid')).toBeUndefined();
   });
 
+  it('dropPendingReactionToggleForEmoji removes prior in-flight toggle without commit', () => {
+    const tm = createUiTransactionManager();
+    tm.register('reaction-toggle', {
+      rollback() {},
+      commit() {},
+    });
+    tm.beginTransaction({
+      id: 'r-old',
+      type: 'reaction-toggle',
+      state: 'pending',
+      channelId: 'c1',
+      messageId: 'm1',
+      correlationId: 'r-old',
+      previousReactions: undefined,
+      emoji: '👍',
+      userId: 'u1',
+      removing: false,
+    });
+    tm.dropPendingReactionToggleForEmoji('c1', 'm1', '👍');
+    expect(tm.getPending('r-old')).toBeUndefined();
+    expect(tm.listPendingReactionTogglesForMessage('c1', 'm1')).toEqual([]);
+  });
+
   it('commitPendingReactionTogglesForMessage commits all matching pending', () => {
     const tm = createUiTransactionManager();
     const committed: string[] = [];
@@ -62,6 +85,9 @@ describe('createUiTransactionManager', () => {
       messageId: 'm1',
       correlationId: 'r1',
       previousReactions: undefined,
+      emoji: '👍',
+      userId: 'u1',
+      removing: false,
     });
     tm.beginTransaction({
       id: 'r2',
@@ -71,6 +97,9 @@ describe('createUiTransactionManager', () => {
       messageId: 'm1',
       correlationId: 'r2',
       previousReactions: undefined,
+      emoji: '🔥',
+      userId: 'u1',
+      removing: false,
     });
     tm.beginTransaction({
       id: 'r3',
@@ -80,6 +109,9 @@ describe('createUiTransactionManager', () => {
       messageId: 'm1',
       correlationId: 'r3',
       previousReactions: undefined,
+      emoji: '👍',
+      userId: 'u1',
+      removing: false,
     });
     tm.commitPendingReactionTogglesForMessage('c1', 'm1');
     expect(committed).toHaveLength(2);
