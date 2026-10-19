@@ -169,6 +169,7 @@ async function run(): Promise<void> {
     const t2UserId = t2.user.id;
     const t1UserId = t1.user.id;
 
+    console.log('echo.pipeline.integration: friends self-request');
     const frSelf = await fetch(`${baseUrl}/api/v1/echo/friends/request`, {
       method: 'POST',
       headers: {
@@ -177,18 +178,27 @@ async function run(): Promise<void> {
         cookie: `echo_sid=${t1Sid}`,
       },
       body: JSON.stringify({ peerId: t1UserId }),
+      signal: AbortSignal.timeout(15_000),
     });
     assert.equal(frSelf.status, 400, await frSelf.text());
 
+    console.log('echo.pipeline.integration: presence over-limit');
     const presenceOverLimit = await fetch(
       `${baseUrl}/api/v1/echo/presence?ids=${Array.from({ length: 201 }, (_, i) => `p${i}`).join(',')}`,
-      { headers: { cookie: `echo_sid=${t1Sid}` } },
+      {
+        headers: { cookie: `echo_sid=${t1Sid}` },
+        signal: AbortSignal.timeout(15_000),
+      },
     );
     assert.equal(presenceOverLimit.status, 400, await presenceOverLimit.text());
 
+    console.log('echo.pipeline.integration: presence ok');
     const presenceOk = await fetch(
       `${baseUrl}/api/v1/echo/presence?ids=${encodeURIComponent(t1UserId)}`,
-      { headers: { cookie: `echo_sid=${t1Sid}` } },
+      {
+        headers: { cookie: `echo_sid=${t1Sid}` },
+        signal: AbortSignal.timeout(15_000),
+      },
     );
     assert.equal(presenceOk.status, 200, await presenceOk.text());
 
