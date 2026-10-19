@@ -7,10 +7,7 @@ import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
 import { authSessionJsonBody } from '../../../auth/authSessionResponse';
 import { updateCachedUserInAllSessions } from '../../../auth/serverSession';
 import { getEmailVerifyRedirectUrl } from '../../../domain/emailVerificationUrls';
-import {
-  sendSignupVerificationEmail,
-  sendSignupVerificationResend,
-} from '../../../services/auth/emailVerificationActions';
+import { sendSignupVerificationResend } from '../../../services/auth/emailVerificationActions';
 import { requireAuth } from '../../../auth/middleware';
 import type { AuthRegisterBody } from '../../../auth/types';
 import { config } from '../../../config';
@@ -43,6 +40,7 @@ import { trustLoginIp } from '../../../services/auth/loginTrustedIpStore';
 import { emailVerificationRequiredBody } from '../../../services/auth/passwordLoginGates';
 import { maskEmailAddress } from '../../../services/auth/maskEmail';
 import { emailVerifyLockEnforced } from '../../../auth/emailVerifyLockPolicy';
+import { maybeSendSignupVerificationEmail } from '../../../services/auth/signupVerificationEmailGate';
 
 export default async function registerRoutes(fastify: FastifyInstance) {
   async function finishEmailVerification(
@@ -280,9 +278,7 @@ export default async function registerRoutes(fastify: FastifyInstance) {
             return;
           }
           let user = await store.createUser(body);
-          if (mode === 'postgres' && user.email && !user.emailVerified) {
-            void sendSignupVerificationEmail(fastify.log, store, user);
-          }
+          maybeSendSignupVerificationEmail(mode, fastify.log, store, user);
           if (normalizedHwidForCap) {
             await recordHwidProfileAccountBinding(
               user.id,

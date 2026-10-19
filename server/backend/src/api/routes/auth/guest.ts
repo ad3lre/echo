@@ -24,7 +24,7 @@ import {
   recordGuestMintSuccess,
 } from '../../../services/auth/guestAbuseLimiter';
 import { verifyTurnstileToken } from '../../../services/integrations/turnstileVerify';
-import { sendSignupVerificationEmail } from '../../../services/auth/emailVerificationActions';
+import { maybeSendSignupVerificationEmail } from '../../../services/auth/signupVerificationEmailGate';
 import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
 import { authSessionJsonBody } from '../../../auth/authSessionResponse';
 import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSessionRevocation';
@@ -339,9 +339,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           event: 'guest_upgrade_completed',
           userId: user.id,
         });
-        if (mode === 'postgres' && user.email && !user.emailVerified) {
-          void sendSignupVerificationEmail(fastify.log, store, user);
-        }
+        maybeSendSignupVerificationEmail(mode, fastify.log, store, user);
         if (emailVerifyLockEnforced() && user.email && !user.emailVerified) {
           return reply.code(200).send(
             emailVerificationRequiredBody({
