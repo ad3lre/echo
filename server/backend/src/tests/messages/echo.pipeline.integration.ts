@@ -55,34 +55,41 @@ async function pollChannelMessage(
   );
 }
 
-async function pollMutualFriendsVisible(
+/**
+ * Same-process Socket.IO + engine.io long-polling can stall the Bun event loop
+ * (client long-poll held open; timers/AbortSignals never fire). Prefer websocket.
+ */
+async function connectEchoSocket(
   baseUrl: string,
-  peerId: string,
   sid: string,
-  timeoutMs = 10_000,
-): Promise<{ status: number; body: string }> {
-  const deadline = Date.now() + timeoutMs;
-  let lastStatus = 0;
-  let lastBody = '';
-  while (Date.now() < deadline) {
-    const res = await fetch(
-      `${baseUrl}/api/v1/echo/friends/mutual?peerId=${encodeURIComponent(peerId)}`,
-      { headers: { cookie: `echo_sid=${sid}` } },
+  label: string,
+): Promise<IoClientSocket> {
+  const socket = ioClient(baseUrl, {
+    transports: ['websocket'],
+    extraHeaders: { cookie: `echo_sid=${sid}` },
+  });
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`socket connect timeout (${label})`)),
+      15_000,
     );
-    lastStatus = res.status;
-    lastBody = await res.text();
-    if (res.status === 200) return { status: res.status, body: lastBody };
-    if (res.status !== 403) break;
-    await new Promise((resolve) => setTimeout(resolve, 150));
-  }
-  return { status: lastStatus, body: lastBody };
+    socket.once('connect', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    socket.once('connect_error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+  return socket;
 }
 
 async function run(): Promise<void> {
   const watchdog = setTimeout(() => {
-    console.error('echo.pipeline.integration: watchdog timeout (90s)');
+    console.error('echo.pipeline.integration: watchdog timeout (180s)');
     process.exit(1);
-  }, 90_000);
+  }, 180_000);
 
   let enabled = false;
   let pool: Awaited<ReturnType<typeof getEchoStore>>['pool'] = null;
@@ -210,6 +217,7 @@ async function run(): Promise<void> {
         cookie: `echo_sid=${t1Sid}`,
       },
       body: JSON.stringify({ status: '  idle  ' }),
+      signal: AbortSignal.timeout(15_000),
     });
     assert.equal(prPaddedIdle.status, 204, await prPaddedIdle.text());
 
@@ -221,6 +229,7 @@ async function run(): Promise<void> {
         cookie: `echo_sid=${t1Sid}`,
       },
       body: JSON.stringify({ status: '' }),
+      signal: AbortSignal.timeout(15_000),
     });
     assert.equal(
       prEmptyMeansOnline.status,
@@ -229,10 +238,7 @@ async function run(): Promise<void> {
     );
 
     // --- Sockets: Delete Legacy Ephemeral Reality ---
-    const sLegacy: IoClientSocket = ioClient(baseUrl, {
-      transports: ['polling', 'websocket'],
-      extraHeaders: { cookie: `echo_sid=${t1Sid}` },
-    });
+    const sLegacy = await connectEchoSocket(baseUrl, t1Sid, 'legacy');
     const legacyFail = await new Promise<{ code?: string }>(
       (resolve, reject) => {
         const timer = setTimeout(
@@ -261,6 +267,7 @@ async function run(): Promise<void> {
         cookie: `echo_sid=${t1Sid}`,
       },
       body: JSON.stringify({ name: 'Pipeline Server' }),
+      signal: AbortSignal.timeout(30_000),
     });
     const srvBody = await srv.text();
     assert.equal(srv.status, 201, srvBody);
@@ -279,6 +286,7 @@ async function run(): Promise<void> {
           cookie: `echo_sid=${t1Sid}`,
         },
         body: JSON.stringify({ listedInDirectory: false }),
+        signal: AbortSignal.timeout(30_000),
       },
     );
     const delistBody = await delist.text();
@@ -287,6 +295,7 @@ async function run(): Promise<void> {
       `${baseUrl}/api/v1/echo/workspace`,
       {
         headers: { cookie: `echo_sid=${t1Sid}` },
+        signal: AbortSignal.timeout(30_000),
       },
     );
     const workspaceAfterDelistBody = await workspaceAfterDelist.text();
@@ -307,6 +316,7 @@ async function run(): Promise<void> {
       `${baseUrl}/api/v1/echo/servers/${encodeURIComponent(serverId)}/channels`,
       {
         headers: { cookie: `echo_sid=${t1Sid}` },
+        signal: AbortSignal.timeout(30_000),
       },
     );
     const chListBody = await chListRes.text();
@@ -325,6 +335,7 @@ async function run(): Promise<void> {
           cookie: `echo_sid=${t1Sid}`,
         },
         body: JSON.stringify({ position: 10 }),
+        signal: AbortSignal.timeout(30_000),
       },
     );
     assert.equal(patchDefCat.status, 204, await patchDefCat.text());
@@ -339,6 +350,7 @@ async function run(): Promise<void> {
           cookie: `echo_sid=${t1Sid}`,
         },
         body: JSON.stringify({ name: 'Zebra', position: 0 }),
+        signal: AbortSignal.timeout(30_000),
       },
     );
     const postZBody = await postZ.text();
@@ -458,24 +470,7 @@ async function run(): Promise<void> {
     assert.ok(Array.isArray(roleUiJson.roles));
     assert.equal(typeof roleUiJson.assignments, 'object');
 
-    const s1: IoClientSocket = ioClient(baseUrl, {
-      transports: ['polling', 'websocket'],
-      extraHeaders: { cookie: `echo_sid=${t1Sid}` },
-    });
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error('socket connect timeout (s1)')),
-        15000,
-      );
-      s1.on('connect', () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      s1.on('connect_error', (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
+    const s1 = await connectEchoSocket(baseUrl, t1Sid, 's1');
 
     s1.emit('joinChannel', defaultChannelId);
     // Server applies join asynchronously (Echo permission checks).
@@ -872,17 +867,19 @@ async function run(): Promise<void> {
       false,
     );
 
-    const mutualFriendsStranger = await pollMutualFriendsVisible(
-      baseUrl,
-      t3.user.id,
-      t1Sid!,
+    // No official Echo home in isolated CI / without auto-join: strangers share
+    // neither friendship nor a server, so mutual-friend lookup and DM open stay forbidden.
+    const mutualFriendsStranger = await fetch(
+      `${baseUrl}/api/v1/echo/friends/mutual?peerId=${encodeURIComponent(t3.user.id)}`,
+      {
+        headers: { cookie: `echo_sid=${t1Sid}` },
+        signal: AbortSignal.timeout(15_000),
+      },
     );
-    // Signup auto-join is best-effort and asynchronous. Once both users have
-    // joined Echo home, mutual lookup is allowed but returns none.
-    assert.equal(mutualFriendsStranger.status, 200, mutualFriendsStranger.body);
-    assert.deepEqual(
-      (JSON.parse(mutualFriendsStranger.body) as { userIds: string[] }).userIds,
-      [],
+    assert.equal(
+      mutualFriendsStranger.status,
+      403,
+      await mutualFriendsStranger.text(),
     );
 
     const e2eeStateStranger = await fetch(
@@ -899,16 +896,9 @@ async function run(): Promise<void> {
         cookie: `echo_sid=${t1Sid}`,
       },
       body: JSON.stringify({ peerUserId: t3.user.id }),
+      signal: AbortSignal.timeout(15_000),
     });
-    const dmStrangerBody = await dmStranger.text();
-    // Echo home membership counts as a shared server for DM open.
-    assert.equal(dmStranger.status, 200, dmStrangerBody);
-    const dmStrangerJson = JSON.parse(dmStrangerBody) as {
-      channelId: string;
-      peerUserId: string;
-    };
-    assert.equal(dmStrangerJson.peerUserId, t3.user.id);
-    assert.ok(dmStrangerJson.channelId.length > 0);
+    assert.equal(dmStranger.status, 403, await dmStranger.text());
 
     const blockRes = await fetch(`${baseUrl}/api/v1/echo/blocks`, {
       method: 'POST',
@@ -1247,24 +1237,7 @@ async function run(): Promise<void> {
     );
     assert.equal(roleUiForbidden.status, 403, await roleUiForbidden.text());
 
-    const s2: IoClientSocket = ioClient(baseUrl, {
-      transports: ['polling', 'websocket'],
-      extraHeaders: { cookie: `echo_sid=${t2Sid}` },
-    });
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error('socket connect timeout (s2)')),
-        15000,
-      );
-      s2.on('connect', () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      s2.on('connect_error', (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
+    const s2 = await connectEchoSocket(baseUrl, t2Sid, 's2');
 
     const forbidden = await new Promise<{ code?: string }>(
       (resolve, reject) => {

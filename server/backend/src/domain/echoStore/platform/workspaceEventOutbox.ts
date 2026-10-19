@@ -18,6 +18,23 @@ export type EchoWorkspaceEventOutboxRow = {
  * Reserve an event for immediate delivery. Processing rows are recoverable by
  * the drain if the process exits between fanout and the delivered update.
  */
+/**
+ * Outbox rows may target a server room XOR a user room (`target_chk`).
+ * When callers pass both (live fanout wants both), prefer durable server scope;
+ * payload may still carry `userId` for clients.
+ */
+export function exclusiveWorkspaceEventOutboxTargets(
+  targets?: EchoWorkspaceEventOutboxTarget,
+): EchoWorkspaceEventOutboxTarget | undefined {
+  if (!targets) return undefined;
+  const serverId = targets.serverId?.trim() || undefined;
+  const userId = targets.userId?.trim() || undefined;
+  if (serverId && userId) return { serverId };
+  if (serverId) return { serverId };
+  if (userId) return { userId };
+  return undefined;
+}
+
 export async function insertEchoWorkspaceEventOutboxProcessing(
   pool: pg.Pool | pg.PoolClient,
   args: {
@@ -26,6 +43,7 @@ export async function insertEchoWorkspaceEventOutboxProcessing(
     targets?: EchoWorkspaceEventOutboxTarget;
   },
 ): Promise<void> {
+  const exclusive = exclusiveWorkspaceEventOutboxTargets(args.targets);
   await pool.query(
     `
     INSERT INTO echo_workspace_event_outbox
@@ -38,8 +56,8 @@ export async function insertEchoWorkspaceEventOutboxProcessing(
       args.id,
       args.payload.kind,
       JSON.stringify(args.payload),
-      args.targets?.serverId ?? null,
-      args.targets?.userId ?? null,
+      exclusive?.serverId ?? null,
+      exclusive?.userId ?? null,
     ],
   );
 }

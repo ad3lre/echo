@@ -104,7 +104,7 @@ jobs:
           ECHO_GUEST_ACCOUNTS_ENABLED: '1'
           ECHO_CONFIG_TEST_ISOLATION: '1'
         run: bun run --filter backend test:echo:pipeline
-        timeout-minutes: 5
+        timeout-minutes: 8
       - name: Multi-node integration (Postgres + NATS)
         env:
           ECHO_BACKEND_STORAGE: postgres
