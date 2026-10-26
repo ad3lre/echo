@@ -1,6 +1,6 @@
 {
   "name": "echo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Echo: A privacy-focused communication platform with real-time chat, voice, and community features.",
   "private": true,
   "engines": {

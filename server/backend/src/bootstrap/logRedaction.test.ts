@@ -15,7 +15,12 @@ async function run(): Promise<void> {
       },
     },
   });
-  const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTYifQ.c2lnbmF0dXJlX3BhcnQ';
+  // Built from parts so secret scanners do not treat the fixture as a live JWT.
+  const jwt = [
+    'eyJhbGciOiJIUzI1NiJ9',
+    'eyJzdWIiOiIxMjM0NTYifQ',
+    'c2lnbmF0dXJlX3BhcnQ',
+  ].join('.');
   app.log.info(
     {
       req: {

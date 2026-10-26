@@ -48,6 +48,9 @@ paths = [
   '''^clients/web/src/observability/bugHunterTrace\.test\.ts$''',
   '''^clients/web/src/features/settings/composables/useDiscordLinkSettings\.ts$''',
   '''^clients/web/src/features/settings/components/SettingsDiscordLinkSection\.vue$''',
+
+  # Env KEY NAMES + known-bad LiveKit placeholders only (never real values).
+  '''^server/backend/src/config/productionSecretChecks\.ts$''',
 ]
 
 # Targeted suppression of known, intentionally fake test fixture values.
@@ -55,9 +58,12 @@ regexes = [
   '''jwt-0123456789abcdef0123456789abcdef01234567''',
   '''postgresql://echo:echo_dev@(127\.0\.0\.1|localhost|postgres)(:\d+)?/echo''',
   '''POSTGRES_PASSWORD:\s*echo_dev''',
+  '''dev-only-livekit-secret-change-me-0000000000''',
+  '''devsecretdevsecretdevsecret1234''',
 ]
 stopwords = [
   'echo_dev',
   'test-jwt-secret',
   'not-a-real-secret',
+  'ECHO_2FA_ENCRYPTION_KEY',
 ]
