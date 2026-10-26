@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19",
+  "generatedAt": "2026-10-26",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -74,8 +74,8 @@
       "maxNestingSpaces": 12
     },
     "bot/src/exporter/phaseOptional.ts": {
-      "lines": 61,
-      "longestFunction": 51,
+      "lines": 64,
+      "longestFunction": 53,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },
@@ -86,8 +86,8 @@
       "maxNestingSpaces": 8
     },
     "bot/src/index.ts": {
-      "lines": 450,
-      "longestFunction": 120,
+      "lines": 457,
+      "longestFunction": 126,
       "deepNestingLines": 4,
       "maxNestingSpaces": 14
     },
@@ -350,10 +350,10 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/api/echo/workspace.ts": {
-      "lines": 84,
-      "longestFunction": 40,
+      "lines": 100,
+      "longestFunction": 53,
       "deepNestingLines": 0,
-      "maxNestingSpaces": 6
+      "maxNestingSpaces": 8
     },
     "clients/web/src/api/echo/youtubeVc.ts": {
       "lines": 53,
@@ -374,7 +374,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/api/meClient.ts": {
-      "lines": 233,
+      "lines": 244,
       "longestFunction": 42,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
@@ -926,7 +926,7 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/channel-settings/components/ChannelSettingsModal.vue": {
-      "lines": 1799,
+      "lines": 1797,
       "longestFunction": 76,
       "deepNestingLines": 5,
       "maxNestingSpaces": 16
@@ -944,7 +944,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/channel-settings/components/PermissionOverwriteEditor.vue": {
-      "lines": 850,
+      "lines": 847,
       "longestFunction": 27,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -962,7 +962,7 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/channel-settings/domain/permissionOverwriteSaveFeedback.ts": {
-      "lines": 142,
+      "lines": 129,
       "longestFunction": 32,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
@@ -1082,7 +1082,7 @@
       "maxNestingSpaces": 2
     },
     "clients/web/src/features/chat/components/DocumentViewerModal.vue": {
-      "lines": 374,
+      "lines": 375,
       "longestFunction": 7,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
@@ -1160,7 +1160,7 @@
       "maxNestingSpaces": 2
     },
     "clients/web/src/features/chat/components/MessageBubble.vue": {
-      "lines": 1432,
+      "lines": 1430,
       "longestFunction": 33,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
@@ -1226,7 +1226,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/chat/components/MessageLinkEmbeds.vue": {
-      "lines": 511,
+      "lines": 534,
       "longestFunction": 29,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -1880,7 +1880,7 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/chat/domain/messageListRowEstimate.ts": {
-      "lines": 213,
+      "lines": 215,
       "longestFunction": 74,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -1922,7 +1922,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/chat/domain/messageWindowAuthority.ts": {
-      "lines": 413,
+      "lines": 466,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
@@ -2750,7 +2750,7 @@
       "maxNestingSpaces": 2
     },
     "clients/web/src/features/dm/prefetchMentionNotificationChannels.ts": {
-      "lines": 359,
+      "lines": 357,
       "longestFunction": 77,
       "deepNestingLines": 1,
       "maxNestingSpaces": 14
@@ -3032,10 +3032,10 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/layout/components/AppLayout.vue": {
-      "lines": 2358,
+      "lines": 2362,
       "longestFunction": 0,
       "deepNestingLines": 0,
-      "maxNestingSpaces": 4
+      "maxNestingSpaces": 6
     },
     "clients/web/src/features/layout/components/AppLayoutChatHeader.vue": {
       "lines": 2540,
@@ -3044,7 +3044,7 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/layout/components/AppLayoutChatSurface.vue": {
-      "lines": 1103,
+      "lines": 1105,
       "longestFunction": 45,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
@@ -3254,7 +3254,7 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/layout/components/WelcomeBackExploreGate.vue": {
-      "lines": 1332,
+      "lines": 1335,
       "longestFunction": 4,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -3278,7 +3278,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/layout/components/server-rail/ServerRailCenterColumn.vue": {
-      "lines": 561,
+      "lines": 566,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -3374,8 +3374,8 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/layout/composables/controller/useAppLayoutController.expose.ts": {
-      "lines": 715,
-      "longestFunction": 713,
+      "lines": 716,
+      "longestFunction": 714,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
     },
@@ -4010,10 +4010,10 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/layout/composables/server/useEchoGuildRoleUi.ts": {
-      "lines": 466,
-      "longestFunction": 446,
-      "deepNestingLines": 8,
-      "maxNestingSpaces": 14
+      "lines": 440,
+      "longestFunction": 421,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 12
     },
     "clients/web/src/features/layout/composables/server/useGuildChannelModals.ts": {
       "lines": 1067,
@@ -4424,7 +4424,7 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/layout/echoWorkspace/echoChannelMessageWindow.ts": {
-      "lines": 48,
+      "lines": 55,
       "longestFunction": 9,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
@@ -4436,8 +4436,8 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/layout/echoWorkspace/echoServerMemberOrchestration.ts": {
-      "lines": 65,
-      "longestFunction": 51,
+      "lines": 98,
+      "longestFunction": 81,
       "deepNestingLines": 3,
       "maxNestingSpaces": 14
     },
@@ -4448,7 +4448,7 @@
       "maxNestingSpaces": 2
     },
     "clients/web/src/features/layout/echoWorkspace/echoWorkspaceChannelPrefetch.ts": {
-      "lines": 603,
+      "lines": 620,
       "longestFunction": 42,
       "deepNestingLines": 1,
       "maxNestingSpaces": 14
@@ -5204,8 +5204,8 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/member-profile/components/MemberProfileRolePanel.vue": {
-      "lines": 617,
-      "longestFunction": 15,
+      "lines": 612,
+      "longestFunction": 14,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
     },
@@ -6284,7 +6284,7 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/server-settings/domain/rolePermissionPolicies.ts": {
-      "lines": 83,
+      "lines": 82,
       "longestFunction": 25,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -6422,7 +6422,7 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/settings/components/SettingsDiscordLinkSection.vue": {
-      "lines": 263,
+      "lines": 273,
       "longestFunction": 28,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -6536,8 +6536,8 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/settings/composables/useDiscordLinkSettings.ts": {
-      "lines": 101,
-      "longestFunction": 92,
+      "lines": 127,
+      "longestFunction": 113,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -7958,7 +7958,7 @@
       "maxNestingSpaces": 14
     },
     "server/backend/src/api/routes/auth/me.ts": {
-      "lines": 804,
+      "lines": 808,
       "longestFunction": 87,
       "deepNestingLines": 77,
       "maxNestingSpaces": 18
@@ -8144,7 +8144,7 @@
       "maxNestingSpaces": 10
     },
     "server/backend/src/api/routes/echo/dm.ts": {
-      "lines": 655,
+      "lines": 665,
       "longestFunction": 5,
       "deepNestingLines": 18,
       "maxNestingSpaces": 18
@@ -8168,7 +8168,7 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/api/routes/echo/invites.ts": {
-      "lines": 358,
+      "lines": 459,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
@@ -8234,7 +8234,7 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/api/routes/echo/safety.ts": {
-      "lines": 344,
+      "lines": 352,
       "longestFunction": 16,
       "deepNestingLines": 21,
       "maxNestingSpaces": 14
@@ -8336,8 +8336,8 @@
       "maxNestingSpaces": 20
     },
     "server/backend/src/api/routes/health.ts": {
-      "lines": 104,
-      "longestFunction": 25,
+      "lines": 149,
+      "longestFunction": 27,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },
@@ -8348,13 +8348,13 @@
       "maxNestingSpaces": 10
     },
     "server/backend/src/api/routes/livekitWebhook.ts": {
-      "lines": 537,
+      "lines": 612,
       "longestFunction": 35,
-      "deepNestingLines": 21,
+      "deepNestingLines": 29,
       "maxNestingSpaces": 16
     },
     "server/backend/src/api/routes/meDiscord.ts": {
-      "lines": 429,
+      "lines": 460,
       "longestFunction": 23,
       "deepNestingLines": 5,
       "maxNestingSpaces": 14
@@ -8570,13 +8570,13 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/auth/store/memory/MemoryAuthStore.ts": {
-      "lines": 1026,
+      "lines": 1031,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },
     "server/backend/src/auth/store/postgres/PostgresAuthStore.ts": {
-      "lines": 1940,
+      "lines": 1946,
       "longestFunction": 3,
       "deepNestingLines": 12,
       "maxNestingSpaces": 16
@@ -8630,20 +8630,20 @@
       "maxNestingSpaces": 6
     },
     "server/backend/src/bootstrap/createFastify.ts": {
-      "lines": 37,
-      "longestFunction": 32,
-      "deepNestingLines": 3,
-      "maxNestingSpaces": 14
+      "lines": 35,
+      "longestFunction": 20,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 6
     },
     "server/backend/src/bootstrap/echoHttpObservability.ts": {
-      "lines": 132,
-      "longestFunction": 81,
+      "lines": 137,
+      "longestFunction": 86,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
     },
     "server/backend/src/bootstrap/echoReadRateLimitPaths.ts": {
-      "lines": 60,
-      "longestFunction": 11,
+      "lines": 75,
+      "longestFunction": 12,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
     },
@@ -8654,8 +8654,8 @@
       "maxNestingSpaces": 12
     },
     "server/backend/src/bootstrap/socket.ts": {
-      "lines": 107,
-      "longestFunction": 45,
+      "lines": 118,
+      "longestFunction": 56,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -8666,14 +8666,14 @@
       "maxNestingSpaces": 14
     },
     "server/backend/src/config.ts": {
-      "lines": 1546,
+      "lines": 1547,
       "longestFunction": 10,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
     "server/backend/src/config/productionGates.ts": {
       "lines": 221,
-      "longestFunction": 177,
+      "longestFunction": 176,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
     },
@@ -8690,8 +8690,8 @@
       "maxNestingSpaces": 0
     },
     "server/backend/src/db/authTables.ts": {
-      "lines": 462,
-      "longestFunction": 458,
+      "lines": 467,
+      "longestFunction": 463,
       "deepNestingLines": 3,
       "maxNestingSpaces": 15
     },
@@ -8708,8 +8708,8 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/db/echoTables.ts": {
-      "lines": 3739,
-      "longestFunction": 1960,
+      "lines": 3745,
+      "longestFunction": 1966,
       "deepNestingLines": 138,
       "maxNestingSpaces": 19
     },
@@ -8918,7 +8918,7 @@
       "maxNestingSpaces": 4
     },
     "server/backend/src/domain/echoMessagesDal.ts": {
-      "lines": 3167,
+      "lines": 2873,
       "longestFunction": 126,
       "deepNestingLines": 5,
       "maxNestingSpaces": 15
@@ -9038,7 +9038,7 @@
       "maxNestingSpaces": 14
     },
     "server/backend/src/domain/echoStore/community/invites.ts": {
-      "lines": 224,
+      "lines": 318,
       "longestFunction": 89,
       "deepNestingLines": 8,
       "maxNestingSpaces": 15
@@ -9074,7 +9074,7 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/domain/echoStore/index.ts": {
-      "lines": 642,
+      "lines": 650,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 2
@@ -9290,7 +9290,7 @@
       "maxNestingSpaces": 4
     },
     "server/backend/src/domain/echoStore/servers/servers.ts": {
-      "lines": 1321,
+      "lines": 1332,
       "longestFunction": 216,
       "deepNestingLines": 0,
       "maxNestingSpaces": 11
@@ -9572,7 +9572,7 @@
       "maxNestingSpaces": 4
     },
     "server/backend/src/observability/echoMetrics.ts": {
-      "lines": 233,
+      "lines": 242,
       "longestFunction": 3,
       "deepNestingLines": 0,
       "maxNestingSpaces": 2
@@ -9740,7 +9740,7 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/services/channelWebhooks/echoChannelWebhookExecute.ts": {
-      "lines": 512,
+      "lines": 513,
       "longestFunction": 19,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -9842,8 +9842,8 @@
       "maxNestingSpaces": 10
     },
     "server/backend/src/services/discordBridge/discordBridgeSyncNotice.ts": {
-      "lines": 206,
-      "longestFunction": 61,
+      "lines": 204,
+      "longestFunction": 60,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },
@@ -9896,7 +9896,7 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/services/discordImport/discordImportAvatarMirror.ts": {
-      "lines": 511,
+      "lines": 521,
       "longestFunction": 61,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -9944,8 +9944,8 @@
       "maxNestingSpaces": 7
     },
     "server/backend/src/services/discordImport/discordMessageImport.ts": {
-      "lines": 474,
-      "longestFunction": 122,
+      "lines": 485,
+      "longestFunction": 132,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },
@@ -9986,7 +9986,7 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/services/echoInviteSharePage.ts": {
-      "lines": 167,
+      "lines": 168,
       "longestFunction": 82,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -10130,10 +10130,10 @@
       "maxNestingSpaces": 14
     },
     "server/backend/src/services/linkUnfurl/linkUnfurlFetch.ts": {
-      "lines": 265,
-      "longestFunction": 46,
+      "lines": 161,
+      "longestFunction": 12,
       "deepNestingLines": 0,
-      "maxNestingSpaces": 10
+      "maxNestingSpaces": 8
     },
     "server/backend/src/services/linkUnfurl/linkUnfurlOembed.ts": {
       "lines": 273,
@@ -10146,12 +10146,6 @@
       "longestFunction": 157,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
-    },
-    "server/backend/src/services/linkUnfurl/safeFetchAgent.ts": {
-      "lines": 49,
-      "longestFunction": 0,
-      "deepNestingLines": 0,
-      "maxNestingSpaces": 12
     },
     "server/backend/src/services/livekit/livekitAdapter.ts": {
       "lines": 428,
@@ -10340,7 +10334,7 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/services/uploads/mediaUrlPolicy.ts": {
-      "lines": 51,
+      "lines": 70,
       "longestFunction": 37,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
@@ -10394,7 +10388,7 @@
       "maxNestingSpaces": 20
     },
     "server/backend/src/sockets/dmCallSignalHandler.ts": {
-      "lines": 219,
+      "lines": 249,
       "longestFunction": 6,
       "deepNestingLines": 4,
       "maxNestingSpaces": 16
@@ -10556,8 +10550,8 @@
       "maxNestingSpaces": 10
     },
     "server/media/src/hls/processor.ts": {
-      "lines": 478,
-      "longestFunction": 100,
+      "lines": 522,
+      "longestFunction": 101,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },

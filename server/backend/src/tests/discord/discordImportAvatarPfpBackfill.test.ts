@@ -24,7 +24,7 @@ function run(): void {
     isCorruptedDiscordImportPfp('0123456789abcdef0123456789abcdef'),
     true,
   );
-  assert.equal(isCorruptedDiscordImportPfp('data:image/svg+xml,abc'), false);
+  assert.equal(isCorruptedDiscordImportPfp('data:image/svg+xml,abc'), true);
   assert.equal(isCorruptedDiscordImportPfp(''), false);
   assert.equal(isCorruptedDiscordImportPfp('data:image/png;base64,abc'), false);
 
@@ -40,6 +40,17 @@ function run(): void {
   assert.equal(
     needsDiscordImportPfpRepair('https://echo.example/uploads/u1.webp', '123'),
     false,
+  );
+  assert.equal(
+    needsDiscordImportPfpRepair(
+      'data:image/svg+xml,%3Csvg%3E',
+      '123456789012345678',
+    ),
+    true,
+  );
+  assert.equal(
+    needsDiscordImportPfpRepair('data:image/svg+xml,%3Csvg%3E', ''),
+    true,
   );
 
   assert.equal(

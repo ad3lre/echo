@@ -31,6 +31,87 @@ interface SkrigglesState extends SkrigglesSnapshot {
   roundSecret: string | null;
 }
 
+export const SKRIGGLES_RELAY_MAX_JSON_BYTES = 64 * 1024;
+export const SKRIGGLES_RELAY_MAX_ARRAY_LEN = 2000;
+
+export const SKRIGGLES_RELAY_MAX_DEPTH = 8;
+export const SKRIGGLES_RELAY_MAX_NODES = 5000;
+/** Separate node budget for values under truncated `points` / `strokes` arrays. */
+export const SKRIGGLES_RELAY_MAX_DRAW_NODES = 20000;
+export const SKRIGGLES_RELAY_WALK_ARRAY_CAP = 500;
+
+/**
+ * Cheap bounded structural walk (no stringify): false if the value is too deep,
+ * has too many nodes, or contains an array above the per-level cap. Iterative
+ * so hostile nesting cannot overflow the stack.
+ */
+function relayShapeWithinBounds(root: unknown): boolean {
+  // `inDraw` marks values under a `points` / `strokes` array: those are truncated
+  // (not rejected) at SKRIGGLES_RELAY_MAX_ARRAY_LEN, so they get a separate node budget
+  // and only their first MAX_ARRAY_LEN items are walked.
+  const stack: { v: unknown; d: number; inDraw: boolean }[] = [
+    { v: root, d: 0, inDraw: false },
+  ];
+  let nodes = 0;
+  let drawNodes = 0;
+  while (stack.length) {
+    const { v, d, inDraw } = stack.pop()!;
+    if (inDraw) {
+      if (++drawNodes > SKRIGGLES_RELAY_MAX_DRAW_NODES) return false;
+    } else if (++nodes > SKRIGGLES_RELAY_MAX_NODES) return false;
+    if (!v || typeof v !== 'object') continue;
+    if (d >= SKRIGGLES_RELAY_MAX_DEPTH) return false;
+    if (Array.isArray(v)) {
+      if (v.length > SKRIGGLES_RELAY_WALK_ARRAY_CAP && !inDraw) return false;
+      for (const item of v) stack.push({ v: item, d: d + 1, inDraw });
+    } else {
+      for (const [k, item] of Object.entries(v as Record<string, unknown>)) {
+        if ((k === 'points' || k === 'strokes') && Array.isArray(item)) {
+          if (item.length > SKRIGGLES_RELAY_MAX_ARRAY_LEN * 4) return false;
+          nodes++;
+          for (const el of item.slice(0, SKRIGGLES_RELAY_MAX_ARRAY_LEN)) {
+            stack.push({ v: el, d: d + 2, inDraw: true });
+          }
+        } else {
+          stack.push({ v: item, d: d + 1, inDraw });
+        }
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * Bound a client-supplied relay payload: reject oversized/deep JSON and truncate any
+ * `points` / `strokes` arrays (top-level or inside the nested `payload`).
+ */
+export function sanitizeSkrigglesRelayPayload(
+  p: SkrigglesRelayPayload,
+): SkrigglesRelayPayload | null {
+  if (!relayShapeWithinBounds(p)) return null;
+  let size: number;
+  try {
+    size = JSON.stringify(p).length;
+  } catch {
+    return null;
+  }
+  if (size > SKRIGGLES_RELAY_MAX_JSON_BYTES) return null;
+  const cap = (v: unknown): unknown => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return v;
+    const o = { ...(v as Record<string, unknown>) };
+    for (const k of ['points', 'strokes']) {
+      const arr = o[k];
+      if (Array.isArray(arr) && arr.length > SKRIGGLES_RELAY_MAX_ARRAY_LEN) {
+        o[k] = arr.slice(0, SKRIGGLES_RELAY_MAX_ARRAY_LEN);
+      }
+    }
+    return o;
+  };
+  const top = cap(p) as Record<string, unknown>;
+  if ('payload' in top) top.payload = cap(top.payload);
+  return top as unknown as SkrigglesRelayPayload;
+}
+
 function syncRoster(
   state: SkrigglesState,
   roster: readonly string[],
@@ -221,10 +302,15 @@ export const skrigglesModule: GameModule<SkrigglesState, SkrigglesView> = {
     if (snap.phase !== 'drawing') return null;
     if (ctx.userId.trim() !== snap.drawerUserId.trim()) return null;
     const p = payload as SkrigglesRelayPayload | undefined;
-    if (!p || p.roundSeq !== snap.roundSeq) return null;
+    if (!p || typeof p !== 'object' || p.roundSeq !== snap.roundSeq) {
+      return null;
+    }
+    const safe = sanitizeSkrigglesRelayPayload(p);
+    if (!safe) return null;
+    // Trusted fields last so a client payload can never override them.
     return {
       kind: SKRIGGLES_RELAY_KIND,
-      data: { type: ctx.type, fromUserId: ctx.userId, ...p },
+      data: { ...safe, type: ctx.type, fromUserId: ctx.userId },
     };
   },
 

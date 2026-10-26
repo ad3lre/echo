@@ -22,12 +22,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>EchoAPIBaseURL</key>
 	<string>$(ECHO_API_BASE_URL)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Show your photo library inside the message composer so you can attach photos.</string>
+	<string>Echo shows your photo library so you can select photos to attach to messages. Echo does not save photos back to your library.</string>
 </dict>
 </plist>

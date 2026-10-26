@@ -17,6 +17,49 @@ describe('useAppLayoutVcActivityGuards', () => {
     dispatchAppToast.mockClear();
   });
 
+  it('calls ensureViewing before opening so text+VC jumps onto the voice surface', () => {
+    const order: string[] = [];
+    const ensureViewing = vi.fn(() => {
+      order.push('ensure');
+    });
+    const openVcActivityPicker = vi.fn(() => {
+      order.push('open');
+    });
+    const guards = useAppLayoutVcActivityGuards({
+      isViewingVoiceChannel: computed(() => false),
+      effectiveActiveChannel: computed(() => ({ type: 'text' })),
+      vcActivityUi: ref({
+        phase: 'closed' as const,
+        youtubeVideoId: null,
+        youtubeBrowseOpen: false,
+        playlist: [],
+        currentIndex: 0,
+        ...emptyWatchTogetherUiFields(),
+      }),
+      closeVcActivity: vi.fn(),
+      ensureViewingConnectedVoiceChannel: ensureViewing,
+      openVcActivityPicker,
+      openVcActivityYoutubeBrowse: vi.fn(),
+      openVcActivityWordle: vi.fn(),
+      openVcActivityHangman: vi.fn(),
+      openVcActivitySkriggles: vi.fn(),
+      openVcActivityTicTacToe: vi.fn(),
+      openVcActivityOpenGuessr: vi.fn(),
+      openVcActivitySkribblIo: vi.fn(),
+      openVcActivityGarticPhone: vi.fn(),
+      openVcActivityKrunker: vi.fn(),
+      openVcActivityCodenames: vi.fn(),
+      openVcActivityRichup: vi.fn(),
+      openVcActivityGooberDash: vi.fn(),
+      openVcActivitySmashKarts: vi.fn(),
+      openVcActivityClusterRush: vi.fn(),
+      openVcActivityWatchTogether: vi.fn(),
+    });
+
+    guards.openVcActivityPickerOnVoice();
+    expect(order).toEqual(['ensure', 'open']);
+  });
+
   it('opens the picker synchronously after ensureViewing (no nextTick deferral)', () => {
     const isViewingVoiceChannel = ref(false);
     const effectiveActiveChannel = ref<{ type?: string } | null>({

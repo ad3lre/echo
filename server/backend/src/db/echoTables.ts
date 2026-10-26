@@ -271,6 +271,12 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     ALTER TABLE echo_invites ADD COLUMN IF NOT EXISTS skips_application BOOLEAN NOT NULL DEFAULT false;
   `);
   await pool.query(`
+    ALTER TABLE echo_invites ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NULL;
+    ALTER TABLE echo_invites ADD COLUMN IF NOT EXISTS max_uses INTEGER NULL;
+    ALTER TABLE echo_invites ADD COLUMN IF NOT EXISTS uses INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE echo_invites ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ NULL;
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_server_applications (
       id TEXT PRIMARY KEY,
       server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,

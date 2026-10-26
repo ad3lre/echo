@@ -93,7 +93,7 @@ const emit = defineEmits<{
     :class="
       props.horizontal
         ? 'relative flex min-h-0 w-full max-w-full flex-row items-center justify-center overflow-x-hidden overflow-y-visible'
-        : 'absolute inset-0 flex items-center justify-center overflow-x-hidden'
+        : 'absolute inset-0 flex flex-col items-center overflow-x-hidden overflow-y-hidden pt-[7.25rem] pb-[4.75rem]'
     "
   >
     <div
@@ -101,7 +101,7 @@ const emit = defineEmits<{
       :class="
         props.horizontal
           ? 'flex min-h-0 w-auto max-w-full min-w-0 flex-row flex-nowrap items-center justify-center gap-2 overflow-x-auto overflow-y-visible px-3 pb-2 pt-3 md:px-6'
-          : 'flex w-full flex-col items-center justify-center gap-2 server-rail-center-column--vertical'
+          : 'flex min-h-0 w-full max-w-full flex-1 flex-col items-center justify-center gap-2 overflow-y-auto server-rail-center-column--vertical'
       "
     >
       <template v-if="authenticated && props.horizontal">
@@ -251,7 +251,7 @@ const emit = defineEmits<{
       </template>
       <template v-else-if="authenticated">
         <div
-          class="w-full"
+          class="w-full shrink-0"
           :class="dmIncomingRailTotalUnread > 0 ? 'dm-rail-lane' : ''"
         >
           <button
@@ -289,10 +289,10 @@ const emit = defineEmits<{
             @open-dm-inbox-overflow="emit('open-dm-inbox-overflow')"
           />
         </div>
-        <div class="flex w-full flex-col items-center">
+        <div class="flex w-full shrink-0 flex-col items-center">
           <button
             type="button"
-            class="explore-trigger relative flex h-12 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
+            class="explore-trigger relative flex h-12 w-full shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
             :title="echoT('b17.rail.servers')"
             @click="emit('open-servers-rail')"
             @contextmenu.stop.prevent="emit('servers-lane-contextmenu', $event)"
@@ -342,7 +342,7 @@ const emit = defineEmits<{
             @toggle-more-servers="emit('toggle-more-servers')"
           />
         </div>
-        <div class="mt-0 flex w-full items-center justify-center">
+        <div class="mt-0 flex w-full shrink-0 items-center justify-center">
           <button
             type="button"
             data-cy="explore-rail-trigger"
@@ -438,7 +438,7 @@ const emit = defineEmits<{
           !props.horizontal &&
           (showChannelButton || showMemberButton)
         "
-        class="mt-2 flex w-full flex-col items-center gap-1"
+        class="mt-2 flex w-full shrink-0 flex-col items-center gap-1"
       >
         <button
           v-if="showChannelButton"
@@ -479,7 +479,7 @@ const emit = defineEmits<{
       </div>
       <div
         v-if="authenticated && showDmListButton && !props.horizontal"
-        class="mt-2 flex w-full flex-col items-center gap-1"
+        class="mt-2 flex w-full shrink-0 flex-col items-center gap-1"
       >
         <button
           v-if="showDmListButton"
@@ -513,6 +513,11 @@ const emit = defineEmits<{
 .explore-trigger__button--dm-flat {
   background: transparent;
   box-shadow: none;
+}
+
+.server-rail-center-column--vertical {
+  /* Keep every rail control optically centered in the fixed rail width. */
+  align-items: center;
 }
 
 .dm-rail-lane {

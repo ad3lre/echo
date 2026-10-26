@@ -7,7 +7,7 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres@sha256:93d55776e04376e19adb2733e3ccebb4392ee7dd86d8ff238503b30fe719c84f
     container_name: echo-postgres
     ports:
       # Loopback only — DOCKER-USER DROP is defense-in-depth, not the primary control.
@@ -41,7 +41,7 @@ services:
   # Local SMTP capture for dev: point Echo at localhost:1025 (see ECHO_SMTP_* in .env.example).
   # Web UI: http://localhost:8025
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit@sha256:757f22b56c1da03570afdb3d259effe5091018008a81bbedc8158cee7e16fdbc
     container_name: echo-mailpit
     ports:
       - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
@@ -57,6 +57,14 @@ services:
       retries: 5
       start_period: 5s
 
+  # ############################################################################
+  # WARNING: DEV ONLY. The hardcoded credentials and 0.0.0.0-bound ports on the
+  # livekit/coturn services below are for local development. Do NOT use this file
+  # as-is on a public host: change every secret and bind/firewall the ports first.
+  # Production: set ECHO_LIVEKIT_YAML to a gitignored config with rotated keys, set
+  # ECHO_TURN_CREDENTIAL (must equal livekit yaml rtc.turn_servers), and optionally
+  # ECHO_RTC_BIND to restrict the host bind address.
+  # ############################################################################
   livekit:
     # Pin digest (bun run db:up / dev:lan recreate livekit to pick up bumps).
     image: livekit/livekit-server@sha256:b617bb3363f13e880a82164692d842681276bc6eed7da46092f9ddb22017b927
@@ -69,12 +77,12 @@ services:
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     ports:
-      - '7880:7880'
-      - '7881:7881'
+      - '${ECHO_RTC_BIND:-0.0.0.0}:7880:7880'
+      - '${ECHO_RTC_BIND:-0.0.0.0}:7881:7881'
       # Avoid 50000–50100 on Windows: Hyper-V / excluded UDP ranges often overlap and Docker cannot bind.
-      - '57000-57100:57000-57100/udp'
+      - '${ECHO_RTC_BIND:-0.0.0.0}:57000-57100:57000-57100/udp'
     volumes:
-      # Default `livekit.yaml` (localhost ICE). Override with `ECHO_LIVEKIT_YAML` after `bun run lan:sync`.
+      # Default `livekit.yaml` (localhost ICE, dev placeholder keys). Production MUST override with ECHO_LIVEKIT_YAML.
       - ${ECHO_LIVEKIT_YAML:-./server/ops/infra/livekit/livekit.yaml}:/etc/livekit.yaml
     command: ['--config', '/etc/livekit.yaml']
     healthcheck:
@@ -84,7 +92,7 @@ services:
       retries: 10
       start_period: 5s
 
-  # Dev TURN for strict NAT / relay-only networks. Credentials must match server/ops/infra/livekit/livekit.yaml rtc.turn_servers.
+  # Dev TURN for strict NAT / relay-only networks. ECHO_TURN_CREDENTIAL must match livekit yaml rtc.turn_servers.
   coturn:
     image: coturn/coturn:4.10.0-r1-alpine@sha256:9b5db8e011848c903ebbeaa9b88e77f2dc4438db10e0891971e11ac354b84fce
     container_name: echo-coturn
@@ -95,12 +103,20 @@ services:
       - '--listening-port=3478'
       - '--fingerprint'
       - '--lt-cred-mech'
-      - '--user=echo:echo_turn_dev_secret'
+      - '--user=${ECHO_TURN_CREDENTIAL:-echo:echo_turn_dev_secret}'
       - '--realm=echo.local'
       - '--no-cli'
+      # Never relay to private/internal ranges (prevents TURN pivot into docker/host networks).
+      - '--denied-peer-ip=10.0.0.0-10.255.255.255'
+      - '--denied-peer-ip=172.16.0.0-172.31.255.255'
+      - '--denied-peer-ip=192.168.0.0-192.168.255.255'
+      - '--denied-peer-ip=100.64.0.0-100.127.255.255'
+      - '--denied-peer-ip=169.254.0.0-169.254.255.255'
+      - '--denied-peer-ip=127.0.0.0-127.255.255.255'
+      - '--no-multicast-peers'
     ports:
-      - '3478:3478/tcp'
-      - '3478:3478/udp'
+      - '${ECHO_RTC_BIND:-0.0.0.0}:3478:3478/tcp'
+      - '${ECHO_RTC_BIND:-0.0.0.0}:3478:3478/udp'
 
 volumes:
   echo_pgdata:

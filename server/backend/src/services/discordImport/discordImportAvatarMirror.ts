@@ -88,7 +88,10 @@ async function fetchDiscordAvatarBytes(
 /** True when `url` is already persisted on Echo uploads (not a Discord avatar CDN URL). */
 export function isEchoStoredProfileImageUrl(url: string): boolean {
   const t = url.trim();
-  if (!t || t.startsWith('data:')) return !!t.startsWith('data:');
+  if (!t) return false;
+  // Generated initials (`data:image/svg+xml,…`) are not Echo object storage — the
+  // client also rejects SVG data URLs in `<img>`, so treat them as unrestored.
+  if (t.startsWith('data:')) return false;
   if (extractEchoStorageKeyFromPublicUrl(t)) return true;
   return false;
 }
@@ -163,15 +166,10 @@ async function storeAvatarBuffer(opts: {
     return `data:${contentType};base64,${buf.toString('base64')}`;
   }
 
-  if (config.echoLocalUploadDir) {
-    await writeLocalEchoUploadFile(dest.storageKey, buf);
-    await pool!.query(
-      `INSERT INTO echo_upload_served_content_type (storage_key, content_type)
-       VALUES ($1, $2)
-       ON CONFLICT (storage_key) DO UPDATE SET content_type = EXCLUDED.content_type`,
-      [dest.storageKey, contentType],
-    );
-  } else {
+  // Prefer S3 when configured — media CDN reads avatars from S3 first
+  // (`echoUploadPrefersS3ObjectStore`). Writing only to local leaves signed
+  // media.chat-echo.com URLs 404ing.
+  if (isEchoS3UploadConfigured()) {
     const client = createEchoS3UploadClient();
     const bucket = getEchoS3UploadBucket();
     if (!client || !bucket) {
@@ -185,6 +183,16 @@ async function storeAvatarBuffer(opts: {
         ContentType: contentType,
       }),
     );
+  } else if (config.echoLocalUploadDir) {
+    await writeLocalEchoUploadFile(dest.storageKey, buf);
+    await pool!.query(
+      `INSERT INTO echo_upload_served_content_type (storage_key, content_type)
+       VALUES ($1, $2)
+       ON CONFLICT (storage_key) DO UPDATE SET content_type = EXCLUDED.content_type`,
+      [dest.storageKey, contentType],
+    );
+  } else {
+    return `data:${contentType};base64,${buf.toString('base64')}`;
   }
 
   return buildEchoUploadPublicUrlForStorageKey(dest.storageKey) ?? '';
@@ -503,6 +511,8 @@ export function isCorruptedDiscordImportPfp(pfp: string): boolean {
   if (!t) return false;
   if (isEchoStoredProfileImageUrl(t)) return false;
   if (isDiscordAvatarCdnUrl(t)) return true;
+  // Initials SVG data URLs are a failed-mirror fallback; remirror when possible.
+  if (/^data:image\/svg\+xml/i.test(t)) return true;
   if (/^https?:\/\//i.test(t) || t.startsWith('data:')) return false;
   return /^a_[0-9a-fA-Z_]{10,}$/.test(t) || /^[0-9a-f]{16,32}$/i.test(t);
 }

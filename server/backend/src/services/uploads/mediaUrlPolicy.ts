@@ -1,4 +1,3 @@
-import { isLikelyGifMediaUrl } from '../../../../../contracts/gifHostLinks';
 import { config } from '../../config';
 import { isDiscordHostedImportMediaUrl } from '../../domain/discord/discordCdnUrls';
 import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
@@ -6,6 +5,26 @@ import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from './localUploadDisk';
 
 /** Aligned with `MAX_HTTPS_MEDIA_URL_LENGTH` in `messageValidation.ts`. */
 const MAX_LOCAL_PATH_MEDIA_LEN = 8192;
+
+/** Explicit GIF provider hosts (and their subdomains, e.g. media.tenor.com). */
+const KNOWN_GIF_PROVIDER_HOSTS = [
+  'tenor.com',
+  'tenor.co',
+  'giphy.com',
+  'klipy.com',
+] as const;
+
+function isKnownGifProviderHttpsUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'https:') return false;
+    if (u.username || u.password) return false;
+    const h = u.hostname.toLowerCase();
+    return KNOWN_GIF_PROVIDER_HOSTS.some((s) => h === s || h.endsWith(`.${s}`));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Extra constraints for HTTP(S) media URLs (messages, branding) when env flags are set.
@@ -24,7 +43,7 @@ export function mediaUrlPassesEchoPolicy(url: string): boolean {
     return true;
   }
   /** GIF picker / Tenor-Giphy CDN direct media (not arbitrary third-party https). */
-  if (isLikelyGifMediaUrl(t)) {
+  if (isKnownGifProviderHttpsUrl(t)) {
     return true;
   }
   /** Discord import / bridge attachment and embed CDN URLs (incl. images-ext proxies). */

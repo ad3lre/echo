@@ -26,6 +26,8 @@ targets:
       - Resources/iOS/Assets.xcassets
       - path: Resources/iOS/Sounds
         buildPhase: resources
+      - path: Resources/iOS/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: ../../node_modules/unicode-emoji-json/data-by-group.json
         buildPhase: resources
     info:
@@ -35,36 +37,49 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         EchoAPIBaseURL: $(ECHO_API_BASE_URL)
+        # HTTPS + standard CryptoKit / WebRTC crypto qualify for the EAR exemption;
+        # confirm annually in App Store Connect if crypto usage changes.
+        ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         NSFaceIDUsageDescription: Use Face ID to unlock your saved Echo session.
         NSMicrophoneUsageDescription: Echo uses your microphone when you join a voice call.
         NSCameraUsageDescription: Echo uses your camera for video calls.
-        NSPhotoLibraryUsageDescription: Show your photo library inside the message composer so you can attach photos.
+        NSPhotoLibraryUsageDescription: Echo shows your photo library so you can select photos to attach to messages. Echo does not save photos back to your library.
         UILaunchScreen:
           UIColorName: EchoLaunchBackground
           UIImageName: EchoLaunchWordmark
           UIImageRespectsSafeArea: false
         UIStatusBarStyle: UIStatusBarStyleLightContent
         UIViewControllerBasedStatusBarAppearance: false
-        UIBackgroundModes: [audio, voip, fetch, remote-notification]
+        # `audio` keeps LiveKit/CallKit media alive while an active call is
+        # backgrounded. `voip` is omitted until PushKit VoIP pushes are wired
+        # end-to-end (declaring voip without PushKit risks App Review 2.5.4).
+        UIBackgroundModes: [audio, fetch, remote-notification]
         BGTaskSchedulerPermittedIdentifiers: [com.echo.ios.refresh]
     entitlements:
-      # Keep empty on the free Personal Team — Associated Domains / Sign in with Apple
-      # / APNs require a paid Apple Developer Program membership. See
-      # docs/operations/ios-passkeys.md for the paid-account entitlement set.
+      # Release uses the paid-program entitlement set. Debug installs on the free
+      # Personal Team use an empty entitlements file + `.adelmac` bundle id.
+      # See docs/operations/ios-passkeys.md.
       path: Resources/iOS/EchoiOS.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.echo.ios.adelmac
+        PRODUCT_BUNDLE_IDENTIFIER: com.echo.ios
+        CODE_SIGN_ENTITLEMENTS: Resources/iOS/EchoiOS.entitlements
         ECHO_API_BASE_URL: https://chat-echo.com
       configs:
         Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.echo.ios.adelmac
+          CODE_SIGN_ENTITLEMENTS: Resources/iOS/EchoiOS-PersonalTeam.entitlements
           APS_ENVIRONMENT: development
           ECHO_API_BASE_URL: http://localhost:3000
         Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.echo.ios
+          CODE_SIGN_ENTITLEMENTS: Resources/iOS/EchoiOS.entitlements
           APS_ENVIRONMENT: production
           ECHO_API_BASE_URL: https://chat-echo.com
+          # Paid-program capabilities (ignored on Personal Team Debug installs).
+          # Kept in Resources/iOS/EchoiOS.entitlements for Release / App Store.
     dependencies:
       - { package: EchoAppleModules, product: EchoDomain }
       - { package: EchoAppleModules, product: EchoNetworking }
@@ -76,6 +91,8 @@ targets:
     sources:
       - Apps/macOS
       - Resources/macOS/Assets.xcassets
+      - path: Resources/macOS/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: ../../node_modules/unicode-emoji-json/data-by-group.json
         buildPhase: resources
     info:
@@ -85,9 +102,10 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         EchoAPIBaseURL: $(ECHO_API_BASE_URL)
+        ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
-        NSPhotoLibraryUsageDescription: Show your photo library inside the message composer so you can attach photos.
+        NSPhotoLibraryUsageDescription: Echo shows your photo library so you can select photos to attach to messages. Echo does not save photos back to your library.
     entitlements:
       path: Resources/macOS/EchoMacOS.entitlements
       properties:

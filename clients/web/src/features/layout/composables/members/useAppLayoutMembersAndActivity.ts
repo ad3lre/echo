@@ -30,6 +30,8 @@ export type AppLayoutMembersActivityDeps = {
   isDmUiContext: Ref<boolean> | ComputedRef<boolean>;
   isServerEmptyOnboarding: Ref<boolean> | ComputedRef<boolean>;
   isViewingVoiceChannel: Ref<boolean> | ComputedRef<boolean>;
+  /** When activities are open, hide members even if still on a text channel. */
+  vcActivitySurfaceOpen?: Ref<boolean> | ComputedRef<boolean>;
   callOverlay: Ref<CallOverlay> | ComputedRef<CallOverlay>;
   mainSurface: Ref<MainSurface> | ComputedRef<MainSurface>;
   isEchoGraphId: (id: string) => boolean;
@@ -49,6 +51,31 @@ export type AppLayoutMembersActivityDeps = {
   rosterUsers: Ref<unknown> | ComputedRef<unknown>;
   getChannelDisplayName: (channelId: string, fallback?: string) => string;
 };
+
+/** Pure gate for members-column visibility (unit-tested). */
+export function isMembersColumnVisibleForShell(input: {
+  useCompactPhoneTabShell: boolean;
+  isExploreView: boolean;
+  memberPanelCollapsedEffective: boolean;
+  isDmUiContext: boolean;
+  isServerEmptyOnboarding: boolean;
+  isViewingVoiceChannel: boolean;
+  vcActivitySurfaceOpen?: boolean;
+  callOverlayType: string;
+  mainSurfaceType: MainSurface['type'];
+}): boolean {
+  return (
+    !input.useCompactPhoneTabShell &&
+    !input.isExploreView &&
+    !input.memberPanelCollapsedEffective &&
+    !input.isDmUiContext &&
+    !input.isServerEmptyOnboarding &&
+    !input.isViewingVoiceChannel &&
+    !input.vcActivitySurfaceOpen &&
+    input.callOverlayType !== 'dmCall' &&
+    input.mainSurfaceType !== 'serverPaper'
+  );
+}
 
 function createMembersColumnGates(deps: AppLayoutMembersActivityDeps) {
   const isEchoServerRoleHierarchyPending = computed(() => {
@@ -79,16 +106,18 @@ function createMembersColumnGates(deps: AppLayoutMembersActivityDeps) {
     () => unref(deps.callOverlay).type === 'serverVoice',
   );
 
-  const membersColumnVisible = computed(
-    () =>
-      !unref(deps.useCompactPhoneTabShell) &&
-      !unref(deps.isExploreView) &&
-      !unref(deps.memberPanelCollapsedEffective) &&
-      !unref(deps.isDmUiContext) &&
-      !unref(deps.isServerEmptyOnboarding) &&
-      !unref(deps.isViewingVoiceChannel) &&
-      unref(deps.callOverlay).type !== 'dmCall' &&
-      unref(deps.mainSurface).type !== 'serverPaper',
+  const membersColumnVisible = computed(() =>
+    isMembersColumnVisibleForShell({
+      useCompactPhoneTabShell: unref(deps.useCompactPhoneTabShell),
+      isExploreView: unref(deps.isExploreView),
+      memberPanelCollapsedEffective: unref(deps.memberPanelCollapsedEffective),
+      isDmUiContext: unref(deps.isDmUiContext),
+      isServerEmptyOnboarding: unref(deps.isServerEmptyOnboarding),
+      isViewingVoiceChannel: unref(deps.isViewingVoiceChannel),
+      vcActivitySurfaceOpen: !!unref(deps.vcActivitySurfaceOpen),
+      callOverlayType: unref(deps.callOverlay).type,
+      mainSurfaceType: unref(deps.mainSurface).type,
+    }),
   );
 
   const membersColumnEchoSectionOrdering = computed(() => {

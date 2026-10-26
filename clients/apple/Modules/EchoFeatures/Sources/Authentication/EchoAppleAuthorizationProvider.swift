@@ -13,12 +13,18 @@ import Security
 final class AppleAuthorizationProvider: NSObject, ASAuthorizationControllerDelegate,
   ASAuthorizationControllerPresentationContextProviding
 {
-  private var continuation:
-    CheckedContinuation<(identityToken: String, nonce: String?, displayName: String?), Error>?
+  struct Credential: Sendable {
+    let identityToken: String
+    let authorizationCode: String?
+    let nonce: String?
+    let displayName: String?
+  }
+
+  private var continuation: CheckedContinuation<Credential, Error>?
   private var authorizationController: ASAuthorizationController?
   private var rawNonce: String?
 
-  func authorize() async throws -> (identityToken: String, nonce: String?, displayName: String?) {
+  func authorize() async throws -> Credential {
     try await withCheckedThrowingContinuation { continuation in
       self.continuation = continuation
       let nonce = Self.randomNonceString()
@@ -35,6 +41,33 @@ final class AppleAuthorizationProvider: NSObject, ASAuthorizationControllerDeleg
     }
   }
 
+  /// Shared helpers for `SignInWithAppleButton` (same nonce rules as `authorize()`).
+  static func makeRawNonce() -> String { randomNonceString() }
+  static func hashedNonce(for raw: String) -> String { sha256Hex(raw) }
+
+  static func credential(
+    from appleCredential: ASAuthorizationAppleIDCredential,
+    rawNonce: String?
+  ) throws -> Credential {
+    guard let tokenData = appleCredential.identityToken,
+      let token = String(data: tokenData, encoding: .utf8)
+    else {
+      throw EchoAuthenticationError.invalidResponse
+    }
+    let authorizationCode = appleCredential.authorizationCode.flatMap {
+      String(data: $0, encoding: .utf8)
+    }
+    let name = [appleCredential.fullName?.givenName, appleCredential.fullName?.familyName]
+      .compactMap { $0 }
+      .joined(separator: " ")
+    return Credential(
+      identityToken: token,
+      authorizationCode: authorizationCode,
+      nonce: rawNonce,
+      displayName: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : name
+    )
+  }
+
   func authorizationController(
     controller: ASAuthorizationController,
     didCompleteWithAuthorization authorization: ASAuthorization
@@ -43,25 +76,18 @@ final class AppleAuthorizationProvider: NSObject, ASAuthorizationControllerDeleg
       authorizationController = nil
       rawNonce = nil
     }
-    guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-      let tokenData = credential.identityToken,
-      let token = String(data: tokenData, encoding: .utf8)
+    guard let appleCredential = authorization.credential as? ASAuthorizationAppleIDCredential
     else {
       continuation?.resume(throwing: EchoAuthenticationError.invalidResponse)
       continuation = nil
       return
     }
-    let name = [credential.fullName?.givenName, credential.fullName?.familyName].compactMap {
-      $0
+    do {
+      let value = try Self.credential(from: appleCredential, rawNonce: rawNonce)
+      continuation?.resume(returning: value)
+    } catch {
+      continuation?.resume(throwing: error)
     }
-    .joined(separator: " ")
-    // Backend verifies the identity token against the raw nonce we return here.
-    continuation?.resume(
-      returning: (
-        token, rawNonce,
-        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-          ? nil : name
-      ))
     continuation = nil
   }
 

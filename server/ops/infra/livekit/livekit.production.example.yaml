@@ -39,6 +39,9 @@ room:
 
 keys:
   # Must match Echo API LIVEKIT_API_KEY / LIVEKIT_API_SECRET (same string values).
+  # Never use the dev placeholder (devkey / dev-…) — the backend refuses to boot in production with it.
+  # Render the real file to a gitignored path (e.g. livekit.local.yaml) and set ECHO_LIVEKIT_YAML to it.
+  # TURN credential below must equal ECHO_TURN_CREDENTIAL (user:password) passed to coturn.
   your_api_key_id: your_api_secret_value_min_32_chars
 
 # Webhook: must be HTTPS and reachable from wherever this LiveKit process runs.

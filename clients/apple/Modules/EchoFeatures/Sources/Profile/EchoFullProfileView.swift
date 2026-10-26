@@ -74,6 +74,8 @@ private struct EchoFullProfilePage: View {
 
   @State private var model: EchoFullProfileModel
   @State private var showingRemoveFriendConfirmation = false
+  @State private var showingBlockConfirmation = false
+  @State private var showingReportSheet = false
   @State private var mutualTab: MutualTab = .servers
 
   let baseURL: URL
@@ -157,6 +159,83 @@ private struct EchoFullProfilePage: View {
       }
       Button(EchoCopy.string("Cancel"), role: .cancel) {}
     }
+    .confirmationDialog(
+      model.isBlocked
+        ? EchoCopy.format("Unblock %@?", model.profile.name)
+        : EchoCopy.format("Block %@?", model.profile.name),
+      isPresented: $showingBlockConfirmation,
+      titleVisibility: .visible
+    ) {
+      Button(
+        model.isBlocked ? EchoCopy.string("Unblock user") : EchoCopy.string("Block user"),
+        role: model.isBlocked ? nil : .destructive
+      ) {
+        Task { await model.toggleBlock() }
+      }
+      Button(EchoCopy.string("Cancel"), role: .cancel) {}
+    } message: {
+      if model.isBlocked {
+        EchoCopy.text("They will be able to message you and see your profile again.")
+      } else {
+        EchoCopy.text(
+          "They won’t be able to message you. You can unblock them later from their profile.")
+      }
+    }
+    .sheet(isPresented: $showingReportSheet) {
+      EchoSafetyReportSheet(
+        target: .user(userID: model.profile.id, displayName: model.profile.name),
+        accessToken: accessToken,
+        baseURL: baseURL
+      )
+    }
+  }
+
+  @ViewBuilder
+  private var safetyActions: some View {
+    VStack(spacing: 10) {
+      Button {
+        showingReportSheet = true
+      } label: {
+        safetyRow(
+          title: EchoCopy.string("Report user"),
+          systemImage: "exclamationmark.bubble",
+          destructive: false
+        )
+      }
+      .buttonStyle(.plain)
+
+      if model.blockStatusLoaded {
+        Button {
+          showingBlockConfirmation = true
+        } label: {
+          safetyRow(
+            title: model.isBlocked
+              ? EchoCopy.string("Unblock user") : EchoCopy.string("Block user"),
+            systemImage: model.isBlocked ? "hand.raised.slash" : "hand.raised",
+            destructive: !model.isBlocked
+          )
+        }
+        .buttonStyle(.plain)
+        .disabled(model.isUpdatingBlock)
+      }
+    }
+  }
+
+  private func safetyRow(title: String, systemImage: String, destructive: Bool) -> some View {
+    HStack(spacing: 10) {
+      Image(systemName: systemImage)
+        .font(.system(size: 14, weight: .semibold))
+        .frame(width: 22)
+      Text(title)
+        .font(.system(size: 15, weight: .semibold, design: .rounded))
+      Spacer(minLength: 8)
+    }
+    .foregroundStyle(destructive ? Color.red.opacity(0.92) : EchoTheme.Color.ink(0.88))
+    .padding(.horizontal, 14)
+    .padding(.vertical, 12)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(
+      EchoTheme.Color.ink(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
   }
 
   private func chromeButtons(topInset: CGFloat) -> some View {
@@ -252,6 +331,7 @@ private struct EchoFullProfilePage: View {
       }
 
       friendshipButton
+      safetyActions
 
       if let bio = model.profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines),
         !bio.isEmpty

@@ -19,7 +19,6 @@ import { broadcastToEchoChannel } from '../../sockets/channelBroadcast';
 import { echoRowToMessage } from '../echoPersistedMessageCreate';
 import { discordBotPostChannelMessage } from '../integrations/discordApiClient';
 import { ssrfSafeFetch } from '../linkUnfurl/linkUnfurlFetch';
-import { safeFetchAgent } from '../linkUnfurl/safeFetchAgent';
 
 const DISCORD_POST_TIMEOUT_MS = 12_000;
 
@@ -85,7 +84,6 @@ async function postDiscordBridgeSyncNoticeToDiscord(
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ content: text, username: 'Echo' }),
         signal: AbortSignal.timeout(DISCORD_POST_TIMEOUT_MS),
-        dispatcher: safeFetchAgent,
       });
       if (!res.ok) {
         const body = await res.text().catch(() => '');

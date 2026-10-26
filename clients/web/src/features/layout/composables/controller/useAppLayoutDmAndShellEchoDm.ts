@@ -17,6 +17,20 @@ import { useFavoriteDmInboxStore } from '@/features/dm/favoriteDmInbox';
 import type { AppLayoutDmAndShellSession } from './useAppLayoutDmAndShellSession';
 import type { AppLayoutDmAndShellRolesTree } from './useAppLayoutDmAndShellRolesTree';
 
+/** Resolve guild+channel for jumping the shell onto the connected VC. */
+export function resolveConnectedVoiceJumpTarget(
+  voiceChannelId: string,
+  categoriesByServer: Parameters<
+    typeof resolveEchoServerIdContainingChannel
+  >[1],
+): { serverId: string; channelId: string } | null {
+  const vid = voiceChannelId.trim();
+  if (!vid) return null;
+  const sid = resolveEchoServerIdContainingChannel(vid, categoriesByServer);
+  if (!sid || sid === 'echo') return null;
+  return { serverId: sid, channelId: vid };
+}
+
 function wireEchoDmState(session: AppLayoutDmAndShellSession) {
   const { uiState, serverStore, workspace, authSession } = session;
   return useAppLayoutEchoDmState({
@@ -72,6 +86,14 @@ function wireEffectiveChannelAndVcGuards(
     echoDmThreadIds: echoDmState.echoDmThreadIds,
     groupDMs: uiState.groupDMs,
   });
+  /**
+   * Filled by nav-voice after `openServerSurface` exists (wiring order:
+   * echo-dm before shell nav). Prefer that path so Activities open jumps the
+   * same way as `focusGuildVoiceChannelInSidebar`.
+   */
+  const openServerSurfaceForVoiceJumpRef = shallowRef<
+    ((serverId: string, channelId?: string | null) => void) | null
+  >(null);
   function ensureViewingConnectedVoiceChannel() {
     const vid = uiState.currentVoiceChannelId.value?.trim();
     if (!vid) return;
@@ -79,10 +101,18 @@ function wireEffectiveChannelAndVcGuards(
     // the main surface to the connected VC so CallView chrome stays coherent.
     // Re-select the owning guild — DM/Explore / another server leaves
     // findChannelContextById empty so isViewingVoiceChannel stays false.
-    const sid = resolveEchoServerIdContainingChannel(
+    const target = resolveConnectedVoiceJumpTarget(
       vid,
       workspace.categoriesByServer.value,
     );
+    if (target) {
+      const open = openServerSurfaceForVoiceJumpRef.value;
+      if (open) {
+        open(target.serverId, target.channelId);
+        return;
+      }
+    }
+    const sid = target?.serverId;
     if (sid && serverStore.selectedServerId !== sid) {
       selectServerViaStore(sid);
     }
@@ -151,6 +181,7 @@ function wireEffectiveChannelAndVcGuards(
   return {
     ...effective,
     ...vcGuards,
+    openServerSurfaceForVoiceJumpRef,
     applyVcYoutubeWatchTogetherRemoteOnVoice,
     applyVcWatchTogetherRemoteOnVoice,
   };

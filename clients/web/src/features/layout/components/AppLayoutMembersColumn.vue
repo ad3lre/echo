@@ -267,7 +267,7 @@ const searchHeaderEngaged = ref(false);
 <template>
   <div
     v-if="isVisible"
-    class="members-column relative flex min-w-0 flex-col overflow-hidden"
+    class="members-column relative flex min-w-0 flex-col overflow-hidden bg-[var(--echo-channel-panel-bg)]"
   >
     <!--
       In-flow (not absolute): filter tags / composite input can grow without

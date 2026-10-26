@@ -65,7 +65,29 @@ git fetch "$GITLAB_REMOTE" "$BRANCH" "$MAIN_BRANCH" --quiet
 git fetch "$GITHUB_REMOTE" "$GITHUB_BRANCH" --quiet 2>/dev/null || true
 
 if [[ -n "$EXPLICIT_SHA" ]]; then
-  local_sha="$EXPLICIT_SHA"
+  local_sha=$(git rev-parse --verify "${EXPLICIT_SHA}^{commit}") || {
+    echo "mirror-release-to-github: '${EXPLICIT_SHA}' is not a valid commit." >&2
+    exit 1
+  }
+  # An explicit SHA must be part of the public release line, never internal main history.
+  if ! git merge-base --is-ancestor "$local_sha" "$GITLAB_REMOTE/$BRANCH"; then
+    echo "mirror-release-to-github: refusing: ${local_sha:0:12} is not reachable from ${GITLAB_REMOTE}/${BRANCH}." >&2
+    exit 1
+  fi
+  if git rev-parse --verify --quiet "$GITHUB_REMOTE/$GITHUB_BRANCH^{commit}" >/dev/null 2>&1; then
+    range="$GITHUB_REMOTE/$GITHUB_BRANCH..$local_sha"
+  else
+    range="$local_sha"
+  fi
+  # Commits in range that are on internal main but not on the release line would leak internal history.
+  leaked=$(git rev-list "$range" --not "$GITLAB_REMOTE/$BRANCH" | while read -r c; do
+    if git merge-base --is-ancestor "$c" "$GITLAB_REMOTE/$MAIN_BRANCH"; then echo "$c"; fi
+  done | head -n 5)
+  if [[ -n "$leaked" ]]; then
+    echo "mirror-release-to-github: refusing: commits reachable from ${GITLAB_REMOTE}/${MAIN_BRANCH} but not ${GITLAB_REMOTE}/${BRANCH}:" >&2
+    echo "$leaked" >&2
+    exit 1
+  fi
 else
   local_sha=$(git rev-parse --verify "$GITLAB_REMOTE/$BRANCH^{commit}")
 fi
@@ -80,6 +102,9 @@ if [[ -n "$github_sha" && "$local_sha" == "$github_sha" ]]; then
   exit 0
 fi
 
+if [[ -n "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]]; then
+  echo "!!!!! mirror-release-to-github: ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP is SET — main-tip guard BYPASSED (possible internal history leak). !!!!!" >&2
+fi
 if [[ -z "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]]; then
   origin_main=$(git rev-parse "$GITLAB_REMOTE/$MAIN_BRANCH" 2>/dev/null || true)
   if [[ -n "$origin_main" && "$local_sha" == "$origin_main" ]]; then

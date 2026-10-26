@@ -20,6 +20,7 @@ import { sendSafetyReportSupportEmail } from '../../../services/email/echoSafety
 import { normalizeEchoReportCategory } from '../../../../../../contracts/safetyReports';
 import { sendError } from '../../errors';
 import { echoPool, requireEchoStore, trimEchoPathParam } from './routeUtils';
+import { evictEchoDmVoiceForBlockedPair } from '../../../services/livekit/echoDmVoiceEviction';
 
 function safetyReportReporter(req: FastifyRequest): {
   id: string;
@@ -71,6 +72,13 @@ export default async function echoSafetyRoutes(
       const br = await blockEchoUser(pool, getAuthUser(req).id, target);
       if (br === 'user_not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'User not found');
+      // Drop shared DM/group-DM LiveKit sessions so a cached join JWT cannot linger.
+      await evictEchoDmVoiceForBlockedPair(
+        pool,
+        getAuthUser(req).id,
+        target,
+        req.log,
+      );
       if (br === 'already_blocked')
         return reply.code(200).send({ alreadyBlocked: true });
       return reply.code(204).send();

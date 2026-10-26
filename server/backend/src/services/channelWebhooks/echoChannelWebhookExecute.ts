@@ -33,6 +33,7 @@ import {
   sanitizeWebhookAvatarUrl,
   sanitizeWebhookEmbeds,
 } from '../uploads/webhookMediaUrl';
+import { sanitizeWebhookComponents } from './echoChannelWebhookComponentsSanitize';
 import { normalizeWebhookExecutePoll } from './echoChannelWebhookPollDiscord';
 import { resolveWebhookExecuteTargetChannel } from './echoChannelWebhookRouting';
 import { persistWebhookInboundFiles } from './echoChannelWebhookInboundFiles';

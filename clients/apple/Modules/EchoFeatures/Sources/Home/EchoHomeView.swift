@@ -14,6 +14,7 @@ public struct EchoHomeView: View {
   @Environment(\.colorScheme) private var colorScheme
   @Environment(EchoAuthenticationModel.self) private var auth
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(EchoShellChrome.self) private var shellChrome
   let baseURL: URL
   let userID: String
   let onSignOut: () -> Void
@@ -63,10 +64,16 @@ public struct EchoHomeView: View {
             baseURL: baseURL,
             accessToken: sheetAccessToken,
             currentPresence: homeModel.currentUserPresence,
+            onBannerEffectsChange: { refraction, blur, blackout in
+              homeModel.applyBannerEffects(
+                refraction: refraction, blur: blur, blackout: blackout)
+            },
             onExit: {
               withAnimation(.easeInOut(duration: 0.22)) {
                 showingProfileEdit = false
               }
+              // Full reload so display name / avatar / banner / bio match a save.
+              // Banner-effect toggles were already patched optimistically.
               Task { await homeModel.reload() }
             }
           )
@@ -174,6 +181,15 @@ public struct EchoHomeView: View {
       }
       .onChange(of: searchFocused) { _, focused in
         handleSearchFocusChange(focused)
+        shellChrome.listSearchActive = focused
+      }
+      .onChange(of: shellChrome.resignListSearchRequest) { _, _ in
+        dismissHomeSearchKeyboard()
+      }
+      .onDisappear {
+        if searchFocused {
+          shellChrome.listSearchActive = false
+        }
       }
       .onChange(of: showingProfileEdit) { _, showing in
         if showing { dismissHomeSearchKeyboard() }
@@ -283,33 +299,35 @@ public struct EchoHomeView: View {
 
   @ViewBuilder
   private var homeConversationPresentation: some View {
-    Color.clear
-      .frame(width: 0, height: 0)
-      #if os(iOS)
-        .fullScreenCover(item: $selectedConversation) { conversation in
-          EchoConversationView(
-            conversation: conversation,
-            baseURL: baseURL,
-            userID: userID,
-            selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
-            callModel: callModel
-          )
-          .environment(auth)
-          .environment(realtime)
-        }
-      #else
-        .sheet(item: $selectedConversation) { conversation in
-          EchoConversationView(
-            conversation: conversation,
-            baseURL: baseURL,
-            userID: userID,
-            selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
-            callModel: callModel
-          )
-          .environment(auth)
-          .environment(realtime)
-        }
-      #endif
+    // Landscape / Duo: conversation sits beside the list (see homeSnapshotContent).
+    // Portrait keeps the full-screen cover.
+    if shellChrome.layout.usesSplitChrome {
+      Color.clear.frame(width: 0, height: 0)
+    } else {
+      Color.clear
+        .frame(width: 0, height: 0)
+        #if os(iOS)
+          .fullScreenCover(item: $selectedConversation) { conversation in
+            conversationCover(conversation)
+          }
+        #else
+          .sheet(item: $selectedConversation) { conversation in
+            conversationCover(conversation)
+          }
+        #endif
+    }
+  }
+
+  private func conversationCover(_ conversation: EchoDirectMessage) -> some View {
+    EchoConversationView(
+      conversation: conversation,
+      baseURL: baseURL,
+      userID: userID,
+      selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
+      callModel: callModel
+    )
+    .environment(auth)
+    .environment(realtime)
   }
 
   private func retryHomeIfUnavailable() {
@@ -320,10 +338,68 @@ public struct EchoHomeView: View {
   private func homeSnapshotContent(
     _ homeModel: EchoHomeModel, snapshot: EchoHomeSnapshot
   ) -> some View {
+    let railPad = shellChrome.layout.contentTrailingInset(
+      tabBarVisible: !shellChrome.suppressTabBar)
+    let leadingPad =
+      shellChrome.layout.verticalSystemBarEdge == .leading ? railPad : 0
+    let trailingPad =
+      shellChrome.layout.verticalSystemBarEdge == .leading ? 0 : railPad
+
+    EchoDuoArrangement(showsSecondary: shellChrome.layout.usesSplitChrome) {
+      VStack(spacing: 0) {
+        homeListColumn(homeModel, snapshot: snapshot)
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    } secondary: {
+      if let conversation = selectedConversation {
+        EchoConversationView(
+          conversation: conversation,
+          baseURL: baseURL,
+          userID: userID,
+          selfAvatarURL: snapshot.profile.avatarURL,
+          callModel: callModel,
+          onRequestExit: { selectedConversation = nil }
+        )
+        .environment(auth)
+        .environment(realtime)
+        .id(conversation.id)
+      } else {
+        homeSplitEmptyDetail
+      }
+    }
+    .padding(.leading, leadingPad)
+    .padding(.trailing, trailingPad)
+  }
+
+  private var homeSplitEmptyDetail: some View {
+    VStack(spacing: 10) {
+      Image("EchoTabMessageFilled", bundle: .main)
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 36, height: 36)
+        .foregroundStyle(EchoTheme.Color.ink(0.32))
+      Text(EchoCopy.string("Select a conversation"))
+        .font(.system(size: 18, weight: .semibold, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.88))
+      Text(EchoCopy.string("Pick someone from the list to start chatting."))
+        .font(.system(size: 14, weight: .regular, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.46))
+        .multilineTextAlignment(.center)
+    }
+    .padding(32)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+
+  @ViewBuilder
+  private func homeListColumn(
+    _ homeModel: EchoHomeModel, snapshot: EchoHomeSnapshot
+  ) -> some View {
     EchoProfileHeader(
       profile: snapshot.profile,
       baseURL: baseURL,
       accessToken: liveMediaAccessToken,
+      compact: shellChrome.layout.usesSplitChrome,
       onProfileTap: {
         if consumeSearchKeyboardTap() { return }
         Task {
@@ -344,6 +420,8 @@ public struct EchoHomeView: View {
       searchFocused: $searchFocused,
       baseURL: baseURL,
       accessToken: liveMediaAccessToken,
+      bottomContentInset: shellChrome.layout.contentBottomInset(
+        tabBarVisible: !shellChrome.suppressTabBar),
       onRefresh: {
         await homeModel.reload()
         openPendingNotificationIfPossible()
@@ -391,6 +469,7 @@ public struct EchoHomeView: View {
   /// Drop search focus so returning from edit/inbox/DM does not re-pop the keyboard.
   private func dismissHomeSearchKeyboard() {
     searchKeyboardArmed = false
+    shellChrome.listSearchActive = false
     guard searchFocused else {
       #if os(iOS)
         UIApplication.shared.sendAction(

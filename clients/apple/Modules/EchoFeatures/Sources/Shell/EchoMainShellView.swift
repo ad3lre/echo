@@ -86,25 +86,58 @@ struct EchoMainShellView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .environment(realtime)
     .environment(shellChrome)
-    // Tabs paint edge-to-edge under the floating pill — no shell footer band.
-    // Each tab owns its own scroll bottom inset for the bar.
-    .overlay(alignment: .bottom) {
+    // Duo / wide measurement — size classes, safe areas, fold regions.
+    // Pass chrome explicitly; background content won't see the `.environment` above.
+    .background { EchoDuoLayoutProbe(shellChrome: shellChrome) }
+    // Tabs paint edge-to-edge under/beside the floating pill — no shell footer band.
+    // Duo + landscape: trailing vertical rail (system vertical bar parity).
+    .overlay(alignment: tabBarOverlayAlignment) {
       if !shellChrome.suppressTabBar {
-        EchoMobileTabBar(selection: $selectedTab, homeBadge: homeBadge)
-          .padding(.bottom, 22)
-          .allowsHitTesting(true)
-          .transition(.opacity)
+        EchoMobileTabBar(
+          selection: $selectedTab,
+          homeBadge: homeBadge,
+          onReselectServers: { shellChrome.requestServersBack() },
+          axis: shellChrome.layout.usesTrailingTabBar ? .vertical : .horizontal
+        )
+        .padding(tabBarEdgePadding)
+        .allowsHitTesting(true)
+        .transition(.opacity)
       }
     }
     .onChange(of: selectedTab) { _, tab in
-      // Keep-alive hides Servers without running onDisappear — restore chrome.
+      // Keep-alive tabs retain @FocusState — resign search so returning to a
+      // tab doesn’t leave the field focused with the tab bar still visible.
+      shellChrome.requestResignListSearch()
+      // Immersive guild chat only lives on Servers.
       if tab != .servers {
-        shellChrome.suppressTabBar = false
+        shellChrome.immersiveGuildChat = false
       }
     }
     .task {
       await bootstrapSecondaryTabs()
     }
+  }
+
+  private var tabBarOverlayAlignment: Alignment {
+    switch shellChrome.layout.verticalSystemBarEdge {
+    case .leading:
+      return shellChrome.layout.usesTrailingTabBar ? .leading : .bottom
+    case .trailing, nil:
+      return shellChrome.layout.usesTrailingTabBar ? .trailing : .bottom
+    }
+  }
+
+  private var tabBarEdgePadding: EdgeInsets {
+    if shellChrome.layout.usesTrailingTabBar {
+      let edge = shellChrome.layout.verticalSystemBarEdge ?? .trailing
+      return EdgeInsets(
+        top: 0,
+        leading: edge == .leading ? 10 : 0,
+        bottom: 0,
+        trailing: edge == .trailing ? 10 : 0
+      )
+    }
+    return EdgeInsets(top: 0, leading: 0, bottom: 22, trailing: 0)
   }
 
   /// Mount Servers/Explore on the next turn and start their loads in parallel

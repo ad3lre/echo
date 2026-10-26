@@ -168,10 +168,16 @@ public struct EchoAuthenticationClient: Sendable {
     }
   }
 
-  public func signInWithApple(identityToken: String, nonce: String?, displayName: String?)
-    async throws -> (user: EchoAuthenticatedUser, session: EchoNativeSession)
-  {
+  public func signInWithApple(
+    identityToken: String,
+    authorizationCode: String? = nil,
+    nonce: String?,
+    displayName: String?
+  ) async throws -> (user: EchoAuthenticatedUser, session: EchoNativeSession) {
     var body = ["identityToken": identityToken]
+    if let authorizationCode, !authorizationCode.isEmpty {
+      body["authorizationCode"] = authorizationCode
+    }
     if let nonce, !nonce.isEmpty { body["nonce"] = nonce }
     if let displayName, !displayName.isEmpty { body["displayName"] = displayName }
     return try await perform(path: "/api/v1/auth/apple/login", body: body)

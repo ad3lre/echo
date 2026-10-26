@@ -59,8 +59,14 @@ export function flattenMemberListVirtualRows(
 /** Estimate row height (px) for TanStack virtualizer. */
 export function estimateMemberListVirtualRowSize(
   row: MemberListVirtualRow,
+  opts?: { isFirstRow?: boolean },
 ): number {
-  return row.type === 'header' ? 28 : 48;
+  if (row.type === 'header') {
+    // Match non-virtual section gap (`mb-4`) so hover pills don't collide with
+    // the next role header.
+    return opts?.isFirstRow ? 28 : 44;
+  }
+  return 52;
 }
 
 /** Enable virtualization once the flattened list is large enough to matter. */

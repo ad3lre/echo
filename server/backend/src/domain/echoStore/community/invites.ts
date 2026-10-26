@@ -27,19 +27,113 @@ export async function echoServerAllowsInviteJoin(
   return r.rows[0].invite_join_enabled !== false;
 }
 
+/** Default lifetime for new invites (7 days). */
+export const ECHO_INVITE_DEFAULT_MAX_AGE_SEC = 7 * 24 * 60 * 60;
+/** Longest finite lifetime accepted from clients (30 days). */
+export const ECHO_INVITE_MAX_AGE_SEC_CAP = 30 * 24 * 60 * 60;
+export const ECHO_INVITE_MAX_USES_CAP = 1000;
+
+/** SQL predicate: invite row is currently usable (not revoked, expired, or exhausted). */
+const INVITE_ACTIVE_SQL = `revoked_at IS NULL
+  AND (expires_at IS NULL OR expires_at > NOW())
+  AND (max_uses IS NULL OR uses < max_uses)`;
+
+export type CreateEchoInviteOpts = {
+  skipsApplication?: boolean;
+  /** Seconds until expiry. 0 = never (caller must enforce MANAGE_GUILD). Default 7 days. */
+  maxAgeSec?: number;
+  /** Max successful joins. 0/undefined = unlimited (except skip-application invites default to 1). */
+  maxUses?: number;
+};
+
+/** Resolve effective expiry (seconds, null = never) and max uses (null = unlimited). */
+export function resolveEchoInviteLimits(opts?: CreateEchoInviteOpts): {
+  maxAgeSec: number | null;
+  maxUses: number | null;
+} {
+  const skip = opts?.skipsApplication === true;
+  let age = opts?.maxAgeSec;
+  if (typeof age !== 'number' || !Number.isFinite(age) || age < 0) {
+    age = ECHO_INVITE_DEFAULT_MAX_AGE_SEC;
+  }
+  age = Math.floor(age);
+  let maxAgeSec: number | null = age === 0 ? null : age;
+  if (
+    skip &&
+    (maxAgeSec === null || maxAgeSec > ECHO_INVITE_DEFAULT_MAX_AGE_SEC)
+  ) {
+    maxAgeSec = ECHO_INVITE_DEFAULT_MAX_AGE_SEC;
+  }
+  let uses: number | null = null;
+  const mu = opts?.maxUses;
+  if (typeof mu === 'number' && Number.isFinite(mu) && mu > 0) {
+    uses = Math.min(Math.floor(mu), ECHO_INVITE_MAX_USES_CAP);
+  } else if (skip) {
+    uses = 1;
+  }
+  return { maxAgeSec, maxUses: uses };
+}
+
 export async function createEchoInvite(
   pool: pg.Pool,
   serverId: string,
   inviterId: string,
-  opts?: { skipsApplication?: boolean },
+  opts?: CreateEchoInviteOpts,
 ): Promise<string> {
   const code = genInviteCode();
   const skip = opts?.skipsApplication === true;
+  const { maxAgeSec, maxUses } = resolveEchoInviteLimits(opts);
   await pool.query(
-    `INSERT INTO echo_invites (code, server_id, inviter_id, skips_application) VALUES ($1, $2, $3, $4)`,
-    [code, serverId, inviterId, skip],
+    `INSERT INTO echo_invites (code, server_id, inviter_id, skips_application, expires_at, max_uses)
+     VALUES ($1, $2, $3, $4, CASE WHEN $5::int IS NULL THEN NULL ELSE NOW() + ($5::int * INTERVAL '1 second') END, $6)`,
+    [code, serverId, inviterId, skip, maxAgeSec, maxUses],
   );
   return code;
+}
+
+/**
+ * Atomically consume one use of an invite at actual new-member join.
+ * Returns false when the invite is invalid, revoked, expired, or exhausted.
+ */
+export async function consumeEchoInvite(
+  db: Pick<pg.Pool, 'query'>,
+  code: string,
+  serverId: string,
+): Promise<boolean> {
+  const r = await db.query(
+    `UPDATE echo_invites SET uses = uses + 1
+     WHERE code = $1 AND server_id = $2 AND ${INVITE_ACTIVE_SQL}
+     RETURNING code`,
+    [code.trim(), serverId],
+  );
+  return r.rows.length > 0;
+}
+
+export type RevokeEchoInviteResult =
+  | { ok: true }
+  | { ok: false; reason: 'not_found' | 'forbidden' };
+
+/** Revoke an invite. Allowed for its inviter or when `canManageGuild` is true. */
+export async function revokeEchoInvite(
+  pool: pg.Pool,
+  serverId: string,
+  code: string,
+  actorId: string,
+  canManageGuild: boolean,
+): Promise<RevokeEchoInviteResult> {
+  const r = await pool.query(
+    `SELECT inviter_id FROM echo_invites WHERE code = $1 AND server_id = $2 LIMIT 1`,
+    [code.trim(), serverId],
+  );
+  if (!r.rows[0]) return { ok: false, reason: 'not_found' };
+  if (!canManageGuild && String(r.rows[0].inviter_id) !== actorId) {
+    return { ok: false, reason: 'forbidden' };
+  }
+  await pool.query(
+    `UPDATE echo_invites SET revoked_at = COALESCE(revoked_at, NOW()) WHERE code = $1 AND server_id = $2`,
+    [code.trim(), serverId],
+  );
+  return { ok: true };
 }
 
 export async function resolveEchoInvite(
@@ -47,7 +141,7 @@ export async function resolveEchoInvite(
   code: string,
 ): Promise<{ serverId: string } | null> {
   const r = await pool.query(
-    `SELECT server_id FROM echo_invites WHERE code = $1`,
+    `SELECT server_id FROM echo_invites WHERE code = $1 AND ${INVITE_ACTIVE_SQL}`,
     [code.trim()],
   );
   if (!r.rows[0]) return null;
@@ -79,7 +173,7 @@ export async function resolveEchoInviteJoinContext(
   const trimmed = token.trim();
   if (!trimmed) return null;
   const hex = await pool.query(
-    `SELECT server_id, skips_application FROM echo_invites WHERE code = $1 LIMIT 1`,
+    `SELECT server_id, skips_application FROM echo_invites WHERE code = $1 AND ${INVITE_ACTIVE_SQL} LIMIT 1`,
     [trimmed],
   );
   if (hex.rows[0]) {

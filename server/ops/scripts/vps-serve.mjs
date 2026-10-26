@@ -15,6 +15,8 @@
  *   VPS_GIT_POLL_MS - poll interval for --git-watch (default 60000)
  *   VPS_BUN_INSTALL_AFTER_PULL - set to "1" to run `bun install` after each successful pull
  *   VPS_NPM_INSTALL_AFTER_PULL - legacy alias for VPS_BUN_INSTALL_AFTER_PULL
+ *   ECHO_DEPLOY_REQUIRE_SIGNED - "1" to `git verify-commit` the new tip before pulling/restarting
+ *     (default off, loud warning each pull); ECHO_DEPLOY_ALLOWED_SIGNERS overrides gpg.ssh.allowedSignersFile
  *   VPS_SKIP_PROD_TYPECHECK - set to "1" to skip pre-deploy TypeScript checks (emergency only)
  */
 import fs from 'fs';
@@ -296,6 +298,50 @@ async function gitNeedsPull(branch) {
   return { need: local !== remote, branch, local, remote };
 }
 
+/**
+ * Signature verification of the commit about to be deployed.
+ * ECHO_DEPLOY_REQUIRE_SIGNED=1 → refuse unsigned/untrusted commits (keep old version running).
+ * Default (unset/0) is OFF for now because commits are not yet signed; a loud warning is logged.
+ * Honors git's gpg.ssh.allowedSignersFile / gpg keyring; ECHO_DEPLOY_ALLOWED_SIGNERS overrides the file.
+ * Returns true when deploy may proceed.
+ */
+async function verifyCommitBeforeDeploy(sha, metaPath) {
+  const require = /^(1|true|yes)$/i.test(
+    process.env.ECHO_DEPLOY_REQUIRE_SIGNED || '',
+  );
+  if (!require) {
+    appendMeta(
+      metaPath,
+      `WARNING: deploying ${sha} WITHOUT signature verification (ECHO_DEPLOY_REQUIRE_SIGNED is not 1). A compromised remote can push code to production.`,
+    );
+    return true;
+  }
+  const args = [];
+  if (process.env.ECHO_DEPLOY_ALLOWED_SIGNERS) {
+    args.push(
+      '-c',
+      `gpg.ssh.allowedSignersFile=${process.env.ECHO_DEPLOY_ALLOWED_SIGNERS}`,
+    );
+  }
+  args.push('verify-commit', sha);
+  try {
+    await execFileAsync('git', args, { cwd: repoRoot });
+    appendMeta(metaPath, `git verify-commit ok for ${sha}`);
+    return true;
+  } catch (e) {
+    const detail = String(e?.stderr || e?.message || e)
+      .trim()
+      .split('\n')
+      .slice(-3)
+      .join(' | ');
+    appendMeta(
+      metaPath,
+      `git verify-commit FAILED for ${sha} — refusing to deploy, keeping current version running (${detail})`,
+    );
+    return false;
+  }
+}
+
 async function gitPullFfOnly(branch) {
   await execFileAsync('git', ['pull', '--ff-only', 'origin', branch], {
     cwd: repoRoot,
@@ -446,6 +492,10 @@ async function watchLoop(opts, treeKill) {
         logs.metaPath,
         `git: new commits (${status.branch}) — pull, preverify, then restart`,
       );
+
+      if (!(await verifyCommitBeforeDeploy(status.remote, logs.metaPath))) {
+        return;
+      }
 
       appendMeta(
         logs.metaPath,

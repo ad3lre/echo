@@ -9,6 +9,7 @@ import {
   type CliFlags,
 } from './config.js';
 import { ExportStrictViolationError } from './exportCompleteness.js';
+import { shouldAutoExportGuild } from './exportPolicy.js';
 import { formatExportPermissionReport } from './exportPermissions.js';
 import { runFullExport } from './exporter/serializedExport.js';
 import { startBotInternalServer } from './server.js';
@@ -348,6 +349,12 @@ async function runServeMode(token: string, flags: CliFlags): Promise<void> {
 
   client.on(Events.GuildCreate, async (guild) => {
     console.log(`[serve] New guild: ${guild.name} (${guild.id})`);
+    if (!shouldAutoExportGuild(guild.id)) {
+      console.log(
+        `[serve] Skipping auto-export for ${guild.id}: not in ECHO_DISCORD_EXPORT_GUILD_ALLOWLIST (set ECHO_DISCORD_AUTO_EXPORT_ALL=1 to export every guild).`,
+      );
+      return;
+    }
     try {
       await guild.fetch();
       const me = await guild.members.fetchMe().catch(() => null);

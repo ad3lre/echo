@@ -26,51 +26,31 @@ struct EchoServersView: View {
   @State private var searchText = ""
   @FocusState private var searchFieldFocused: Bool
 
-  /// Extra scroll room so the last row clears the floating tab bar.
-  private let scrollBottomInset: CGFloat = 56
-
   private var activeModel: EchoServersModel? { model ?? localModel }
+
+  private var scrollBottomInset: CGFloat {
+    shellChrome.layout.contentBottomInset(tabBarVisible: !shellChrome.suppressTabBar)
+  }
+
+  private var scrollTrailingInset: CGFloat {
+    guard shellChrome.layout.verticalSystemBarEdge != .leading else { return 0 }
+    return shellChrome.layout.contentTrailingInset(tabBarVisible: !shellChrome.suppressTabBar)
+  }
+
+  private var scrollLeadingInset: CGFloat {
+    guard shellChrome.layout.verticalSystemBarEdge == .leading else { return 0 }
+    return shellChrome.layout.contentTrailingInset(tabBarVisible: !shellChrome.suppressTabBar)
+  }
 
   var body: some View {
     let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
-    // In-tab overlay (not fullScreenCover) so the shell tab bar can sit above
-    // the channel list when peeking from chat.
-    return ZStack {
-      NavigationStack {
-        VStack(spacing: 0) {
-          serversHeader
-          Group {
-            if let activeModel {
-              content(activeModel)
-            } else {
-              ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-          }
-        }
-        .background(EchoHomeBackground().ignoresSafeArea())
-        #if os(iOS)
-          .toolbar(.hidden, for: .navigationBar)
-        #endif
-        .simultaneousGesture(
-          TapGesture().onEnded { dismissServersSearchKeyboard() }
-        )
-      }
-
-      if let server = selectedServer, let activeModel {
-        EchoServerChannelsView(
-          server: server,
-          model: activeModel,
-          baseURL: baseURL,
-          userID: userID,
-          accessToken: accessToken,
-          onClose: { selectedServer = nil }
-        )
-        .environment(auth)
-        .environment(displayPrefs)
-        .environment(shellChrome)
-        .transition(.opacity)
-        .zIndex(2)
+    // Portrait: channel list overlays the server list (tab bar can peek).
+    // Landscape / Duo: persistent list column beside channels.
+    return Group {
+      if shellChrome.layout.usesSplitChrome {
+        serversSplitBody
+      } else {
+        serversStackedBody
       }
     }
     .alert(
@@ -111,6 +91,145 @@ struct EchoServersView: View {
     .onChange(of: pendingOpenServerID) { _, _ in
       Task { await openPendingServerIfNeeded() }
     }
+    .onChange(of: isSearching) { _, _ in
+      syncListSearchChrome()
+    }
+    .onChange(of: searchFieldFocused) { _, _ in
+      syncListSearchChrome()
+    }
+    .onChange(of: shellChrome.resignListSearchRequest) { _, _ in
+      if isSearching || searchFieldFocused {
+        closeServersSearch()
+      }
+    }
+    .onChange(of: selectedServer?.id) { _, id in
+      // Portrait overlay: leave search when diving into a server.
+      // Landscape split keeps the list (and search) beside channels.
+      if id != nil, !shellChrome.layout.usesSplitChrome {
+        closeServersSearch()
+      } else {
+        syncListSearchChrome()
+      }
+    }
+    .padding(.leading, scrollLeadingInset)
+    .padding(.trailing, scrollTrailingInset)
+  }
+
+  private func syncListSearchChrome() {
+    // Channel overlay owns immersive chrome; list search only while on the list
+    // (split chrome keeps the list visible, so search suppress still applies).
+    if !shellChrome.layout.usesSplitChrome, selectedServer != nil {
+      shellChrome.listSearchActive = false
+      return
+    }
+    shellChrome.listSearchActive = isSearching || searchFieldFocused
+  }
+
+  private var serversStackedBody: some View {
+    ZStack {
+      serversListColumn
+      if let server = selectedServer, let activeModel {
+        EchoServerChannelsView(
+          server: server,
+          model: activeModel,
+          baseURL: baseURL,
+          userID: userID,
+          accessToken: accessToken,
+          onClose: { selectedServer = nil }
+        )
+        .environment(auth)
+        .environment(displayPrefs)
+        .environment(shellChrome)
+        .transition(.opacity)
+        .zIndex(2)
+      }
+    }
+  }
+
+  @ViewBuilder
+  private var serversSplitBody: some View {
+    // Book pose: give both halves of the fold to channels | chat.
+    // Server list stays one back-tap away (xmark / tab re-select).
+    if shellChrome.layout.pose == .book, let server = selectedServer, let activeModel {
+      EchoServerChannelsView(
+        server: server,
+        model: activeModel,
+        baseURL: baseURL,
+        userID: userID,
+        accessToken: accessToken,
+        onClose: { selectedServer = nil }
+      )
+      .environment(auth)
+      .environment(displayPrefs)
+      .environment(shellChrome)
+      .id(server.id)
+    } else {
+      EchoDuoArrangement(showsSecondary: true) {
+        serversListColumn
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      } secondary: {
+        if let server = selectedServer, let activeModel {
+          EchoServerChannelsView(
+            server: server,
+            model: activeModel,
+            baseURL: baseURL,
+            userID: userID,
+            accessToken: accessToken,
+            onClose: { selectedServer = nil }
+          )
+          .environment(auth)
+          .environment(displayPrefs)
+          .environment(shellChrome)
+          .id(server.id)
+        } else {
+          serversSplitEmptyDetail
+        }
+      }
+    }
+  }
+
+  private var serversListColumn: some View {
+    NavigationStack {
+      VStack(spacing: 0) {
+        serversHeader
+        Group {
+          if let activeModel {
+            content(activeModel)
+          } else {
+            ProgressView()
+              .frame(maxWidth: .infinity, maxHeight: .infinity)
+          }
+        }
+      }
+      .background(EchoHomeBackground().ignoresSafeArea())
+      #if os(iOS)
+        .toolbar(.hidden, for: .navigationBar)
+      #endif
+      .simultaneousGesture(
+        TapGesture().onEnded { dismissServersSearchKeyboard() }
+      )
+    }
+  }
+
+  private var serversSplitEmptyDetail: some View {
+    VStack(spacing: 10) {
+      Image("EchoTabCommunityFilled", bundle: .main)
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 36, height: 36)
+        .foregroundStyle(EchoTheme.Color.ink(0.32))
+      Text(EchoCopy.string("Select a server"))
+        .font(.system(size: 18, weight: .semibold, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.88))
+      Text(EchoCopy.string("Pick a community from the list to browse channels."))
+        .font(.system(size: 14, weight: .regular, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.46))
+        .multilineTextAlignment(.center)
+    }
+    .padding(32)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(EchoHomeBackground().ignoresSafeArea())
   }
 
   private func openPendingServerIfNeeded() async {
@@ -157,6 +276,7 @@ struct EchoServersView: View {
       searchText = ""
       searchFieldFocused = false
     }
+    shellChrome.listSearchActive = false
     #if os(iOS)
       UIApplication.shared.sendAction(
         #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)

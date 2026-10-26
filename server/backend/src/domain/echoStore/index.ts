@@ -118,7 +118,15 @@ export {
 } from './constants';
 
 export {
+  consumeEchoInvite,
   createEchoInvite,
+  ECHO_INVITE_DEFAULT_MAX_AGE_SEC,
+  ECHO_INVITE_MAX_AGE_SEC_CAP,
+  ECHO_INVITE_MAX_USES_CAP,
+  resolveEchoInviteLimits,
+  revokeEchoInvite,
+  type CreateEchoInviteOpts,
+  type RevokeEchoInviteResult,
   echoServerAllowsInviteJoin,
   getEchoInvitePreview,
   normalizeEchoVanityCode,

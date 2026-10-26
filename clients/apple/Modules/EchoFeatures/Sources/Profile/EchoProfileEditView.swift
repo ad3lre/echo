@@ -27,6 +27,9 @@ struct EchoProfileEditView: View {
   let baseURL: URL
   let accessToken: String
   var currentPresence: String? = nil
+  /// Optimistic home-chrome patch — applied immediately on toggle (web parity).
+  var onBannerEffectsChange:
+    ((_ refraction: Bool, _ blur: Bool, _ blackout: Bool) -> Void)? = nil
   let onExit: () -> Void
   @State private var displayName = ""
   @State private var bio = ""
@@ -43,7 +46,10 @@ struct EchoProfileEditView: View {
   @State private var bannerRefractionEnabled = false
   @State private var bannerBlurEnabled = false
   @State private var bannerBlackoutEnabled = false
-  @State private var effectsPersisting = false
+  @State private var committedRefractionEnabled = false
+  @State private var committedBlurEnabled = false
+  @State private var committedBlackoutEnabled = false
+  @State private var effectsSaveTask: Task<Void, Never>?
   @State private var presenceSaveTask: Task<Void, Never>?
   @State private var selectedTab: EditTab = .profile
 
@@ -274,30 +280,27 @@ struct EchoProfileEditView: View {
         title: EchoCopy.string("Blur"),
         systemImage: "slider.horizontal.3",
         isOn: bannerBlurEnabled,
-        disabled: effectsPersisting
+        disabled: false
       ) {
-        bannerBlurEnabled.toggle()
-        Task { await persistBannerEffects() }
+        toggleBannerBlur()
       }
       profileDivider
       EchoBannerEffectToggle(
         title: EchoCopy.string("Blackout"),
         systemImage: "moon.fill",
         isOn: bannerBlackoutEnabled,
-        disabled: effectsPersisting
+        disabled: false
       ) {
-        bannerBlackoutEnabled.toggle()
-        Task { await persistBannerEffects() }
+        toggleBannerBlackout()
       }
       profileDivider
       EchoBannerEffectToggle(
         title: EchoCopy.string("Refraction"),
         systemImage: "sun.max.fill",
         isOn: bannerRefractionEnabled,
-        disabled: effectsPersisting
+        disabled: false
       ) {
-        bannerRefractionEnabled.toggle()
-        Task { await persistBannerEffects() }
+        toggleBannerRefraction()
       }
     }
   }
@@ -310,23 +313,93 @@ struct EchoProfileEditView: View {
   }
 
   private func syncEffectsFromProfile() {
-    bannerRefractionEnabled = profile?.bannerRefractionEnabled ?? false
-    bannerBlurEnabled = profile?.bannerBlurEnabled ?? false
-    bannerBlackoutEnabled = profile?.bannerBlackoutEnabled ?? false
+    let refraction = profile?.bannerRefractionEnabled ?? false
+    let blur = profile?.bannerBlurEnabled ?? false
+    let blackout = profile?.bannerBlackoutEnabled ?? false
+    bannerRefractionEnabled = refraction
+    bannerBlurEnabled = blur
+    bannerBlackoutEnabled = blackout
+    committedRefractionEnabled = refraction
+    committedBlurEnabled = blur
+    committedBlackoutEnabled = blackout
   }
 
-  private func persistBannerEffects() async {
-    effectsPersisting = true
-    defer { effectsPersisting = false }
+  private func toggleBannerBlur() {
+    let previous = (
+      refraction: bannerRefractionEnabled, blur: bannerBlurEnabled,
+      blackout: bannerBlackoutEnabled)
+    bannerBlurEnabled.toggle()
+    publishBannerEffectsOptimistically()
+    enqueueBannerEffectsPersist(previous: previous)
+  }
+
+  private func toggleBannerBlackout() {
+    let previous = (
+      refraction: bannerRefractionEnabled, blur: bannerBlurEnabled,
+      blackout: bannerBlackoutEnabled)
+    bannerBlackoutEnabled.toggle()
+    publishBannerEffectsOptimistically()
+    enqueueBannerEffectsPersist(previous: previous)
+  }
+
+  private func toggleBannerRefraction() {
+    let previous = (
+      refraction: bannerRefractionEnabled, blur: bannerBlurEnabled,
+      blackout: bannerBlackoutEnabled)
+    bannerRefractionEnabled.toggle()
+    publishBannerEffectsOptimistically()
+    enqueueBannerEffectsPersist(previous: previous)
+  }
+
+  private func publishBannerEffectsOptimistically() {
+    onBannerEffectsChange?(
+      bannerRefractionEnabled, bannerBlurEnabled, bannerBlackoutEnabled)
+  }
+
+  private func enqueueBannerEffectsPersist(
+    previous: (refraction: Bool, blur: Bool, blackout: Bool)
+  ) {
+    let next = (
+      refraction: bannerRefractionEnabled, blur: bannerBlurEnabled,
+      blackout: bannerBlackoutEnabled)
+    let pending = effectsSaveTask
+    effectsSaveTask = Task {
+      await pending?.value
+      await persistBannerEffects(next: next, previous: previous)
+    }
+  }
+
+  private func persistBannerEffects(
+    next: (refraction: Bool, blur: Bool, blackout: Bool),
+    previous: (refraction: Bool, blur: Bool, blackout: Bool)
+  ) async {
     do {
       try await EchoSettingsClient(baseURL: baseURL).updateBannerEffects(
-        refractionEnabled: bannerRefractionEnabled,
-        blurEnabled: bannerBlurEnabled,
-        blackoutEnabled: bannerBlackoutEnabled,
+        refractionEnabled: next.refraction,
+        blurEnabled: next.blur,
+        blackoutEnabled: next.blackout,
         accessToken: accessToken)
+      if bannerRefractionEnabled == next.refraction,
+        bannerBlurEnabled == next.blur,
+        bannerBlackoutEnabled == next.blackout
+      {
+        committedRefractionEnabled = next.refraction
+        committedBlurEnabled = next.blur
+        committedBlackoutEnabled = next.blackout
+      }
     } catch {
+      guard bannerRefractionEnabled == next.refraction,
+        bannerBlurEnabled == next.blur,
+        bannerBlackoutEnabled == next.blackout
+      else { return }
+      bannerRefractionEnabled = previous.refraction
+      bannerBlurEnabled = previous.blur
+      bannerBlackoutEnabled = previous.blackout
+      committedRefractionEnabled = previous.refraction
+      committedBlurEnabled = previous.blur
+      committedBlackoutEnabled = previous.blackout
+      publishBannerEffectsOptimistically()
       errorMessage = error.localizedDescription
-      syncEffectsFromProfile()
     }
   }
 
@@ -389,7 +462,11 @@ struct EchoProfileEditView: View {
     bannerData = nil
     avatarData = nil
     errorMessage = nil
-    syncEffectsFromProfile()
+    // Effects persist independently — discard only reverts to last committed save.
+    bannerRefractionEnabled = committedRefractionEnabled
+    bannerBlurEnabled = committedBlurEnabled
+    bannerBlackoutEnabled = committedBlackoutEnabled
+    publishBannerEffectsOptimistically()
   }
 
   private func applyLoadedPresence(_ raw: String?) {
@@ -409,211 +486,3 @@ struct EchoProfileEditView: View {
   }
 }
 
-private struct ProfileEditTabBar: View {
-  @Binding var selection: EchoProfileEditView.EditTab
-
-  var body: some View {
-    HStack(spacing: 22) {
-      ForEach(EchoProfileEditView.EditTab.allCases) { tab in
-        Button {
-          withAnimation(.easeInOut(duration: 0.18)) {
-            selection = tab
-          }
-        } label: {
-          VStack(spacing: 8) {
-            Text(tab.title)
-              .font(.system(size: 15, weight: .semibold, design: .rounded))
-              .foregroundStyle(selection == tab ? EchoTheme.Color.fg : EchoTheme.Color.ink(0.42))
-            Capsule()
-              .fill(selection == tab ? EchoTheme.Color.indigoSoft : .clear)
-              .frame(width: 22, height: 3)
-          }
-          .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(tab.title)
-        .accessibilityAddTraits(selection == tab ? .isSelected : [])
-      }
-      Spacer(minLength: 0)
-    }
-  }
-}
-
-private struct ProfileUnsavedChangesBar: View {
-  let isSaving: Bool
-  let onDiscard: () -> Void
-  let onSave: () -> Void
-
-  var body: some View {
-    HStack(spacing: 12) {
-      Button(EchoCopy.string("Discard"), action: onDiscard)
-        .font(.system(size: 14, weight: .semibold, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.62))
-        .disabled(isSaving)
-      Spacer(minLength: 0)
-      Button(action: onSave) {
-        Group {
-          if isSaving {
-            ProgressView().controlSize(.small).tint(EchoTheme.Color.onAccent)
-          } else {
-            EchoCopy.text("Save")
-          }
-        }
-        .font(.system(size: 14, weight: .bold, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.onAccent)
-        .frame(minWidth: 72)
-        .padding(.horizontal, 16)
-        .frame(height: 40)
-        .background(EchoTheme.Color.indigoDeep, in: Capsule())
-      }
-      .buttonStyle(.plain)
-      .disabled(isSaving)
-    }
-    .padding(.horizontal, 18)
-    .padding(.vertical, 12)
-    .echoGlassCapsule(opacity: 0.92)
-  }
-}
-
-private struct ProfileInlineField<Content: View>: View {
-  let title: String
-  @ViewBuilder let content: () -> Content
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text(title)
-        .font(.system(size: 12, weight: .medium, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.4))
-      content()
-        .font(.system(size: 17, weight: .medium, design: .rounded))
-        .textFieldStyle(.plain)
-        .foregroundStyle(EchoTheme.Color.ink(0.94))
-        .tint(EchoTheme.Color.indigoSoft)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-    .padding(.vertical, 14)
-  }
-}
-
-private struct ProfilePresencePicker: View {
-  let selection: String
-  let onSelect: (String) -> Void
-
-  private let options = [
-    (id: "online", label: EchoCopy.string("Online"), color: EchoTheme.Color.presenceOnline),
-    (id: "idle", label: EchoCopy.string("Idle"), color: EchoTheme.Color.presenceIdle),
-    (
-      id: "do_not_disturb", label: EchoCopy.string("Do Not Disturb"),
-      color: EchoTheme.Color.presenceDnd
-    ),
-  ]
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text(EchoCopy.string("Presence"))
-        .font(.system(size: 12, weight: .medium, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.4))
-
-      HStack(spacing: 8) {
-        ForEach(options, id: \.id) { option in
-          let selected = selection == option.id
-          Button {
-            onSelect(option.id)
-          } label: {
-            VStack(spacing: 9) {
-              HStack(spacing: 7) {
-                Circle()
-                  .fill(option.color)
-                  .frame(width: 9, height: 9)
-                Text(option.label)
-                  .font(.system(size: 13, weight: .semibold, design: .rounded))
-                  .lineLimit(1)
-                  .minimumScaleFactor(0.78)
-              }
-              .foregroundStyle(selected ? EchoTheme.Color.fg : EchoTheme.Color.ink(0.42))
-
-              Capsule()
-                .fill(option.color)
-                .frame(width: 34, height: 2.5)
-                .opacity(selected ? 1 : 0)
-                .animation(.easeOut(duration: 0.18), value: selection)
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel(option.label)
-          .accessibilityAddTraits(selected ? .isSelected : [])
-        }
-        Spacer(minLength: 0)
-      }
-    }
-    .padding(.vertical, 14)
-  }
-}
-
-private struct EchoEditableAvatar: View {
-  let profile: EchoUserProfile?
-  let baseURL: URL
-  var accessToken: String? = nil
-  let data: Data?
-  var body: some View {
-    Group {
-      if let data, let image = platformImage(data) {
-        image.resizable().scaledToFill()
-      } else if let avatarURL = profile?.avatarURL {
-        EchoMediaImage(source: avatarURL, baseURL: baseURL, accessToken: accessToken) {
-          EchoGeneratedAvatar(name: profile?.name ?? "Echo", seed: profile?.name ?? "Echo")
-        }
-      } else {
-        EchoGeneratedAvatar(name: profile?.name ?? "Echo", seed: profile?.name ?? "Echo")
-      }
-    }
-    .clipShape(Circle())
-    .contentShape(Circle())
-  }
-}
-
-/// Immediate-toggle row for blur / blackout / refraction (web banner-effect parity).
-private struct EchoBannerEffectToggle: View {
-  let title: String
-  let systemImage: String
-  let isOn: Bool
-  var disabled: Bool = false
-  let action: () -> Void
-
-  var body: some View {
-    Button(action: action) {
-      HStack(spacing: 14) {
-        Image(systemName: systemImage)
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(EchoTheme.Color.ink(0.55))
-          .frame(width: 22)
-
-        Text(title)
-          .font(.system(size: 16, weight: .semibold, design: .rounded))
-          .foregroundStyle(EchoTheme.Color.ink(0.92))
-
-        Spacer(minLength: 0)
-
-        Capsule()
-          .fill(isOn ? EchoTheme.Color.actionHighlight.opacity(0.92) : EchoTheme.Color.ink(0.12))
-          .frame(width: 44, height: 26)
-          .overlay(alignment: isOn ? .trailing : .leading) {
-            Circle()
-              .fill(EchoTheme.Color.fg)
-              .frame(width: 20, height: 20)
-              .padding(3)
-          }
-      }
-      .padding(.vertical, 16)
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-    .disabled(disabled)
-    .opacity(disabled ? 0.55 : 1)
-    .accessibilityLabel(title)
-    .accessibilityValue(isOn ? EchoCopy.string("On") : EchoCopy.string("Off"))
-  }
-}

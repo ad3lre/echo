@@ -217,6 +217,27 @@ public struct EchoSettingsClient: Sendable {
       path: "/reports/message", method: "POST", body: data, accessToken: accessToken,
       allowEmpty: true)
   }
+
+  public func loadBlockedUserIDs(accessToken: String) async throws -> [String] {
+    let data = try await send(
+      path: "/blocks", method: "GET", body: nil, accessToken: accessToken)
+    let decoded = try JSONDecoder().decode(BlockedUsersPayload.self, from: data)
+    return decoded.blockedUserIds
+  }
+
+  public func blockUser(targetUserID: String, accessToken: String) async throws {
+    let body = try JSONEncoder().encode(["targetUserId": targetUserID])
+    _ = try await send(
+      path: "/blocks", method: "POST", body: body, accessToken: accessToken, allowEmpty: true)
+  }
+
+  public func unblockUser(targetUserID: String, accessToken: String) async throws {
+    let encoded = targetUserID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
+      ?? targetUserID
+    _ = try await send(
+      path: "/blocks/\(encoded)", method: "DELETE", body: nil, accessToken: accessToken,
+      allowEmpty: true)
+  }
   public func registerEchoPlusInterest(
     tier: String = "any", billingCycle: String = "monthly", accessToken: String
   ) async throws {
@@ -366,6 +387,12 @@ public struct EchoSettingsClient: Sendable {
   public func disconnectGoogle(accessToken: String) async throws {
     _ = try await sendAPI(
       path: "/me/google", method: "DELETE", body: nil,
+      accessToken: accessToken, allowEmpty: true)
+  }
+
+  public func disconnectDiscord(accessToken: String) async throws {
+    _ = try await sendAPI(
+      path: "/me/discord", method: "DELETE", body: nil,
       accessToken: accessToken, allowEmpty: true)
   }
   public func loadSessions(accessToken: String) async throws -> [EchoAuthSession] {

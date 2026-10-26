@@ -59,6 +59,11 @@ export async function registerEchoHttpObservability(
     if (id) {
       req.log = req.log.child({ correlationId: id });
     }
+    // Probes must not await diagnostic disk I/O — a stuck session writer would
+    // make /health and /metrics appear to hang while the rest of the API works.
+    if (pathOnly === METRICS_PATH || pathOnly === '/api/v1/health') {
+      return;
+    }
     await appendBackendDiagnostic({
       level: 'info',
       domain: 'api',

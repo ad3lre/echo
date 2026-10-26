@@ -28,7 +28,11 @@ import {
 } from './config/validateConfig';
 import { initInstancePolicy } from './config/instancePolicy';
 import { ConfigFatalError } from './config/secrets';
-
+import {
+  normalizeInlinePem,
+  resolveAppleSiwaConfig,
+  type AppleSiwaConfigSlice,
+} from './config/appleSiwa';
 export type { BackendStorageMode };
 export { DEV_DISCORD_BOT_WEBHOOK_SECRET };
 
@@ -49,7 +53,7 @@ const DEFAULT_YOUTUBE_OAUTH_SCOPES =
  * Defines the shape of the application's configuration.
  * Making properties readonly prevents accidental modification.
  */
-interface AppConfig {
+interface AppConfig extends AppleSiwaConfigSlice {
   readonly port: number;
   readonly host: string;
   readonly logLevel: string;
@@ -866,11 +870,8 @@ export const config: AppConfig = {
     process.env.VAPID_SUBJECT?.trim() || 'mailto:push@echo.local',
   apnsKeyId: process.env.APNS_KEY_ID?.trim() || null,
   apnsTeamId: process.env.APNS_TEAM_ID?.trim() || null,
-  apnsKeyP8: (() => {
-    const inline = process.env.APNS_KEY_P8?.trim();
-    if (inline) return inline.replace(/\\n/g, '\n');
-    return null;
-  })(),
+  apnsKeyP8: normalizeInlinePem(process.env.APNS_KEY_P8),
+  ...resolveAppleSiwaConfig(),
   apnsBundleId: process.env.APNS_BUNDLE_ID?.trim() || 'com.echo.ios',
   apnsEnvironment: (() => {
     const raw = (process.env.APNS_ENVIRONMENT ?? 'sandbox')

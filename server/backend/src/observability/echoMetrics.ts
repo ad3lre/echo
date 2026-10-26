@@ -6,7 +6,16 @@ import {
 } from 'prom-client';
 
 const registry = new Registry();
-collectDefaultMetrics({ register: registry, prefix: 'echo_' });
+/**
+ * Default Node collectors (event-loop lag, GC, etc.) can hang indefinitely under
+ * Bun in long-lived processes — `/api/v1/metrics` never completes. Keep custom
+ * Echo series; only enable prom-client defaults on Node.
+ */
+const isBunRuntime =
+  typeof (globalThis as { Bun?: unknown }).Bun !== 'undefined';
+if (!isBunRuntime) {
+  collectDefaultMetrics({ register: registry, prefix: 'echo_' });
+}
 
 export const echoSocketBranchTotal = new Counter({
   name: 'echo_socket_message_branch_total',

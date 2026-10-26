@@ -15,6 +15,11 @@ import type {
   SocketData,
   EchoDmCallEndedReason,
 } from '../../../../contracts/types';
+import {
+  gateDmCallAccept,
+  gateDmCallEnd,
+  gateDmCallInvite,
+} from './dmCallSignalGate';
 
 type IoSocket = Socket<
   ClientToServerEvents,
@@ -139,6 +144,31 @@ export function registerDmCallSignalHandler(
         });
         return;
       }
+
+      const gate =
+        kind === 'incoming'
+          ? gateDmCallInvite({ userId, channelId, correlationId })
+          : kind === 'accepted'
+            ? gateDmCallAccept({ userId, channelId, correlationId })
+            : gateDmCallEnd({ userId, channelId });
+      if (!gate.ok) {
+        await appendBackendDiagnostic({
+          level: 'warn',
+          domain: 'socket',
+          event: 'dm_call_signal_filtered',
+          stage: 'fail',
+          traceId,
+          context: {
+            kind,
+            channelId,
+            actorUserId: userId,
+            correlationId,
+            reason: gate.reason,
+          },
+        });
+        return;
+      }
+
       const participantIds = await listEchoDmParticipantUserIds(
         pool,
         channelId,

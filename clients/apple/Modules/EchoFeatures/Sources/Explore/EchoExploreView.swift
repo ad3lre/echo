@@ -15,12 +15,40 @@ struct EchoExploreView: View {
 
   @Environment(EchoAuthenticationModel.self) private var auth
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(EchoShellChrome.self) private var shellChrome
   @Environment(\.colorScheme) private var colorScheme
   @State private var localModel: EchoExploreModel?
   @State private var accessToken = ""
   @FocusState private var searchFocused: Bool
 
   private var activeModel: EchoExploreModel? { model ?? localModel }
+
+  private var scrollBottomInset: CGFloat {
+    shellChrome.layout.contentBottomInset(tabBarVisible: !shellChrome.suppressTabBar)
+  }
+
+  private var scrollTrailingInset: CGFloat {
+    guard shellChrome.layout.verticalSystemBarEdge != .leading else { return 0 }
+    return shellChrome.layout.contentTrailingInset(tabBarVisible: !shellChrome.suppressTabBar)
+  }
+
+  private var scrollLeadingInset: CGFloat {
+    guard shellChrome.layout.verticalSystemBarEdge == .leading else { return 0 }
+    return shellChrome.layout.contentTrailingInset(tabBarVisible: !shellChrome.suppressTabBar)
+  }
+
+  /// Duo / wide: even column counts so cards don’t straddle the fold.
+  private var exploreColumnCount: Int {
+    let layout = shellChrome.layout
+    guard layout.usesSplitChrome else { return 1 }
+    let width = max(layout.size.width - scrollTrailingInset - 36, 320)
+    let raw = Int(width / 300)
+    let count = max(2, min(4, raw))
+    if layout.prefersEvenColumns, count % 2 == 1 {
+      return max(2, count - 1)
+    }
+    return count
+  }
 
   var body: some View {
     let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
@@ -38,7 +66,23 @@ struct EchoExploreView: View {
       #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
       #endif
-      .echoNavigationChrome()
+      .echoNavigationChrome(blendsWithCanvas: true)
+      #if os(iOS)
+        .toolbar(searchFocused ? .hidden : .automatic, for: .navigationBar)
+      #endif
+    }
+    .padding(.leading, scrollLeadingInset)
+    .padding(.trailing, scrollTrailingInset)
+    .onChange(of: searchFocused) { _, focused in
+      shellChrome.listSearchActive = focused
+    }
+    .onChange(of: shellChrome.resignListSearchRequest) { _, _ in
+      dismissSearchKeyboard()
+    }
+    .onDisappear {
+      if searchFocused {
+        shellChrome.listSearchActive = false
+      }
     }
     .task {
       accessToken = (try? await auth.ensureAccessToken()) ?? ""
@@ -93,7 +137,7 @@ struct EchoExploreView: View {
           .id(displayPrefs.appearanceGeneration)
           .padding(.horizontal, 18)
           .padding(.top, 4)
-          .padding(.bottom, 72)
+          .padding(.bottom, scrollBottomInset)
           .frame(maxWidth: .infinity, alignment: .topLeading)
           .contentShape(Rectangle())
           .simultaneousGesture(
@@ -135,6 +179,7 @@ struct EchoExploreView: View {
   private func dismissSearchKeyboard() {
     guard searchFocused else { return }
     searchFocused = false
+    shellChrome.listSearchActive = false
     #if os(iOS)
       UIApplication.shared.sendAction(
         #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -190,9 +235,16 @@ struct EchoExploreView: View {
               }
             )
             .frame(width: 280)
+            // Keep the whole card (banner + footer) in the scroll hit region.
+            .contentShape(Rectangle())
           }
         }
+        // Trailing slack so the last card isn’t flush against the edge.
+        .padding(.trailing, 4)
+        .contentShape(Rectangle())
       }
+      // Nested in the vertical Explore scroll — prefer horizontal pans here.
+      .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
     }
   }
 
@@ -347,18 +399,26 @@ struct EchoExploreView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
     } else {
-      ForEach(model.visibleServers) { listed in
-        EchoExploreServerCard(
-          listed: listed,
-          baseURL: baseURL,
-          accessToken: accessToken,
-          isJoined: listed.alreadyMember || model.joinedIDs.contains(listed.id),
-          isJoining: model.joiningIDs.contains(listed.id),
-          onJoin: {
-            dismissSearchKeyboard()
-            Task { await join(listed, model: model) }
-          }
-        )
+      let columnCount = exploreColumnCount
+      let spacing: CGFloat = shellChrome.layout.prefersEvenColumns ? 20 : 14
+      let columns = Array(
+        repeating: GridItem(.flexible(), spacing: spacing),
+        count: columnCount
+      )
+      LazyVGrid(columns: columns, spacing: spacing) {
+        ForEach(model.visibleServers) { listed in
+          EchoExploreServerCard(
+            listed: listed,
+            baseURL: baseURL,
+            accessToken: accessToken,
+            isJoined: listed.alreadyMember || model.joinedIDs.contains(listed.id),
+            isJoining: model.joiningIDs.contains(listed.id),
+            onJoin: {
+              dismissSearchKeyboard()
+              Task { await join(listed, model: model) }
+            }
+          )
+        }
       }
       if model.canLoadMore {
         Button(EchoCopy.string("Load more")) {

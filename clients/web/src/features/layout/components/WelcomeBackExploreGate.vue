@@ -1305,27 +1305,30 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Light mode: disable screen/overlay blend modes that wash out content */
-:global([data-theme='light']) {
-  .welcome-back-hero__logo-bg-img {
-    mix-blend-mode: normal;
-    opacity: 0.15;
-    filter: blur(14px) saturate(1.05) brightness(0.85);
-  }
+/*
+ * Light mode: disable screen/overlay blend modes that wash out content.
+ * Use full `:global(html[data-theme] .child)` selectors — nested
+ * `:global([data-theme]) { .child {} }` has compiled to bare
+ * `[data-theme=light] { … }` on <html> and blanked the whole app.
+ */
+:global(html[data-theme='light'] .welcome-back-hero__logo-bg-img) {
+  mix-blend-mode: normal;
+  opacity: 0.15;
+  filter: blur(14px) saturate(1.05) brightness(0.85);
+}
 
-  .welcome-back-hero__highlight {
-    mix-blend-mode: normal;
-    opacity: 0.15;
-  }
+:global(html[data-theme='light'] .welcome-back-hero__highlight) {
+  mix-blend-mode: normal;
+  opacity: 0.15;
+}
 
-  .welcome-back-hero__particles {
-    mix-blend-mode: normal;
-    opacity: 0.1;
-  }
+:global(html[data-theme='light'] .welcome-back-hero__particles) {
+  mix-blend-mode: normal;
+  opacity: 0.1;
+}
 
-  .welcome-back-hero__grain {
-    mix-blend-mode: normal;
-    opacity: 0.1;
-  }
+:global(html[data-theme='light'] .welcome-back-hero__grain) {
+  mix-blend-mode: normal;
+  opacity: 0.1;
 }
 </style>

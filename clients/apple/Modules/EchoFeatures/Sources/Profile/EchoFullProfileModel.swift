@@ -23,8 +23,11 @@ final class EchoFullProfileModel {
   var mutualServers: [EchoMutualServerSummary] = []
   var friendship: EchoProfileFriendship = .none
   var friendshipLoaded = false
+  var isBlocked = false
+  var blockStatusLoaded = false
   var isLoading = false
   var isUpdatingFriendship = false
+  var isUpdatingBlock = false
   var errorMessage: String?
 
   init(
@@ -55,11 +58,15 @@ final class EchoFullProfileModel {
         peerID: userID, accessToken: accessToken)
       async let loadedMutualServers = try? client.loadMutualServers(
         peerID: userID, accessToken: accessToken)
+      async let loadedBlockedIDs = try? client.loadBlockedUserIDs(accessToken: accessToken)
 
       profile = try await loadedProfile
       presenceStatus = await loadedPresence ?? presenceStatus
       applyFriendship(friends: try await loadedFriends, requests: try await loadedRequests)
       friendshipLoaded = true
+      let blockedIDs = await loadedBlockedIDs ?? []
+      isBlocked = blockedIDs.contains(userID)
+      blockStatusLoaded = true
       mutualServers = await loadedMutualServers ?? []
 
       if let ids = await loadedMutualIDs, !ids.isEmpty {
@@ -94,6 +101,24 @@ final class EchoFullProfileModel {
       errorMessage = error.localizedDescription
     }
     isUpdatingFriendship = false
+  }
+
+  func toggleBlock() async {
+    guard blockStatusLoaded, !isUpdatingBlock else { return }
+    isUpdatingBlock = true
+    errorMessage = nil
+    do {
+      if isBlocked {
+        try await client.unblockUser(targetUserID: userID, accessToken: accessToken)
+        isBlocked = false
+      } else {
+        try await client.blockUser(targetUserID: userID, accessToken: accessToken)
+        isBlocked = true
+      }
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+    isUpdatingBlock = false
   }
 
   private func reloadFriendship() async throws {

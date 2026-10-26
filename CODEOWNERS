@@ -1,14 +1,21 @@
-# CODEOWNERS — top-level ownership hints
-# Adjust @handles to match your GitLab/GitHub org. Paths are repo-relative.
+# CODEOWNERS — ownership for review routing (GitHub). Paths are repo-relative.
+# Pair with branch protection / rulesets that require code-owner review.
 
-/clients/web/
-/clients/apple/
-/server/backend/
-/server/media/
-/server/voice/
-/server/activities/
-/server/ops/
-/contracts/
-/docs/
-/marketing/
-/bot/
+/clients/web/ @ad3lre
+/clients/apple/ @ad3lre
+/server/backend/ @ad3lre
+/server/media/ @ad3lre
+/server/voice/ @ad3lre
+/server/activities/ @ad3lre
+/server/ops/ @ad3lre
+/contracts/ @ad3lre
+/docs/ @ad3lre
+/marketing/ @ad3lre
+/bot/ @ad3lre
+
+# Supply-chain / release-critical files
+/.github/ @ad3lre
+/.gitlab-ci.yml @ad3lre
+/package.json @ad3lre
+/bun.lock @ad3lre
+/CODEOWNERS @ad3lre

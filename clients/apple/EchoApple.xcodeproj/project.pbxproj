@@ -11,6 +11,7 @@
 		1D83FDF40AE78412F34A1A7B /* data-by-group.json in Resources */ = {isa = PBXBuildFile; fileRef = 418078B1CEE715C322178C32 /* data-by-group.json */; };
 		1EEBB802A7D097C4C825E718 /* EchoMacOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130B9D7B4116FD3093818D3E /* EchoMacOSApp.swift */; };
 		29091F1085EC948031309172 /* data-by-group.json in Resources */ = {isa = PBXBuildFile; fileRef = 418078B1CEE715C322178C32 /* data-by-group.json */; };
+		2E2DD506FE6B82544C69B820 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9747586F3F4F88D08ABA50B5 /* PrivacyInfo.xcprivacy */; };
 		3F8428D920256316ADD0386D /* EchoDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 9BCE1E7F536AF6B8F1563007 /* EchoDomain */; };
 		518FCB60412B6D07D7ED9B0F /* EchoDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 2EB3636B675353871BD78896 /* EchoDomain */; };
 		5A6A58A0C4330A8F9CEEAEF7 /* EchoPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 3811A1D1DDF8B91018A2F3C8 /* EchoPersistence */; };
@@ -20,6 +21,7 @@
 		8E7D1418673453E0FAF30FEB /* EchoCallRingtone.m4a in Resources */ = {isa = PBXBuildFile; fileRef = F9F74875CD0BBDBF3DC824DE /* EchoCallRingtone.m4a */; };
 		A92D83F873C3A5AE12B8D001 /* EchoPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 20820A24B07A7F04C4896108 /* EchoPersistence */; };
 		AA9EBCAFD41E0D5BF5D3E640 /* EchoNetworking in Frameworks */ = {isa = PBXBuildFile; productRef = F2BC8AFB1C2E8C512E1710E1 /* EchoNetworking */; };
+		C763E2C3207FFD66A0F6B2B2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9FD965A079F10928717B1FEE /* PrivacyInfo.xcprivacy */; };
 		C77D3F1DE19F5A139E280603 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A75700E0FC547644E4A1388 /* Assets.xcassets */; };
 		FFBA57C4D6B375DCDCBEE11F /* EchoiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181C4E0BE7BDEDAD95ADA61D /* EchoiOSApp.swift */; };
 /* End PBXBuildFile section */
@@ -32,6 +34,8 @@
 		3CB3EFBED7CC682448B6B9F3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		418078B1CEE715C322178C32 /* data-by-group.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "data-by-group.json"; sourceTree = "<group>"; };
 		7615AEF11554B06DAA1C815C /* EchoMacOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EchoMacOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9747586F3F4F88D08ABA50B5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		9FD965A079F10928717B1FEE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BDE48D00A4FB6F12C06D6D72 /* apple */ = {isa = PBXFileReference; lastKnownFileType = folder; name = apple; path = .; sourceTree = SOURCE_ROOT; };
 		F9F74875CD0BBDBF3DC824DE /* EchoCallRingtone.m4a */ = {isa = PBXFileReference; path = EchoCallRingtone.m4a; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -75,6 +79,7 @@
 			isa = PBXGroup;
 			children = (
 				3A75700E0FC547644E4A1388 /* Assets.xcassets */,
+				9747586F3F4F88D08ABA50B5 /* PrivacyInfo.xcprivacy */,
 			);
 			name = iOS;
 			path = Resources/iOS;
@@ -92,6 +97,7 @@
 			isa = PBXGroup;
 			children = (
 				3CB3EFBED7CC682448B6B9F3 /* Assets.xcassets */,
+				9FD965A079F10928717B1FEE /* PrivacyInfo.xcprivacy */,
 			);
 			name = macOS;
 			path = Resources/macOS;
@@ -245,6 +251,7 @@
 			files = (
 				C77D3F1DE19F5A139E280603 /* Assets.xcassets in Resources */,
 				8E7D1418673453E0FAF30FEB /* EchoCallRingtone.m4a in Resources */,
+				2E2DD506FE6B82544C69B820 /* PrivacyInfo.xcprivacy in Resources */,
 				29091F1085EC948031309172 /* data-by-group.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -254,6 +261,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6F93B22605F741F0090CC422 /* Assets.xcassets in Resources */,
+				C763E2C3207FFD66A0F6B2B2 /* PrivacyInfo.xcprivacy in Resources */,
 				1D83FDF40AE78412F34A1A7B /* data-by-group.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -391,7 +399,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.echo.ios.adelmac;
+				PRODUCT_BUNDLE_IDENTIFIER = com.echo.ios;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

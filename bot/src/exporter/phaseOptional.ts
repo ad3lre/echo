@@ -1,5 +1,6 @@
 import type { Guild } from 'discord.js';
 import type { CliFlags } from '../config.js';
+import { sanitizeInviteJson } from '../exportPolicy.js';
 import { appendJsonl, writeJson } from '../util/fs.js';
 
 export type PhaseOptionalStats = {
@@ -20,7 +21,9 @@ export async function runPhaseOptional(
       const invites = await guild.invites.fetch();
       await writeJson(
         `${outDir}/invites.json`,
-        [...invites.values()].map((i) => i.toJSON()),
+        [...invites.values()].map((i) =>
+          sanitizeInviteJson(i.toJSON() as unknown as Record<string, unknown>),
+        ),
       );
       invitesWritten = true;
     } catch (e) {

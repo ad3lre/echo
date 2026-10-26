@@ -78,13 +78,11 @@ export async function assignEchoMemberRole(
       targetUserId,
     );
     if (!ok) return 'forbidden';
-    if (actorId === targetUserId) {
-      const roleGrantSet = expandStoredRolePermissionsToCanonSet(
-        roleRow.rows[0]!.permissions,
-      );
-      if (!actorMayGrantPermissionSet(actorPerms, roleGrantSet, false)) {
-        return 'forbidden';
-      }
+    const roleGrantSet = expandStoredRolePermissionsToCanonSet(
+      roleRow.rows[0]!.permissions,
+    );
+    if (!actorMayGrantPermissionSet(actorPerms, roleGrantSet, false)) {
+      return 'forbidden';
     }
   }
 

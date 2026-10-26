@@ -21,7 +21,10 @@ import {
   MAX_ECHO_SERVER_NAME_LEN,
 } from '../constants';
 import { validateEchoStoredBrandingUrl } from '../../../services/uploads/storedMediaUrl';
-import { normalizeEchoVanityCode } from '../community/invites';
+import {
+  consumeEchoInvite,
+  normalizeEchoVanityCode,
+} from '../community/invites';
 import { parseEchoApplicationFormFromDb } from '../onboarding/applicationForm';
 import { invalidateEchoPermissionCacheForUser } from '../../permissions/echoPermissionCache';
 import { applyEchoRoleLinksAfterAssignment } from '../roles/roleLinks';
@@ -1106,6 +1109,7 @@ export type JoinEchoInviteResult =
         | 'server_limit'
         | 'raid_protection'
         | 'invites_disabled'
+        | 'invite_invalid'
         | 'guest_join_forbidden'
         | 'email_verification_required';
     };
@@ -1121,6 +1125,8 @@ export async function joinEchoServerFromInvite(
   joinClientIp: string | null = null,
   opts?: {
     skipInviteJoinGate?: boolean;
+    /** Hex invite code to consume atomically when a new member joins. */
+    inviteCode?: string | null;
     isGuest?: boolean;
     io?: SocketIoServer;
     log?: FastifyBaseLogger;
@@ -1187,6 +1193,11 @@ export async function joinEchoServerFromInvite(
         if (!slot.ok) {
           await client.query(`ROLLBACK`);
           return { ok: false, reason: 'server_limit' };
+        }
+        const code = opts?.inviteCode?.trim();
+        if (code && !(await consumeEchoInvite(client, code, serverId))) {
+          await client.query(`ROLLBACK`);
+          return { ok: false, reason: 'invite_invalid' };
         }
       }
       await addEchoServerMember(client, serverId, userId);

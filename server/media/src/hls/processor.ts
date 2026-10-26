@@ -51,6 +51,23 @@ export const RENDITION_LADDER: RenditionSpec[] = [
   { height: 1080, videoBitrate: '5000k', maxrate: '5350k', bufsize: '7500k' },
 ];
 
+/**
+ * Hardening args for every ffmpeg/ffprobe invocation on untrusted uploads. Must be placed
+ * BEFORE `-i` (or the ffprobe input path): restricts to local files (no http/concat/etc
+ * SSRF / local-file-read via crafted playlists) and to an allowlist of container demuxers.
+ */
+export const FF_INPUT_FORMAT_WHITELIST =
+  'mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,mpegts,ogg,flv';
+
+export function ffInputSafetyArgs(): string[] {
+  return [
+    '-protocol_whitelist',
+    'file',
+    '-format_whitelist',
+    FF_INPUT_FORMAT_WHITELIST,
+  ];
+}
+
 function ffmpegBin(): string {
   return process.env.FFMPEG_PATH?.trim() || 'ffmpeg';
 }
@@ -95,6 +112,7 @@ async function probeInput(inPath: string): Promise<ProbeResult> {
       'json',
       '-show_streams',
       '-show_format',
+      ...ffInputSafetyArgs(),
       inPath,
     ],
     { maxBuffer: 8 * 1024 * 1024 },
@@ -121,6 +139,30 @@ async function probeInput(inPath: string): Promise<ProbeResult> {
     hasAudio,
     rotation: parseRotation(video),
   };
+}
+
+const HLS_DEFAULT_MAX_PIXELS = 3840 * 2160;
+export const HLS_MAX_DIMENSION = 8192;
+
+export function hlsMaxPixels(): number {
+  const raw = process.env.ECHO_VIDEO_HLS_MAX_PIXELS;
+  if (raw === undefined || raw.trim() === '') return HLS_DEFAULT_MAX_PIXELS;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 1 ? n : HLS_DEFAULT_MAX_PIXELS;
+}
+
+/** Reject decompression-bomb style dimensions before spending CPU on ffmpeg. */
+export function assertHlsVideoDimensions(
+  width: number,
+  height: number,
+  maxPixels: number = hlsMaxPixels(),
+): void {
+  if (width > HLS_MAX_DIMENSION || height > HLS_MAX_DIMENSION) {
+    throw new Error('Video dimensions exceed max');
+  }
+  if (width * height > maxPixels) {
+    throw new Error('Video resolution exceeds max pixel count');
+  }
 }
 
 function rotationFilter(rotation: number): string | null {
@@ -184,6 +226,7 @@ export function buildFfmpegArgs(opts: {
     '-y',
     '-threads',
     String(config.echoFfmpegThreads),
+    ...ffInputSafetyArgs(),
     '-i',
     inPath,
     '-filter_complex',
@@ -420,6 +463,7 @@ export async function processEchoVideoHlsJob(
     assertHlsSourceSize(inStat.size, maxInputBytes);
 
     const probe = await probeInput(inPath);
+    assertHlsVideoDimensions(probe.width, probe.height);
     if (probe.durationSec > config.echoVideoHlsMaxDurationS) {
       throw new Error('Video exceeds max duration');
     }

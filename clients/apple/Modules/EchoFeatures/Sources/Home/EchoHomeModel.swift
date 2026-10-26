@@ -132,6 +132,14 @@ final class EchoHomeModel {
     }
   }
 
+  /// Optimistic banner-effect patch so home chrome updates without waiting on PATCH.
+  func applyBannerEffects(refraction: Bool, blur: Bool, blackout: Bool) {
+    guard let snapshot else { return }
+    self.snapshot = snapshot.applyingProfile(
+      snapshot.profile.withBannerEffects(
+        refraction: refraction, blur: blur, blackout: blackout))
+  }
+
   func refreshInboxNotificationCount() async {
     guard
       let requests = try? await auth.withAccessTokenRetry({ token in

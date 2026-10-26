@@ -766,6 +766,10 @@ const {
   isDmUiContext,
   isServerEmptyOnboarding,
   isViewingVoiceChannel,
+  vcActivitySurfaceOpen: computed(
+    () =>
+      vcActivityUi.value.phase !== 'closed' && vcActivityUi.value.phase != null,
+  ),
   callOverlay,
   mainSurface,
   isEchoGraphId,

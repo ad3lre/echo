@@ -22,11 +22,12 @@ on:
       - 'bun.lock'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   echo-ci:
     runs-on: ubuntu-latest
-    env:
-      JWT_SECRET: jwt-0123456789abcdef0123456789abcdef01234567
     services:
       postgres:
         image: postgres:16-alpine
@@ -48,9 +49,12 @@ jobs:
           - 4222:4222
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Generate ephemeral JWT secret
+        run: echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: '.bun-version'
 
@@ -132,7 +136,6 @@ jobs:
           ECHO_BACKEND_STORAGE: postgres
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
-          JWT_SECRET: jwt-0123456789abcdef0123456789abcdef01234567
           ECHO_CONFIG_TEST_ISOLATION: '1'
         run: bun run --filter backend test:auth
       - name: RBAC sparse bench
@@ -143,8 +146,6 @@ jobs:
   perf-validation:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    env:
-      JWT_SECRET: jwt-0123456789abcdef0123456789abcdef01234567
     services:
       postgres:
         image: postgres:16-alpine
@@ -161,9 +162,12 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Generate ephemeral JWT secret
+        run: echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: '.bun-version'
 

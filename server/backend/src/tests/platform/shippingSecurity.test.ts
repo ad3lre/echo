@@ -47,6 +47,7 @@ function clearConfigAndRoutes() {
     `${path.sep}backend${path.sep}src${path.sep}services${path.sep}uploads${path.sep}mediaUrlPolicy.`,
     `${path.sep}backend${path.sep}src${path.sep}sockets${path.sep}messageValidation.`,
     `${path.sep}backend${path.sep}src${path.sep}services${path.sep}uploads${path.sep}storedMediaUrl.`,
+    `${path.sep}backend${path.sep}src${path.sep}services${path.sep}uploads${path.sep}echoUploadPublicUrl.`,
     `${path.sep}backend${path.sep}src${path.sep}services${path.sep}uploads${path.sep}s3UploadPresign.`,
     `${path.sep}backend${path.sep}src${path.sep}services${path.sep}discordImport${path.sep}discordImportAuthorization.`,
     `${path.sep}backend${path.sep}src${path.sep}services${path.sep}linkUnfurl${path.sep}linkUnfurlFetch.`,
@@ -58,7 +59,7 @@ function clearConfigAndRoutes() {
 }
 
 function repoRoot(): string {
-  return path.resolve(__dirname, '..', '..', '..');
+  return path.resolve(__dirname, '..', '..', '..', '..', '..');
 }
 
 function isTrackedRuntimeEnvFile(file: string): boolean {
@@ -137,7 +138,7 @@ async function run(): Promise<void> {
     const giphyApp = Fastify({ logger: false });
     await giphyApp.register(giphyRoutes, { prefix: '/api/v1' });
     let giphyLast = 0;
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 45; i++) {
       const r = await giphyApp.inject({
         method: 'GET',
         url: '/api/v1/giphy/trending',
@@ -253,6 +254,7 @@ async function run(): Promise<void> {
       httpsRes = await httpsApp.inject({
         method: 'GET',
         url: '/probe',
+        remoteAddress: '203.0.113.9',
         headers: { 'x-forwarded-proto': 'https' },
       });
       assert.equal(httpsRes.statusCode, 426);
@@ -353,7 +355,7 @@ async function run(): Promise<void> {
   {
     const botHookSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -365,7 +367,7 @@ async function run(): Promise<void> {
     );
     assert.match(
       botHookSource,
-      /x-echo-delivery-id/,
+      /requireWebhookDeliveryId/,
       'discord bot webhook must require delivery-id header',
     );
     assert.match(
@@ -375,7 +377,7 @@ async function run(): Promise<void> {
     );
     const bridgeHookSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -387,7 +389,7 @@ async function run(): Promise<void> {
     );
     assert.match(
       bridgeHookSource,
-      /x-echo-delivery-id/,
+      /requireWebhookDeliveryId/,
       'discord bridge webhook must require delivery-id header',
     );
     assert.match(
@@ -397,7 +399,7 @@ async function run(): Promise<void> {
     );
     const voiceMirrorHookSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -409,7 +411,7 @@ async function run(): Promise<void> {
     );
     assert.match(
       voiceMirrorHookSource,
-      /x-echo-delivery-id/,
+      /requireWebhookDeliveryId/,
       'discord voice mirror webhook must require delivery-id header',
     );
     assert.match(
@@ -418,7 +420,7 @@ async function run(): Promise<void> {
       'discord voice mirror webhook must enforce replay protection',
     );
     const botEchoApiSource = await readFile(
-      path.join(process.cwd(), 'bot', 'src', 'echoApi.ts'),
+      path.join(repoRoot(), 'bot', 'src', 'echoApi.ts'),
       'utf8',
     );
     assert.match(
@@ -433,7 +435,7 @@ async function run(): Promise<void> {
     );
     const meDiscordSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -467,14 +469,14 @@ async function run(): Promise<void> {
 
     const bridgeSettingsSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
         'api',
         'routes',
         'echo',
-        'echoDiscordBridgeSettings.ts',
+        'discordBridgeSettings.ts',
       ),
       'utf8',
     );
@@ -496,11 +498,12 @@ async function run(): Promise<void> {
 
     const bridgeRepoSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
         'domain',
+        'discord',
         'discordBridgeRepo.ts',
       ),
       'utf8',
@@ -517,19 +520,12 @@ async function run(): Promise<void> {
     );
     assert.match(
       bridgeRepoSource,
-      /AND inbound_enabled = true/,
+      /AND (?:b\.)?inbound_enabled = true/,
       'discord bridge inbound resolution must ignore disabled duplicate bridge rows',
     );
 
     const echoTablesSource = await readFile(
-      path.join(
-        process.cwd(),
-        'server',
-        'backend',
-        'src',
-        'db',
-        'echoTables.ts',
-      ),
+      path.join(repoRoot(), 'server', 'backend', 'src', 'db', 'echoTables.ts'),
       'utf8',
     );
     assert.match(
@@ -677,14 +673,14 @@ async function run(): Promise<void> {
   {
     const routeSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
         'api',
         'routes',
         'echo',
-        'echoDiscordImport.ts',
+        'discordImport.ts',
       ),
       'utf8',
     );
@@ -703,14 +699,14 @@ async function run(): Promise<void> {
   {
     const routeSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
         'api',
         'routes',
         'echo',
-        'echoDiscordImport.ts',
+        'discordImport.ts',
       ),
       'utf8',
     );
@@ -732,14 +728,14 @@ async function run(): Promise<void> {
   {
     const rolesRouteSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
         'api',
         'routes',
         'echo',
-        'echoRoles.ts',
+        'roles.ts',
       ),
       'utf8',
     );
@@ -766,14 +762,14 @@ async function run(): Promise<void> {
   {
     const uploadsRouteSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
         'api',
         'routes',
         'echo',
-        'echoUploads.ts',
+        'uploads.ts',
       ),
       'utf8',
     );
@@ -805,7 +801,7 @@ async function run(): Promise<void> {
 
     const chatMessageHandlerSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -816,13 +812,13 @@ async function run(): Promise<void> {
     );
     assert.match(
       chatMessageHandlerSource,
-      /clientIpFromSocketHandshake\(/,
+      /clientIpFromSocket(?:Handshake)?\(/,
       'socket message abuse limiter must resolve client IP via trustProxy-aware helper',
     );
 
     const channelHandlersSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -854,7 +850,7 @@ async function run(): Promise<void> {
 
     const middlewareSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -876,11 +872,12 @@ async function run(): Promise<void> {
 
     const localUploadDiskSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
         'services',
+        'uploads',
         'localUploadDisk.ts',
       ),
       'utf8',
@@ -900,7 +897,7 @@ async function run(): Promise<void> {
   {
     const mailSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -918,7 +915,7 @@ async function run(): Promise<void> {
 
     const smsSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -938,7 +935,7 @@ async function run(): Promise<void> {
   {
     const sessionRouteSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -957,7 +954,7 @@ async function run(): Promise<void> {
 
     const middlewareSource = await readFile(
       path.join(
-        process.cwd(),
+        repoRoot(),
         'server',
         'backend',
         'src',
@@ -1147,11 +1144,7 @@ async function run(): Promise<void> {
       ECHO_BACKEND_STORAGE: 'memory',
       DATABASE_URL: '',
       USE_MOCK_DB: 'true',
-      ECHO_LOCAL_UPLOAD_DIR: path.join(
-        process.cwd(),
-        'tmp',
-        'ship-test-uploads',
-      ),
+      ECHO_LOCAL_UPLOAD_DIR: path.join(repoRoot(), 'tmp', 'ship-test-uploads'),
       ECHO_S3_BUCKET: undefined,
       ECHO_S3_REGION: undefined,
       ECHO_S3_ACCESS_KEY: undefined,
@@ -1176,11 +1169,11 @@ async function run(): Promise<void> {
 
   {
     const mainTs = await readFile(
-      path.join(repoRoot(), 'frontend', 'src', 'main.ts'),
+      path.join(repoRoot(), 'clients', 'web', 'src', 'main.ts'),
       'utf8',
     );
     const authClientTs = await readFile(
-      path.join(repoRoot(), 'frontend', 'src', 'api', 'authClient.ts'),
+      path.join(repoRoot(), 'clients', 'web', 'src', 'api', 'authClient.ts'),
       'utf8',
     );
     const rawProdConsole =

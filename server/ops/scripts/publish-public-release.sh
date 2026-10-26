@@ -8,7 +8,7 @@
 #   bun run publish:public-release -- --yes       # create commit + push origin
 #   bun run publish:public-release -- --rewrite --yes   # rebuild all release messages
 #
-# Env: GITLAB_REMOTE (origin), BRANCH (release/1.0.0), GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, …
+# Env: GITLAB_REMOTE (origin), BRANCH (release/1.0.0), GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL / ECHO_RELEASE_AUTHOR_EMAIL (required), …
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -18,7 +18,11 @@ GITLAB_REMOTE="${GITLAB_REMOTE:-origin}"
 BRANCH="${BRANCH:-release/1.0.0}"
 MAIN_BRANCH="${MAIN_BRANCH:-main}"
 AUTHOR_NAME="${GIT_AUTHOR_NAME:-ad3lre}"
-AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-reachbypass@gmail.com}"
+AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-${ECHO_RELEASE_AUTHOR_EMAIL:-}}"
+if [[ -z "$AUTHOR_EMAIL" ]]; then
+  echo "publish-public-release: set ECHO_RELEASE_AUTHOR_EMAIL (or GIT_AUTHOR_EMAIL) to the public release author email." >&2
+  exit 2
+fi
 SOURCE_TRAILER_PREFIX="Echo-Source:"
 MAX_BODY_LINES="${ECHO_PUBLISH_MAX_BODY_LINES:-24}"
 

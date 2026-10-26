@@ -2,9 +2,11 @@ import type pg from 'pg';
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config';
 import {
+  ECHO_DM_REALM_SERVER_ID,
   getEffectiveChannelPermissions,
   getUserCommunicationTimeoutState,
   isUserBannedFromServer,
+  userMayJoinDmLiveKitRoom,
 } from '../domain/echoStore';
 import {
   publishEchoWorkspaceEvent,
@@ -24,7 +26,8 @@ export type EchoVoiceAccessRemovalReason =
   | 'banned'
   | 'timeout'
   | 'no_view_channel'
-  | 'no_connect';
+  | 'no_connect'
+  | 'dm_forbidden';
 
 export type EchoVoiceAccessRemoval = {
   serverId: string;
@@ -37,6 +40,10 @@ async function currentRemovalReason(
   pool: pg.Pool,
   row: { serverId: string; channelId: string; userId: string },
 ): Promise<EchoVoiceAccessRemovalReason | null> {
+  if (row.serverId === ECHO_DM_REALM_SERVER_ID) {
+    const ok = await userMayJoinDmLiveKitRoom(pool, row.channelId, row.userId);
+    return ok ? null : 'dm_forbidden';
+  }
   const member = await pool.query(
     `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
     [row.serverId, row.userId],
@@ -60,6 +67,30 @@ async function currentRemovalReason(
   if (!perms.has('VIEW_CHANNEL')) return 'no_view_channel';
   if (!perms.has('CONNECT')) return 'no_connect';
   return null;
+}
+
+/**
+ * Whether this identity may stay in / re-enter the LiveKit room right now.
+ * Used on `participant_joined` so a stale join JWT cannot restore access after
+ * kick, block, group-DM removal, or permission loss.
+ */
+export async function userMayRemainInLiveKitVoiceRoom(
+  pool: pg.Pool,
+  serverId: string,
+  channelId: string,
+  userId: string,
+): Promise<boolean> {
+  const sid = serverId.trim();
+  const cid = channelId.trim();
+  const uid = userId.trim();
+  if (!sid || !cid || !uid) return false;
+  return (
+    (await currentRemovalReason(pool, {
+      serverId: sid,
+      channelId: cid,
+      userId: uid,
+    })) === null
+  );
 }
 
 export async function removeEchoVoiceParticipantsWithoutCurrentAccess(

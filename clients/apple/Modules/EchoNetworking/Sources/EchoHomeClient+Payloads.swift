@@ -104,6 +104,10 @@ struct EchoHomePinsResponse: Decodable {
   let messageIds: [String]
 }
 
+struct EchoHomeReactionsResponse: Decodable {
+  let reactions: [EchoMessageReaction]
+}
+
 struct EchoHomePinBody: Encodable {
   let messageId: String
 }

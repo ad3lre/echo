@@ -192,6 +192,7 @@ export function buildAppLayoutAssemblyDeps(
       desktopStreamingPreferences: $.desktopStreamingPreferences,
       fullscreenStreamParticipantId: $.fullscreenStreamParticipantId,
       vcActivityUi: $.vcActivityUi,
+      // *OnVoice: jump to connected VC before opening phase (text+VC Activities bug).
       openVcActivityPicker: $.openVcActivityPickerOnVoice,
       openVcActivityYoutubeBrowse: $.openVcActivityYoutubeBrowseOnVoice,
       openVcActivityWatchTogether: $.openVcActivityWatchTogetherOnVoice,

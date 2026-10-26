@@ -81,4 +81,16 @@ describe('echoReadRateLimitPaths', () => {
       false,
     );
   });
+
+  it('exempts GET /health and /metrics from the global mutation bucket', () => {
+    assert.equal(isEchoApiGlobalRateLimitExempt('GET', '/api/v1/health'), true);
+    assert.equal(
+      isEchoApiGlobalRateLimitExempt('GET', '/api/v1/metrics'),
+      true,
+    );
+    assert.equal(
+      isEchoApiGlobalRateLimitExempt('POST', '/api/v1/metrics'),
+      false,
+    );
+  });
 });

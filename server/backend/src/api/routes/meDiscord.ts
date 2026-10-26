@@ -24,7 +24,10 @@ import {
   type DiscordNormalizedV1,
 } from '../../domain/discord/discordNormalized';
 import { getDiscordUserAccessTokenForApi } from '../../domain/discord/discordUserAccessToken';
-import { getDiscordLinkByUserId } from '../../domain/discord/discordUserLinkRepo';
+import {
+  deleteDiscordUserLink,
+  getDiscordLinkByUserId,
+} from '../../domain/discord/discordUserLinkRepo';
 import {
   listDiscordBotExportPendingForUser,
   markDiscordBotExportReadyForGuild,
@@ -417,12 +420,40 @@ export default async function meDiscordRoutes(
     async (req: FastifyRequest, reply: FastifyReply) => {
       if (!req.authUser)
         return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
-      return sendError(
-        reply,
-        403,
-        'DISCORD_UNLINK_DISABLED',
-        'Unlinking your Discord account is not supported.',
-      );
+      const { mode } = await getAuthStore();
+      if (mode !== 'postgres') {
+        return sendError(
+          reply,
+          503,
+          'NOT_AVAILABLE',
+          'Discord linking requires a database.',
+        );
+      }
+      const pool = getPgPool();
+      if (!pool)
+        return sendError(reply, 503, 'NOT_AVAILABLE', 'Database unavailable.');
+
+      const link = await getDiscordLinkByUserId(pool, req.authUser.id);
+      if (!link) {
+        return sendError(
+          reply,
+          404,
+          'NOT_FOUND',
+          'Discord account is not linked.',
+        );
+      }
+      // Remove OAuth credentials + link row. Import history and twin message
+      // authorship stay as historical records; users can re-link later.
+      const deleted = await deleteDiscordUserLink(pool, req.authUser.id);
+      if (!deleted) {
+        return sendError(
+          reply,
+          404,
+          'NOT_FOUND',
+          'Discord account is not linked.',
+        );
+      }
+      return reply.code(200).send({ ok: true });
     },
   );
 }

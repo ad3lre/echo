@@ -349,18 +349,60 @@ public final class EchoAuthenticationModel {
     defer { isWorking = false }
     do {
       let credential = try await AppleAuthorizationProvider().authorize()
-      let result = try await authenticationClient.signInWithApple(
-        identityToken: credential.identityToken, nonce: credential.nonce,
-        displayName: credential.displayName)
-      _ = await applyAuthResult(result)
-    } catch let error as EchoAuthenticationError {
-      _ = handleAuthChallenge(error)
+      try await finishAppleSignIn(credential)
     } catch let error as ASAuthorizationError where error.code == .canceled {
     } catch {
-      errorMessage =
-        (error as? LocalizedError)?.errorDescription
-        ?? EchoCopy.string("Apple sign-in couldn’t be completed. Please try again.")
+      presentAppleSignInFailure(error)
     }
+  }
+
+  /// Completes Sign in with Apple from `SignInWithAppleButton` (official HIG control).
+  func completeAppleSignIn(
+    _ result: Result<ASAuthorization, Error>,
+    rawNonce: String?
+  ) async {
+    switch result {
+    case .failure(let error as ASAuthorizationError) where error.code == .canceled:
+      return
+    case .failure(let error):
+      presentAppleSignInFailure(error)
+    case .success(let authorization):
+      guard
+        let appleCredential = authorization.credential as? ASAuthorizationAppleIDCredential
+      else {
+        presentAppleSignInFailure(EchoAuthenticationError.invalidResponse)
+        return
+      }
+      isWorking = true
+      errorMessage = nil
+      defer { isWorking = false }
+      do {
+        let credential = try AppleAuthorizationProvider.credential(
+          from: appleCredential, rawNonce: rawNonce)
+        try await finishAppleSignIn(credential)
+      } catch {
+        presentAppleSignInFailure(error)
+      }
+    }
+  }
+
+  private func finishAppleSignIn(_ credential: AppleAuthorizationProvider.Credential) async throws {
+    let result = try await authenticationClient.signInWithApple(
+      identityToken: credential.identityToken,
+      authorizationCode: credential.authorizationCode,
+      nonce: credential.nonce,
+      displayName: credential.displayName)
+    _ = await applyAuthResult(result)
+  }
+
+  private func presentAppleSignInFailure(_ error: Error) {
+    if let error = error as? EchoAuthenticationError {
+      _ = handleAuthChallenge(error)
+      return
+    }
+    errorMessage =
+      (error as? LocalizedError)?.errorDescription
+      ?? EchoCopy.string("Apple sign-in couldn’t be completed. Please try again.")
   }
 
   func dismissError() {

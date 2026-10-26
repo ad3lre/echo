@@ -1,12 +1,19 @@
 /**
  * Parses CORS_ORIGIN: single value or comma-separated list.
- * Default `true` reflects the request origin (non-production only). Auth uses `credentials: 'include'` — do not use `*`.
+ * Unset reflects the request origin only when NODE_ENV is development/test or ECHO_DEV=1; otherwise denies (empty list). Auth uses `credentials: 'include'` — do not use `*`.
  * In `NODE_ENV=production`, startup fails unless `CORS_ORIGIN` is a non-empty explicit list (see production checks below).
  * Include every UI origin (e.g. Vite `http://localhost:8080` and preview `http://localhost:4173`) when not using the default.
  */
 export function parseCorsOrigin(): string | string[] | true {
   const raw = process.env.CORS_ORIGIN;
-  if (raw === undefined || raw === '*' || raw === '') return true;
+  if (raw === undefined || raw === '*' || raw === '') {
+    // Reflect-any is a dev convenience only. Anywhere else (production, staging,
+    // unset NODE_ENV) fail closed: an empty allowlist denies every browser origin.
+    const env = process.env.NODE_ENV;
+    const devLike =
+      env === 'development' || env === 'test' || process.env.ECHO_DEV === '1';
+    return devLike ? true : [];
+  }
   const origins = raw
     .split(',')
     .map((o) => o.trim())

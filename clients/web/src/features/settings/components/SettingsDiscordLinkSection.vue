@@ -27,8 +27,10 @@ const {
   loading,
   actionError,
   connectBusy,
+  disconnectBusy,
   lastOAuthRedirectUri,
   onConnect,
+  onDisconnect,
   refresh,
 } = useDiscordLinkSettings();
 
@@ -219,7 +221,7 @@ function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
               <button
                 type="button"
                 class="primary-btn rounded-xl px-6 py-2.5 text-sm font-semibold disabled:opacity-50"
-                :disabled="connectBusy"
+                :disabled="connectBusy || disconnectBusy"
                 @click="onConnect"
               >
                 {{ connectBusy ? '…' : discordReconnectCta }}
@@ -227,7 +229,7 @@ function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
               <button
                 type="button"
                 class="settings-action rounded-xl px-6 py-2.5 text-sm font-semibold disabled:opacity-50"
-                :disabled="connectBusy || profileImportBusy"
+                :disabled="connectBusy || profileImportBusy || disconnectBusy"
                 @click="onImportProfileIntoEcho"
               >
                 {{
@@ -235,6 +237,14 @@ function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
                     ? echoT('b36.discordLink.importing')
                     : discordImportProfileIntoEchoCta()
                 }}
+              </button>
+              <button
+                type="button"
+                class="settings-action rounded-xl px-6 py-2.5 text-sm font-semibold text-red-400/95 disabled:opacity-50"
+                :disabled="connectBusy || disconnectBusy"
+                @click="onDisconnect"
+              >
+                {{ disconnectBusy ? 'Disconnecting…' : 'Disconnect Discord' }}
               </button>
             </div>
           </div>

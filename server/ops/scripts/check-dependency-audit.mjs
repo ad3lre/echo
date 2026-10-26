@@ -12,7 +12,9 @@
  * `server/ops/scripts/dependency-audit-allowlist.json` with a reason and an expiry date.
  *
  *   ECHO_AUDIT_LEVEL=high|critical|moderate   severity threshold (default high)
- *   ECHO_SKIP_DEP_AUDIT=1                      emergency local bypass (never in CI)
+ *   ECHO_SKIP_DEP_AUDIT=1                      emergency local bypass (ignored when CI=true)
+ *
+ * Every allowlist entry MUST carry a future `expires` date (YYYY-MM-DD).
  */
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -22,9 +24,17 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '../../..');
 
+const IN_CI = process.env.CI === 'true' || process.env.CI === '1';
+
 if (process.env.ECHO_SKIP_DEP_AUDIT === '1') {
-  console.log('[check:dep-audit] skipped via ECHO_SKIP_DEP_AUDIT=1');
-  process.exit(0);
+  if (IN_CI) {
+    console.error(
+      '[check:dep-audit] ECHO_SKIP_DEP_AUDIT=1 is ignored when CI=true (bypass not allowed in CI).',
+    );
+  } else {
+    console.log('[check:dep-audit] skipped via ECHO_SKIP_DEP_AUDIT=1');
+    process.exit(0);
+  }
 }
 
 const SEV_ORDER = { info: 0, low: 1, moderate: 2, high: 3, critical: 4 };
@@ -53,7 +63,13 @@ function ghsaId(adv) {
 function isAllowed(id) {
   const entry = allowlist.advisories?.[id];
   if (!entry) return false;
-  if (entry.expires && new Date(entry.expires) <= new Date()) {
+  if (!entry.expires || Number.isNaN(new Date(entry.expires).getTime())) {
+    console.error(
+      `[check:dep-audit] allowlist entry for ${id} has no valid "expires" date — rejected.`,
+    );
+    return false;
+  }
+  if (new Date(entry.expires) <= new Date()) {
     console.error(
       `[check:dep-audit] allowlist entry for ${id} EXPIRED on ${entry.expires} — re-evaluate.`,
     );
@@ -87,8 +103,14 @@ function runAudit() {
 
 const report = runAudit();
 if (!report || typeof report !== 'object') {
+  if (IN_CI) {
+    console.error(
+      '[check:dep-audit] FAIL: could not run bun audit (offline/registry?) and CI=true — refusing to pass.',
+    );
+    process.exit(1);
+  }
   console.warn(
-    '[check:dep-audit] WARN: could not run bun audit (offline/registry?). Not blocking.',
+    '[check:dep-audit] WARN: could not run bun audit (offline/registry?). Not blocking (local only).',
   );
   process.exit(0);
 }

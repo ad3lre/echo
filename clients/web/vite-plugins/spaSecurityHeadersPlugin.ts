@@ -6,7 +6,7 @@ import type { Plugin } from 'vite';
  *
  * Notes (intentional residual breadth for a self-hosted chat SPA):
  * - `style-src 'unsafe-inline'` — required for Vue scoped styles + KaTeX layout CSS.
- * - `connect-src … https: wss:` — self-hosters point API/LiveKit/media at arbitrary hosts;
+ * - `connect-src … https: wss://chat-echo.com wss://*.chat-echo.com wss://*.livekit.cloud` — https: stays broad (self-hosters point API/media/GIF providers at arbitrary hosts); wss: is limited to Echo + LiveKit Cloud (self-hosted LiveKit on another domain must add its wss:// origin);
  *   tighten at the edge (Caddy) for fixed production domains when known.
  * - `frame-src` is an explicit activity/embed allowlist (prefer shrink over `https:`).
  */
@@ -15,7 +15,7 @@ export const SPA_STRICT_TRANSPORT_SECURITY =
 
 /** `frame-src`: third-party iframes used by chat link embeds + VC activities (align with Echo CSP policy). */
 export const SPA_CONTENT_SECURITY_POLICY =
-  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' data: blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://openguessr.com https://skribbl.io https://garticphone.com https://www.garticphone.com https://krunker.io https://codenames.game https://richup.io https://gooberdash.winterpixel.io https://smashkarts.io https://www.y8.com https://clusterrush.io; upgrade-insecure-requests";
+  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss://chat-echo.com wss://*.chat-echo.com wss://*.livekit.cloud; media-src 'self' data: blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://openguessr.com https://skribbl.io https://garticphone.com https://www.garticphone.com https://krunker.io https://codenames.game https://richup.io https://gooberdash.winterpixel.io https://smashkarts.io https://www.y8.com https://clusterrush.io; upgrade-insecure-requests";
 
 const BLOCKED_DEPLOY_PATHS = new Set([
   '/_headers',

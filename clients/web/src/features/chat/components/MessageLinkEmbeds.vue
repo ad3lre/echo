@@ -6,7 +6,12 @@ import {
   playableIframeSrc,
   resolvePlayableVideoEmbed,
 } from '@shared/videoEmbedIds';
+import {
+  resolveEmbedCardPreviewImage,
+  type EmbedPreviewImage,
+} from '@shared/embedPreviewImage';
 import { urlHostnameMatchesSuffix } from '@/features/chat/composables/hostMatches';
+import { safeEmbedHref } from './safeEmbedHref';
 import MessageEmbedRemoteImg from './MessageEmbedRemoteImg.vue';
 import MessageEmbedMarkdown from './MessageEmbedMarkdown.vue';
 
@@ -57,10 +62,14 @@ async function toggleVideoExpand(i: number, embed: Embed, event: MouseEvent) {
   window.setTimeout(scrollEmbedIntoView, VIDEO_EXPAND_SCROLL_AFTER_MS);
 }
 
-function videoArticleMaxClass(i: number, embed: Embed) {
+function videoArticleMaxClass(
+  i: number,
+  embed: Embed,
+  preview: EmbedPreviewImage | undefined,
+) {
   if (!playableVideo(embed)) {
     /** Image / OG-style cards can read wider than compact text-only previews. */
-    return embed.image?.url?.trim()
+    return preview
       ? 'max-w-[min(100%,min(92vw,36rem))]'
       : 'max-w-[min(100%,32rem)]';
   }
@@ -151,8 +160,11 @@ function embedThumbImgClass(
     : 'block h-16 w-24 object-contain';
 }
 
-function isRichMedia(embed: Embed): boolean {
-  return Boolean(embed.image?.url?.trim()) || playableVideo(embed) != null;
+function isRichMedia(
+  embed: Embed,
+  preview: EmbedPreviewImage | undefined,
+): boolean {
+  return preview != null || playableVideo(embed) != null;
 }
 
 function formatEmbedTimestamp(raw: string | undefined): string {
@@ -173,18 +185,26 @@ function embedHasFooter(embed: Embed): boolean {
   return Boolean(embed.footer?.text?.trim() || embed.timestamp?.trim());
 }
 
-const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
+const list = computed(() =>
+  (props.embeds ?? [])
+    .filter((e) => !e.echoJump)
+    .map((embed) => ({
+      embed,
+      /** Raster `<img>` src — skips Discord gifv `.mp4` stored on `image`. */
+      preview: resolveEmbedCardPreviewImage(embed),
+    })),
+);
 </script>
 
 <template>
   <div class="message-link-embeds flex flex-col gap-2.5" v-spoiler-reveal>
     <article
-      v-for="(embed, i) in list"
+      v-for="({ embed, preview }, i) in list"
       :key="`${i}-${embed.url ?? embed.title ?? ''}`"
       class="message-link-embed relative w-full overflow-hidden rounded-lg bg-elevated shadow-md"
       :class="[
-        isRichMedia(embed) ? 'message-link-embed--rich' : '',
-        videoArticleMaxClass(i, embed),
+        isRichMedia(embed, preview) ? 'message-link-embed--rich' : '',
+        videoArticleMaxClass(i, embed, preview),
         isVideoExpanded(i, embed) ? 'scroll-my-4' : '',
       ]"
       :aria-label="
@@ -201,7 +221,10 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
         />
 
         <!-- Rich (video / large image): compact header + full-width thumb -->
-        <div v-if="isRichMedia(embed)" class="min-w-0 flex-1 flex flex-col">
+        <div
+          v-if="isRichMedia(embed, preview)"
+          class="min-w-0 flex-1 flex flex-col"
+        >
           <div class="px-3 pb-2 pt-3">
             <div
               v-if="embed.provider"
@@ -221,8 +244,8 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
                 compact
               />
               <a
-                v-if="embed.author.url"
-                :href="embed.author.url"
+                v-if="safeEmbedHref(embed.author.url)"
+                :href="safeEmbedHref(embed.author.url)"
                 class="hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -234,8 +257,8 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
             </div>
             <h3 class="mt-1 text-[15px] font-semibold leading-snug">
               <a
-                v-if="embed.url"
-                :href="embed.url"
+                v-if="safeEmbedHref(embed.url)"
+                :href="safeEmbedHref(embed.url)"
                 class="text-[#00a8fc] hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -330,7 +353,7 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
                   : echoT('b43.linkEmbeds.videoPlayer')
               "
               :allow="iframeAllow"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
               allowfullscreen
               loading="lazy"
               referrerpolicy="strict-origin-when-cross-origin"
@@ -338,31 +361,31 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
           </div>
 
           <a
-            v-else-if="embed.image?.url && embed.url"
-            :href="embed.url"
+            v-else-if="preview && safeEmbedHref(embed.url)"
+            :href="safeEmbedHref(embed.url)"
             class="message-link-embed__media group relative mt-0 block w-full overflow-hidden bg-scrim-1"
             target="_blank"
             rel="noopener noreferrer"
             @click.stop
-            :style="embedMediaAspectStyle(embed.image)"
+            :style="embedMediaAspectStyle(preview)"
           >
             <MessageEmbedRemoteImg
-              :src="embed.image.url"
+              :src="preview.url"
               alt=""
-              :img-class="embedMainImageImgClass(embed.image, true)"
+              :img-class="embedMainImageImgClass(preview, true)"
               rich-link-play-overlay
-              :rich-link-overlay-fill="embedMediaHasDims(embed.image)"
+              :rich-link-overlay-fill="embedMediaHasDims(preview)"
             />
           </a>
           <div
-            v-else-if="embed.image?.url"
+            v-else-if="preview"
             class="overflow-hidden bg-scrim-1"
-            :style="embedMediaAspectStyle(embed.image)"
+            :style="embedMediaAspectStyle(preview)"
           >
             <MessageEmbedRemoteImg
-              :src="embed.image.url"
+              :src="preview.url"
               alt=""
-              :img-class="embedMainImageImgClass(embed.image, false)"
+              :img-class="embedMainImageImgClass(preview, false)"
             />
           </div>
         </div>
@@ -374,14 +397,14 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
         >
           <div class="flex min-w-0 gap-3">
             <div
-              v-if="embed.thumbnail?.url"
+              v-if="preview"
               class="shrink-0 self-start overflow-hidden rounded-md bg-scrim-1"
-              :style="embedMediaAspectStyle(embed.thumbnail)"
+              :style="embedMediaAspectStyle(preview)"
             >
               <MessageEmbedRemoteImg
-                :src="embed.thumbnail.url"
+                :src="preview.url"
                 alt=""
-                :img-class="embedThumbImgClass(embed.thumbnail)"
+                :img-class="embedThumbImgClass(preview)"
                 compact
               />
             </div>
@@ -409,8 +432,8 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
                 class="mt-0.5 text-[15px] font-semibold leading-tight text-[#f2f3f5]"
               >
                 <a
-                  v-if="embed.url"
-                  :href="embed.url"
+                  v-if="safeEmbedHref(embed.url)"
+                  :href="safeEmbedHref(embed.url)"
                   class="text-[#00a8fc] hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"

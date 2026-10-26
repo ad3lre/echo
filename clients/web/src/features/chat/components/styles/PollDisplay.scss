@@ -15,7 +15,7 @@
   color: color-mix(in srgb, var(--muted) 72%, var(--accent) 28%);
 }
 
-:global([data-theme='light']) .poll-display {
+html[data-theme='light'] .poll-display {
   background: var(--echo-palette-fff-e08d);
   border-color: color-mix(in srgb, var(--border) 78%, transparent);
 
@@ -90,7 +90,7 @@
   }
 }
 
-:global([data-theme='light']) .poll-voters-modal {
+html[data-theme='light'] .poll-voters-modal {
   color: var(--text);
 
   &::before {

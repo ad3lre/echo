@@ -51,7 +51,7 @@ export function startBotInternalServer(client: Client) {
       const snapshot = getBotHealthSnapshot();
       res.statusCode = snapshot.status === 'ok' ? 200 : 503;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(snapshot));
+      res.end(JSON.stringify({ ok: snapshot.status === 'ok' }));
       return;
     }
 

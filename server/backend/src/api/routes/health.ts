@@ -10,30 +10,47 @@ import { getNatsConnection } from '../../db/nats';
 import { sendError } from '../errors';
 import { getEchoMetricsRegistry } from '../../observability/echoMetrics';
 
-function requireMetricsScrapeAuth(
+/** Bound scrape so a stuck prom-client collector cannot pin the request forever. */
+const METRICS_SCRAPE_TIMEOUT_MS = 5_000;
+
+function metricsAuthDenied(
   request: FastifyRequest,
   reply: FastifyReply,
-): void {
+): boolean {
   const token = config.echoMetricsScrapeToken?.trim();
   const requireAuth =
     config.isProduction ||
     (config.backendStorageMode === 'postgres' &&
       config.echoRequireMetricsScrapeTokenInProduction);
-  if (!requireAuth || !token) {
-    if (requireAuth && !token) {
-      sendError(
-        reply,
-        503,
-        'NOT_CONFIGURED',
-        'Metrics scrape token not configured',
-      );
-    }
-    return;
+  if (!token) {
+    if (!requireAuth) return false;
+    sendError(
+      reply,
+      503,
+      'NOT_CONFIGURED',
+      'Metrics scrape token not configured',
+    );
+    return true;
   }
+  // A configured token is always enforced (never silently open in dev/memory mode).
   const h = request.headers.authorization;
   if (h !== `Bearer ${token}`) {
     sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+    return true;
   }
+  return false;
+}
+
+async function collectMetricsExposition(): Promise<string> {
+  const registry = getEchoMetricsRegistry();
+  return await Promise.race([
+    registry.metrics(),
+    new Promise<string>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('metrics_scrape_timeout'));
+      }, METRICS_SCRAPE_TIMEOUT_MS);
+    }),
+  ]);
 }
 
 /**
@@ -92,12 +109,40 @@ export default async function healthRoutes(
     }
   });
 
-  fastify.get(
-    '/metrics',
-    { preHandler: [requireMetricsScrapeAuth] },
-    async (_req, reply) => {
-      const body = await getEchoMetricsRegistry().metrics();
+  /**
+   * Auth + collect + send in a single handler (no separate preHandler).
+   * Under Bun, a successful metrics preHandler followed by a route handler has
+   * been observed to never flush the response; doing the work inline avoids that.
+   */
+  fastify.get('/metrics', async (request, reply) => {
+    if (metricsAuthDenied(request, reply)) return;
+    try {
+      const body = await collectMetricsExposition();
+      if (reply.sent) return;
       return reply.type('text/plain; version=0.0.4').send(body);
-    },
-  );
+    } catch (error) {
+      if (reply.sent) return;
+      const timedOut =
+        error instanceof Error && error.message === 'metrics_scrape_timeout';
+      if (timedOut) {
+        fastify.log.error(
+          { timeoutMs: METRICS_SCRAPE_TIMEOUT_MS },
+          'Prometheus metrics scrape timed out',
+        );
+        return sendError(
+          reply,
+          503,
+          'METRICS_TIMEOUT',
+          'Metrics scrape timed out',
+        );
+      }
+      fastify.log.error(error, 'Prometheus metrics scrape failed');
+      return sendError(
+        reply,
+        500,
+        'INTERNAL_ERROR',
+        'Failed to collect metrics',
+      );
+    }
+  });
 }

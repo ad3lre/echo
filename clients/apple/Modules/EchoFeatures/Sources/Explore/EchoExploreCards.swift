@@ -74,6 +74,7 @@ struct EchoExploreFeaturedCard: View {
           cornerRadius: 12
         )
         .frame(width: 44, height: 44)
+        .allowsHitTesting(false)
 
         VStack(alignment: .leading, spacing: 4) {
           Text(listed.name)
@@ -98,6 +99,9 @@ struct EchoExploreFeaturedCard: View {
       }
       .padding(12)
     }
+    // Full-card hit surface so swipes starting on the footer (not only the
+    // banner) drive the parent horizontal ScrollView.
+    .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     .background {
       RoundedRectangle(cornerRadius: 20, style: .continuous)
         .fill(displayPrefs.elevated(colorScheme: colorScheme).opacity(isLight ? 0.92 : 0.88))
@@ -283,7 +287,8 @@ struct EchoExploreActionButton: View {
         }
       }
       .foregroundStyle(isJoined ? EchoTheme.Color.ink(0.92) : EchoTheme.Color.onAccent)
-      .frame(minWidth: 72, minHeight: 34)
+      .frame(minWidth: 72, minHeight: 44)
+      .padding(.horizontal, 4)
       .background(
         isJoined
           ? EchoTheme.Color.ink(0.14)
@@ -296,8 +301,10 @@ struct EchoExploreActionButton: View {
             .strokeBorder(EchoTheme.Color.ink(0.22), lineWidth: 1)
         }
       }
+      .contentShape(Capsule(style: .continuous))
     }
-    .buttonStyle(.plain)
+    // Yield pans to Explore’s vertical + featured horizontal scrolls; taps still fire.
+    .buttonStyle(.echoScrollFriendly)
     .disabled(isJoining)
     .accessibilityLabel(isJoined ? EchoCopy.string("Open") : EchoCopy.string("Join"))
   }

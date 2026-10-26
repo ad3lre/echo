@@ -44,7 +44,7 @@ async function main() {
     assert.equal(mapped?.footer?.text, 'Updated just now');
   });
 
-  run('maps Discord video embed media onto image', () => {
+  run('does not map Discord video mp4 onto image (breaks img previews)', () => {
     const mapped = mapDiscordApiEmbedToEcho({
       type: 'video',
       url: 'https://example.com/watch',
@@ -54,11 +54,37 @@ async function main() {
         width: 1280,
         height: 720,
       },
+      thumbnail: {
+        url: 'https://cdn.discordapp.com/thumb.webp',
+        width: 1280,
+        height: 720,
+      },
     });
 
-    assert.equal(mapped?.image?.url, 'https://cdn.discordapp.com/video.mp4');
-    assert.equal(mapped?.image?.width, 1280);
-    assert.equal(mapped?.image?.height, 720);
+    assert.equal(mapped?.image, undefined);
+    assert.equal(
+      mapped?.thumbnail?.url,
+      'https://cdn.discordapp.com/thumb.webp',
+    );
+    assert.equal(mapped?.thumbnail?.width, 1280);
+  });
+
+  run('maps Tenor gifv mp4 onto animated GIF image', () => {
+    const mapped = mapDiscordApiEmbedToEcho({
+      type: 'gifv',
+      url: 'https://tenor.com/view/cat-gif-123',
+      provider: { name: 'Tenor' },
+      video: {
+        url: 'https://media.tenor.com/LSI81MmB6gEAAAPo/cat-fear.mp4',
+        width: 498,
+        height: 280,
+      },
+    });
+
+    assert.equal(
+      mapped?.image?.url,
+      'https://media.tenor.com/LSI81MmB6gEAAAAC/cat-fear.gif',
+    );
   });
 
   run('returns undefined when embed array is empty', () => {

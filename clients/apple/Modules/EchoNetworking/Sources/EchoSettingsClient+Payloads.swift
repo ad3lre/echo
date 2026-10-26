@@ -28,3 +28,7 @@ struct SettingsErrorPayload: Decodable {
   let message: String?
   let detail: String?
 }
+
+struct BlockedUsersPayload: Decodable {
+  let blockedUserIds: [String]
+}

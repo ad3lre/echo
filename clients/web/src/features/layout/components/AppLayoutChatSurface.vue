@@ -441,7 +441,9 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :can-manage-stage-channel="
           !!chatCtx.liveChannelCapabilities?.canManageChannel
         "
-        :is-viewing-voice-channel="chatCtx.isViewingVoiceChannel"
+        :is-viewing-voice-channel="
+          chatCtx.isViewingVoiceChannel || vcActivitySurfaceOpen
+        "
         :isInDMMode="chatCtx.isInDMMode"
         :isInDMChat="chatCtx.isInDMChat"
         :active-dm-thread-call-ui="chatCtx.activeDmThreadCallUi"

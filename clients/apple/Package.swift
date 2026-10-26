@@ -24,9 +24,14 @@ let package = Package(
         "EchoDomain",
         .product(name: "SocketIO", package: "socket.io-client-swift"),
       ],
-      path: "Modules/EchoNetworking"
+      path: "Modules/EchoNetworking",
+      resources: [.process("PrivacyInfo.xcprivacy")]
     ),
-    .target(name: "EchoPersistence", path: "Modules/EchoPersistence"),
+    .target(
+      name: "EchoPersistence",
+      path: "Modules/EchoPersistence",
+      resources: [.process("PrivacyInfo.xcprivacy")]
+    ),
     .target(
       name: "EchoFeatures",
       dependencies: [

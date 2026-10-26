@@ -175,6 +175,8 @@ struct EchoExpressionPicker: View {
   let accessToken: String
   @Bindable var photos: EchoComposerPhotoLibrary
   var selectedPhotoIDs: [String] = []
+  /// When true, only the emoji tab is shown (message reactions).
+  var emojiOnly: Bool = false
   let onEmoji: (String) -> Void
   let onGIF: (EchoGIF) -> Void
   let onPhoto: (EchoComposerPhotoLibrary.Item) -> Void
@@ -186,6 +188,7 @@ struct EchoExpressionPicker: View {
     accessToken: String,
     photos: EchoComposerPhotoLibrary,
     selectedPhotoIDs: [String] = [],
+    emojiOnly: Bool = false,
     onEmoji: @escaping (String) -> Void,
     onGIF: @escaping (EchoGIF) -> Void,
     onPhoto: @escaping (EchoComposerPhotoLibrary.Item) -> Void
@@ -194,6 +197,7 @@ struct EchoExpressionPicker: View {
     self.accessToken = accessToken
     self.photos = photos
     self.selectedPhotoIDs = selectedPhotoIDs
+    self.emojiOnly = emojiOnly
     self.onEmoji = onEmoji
     self.onGIF = onGIF
     self.onPhoto = onPhoto
@@ -201,25 +205,31 @@ struct EchoExpressionPicker: View {
       initialValue: EchoExpressionPickerModel(baseURL: baseURL, accessToken: accessToken))
   }
 
+  private var visibleTabs: [EchoExpressionTab] {
+    emojiOnly ? [.emoji] : EchoExpressionTab.allCases
+  }
+
   var body: some View {
     @Bindable var model = model
     VStack(spacing: 8) {
-      HStack(spacing: 4) {
-        ForEach(EchoExpressionTab.allCases) { tab in
-          Button {
-            model.tab = tab
-            model.query = ""
-          } label: {
-            Label(tab.rawValue, systemImage: tab.icon)
-              .font(.system(size: 12, weight: .semibold, design: .rounded))
-              .frame(maxWidth: .infinity)
-              .padding(.vertical, 8)
-              .foregroundStyle(model.tab == tab ? EchoTheme.Color.fg : EchoTheme.Color.ink(0.48))
-              .background(
-                model.tab == tab ? EchoTheme.Color.ink(0.09) : .clear,
-                in: RoundedRectangle(cornerRadius: 9))
+      if !emojiOnly {
+        HStack(spacing: 4) {
+          ForEach(visibleTabs) { tab in
+            Button {
+              model.tab = tab
+              model.query = ""
+            } label: {
+              Label(tab.rawValue, systemImage: tab.icon)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .foregroundStyle(model.tab == tab ? EchoTheme.Color.fg : EchoTheme.Color.ink(0.48))
+                .background(
+                  model.tab == tab ? EchoTheme.Color.ink(0.09) : .clear,
+                  in: RoundedRectangle(cornerRadius: 9))
+            }
+            .buttonStyle(.plain)
           }
-          .buttonStyle(.plain)
         }
       }
 
@@ -239,7 +249,7 @@ struct EchoExpressionPicker: View {
       }
 
       Group {
-        switch model.tab {
+        switch emojiOnly ? .emoji : model.tab {
         case .emoji: emojiContent
         case .gifs: gifContent
         case .images: imageContent

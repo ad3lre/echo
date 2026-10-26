@@ -300,122 +300,49 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
   }
 }
 
-public struct EchoPollOption: Codable, Equatable, Sendable, Identifiable {
-  public let id: String
-  public let text: String
-  public let emoji: String?
-  public let votes: Int
-  public let voterIDs: [String]
-
-  public init(
-    id: String,
-    text: String,
-    emoji: String? = nil,
-    votes: Int = 0,
-    voterIDs: [String] = []
-  ) {
-    self.id = id
-    self.text = text
-    self.emoji = emoji
-    self.votes = votes
-    self.voterIDs = voterIDs
-  }
-
-  enum CodingKeys: String, CodingKey {
-    case id, text, emoji, votes
-    case voterIDs = "voterIds"
-  }
-
-  public init(from decoder: Decoder) throws {
-    let values = try decoder.container(keyedBy: CodingKeys.self)
-    id = try values.decode(String.self, forKey: .id)
-    text = try values.decode(String.self, forKey: .text)
-    emoji = try values.decodeIfPresent(String.self, forKey: .emoji)
-    votes = try values.decodeIfPresent(Int.self, forKey: .votes) ?? 0
-    voterIDs = try values.decodeIfPresent([String].self, forKey: .voterIDs) ?? []
-  }
-}
-
-public struct EchoPoll: Codable, Equatable, Sendable {
-  public let question: String
-  public let options: [EchoPollOption]
-  public let endsAt: String?
-  public let anonymous: Bool
-
-  public init(
-    question: String,
-    options: [EchoPollOption],
-    endsAt: String? = nil,
-    anonymous: Bool = false
-  ) {
-    self.question = question
-    self.options = options
-    self.endsAt = endsAt
-    self.anonymous = anonymous
-  }
-
-  enum CodingKeys: String, CodingKey { case question, options, endsAt, anonymous }
-
-  public init(from decoder: Decoder) throws {
-    let values = try decoder.container(keyedBy: CodingKeys.self)
-    question = try values.decode(String.self, forKey: .question)
-    options = try values.decode([EchoPollOption].self, forKey: .options)
-    endsAt = try values.decodeIfPresent(String.self, forKey: .endsAt)
-    anonymous = try values.decodeIfPresent(Bool.self, forKey: .anonymous) ?? false
-  }
-
-  public var totalVotes: Int {
-    options.reduce(0) { $0 + $1.votes }
-  }
-
-  public var hasEnded: Bool {
-    guard let endsAt, let end = Self.parseDate(endsAt) else { return false }
-    return end.timeIntervalSinceNow <= 0
-  }
-
-  public func hasVoted(userID: String) -> Bool {
-    options.contains { $0.voterIDs.contains(userID) }
-  }
-
-  public func isSelected(optionID: String, userID: String) -> Bool {
-    options.first { $0.id == optionID }?.voterIDs.contains(userID) == true
-  }
-
-  public func applyingVote(userID: String, optionID: String) -> EchoPoll {
-    guard options.contains(where: { $0.id == optionID }), !hasEnded else { return self }
-    let nextOptions = options.map { option -> EchoPollOption in
-      let votedHere = option.voterIDs.contains(userID)
-      if option.id == optionID {
-        guard !votedHere else { return option }
-        return EchoPollOption(
-          id: option.id, text: option.text, emoji: option.emoji,
-          votes: option.votes + 1, voterIDs: option.voterIDs + [userID])
-      }
-      guard votedHere else { return option }
-      return EchoPollOption(
-        id: option.id, text: option.text, emoji: option.emoji,
-        votes: max(0, option.votes - 1),
-        voterIDs: option.voterIDs.filter { $0 != userID })
-    }
-    return EchoPoll(
-      question: question, options: nextOptions, endsAt: endsAt, anonymous: anonymous)
-  }
-
-  public static func parseDate(_ value: String) -> Date? {
-    let fractional = ISO8601DateFormatter()
-    fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let date = fractional.date(from: value) { return date }
-    let basic = ISO8601DateFormatter()
-    basic.formatOptions = [.withInternetDateTime]
-    return basic.date(from: value)
-  }
-}
-
-/// Local outbound delivery for optimistic sends (never decoded from the API).
 public enum EchoMessageDelivery: Equatable, Sendable {
   case sent
   case uploading
   case failed
+}
+
+/// Aggregated reaction chip — mirrors web `MessageReaction`.
+public struct EchoMessageReaction: Codable, Equatable, Sendable, Identifiable, Hashable {
+  public var id: String { emoji }
+  public let emoji: String
+  public let count: Int
+  public let userIDs: [String]
+  public let firstReactionAt: String?
+
+  public init(
+    emoji: String,
+    count: Int,
+    userIDs: [String] = [],
+    firstReactionAt: String? = nil
+  ) {
+    self.emoji = emoji
+    self.count = count
+    self.userIDs = userIDs
+    self.firstReactionAt = firstReactionAt
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case emoji, count
+    case userIDs = "userIds"
+    case firstReactionAt
+  }
+
+  public init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    emoji = try values.decode(String.self, forKey: .emoji)
+    count = try values.decodeIfPresent(Int.self, forKey: .count) ?? 0
+    userIDs = try values.decodeIfPresent([String].self, forKey: .userIDs) ?? []
+    firstReactionAt = try values.decodeIfPresent(String.self, forKey: .firstReactionAt)
+  }
+
+  public func includes(userID: String) -> Bool {
+    userIDs.contains(where: { EchoUserIdentity.matches($0, userID) })
+  }
 }
 
 /// Subset of wire `embeds[]` needed to render Tenor/Giphy inline GIFs on Apple.
@@ -468,6 +395,7 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
   public let embeds: [EchoMessageEmbed]
   public let poll: EchoPoll?
   public let replyTo: EchoMessageReplyTo?
+  public let reactions: [EchoMessageReaction]
   public let delivery: EchoMessageDelivery
 
   public init(
@@ -485,6 +413,7 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     embeds: [EchoMessageEmbed] = [],
     poll: EchoPoll? = nil,
     replyTo: EchoMessageReplyTo? = nil,
+    reactions: [EchoMessageReaction] = [],
     delivery: EchoMessageDelivery = .sent
   ) {
     self.id = id
@@ -501,46 +430,76 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     self.embeds = embeds
     self.poll = poll
     self.replyTo = replyTo
+    self.reactions = reactions
     self.delivery = delivery
   }
 
   public func replacingPoll(_ poll: EchoPoll) -> EchoMessage {
-    EchoMessage(
-      id: id,
-      channelID: channelID,
-      authorID: authorID,
-      authorDisplayName: authorDisplayName,
-      authorAvatarURL: authorAvatarURL,
-      content: content,
-      timestamp: timestamp,
-      editedAt: editedAt,
-      isCurrentUser: isCurrentUser,
-      mentions: mentions,
-      attachments: attachments,
-      embeds: embeds,
-      poll: poll,
-      replyTo: replyTo,
-      delivery: delivery
-    )
+    copy(poll: poll)
   }
 
   public func withDelivery(_ delivery: EchoMessageDelivery) -> EchoMessage {
+    copy(delivery: delivery)
+  }
+
+  public func replacingReactions(_ reactions: [EchoMessageReaction]) -> EchoMessage {
+    copy(reactions: reactions)
+  }
+
+  public func replacingEditedContent(
+    _ content: String,
+    mentions: [EchoMessageMention]? = nil,
+    editedAt: Date?
+  ) -> EchoMessage {
+    copy(content: content, editedAt: editedAt, mentions: mentions ?? self.mentions)
+  }
+
+  /// Live `message:reactions` fan-out often strips `userIds`; keep self-highlight.
+  public func mergingFanoutReactions(
+    _ incoming: [EchoMessageReaction],
+    currentUserID: String
+  ) -> EchoMessage {
+    let previous = Dictionary(uniqueKeysWithValues: reactions.map { ($0.emoji, $0) })
+    let merged = incoming.map { next -> EchoMessageReaction in
+      if !next.userIDs.isEmpty { return next }
+      guard let prior = previous[next.emoji], prior.includes(userID: currentUserID) else {
+        return next
+      }
+      return EchoMessageReaction(
+        emoji: next.emoji,
+        count: next.count,
+        userIDs: [currentUserID],
+        firstReactionAt: next.firstReactionAt ?? prior.firstReactionAt
+      )
+    }
+    return replacingReactions(merged.filter { $0.count > 0 })
+  }
+
+  private func copy(
+    content: String? = nil,
+    editedAt: Date?? = nil,
+    mentions: [EchoMessageMention]? = nil,
+    poll: EchoPoll? = nil,
+    reactions: [EchoMessageReaction]? = nil,
+    delivery: EchoMessageDelivery? = nil
+  ) -> EchoMessage {
     EchoMessage(
       id: id,
       channelID: channelID,
       authorID: authorID,
       authorDisplayName: authorDisplayName,
       authorAvatarURL: authorAvatarURL,
-      content: content,
+      content: content ?? self.content,
       timestamp: timestamp,
-      editedAt: editedAt,
+      editedAt: editedAt ?? self.editedAt,
       isCurrentUser: isCurrentUser,
-      mentions: mentions,
+      mentions: mentions ?? self.mentions,
       attachments: attachments,
       embeds: embeds,
-      poll: poll,
+      poll: poll ?? self.poll,
       replyTo: replyTo,
-      delivery: delivery
+      reactions: reactions ?? self.reactions,
+      delivery: delivery ?? self.delivery
     )
   }
 

@@ -45,6 +45,20 @@ export function isInstancePolicyReadRequest(
   return path === '/api/v1/system/instance-policy';
 }
 
+/**
+ * Liveness + Prometheus scrape — must not share the global mutation bucket.
+ * Scrapers poll `/metrics` on a fixed interval; folding them into the 150/min
+ * budget causes false 429s and can leave hung `metrics()` work queued behind RL.
+ */
+export function isHealthOrMetricsRequest(
+  method: string,
+  rawUrl: string,
+): boolean {
+  if (method !== 'GET') return false;
+  const path = echoApiPath(rawUrl);
+  return path === '/api/v1/health' || path === '/api/v1/metrics';
+}
+
 /** Requests that should not consume the global 150/min mutation budget. */
 export function isEchoApiGlobalRateLimitExempt(
   method: string,
@@ -54,6 +68,7 @@ export function isEchoApiGlobalRateLimitExempt(
     isEchoApiReadRequest(method, rawUrl) ||
     isEchoReadStateWriteRequest(method, rawUrl) ||
     isAuthSessionReadRequest(method, rawUrl) ||
-    isInstancePolicyReadRequest(method, rawUrl)
+    isInstancePolicyReadRequest(method, rawUrl) ||
+    isHealthOrMetricsRequest(method, rawUrl)
   );
 }

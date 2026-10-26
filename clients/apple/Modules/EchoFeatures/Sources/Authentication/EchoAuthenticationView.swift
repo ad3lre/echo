@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 enum SocialProvider: String {
@@ -254,10 +255,13 @@ struct EchoAuthScreen: View {
       }
       .padding(.top, 64)
 
-      HStack(spacing: 12) {
-        EchoQuickAuthButton(provider: .apple) { Task { await model.continueWith(.apple) } }
+      EchoSignInWithAppleControl(mode: mode) { result, rawNonce in
+        Task { await model.completeAppleSignIn(result, rawNonce: rawNonce) }
       }
+      .frame(height: 48)
       .padding(.top, 30)
+      .disabled(model.isWorking)
+      .accessibilityLabel(EchoCopy.string("Continue with Apple"))
 
       HStack(spacing: 12) {
         Rectangle().fill(EchoTheme.Color.ink(0.10)).frame(height: 1)
@@ -407,31 +411,24 @@ private struct EchoAuthField: View {
   }
 }
 
-private struct EchoQuickAuthButton: View {
-  let provider: SocialProvider
-  let action: () -> Void
+/// Official Sign in with Apple control (HIG) — black/white styles track color scheme.
+private struct EchoSignInWithAppleControl: View {
+  let mode: EchoAuthMode
+  let onCompletion: (Result<ASAuthorization, Error>, String?) -> Void
+  @Environment(\.colorScheme) private var colorScheme
+  @State private var rawNonce: String?
+
   var body: some View {
-    Button(action: action) {
-      HStack(spacing: 9) {
-        if provider == .apple {
-          Image(systemName: "apple.logo").font(.system(size: 16, weight: .medium))
-        } else {
-          EchoCopy.text("G").font(.system(size: 17, weight: .bold, design: .rounded))
-            .foregroundStyle(
-              EchoTheme.Color.authAccentBlue)
-        }
-        Text(provider.rawValue).font(.system(size: 14, weight: .medium, design: .rounded))
-      }
-      .foregroundStyle(EchoTheme.Color.ink(0.90)).frame(maxWidth: .infinity, minHeight: 48)
-      .echoGlassBackground(cornerRadius: 15)
-      .overlay {
-        RoundedRectangle(cornerRadius: 15, style: .continuous).fill(
-          provider == .apple
-            ? EchoTheme.Color.ink(0.08) : EchoTheme.Color.authAccentBlueDeep.opacity(0.14))
-      }
+    SignInWithAppleButton(mode == .register ? .signUp : .signIn) { request in
+      let nonce = AppleAuthorizationProvider.makeRawNonce()
+      rawNonce = nonce
+      request.requestedScopes = [.fullName, .email]
+      request.nonce = AppleAuthorizationProvider.hashedNonce(for: nonce)
+    } onCompletion: { result in
+      onCompletion(result, rawNonce)
+      rawNonce = nil
     }
-    .buttonStyle(.plain)
-    .accessibilityLabel(EchoCopy.format("Continue with %@", provider.rawValue))
+    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
   }
 }
 

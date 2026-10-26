@@ -14,8 +14,10 @@ import {
   appleClaimIsTrue,
   verifyAppleIdentityToken,
 } from '../../services/integrations/appleOidc';
+import { exchangeAppleRefreshTokenBestEffort } from '../../services/integrations/appleSiwaTokens';
 import { tryJoinOfficialEchoServerOnSignup } from '../../services/auth/officialEchoServerOnSignup';
 import type { AuthUser } from '../../auth/types';
+import { mayLinkAppleByEmail } from '../../auth/appleEmailLink';
 import { getPgPool } from '../../db/pg';
 import {
   getUserIdByAppleSub,
@@ -24,6 +26,8 @@ import {
 
 type AppleLoginBody = {
   identityToken?: string;
+  /** Auth code exchanged for a refresh token when SIWA keys are set. */
+  authorizationCode?: string;
   nonce?: string;
   displayName?: string;
 };
@@ -129,7 +133,18 @@ export default async function appleOAuthRoutes(
       }
 
       if (!user && email) {
-        user = await store.findPasswordUserByEmail(email);
+        const candidate = await store.findPasswordUserByEmail(email);
+        if (candidate) {
+          if (!mayLinkAppleByEmail(emailVerifiedFromIdp, candidate)) {
+            return sendError(
+              reply,
+              409,
+              'oauth_email_conflict',
+              'An account with this email already exists. Sign in with your email and password instead.',
+            );
+          }
+          user = candidate;
+        }
       }
 
       if (!user) {
@@ -160,8 +175,17 @@ export default async function appleOAuthRoutes(
                 emailVerifiedFromIdp,
               });
             } else if (msg === 'EMAIL_IN_USE') {
-              user = await store.findPasswordUserByEmail(email);
-              if (!user) throw err;
+              const candidate = await store.findPasswordUserByEmail(email);
+              if (!candidate) throw err;
+              if (!mayLinkAppleByEmail(emailVerifiedFromIdp, candidate)) {
+                return sendError(
+                  reply,
+                  409,
+                  'oauth_email_conflict',
+                  'An account with this email already exists. Sign in with your email and password instead.',
+                );
+              }
+              user = candidate;
             } else {
               throw err;
             }
@@ -182,16 +206,28 @@ export default async function appleOAuthRoutes(
       }
 
       if (pool && user) {
+        const appleRefreshToken = await exchangeAppleRefreshTokenBestEffort(
+          req.body?.authorizationCode,
+          fastify.log,
+          { userId: user.id },
+        );
         try {
           await upsertAppleUserLink(pool, {
             userId: user.id,
             appleSub,
             appleEmail: email || null,
+            appleRefreshToken,
           });
         } catch (err) {
           fastify.log.warn(
             { err, userId: user.id },
             'apple_oauth_link_upsert_failed',
+          );
+          return sendError(
+            reply,
+            500,
+            'PERSIST_FAILED',
+            'Could not link your Apple account.',
           );
         }
       }

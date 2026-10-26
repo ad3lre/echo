@@ -18,14 +18,24 @@ struct EchoMessageComposer: View {
   let placeholder: String
   var onComposerTextChange: ((String) -> Void)? = nil
   @Binding var replyTo: EchoMessageReplyTo?
+  /// When set, send becomes “save edit” for this message id.
+  @Binding var editingMessage: EchoMessage?
   let onSend: @MainActor (EchoComposerSubmission) async throws -> Void
+  var onEdit: (@MainActor (String, String) async throws -> Void)? = nil
+  /// Bottom chrome height changed (panel / keyboard-adjacent) — stick timeline.
+  var onBottomChromeChange: (() -> Void)? = nil
+  /// Composer text field focus — arms first-tap keyboard rejection in the thread.
+  var onEditingFocusChange: ((Bool) -> Void)? = nil
 
   @State private var state = EchoComposerState()
   @State private var photos = EchoComposerPhotoLibrary()
   @State private var showingFileImporter = false
   @State private var showingPoll = false
   @State private var editorHeight: CGFloat = 20
+  @State private var seededEditID: String?
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
+
+  private var isEditing: Bool { editingMessage != nil }
 
   var body: some View {
     @Bindable var state = state
@@ -38,7 +48,12 @@ struct EchoMessageComposer: View {
           .padding(.horizontal, 6)
       }
 
-      if let replyTo {
+      if let editing = editingMessage {
+        EchoComposerEditBar(preview: editing.previewText) {
+          clearEdit()
+        }
+        .padding(.horizontal, 6)
+      } else if let replyTo {
         EchoComposerReplyBar(
           replyTo: replyTo,
           apiBaseURL: baseURL,
@@ -66,11 +81,13 @@ struct EchoMessageComposer: View {
       }
 
       HStack(alignment: .bottom, spacing: 4) {
-        composerButton(
-          .attachment, selected: state.panel == .attachments,
-          label: EchoCopy.string("Add attachment")
-        ) {
-          toggle(.attachments)
+        if !isEditing {
+          composerButton(
+            .attachment, selected: state.panel == .attachments,
+            label: EchoCopy.string("Add attachment")
+          ) {
+            toggle(.attachments)
+          }
         }
 
         ZStack(alignment: .leading) {
@@ -89,7 +106,12 @@ struct EchoMessageComposer: View {
             tokenCaretUTF16: $state.tokenCaretUTF16,
             pendingPreferredTokenOffset: $state.pendingPreferredTokenOffset,
             apiBaseURL: baseURL,
-            accessToken: accessToken
+            accessToken: accessToken,
+            onBeginEditing: {
+              closeAttachmentPanelIfNeeded()
+              onEditingFocusChange?(true)
+            },
+            onEndEditing: { onEditingFocusChange?(false) }
           )
           .frame(height: editorHeight)
         }
@@ -101,42 +123,89 @@ struct EchoMessageComposer: View {
         }
 
         Button {
-          Task { await send() }
+          Task {
+            if isEditing {
+              await saveEdit()
+            } else {
+              await send()
+            }
+          }
         } label: {
           Group {
             if state.isSending {
               ProgressView().controlSize(.small).tint(EchoTheme.Color.onAccent)
             } else {
-              Image(systemName: "paperplane.fill")
+              Image(systemName: isEditing ? "checkmark" : "paperplane.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .offset(x: -1, y: 1)
+                .offset(x: isEditing ? 0 : -1, y: isEditing ? 0 : 1)
             }
           }
-          .foregroundStyle(state.canSend ? EchoTheme.Color.onAccent : EchoTheme.Color.ink(0.30))
-          .frame(width: 36, height: 36)
-          .background(state.canSend ? composerAccent : EchoTheme.Color.ink(0.045), in: Circle())
+          .foregroundStyle(
+            (isEditing ? canSaveEdit : state.canSend)
+              ? EchoTheme.Color.onAccent : EchoTheme.Color.ink(0.30)
+          )
+          .frame(width: 44, height: 44)
+          .background(
+            (isEditing ? canSaveEdit : state.canSend)
+              ? composerAccent : EchoTheme.Color.ink(0.045),
+            in: Circle()
+          )
+          .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .disabled(!state.canSend)
+        .disabled(isEditing ? !canSaveEdit : !state.canSend)
         .keyboardShortcut(.return, modifiers: .command)
-        .accessibilityLabel(EchoCopy.string("Send message"))
-        .accessibilityHint(EchoCopy.string("Command Return to send"))
+        .accessibilityLabel(
+          isEditing ? EchoCopy.string("Save edit") : EchoCopy.string("Send message")
+        )
+        .accessibilityHint(
+          isEditing
+            ? EchoCopy.string("Command Return to save")
+            : EchoCopy.string("Command Return to send")
+        )
       }
       .padding(.horizontal, 7)
       .padding(.vertical, 7)
-      .background(composerSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-      .overlay {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
-          .stroke(EchoTheme.Color.ink(0.085), lineWidth: 1)
-      }
-      .echoShadow(color: .black.opacity(0.42), radius: 18, y: 8)
+      // Floating liquid glass — blur does the separation; light mode stays shadowless.
+      .echoLiquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), shadow: true)
     }
+    // Transparent outer chrome so the conversation scrolls behind the float —
+    // no solid band under the home indicator.
     .padding(.horizontal, 12)
-    .padding(.top, 7)
-    .padding(.bottom, 10)
-    .animation(.spring(response: 0.28, dampingFraction: 0.86), value: state.panel)
-    .onChange(of: state.text) { _, text in
+    .padding(.top, 2)
+    .padding(.bottom, 2)
+    .background(Color.clear)
+    // Shorter than spring — large inset animation left rare gaps under messages.
+    .animation(.easeOut(duration: 0.2), value: state.panel)
+    .onChange(of: state.text) { previous, text in
       onComposerTextChange?(text)
+      // Selected photos then started typing → tuck the plus panel away.
+      if state.panel == .attachments, text != previous {
+        closeAttachmentPanelIfNeeded()
+      }
+    }
+    .onChange(of: state.panel) { _, _ in
+      // Let safeAreaInset settle, then ask the timeline to re-stick.
+      Task { @MainActor in
+        await Task.yield()
+        onBottomChromeChange?()
+      }
+    }
+    .onChange(of: editingMessage?.id) { _, id in
+      guard let editing = editingMessage, id != nil else {
+        if seededEditID != nil {
+          seededEditID = nil
+        }
+        return
+      }
+      guard seededEditID != editing.id else { return }
+      seededEditID = editing.id
+      replyTo = nil
+      state.replyTo = nil
+      state.reset()
+      state.text = editing.content
+      state.panel = nil
+      onComposerTextChange?(editing.content)
     }
     .fileImporter(
       isPresented: $showingFileImporter,
@@ -156,12 +225,38 @@ struct EchoMessageComposer: View {
     }
   }
 
-  private var composerSurface: Color {
-    EchoTheme.Color.elevatedMid
-  }
-
   private var composerAccent: Color {
     EchoTheme.Color.indigo
+  }
+
+  private var canSaveEdit: Bool {
+    guard !state.isSending, let editing = editingMessage else { return false }
+    let trimmed = state.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    return !trimmed.isEmpty && trimmed != editing.content
+  }
+
+  private func clearEdit() {
+    editingMessage = nil
+    seededEditID = nil
+    state.reset()
+    onComposerTextChange?("")
+  }
+
+  @MainActor
+  private func saveEdit() async {
+    guard canSaveEdit, let editing = editingMessage, let onEdit else { return }
+    let content = state.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    state.isSending = true
+    state.errorMessage = nil
+    do {
+      try await onEdit(editing.id, content)
+      clearEdit()
+    } catch {
+      state.errorMessage =
+        (error as? LocalizedError)?.errorDescription
+        ?? EchoCopy.string("Couldn’t save edit.")
+    }
+    state.isSending = false
   }
 
   @ViewBuilder
@@ -200,9 +295,9 @@ struct EchoMessageComposer: View {
   ) -> some View {
     Button(action: action) {
       composerIcon(icon, selected: selected)
-        .frame(width: icon == .emoji ? 36 : 32, height: 36)
+        .frame(width: 44, height: 44)
         .background(selected ? composerAccent.opacity(0.72) : .clear, in: Circle())
-        .contentShape(Circle())
+        .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .accessibilityLabel(label)
@@ -225,6 +320,11 @@ struct EchoMessageComposer: View {
   private func toggle(_ panel: EchoComposerPanel) {
     state.panel = state.panel == panel ? nil : panel
     state.errorMessage = nil
+  }
+
+  private func closeAttachmentPanelIfNeeded() {
+    guard state.panel == .attachments else { return }
+    state.panel = nil
   }
 
   private func togglePhoto(_ item: EchoComposerPhotoLibrary.Item) {

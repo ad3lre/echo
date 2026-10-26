@@ -24,7 +24,7 @@ struct EchoConversationHeader: View {
         Image(systemName: "arrow.left")
           .font(.system(size: 17, weight: .semibold))
           .foregroundStyle(EchoTheme.Color.ink(0.88))
-          .frame(width: 38, height: 38)
+          .frame(width: 44, height: 44)
           .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
@@ -84,6 +84,7 @@ struct EchoConversationHeader: View {
             .foregroundStyle(EchoTheme.Color.ink(0.34))
             .padding(.leading, 1)
         }
+        // Fill the middle so roughly tapping near the name / avatar still opens.
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
       }
@@ -120,7 +121,11 @@ struct EchoConversationHeader: View {
     .padding(.top, 8)
     .padding(.bottom, 12)
     .frame(maxWidth: .infinity)
-    .background(EchoTheme.Color.canvas)
+    // Screen-aligned wash into the notch — matches the thread canvas below.
+    .background {
+      EchoAlignedConversationWash()
+        .ignoresSafeArea(edges: .top)
+    }
   }
 
   private func conversationAction(
@@ -136,7 +141,8 @@ struct EchoConversationHeader: View {
         .foregroundStyle(
           emphasized ? EchoTheme.Color.indigoSoft : EchoTheme.Color.ink(0.68)
         )
-        .frame(width: 31, height: 34)
+        // ~44pt comfort zone — near-miss taps still count as intentional.
+        .frame(width: 44, height: 44)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
@@ -219,5 +225,19 @@ struct EchoConversationBackground: View {
         )
       }
     }
+  }
+}
+
+/// Conversation wash aligned to the global screen so notch / header bleeds
+/// don’t restart the ambient glow as a flatter band.
+struct EchoAlignedConversationWash: View {
+  var body: some View {
+    GeometryReader { geo in
+      let frame = geo.frame(in: .global)
+      EchoConversationBackground()
+        .frame(width: frame.width, height: max(frame.maxY + 520, 1100))
+        .offset(y: -frame.minY)
+    }
+    .allowsHitTesting(false)
   }
 }

@@ -11,11 +11,15 @@ export type EchoServerMemberOrchestrationDeps = {
   selectedServerId: Ref<string | null>;
 };
 
+/** Skip redundant `/members` while a fresh workspace roster is already in memory. */
+const MEMBER_ROSTER_FRESH_TTL_MS = 60_000;
+
 export function createEchoServerMemberOrchestration(
   deps: EchoServerMemberOrchestrationDeps,
 ) {
   const { authSession, echoSession, selectedServerId } = deps;
   const inFlight = new Set<string>();
+  const lastOkAtByServer = new Map<string, number>();
 
   async function fetchMembersForServer(serverId: string) {
     if (!serverId || serverId === 'echo') return;
@@ -30,6 +34,34 @@ export function createEchoServerMemberOrchestration(
       });
       return;
     }
+
+    const ids = echoSession.serverMemberIds[serverId];
+    const roster = echoSession.workspaceMembersByServer[serverId];
+    const knownCount = Math.max(
+      Array.isArray(ids) ? ids.length : 0,
+      Array.isArray(roster) ? roster.length : 0,
+    );
+    if (knownCount > 0) {
+      const lastOk = lastOkAtByServer.get(serverId);
+      if (lastOk == null) {
+        // Workspace hydrate already filled the roster — skip the duplicate GET.
+        lastOkAtByServer.set(serverId, Date.now());
+        dbgMemberList('fetchMembersForServer SKIP (roster already present)', {
+          serverId,
+          knownCount,
+        });
+        return;
+      }
+      if (Date.now() - lastOk < MEMBER_ROSTER_FRESH_TTL_MS) {
+        dbgMemberList('fetchMembersForServer SKIP (fresh roster)', {
+          serverId,
+          knownCount,
+          ageMs: Date.now() - lastOk,
+        });
+        return;
+      }
+    }
+
     const token = authSession.accessToken?.trim() || '__session__';
 
     inFlight.add(serverId);
@@ -48,6 +80,7 @@ export function createEchoServerMemberOrchestration(
           : [],
       });
       echoSession.mergeMembersByServer({ [serverId]: members });
+      lastOkAtByServer.set(serverId, Date.now());
       dbgMemberList('fetchMembersForServer MERGED', { serverId });
     } catch (err) {
       reportPrimaryFlowFailure('fetchMembersForServer', err, { serverId });

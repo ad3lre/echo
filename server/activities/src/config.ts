@@ -38,14 +38,33 @@ export function normalizeRoutePath(
  * when unset we reflect the request origin (dev-friendly, same posture as the
  * backend's `corsOrigin: true`). Lock this down via env in production.
  */
+/** Insecure dev fallbacks (default secrets, reflect-any CORS) are only allowed here. */
+export function isDevLikeEnv(): boolean {
+  const e = process.env.NODE_ENV;
+  return e === 'development' || e === 'test' || process.env.ECHO_DEV === '1';
+}
+
+function requireSecret(value: string | undefined, names: string): string {
+  if (value) return value;
+  if (isDevLikeEnv()) return 'dev-insecure-secret';
+  throw new Error(
+    `${names} must be set unless NODE_ENV is development/test or ECHO_DEV=1.`,
+  );
+}
+
 function resolveCorsOrigin(): string[] | true {
   const raw = env('GAME_SERVER_CORS_ORIGIN');
-  if (!raw) return true;
-  const list = raw
+  const list = (raw ?? '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  return list.length ? list : true;
+  if (list.length) return list;
+  if (!isDevLikeEnv()) {
+    throw new Error(
+      'GAME_SERVER_CORS_ORIGIN must be set to an explicit allowlist unless NODE_ENV is development/test or ECHO_DEV=1.',
+    );
+  }
+  return true;
 }
 
 export const gameServerConfig = {
@@ -59,13 +78,15 @@ export const gameServerConfig = {
    * the backend's `JWT_SECRET` (so a single dev secret works out of the box).
    * `dev-insecure-secret` mirrors the backend fallback — never used in prod.
    */
-  gameTokenSecret:
-    env('GAME_SERVER_JWT_SECRET') ?? env('JWT_SECRET') ?? 'dev-insecure-secret',
+  gameTokenSecret: requireSecret(
+    env('GAME_SERVER_JWT_SECRET') ?? env('JWT_SECRET'),
+    'GAME_SERVER_JWT_SECRET (or JWT_SECRET)',
+  ),
   /** Verifies HMAC-signed forwarded calls from the backend (membership/result hooks). */
-  echoForwardSecret:
-    env('GAME_SERVER_FORWARD_SECRET') ??
-    env('JWT_SECRET') ??
-    'dev-insecure-secret',
+  echoForwardSecret: requireSecret(
+    env('GAME_SERVER_FORWARD_SECRET') ?? env('JWT_SECRET'),
+    'GAME_SERVER_FORWARD_SECRET (or JWT_SECRET)',
+  ),
   natsUrl: env('NATS_URL') ?? null,
   /** Echo backend base URL for tunneled game S2C relay (HMAC POST). */
   echoRelayBaseUrl:

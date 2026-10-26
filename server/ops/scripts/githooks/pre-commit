@@ -6,6 +6,9 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
 if [[ -n "${ECHO_GOD_FILE_RATCHET_BYPASS:-}" ]]; then
+  echo "" >&2
+  echo "!!!!! pre-commit: ECHO_GOD_FILE_RATCHET_BYPASS is SET — god-file/charter/placement checks BYPASSED (user=$(id -un 2>/dev/null || echo ?)). Hooks are advisory; CI is the enforcement. !!!!!" >&2
+  echo "" >&2
   exit 0
 fi
 

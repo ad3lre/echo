@@ -443,4 +443,24 @@ private final class StubTimelineLoading: EchoMessageTimelineLoading, @unchecked 
     pinnedIDs = pinnedIDs.filter { $0 != messageID }
     return pinnedIDs
   }
+
+  func editMessage(
+    accessToken _: String, channelID _: String, messageID _: String, content _: String
+  ) async throws {}
+
+  func deleteMessage(
+    accessToken _: String, channelID _: String, messageID _: String
+  ) async throws {}
+
+  func addReaction(
+    accessToken _: String, channelID _: String, messageID _: String, emoji: String
+  ) async throws -> [EchoMessageReaction] {
+    [EchoMessageReaction(emoji: emoji, count: 1, userIDs: ["user-me"])]
+  }
+
+  func removeReaction(
+    accessToken _: String, channelID _: String, messageID _: String, emoji _: String
+  ) async throws -> [EchoMessageReaction] {
+    []
+  }
 }

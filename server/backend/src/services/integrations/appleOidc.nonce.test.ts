@@ -27,4 +27,10 @@ describe('appleIdTokenNonceMatches', () => {
     assert.equal(appleIdTokenNonceMatches(other, raw), false);
     assert.equal(appleIdTokenNonceMatches('', raw), false);
   });
+
+  it('fails closed when the expected nonce is empty', () => {
+    assert.equal(appleIdTokenNonceMatches('anything', ''), false);
+    assert.equal(appleIdTokenNonceMatches(undefined, '  '), false);
+    assert.equal(appleIdTokenNonceMatches('', ''), false);
+  });
 });

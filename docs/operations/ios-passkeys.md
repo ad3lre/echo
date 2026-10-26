@@ -4,9 +4,15 @@ Echo iOS passkeys depend on both app entitlements and the public webcredentials 
 
 ## App entitlement
 
-[`clients/apple/Resources/iOS/EchoiOS.entitlements`](../../clients/apple/Resources/iOS/EchoiOS.entitlements) must include:
+[`clients/apple/Resources/iOS/EchoiOS.entitlements`](../../clients/apple/Resources/iOS/EchoiOS.entitlements) (and `project.yml`) must include Sign in with Apple, APNs, and Associated Domains:
 
 ```xml
+<key>com.apple.developer.applesignin</key>
+<array>
+  <string>Default</string>
+</array>
+<key>com.apple.developer.aps-environment</key>
+<string>$(APS_ENVIRONMENT)</string>
 <key>com.apple.developer.associated-domains</key>
 <array>
   <string>webcredentials:chat-echo.com</string>
@@ -14,7 +20,21 @@ Echo iOS passkeys depend on both app entitlements and the public webcredentials 
 </array>
 ```
 
-macOS uses [`clients/apple/Resources/macOS/EchoMacOS.entitlements`](../../clients/apple/Resources/macOS/EchoMacOS.entitlements) for Shared Web Credentials.
+These capabilities require a **paid** Apple Developer Program membership. macOS uses [`clients/apple/Resources/macOS/EchoMacOS.entitlements`](../../clients/apple/Resources/macOS/EchoMacOS.entitlements) for Shared Web Credentials.
+
+## Sign in with Apple token revoke (account deletion)
+
+Native login sends Apple’s one-time `authorizationCode`. When configured, the API
+exchanges it for a refresh token (`auth_apple_user_links.apple_refresh_token`) and
+revokes that token via `https://appleid.apple.com/auth/revoke` on `DELETE /me`
+(TN3194 / App Review 5.1.1(v)).
+
+Set all of:
+
+- `APPLE_SIWA_KEY_ID` — Key ID for a .p8 key with **Sign in with Apple** enabled
+- `APPLE_SIWA_KEY_P8` — PKCS#8 PEM (inline; `\n` escapes OK)
+- `APPLE_SIWA_TEAM_ID` — optional; falls back to `APNS_TEAM_ID`
+- `APPLE_SIWA_CLIENT_ID` — optional; defaults to `com.echo.ios` / `APPLE_CLIENT_IDS`
 
 ## Domain association
 

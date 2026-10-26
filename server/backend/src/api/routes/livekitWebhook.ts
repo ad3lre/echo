@@ -4,7 +4,11 @@ import { WebhookReceiver } from 'livekit-server-sdk';
 import { config } from '../../config';
 import { getPgPool } from '../../db/pg';
 import { sendError } from '../errors';
-import { parseLiveKitRoomName } from '../../services/livekit/livekitAdapter';
+import {
+  liveKitRoomName,
+  parseLiveKitRoomName,
+  removeLiveKitParticipant,
+} from '../../services/livekit/livekitAdapter';
 import {
   clearVoiceMediaKeysForChannel,
   echoDmVoiceE2eeRequired,
@@ -21,6 +25,7 @@ import {
   publishEchoWorkspaceEvent,
   publishVoiceRosterDelta,
 } from '../../platform/echoPlatformEvents';
+import { userMayRemainInLiveKitVoiceRoom } from '../../services/echoVoiceAccessEnforcement';
 import { acceptLiveKitWebhookOnce } from '../../services/livekit/webhookReplayCache';
 
 let receiver: WebhookReceiver | null = null;
@@ -227,6 +232,76 @@ export default async function livekitWebhookRoutes(
         identity,
       });
       echoLivekitWebhookEventTotal.labels('participant_joined').inc();
+      // Stale join JWTs remain valid until TTL after kick/block/removal.
+      // Guild: REST `livekit-session` / voice join inserts the roster row *before*
+      // minting the token, so a webhook join with no row means reconnect-after-kick
+      // (or forged presence) — never mint roster from LiveKit alone.
+      // DM: mint does not pre-insert; membership is checked via userMayRemain…
+      let joinForbiddenReason: string | null = null;
+      if (serverId !== ECHO_DM_REALM_SERVER_ID) {
+        const preexisting = await pool.query(
+          `SELECT 1 FROM echo_voice_participants
+           WHERE server_id = $1 AND channel_id = $2 AND user_id = $3
+           LIMIT 1`,
+          [serverId, channelId, identity],
+        );
+        if (preexisting.rows.length === 0) {
+          joinForbiddenReason = 'missing_rest_join';
+        }
+      }
+      if (
+        !joinForbiddenReason &&
+        !(await userMayRemainInLiveKitVoiceRoom(
+          pool,
+          serverId,
+          channelId,
+          identity,
+        ))
+      ) {
+        joinForbiddenReason = 'access_revoked';
+      }
+      if (joinForbiddenReason) {
+        vcTrace(req.log, 'livekit.webhook:participant_joined_forbidden', {
+          serverId,
+          channelId,
+          identity,
+          reason: joinForbiddenReason,
+        });
+        req.log.warn(
+          `[LiveKit:Webhook] rejecting unauthorized join (${joinForbiddenReason}) — user=${identity} server=${serverId} channel=${channelId}`,
+        );
+        echoLivekitWebhookEventTotal
+          .labels('participant_joined_forbidden')
+          .inc();
+        await pool.query(
+          `DELETE FROM echo_voice_participants
+           WHERE server_id = $1 AND channel_id = $2 AND user_id = $3`,
+          [serverId, channelId, identity],
+        );
+        if (config.liveKitEnabled) {
+          try {
+            await removeLiveKitParticipant(
+              liveKitRoomName(serverId, channelId),
+              identity,
+            );
+          } catch (e) {
+            vcTrace(req.log, 'livekit.webhook:reject_remove_failed', {
+              serverId,
+              channelId,
+              identity,
+              err: e instanceof Error ? e.message : String(e),
+            });
+            req.log.warn(
+              { err: e, serverId, channelId, identity },
+              '[LiveKit] removeParticipant after unauthorized join failed',
+            );
+          }
+        }
+        vcTrace(req.log, 'livekit.webhook:done', {
+          early: 'participant_joined_forbidden',
+        });
+        return reply.code(200).send({ ok: true });
+      }
       req.log.info(
         `[LiveKit:Webhook] ✓ participant_joined — user=${identity} server=${serverId} channel=${channelId}`,
       );

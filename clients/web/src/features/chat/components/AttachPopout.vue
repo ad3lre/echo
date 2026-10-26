@@ -158,7 +158,7 @@ function handleCreatePoll() {
   box-shadow: none;
 }
 
-:global([data-theme='light']) .attach-popout.chat-liquid-glass-menu {
+html[data-theme='light'] .attach-popout.chat-liquid-glass-menu {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   background-color: var(--echo-menu-bg);
@@ -166,11 +166,11 @@ function handleCreatePoll() {
   box-shadow: none;
 }
 
-:global([data-theme='light']) .attach-popout::after {
+html[data-theme='light'] .attach-popout::after {
   border-top-color: var(--echo-menu-bg);
 }
 
-:global([data-theme='light']) .attach-popout[data-placement='down']::after {
+html[data-theme='light'] .attach-popout[data-placement='down']::after {
   border-bottom-color: var(--echo-menu-bg);
 }
 </style>

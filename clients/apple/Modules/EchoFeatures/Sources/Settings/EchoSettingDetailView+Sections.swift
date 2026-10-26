@@ -136,6 +136,14 @@ extension EchoSettingDetailView {
           icon: "xmark.circle.fill", tint: .red, role: .destructive
         ) { model.disconnectGoogle() }
         .disabled(model.isDisconnectingExternalLink)
+      } else if route == .discord, model.externalLinkStatus == true {
+        EchoSettingAction(
+          title: model.isDisconnectingExternalLink
+            ? EchoCopy.string("Disconnecting…") : EchoCopy.string("Disconnect Discord"),
+          subtitle: EchoCopy.string("Remove Discord sign-in and linked access"),
+          icon: "xmark.circle.fill", tint: .red, role: .destructive
+        ) { model.disconnectDiscord() }
+        .disabled(model.isDisconnectingExternalLink)
       } else if let providerID {
         EchoSettingAction(
           title: model.linkingProvider == providerID
@@ -151,11 +159,9 @@ extension EchoSettingDetailView {
         .disabled(model.linkingProvider != nil)
       }
       Text(
-        route == .discord && model.externalLinkStatus == true
-          ? EchoCopy.string("Discord unlinking is managed by Echo support.")
-          : EchoCopy.string(
-            "You will complete authorization in Apple’s secure browser session and return to Echo when finished."
-          )
+        EchoCopy.string(
+          "You will complete authorization in Apple’s secure browser session and return to Echo when finished."
+        )
       ).font(.footnote).foregroundStyle(.secondary)
     }
   }

@@ -15,6 +15,9 @@
  *   ECHO_BACKUP_S3_SECRET_KEY - Write-only secret
  *   ECHO_BACKUP_S3_PREFIX     - Optional prefix (default: "postgres")
  *   ECHO_BACKUP_TMP_DIR       - Optional temp dir (default: /tmp)
+ *   ECHO_BACKUP_ENCRYPTION_KEY - Optional AES-256-GCM key (64 hex or base64 of 32 bytes). When set,
+ *                               uploads `<date>.dump.enc` (decrypt with pg-dump-decrypt.mjs).
+ *                               Required when NODE_ENV=production unless ECHO_BACKUP_ALLOW_PLAINTEXT=1.
  *
  * Prerequisites:
  *   - pg_dump (postgresql-client)
@@ -27,6 +30,11 @@ import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
+import {
+  encryptFile,
+  parseBackupKey,
+  resolveBackupMode,
+} from './backup-crypto.mjs';
 
 const REQUIRED_ENV = [
   'DATABASE_URL',
@@ -155,6 +163,8 @@ async function main() {
   log('info', 'Echo backup upload starting');
 
   checkEnv();
+  // Fail closed before dumping: production requires client-side encryption.
+  const backupMode = resolveBackupMode(process.env);
 
   const prefix = (process.env.ECHO_BACKUP_S3_PREFIX || 'postgres').replace(
     /^\/+|\/+$/g,
@@ -168,6 +178,7 @@ async function main() {
 
   let tempDir = null;
   let dumpPath = null;
+  let encPath = null;
 
   try {
     // Create secure temp directory
@@ -177,16 +188,32 @@ async function main() {
     // Run backup
     dumpPath = await runPgDump(tempDir);
 
+    let uploadPath = dumpPath;
+    let ext = 'dump';
+    if (backupMode === 'encrypt') {
+      encPath = `${dumpPath}.enc`;
+      await encryptFile(
+        dumpPath,
+        encPath,
+        parseBackupKey(process.env.ECHO_BACKUP_ENCRYPTION_KEY),
+      );
+      uploadPath = encPath;
+      ext = 'dump.enc';
+      log('info', 'Backup encrypted (AES-256-GCM)');
+    } else {
+      log('warn', 'Uploading PLAINTEXT backup (no ECHO_BACKUP_ENCRYPTION_KEY)');
+    }
+
     // Upload to daily/
-    const dailyKey = `${prefix}/daily/${dateStr}.dump`;
-    await uploadToS3(dumpPath, dailyKey);
-    await writeAndUploadChecksum(dumpPath, dailyKey);
+    const dailyKey = `${prefix}/daily/${dateStr}.${ext}`;
+    await uploadToS3(uploadPath, dailyKey);
+    await writeAndUploadChecksum(uploadPath, dailyKey);
 
     // On Sunday, also upload to weekly/
     if (isSunday) {
-      const weeklyKey = `${prefix}/weekly/${dateStr}.dump`;
-      await uploadToS3(dumpPath, weeklyKey);
-      await writeAndUploadChecksum(dumpPath, weeklyKey);
+      const weeklyKey = `${prefix}/weekly/${dateStr}.${ext}`;
+      await uploadToS3(uploadPath, weeklyKey);
+      await writeAndUploadChecksum(uploadPath, weeklyKey);
       log('info', 'Weekly backup created (Sunday)', { key: weeklyKey });
     }
 
@@ -202,6 +229,7 @@ async function main() {
     // Cleanup
     try {
       if (dumpPath) await unlink(dumpPath);
+      if (encPath) await unlink(encPath);
       if (tempDir) await rmdir(tempDir);
     } catch (cleanupErr) {
       log('warn', 'Cleanup warning (non-fatal)', { error: cleanupErr.message });

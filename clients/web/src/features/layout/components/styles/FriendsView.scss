@@ -113,7 +113,7 @@
   );
 }
 
-:global([data-theme='light']) .friends-tab--add-active {
+html[data-theme='light'] .friends-tab--add-active {
   color: var(--echo-palette-1d4ed8-d139);
   background: color-mix(
     in srgb,

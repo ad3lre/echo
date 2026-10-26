@@ -186,8 +186,10 @@ const scrollGestureActive = inject<Ref<boolean>>(
   MESSAGE_LIST_SCROLL_GESTURE_ACTIVE_KEY,
   ref(false),
 );
-/** Phase 4: keep row mounted; skip costly embed/GIF/reaction subtrees during scroll. */
-const throttleHeavyDescendants = computed(() => scrollGestureActive.value);
+/** Hide action bar during scroll; keep embeds/reactions mounted (height stable). */
+const hideFloatingChromeDuringScroll = computed(
+  () => scrollGestureActive.value,
+);
 
 const magicTimeContext = computed((): MagicTimeRenderContext | null => {
   void timeLanguagePrefsEpoch.value;
@@ -861,7 +863,7 @@ watch(
 const showActionBar = computed(
   () =>
     !isSystemMessage.value &&
-    !throttleHeavyDescendants.value &&
+    !hideFloatingChromeDuringScroll.value &&
     (hovered.value ||
       focusWithin.value ||
       menuOpen.value ||
@@ -1313,26 +1315,23 @@ watch(
             :open-document-viewer="openDocumentViewer"
           />
           <MessageInlineGifEmbeds
-            v-if="hasInlineGifEmbeds && !throttleHeavyDescendants"
+            v-if="hasInlineGifEmbeds"
             :embeds="linkEmbedsForDisplay ?? []"
             :open-image-viewer="openImageViewer"
             :alt="message.content || 'GIF'"
           />
           <MessageLinkEmbeds
-            v-if="
-              !throttleHeavyDescendants &&
-              linkEmbedsForLinkCards?.some((e) => !e.echoJump)
-            "
+            v-if="linkEmbedsForLinkCards?.some((e) => !e.echoJump)"
             class="mt-2"
             :embeds="linkEmbedsForLinkCards"
           />
           <MessageDiscordComponents
-            v-if="showStandaloneMessageComponents && !throttleHeavyDescendants"
+            v-if="showStandaloneMessageComponents"
             :components="message.components"
             :message-flags="message.messageFlags"
           />
           <PollDisplay
-            v-if="pollForDisplay && !throttleHeavyDescendants"
+            v-if="pollForDisplay"
             :poll="pollForDisplay"
             :message-id="message.id"
             :current-user-id="currentUserId"
@@ -1350,7 +1349,6 @@ watch(
             (edited)
           </span>
           <MessageReactions
-            v-if="!throttleHeavyDescendants"
             ref="reactionsRef"
             v-model:reaction-popover-open="reactionPopoverOpen"
             :message="message"

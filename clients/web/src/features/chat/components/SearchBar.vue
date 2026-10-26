@@ -38,6 +38,7 @@ import {
   type SearchInputSegment,
   type SearchInputTextSegment,
 } from './searchInlineFilterInput';
+import { computeSearchDropdownPosition } from '@/features/chat/domain/searchDropdownPosition';
 
 const props = withDefaults(
   defineProps<{
@@ -777,7 +778,13 @@ watch(
   },
 );
 
-const dropdownPosition = ref({ top: 0, left: 0, width: '', height: '' });
+const dropdownPosition = ref({
+  top: 0,
+  left: 0,
+  width: '',
+  height: '',
+  maxHeight: '',
+});
 const dropdownStyle = computed(() => ({
   top: `${dropdownPosition.value.top}px`,
   left: `${dropdownPosition.value.left}px`,
@@ -785,6 +792,9 @@ const dropdownStyle = computed(() => ({
   zIndex: props.dropdownZIndex,
   ...(dropdownPosition.value.height && {
     height: dropdownPosition.value.height,
+  }),
+  ...(dropdownPosition.value.maxHeight && {
+    maxHeight: dropdownPosition.value.maxHeight,
   }),
 }));
 
@@ -809,31 +819,18 @@ watch(
         const gap =
           props.dropdownGapPx ??
           (props.dmMode ? 0 : showSearchResults.value ? 4 : 8);
-        const horizontalPad = panelEl
-          ? 0
-          : (props.dropdownHorizontalPadPx ?? 16);
-        const top = inputRect.bottom + gap;
-        const viewportWidth =
-          window.innerWidth || document.documentElement.clientWidth;
-        let left = panelRect ? panelRect.left : inputRect.left - horizontalPad;
-        let widthPx = panelRect
-          ? panelRect.width
-          : inputRect.width + horizontalPad * 2;
-        if (!panelEl) {
-          const reservedRight =
-            props.reservedRightPx ?? (props.dmMode ? 360 : 680);
-          const maxRight = viewportWidth - reservedRight;
-          if (left + widthPx > maxRight) {
-            widthPx = Math.max(260, maxRight - left);
-          }
-        }
-        const bottomPad = DROPDOWN_VIEWPORT_BOTTOM_PAD_PX;
-        dropdownPosition.value = {
-          top,
-          left,
-          width: `${widthPx}px`,
-          height: `calc(100dvh - ${top}px - max(${bottomPad}px, env(safe-area-inset-bottom, 0px)))`,
-        };
+        dropdownPosition.value = computeSearchDropdownPosition({
+          inputRect,
+          panelRect,
+          anchoredToPanel: !!panelEl,
+          gapPx: gap,
+          horizontalPadPx: panelEl ? 0 : (props.dropdownHorizontalPadPx ?? 16),
+          reservedRightPx: props.reservedRightPx ?? (props.dmMode ? 360 : 680),
+          viewportWidth:
+            window.innerWidth || document.documentElement.clientWidth,
+          bottomPadPx: DROPDOWN_VIEWPORT_BOTTOM_PAD_PX,
+          fillViewportHeight: showSearchResults.value,
+        });
       });
     }
   },
@@ -911,11 +908,14 @@ onBeforeUnmount(() => {
 }
 
 .search-composite-input {
+  border: 0;
   border-radius: 0.375rem;
   outline: none;
+  box-shadow: none;
 }
 
 .search-composite-input:focus-within {
+  border: 0;
   outline: none;
   box-shadow: none;
 }

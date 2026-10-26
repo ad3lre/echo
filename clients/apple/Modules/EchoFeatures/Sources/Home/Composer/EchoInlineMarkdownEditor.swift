@@ -206,7 +206,8 @@ enum EchoComposerEmojiImages {
 
   private static var platformScale: CGFloat {
     #if os(iOS)
-      UIScreen.main.scale
+      // Duo / multi-display: never size from UIScreen.main.
+      UITraitCollection.current.displayScale
     #else
       NSScreen.main?.backingScaleFactor ?? 2
     #endif
@@ -226,6 +227,10 @@ extension Notification.Name {
     @Binding var pendingPreferredTokenOffset: Int?
     var apiBaseURL: URL = URL(string: "https://chat-echo.com")!
     var accessToken: String? = nil
+    /// Fired when the field becomes first responder (keyboard / caret).
+    var onBeginEditing: (() -> Void)? = nil
+    /// Fired when the field resigns first responder.
+    var onEndEditing: (() -> Void)? = nil
     @Environment(\.colorScheme) private var colorScheme
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -292,6 +297,14 @@ extension Notification.Name {
         }
       }
 
+      func textViewDidBeginEditing(_ textView: UITextView) {
+        parent.onBeginEditing?()
+      }
+
+      func textViewDidEndEditing(_ textView: UITextView) {
+        parent.onEndEditing?()
+      }
+
       func textViewDidChangeSelection(_ textView: UITextView) {
         guard !isRendering else { return }
         parent.tokenCaretUTF16 = EchoInlineMarkdownStyle.tokenUTF16Offset(
@@ -347,6 +360,8 @@ extension Notification.Name {
     @Binding var pendingPreferredTokenOffset: Int?
     var apiBaseURL: URL = URL(string: "https://chat-echo.com")!
     var accessToken: String? = nil
+    var onBeginEditing: (() -> Void)? = nil
+    var onEndEditing: (() -> Void)? = nil
     @Environment(\.colorScheme) private var colorScheme
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -419,6 +434,14 @@ extension Notification.Name {
           guard let self, let view = self.textView else { return }
           self.render(self.parent.text, in: view)
         }
+      }
+
+      func textDidBeginEditing(_ notification: Notification) {
+        parent.onBeginEditing?()
+      }
+
+      func textDidEndEditing(_ notification: Notification) {
+        parent.onEndEditing?()
       }
 
       func textViewDidChangeSelection(_ notification: Notification) {

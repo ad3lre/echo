@@ -446,6 +446,42 @@ struct EchoNetworkingModelTests {
     #expect(snapshot.channelAttention["ch-a"]?.unreadCount == 2)
   }
 
+  @Test func blocksAndReportsUsersUsingTheEchoContract() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [EchoURLProtocolStub.self]
+    let session = URLSession(configuration: configuration)
+    var seen: [String] = []
+    EchoURLProtocolStub.handler = { request in
+      let path = request.url?.path ?? ""
+      seen.append("\(request.httpMethod ?? "?") \(path)")
+      let body: Data
+      if path.hasSuffix("/blocks"), request.httpMethod == "GET" {
+        body = Data(#"{"blockedUserIds":["user-2"]}"#.utf8)
+      } else {
+        body = Data()
+      }
+      return (
+        HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+        body
+      )
+    }
+    let client = EchoSettingsClient(
+      baseURL: URL(string: "https://example.com")!, session: session)
+    let blocked = try await client.loadBlockedUserIDs(accessToken: "token")
+    #expect(blocked == ["user-2"])
+    try await client.blockUser(targetUserID: "user-2", accessToken: "token")
+    try await client.unblockUser(targetUserID: "user-2", accessToken: "token")
+    try await client.reportMessage(
+      messageID: "m1", channelID: "c1", category: "spam", reason: "bot", accessToken: "token")
+    try await client.reportUser(
+      targetUserID: "user-2", category: "harassment", reason: "", accessToken: "token")
+    #expect(seen.contains("GET /api/v1/echo/blocks"))
+    #expect(seen.contains("POST /api/v1/echo/blocks"))
+    #expect(seen.contains("DELETE /api/v1/echo/blocks/user-2"))
+    #expect(seen.contains("POST /api/v1/echo/reports/message"))
+    #expect(seen.contains("POST /api/v1/echo/reports/user"))
+  }
+
   @Test func marksChannelReadUsingTheEchoContract() async throws {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [EchoURLProtocolStub.self]

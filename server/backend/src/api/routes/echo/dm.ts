@@ -10,6 +10,7 @@ import {
   ignoreEchoDmMessageRequest,
   listEchoDmActiveVoiceParticipantUserIdsByChannelId,
   listEchoDmMessageRequestsForUser,
+  listEchoDmParticipantUserIds,
   listEchoDmThreadsForUser,
   searchEchoMessagesInChannels,
   updateEchoGroupDm,
@@ -35,6 +36,7 @@ import {
 } from '../../../observability/echoMetrics';
 import { echoPool, requireEchoStore, trimEchoPathParam } from './routeUtils';
 import { setCachedDmThreadChannelIds } from '../../../domain/echoSearchChannelCache';
+import { evictEchoDmVoiceParticipant } from '../../../services/livekit/echoDmVoiceEviction';
 
 function peerUserIdLogPrefix(peerUserId: string): string {
   const t = peerUserId.trim();
@@ -384,6 +386,11 @@ export default async function echoDmRoutes(
       if (out === 'not_found') {
         return sendError(reply, 404, 'NOT_FOUND', 'Message request not found.');
       }
+      // requestId is the DM channel id (see message-request list row `id`).
+      // Ignored request must lose any in-progress call (stale LiveKit JWT window).
+      for (const uid of await listEchoDmParticipantUserIds(pool, requestId)) {
+        await evictEchoDmVoiceParticipant(pool, requestId, uid, req.log);
+      }
       return reply.code(204).send();
     },
   );
@@ -428,6 +435,7 @@ export default async function echoDmRoutes(
       if (r === 'not_found') {
         return sendError(reply, 404, 'NOT_FOUND', 'Member or group not found');
       }
+      await evictEchoDmVoiceParticipant(pool, channelId, targetUserId, req.log);
       return reply.code(204).send();
     },
   );
@@ -441,7 +449,8 @@ export default async function echoDmRoutes(
       if (!channelId) {
         return sendError(reply, 400, 'INVALID_BODY', 'channelId required');
       }
-      const r = await leaveEchoGroupDm(pool, getAuthUser(req).id, channelId);
+      const uid = getAuthUser(req).id;
+      const r = await leaveEchoGroupDm(pool, uid, channelId);
       if (r === 'forbidden') {
         return sendError(
           reply,
@@ -453,6 +462,7 @@ export default async function echoDmRoutes(
       if (r === 'not_found') {
         return sendError(reply, 404, 'NOT_FOUND', 'Group not found');
       }
+      await evictEchoDmVoiceParticipant(pool, channelId, uid, req.log);
       return reply.code(204).send();
     },
   );

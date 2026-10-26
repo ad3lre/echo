@@ -618,6 +618,7 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     desktopStreamingPreferences: ctx.desktopStreamingPreferences,
     fullscreenStreamParticipantId: ctx.fullscreenStreamParticipantId,
     vcActivityUi: ctx.vcActivityUi,
+    // Assembled as *OnVoice in buildAppLayoutAssemblyDeps (ensureViewing + stage guard).
     openVcActivityPicker: ctx.openVcActivityPicker,
     openVcActivityYoutubeBrowse: ctx.openVcActivityYoutubeBrowse,
     openVcActivityWatchTogether: ctx.openVcActivityWatchTogether,

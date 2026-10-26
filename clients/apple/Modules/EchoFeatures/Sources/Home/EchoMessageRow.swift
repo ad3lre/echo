@@ -1,6 +1,12 @@
 import EchoDomain
 import SwiftUI
 
+#if os(iOS)
+  import UIKit
+#elseif os(macOS)
+  import AppKit
+#endif
+
 struct EchoMessageRow: View {
   let message: EchoMessage
   let conversation: EchoDirectMessage
@@ -16,8 +22,14 @@ struct EchoMessageRow: View {
   var onTogglePin: (() -> Void)? = nil
   var onReply: (() -> Void)? = nil
   var onJumpToReply: (() -> Void)? = nil
+  var onEdit: (() -> Void)? = nil
+  var onDelete: (() -> Void)? = nil
+  var onReport: (() -> Void)? = nil
+  var onReact: (() -> Void)? = nil
+  var onToggleReaction: ((String) -> Void)? = nil
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
   @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.echoConsumeComposerKeyboardTap) private var consumeComposerKeyboardTap
 
   var body: some View {
     let metrics = displayPrefs.densityMetrics
@@ -65,7 +77,12 @@ struct EchoMessageRow: View {
               replyTo: replyTo,
               baseURL: baseURL,
               accessToken: accessToken,
-              onTap: onJumpToReply
+              onTap: onJumpToReply.map { jump in
+                {
+                  if consumeComposerKeyboardTap() { return }
+                  jump()
+                }
+              }
             )
           }
 
@@ -108,7 +125,22 @@ struct EchoMessageRow: View {
             poll: poll,
             currentUserID: currentUserID,
             resolveVoterName: resolveVoterName,
-            onVote: onPollVote
+            onVote: { optionID in
+              if consumeComposerKeyboardTap() { return }
+              onPollVote(optionID)
+            }
+          )
+        }
+
+        // Chips only when someone has reacted — first react is context-menu only.
+        if message.delivery == .sent, !message.reactions.isEmpty {
+          EchoMessageReactionsView(
+            reactions: message.reactions,
+            currentUserID: currentUserID,
+            baseURL: baseURL,
+            accessToken: accessToken,
+            onToggle: { emoji in onToggleReaction?(emoji) },
+            onAdd: onReact
           )
         }
       }
@@ -128,20 +160,62 @@ struct EchoMessageRow: View {
         showsHeader: showsHeader, messageSpacing: displayPrefs.messageSpacing)
     )
     .contextMenu {
-      if let onReply, message.delivery == .sent {
-        Button {
-          onReply()
-        } label: {
-          Label(EchoCopy.string("Reply"), systemImage: "arrowshape.turn.up.left")
+      if message.delivery == .sent {
+        if let onReact {
+          Button {
+            onReact()
+          } label: {
+            Label(EchoCopy.string("Add reaction"), systemImage: "face.smiling")
+          }
         }
-      }
-      if let onTogglePin {
-        Button {
-          onTogglePin()
-        } label: {
-          Label(
-            isPinned ? EchoCopy.string("Unpin message") : EchoCopy.string("Pin message"),
-            systemImage: isPinned ? "pin.slash" : "pin")
+        if let onReply {
+          Button {
+            onReply()
+          } label: {
+            Label(EchoCopy.string("Reply"), systemImage: "arrowshape.turn.up.left")
+          }
+        }
+        if let onEdit {
+          Button {
+            onEdit()
+          } label: {
+            Label(EchoCopy.string("Edit message"), systemImage: "pencil")
+          }
+        }
+        if !displayContent.isEmpty {
+          Button {
+            #if os(iOS)
+              UIPasteboard.general.string = displayContent
+            #else
+              NSPasteboard.general.clearContents()
+              NSPasteboard.general.setString(displayContent, forType: .string)
+            #endif
+          } label: {
+            Label(EchoCopy.string("Copy text"), systemImage: "doc.on.doc")
+          }
+        }
+        if let onTogglePin {
+          Button {
+            onTogglePin()
+          } label: {
+            Label(
+              isPinned ? EchoCopy.string("Unpin message") : EchoCopy.string("Pin message"),
+              systemImage: isPinned ? "pin.slash" : "pin")
+          }
+        }
+        if let onDelete {
+          Button(role: .destructive) {
+            onDelete()
+          } label: {
+            Label(EchoCopy.string("Delete message"), systemImage: "trash")
+          }
+        }
+        if let onReport, !message.isCurrentUser {
+          Button(role: .destructive) {
+            onReport()
+          } label: {
+            Label(EchoCopy.string("Report message"), systemImage: "exclamationmark.bubble")
+          }
         }
       }
     }
@@ -170,6 +244,7 @@ struct EchoMessageRow: View {
       .accessibilityLabel(EchoCopy.string("Uploading attachment"))
     case .failed:
       Button {
+        if consumeComposerKeyboardTap() { return }
         onDismissFailed?()
       } label: {
         HStack(spacing: 6) {
@@ -245,7 +320,10 @@ struct EchoMessageRow: View {
     .frame(width: 34, height: 34)
 
     if let onAuthorProfileTap {
-      Button(action: onAuthorProfileTap) {
+      Button {
+        if consumeComposerKeyboardTap() { return }
+        onAuthorProfileTap()
+      } label: {
         avatar
       }
       .buttonStyle(.plain)
@@ -263,7 +341,10 @@ struct EchoMessageRow: View {
       .lineLimit(1)
 
     if let onAuthorProfileTap {
-      Button(action: onAuthorProfileTap) {
+      Button {
+        if consumeComposerKeyboardTap() { return }
+        onAuthorProfileTap()
+      } label: {
         label
       }
       .buttonStyle(.plain)
@@ -299,6 +380,7 @@ struct EchoMessageAttachmentsView: View {
   var accessToken: String? = nil
   var isUploading = false
   @State private var viewerSession: EchoMediaViewerSession?
+  @Environment(\.echoConsumeComposerKeyboardTap) private var consumeComposerKeyboardTap
 
   private var imageAttachments: [EchoMessageAttachment] {
     attachments.filter(\.isImage)
@@ -319,6 +401,7 @@ struct EchoMessageAttachmentsView: View {
           accessToken: accessToken,
           isUploading: isUploading,
           onOpen: { index in
+            if consumeComposerKeyboardTap() { return }
             viewerSession = EchoMediaViewerSession.images(imageAttachments, startingAt: index)
           })
       }
@@ -331,6 +414,7 @@ struct EchoMessageAttachmentsView: View {
             baseURL: baseURL,
             accessToken: accessToken
           ) {
+            if consumeComposerKeyboardTap() { return }
             viewerSession = EchoMediaViewerSession.media(
               attachments, startingAt: attachment)
           }

@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# Reclaim memory from stale SSH/Cursor remote sessions and orphaned ssh-agent processes.
+# Reclaim memory from stale SSH/Cursor remote sessions, orphaned ssh-agent processes,
+# and stuck `pm2 update` zombie piles.
 #
 # Targets:
-#   1. Inventory snapshot (load/mem/swap + Cursor/SSH zombie counts) every run
+#   1. Inventory snapshot (load/mem/swap + Cursor/SSH/pm2-update zombie counts) every run
 #   2. ssh-agent processes older than MAX_AGE (default 24h)
 #   3. ssh-agent emergency prune when count/RSS caps hit
 #   4. Duplicate cursor-agent workers (same workspace_key → keep newest)
 #   5. Orphan login shells (`bash -l`) older than MAX_AGE outside protected sessions
 #   6. Remote logind sessions older than MAX_AGE with no protected processes
 #   7. Abandoned (State=closing) remote sessions older than ABANDONED_MAX_AGE (default 6h)
+#   8. Stuck `pm2 update` processes (age + count caps — these once ate ~12GB as 810 zombies)
 #
-# Protected: PM2, Echo app processes, Docker stack, Caddy, Postgres, LiveKit, NATS, Redis,
-#            exyno-computer Chrome.
+# Protected: PM2 God daemon + managed apps, Echo app processes, Docker stack, Caddy,
+#            Postgres, LiveKit, NATS, Redis, exyno-computer Chrome.
+#            Does NOT protect `pm2 update` CLI zombies.
 #
 # Usage:
 #   bash server/ops/scripts/cleanup-stale-ssh.sh
@@ -23,6 +26,8 @@
 #   ECHO_SSH_AGENT_MAX_COUNT (400)
 #   ECHO_SSH_AGENT_MAX_RSS_GB (4)
 #   ECHO_CURSOR_AGENT_MAX_COUNT (12) — hard cap across all cursor-agent workers
+#   ECHO_PM2_UPDATE_MAX_AGE_SEC (300) — kill `pm2 update` older than this
+#   ECHO_PM2_UPDATE_COUNT_CAP (5) — if this many exist, kill all regardless of age
 #   ECHO_SSH_CLEANUP_DRY_RUN (1 = log only)
 #   ECHO_SSH_CLEANUP_LOG (default: ~/.local/state/echo-ssh-cleanup.log)
 set -euo pipefail
@@ -38,6 +43,8 @@ SSH_AGENT_MAX_RSS_KB=$((SSH_AGENT_MAX_RSS_GB * 1024 * 1024))
 SSH_AGENT_TARGET_RSS_KB=$((SSH_AGENT_MAX_RSS_KB * 90 / 100))
 CURSOR_AGENT_MAX_COUNT="${ECHO_CURSOR_AGENT_MAX_COUNT:-12}"
 CURSOR_AGENT_TARGET_COUNT=$((CURSOR_AGENT_MAX_COUNT * 90 / 100))
+PM2_UPDATE_MAX_AGE_SEC="${ECHO_PM2_UPDATE_MAX_AGE_SEC:-300}"
+PM2_UPDATE_COUNT_CAP="${ECHO_PM2_UPDATE_COUNT_CAP:-5}"
 DRY_RUN="${ECHO_SSH_CLEANUP_DRY_RUN:-0}"
 LOG="${ECHO_SSH_CLEANUP_LOG:-$HOME/.local/state/echo-ssh-cleanup.log}"
 NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -52,7 +59,10 @@ log() {
 
 count_cmd() {
   # $1 = regex matched against full cmdline (ps -eo cmd=)
-  ps -eo cmd= 2>/dev/null | grep -E "$1" | grep -v grep | wc -l | tr -d " "
+  # Always emit a number; grep exit 1 on zero matches must not trip pipefail.
+  local n
+  n="$(ps -eo cmd= 2>/dev/null | grep -E "$1" | grep -v grep | wc -l | tr -d " " || true)"
+  echo "${n:-0}"
 }
 
 is_protected_cmd() {
@@ -93,9 +103,13 @@ ssh_agent_count() {
   ps -C ssh-agent -o pid= 2>/dev/null | awk "NF {n++} END {print n+0}"
 }
 
+pm2_update_count() {
+  count_cmd "[/]pm2 update|(^| )pm2 update"
+}
+
 log_inventory() {
   local label="$1"
-  local load swap_used swap_total mem_avail agents bash_l abandoned ext_hosts cursor_agents chrome_n
+  local load swap_used swap_total mem_avail agents bash_l abandoned ext_hosts cursor_agents chrome_n pm2_upd
   load="$(cut -d" " -f1-3 /proc/loadavg 2>/dev/null || echo "?")"
   read -r swap_total swap_used _ < <(free -k 2>/dev/null | awk "/^Swap:/ {print \$2, \$3, \$4}" || echo "0 0 0")
   mem_avail="$(free -m 2>/dev/null | awk "/^Mem:/ {print \$7}" || echo "?")"
@@ -105,7 +119,8 @@ log_inventory() {
   ext_hosts="$(count_cmd "bootstrap-fork --type=extensionHost")"
   cursor_agents="$(count_cmd "cursor-agent .* worker start")"
   chrome_n="$(count_cmd "/opt/google/chrome/chrome ")"
-  log "inventory[$label]: load=$load mem_avail_mb=$mem_avail swap_used_mb=$((swap_used/1024))/${swap_total:-0} ssh_agents=$agents bash_l=$bash_l abandoned_sessions=$abandoned extensionHosts=$ext_hosts cursor_agents=$cursor_agents chrome=$chrome_n"
+  pm2_upd="$(pm2_update_count)"
+  log "inventory[$label]: load=$load mem_avail_mb=$mem_avail swap_used_mb=$((swap_used/1024))/${swap_total:-0} ssh_agents=$agents bash_l=$bash_l abandoned_sessions=$abandoned extensionHosts=$ext_hosts cursor_agents=$cursor_agents chrome=$chrome_n pm2_update=$pm2_upd"
 }
 
 declare -A _KILL_LOG_COUNT=()
@@ -226,6 +241,53 @@ cleanup_cursor_agents() {
   log "cursor-agent summary: killed_dup=$killed_dup killed_cap=$killed_cap kept_keys~$kept remaining=$count cap=$CURSOR_AGENT_MAX_COUNT"
 }
 
+# Kill stuck `pm2 update` CLI processes. A real update finishes in seconds; piles of
+# these once consumed ~12GB RSS as 810 zombies. Never touches PM2 God Daemon or apps.
+cleanup_pm2_update_zombies() {
+  local pid etimes rss cmd
+  local count killed_age=0 killed_cap=0 skipped_young=0
+  local emergency=0
+
+  count="$(pm2_update_count)"
+  log "pm2-update baseline: count=$count max_age_sec=$PM2_UPDATE_MAX_AGE_SEC count_cap=$PM2_UPDATE_COUNT_CAP"
+
+  if [[ "$count" -eq 0 ]]; then
+    log "pm2-update summary: none found"
+    return 0
+  fi
+
+  if [[ "$count" -ge "$PM2_UPDATE_COUNT_CAP" ]]; then
+    emergency=1
+    log "pm2-update count exceeded: count=$count >= cap=$PM2_UPDATE_COUNT_CAP; killing all"
+  fi
+
+  while read -r pid etimes rss cmd; do
+    [[ -z "${pid:-}" ]] && continue
+    # Never match PM2 God Daemon (cmdline is like "PM2 v6.0.14: God Daemon")
+    if grep -qiE "God Daemon|PM2 v[0-9]" <<<"$cmd"; then
+      continue
+    fi
+    # Require the literal CLI form: .../pm2 update  OR  pm2 update
+    if ! grep -qE '(^|/)pm2 update' <<<"$cmd"; then
+      continue
+    fi
+
+    if [[ "$emergency" -eq 1 ]]; then
+      kill_pid "$pid" "pm2-update:count" "age_sec=$etimes rss_kb=$rss" && killed_cap=$((killed_cap + 1))
+      continue
+    fi
+
+    if [[ "$etimes" -lt "$PM2_UPDATE_MAX_AGE_SEC" ]]; then
+      skipped_young=$((skipped_young + 1))
+      continue
+    fi
+    kill_pid "$pid" "pm2-update:max_age" "age_sec=$etimes rss_kb=$rss" && killed_age=$((killed_age + 1))
+  done < <(ps -eo pid=,etimes=,rss=,args= 2>/dev/null | grep -E '[/]pm2 update|(^| )pm2 update' | grep -v grep || true)
+
+  count="$(pm2_update_count)"
+  log "pm2-update summary: killed_age=$killed_age killed_cap=$killed_cap skipped_young=$skipped_young remaining=$count"
+}
+
 cleanup_orphan_login_shells() {
   local pid etimes sid cmd killed=0 skipped=0
   while read -r pid etimes sid cmd; do
@@ -319,8 +381,9 @@ verify_production_running() {
   fi
 }
 
-log "cleanup-stale-ssh start max_age_hours=$MAX_AGE_HOURS abandoned_max_age_hours=$ABANDONED_MAX_AGE_HOURS ssh_agent_cap_count=$SSH_AGENT_MAX_COUNT ssh_agent_cap_gb=$SSH_AGENT_MAX_RSS_GB cursor_agent_cap=$CURSOR_AGENT_MAX_COUNT dry_run=$DRY_RUN"
+log "cleanup-stale-ssh start max_age_hours=$MAX_AGE_HOURS abandoned_max_age_hours=$ABANDONED_MAX_AGE_HOURS ssh_agent_cap_count=$SSH_AGENT_MAX_COUNT ssh_agent_cap_gb=$SSH_AGENT_MAX_RSS_GB cursor_agent_cap=$CURSOR_AGENT_MAX_COUNT pm2_update_max_age_sec=$PM2_UPDATE_MAX_AGE_SEC pm2_update_count_cap=$PM2_UPDATE_COUNT_CAP dry_run=$DRY_RUN"
 log_inventory "before"
+cleanup_pm2_update_zombies
 cleanup_ssh_agents
 cleanup_cursor_agents
 cleanup_orphan_login_shells

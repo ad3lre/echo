@@ -31,6 +31,11 @@ public struct EchoHomeSnapshot: Equatable, Sendable {
     )
   }
 
+  public func applyingProfile(_ next: EchoUserProfile) -> EchoHomeSnapshot {
+    EchoHomeSnapshot(
+      profile: next, conversations: conversations, personalNotes: personalNotes)
+  }
+
   public func applyingActivity(
     channelID: String,
     lastMessage: String?,

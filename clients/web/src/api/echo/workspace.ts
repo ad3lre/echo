@@ -41,6 +41,9 @@ export type FetchEchoWorkspaceStateOptions = {
   ) => void;
 };
 
+/** Coalesce concurrent identical workspace GETs (boot often fans out 2–4). */
+const inflightWorkspaceByKey = new Map<string, Promise<EchoWorkspaceState>>();
+
 export async function fetchEchoWorkspaceState(
   token: string,
   currentUserId: string | undefined,
@@ -48,36 +51,49 @@ export async function fetchEchoWorkspaceState(
 ): Promise<EchoWorkspaceState> {
   const memberDetail: EchoWorkspaceMemberDetailQuery =
     options?.memberDetail ?? 'roster';
-  const raw = await echoFetch<{
-    servers: Awaited<ReturnType<typeof fetchEchoServers>>['servers'];
-    categoriesByServer: Record<string, ChannelCategory[]>;
-    membersByServer?: unknown;
-    /** Some gateways / serializers use snake_case */
-    members_by_server?: unknown;
-    workspaceVersion?: unknown;
-    upcomingEventsByServerId?: unknown;
-    upcoming_events_by_server_id?: unknown;
-    myEventRsvps?: unknown;
-    my_event_rsvps?: unknown;
-  }>(token, `/workspace?memberDetail=${memberDetail}`);
-  if (
-    !Array.isArray(raw.servers) ||
-    raw.categoriesByServer == null ||
-    typeof raw.categoriesByServer !== 'object'
-  ) {
-    throw new Error('Invalid workspace response');
-  }
-  for (const s of raw.servers) {
-    const cats = raw.categoriesByServer[s.id];
-    if (!Array.isArray(cats)) {
-      throw new Error('Invalid workspace categories');
+  const key = `${currentUserId ?? ''}|${memberDetail}`;
+  const existing = inflightWorkspaceByKey.get(key);
+  if (existing) return existing;
+
+  const pending = (async (): Promise<EchoWorkspaceState> => {
+    const raw = await echoFetch<{
+      servers: Awaited<ReturnType<typeof fetchEchoServers>>['servers'];
+      categoriesByServer: Record<string, ChannelCategory[]>;
+      membersByServer?: unknown;
+      /** Some gateways / serializers use snake_case */
+      members_by_server?: unknown;
+      workspaceVersion?: unknown;
+      upcomingEventsByServerId?: unknown;
+      upcoming_events_by_server_id?: unknown;
+      myEventRsvps?: unknown;
+      my_event_rsvps?: unknown;
+    }>(token, `/workspace?memberDetail=${memberDetail}`);
+    if (
+      !Array.isArray(raw.servers) ||
+      raw.categoriesByServer == null ||
+      typeof raw.categoriesByServer !== 'object'
+    ) {
+      throw new Error('Invalid workspace response');
     }
-  }
-  return workspaceHttpJsonToEchoWorkspaceState(
-    raw as WorkspaceHttpJsonValidated,
-    currentUserId,
-    {
-      onWorkspaceMemberFetchDebug: options?.onWorkspaceMemberFetchDebug,
-    },
-  );
+    for (const s of raw.servers) {
+      const cats = raw.categoriesByServer[s.id];
+      if (!Array.isArray(cats)) {
+        throw new Error('Invalid workspace categories');
+      }
+    }
+    return workspaceHttpJsonToEchoWorkspaceState(
+      raw as WorkspaceHttpJsonValidated,
+      currentUserId,
+      {
+        onWorkspaceMemberFetchDebug: options?.onWorkspaceMemberFetchDebug,
+      },
+    );
+  })().finally(() => {
+    if (inflightWorkspaceByKey.get(key) === pending) {
+      inflightWorkspaceByKey.delete(key);
+    }
+  });
+
+  inflightWorkspaceByKey.set(key, pending);
+  return pending;
 }

@@ -41,30 +41,40 @@ stages:
   - 'bun.lock'
   - '.gitlab-ci.yml'
 
+# Bun comes from the pinned official image (no curl|bash installer). Keep the image tag
+# in sync with `.bun-version`; before_script fails the job if they drift.
+.bun_image: &bun_image oven/bun:1.4.2-debian
+
 .bun_setup: &bun_setup
   before_script:
-    # bookworm-slim has no git; check-oss-artifacts needs `git ls-files`
-    - apt-get update -qq && apt-get install -y -qq git curl unzip ca-certificates >/dev/null
+    # check-oss-artifacts needs `git ls-files`; the bun image has no git
+    - apt-get update -qq && apt-get install -y -qq git ca-certificates >/dev/null
     - export BUN_VERSION="$(tr -d ' \t\r\n' < .bun-version)"
-    - curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}"
-    - export BUN_INSTALL="$HOME/.bun"
-    - export PATH="$BUN_INSTALL/bin:$PATH"
-    - bun --version
+    - 'test "$(bun --version)" = "$BUN_VERSION" || { echo "bun image $(bun --version) != .bun-version $BUN_VERSION - update the image tag in .gitlab-ci.yml" >&2; exit 1; }'
+
+# node_modules cache: only default-branch pipelines may push; MR pipelines are pull-only so an
+# MR job cannot poison the cache that default-branch jobs restore.
+.node_modules_cache: &node_modules_cache
+  key:
+    files:
+      - bun.lock
+  paths:
+    - node_modules/
+  policy: $CACHE_POLICY
 
 prettier:
   stage: quality
-  image: debian:bookworm-slim
-  cache:
-    key:
-      files:
-        - bun.lock
-    paths:
-      - node_modules/
+  image: *bun_image
+  cache: *node_modules_cache
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       changes: *prettier_paths
+      variables:
+        CACHE_POLICY: pull
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes: *prettier_paths
+      variables:
+        CACHE_POLICY: pull-push
   <<: *bun_setup
   script:
     - bun server/ops/scripts/check-oss-artifacts.mjs
@@ -73,23 +83,47 @@ prettier:
 
 ship-gate:
   stage: test
-  image: debian:bookworm-slim
+  image: *bun_image
   variables:
     # vue-tsc + vite on the web workspace OOMs at the default ~2GB heap on shared runners
     NODE_OPTIONS: '--max-old-space-size=6144'
-  cache:
-    key:
-      files:
-        - bun.lock
-    paths:
-      - node_modules/
+  cache: *node_modules_cache
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       changes: *ci_paths
+      variables:
+        CACHE_POLICY: pull
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes: *ci_paths
+      variables:
+        CACHE_POLICY: pull-push
   <<: *bun_setup
   script:
     - bun install --frozen-lockfile
     - bun run ci:precheck
     - bun run charter:new-code:test
+
+# Security gates (run on every MR and default-branch pipeline; not path-filtered).
+security:
+  stage: quality
+  image:
+    name: zricethezav/gitleaks:v8.30.1
+    entrypoint: ['']
+  variables:
+    GIT_DEPTH: '0'
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - gitleaks git --config server/ops/gitleaks.toml --redact
+
+security-dep-audit:
+  stage: quality
+  image: *bun_image
+  variables:
+    CI: 'true'
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - bun run check:dep-audit

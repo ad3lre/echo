@@ -207,9 +207,9 @@ function horizontalRingIconCssUrl(server: Server): string {
       horizontal && !areServersExpanded
         ? 'servers-folder--horizontal pointer-events-none flex-row flex-nowrap max-w-0 min-w-0 w-0 overflow-hidden opacity-0'
         : '',
-      !horizontal ? 'w-full flex-col' : '',
+      !horizontal ? 'w-full flex-col items-center' : '',
       !horizontal && areServersExpanded
-        ? 'mt-2 max-h-[min(70vh,28rem)] overflow-y-auto opacity-100'
+        ? 'mt-2 max-h-[min(70vh,28rem)] overflow-y-auto overflow-x-hidden opacity-100'
         : '',
       !horizontal && !areServersExpanded
         ? 'pointer-events-none max-h-0 min-h-0 h-0 overflow-hidden opacity-0'

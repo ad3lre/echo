@@ -1,3 +1,4 @@
+import { assertProductionSecretHygiene } from './productionSecretChecks';
 /** Production-only startup gates extracted from `config.ts` for reviewability. */
 export type EchoProductionConfigGateInput = {
   isProduction: boolean;
@@ -46,7 +47,6 @@ export function assertEchoProductionConfigGates(
   deps: EchoProductionConfigGateDeps,
 ): void {
   if (!config.isProduction) return;
-
   if (config.backendStorageMode !== 'postgres') {
     deps.configStderr(
       'ECHO_BACKEND_STORAGE must be set to "postgres" when NODE_ENV=production. In-memory backend storage is not supported in production.',
@@ -54,6 +54,7 @@ export function assertEchoProductionConfigGates(
     deps.exitProcess(1);
   }
   deps.requireStrongProductionSecret('JWT_SECRET', config.jwtSecret);
+  assertProductionSecretHygiene(process.env, deps);
   if (
     config.echoRequireGuestBindingSecretInProduction &&
     !deps.isStrongProductionSecret(config.echoGuestBindingSecret)
@@ -190,7 +191,6 @@ export function assertEchoProductionConfigGates(
     );
     deps.exitProcess(1);
   }
-
   // Loud warnings when deliberate production bypasses are active (do not exit).
   if (!config.echoRequireRedisInProduction) {
     deps.configStderr(

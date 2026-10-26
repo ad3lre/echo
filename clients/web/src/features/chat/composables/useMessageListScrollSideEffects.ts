@@ -200,8 +200,9 @@ function onScrollCombined(state: ScrollSideEffectsState): void {
   state.observation.scrollTop = nextScrollTop;
   if (opts.prependTransactionActive.value) return;
   const scrollClassification = opts.noteScrollEvent();
-  // Only defer embed hydration / heavy remeasure for genuine user scrolls —
-  // programmatic compensation and initialOffset echoes must not keep embeds hidden.
+  // Only arm scroll-settle / resize-defer for genuine user scrolls —
+  // programmatic compensation and initialOffset echoes must not sticky the
+  // gesture flag (action-bar hide + measure deferral).
   if (scrollClassification === 'user') {
     opts.markScrollHydrationDeferral();
   }

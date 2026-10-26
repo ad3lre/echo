@@ -5,11 +5,13 @@ import { runTicTacToeSocketTests } from './ticTacToe.socket.test';
 import { runHolyCTicTacToeContractTests } from './holycTicTacToeContract.test';
 import { runHolyCEngineTests } from './holycEngine.test';
 
+import { runSkrigglesRelayTests } from './skrigglesRelay.test';
 import { runProductionConfigGateTests } from './productionConfigGates.test';
 import { runLedgerGameRulesTests } from './ledgerGameRules.test';
 
 async function main(): Promise<void> {
   runProductionConfigGateTests();
+  runSkrigglesRelayTests();
   await runLedgerGameRulesTests();
   await runRoomLifecycleTests();
   runHolyCTicTacToeContractTests();

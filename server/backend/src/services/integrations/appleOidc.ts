@@ -15,7 +15,7 @@ export function appleIdTokenNonceMatches(
 ): boolean {
   const claim = (claimsNonce ?? '').trim();
   const expected = expectedNonce.trim();
-  if (!expected) return true;
+  if (!expected) return false;
   if (!claim) return false;
   if (claim === expected) return true;
   const hex = createHash('sha256').update(expected, 'utf8').digest('hex');
@@ -208,7 +208,7 @@ export async function verifyAppleIdentityToken(
       : new Error('apple_id_token_invalid');
   }
   if (
-    options.expectedNonce &&
+    options.expectedNonce !== undefined &&
     !appleIdTokenNonceMatches(claims.nonce, options.expectedNonce)
   ) {
     throw new Error('apple_id_token_nonce_mismatch');

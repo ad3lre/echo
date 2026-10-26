@@ -92,4 +92,20 @@ describe('messageWindowAuthority directional boundaries', () => {
     );
     expect(messageWindowAuthority.hasCachedOlder(channelId)).toBe(false);
   });
+
+  it('evicts oldest channel buckets beyond the LRU cap while keeping the active channel', () => {
+    const messages = ref<Record<string, RawMessage[]>>({});
+    bindChannelMessageBuckets(messages);
+    const ids = Array.from({ length: 15 }, (_, i) => `ch-${i}`);
+    for (const id of ids) {
+      ensureChannelBucket(id).push(message(`${id}-m`));
+    }
+    messageWindowAuthority.setActiveChannel('ch-14');
+
+    expect(
+      messageWindowAuthority.listCachedChannelIds().length,
+    ).toBeLessThanOrEqual(12);
+    expect(messages.value['ch-14']?.length).toBe(1);
+    expect(messages.value['ch-0']).toBeUndefined();
+  });
 });

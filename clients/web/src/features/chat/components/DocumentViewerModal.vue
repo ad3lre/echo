@@ -323,7 +323,8 @@ onErrorCaptured(() => false);
             :src="iframeSrc"
             class="h-full min-h-0 w-full flex-1 border-0"
             :title="echoT('b42.docViewer.previewTitle')"
-            referrerpolicy="no-referrer-when-downgrade"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            referrerpolicy="no-referrer"
             @load="onIframeLoad"
             @error="onIframeError"
           />

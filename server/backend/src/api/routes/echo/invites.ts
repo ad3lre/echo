@@ -1,7 +1,12 @@
-import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import type {
+  FastifyInstance,
+  FastifyPluginOptions,
+  FastifyRequest,
+} from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { config } from '../../../config';
+import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
   getEchoInvitePreview,
@@ -10,6 +15,9 @@ import {
   resolveEchoInviteTarget,
   resolveEchoInviteJoinContext,
   createEchoInvite,
+  revokeEchoInvite,
+  ECHO_INVITE_MAX_AGE_SEC_CAP,
+  ECHO_INVITE_MAX_USES_CAP,
   echoServerAllowsInviteJoin,
   shouldBlockEchoJoinForPendingApplication,
 } from '../../../domain/echoStore';
@@ -62,10 +70,24 @@ export default async function echoInvitesRoutes(
 
   fastify.post<{
     Params: { serverId: string };
-    Body: { skipsApplication?: boolean };
+    Body: {
+      skipsApplication?: boolean;
+      max_age?: number;
+      max_uses?: number;
+    };
   }>(
     '/servers/:serverId/invite-codes',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 hour',
+          keyGenerator: (req: FastifyRequest) =>
+            `invite_create:${authUserOrIpRateLimitKey(req)}:${trimEchoPathParam((req.params as { serverId?: string })?.serverId ?? '')}`,
+        },
+      },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -87,26 +109,101 @@ export default async function echoInvitesRoutes(
         );
       }
       const skips = req.body?.skipsApplication === true;
-      if (skips) {
-        const perms = await getMergedRolePermissions(
-          pool,
-          sid,
-          getAuthUser(req).id,
+      const rawAge = req.body?.max_age;
+      const rawUses = req.body?.max_uses;
+      if (
+        rawAge !== undefined &&
+        (typeof rawAge !== 'number' ||
+          !Number.isInteger(rawAge) ||
+          rawAge < 0 ||
+          rawAge > ECHO_INVITE_MAX_AGE_SEC_CAP)
+      ) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          `max_age must be an integer between 0 and ${ECHO_INVITE_MAX_AGE_SEC_CAP} seconds`,
         );
-        if (!perms.has('MANAGE_GUILD'))
-          return sendError(
-            reply,
-            403,
-            'FORBIDDEN',
-            'Only admins can create direct invites that skip applications',
-          );
       }
+      if (
+        rawUses !== undefined &&
+        (typeof rawUses !== 'number' ||
+          !Number.isInteger(rawUses) ||
+          rawUses < 0 ||
+          rawUses > ECHO_INVITE_MAX_USES_CAP)
+      ) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          `max_uses must be an integer between 0 and ${ECHO_INVITE_MAX_USES_CAP}`,
+        );
+      }
+      const perms =
+        skips || rawAge === 0
+          ? await getMergedRolePermissions(pool, sid, getAuthUser(req).id)
+          : null;
+      if (skips && !perms?.has('MANAGE_GUILD'))
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Only admins can create direct invites that skip applications',
+        );
+      if (rawAge === 0 && !perms?.has('MANAGE_GUILD'))
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Only admins can create invites that never expire',
+        );
       const code = await createEchoInvite(pool, sid, getAuthUser(req).id, {
         skipsApplication: skips,
+        ...(rawAge !== undefined ? { maxAgeSec: rawAge } : {}),
+        ...(rawUses !== undefined ? { maxUses: rawUses } : {}),
       });
       const appBase = config.echoAppPublicUrl.replace(/\/$/, '');
       const inviteUrl = `${appBase}/invite/${encodeURIComponent(code)}`;
       return reply.code(201).send({ code, inviteUrl, skipsApplication: skips });
+    },
+  );
+
+  fastify.delete<{ Params: { serverId: string; code: string } }>(
+    '/servers/:serverId/invite-codes/:code',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const sid = trimEchoPathParam(req.params.serverId);
+      const code = trimEchoPathParam(req.params.code);
+      const uid = getAuthUser(req).id;
+      const okMem = await isMemberOfServer(pool, sid, uid);
+      if (!okMem)
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          ECHO_MSG_NOT_SERVER_MEMBER,
+          'NOT_SERVER_MEMBER',
+        );
+      const perms = await getMergedRolePermissions(pool, sid, uid);
+      const r = await revokeEchoInvite(
+        pool,
+        sid,
+        code,
+        uid,
+        perms.has('MANAGE_GUILD'),
+      );
+      if (!r.ok) {
+        if (r.reason === 'not_found')
+          return sendError(reply, 404, 'NOT_FOUND', 'Invite not found');
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Only the inviter or an admin can revoke this invite',
+        );
+      }
+      return reply.code(204).send();
     },
   );
 
@@ -281,6 +378,7 @@ export default async function echoInvitesRoutes(
         clientIpFromFastifyRequest(req),
         {
           isGuest: Boolean(req.authUser?.isGuest),
+          inviteCode: joinCtx.pathKind === 'hex' ? joinCtx.inviteCode : null,
           io: fastify.io,
           log: req.log,
         },
@@ -288,6 +386,9 @@ export default async function echoInvitesRoutes(
       if (!r.ok) {
         if (r.reason === 'not_found') {
           return sendError(reply, 404, 'NOT_FOUND', 'Invite not found');
+        }
+        if (r.reason === 'invite_invalid') {
+          return sendError(reply, 404, 'NOT_FOUND', 'Invalid invite');
         }
         if (r.reason === 'guest_join_forbidden') {
           return sendError(

@@ -16,7 +16,7 @@ These files describe the guild in a form suitable for rebuilding Echo servers:
 
 Optional / auxiliary:
 
-- `invites.json`, `webhooks.jsonl`, `scheduled_events.json`, `auto_moderation.json`
+- `invites.json` (invite `code`/`url` omitted unless `ECHO_DISCORD_EXPORT_INVITE_CODES=1`), `webhooks.jsonl`, `scheduled_events.json`, `auto_moderation.json`
 - `emojis.json`, `stickers.json`, `assets/`, `asset_manifest.json`
 - `member_effective_permissions_sample.json` (only with `--compute-effective-permissions`)
 
@@ -48,3 +48,7 @@ Importers should read `completeness.echoCoreOk` (and optional warnings) to decid
 ## Voice bitrate
 
 By default, voice channel `bitrate` is **included** in `channels.json` for mapping to Echo `bitrate_bps`. Use `--strip-voice-bitrate` only if you need a slimmer file.
+
+## Unattended export policy (`--serve`)
+
+On `GuildCreate` the bot only exports when the guild id is listed in `ECHO_DISCORD_EXPORT_GUILD_ALLOWLIST` (comma-separated), or `ECHO_DISCORD_AUTO_EXPORT_ALL=1`. Otherwise it logs and skips. Invite codes are never written to `invites.json` unless `ECHO_DISCORD_EXPORT_INVITE_CODES=1`.

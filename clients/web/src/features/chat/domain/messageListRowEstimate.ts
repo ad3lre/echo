@@ -3,6 +3,7 @@ import { stubVideoEmbedsFromMessage } from '@shared/linkEmbedCandidates';
 import { walkImageSlots } from '@shared/imageSlotContentJson';
 import { countButtonRows } from '@shared/buttonRowContentJson';
 import { resolvePlayableVideoEmbed } from '@shared/videoEmbedIds';
+import { resolveEmbedCardPreviewImage } from '@shared/embedPreviewImage';
 import { reserveChatAttachmentMediaBoxHeightPx } from '@/features/chat/domain/messageMediaReservation';
 import { estimateMessageBodyHeightPx } from '@/features/chat/domain/messageBodyEmojiGeometry';
 import { plainTextForMessageFields } from '@/features/chat/domain/messageDisplayPlain';
@@ -100,10 +101,11 @@ function estimateLinkEmbedBlockPx(embed: Embed): number {
     return block;
   }
 
-  const imageUrl = embed.image?.url?.trim();
+  const preview = resolveEmbedCardPreviewImage(embed);
+  const imageUrl = preview?.url?.trim();
   if (imageUrl) {
-    const w = embed.image?.width;
-    const h = embed.image?.height;
+    const w = preview?.width;
+    const h = preview?.height;
     if (typeof w === 'number' && w > 0 && typeof h === 'number' && h > 0) {
       const displayW = Math.min(w, MESSAGE_LIST_EMBED_RICH_MAX_WIDTH_PX);
       const displayH = Math.min(

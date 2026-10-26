@@ -73,6 +73,18 @@ public enum EchoRealtimeEvent: Equatable, Sendable {
   case voiceMlsMessage(channelID: String, serverID: String?)
   /// Authoritative pin order for a channel (`message:pins`, newest first).
   case pins(channelID: String, messageIDs: [String])
+  /// Partial body edit (`message:updated`).
+  case messageUpdated(
+    channelID: String,
+    messageID: String,
+    content: String,
+    editedAt: Date,
+    mentions: [EchoMessageMention]?)
+  /// Soft-delete (`message:deleted`).
+  case messageDeleted(channelID: String, messageID: String)
+  /// Reaction aggregates (`message:reactions`).
+  case messageReactions(
+    channelID: String, messageID: String, reactions: [EchoMessageReaction])
   case messageFailed(channelID: String?, detail: String?)
 }
 

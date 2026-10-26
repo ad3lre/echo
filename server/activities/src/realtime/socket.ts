@@ -75,6 +75,8 @@ export function attachGameSocketServer(
   const io = new Server(fastify.server, {
     serveClient: false,
     perMessageDeflate: false,
+    /** Cap inbound packet size (default is 1 MB). */
+    maxHttpBufferSize: 256 * 1024,
     cors: {
       origin: gameServerConfig.corsOrigin,
       credentials: true,

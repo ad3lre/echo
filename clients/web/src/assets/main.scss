@@ -111,7 +111,7 @@ html.echo-shell-ios select {
       --chat-glass-header-bg-fallback,
       var(--echo-menu-surface-bg-fallback, var(--elevated))
     );
-    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    border: 0;
     box-shadow: var(--shadow-3);
     isolation: isolate;
   }
@@ -451,8 +451,12 @@ code,
  * Defensive reset: Prevent stray styles on the document root.
  * Browser View Transitions API or extensions can sometimes leave orphaned
  * opacity/blend-mode/filter styles on <html> that wash out the entire page.
+ * Attribute selectors beat a bare `[data-theme=…] { filter: … !important }`
+ * leak from miscompiled scoped CSS (same specificity + element wins).
  */
-html {
+html,
+html[data-theme='light'],
+html[data-theme='dark'] {
   opacity: 1 !important;
   filter: none !important;
   mix-blend-mode: normal !important;

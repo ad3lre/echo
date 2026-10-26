@@ -290,8 +290,13 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
       user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
       apple_sub TEXT NOT NULL,
       apple_email TEXT NULL,
+      apple_refresh_token TEXT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+  await pool.query(`
+    ALTER TABLE auth_apple_user_links
+      ADD COLUMN IF NOT EXISTS apple_refresh_token TEXT NULL
   `);
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS auth_apple_user_links_apple_sub_idx

@@ -17,6 +17,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
   let embeds: [EchoMessageEmbed]?
   let poll: EchoPoll?
   let replyTo: EchoMessageReplyTo?
+  let reactions: [EchoMessageReaction]?
 
   enum CodingKeys: String, CodingKey {
     case id
@@ -33,6 +34,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
     case embeds
     case poll
     case replyTo
+    case reactions
   }
 
   init(from decoder: Decoder) throws {
@@ -51,6 +53,7 @@ struct EchoWireMessagePayload: Decodable, Sendable {
     embeds = try values.decodeIfPresent([EchoMessageEmbed].self, forKey: .embeds)
     poll = try values.decodeIfPresent(EchoPoll.self, forKey: .poll)
     replyTo = try values.decodeIfPresent(EchoMessageReplyTo.self, forKey: .replyTo)
+    reactions = try values.decodeIfPresent([EchoMessageReaction].self, forKey: .reactions)
   }
 
   func message(channelID fallbackChannelID: String, currentUserID: String?) -> EchoMessage? {
@@ -73,7 +76,8 @@ struct EchoWireMessagePayload: Decodable, Sendable {
       attachments: attachments ?? [],
       embeds: embeds ?? [],
       poll: poll,
-      replyTo: replyTo
+      replyTo: replyTo,
+      reactions: reactions ?? []
     )
   }
 }
@@ -174,6 +178,46 @@ private struct EchoWirePinsPayload: Decodable {
   }
 }
 
+private struct EchoWireMessageUpdatedPayload: Decodable {
+  let channelID: String
+  let messageID: String
+  let content: String?
+  let contentText: String?
+  let editedAt: String
+  let mentions: [EchoMessageMention]?
+
+  enum CodingKeys: String, CodingKey {
+    case channelID = "channelId"
+    case messageID = "messageId"
+    case content
+    case contentText
+    case editedAt
+    case mentions
+  }
+}
+
+private struct EchoWireMessageDeletedPayload: Decodable {
+  let channelID: String
+  let messageID: String
+
+  enum CodingKeys: String, CodingKey {
+    case channelID = "channelId"
+    case messageID = "messageId"
+  }
+}
+
+private struct EchoWireMessageReactionsPayload: Decodable {
+  let channelID: String
+  let messageID: String
+  let reactions: [EchoMessageReaction]
+
+  enum CodingKeys: String, CodingKey {
+    case channelID = "channelId"
+    case messageID = "messageId"
+    case reactions
+  }
+}
+
 private struct EchoWireWorkspaceEventPayload: Decodable {
   let kind: String
   let serverID: String?
@@ -260,6 +304,33 @@ public enum EchoRealtimeEventDecoder {
         !payload.channelID.isEmpty
       else { return nil }
       return .pins(channelID: payload.channelID, messageIDs: payload.messageIDs)
+    case "message:updated":
+      guard let payload = decode(EchoWireMessageUpdatedPayload.self, from: json),
+        !payload.channelID.isEmpty, !payload.messageID.isEmpty
+      else { return nil }
+      let body =
+        [payload.contentText, payload.content]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .first { !$0.isEmpty } ?? ""
+      return .messageUpdated(
+        channelID: payload.channelID,
+        messageID: payload.messageID,
+        content: body,
+        editedAt: EchoWireDate.parse(payload.editedAt) ?? Date(),
+        mentions: payload.mentions)
+    case "message:deleted":
+      guard let payload = decode(EchoWireMessageDeletedPayload.self, from: json),
+        !payload.channelID.isEmpty, !payload.messageID.isEmpty
+      else { return nil }
+      return .messageDeleted(channelID: payload.channelID, messageID: payload.messageID)
+    case "message:reactions":
+      guard let payload = decode(EchoWireMessageReactionsPayload.self, from: json),
+        !payload.channelID.isEmpty, !payload.messageID.isEmpty
+      else { return nil }
+      return .messageReactions(
+        channelID: payload.channelID,
+        messageID: payload.messageID,
+        reactions: payload.reactions)
     case "echo:workspace_event":
       guard let payload = decode(EchoWireWorkspaceEventPayload.self, from: json),
         payload.kind == "voice_mls_message"

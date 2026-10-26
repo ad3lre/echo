@@ -5,6 +5,10 @@
 # Keep .env / bot/.env / raw HARs out of git; this allowlist only suppresses
 # scanner noise for those path patterns across history.
 #
+# Test dirs and CI workflows are NOT path-allowlisted: a real secret committed there
+# must still be caught. Known test fixtures are suppressed via targeted `regexes`
+# and `stopwords` below (or fingerprints in /.gitleaksignore).
+#
 # Keep BOTH pre-monorepo and nested path prefixes: `gitleaks` scans full git
 # history on release/1.0.0, where frontend/, backend/, game-server/, and
 # infra/ still appear in older commits.
@@ -17,20 +21,16 @@ useDefault = true
 [allowlist]
 description = 'Historical leaked paths + dev fixtures (never commit real secrets to these patterns intentionally)'
 paths = [
-  '''^\.env$''',
   '''^bot/\.env$''',
   '''^chat-echo\.com\.har$''',
   '''^artifacts/har-clean/.*\.har$''',
-  '''^\.github/workflows/echo-backend-ci\.yml$''',
   '''^docs/EMOJI_LOADING\.md$''',
   '''^bot/\.env\.example$''',
 
   # Pre-monorepo paths (still in release/1.0.0 history)
   '''^infra/livekit/livekit\.chat-echo\.production\.yaml$''',
   '''^infra/livekit/livekit\.yaml$''',
-  '''^backend/src/tests/''',
   '''^backend/src/domain/discordProfileMerge\.ts$''',
-  '''^game-server/src/tests/''',
   '''^frontend/.+\.test\.ts$''',
   '''^frontend/src/observability/bugHunterTrace\.test\.ts$''',
   '''^frontend/src/utils/persistentImageDimsCache\.ts$''',
@@ -40,8 +40,6 @@ paths = [
   # Nested monorepo paths (current + intermediate moves)
   '''^server/ops/infra/livekit/livekit\.chat-echo\.production\.yaml$''',
   '''^server/ops/infra/livekit/livekit\.yaml$''',
-  '''^server/backend/src/tests/''',
-  '''^server/activities/src/tests/''',
   '''^server/backend/src/domain/discordProfileMerge\.ts$''',
   '''^server/backend/src/domain/discord/discordProfileMerge\.ts$''',
   '''^clients/web/.+\.test\.ts$''',
@@ -50,4 +48,16 @@ paths = [
   '''^clients/web/src/observability/bugHunterTrace\.test\.ts$''',
   '''^clients/web/src/features/settings/composables/useDiscordLinkSettings\.ts$''',
   '''^clients/web/src/features/settings/components/SettingsDiscordLinkSection\.vue$''',
+]
+
+# Targeted suppression of known, intentionally fake test fixture values.
+regexes = [
+  '''jwt-0123456789abcdef0123456789abcdef01234567''',
+  '''postgresql://echo:echo_dev@(127\.0\.0\.1|localhost|postgres)(:\d+)?/echo''',
+  '''POSTGRES_PASSWORD:\s*echo_dev''',
+]
+stopwords = [
+  'echo_dev',
+  'test-jwt-secret',
+  'not-a-real-secret',
 ]

@@ -383,6 +383,11 @@ async function hydrateWarmServerHeads(
   }
 }
 
+/** Prefer first-paint history over warm-head fan-out on boot. */
+const WARM_CHANNEL_IDLE_TIMEOUT_MS = 4_000;
+/** Bootstrap path warms fewer channels than a full server roam. */
+const WARM_CHANNEL_BOOTSTRAP_MAX = 5;
+
 function waitForWarmChannelIdle(signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.resolve();
   return new Promise((resolve) => {
@@ -393,10 +398,12 @@ function waitForWarmChannelIdle(signal: AbortSignal): Promise<void> {
       ) => number;
     };
     if (typeof idle.requestIdleCallback === 'function') {
-      idle.requestIdleCallback(resolve, { timeout: 1_500 });
+      idle.requestIdleCallback(resolve, {
+        timeout: WARM_CHANNEL_IDLE_TIMEOUT_MS,
+      });
       return;
     }
-    setTimeout(resolve, 0);
+    setTimeout(resolve, Math.min(250, WARM_CHANNEL_IDLE_TIMEOUT_MS));
   });
 }
 
@@ -469,12 +476,21 @@ export function warmCurrentServerChannelHeadsNonBlocking(
     activeChannelId?: string | null;
     attentionChannelIds?: readonly string[];
     recentChannelIds?: readonly string[];
+    /** Cap warm targets (bootstrap uses a smaller set than full roam). */
+    maxChannels?: number;
   },
 ): void {
   const sid = serverId.trim();
   const userId = opts?.userId?.trim() || readJwtSub(token);
   if (!token.trim() || !userId || !sid || !isEchoGraphId(sid)) return;
-  const channelIds = resolveWarmServerTextChannelIds(state, sid, opts);
+  const maxChannels = Math.max(
+    1,
+    opts?.maxChannels ?? WARM_CHANNEL_CACHE_MAX_CHANNELS,
+  );
+  const channelIds = resolveWarmServerTextChannelIds(state, sid, opts).slice(
+    0,
+    maxChannels,
+  );
   if (!channelIds.length) return;
   const activeChannelId = opts?.activeChannelId?.trim();
   if (activeChannelId) {
@@ -550,6 +566,7 @@ export function prefetchWorkspaceBootstrapTextChannelsNonBlocking(
   warmCurrentServerChannelHeadsNonBlocking(token, state, serverId, {
     activeChannelId: priorityChannelIds[0],
     recentChannelIds: priorityChannelIds,
+    maxChannels: WARM_CHANNEL_BOOTSTRAP_MAX,
   });
 }
 

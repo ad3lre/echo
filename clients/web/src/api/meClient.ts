@@ -99,6 +99,17 @@ export async function disconnectMeGoogle(): Promise<void> {
   throwIfError(res, data, 'DELETE /api/v1/me/google');
 }
 
+export async function disconnectMeDiscord(): Promise<void> {
+  assertNetworkAllowed();
+  const res = await authenticatedApiFetch(`${API_ROOT}/me/discord`, {
+    method: 'DELETE',
+    headers: echoCsrfHeaders(),
+  });
+  if (res.status === 204) return;
+  const data = (await parseJson(res)) as Record<string, unknown>;
+  throwIfError(res, data, 'DELETE /api/v1/me/discord');
+}
+
 export type DiscordImportableGuildDto = {
   id: string;
   name: string;

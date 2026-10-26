@@ -122,6 +122,10 @@ function wireSessionUiWatches(
         layoutDims.endVcActivitySessionChannelLayout();
       } else {
         layoutDims.beginVcActivitySessionChannelLayout();
+        // Opening Activities from a text channel mounts VoiceSection with the
+        // side-chat column still expanded on the text channel — collapse so
+        // the first paint matches the normal full activities layout.
+        layoutDims.voiceSideChatCollapsed.value = true;
       }
     },
     { immediate: true },

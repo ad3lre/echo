@@ -21,6 +21,7 @@ import {
 } from '../../../auth/stepUpAuth';
 import { sendPhoneVerificationSms } from '../../../services/auth/phoneVerificationActions';
 import { getPgPool } from '../../../db/pg';
+import { revokeAppleSiwaBestEffortOnAccountDelete } from '../../../services/integrations/appleSiwaTokens';
 import { fanoutUserProfileChangeToEchoServers } from '../../../services/echoUserProfileWorkspaceFanout';
 import { buildEchoPlanLimitsPublic } from '../../../domain/echoPlanEntitlements';
 import { getEchoPlusInterestForUser } from '../../../domain/echoPlusInterest';
@@ -42,7 +43,6 @@ import {
 } from '../../../../../../contracts/usernamePolicy';
 import type { AuthUser } from '../../../auth/types';
 import { AUTH_PROFILE_PATCH_RATE } from '../../sharedMutationRateLimits';
-
 function mergeMeBadgesForPlan(
   user: AuthUser,
   echoPlan: AuthUser['echoPlan'],
@@ -789,6 +789,10 @@ export default async function meRoutes(fastify: FastifyInstance) {
         req.body.totpCode,
       );
       if (!stepUp.ok) return sendStepUpTotpError(reply, stepUp.reason);
+      await revokeAppleSiwaBestEffortOnAccountDelete(
+        req.authUser.id,
+        fastify.log,
+      );
       await store.deleteUserAccount(req.authUser.id);
       await disconnectAllSocketsForAuthUser(
         fastify,

@@ -13,6 +13,13 @@ export const ECHO_CHANNEL_MESSAGES_CLIENT_CAP_ACTIVE = 3000;
 export const ECHO_CHANNEL_MESSAGES_CLIENT_CAP_BACKGROUND = 2400;
 
 /**
+ * Max distinct channel message buckets retained in the SPA session.
+ * Per-channel caps alone are not enough — visiting many channels would otherwise
+ * retain thousands of messages each until logout.
+ */
+export const ECHO_CHANNEL_MESSAGE_BUCKET_LRU_MAX = 12;
+
+/**
  * Back-compat alias: same as {@link ECHO_CHANNEL_MESSAGES_CLIENT_CAP_ACTIVE}.
  * @deprecated Prefer ACTIVE / BACKGROUND or {@link resolveEchoChannelMessagesClientCap}.
  */

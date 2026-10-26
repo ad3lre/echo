@@ -9,6 +9,7 @@ import {
   writeSortedMessagesForChannel,
   applyEchoChannelClientCapToBucket,
 } from '@/features/chat/domain/channelMessageBucket';
+import { ECHO_CHANNEL_MESSAGE_BUCKET_LRU_MAX } from '@/features/layout/echoWorkspace/echoChannelMessageWindow';
 import {
   logMessageList,
   messageListDebugEnabled,
@@ -66,9 +67,37 @@ class MessageWindowAuthority {
   private channelNewerBoundary = new Map<string, MessageBoundaryState>();
   private channelOlderCache = new Map<string, RawMessage[]>();
   private static readonly maxOlderCacheRowsPerChannel = 160;
+  /** Oldest → newest touch order for channel bucket eviction. */
+  private channelLruOrder: string[] = [];
 
   public bindMessages(messages: Ref<Record<string, RawMessage[]>>) {
     this.boundMessages = messages;
+  }
+
+  private touchChannelLru(channelId: string): void {
+    const id = channelId.trim();
+    if (!id) return;
+    const idx = this.channelLruOrder.indexOf(id);
+    if (idx >= 0) this.channelLruOrder.splice(idx, 1);
+    this.channelLruOrder.push(id);
+    this.pruneChannelBucketsToLruCap();
+  }
+
+  private pruneChannelBucketsToLruCap(): void {
+    const max = ECHO_CHANNEL_MESSAGE_BUCKET_LRU_MAX;
+    if (this.channelLruOrder.length <= max) return;
+    const active = this.activeChannelId?.trim() || null;
+    while (this.channelLruOrder.length > max) {
+      let victimIdx = 0;
+      if (active && this.channelLruOrder[victimIdx] === active) {
+        victimIdx = 1;
+      }
+      if (victimIdx >= this.channelLruOrder.length) break;
+      const victim = this.channelLruOrder[victimIdx];
+      this.channelLruOrder.splice(victimIdx, 1);
+      if (!victim || victim === active) continue;
+      this.removeChannelBucket(victim, { skipLruUpdate: true });
+    }
   }
 
   private requireBoundMessages(): Ref<Record<string, RawMessage[]>> {
@@ -102,6 +131,7 @@ class MessageWindowAuthority {
       }
     }
     this.activeChannelId = channelId;
+    if (channelId) this.touchChannelLru(channelId);
     this.updateActiveWindow();
   }
 
@@ -112,9 +142,13 @@ class MessageWindowAuthority {
   public ensureChannelBucket(channelId: string): RawMessage[] {
     const rec = this.requireBoundMessages().value;
     const existing = rec[channelId];
-    if (existing) return existing;
+    if (existing) {
+      this.touchChannelLru(channelId);
+      return existing;
+    }
     const next: RawMessage[] = [];
     rec[channelId] = next;
+    this.touchChannelLru(channelId);
     return next;
   }
 
@@ -124,6 +158,8 @@ class MessageWindowAuthority {
       const list = this.ensureChannelBucket(channelId);
       index = getChannelIndex(channelId, list);
       this.channelIndexes.set(channelId, index);
+    } else {
+      this.touchChannelLru(channelId);
     }
     return index;
   }
@@ -315,13 +351,20 @@ class MessageWindowAuthority {
     return r;
   }
 
-  public removeChannelBucket(channelId: string) {
+  public removeChannelBucket(
+    channelId: string,
+    opts?: { skipLruUpdate?: boolean },
+  ) {
     disposeChannelIndex(channelId);
     this.channelIndexes.delete(channelId);
     this.channelHasMoreOlder.delete(channelId);
     this.channelOlderBoundary.delete(channelId);
     this.channelNewerBoundary.delete(channelId);
     this.channelOlderCache.delete(channelId);
+    if (!opts?.skipLruUpdate) {
+      const idx = this.channelLruOrder.indexOf(channelId);
+      if (idx >= 0) this.channelLruOrder.splice(idx, 1);
+    }
     if (this.boundMessages) {
       delete this.boundMessages.value[channelId];
     }
@@ -334,6 +377,7 @@ class MessageWindowAuthority {
     if (channelIds.length === 0) return;
     const r = this.requireBoundMessages();
     const next = { ...r.value };
+    const drop = new Set(channelIds);
     for (const id of channelIds) {
       disposeChannelIndex(id);
       this.channelIndexes.delete(id);
@@ -343,6 +387,7 @@ class MessageWindowAuthority {
       this.channelOlderCache.delete(id);
       delete next[id];
     }
+    this.channelLruOrder = this.channelLruOrder.filter((id) => !drop.has(id));
     r.value = next;
     if (this.activeChannelId && channelIds.includes(this.activeChannelId)) {
       this.updateActiveWindow();
@@ -363,7 +408,13 @@ class MessageWindowAuthority {
         this.channelOlderCache.delete(channelId);
       }
     }
+    this.channelLruOrder = this.channelLruOrder.filter((id) => nextIds.has(id));
+    for (const id of nextIds) {
+      if (!this.channelLruOrder.includes(id)) this.channelLruOrder.push(id);
+    }
     r.value = next;
+    if (this.activeChannelId) this.touchChannelLru(this.activeChannelId);
+    else this.pruneChannelBucketsToLruCap();
     this.updateActiveWindow();
   }
 
@@ -378,6 +429,7 @@ class MessageWindowAuthority {
     this.channelOlderBoundary.clear();
     this.channelNewerBoundary.clear();
     this.channelOlderCache.clear();
+    this.channelLruOrder = [];
     r.value = {};
     this.updateActiveWindow();
   }
@@ -402,6 +454,7 @@ class MessageWindowAuthority {
     this.channelOlderBoundary.clear();
     this.channelNewerBoundary.clear();
     this.channelOlderCache.clear();
+    this.channelLruOrder = [];
   }
 }
 

@@ -81,6 +81,35 @@ public protocol EchoMessageTimelineLoading: Sendable {
     channelID: String,
     messageID: String
   ) async throws -> [String]
+
+  /// Author-only edit — PATCH returns 204; timeline applies `message:updated`.
+  func editMessage(
+    accessToken: String,
+    channelID: String,
+    messageID: String,
+    content: String
+  ) async throws
+
+  /// Soft-delete — DELETE returns 204; timeline applies `message:deleted`.
+  func deleteMessage(
+    accessToken: String,
+    channelID: String,
+    messageID: String
+  ) async throws
+
+  func addReaction(
+    accessToken: String,
+    channelID: String,
+    messageID: String,
+    emoji: String
+  ) async throws -> [EchoMessageReaction]
+
+  func removeReaction(
+    accessToken: String,
+    channelID: String,
+    messageID: String,
+    emoji: String
+  ) async throws -> [EchoMessageReaction]
 }
 
 /// Conversation-scoped search used by the native DM search surface.

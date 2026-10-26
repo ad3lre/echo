@@ -948,7 +948,13 @@ export class PostgresAuthStore implements AuthStore {
         return { ok: false, reason: 'missing_or_expired' };
       }
       if (existing.revoked_at) {
-        await client.query('ROLLBACK');
+        // Reuse of a rotated/revoked token is a theft signal: revoke the whole
+        // refresh-token family for this user (committed, not rolled back).
+        await client.query(
+          `UPDATE auth_refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`,
+          [existing.user_id],
+        );
+        await client.query('COMMIT');
         return { ok: false, reason: 'already_redeemed' };
       }
       if (new Date(existing.expires_at).getTime() <= Date.now()) {

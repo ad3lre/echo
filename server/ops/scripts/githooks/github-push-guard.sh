@@ -46,6 +46,11 @@ github_push_guard() {
 
     # GitHub main must not share a tip with origin/main (unsquashed internal graph).
     if [[ -n "$origin_main" && "$local_sha" == "$origin_main" ]]; then
+      if [[ -n "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]]; then
+        echo "" >&2
+        echo "!!!!! pre-push: ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP is SET — pushing a tip equal to origin/main to GitHub (INTERNAL HISTORY LEAK). Hooks are advisory; server-side rulesets are the enforcement. !!!!!" >&2
+        echo "" >&2
+      fi
       if [[ -z "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]]; then
         echo "pre-push: REFUSED — GitHub main tip equals origin/main." >&2
         echo "  That exposes GitLab per-commit history. Use: bun run publish:public-release -- --yes" >&2

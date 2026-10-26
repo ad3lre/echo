@@ -20,6 +20,7 @@ struct EchoConversationView: View {
   var onRequestExit: (() -> Void)? = nil
 
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.openURL) private var openURL
   @Environment(\.scenePhase) private var scenePhase
   @Environment(EchoAuthenticationModel.self) private var auth
   @Environment(EchoRealtimeSession.self) private var realtime
@@ -33,6 +34,17 @@ struct EchoConversationView: View {
   @State private var selectedMemberProfile: EchoUserProfile?
   @State private var searchTargetMessageID: String?
   @State private var replyTarget: EchoMessageReplyTo?
+  @State private var editingMessage: EchoMessage?
+  @State private var reactionTargetMessageID: String?
+  /// Bumped when composer panel / keyboard chrome changes so the timeline re-sticks.
+  @State private var stickToBottomTick = 0
+  /// Composer field is first responder.
+  @State private var composerFocused = false
+  /// Survives the UIKit resign race so the first outside tap only dismisses.
+  @State private var composerKeyboardArmed = false
+  /// Delete / other timeline actions that need a one-shot alert (not the load banner).
+  @State private var timelineActionError: String?
+  @State private var reportTarget: EchoSafetyReportSheet.Target?
 
   private var isGuildChannel: Bool { guildContext != nil }
   private var isPersonalNotes: Bool {
@@ -74,6 +86,7 @@ struct EchoConversationView: View {
         showsPins: !isGuildChannel,
         showsCall: !isGuildChannel,
         onProfileTap: {
+          if consumeComposerKeyboardTap() { return }
           if isGuildChannel {
             showingMembers = true
           } else {
@@ -81,6 +94,8 @@ struct EchoConversationView: View {
           }
         },
         onExit: {
+          // Leave immediately — don't require a second tap on back.
+          EchoComposerKeyboardDismiss.resignFirstResponder()
           if let onRequestExit {
             onRequestExit()
           } else {
@@ -88,11 +103,22 @@ struct EchoConversationView: View {
           }
         },
         onCall: {
+          if consumeComposerKeyboardTap() { return }
           if let callModel { Task { await callModel.startCall(to: conversation) } }
         },
-        onPins: { showingPins = true },
-        onSearch: { showingSearch = true },
-        onMembers: isGuildChannel ? { showingMembers = true } : nil
+        onPins: {
+          if consumeComposerKeyboardTap() { return }
+          showingPins = true
+        },
+        onSearch: {
+          if consumeComposerKeyboardTap() { return }
+          showingSearch = true
+        },
+        onMembers: isGuildChannel
+          ? {
+            if consumeComposerKeyboardTap() { return }
+            showingMembers = true
+          } : nil
       )
 
       if let model {
@@ -103,13 +129,50 @@ struct EchoConversationView: View {
           accessToken: liveComposerAccessToken,
           userID: userID,
           scrollTargetMessageID: searchTargetMessageID,
-          onPeerProfileTap: { showingProfile = true },
+          stickToBottomTick: stickToBottomTick,
+          onPeerProfileTap: {
+            if consumeComposerKeyboardTap() { return }
+            showingProfile = true
+          },
           onReply: { message in
+            if consumeComposerKeyboardTap() { return }
+            editingMessage = nil
             replyTarget = message.asReplyTo(
               authorDisplayName: EchoMessageTimelineModel.authorDisplayName(
                 message: message, conversation: conversation))
           },
+          onEdit: { message in
+            if consumeComposerKeyboardTap() { return }
+            replyTarget = nil
+            editingMessage = message
+          },
+          onDelete: { message in
+            if consumeComposerKeyboardTap() { return }
+            Task {
+              if let error = await model.deleteWithFeedback(messageID: message.id) {
+                timelineActionError = error
+              }
+            }
+          },
+          onReport: { message in
+            if consumeComposerKeyboardTap() { return }
+            reportTarget = .message(
+              messageID: message.id,
+              channelID: conversation.channelID,
+              authorName: EchoMessageTimelineModel.authorDisplayName(
+                message: message, conversation: conversation)
+            )
+          },
+          onReact: { message in
+            if consumeComposerKeyboardTap() { return }
+            reactionTargetMessageID = message.id
+          },
+          onToggleReaction: { message, emoji in
+            if consumeComposerKeyboardTap() { return }
+            Task { await model.toggleReaction(messageID: message.id, emoji: emoji) }
+          },
           onJumpToReply: { messageID in
+            if consumeComposerKeyboardTap() { return }
             searchTargetMessageID = messageID
           }
         )
@@ -118,24 +181,43 @@ struct EchoConversationView: View {
           .tint(EchoTheme.Color.ink(0.78))
           .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
-
-      // Isolated so typing pulses do not re-evaluate the message LazyVStack.
-      EchoTypingIndicator(name: model?.typingDisplayName)
-
-      EchoMessageComposer(
-        baseURL: baseURL,
-        accessToken: liveComposerAccessToken,
-        placeholder: conversation.username.map { "Message @\($0)" }
-          ?? EchoCopy.format("Message %@", conversation.displayName),
-        onComposerTextChange: { text in
-          realtime.noteComposerText(text, channelID: conversation.channelID)
-        },
-        replyTo: $replyTarget,
-        onSend: { submission in
-          guard let model else { return }
-          try await model.send(submission)
-        })
     }
+    // Floating composer — timeline scrolls behind; no solid footer slab.
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      VStack(spacing: 0) {
+        EchoTypingIndicator(name: model?.typingDisplayName)
+        EchoMessageComposer(
+          baseURL: baseURL,
+          accessToken: liveComposerAccessToken,
+          placeholder: conversation.username.map { "Message @\($0)" }
+            ?? EchoCopy.format("Message %@", conversation.displayName),
+          onComposerTextChange: { text in
+            realtime.noteComposerText(text, channelID: conversation.channelID)
+          },
+          replyTo: $replyTarget,
+          editingMessage: $editingMessage,
+          onSend: { submission in
+            guard let model else { return }
+            try await model.send(submission)
+          },
+          onEdit: { messageID, content in
+            guard let model else { return }
+            try await model.edit(messageID: messageID, content: content)
+          },
+          onBottomChromeChange: {
+            stickToBottomTick &+= 1
+          },
+          onEditingFocusChange: { focused in
+            handleComposerFocusChange(focused)
+          })
+      }
+      // Keep the home-indicator band transparent — only the glass pill reads as chrome.
+      .background(Color.clear)
+    }
+    .echoComposerKeyboardRejection(
+      consume: { consumeComposerKeyboardTap() },
+      openURL: openURL
+    )
     .echoSwipeAction(
       edge: .leading,
       systemImage: "arrow.left",
@@ -289,10 +371,10 @@ struct EchoConversationView: View {
     // sits closer to the notch without overlapping the Dynamic Island.
     .padding(.top, -6)
     .background(alignment: .top) {
-      // Swipe chrome clips the header's own safe-area bleed; paint the notch
-      // band here (outside that clip) so it matches the header fill.
-      EchoTheme.Color.canvas
-        .frame(height: 88)
+      // Swipe chrome clips the header's own safe-area bleed; paint the same
+      // conversation wash into the notch so it doesn’t read as a flat cut.
+      EchoAlignedConversationWash()
+        .frame(height: 120)
         .frame(maxWidth: .infinity)
         .ignoresSafeArea(edges: .top)
     }
@@ -304,6 +386,48 @@ struct EchoConversationView: View {
     #if os(iOS)
       .toolbar(.hidden, for: .navigationBar)
     #endif
+    .sheet(isPresented: Binding(
+      get: { reactionTargetMessageID != nil },
+      set: { if !$0 { reactionTargetMessageID = nil } }
+    )) {
+      EchoReactionPickerSheet(
+        baseURL: baseURL,
+        accessToken: liveComposerAccessToken,
+        onPick: { emoji in
+          guard let model, let messageID = reactionTargetMessageID else { return }
+          Task { await model.toggleReaction(messageID: messageID, emoji: emoji) }
+        },
+        onDismiss: { reactionTargetMessageID = nil }
+      )
+      #if os(iOS)
+        .presentationDetents([.medium, .large])
+      #endif
+    }
+    .alert(
+      EchoCopy.string("Couldn’t delete message"),
+      isPresented: Binding(
+        get: { timelineActionError != nil },
+        set: { if !$0 { timelineActionError = nil } }
+      )
+    ) {
+      Button(EchoCopy.string("OK"), role: .cancel) { timelineActionError = nil }
+    } message: {
+      Text(timelineActionError ?? "")
+    }
+    .sheet(
+      isPresented: Binding(
+        get: { reportTarget != nil },
+        set: { if !$0 { reportTarget = nil } })
+    ) {
+      if let reportTarget {
+        EchoSafetyReportSheet(
+          target: reportTarget,
+          accessToken: liveComposerAccessToken,
+          baseURL: baseURL,
+          onFinished: { self.reportTarget = nil }
+        )
+      }
+    }
     .overlay {
       if let callModel, callModel.isPresented {
         EchoCallView(model: callModel, baseURL: baseURL, accessToken: liveComposerAccessToken)
@@ -316,6 +440,30 @@ struct EchoConversationView: View {
   private var liveComposerAccessToken: String {
     if let token = auth.activeSession?.accessToken, !token.isEmpty { return token }
     return composerAccessToken
+  }
+
+  private func handleComposerFocusChange(_ focused: Bool) {
+    composerFocused = focused
+    if focused {
+      composerKeyboardArmed = true
+      return
+    }
+    // Keep armed briefly so the tap that dismissed focus can still consume it.
+    Task { @MainActor in
+      try? await Task.sleep(for: .milliseconds(120))
+      if !composerFocused { composerKeyboardArmed = false }
+    }
+  }
+
+  /// First tap while the composer keyboard is up: dismiss only (return true).
+  /// Second tap: return false so the caller can open media / navigate.
+  @discardableResult
+  private func consumeComposerKeyboardTap() -> Bool {
+    guard composerKeyboardArmed || composerFocused else { return false }
+    composerKeyboardArmed = false
+    composerFocused = false
+    EchoComposerKeyboardDismiss.resignFirstResponder()
+    return true
   }
 
   @ViewBuilder
@@ -336,216 +484,3 @@ struct EchoConversationView: View {
   }
 }
 
-/// Reads timeline message state only — typing lives in `EchoTypingIndicator`.
-private struct EchoConversationTimeline: View {
-  @Bindable var model: EchoMessageTimelineModel
-  let conversation: EchoDirectMessage
-  let baseURL: URL
-  let accessToken: String
-  let userID: String
-  let scrollTargetMessageID: String?
-  var onPeerProfileTap: (() -> Void)? = nil
-  var onReply: ((EchoMessage) -> Void)? = nil
-  var onJumpToReply: ((String) -> Void)? = nil
-  /// Identity tracked by SwiftUI so prepended history keeps the visible row
-  /// stable without a post-layout `scrollTo` repair.
-  @State private var scrolledMessageID: String?
-  /// Follow the latest message only while the user is already pinned near bottom.
-  @State private var followLatest = true
-  /// Web-parity: leave the top trigger zone before another older-page load.
-  @State private var loadOlderArmed = true
-
-  var body: some View {
-    ScrollViewReader { proxy in
-      // Vertical-only: wide markdown/LaTeX must not unlock a horizontal axis.
-      ScrollView(.vertical, showsIndicators: false) {
-        LazyVStack(alignment: .leading, spacing: 0) {
-          if model.isLoading && model.messages.isEmpty {
-            ProgressView("Loading messages")
-              .tint(EchoTheme.Color.ink(0.78))
-              .foregroundStyle(EchoTheme.Color.ink(0.55))
-              .frame(maxWidth: .infinity)
-          } else if let errorMessage = model.errorMessage, model.messages.isEmpty {
-            EchoConversationErrorView(message: errorMessage) {
-              await model.loadInitial()
-            }
-            .frame(maxWidth: .infinity)
-          } else if model.messages.isEmpty {
-            ContentUnavailableView(
-              EchoCopy.string("No messages yet"),
-              systemImage: "bubble.left.and.bubble.right",
-              description: EchoCopy.text("Your conversation is ready when you are.")
-            )
-            .foregroundStyle(EchoTheme.Color.ink(0.62))
-            .frame(maxWidth: .infinity)
-          } else {
-            olderHistoryChrome
-
-            ForEach(Array(model.messages.enumerated()), id: \.element.id) { index, message in
-              EchoMessageRow(
-                message: message,
-                conversation: conversation,
-                baseURL: baseURL,
-                accessToken: accessToken,
-                showsHeader: showsHeader(at: index),
-                currentUserID: userID,
-                resolveVoterName: { voterName($0) },
-                onPollVote: { optionID in
-                  Task { await model.vote(messageID: message.id, optionID: optionID) }
-                },
-                onDismissFailed: message.delivery == .failed
-                  ? { model.dismissFailedSend(id: message.id) } : nil,
-                onAuthorProfileTap: canOpenAuthorProfile(message) ? onPeerProfileTap : nil,
-                isPinned: model.isPinned(message.id),
-                onTogglePin: message.delivery == .sent
-                  ? { Task { await model.togglePin(messageID: message.id) } } : nil,
-                onReply: message.delivery == .sent
-                  ? { onReply?(message) } : nil,
-                onJumpToReply: message.replyTo.map { reply in
-                  { onJumpToReply?(reply.messageID) }
-                }
-              )
-              // Keep each target column-width so tall chats cannot grow a
-              // horizontal content size that mis-anchors scrollPosition.
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .id(message.id)
-              .onAppear {
-                guard index == 0, model.hasMoreBefore, loadOlderArmed else { return }
-                loadOlderArmed = false
-                Task { @MainActor in
-                  _ = await model.loadOlder()
-                }
-              }
-            }
-          }
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, model.messages.isEmpty ? 0 : 18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // Empty: center “No messages yet”. With history: pin to bottom so short
-        // threads don’t leave a blank band above the composer.
-        .containerRelativeFrame(
-          .vertical,
-          alignment: model.messages.isEmpty ? .center : .bottom
-        )
-        .scrollTargetLayout()
-      }
-      // `.bottom` is (0.5, 1) — when content is briefly wider than the
-      // viewport (lazy LaTeX / markdown measure), that x=0.5 centers the
-      // column and the whole DM list opens left-shifted. Pin leading+bottom.
-      .defaultScrollAnchor(.bottomLeading)
-      .scrollPosition(id: $scrolledMessageID, anchor: .bottomLeading)
-      .scrollDismissesKeyboard(.interactively)
-      .frame(maxHeight: .infinity)
-      .onChange(of: scrolledMessageID) { _, messageID in
-        let latestID = model.messages.last?.id
-        followLatest = messageID == nil || messageID == latestID
-        if messageID != model.messages.first?.id {
-          loadOlderArmed = true
-        }
-      }
-      .onChange(of: model.messages.last?.id, initial: true) { _, lastID in
-        guard let lastID, followLatest else { return }
-        pinToLatest(lastID, proxy: proxy)
-      }
-      .onChange(of: model.isLoading) { _, loading in
-        guard !loading, followLatest, let lastID = model.messages.last?.id else { return }
-        pinToLatest(lastID, proxy: proxy)
-      }
-      .onChange(of: scrollTargetMessageID) { _, messageID in
-        guard let messageID else { return }
-        followLatest = false
-        Task {
-          await model.reveal(messageID: messageID)
-          await Task.yield()
-          scrolledMessageID = messageID
-          withTransaction(Transaction(animation: .easeInOut(duration: 0.24))) {
-            proxy.scrollTo(messageID, anchor: .center)
-          }
-        }
-      }
-      .simultaneousGesture(
-        TapGesture().onEnded {
-          #if os(iOS)
-            UIApplication.shared.sendAction(
-              #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-          #endif
-        }
-      )
-    }
-  }
-
-  private func pinToLatest(_ lastID: String, proxy: ScrollViewProxy) {
-    scrolledMessageID = lastID
-    // LazyVStack often under-measures on the first pass when the thread
-    // is taller than the viewport — re-anchor once layout settles.
-    Task { @MainActor in
-      await Task.yield()
-      guard followLatest, model.messages.last?.id == lastID else { return }
-      scrolledMessageID = lastID
-      var transaction = Transaction()
-      transaction.disablesAnimations = true
-      withTransaction(transaction) {
-        proxy.scrollTo(lastID, anchor: .bottomLeading)
-      }
-    }
-  }
-
-  /// Fixed-height slot while older history exists so the spinner appearing /
-  /// disappearing does not itself shift message rows.
-  @ViewBuilder
-  private var olderHistoryChrome: some View {
-    if model.hasMoreBefore || (model.errorMessage != nil && !model.messages.isEmpty) {
-      ZStack {
-        if model.isLoadingOlder {
-          ProgressView()
-            .tint(EchoTheme.Color.ink(0.62))
-        } else if let errorMessage = model.errorMessage, !model.messages.isEmpty {
-          EchoOlderMessagesErrorBanner(message: errorMessage) {
-            loadOlderArmed = false
-            _ = await model.loadOlder()
-          }
-        }
-      }
-      .frame(maxWidth: .infinity)
-      .frame(minHeight: 44)
-      .padding(.vertical, 4)
-    }
-  }
-
-  private func showsHeader(at index: Int) -> Bool {
-    guard index > 0 else { return true }
-    let current = model.messages[index]
-    let previous = model.messages[index - 1]
-    guard current.authorID == previous.authorID else { return true }
-    guard let currentDate = current.timestamp, let previousDate = previous.timestamp else {
-      return false
-    }
-    return currentDate.timeIntervalSince(previousDate) > 5 * 60
-  }
-
-  private func canOpenAuthorProfile(_ message: EchoMessage) -> Bool {
-    guard onPeerProfileTap != nil, conversation.peerUserID != nil else { return false }
-    return !message.isCurrentUser && !EchoUserIdentity.matches(message.authorID, userID)
-  }
-
-  private func voterName(_ userID: String) -> String {
-    EchoMessageTimelineModel.voterDisplayName(
-      userID: userID, conversation: conversation, messages: model.messages)
-  }
-}
-
-private struct EchoTypingIndicator: View {
-  let name: String?
-
-  var body: some View {
-    if let name, !name.isEmpty {
-      Text(EchoCopy.format("%@ is typing…", name))
-        .font(.system(size: 12, weight: .medium, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.48))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 22)
-        .padding(.bottom, 4)
-    }
-  }
-}

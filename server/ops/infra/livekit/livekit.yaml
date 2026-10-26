@@ -1,3 +1,10 @@
+# DEV ONLY — the key/secret and TURN credential below are public placeholders.
+# Production / any shared host MUST set ECHO_LIVEKIT_YAML to a gitignored file with real values
+# (e.g. server/ops/infra/livekit/livekit.local.yaml; see livekit.production.example.yaml). Its
+# keys: block must match LIVEKIT_API_KEY / LIVEKIT_API_SECRET, and rtc.turn_servers credential
+# must match ECHO_TURN_CREDENTIAL used by docker-compose coturn. The backend refuses to boot in
+# production with the dev key/secret.
+#
 # LiveKit SFU — local Docker Compose dev (single node). YAML values are literal (no ${VAR}).
 # LIVEKIT_API_KEY / LIVEKIT_API_SECRET in .env must match the `keys` block (see .env.example).
 # Production: use server/ops/infra/livekit/livekit.production.example.yaml and docs/operations/livekit-production.md.

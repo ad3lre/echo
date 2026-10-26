@@ -21,6 +21,8 @@ final class EchoComposerPhotoLibrary {
   }
 
   private(set) var items: [Item] = []
+  /// Apple only exposes `.readWrite` / `.addOnly`. Composer never writes to the
+  /// library; limited authorization is enough to browse and attach (5.1.1(iii)).
   private(set) var authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
   private(set) var isLoading = false
   private let imageManager = PHCachingImageManager()

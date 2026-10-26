@@ -17,6 +17,7 @@ struct EchoVideoAttachmentPreview: View {
   var accessToken: String? = nil
   let onOpen: () -> Void
   @Environment(EchoAuthenticationModel.self) private var auth
+  @Environment(\.echoConsumeComposerKeyboardTap) private var consumeComposerKeyboardTap
   @State private var revealed: Bool
   @State private var poster: Image?
   @State private var isLoadingPoster = false
@@ -36,6 +37,7 @@ struct EchoVideoAttachmentPreview: View {
 
   var body: some View {
     Button {
+      if consumeComposerKeyboardTap() { return }
       if revealed {
         onOpen()
       } else {

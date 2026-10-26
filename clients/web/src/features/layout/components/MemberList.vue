@@ -502,11 +502,11 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
 
 <template>
   <div
-    class="member-list-panel group/member relative flex min-h-0 min-w-0 flex-col bg-transparent"
+    class="member-list-panel group/member relative flex min-h-0 min-w-0 flex-col bg-[var(--echo-channel-panel-bg)]"
   >
     <div
       v-show="!collapsed"
-      class="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col bg-transparent"
+      class="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col bg-[var(--echo-channel-panel-bg)]"
     >
       <template v-if="showMemberSkeleton">
         <div :class="listScrollPadClass" v-scrollbar-on-scroll>

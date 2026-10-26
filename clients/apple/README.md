@@ -169,4 +169,6 @@ refetches the open DM after the last known message id. APNs covers the
 backgrounded / killed app: alert + `aps.badge` for new DMs, mark-read when a
 conversation is open, and attachment uploads that wait for connectivity. iOS
 also registers a `BGAppRefresh` task to resync the unread badge when Keychain
-can be read without a prompt.
+can be read without a prompt. Incoming CallKit rings while the process is
+alive (socket `dm:call`); `UIBackgroundModes` includes `audio` for active
+calls but not `voip` until PushKit VoIP pushes ship end-to-end.

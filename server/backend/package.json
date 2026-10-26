@@ -4,7 +4,7 @@
   "description": "Backend for the Echo private communication platform",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
+    "dev": "NODE_ENV=development bun --watch src/index.ts",
     "dev:e2e": "bun src/index.ts",
     "start": "bun dist/server/backend/src/index.js",
     "build": "tsc",

@@ -67,6 +67,7 @@ export function useAppLayoutDmAndShellNavVoice(
   echoDm: AppLayoutDmAndShellEchoDm,
 ) {
   const shellNav = wireShellNavigation(session, roles, echoDm);
+  echoDm.openServerSurfaceForVoiceJumpRef.value = shellNav.openServerSurface;
   const hasGuildChannelChrome = useHasGuildChannelChromeComputed(
     shellNav.mainSurface,
   );

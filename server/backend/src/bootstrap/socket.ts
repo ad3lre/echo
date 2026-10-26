@@ -51,6 +51,17 @@ export function attachSocketServer(fastify: FastifyInstance): Server {
      * “Invalid frame header”. Disabling trades a bit of bandwidth for reliability on chat-echo.com.
      */
     perMessageDeflate: false,
+    /**
+     * Explicit inbound packet cap (socket.io default is 1 MB). Kept at 1 MB rather than 256 KB
+     * because socket message/paper payloads can legitimately carry larger inline data; override via env.
+     */
+    maxHttpBufferSize: (() => {
+      const n = parseInt(
+        process.env.ECHO_SOCKET_MAX_HTTP_BUFFER_BYTES ?? '',
+        10,
+      );
+      return Number.isFinite(n) && n >= 16 * 1024 ? n : 1_000_000;
+    })(),
     cors: {
       origin: resolveSocketIoCorsOrigin(),
       credentials: true,

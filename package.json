@@ -1,6 +1,6 @@
 {
   "name": "echo",
-  "version": "0.0.15",
+  "version": "0.1.0",
   "description": "Echo: A privacy-focused communication platform with real-time chat, voice, and community features.",
   "private": true,
   "engines": {
@@ -167,7 +167,7 @@
     "@playwright/test": "^1.60.0",
     "concurrently": "^9.2.4",
     "cross-env": "^10.1.0",
-    "happy-dom": "^20.10.1",
+    "happy-dom": "21.0.4",
     "jsdom": "^29.1.1",
     "kill-port": "^2.0.1",
     "prettier": "3.8.3",
@@ -185,20 +185,23 @@
   },
   "overrides": {
     "discord.js": {
-      "undici": "6.28.1"
+      "undici": "6.29.1"
     },
     "@discordjs/rest": {
-      "undici": "6.28.1"
+      "undici": "6.29.1"
     },
     "jsdom": {
-      "undici": "7.29.1"
+      "undici": "7.30.1"
     },
     "node-gyp": {
-      "undici": "8.10.2"
+      "undici": "8.12.2"
     },
     "unifont": {
-      "undici": "8.10.2"
+      "undici": "8.12.2"
     },
+    "launch-editor": "2.14.2",
+    "dompurify": "3.4.17",
+    "zod": "4.6.7",
     "@grpc/grpc-js": "1.14.6",
     "esbuild": "0.28.1",
     "prosemirror-model": "1.25.7",
@@ -239,11 +242,12 @@
       "picomatch": "4.0.4"
     },
     "vite": {
-      ".": "8.0.16",
-      "esbuild": "0.28.1"
+      ".": "8.3.5",
+      "esbuild": "0.28.1",
+      "launch-editor": "2.14.2"
     },
     "@tailwindcss/vite": {
-      "vite": "8.0.16"
+      "vite": "8.3.5"
     },
     "astro": {
       "esbuild": "0.28.1",

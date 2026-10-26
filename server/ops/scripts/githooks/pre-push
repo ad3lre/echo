@@ -18,6 +18,15 @@ VERSION_CHECK="$ROOT/server/ops/scripts/check-echo-version-bump.mjs"
 
 ref_updates=$(cat || true)
 
+warn_bypass() {
+  echo "" >&2
+  echo "!!!!! pre-push: $1 is SET — safety check BYPASSED (user=$(id -un 2>/dev/null || echo ?), remote=${remote_name}). Hooks are advisory; server-side protections are the enforcement. !!!!!" >&2
+  echo "" >&2
+}
+for _skip in ECHO_SKIP_VERSION_GATE ECHO_SKIP_CI_PRECHECK; do
+  if [[ -n "${!_skip:-}" ]]; then warn_bypass "$_skip"; fi
+done
+
 if [[ ! -f "$GUARD" ]]; then
   echo "pre-push: missing $GUARD — run ./server/ops/scripts/setup-githooks.sh" >&2
   exit 1

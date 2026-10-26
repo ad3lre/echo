@@ -7,11 +7,13 @@ struct EchoDocumentAttachment: View {
   let accessToken: String?
   @Environment(EchoAuthenticationModel.self) private var auth
   @Environment(\.openURL) private var openURL
+  @Environment(\.echoConsumeComposerKeyboardTap) private var consumeComposerKeyboardTap
   @State private var isOpening = false
   @State private var failed = false
 
   var body: some View {
     Button {
+      if consumeComposerKeyboardTap() { return }
       Task {
         isOpening = true
         defer { isOpening = false }

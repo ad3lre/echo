@@ -223,7 +223,8 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
     let names = [
       "message", "message_ack", "message_failed", "poll:updated",
       "presence:update", "channel:typing", "dm:activity", "dm:call",
-      "message:pins", "echo:workspace_event",
+      "message:pins", "message:updated", "message:deleted", "message:reactions",
+      "echo:workspace_event",
     ]
     for name in names {
       socket.on(name) { [weak self] data, _ in

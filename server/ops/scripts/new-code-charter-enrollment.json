@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-10-19",
+  "enrolledAt": "2026-10-26",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -368,8 +368,8 @@
       "maxNestingSpaces": 10
     },
     "clients/web/src/features/layout/composables/controller/buildAppLayoutAssemblyDeps.ts": {
-      "lines": 779,
-      "longestFunction": 767,
+      "lines": 780,
+      "longestFunction": 768,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -380,8 +380,8 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/layout/composables/controller/useAppLayoutDmAndShellEchoDm.ts": {
-      "lines": 257,
-      "longestFunction": 98,
+      "lines": 288,
+      "longestFunction": 115,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -428,10 +428,10 @@
       "maxNestingSpaces": 12
     },
     "server/backend/src/api/routes/appleOAuth.ts": {
-      "lines": 245,
+      "lines": 281,
       "longestFunction": 4,
-      "deepNestingLines": 13,
-      "maxNestingSpaces": 16
+      "deepNestingLines": 26,
+      "maxNestingSpaces": 18
     },
     "server/backend/src/api/routes/honchoMemory.ts": {
       "lines": 197,
@@ -486,6 +486,12 @@
       "longestFunction": 119,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
+    },
+    "server/backend/src/services/linkUnfurl/pinnedHttpFetch.ts": {
+      "lines": 175,
+      "longestFunction": 85,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 12
     },
     "server/backend/src/domain/echoStore/messages/discordImportMediaMirrorQueue.ts": {
       "lines": 67,

@@ -137,13 +137,21 @@
   box-shadow: 0 0 0 2px var(--echo-mobile-tab-bar-pill-bg-fallback);
 }
 
-:global([data-theme='light']) .mobile-bottom-tab-bar__pill img.echo-ink-icon {
+/*
+ * Keep these as full global selectors (not `:global(X) .local`).
+ * Vue scoped + `:global([data-theme]) .child` has compiled to a bare
+ * `[data-theme=light] { filter: brightness(0) invert() }` which hits <html>
+ * and whites out the entire app.
+ */
+:global(
+  html[data-theme='light'] .mobile-bottom-tab-bar__pill img.echo-ink-icon
+) {
   filter: brightness(0) invert(1) !important;
   opacity: 0.82;
 }
 
-:global([data-theme='light'])
-  .mobile-bottom-tab-bar__tab--active
-  img.echo-ink-icon {
+:global(
+  html[data-theme='light'] .mobile-bottom-tab-bar__tab--active img.echo-ink-icon
+) {
   opacity: 1;
 }

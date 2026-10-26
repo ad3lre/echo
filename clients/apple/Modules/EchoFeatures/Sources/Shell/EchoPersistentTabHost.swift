@@ -61,7 +61,9 @@ import SwiftUI
       } else {
         // Snapshot while still visible, then hide — switch cost is show/hide only.
         if !controller.view.layer.shouldRasterize {
-          controller.view.layer.rasterizationScale = UIScreen.main.scale
+          controller.view.layer.rasterizationScale =
+            controller.view.window?.screen.scale
+            ?? controller.view.traitCollection.displayScale
           controller.view.layer.shouldRasterize = true
         }
         if controller.view.alpha != 0 {

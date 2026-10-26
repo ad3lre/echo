@@ -64,7 +64,9 @@ const virtualizer = useVirtualizer(
     getScrollElement: () => scrollParentRef.value,
     estimateSize: (index: number) => {
       const row = virtualRows.value[index];
-      return row ? estimateMemberListVirtualRowSize(row) : 48;
+      return row
+        ? estimateMemberListVirtualRowSize(row, { isFirstRow: index === 0 })
+        : 52;
     },
     overscan: 10,
     getItemKey: (index: number) => virtualRows.value[index]?.key ?? index,
@@ -114,7 +116,8 @@ function memberAt(index: number): MemberListVirtualMember | null {
       >
         <div
           v-if="headerAt(vItem.index)"
-          class="flex items-center gap-2 pt-1 pb-1 text-xs font-semibold uppercase tracking-wider"
+          class="flex items-center gap-2 pb-1 text-xs font-semibold uppercase tracking-wider"
+          :class="vItem.index === 0 ? 'pt-1' : 'pt-4'"
           :style="{ color: headerAt(vItem.index)!.role.color }"
         >
           <span
@@ -143,7 +146,7 @@ function memberAt(index: number): MemberListVirtualMember | null {
         <div
           v-else-if="memberAt(vItem.index)"
           :data-member-id="memberAt(vItem.index)!.user.id"
-          class="flex cursor-pointer items-center gap-3 rounded-lg p-2 hover:bg-glass-tint"
+          class="box-border flex h-full cursor-pointer items-center gap-3 rounded-lg p-2 pb-3 hover:bg-glass-tint"
           @click="emit('openProfile', memberAt(vItem.index)!.user.id, $event)"
           @contextmenu="
             emit('memberContextMenu', memberAt(vItem.index)!.user, $event)
@@ -227,7 +230,7 @@ function memberAt(index: number): MemberListVirtualMember | null {
       </div>
     </div>
     <template v-else>
-      <div v-for="section in sections" :key="section.role.id" class="mb-4">
+      <div v-for="section in sections" :key="section.role.id" class="mb-5">
         <div
           class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider"
           :style="{ color: section.role.color }"
@@ -250,7 +253,7 @@ function memberAt(index: number): MemberListVirtualMember | null {
           />
           {{ section.role.name }} — {{ section.members.length }}
         </div>
-        <div class="flex flex-col gap-1">
+        <div class="flex flex-col gap-1.5">
           <div
             v-for="user in section.members"
             :key="user.id"

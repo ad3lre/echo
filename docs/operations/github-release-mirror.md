@@ -118,9 +118,29 @@ To replace the entire reachable public history with a **single** commit while ke
 
 GitLab **protected branches** often block `--force` pushes. To land a rewritten `main` / `release/1.0.0` on both remotes, temporarily allow maintainer force-push (or unprotect), push to `origin`, then restore protection if you want.
 
+## Required server-side protections (the actual enforcement)
+
+Everything in `server/ops/scripts/githooks/` is **advisory**: `--no-verify`, a fresh clone without `setup-githooks.sh`, or any `ECHO_SKIP_*` / `ECHO_*_BYPASS` variable defeats it (the hooks now print a loud banner to stderr when a bypass is used, but they cannot stop it). The following must be configured on the servers:
+
+**GitLab (internal)**
+
+- Protected branches **`main`** and **`release/1.0.0`**: force push **disallowed**, direct push limited to maintainers/the release identity, merge requests required where practical, code-owner approval on (see `CODEOWNERS`).
+- The `github` mirror/deploy credential lives only in the scheduled mirror job/runner, never on developer machines.
+- `.gitlab-ci.yml` `security` and `security-dep-audit` jobs required to pass for merges.
+
+**GitHub (public)**
+
+- Repository **ruleset** on **`main`**: restrict updates to the mirror identity (deploy key / bot), block force pushes except from that identity, block deletion, require signed commits if feasible.
+- Ruleset (or branch-creation restriction) that blocks creation of any branch other than `main`.
+- Required status checks from the `.github/workflows` CI on `main`; code-owner review for `/.github/`, `/server/ops/`, `/package.json`, `/bun.lock`.
+
+`mirror-release-to-github.sh <sha>` additionally refuses an explicit SHA that is not reachable from `origin/release/1.0.0`, or whose `github/main..<sha>` range contains commits reachable from `origin/main` but not from `origin/release/1.0.0`.
+
+Release commit author: set `ECHO_RELEASE_AUTHOR_EMAIL` (and `GIT_AUTHOR_NAME` if needed) in your environment; `publish-public-release.sh` refuses to run without it.
+
 ## Commit messages (Cursor)
 
-`server/ops/scripts/githooks/prepare-commit-msg` strips the **Cursor-packaged** trailer lines the IDE appends to commit messages (the extra “co-authored” line and the “Made-with” line), so they are never stored and GitHub does not attribute a second bot identity. Run `./server/ops/scripts/setup-githooks.sh` so this hook runs. In Cursor, set **Git author** under Settings → Git to **`ad3lre`** / **`reachbypass@gmail.com`** (or export the same `GIT_AUTHOR_*` / `GIT_COMMITTER_*` variables in the shell) so public and internal commits attribute correctly.
+`server/ops/scripts/githooks/prepare-commit-msg` strips the **Cursor-packaged** trailer lines the IDE appends to commit messages (the extra “co-authored” line and the “Made-with” line), so they are never stored and GitHub does not attribute a second bot identity. Run `./server/ops/scripts/setup-githooks.sh` so this hook runs. In Cursor, set **Git author** under Settings → Git to **`ad3lre`** / **`$ECHO_RELEASE_AUTHOR_EMAIL`** (the public release author email; never commit it) (or export the same `GIT_AUTHOR_*` / `GIT_COMMITTER_*` variables in the shell) so public and internal commits attribute correctly.
 
 ## CI / automation
 

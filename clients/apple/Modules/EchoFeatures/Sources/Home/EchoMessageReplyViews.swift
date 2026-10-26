@@ -96,6 +96,49 @@ struct EchoComposerReplyBar: View {
   }
 }
 
+/// Composer chrome while editing an existing message.
+struct EchoComposerEditBar: View {
+  let preview: String
+  let onClear: () -> Void
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Image(systemName: "pencil")
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundStyle(EchoTheme.Color.indigoSoft)
+        .frame(width: 34, height: 34)
+        .background(
+          EchoTheme.Color.indigoSoft.opacity(0.14),
+          in: Circle()
+        )
+
+      VStack(alignment: .leading, spacing: 2) {
+        Text(EchoCopy.string("Editing message"))
+          .font(.system(size: 12, weight: .semibold, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.ink(0.88))
+        Text(preview)
+          .font(.system(size: 12, weight: .regular, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.ink(0.48))
+          .lineLimit(1)
+      }
+      Spacer(minLength: 8)
+      Button(action: onClear) {
+        Image(systemName: "xmark.circle.fill")
+          .font(.system(size: 18, weight: .regular))
+          .foregroundStyle(EchoTheme.Color.ink(0.42))
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(EchoCopy.string("Cancel edit"))
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 10)
+    .background(
+      EchoTheme.Color.elevatedMid,
+      in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+    )
+  }
+}
+
 /// Reply-arrow disc with the quoted author's avatar overlapping — a compact
 /// identity mark for reply chrome (composer bar + in-thread preview).
 private struct EchoReplyIdentityMark: View {

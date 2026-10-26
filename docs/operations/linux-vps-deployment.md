@@ -70,6 +70,16 @@ User-visible downtime is roughly the **cutover** (~seconds), not the full build.
 
 Manual staging only: **`bun run prod:staging:serve`** (optional `--api-port=3001 --frontend-port=4174`).
 
+## Signed-commit verification for `--git-watch` deploys
+
+`vps-serve.mjs --git-watch` pulls (`git pull --ff-only`) and restarts when `origin/<branch>` moves. Whoever can push to that branch can therefore ship code to production, so the launcher can verify the new tip first:
+
+- `ECHO_DEPLOY_REQUIRE_SIGNED=1` — run `git verify-commit <new tip>` before pulling. On failure the launcher logs `git verify-commit FAILED … keeping current version running` to the launcher meta log and does **not** pull or restart.
+- Unset / `0` (**current default**, because commits are not signed yet) — no verification, and a `WARNING: deploying … WITHOUT signature verification` line is logged on every pull.
+- Trusted keys: git's normal config (`gpg.format=ssh` + `gpg.ssh.allowedSignersFile`, or the GPG keyring). `ECHO_DEPLOY_ALLOWED_SIGNERS=/path/allowed_signers` overrides the signers file for the launcher only.
+
+Roll-out: sign commits (`git config commit.gpgsign true`), install the allowed-signers file on the VPS, confirm `git verify-commit origin/<branch>` passes, then set `ECHO_DEPLOY_REQUIRE_SIGNED=1` in the launcher's environment.
+
 ## Reverse proxy (recommended on a VPS)
 
 Terminate **TLS** at **Caddy** (or **Traefik** / a cloud load balancer), and:

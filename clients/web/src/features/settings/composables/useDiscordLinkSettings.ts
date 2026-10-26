@@ -1,10 +1,15 @@
 import { onMounted, ref, watch } from 'vue';
 import { useAuthSessionStore } from '@/features/auth/authSession';
 import { authDiscordOAuthStart } from '@/api/authClient';
-import { fetchMeDiscord, type MeDiscordResponse } from '@/api/meClient';
+import {
+  disconnectMeDiscord,
+  fetchMeDiscord,
+  type MeDiscordResponse,
+} from '@/api/meClient';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { messageForDiscordOAuthError } from '@/features/discord/integrationCopy';
 import { startOAuthFlow } from '@/platform/desktopBridge';
+import { dispatchAppToast } from '@/features/layout/failures/controllerMissingAction';
 
 export function useDiscordLinkSettings() {
   const authSession = useAuthSessionStore();
@@ -13,6 +18,7 @@ export function useDiscordLinkSettings() {
   const loading = ref(false);
   const actionError = ref('');
   const connectBusy = ref(false);
+  const disconnectBusy = ref(false);
   const lastOAuthRedirectUri = ref('');
 
   function clearDiscordRedirectHint() {
@@ -76,6 +82,24 @@ export function useDiscordLinkSettings() {
     }
   }
 
+  async function onDisconnect() {
+    if (!authSession.isAuthenticated) return;
+    disconnectBusy.value = true;
+    actionError.value = '';
+    try {
+      await disconnectMeDiscord();
+      dispatchAppToast('Discord account disconnected.', 'info');
+      await refresh();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Could not disconnect Discord.';
+      actionError.value = message;
+      dispatchAppToast(message, 'error');
+    } finally {
+      disconnectBusy.value = false;
+    }
+  }
+
   onMounted(() => {
     readOauthReturnError();
     void refresh();
@@ -93,8 +117,10 @@ export function useDiscordLinkSettings() {
     loading,
     actionError,
     connectBusy,
+    disconnectBusy,
     lastOAuthRedirectUri,
     refresh,
     onConnect,
+    onDisconnect,
   };
 }

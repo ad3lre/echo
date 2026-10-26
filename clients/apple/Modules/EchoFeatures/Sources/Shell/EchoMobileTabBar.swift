@@ -1,19 +1,25 @@
 import SwiftUI
 
-/// Floating liquid-glass pill — icon-only, web tab artwork, Instagram-ish float.
+/// Floating liquid-glass pill — icon-only, web tab artwork.
+/// Portrait: horizontal bottom float. Landscape: vertical trailing rail.
 struct EchoMobileTabBar: View {
   @Binding var selection: EchoMainTab
   var homeBadge: Int = 0
   var serversHasActivity = false
   var exploreHasActivity = false
+  /// Re-tap Servers while already selected — hierarchical back in that tab.
+  var onReselectServers: (() -> Void)? = nil
+  /// Vertical rail for landscape / Duo; horizontal pill otherwise.
+  var axis: Axis = .horizontal
 
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
   @Environment(\.colorScheme) private var colorScheme
 
   // Larger capsule (~15%); icons stay at the original size.
-  private let pillHeight: CGFloat = 62
+  private let pillThickness: CGFloat = 62
   private let iconSize: CGFloat = 24
   private let barWidthFraction: CGFloat = 0.64
+  private let barHeightFraction: CGFloat = 0.42
 
   private var isDarkChrome: Bool {
     colorScheme == .dark || displayPrefs.theme == "amoled"
@@ -26,14 +32,26 @@ struct EchoMobileTabBar: View {
 
   var body: some View {
     let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
-    return HStack(spacing: 0) {
+    return Group {
+      if axis == .vertical {
+        verticalBar
+      } else {
+        horizontalBar
+      }
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(EchoCopy.string("Main navigation"))
+  }
+
+  private var horizontalBar: some View {
+    HStack(spacing: 0) {
       ForEach(EchoMainTab.allCases) { tab in
-        tabButton(tab)
+        tabButton(tab, vertical: false)
           .frame(maxWidth: .infinity)
       }
     }
     .padding(.horizontal, 4)
-    .frame(height: pillHeight)
+    .frame(height: pillThickness)
     .background { pillBackground }
     .shadow(
       color: .black.opacity(isAmoled ? 0.55 : (isDarkChrome ? 0.42 : 0.12)),
@@ -43,14 +61,42 @@ struct EchoMobileTabBar: View {
     .shadow(
       color: .black.opacity(isDarkChrome ? 0.20 : 0.05), radius: 3, y: 1)
     .containerRelativeFrame(.horizontal) { width, _ in width * barWidthFraction }
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel(EchoCopy.string("Main navigation"))
   }
 
-  private func tabButton(_ tab: EchoMainTab) -> some View {
+  private var verticalBar: some View {
+    VStack(spacing: 0) {
+      ForEach(EchoMainTab.allCases) { tab in
+        tabButton(tab, vertical: true)
+          .frame(maxHeight: .infinity)
+      }
+    }
+    .padding(.vertical, 4)
+    .frame(width: pillThickness)
+    .background { pillBackground }
+    .shadow(
+      color: .black.opacity(isAmoled ? 0.55 : (isDarkChrome ? 0.42 : 0.12)),
+      radius: isAmoled ? 16 : 20,
+      x: -6
+    )
+    .shadow(
+      color: .black.opacity(isDarkChrome ? 0.20 : 0.05), radius: 3, x: -1)
+    .containerRelativeFrame(.vertical) { height, _ in
+      min(height * barHeightFraction, 280)
+    }
+  }
+
+  private func tabButton(_ tab: EchoMainTab, vertical: Bool) -> some View {
     let isSelected = selection == tab
     return Button {
-      guard selection != tab else { return }
+      if selection == tab {
+        // Re-tap Servers = hierarchical back (chat → channels → server list).
+        // Use an explicit callback — overlay Environment(EchoShellChrome) was
+        // missing and crashed the shell right after unlock.
+        if tab == .servers {
+          onReselectServers?()
+        }
+        return
+      }
       // Do not wrap in withAnimation — that springs the whole shell (Home/Explore
       // trees). Animate only this pill via `.animation(_, value: selection)`.
       selection = tab
@@ -59,8 +105,8 @@ struct EchoMobileTabBar: View {
         if isSelected {
           Capsule(style: .continuous)
             .fill(selectionFill)
-            .padding(.vertical, 5)
-            .padding(.horizontal, 0)
+            .padding(vertical ? .horizontal : .vertical, 5)
+            .padding(vertical ? .vertical : .horizontal, 0)
         }
 
         Image(isSelected ? tab.assetNameSelected : tab.assetName, bundle: .main)
@@ -75,8 +121,11 @@ struct EchoMobileTabBar: View {
             badgeView(for: tab)
               .offset(x: 10, y: -6)
           }
-          .frame(maxWidth: .infinity)
-          .frame(height: pillHeight - 8)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .frame(
+            width: vertical ? pillThickness - 8 : nil,
+            height: vertical ? nil : pillThickness - 8
+          )
           .contentShape(Capsule())
       }
       // Instant chrome — never spring the tab bar (that dragged shell switches).

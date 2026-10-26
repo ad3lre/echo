@@ -35,8 +35,11 @@ describe('memberListVirtualRows', () => {
       'hdr:r2',
       'm:r2:u3',
     ]);
-    expect(estimateMemberListVirtualRowSize(rows[0]!)).toBe(28);
-    expect(estimateMemberListVirtualRowSize(rows[1]!)).toBe(48);
+    expect(
+      estimateMemberListVirtualRowSize(rows[0]!, { isFirstRow: true }),
+    ).toBe(28);
+    expect(estimateMemberListVirtualRowSize(rows[1]!)).toBe(52);
+    expect(estimateMemberListVirtualRowSize(rows[3]!)).toBe(44);
     expect(MEMBER_LIST_VIRTUALIZE_THRESHOLD).toBe(80);
   });
 });

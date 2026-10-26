@@ -20,6 +20,7 @@ import type {
   MessageStickerPayload,
 } from '../../../../../contracts/types';
 import { normalizeTenorAnimatedGifUrl } from '../../../../../contracts/gifHostLinks';
+import { isLikelyVideoFileUrl } from '../../../../../contracts/embedPreviewImage';
 import { sanitizePollForStorage } from '../../sockets/messageValidation';
 import { maybeEnqueueDiscordImportMediaMirror } from './discordImportMediaMirrorQueue';
 import { resolveDiscordSyncedContentMentions } from '../translateDiscordSyncedMentions';
@@ -96,7 +97,9 @@ export function mapDiscordApiEmbedToEcho(
   if (typeof raw.description === 'string' && raw.description.length > 0) {
     out.description = raw.description;
   }
-  if (typeof raw.url === 'string' && raw.url.trim()) out.url = raw.url.trim();
+  if (typeof raw.url === 'string' && /^https?:\/\//i.test(raw.url.trim())) {
+    out.url = raw.url.trim();
+  }
   if (typeof raw.color === 'number' && Number.isFinite(raw.color)) {
     out.color = raw.color;
   }
@@ -128,23 +131,31 @@ export function mapDiscordApiEmbedToEcho(
     const im = image as Record<string, unknown>;
     const url = pickDiscordUrlOrProxy(im);
     if (url) {
-      out.image = { url: normalizeTenorAnimatedGifUrl(url) };
-      if (typeof im.width === 'number') out.image.width = im.width;
-      if (typeof im.height === 'number') out.image.height = im.height;
+      const normalized = normalizeTenorAnimatedGifUrl(url);
+      if (!isLikelyVideoFileUrl(normalized)) {
+        out.image = { url: normalized };
+        if (typeof im.width === 'number') out.image.width = im.width;
+        if (typeof im.height === 'number') out.image.height = im.height;
+      }
     }
   }
 
   // Discord `type: "video"` / gifv embeds expose media on `video`, not `image`.
   // Tenor gifv uses an mp4 here — rewrite to the animated GIF CDN variant.
+  // Non-Tenor mp4s stay video files; do not put them on `image` (breaks `<img>`
+  // previews). Prefer `thumbnail` (handled below) for a raster card preview.
   if (!out.image) {
     const video = raw.video;
     if (video && typeof video === 'object') {
       const v = video as Record<string, unknown>;
       const url = pickDiscordUrlOrProxy(v);
       if (url) {
-        out.image = { url: normalizeTenorAnimatedGifUrl(url) };
-        if (typeof v.width === 'number') out.image.width = v.width;
-        if (typeof v.height === 'number') out.image.height = v.height;
+        const normalized = normalizeTenorAnimatedGifUrl(url);
+        if (!isLikelyVideoFileUrl(normalized)) {
+          out.image = { url: normalized };
+          if (typeof v.width === 'number') out.image.width = v.width;
+          if (typeof v.height === 'number') out.image.height = v.height;
+        }
       }
     }
   }

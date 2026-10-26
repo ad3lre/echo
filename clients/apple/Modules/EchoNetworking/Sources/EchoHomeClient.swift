@@ -244,6 +244,64 @@ public struct EchoHomeClient: Sendable {
     return response.messageIds
   }
 
+  public func editMessage(
+    accessToken: String,
+    channelID: String,
+    messageID: String,
+    content: String
+  ) async throws {
+    let body = try JSONEncoder().encode(["content": content])
+    try await sendEmpty(
+      path: "/api/v1/echo/channels/\(escaped(channelID))/messages/\(escaped(messageID))",
+      method: "PATCH",
+      body: body,
+      accessToken: accessToken)
+  }
+
+  public func deleteMessage(
+    accessToken: String,
+    channelID: String,
+    messageID: String
+  ) async throws {
+    try await sendEmpty(
+      path: "/api/v1/echo/channels/\(escaped(channelID))/messages/\(escaped(messageID))",
+      method: "DELETE",
+      body: Data(),
+      accessToken: accessToken)
+  }
+
+  public func addReaction(
+    accessToken: String,
+    channelID: String,
+    messageID: String,
+    emoji: String
+  ) async throws -> [EchoMessageReaction] {
+    let body = try JSONEncoder().encode(["emoji": emoji])
+    let response: EchoHomeReactionsResponse = try await sendJSON(
+      path:
+        "/api/v1/echo/channels/\(escaped(channelID))/messages/\(escaped(messageID))/reactions",
+      method: "PUT",
+      body: body,
+      accessToken: accessToken)
+    return response.reactions
+  }
+
+  public func removeReaction(
+    accessToken: String,
+    channelID: String,
+    messageID: String,
+    emoji: String
+  ) async throws -> [EchoMessageReaction] {
+    let body = try JSONEncoder().encode(["emoji": emoji])
+    let response: EchoHomeReactionsResponse = try await sendJSON(
+      path:
+        "/api/v1/echo/channels/\(escaped(channelID))/messages/\(escaped(messageID))/reactions",
+      method: "DELETE",
+      body: body,
+      accessToken: accessToken)
+    return response.reactions
+  }
+
   public func uploadAttachment(
     accessToken: String,
     channelID: String,

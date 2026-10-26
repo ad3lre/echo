@@ -225,7 +225,12 @@
     background: var(--echo-palette-rgba-255-255-255-0p1-d371);
   }
 }
-:global([data-theme='light']) {
+/*
+ * Prefer `html[data-theme=…] .child` over `:global([data-theme]) { .child }`.
+ * Vue scoped + `:global([data-theme])` nesting has compiled to bare
+ * `[data-theme=light] { … }` on <html> and blanked the app.
+ */
+html[data-theme='light'] {
   .auth-signed-in-hint {
     color: var(--echo-palette-rgb-22-101-52-84b9);
   }

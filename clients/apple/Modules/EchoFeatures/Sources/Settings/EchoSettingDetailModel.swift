@@ -341,10 +341,22 @@ final class EchoSettingDetailModel {
   }
 
   func disconnectGoogle() {
+    disconnectExternalLink {
+      try await self.client.disconnectGoogle(accessToken: self.accessToken)
+    }
+  }
+
+  func disconnectDiscord() {
+    disconnectExternalLink {
+      try await self.client.disconnectDiscord(accessToken: self.accessToken)
+    }
+  }
+
+  private func disconnectExternalLink(_ work: @escaping () async throws -> Void) {
     isDisconnectingExternalLink = true
     Task {
       do {
-        try await client.disconnectGoogle(accessToken: accessToken)
+        try await work()
         externalLinkStatus = false
       } catch {
         presentFailure(error)

@@ -5,8 +5,9 @@
   }
 }
 
-/* Light mode: white picker chrome + dark text (scrim/glass utilities read as muddy grey). */
-:global([data-theme='light']) .gif-popout.chat-liquid-glass-menu {
+/* Light mode: white picker chrome + dark text (scrim/glass utilities read as muddy grey).
+ * Avoid `:global([data-theme]) { … }` — Vue scoped has compiled that onto <html>. */
+html[data-theme='light'] .gif-popout.chat-liquid-glass-menu {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   background-color: var(--echo-palette-fff-e08d);
@@ -15,12 +16,12 @@
   color: var(--text);
 }
 
-:global([data-theme='light']) .gif-popout {
-  :global(.bg-scrim-1) {
+html[data-theme='light'] .gif-popout {
+  .bg-scrim-1 {
     background-color: var(--echo-palette-fff-e08d) !important;
   }
 
-  :global(.bg-scrim-2) {
+  .bg-scrim-2 {
     background-color: color-mix(
       in srgb,
       var(--border) 16%,
@@ -28,12 +29,12 @@
     ) !important;
   }
 
-  :global(.text-muted),
-  :global(.text-fg-subtle) {
+  .text-muted,
+  .text-fg-subtle {
     color: color-mix(in srgb, var(--text) 58%, transparent) !important;
   }
 
-  :global(.text-foreground) {
+  .text-foreground {
     color: var(--text) !important;
   }
 
@@ -80,7 +81,7 @@
     color: var(--text) !important;
   }
 
-  button:global(.bg-scrim-1):hover {
+  button.bg-scrim-1:hover {
     background-color: color-mix(
       in srgb,
       var(--border) 10%,

@@ -561,6 +561,11 @@ export class MemoryAuthStore implements AuthStore {
       return { ok: false, reason: 'missing_or_expired' };
     }
     if (existing.revokedAt) {
+      // Reuse of a rotated token: revoke the whole refresh-token family.
+      const nowIso = new Date().toISOString();
+      for (const r of this.refreshTokens.values()) {
+        if (r.userId === existing.userId && !r.revokedAt) r.revokedAt = nowIso;
+      }
       return { ok: false, reason: 'already_redeemed' };
     }
     existing.revokedAt = new Date().toISOString();
