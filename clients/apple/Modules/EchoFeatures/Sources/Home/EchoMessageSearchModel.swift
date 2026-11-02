@@ -30,6 +30,8 @@ final class EchoMessageSearchModel {
   var mentionsMe = false
   var hasType: EchoMessageSearchHasType?
   var hasAttachment = false
+  /// Free-form `mentions:` token when it does not resolve to the current user.
+  var inlineMentions: String?
 
   @ObservationIgnored private var searchGeneration = 0
 
@@ -65,14 +67,16 @@ final class EchoMessageSearchModel {
   /// Replaces the result set for a new query/filter combination.
   func search(_ query: String) async {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    applyInlineFilters(from: trimmed)
+    let apiQuery = EchoMessageSearchInline.queryForAPI(trimmed)
     searchGeneration &+= 1
     let generation = searchGeneration
-    activeQuery = trimmed
+    activeQuery = apiQuery
     results = []
     isLoadingMore = false
     hasMoreBefore = false
     errorMessage = nil
-    guard !trimmed.isEmpty || hasActiveCriteria else {
+    guard !apiQuery.isEmpty || hasActiveCriteria else {
       isSearching = false
       return
     }
@@ -87,7 +91,7 @@ final class EchoMessageSearchModel {
           accessToken: token,
           channelID: conversation.channelID,
           currentUserID: userID,
-          query: trimmed,
+          query: apiQuery,
           before: nil,
           limit: 24,
           criteria: criteria
@@ -157,6 +161,28 @@ final class EchoMessageSearchModel {
     mentionsMe = false
     hasType = nil
     hasAttachment = false
+    inlineMentions = nil
+  }
+
+  /// Merge typed `from:` / `has:` / `mentions:` into chip state (web search controller).
+  func applyInlineFilters(from raw: String) {
+    let extracted = EchoMessageSearchInline.extract(raw)
+    if let type = extracted.hasType {
+      hasType = type
+      hasAttachment = false
+    }
+    if let from = extracted.from {
+      resolveFromToken(from)
+    }
+    if let mentions = extracted.mentions {
+      if identityMatchesViewer(mentions) {
+        mentionsMe = true
+        inlineMentions = nil
+      } else {
+        mentionsMe = false
+        inlineMentions = mentions
+      }
+    }
   }
 
   private var resolvedAuthorID: String? {
@@ -168,10 +194,42 @@ final class EchoMessageSearchModel {
   }
 
   private var resolvedMentions: String? {
+    if let inline = inlineMentions?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !inline.isEmpty
+    {
+      return inline
+    }
     guard mentionsMe else { return nil }
     let name =
       auth.activeSession?.username?.trimmingCharacters(in: .whitespacesAndNewlines)
     if let name, !name.isEmpty { return name }
     return userID
+  }
+
+  private func resolveFromToken(_ raw: String) {
+    if identityMatchesViewer(raw) {
+      authorScope = .me
+      return
+    }
+    let needle = raw.lowercased()
+    let peerName = conversation.displayName.lowercased()
+    let peerUser = conversation.username?.lowercased() ?? ""
+    let peerID = conversation.peerUserID?.lowercased() ?? ""
+    if !peerID.isEmpty,
+      peerName.contains(needle) || peerUser.contains(needle) || peerID == needle
+        || peerUser == needle
+    {
+      authorScope = .peer
+    }
+  }
+
+  private func identityMatchesViewer(_ raw: String) -> Bool {
+    let needle = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    guard !needle.isEmpty else { return false }
+    if EchoUserIdentity.matches(needle, userID) { return true }
+    let username =
+      auth.activeSession?.username?.trimmingCharacters(in: .whitespacesAndNewlines)
+      .lowercased() ?? ""
+    return !username.isEmpty && (username == needle || username.contains(needle))
   }
 }

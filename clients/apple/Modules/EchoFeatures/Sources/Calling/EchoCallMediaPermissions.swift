@@ -1,8 +1,5 @@
+import AVFoundation
 import Foundation
-
-#if os(iOS)
-  import AVFoundation
-#endif
 
 /// TCC prompts for call media. Kept out of `EchoCallModel` so the call state
 /// machine stays under the maintainability LOC budget.
@@ -25,6 +22,8 @@ enum EchoCallMediaPermissions {
       @unknown default:
         return
       }
+    #else
+      try await requestCaptureAccess(for: .audio, denied: .microphoneDenied)
     #endif
   }
 
@@ -43,6 +42,26 @@ enum EchoCallMediaPermissions {
       @unknown default:
         return
       }
+    #else
+      try await requestCaptureAccess(for: .video, denied: .cameraDenied)
     #endif
   }
+
+  #if os(macOS)
+    @MainActor
+    private static func requestCaptureAccess(
+      for media: AVMediaType, denied: EchoCallTransportError
+    ) async throws {
+      switch AVCaptureDevice.authorizationStatus(for: media) {
+      case .authorized:
+        return
+      case .denied, .restricted:
+        throw denied
+      case .notDetermined:
+        guard await AVCaptureDevice.requestAccess(for: media) else { throw denied }
+      @unknown default:
+        return
+      }
+    }
+  #endif
 }

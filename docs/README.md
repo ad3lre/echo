@@ -48,6 +48,7 @@ tree is present on a developer machine.
 | [operations/voice-e2ee-livekit.md](operations/voice-e2ee-livekit.md)                       | Voice E2EE                                      |
 | [operations/instance-policy.md](operations/instance-policy.md)                             | Instance policy file                            |
 | [operations/PRODUCTION_SECURITY_CHECKLIST.md](operations/PRODUCTION_SECURITY_CHECKLIST.md) | Production security                             |
+| [operations/sbom-vdr.md](operations/sbom-vdr.md)                                           | SBOM + VDR (OSV gate on push / release)         |
 | [operations/shipping-gate.md](operations/shipping-gate.md)                                 | Ship / prod gates                               |
 | [operations/ios-passkeys.md](operations/ios-passkeys.md)                                   | iOS passkeys / Universal Links                  |
 | [operations/runbooks/](operations/runbooks/)                                               | Backup, Postgres, Socket.IO, incidents          |

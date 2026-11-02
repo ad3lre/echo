@@ -54,9 +54,9 @@ struct EchoNetworkingHomeRealtimeTests {
     #expect(status == "idle")
 
     let typingJSON = Data(
-      "{\"channelId\":\"ch-1\",\"userId\":\"user-maya\",\"displayName\":\"Maya Chen\"}".utf8)
+      "{\"channelId\":\"ch-1\",\"userId\":\"user-maya\",\"displayName\":\"Maya Chen\",\"avatarUrl\":\"https://cdn/a.png\"}".utf8)
     guard
-      case .typing(let typingChannel, let typingUser, let displayName)? =
+      case .typing(let typingChannel, let typingUser, let displayName, let avatarURL)? =
         EchoRealtimeEventDecoder.event(
           name: "channel:typing", json: typingJSON, currentUserID: "user-me")
     else {
@@ -66,6 +66,7 @@ struct EchoNetworkingHomeRealtimeTests {
     #expect(typingChannel == "ch-1")
     #expect(typingUser == "user-maya")
     #expect(displayName == "Maya Chen")
+    #expect(avatarURL == "https://cdn/a.png")
 
     let activityJSON = Data(
       """

@@ -57,4 +57,32 @@ struct EchoComposerStateTests {
     #expect(state.selectionIndex(forSourcePhotoID: "photo-b") == 1)
     #expect(state.selectionIndex(forSourcePhotoID: "photo-a") == nil)
   }
+
+  @Test func pendingSpoilerToggleMarksAssetsAndOptimistic() {
+    let state = EchoComposerState()
+    let first = EchoComposerAsset(
+      data: Data([0x1]), filename: "a.jpg", mimeType: "image/jpeg", kind: "image")
+    let second = EchoComposerAsset(
+      data: Data([0x2]), filename: "b.jpg", mimeType: "image/jpeg", kind: "image")
+    state.assets = [first, second]
+    #expect(!state.allPendingSpoilers)
+
+    state.toggleAssetSpoiler(first.id)
+    #expect(state.assets.first { $0.id == first.id }?.spoiler == true)
+    #expect(!state.allPendingSpoilers)
+
+    state.toggleAllSpoilers()
+    #expect(state.allPendingSpoilers)
+    #expect(state.assets.map(\.spoiler) == [true, true])
+
+    state.toggleAllSpoilers()
+    #expect(!state.allPendingSpoilers)
+    #expect(state.assets.map(\.spoiler) == [false, false])
+
+    state.assets[0].spoiler = true
+    let submission = EchoComposerSubmission(
+      text: "hi", assets: state.assets, gif: nil, poll: nil, gifSpoiler: false)
+    let optimistic = EchoMessageTimelineModel.optimisticAttachments(from: submission)
+    #expect(optimistic.map(\.spoiler) == [true, false])
+  }
 }

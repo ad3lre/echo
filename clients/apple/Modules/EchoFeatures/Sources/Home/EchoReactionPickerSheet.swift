@@ -1,7 +1,7 @@
 import EchoNetworking
 import SwiftUI
 
-/// Emoji-only sheet for reacting to a message (reuses composer expression catalog).
+/// Compact emoji popover for reacting (web picker chrome, not a navigation sheet).
 struct EchoReactionPickerSheet: View {
   let baseURL: URL
   let accessToken: String
@@ -11,7 +11,26 @@ struct EchoReactionPickerSheet: View {
   @State private var photos = EchoComposerPhotoLibrary()
 
   var body: some View {
-    NavigationStack {
+    VStack(spacing: 0) {
+      HStack {
+        Text(EchoCopy.string("Emoji"))
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(EchoTheme.Color.ink(0.72))
+        Spacer()
+        Button(action: onDismiss) {
+          Image(systemName: "xmark")
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(EchoTheme.Color.ink(0.5))
+            .frame(width: 24, height: 24)
+            .background(EchoTheme.Color.ink(0.08), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(EchoCopy.string("Close"))
+      }
+      .padding(.horizontal, 12)
+      .padding(.top, 10)
+      .padding(.bottom, 4)
+
       EchoExpressionPicker(
         baseURL: baseURL,
         accessToken: accessToken,
@@ -24,15 +43,8 @@ struct EchoReactionPickerSheet: View {
         onGIF: { _ in },
         onPhoto: { _ in }
       )
-      .navigationTitle(EchoCopy.string("Add reaction"))
-      #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-      #endif
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button(EchoCopy.string("Cancel"), action: onDismiss)
-        }
-      }
     }
+    .frame(minWidth: 340, minHeight: 380)
+    .background(EchoTheme.Color.elevatedDeep)
   }
 }

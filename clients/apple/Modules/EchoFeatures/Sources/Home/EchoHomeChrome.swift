@@ -23,7 +23,9 @@ struct EchoHomeBackground: View {
           endRadius: 320
         )
         RadialGradient(
-          colors: [EchoTheme.Color.launchGlowBlue.opacity(colorScheme == .dark ? 0.55 : 0.0), .clear],
+          colors: [
+            EchoTheme.Color.launchGlowBlue.opacity(colorScheme == .dark ? 0.55 : 0.0), .clear,
+          ],
           center: UnitPoint(x: 0.12, y: 0.92),
           startRadius: 0,
           endRadius: 280
@@ -35,13 +37,33 @@ struct EchoHomeBackground: View {
 
 /// Home wash aligned to the global screen so a clipped shelf doesn’t restart
 /// the indigo glow and cut off mid-gradient under the search row.
+///
+/// Dark mode: blue only near the top of the wave; the bottom edge that meets
+/// the list is pure canvas so the shelf doesn’t look like a severed blue band.
 struct EchoAlignedHomeWash: View {
+  @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.colorScheme) private var colorScheme
+
   var body: some View {
     GeometryReader { geo in
       let frame = geo.frame(in: .global)
-      EchoHomeBackground()
-        .frame(width: frame.width, height: max(frame.maxY + 520, 1100))
-        .offset(y: -frame.minY)
+      let canvas = displayPrefs.canvas(colorScheme: colorScheme)
+      if colorScheme == .dark, EchoTheme.forcedVariant != .amoled {
+        LinearGradient(
+          colors: [
+            EchoTheme.Color.ambientIndigo.opacity(0.34),
+            EchoTheme.Color.launchGlowBlue.opacity(0.16),
+            canvas,
+          ],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+        .frame(width: frame.width, height: frame.height)
+      } else {
+        EchoHomeBackground()
+          .frame(width: frame.width, height: max(frame.maxY + 520, 1100))
+          .offset(y: -frame.minY)
+      }
     }
     .allowsHitTesting(false)
   }
@@ -58,10 +80,34 @@ struct EchoProfileHeader: View {
   let onProfileTap: () -> Void
   let onMenuTap: () -> Void
 
-  private var bannerHeight: CGFloat { compact ? 132 : 226 }
-  private var avatarSize: CGFloat { compact ? 56 : 76 }
-  private var shelfHeight: CGFloat { compact ? 64 : 84 }
-  private var nameSize: CGFloat { compact ? 17 : 21 }
+  private var bannerHeight: CGFloat {
+    #if os(macOS)
+      compact ? 108 : 140
+    #else
+      compact ? 132 : 226
+    #endif
+  }
+  private var avatarSize: CGFloat {
+    #if os(macOS)
+      compact ? 44 : 56
+    #else
+      compact ? 56 : 76
+    #endif
+  }
+  private var shelfHeight: CGFloat {
+    #if os(macOS)
+      compact ? 78 : 96
+    #else
+      compact ? 64 : 84
+    #endif
+  }
+  private var nameSize: CGFloat {
+    #if os(macOS)
+      compact ? 15 : 17
+    #else
+      compact ? 17 : 21
+    #endif
+  }
 
   var body: some View {
     // Whole header is tappable for profile — generous by design so near-misses
@@ -116,7 +162,7 @@ struct EchoProfileHeader: View {
             }
             .buttonStyle(.plain)
             .padding(.bottom, compact ? 6 : 10)
-            .accessibilityLabel(EchoCopy.string("Open menu"))
+            .accessibilityLabel(menuAccessibilityLabel)
           }
           .padding(.horizontal, compact ? 14 : 22)
           .padding(.bottom, compact ? 4 : 8)
@@ -127,6 +173,14 @@ struct EchoProfileHeader: View {
     }
     .buttonStyle(.plain)
     .accessibilityLabel(EchoCopy.format("Open profile for %@", profile.name))
+  }
+
+  private var menuAccessibilityLabel: String {
+    #if os(macOS)
+      EchoCopy.string("Edit profile")
+    #else
+      EchoCopy.string("Open menu")
+    #endif
   }
 }
 
@@ -163,27 +217,49 @@ struct EchoHeaderSlice: Shape {
   private func lightReadablePath(in rect: CGRect) -> Path {
     var path = Path()
     let w = rect.width
-    // A modest lift vs the prior shelves — enough for the name to clear the
-    // banner, without the tall twin peaks that read as excessive.
-    let nameY = rect.midY - 12
-    let dipY = rect.midY + 4
-    let caretY = rect.midY - 8
-    path.move(to: CGPoint(x: rect.minX, y: rect.midY + 10))
-    path.addCurve(
-      to: CGPoint(x: w * 0.36, y: nameY),
-      control1: CGPoint(x: w * 0.16, y: rect.midY + 6),
-      control2: CGPoint(x: w * 0.26, y: nameY + 2)
-    )
-    path.addCurve(
-      to: CGPoint(x: w * 0.70, y: dipY),
-      control1: CGPoint(x: w * 0.48, y: nameY),
-      control2: CGPoint(x: w * 0.58, y: dipY + 2)
-    )
-    path.addCurve(
-      to: CGPoint(x: rect.maxX, y: caretY),
-      control1: CGPoint(x: w * 0.82, y: dipY),
-      control2: CGPoint(x: w * 0.92, y: caretY)
-    )
+    // Keep a real wave — Mac shelves are shorter, so the crest sits a little
+    // higher under the name, but it must still read as a curve (not a plateau).
+    #if os(macOS)
+      let nameY = rect.midY - 18
+      let dipY = rect.midY + 6
+      let caretY = rect.midY - 10
+      path.move(to: CGPoint(x: rect.minX, y: rect.midY + 14))
+      path.addCurve(
+        to: CGPoint(x: w * 0.34, y: nameY),
+        control1: CGPoint(x: w * 0.14, y: rect.midY + 8),
+        control2: CGPoint(x: w * 0.24, y: nameY + 4)
+      )
+      path.addCurve(
+        to: CGPoint(x: w * 0.68, y: dipY),
+        control1: CGPoint(x: w * 0.46, y: nameY - 2),
+        control2: CGPoint(x: w * 0.56, y: dipY + 4)
+      )
+      path.addCurve(
+        to: CGPoint(x: rect.maxX, y: caretY),
+        control1: CGPoint(x: w * 0.80, y: dipY - 1),
+        control2: CGPoint(x: w * 0.92, y: caretY + 2)
+      )
+    #else
+      let nameY = rect.midY - 12
+      let dipY = rect.midY + 4
+      let caretY = rect.midY - 8
+      path.move(to: CGPoint(x: rect.minX, y: rect.midY + 10))
+      path.addCurve(
+        to: CGPoint(x: w * 0.36, y: nameY),
+        control1: CGPoint(x: w * 0.16, y: rect.midY + 6),
+        control2: CGPoint(x: w * 0.26, y: nameY + 2)
+      )
+      path.addCurve(
+        to: CGPoint(x: w * 0.70, y: dipY),
+        control1: CGPoint(x: w * 0.48, y: nameY),
+        control2: CGPoint(x: w * 0.58, y: dipY + 2)
+      )
+      path.addCurve(
+        to: CGPoint(x: rect.maxX, y: caretY),
+        control1: CGPoint(x: w * 0.82, y: dipY),
+        control2: CGPoint(x: w * 0.92, y: caretY)
+      )
+    #endif
     path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
     path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
     path.closeSubpath()
@@ -254,4 +330,3 @@ struct EchoProfileAvatar: View {
     }
   }
 }
-

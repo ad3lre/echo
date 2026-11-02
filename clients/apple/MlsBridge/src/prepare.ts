@@ -7,7 +7,12 @@
  * `EchoMlsJsRuntime` evaluates.
  */
 import { bytesToBase64 } from '../shims/e2eeBase64.ts';
-import { prepareVoiceMediaKeys } from '@/services/voice/e2ee/voiceMediaKeyPrepare';
+import {
+  decryptVoiceMediaKeyInbox,
+  fetchVoiceMediaKeyInbox,
+  prepareVoiceMediaKeys,
+} from '@/services/voice/e2ee/voiceMediaKeyPrepare';
+import type { VoiceMediaKeyScope } from '@/services/voice/e2ee/voiceMediaKeySession';
 
 export type AppleMlsPrepareInput = {
   channelId: string;
@@ -16,6 +21,8 @@ export type AppleMlsPrepareInput = {
   /** Stable device id from Swift Keychain when available. */
   deviceId?: string;
   authorizedUserIds: string[];
+  /** When set, prepare guild (server) voice instead of a DM. */
+  serverId?: string;
 };
 
 export type AppleMlsPrepareOutput = {
@@ -29,6 +36,7 @@ export type AppleMlsPrepareOutput = {
 
 type ActiveSession = {
   channelKey: string;
+  scope: VoiceMediaKeyScope;
   viewerUserId: string;
   token: string;
   deviceId: string;
@@ -49,19 +57,48 @@ function encodeSenderKeys(
   return out;
 }
 
+function localOnlyOutput(session: ActiveSession): AppleMlsPrepareOutput {
+  const senderKeys = new Map<string, ArrayBuffer>();
+  senderKeys.set(session.viewerUserId, session.mediaKey);
+  return {
+    keyIndex: session.keyIndex,
+    epoch: String(session.keyIndex),
+    deviceId: session.deviceId,
+    channelKey: session.channelKey,
+    senderKeys: encodeSenderKeys(senderKeys),
+  };
+}
+
 async function prepareDmVoiceMedia(
   input: AppleMlsPrepareInput,
-): Promise<AppleMlsPrepareOutput | null> {
+): Promise<AppleMlsPrepareOutput> {
+  const serverId = input.serverId?.trim() ?? '';
+  const scope: VoiceMediaKeyScope = serverId
+    ? { kind: 'guild', serverId, channelId: input.channelId }
+    : { kind: 'dm', channelId: input.channelId };
   const result = await prepareVoiceMediaKeys({
-    scope: { kind: 'dm', channelId: input.channelId },
+    scope,
     token: input.token,
     viewerUserId: input.viewerUserId,
     memberUserIds: input.authorizedUserIds,
+    // Only prefer Keychain id when it matches the registered LibSignal device;
+    // a stale MLS-era UUID must not override announce/mint device identity.
     preferredDeviceId: input.deviceId,
   });
-  if (!result.mediaKey || !result.channelKey) return null;
+  // Server has voice E2EE off — success with no LiveKit key material.
+  // Returning JSON null used to surface as "Invalid MLS prepare result" on iOS.
+  if (!result.mediaKey || !result.channelKey) {
+    return {
+      keyIndex: 0,
+      epoch: '0',
+      deviceId: result.senderDeviceId || input.deviceId || '',
+      channelKey: '',
+      senderKeys: {},
+    };
+  }
   active = {
     channelKey: result.channelKey,
+    scope,
     viewerUserId: input.viewerUserId.trim(),
     token: input.token,
     deviceId: result.senderDeviceId,
@@ -77,8 +114,34 @@ async function prepareDmVoiceMedia(
   };
 }
 
-async function syncActiveVoiceMedia(): Promise<null> {
-  return null;
+async function syncActiveVoiceMedia(): Promise<AppleMlsPrepareOutput | null> {
+  if (!active) return null;
+  const inbox = await fetchVoiceMediaKeyInbox({
+    scope: active.scope,
+    token: active.token,
+  });
+  if (inbox === 'disabled' || inbox.length === 0) {
+    return localOnlyOutput(active);
+  }
+  const decrypted = await decryptVoiceMediaKeyInbox({
+    envelopes: inbox,
+    viewerUserId: active.viewerUserId,
+  });
+  const senderKeys = new Map<string, ArrayBuffer>();
+  senderKeys.set(active.viewerUserId, active.mediaKey);
+  let maxIndex = active.keyIndex;
+  for (const [identity, k] of decrypted) {
+    senderKeys.set(identity, k.raw);
+    if (k.keyIndex > maxIndex) maxIndex = k.keyIndex;
+  }
+  active.keyIndex = maxIndex;
+  return {
+    keyIndex: maxIndex,
+    epoch: String(maxIndex),
+    deviceId: active.deviceId,
+    channelKey: active.channelKey,
+    senderKeys: encodeSenderKeys(senderKeys),
+  };
 }
 
 async function stopActiveVoiceMedia(): Promise<{ stopped: true }> {

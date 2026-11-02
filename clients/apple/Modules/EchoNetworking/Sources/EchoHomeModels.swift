@@ -36,6 +36,14 @@ public struct EchoHomeSnapshot: Equatable, Sendable {
       profile: next, conversations: conversations, personalNotes: personalNotes)
   }
 
+  /// Insert or move a DM to the top (message-request accept / rail open).
+  public func insertingConversation(_ conversation: EchoDirectMessage) -> EchoHomeSnapshot {
+    var next = conversations.filter { $0.channelID != conversation.channelID }
+    next.insert(conversation, at: 0)
+    return EchoHomeSnapshot(
+      profile: profile, conversations: next, personalNotes: personalNotes)
+  }
+
   public func applyingActivity(
     channelID: String,
     lastMessage: String?,
@@ -119,23 +127,27 @@ public enum EchoMessageSearchHasType: String, CaseIterable, Sendable, Equatable 
   case docs
 }
 
-/// Optional criteria layered on free-text `q` for conversation search.
+/// Optional criteria layered on free-text `q` for conversation / server search.
 public struct EchoMessageSearchCriteria: Equatable, Sendable {
   public var authorID: String?
   public var mentions: String?
   public var hasType: EchoMessageSearchHasType?
   public var hasAttachment: Bool
+  /// Server search only — restrict to one channel (`in:` / `channelId` query param).
+  public var channelID: String?
 
   public init(
     authorID: String? = nil,
     mentions: String? = nil,
     hasType: EchoMessageSearchHasType? = nil,
-    hasAttachment: Bool = false
+    hasAttachment: Bool = false,
+    channelID: String? = nil
   ) {
     self.authorID = authorID
     self.mentions = mentions
     self.hasType = hasType
     self.hasAttachment = hasAttachment
+    self.channelID = channelID
   }
 
   public var isEmpty: Bool {
@@ -143,6 +155,7 @@ public struct EchoMessageSearchCriteria: Equatable, Sendable {
       && (mentions?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
       && hasType == nil
       && !hasAttachment
+      && (channelID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
   }
 }
 
@@ -154,6 +167,9 @@ public struct EchoAttentionChannelSummary: Decodable, Equatable, Sendable {
   public let serverID: String?
   /// `personal` | `role` | `broadcast` when a mention ping is pending.
   public let pingKind: String?
+  public let lastReadMessageID: String?
+  public let firstUnreadMessageID: String?
+  public let latestUnreadMessageID: String?
 
   enum CodingKeys: String, CodingKey {
     case channelID = "channelId"
@@ -161,6 +177,9 @@ public struct EchoAttentionChannelSummary: Decodable, Equatable, Sendable {
     case kind
     case serverID = "serverId"
     case pingKind
+    case lastReadMessageID = "lastReadMessageId"
+    case firstUnreadMessageID = "firstUnreadMessageId"
+    case latestUnreadMessageID = "latestUnreadMessageId"
   }
 
   public init(
@@ -168,13 +187,35 @@ public struct EchoAttentionChannelSummary: Decodable, Equatable, Sendable {
     unreadCount: Int,
     kind: String? = nil,
     serverID: String? = nil,
-    pingKind: String? = nil
+    pingKind: String? = nil,
+    lastReadMessageID: String? = nil,
+    firstUnreadMessageID: String? = nil,
+    latestUnreadMessageID: String? = nil
   ) {
     self.channelID = channelID
     self.unreadCount = unreadCount
     self.kind = kind
     self.serverID = serverID
     self.pingKind = pingKind
+    self.lastReadMessageID = lastReadMessageID
+    self.firstUnreadMessageID = firstUnreadMessageID
+    self.latestUnreadMessageID = latestUnreadMessageID
+  }
+
+  /// Upper bound for mark-read (web `resolveEchoUnreadUpperBoundMessageId`).
+  public var unreadUpperBoundMessageID: String? {
+    if let latest = latestUnreadMessageID?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !latest.isEmpty
+    {
+      return latest
+    }
+    if unreadCount == 1,
+      let first = firstUnreadMessageID?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !first.isEmpty
+    {
+      return first
+    }
+    return nil
   }
 
   public var hasUnread: Bool { unreadCount > 0 }
@@ -191,19 +232,118 @@ public struct EchoAttentionChannelSummary: Decodable, Equatable, Sendable {
 public struct EchoAttentionSnapshot: Equatable, Sendable {
   public let unreadCount: Int
   public let channelAttention: [String: EchoAttentionChannelSummary]
+  /// Per-server notification prefs from `/attention/summary` (`all` / `mentions` / `mentions_direct` / `none`).
+  public let serverNotificationLevelByServerID: [String: String]
 
-  public static let empty = EchoAttentionSnapshot(unreadCount: 0, channelAttention: [:])
+  public static let empty = EchoAttentionSnapshot(
+    unreadCount: 0, channelAttention: [:], serverNotificationLevelByServerID: [:])
 
   public init(
-    unreadCount: Int, channelAttention: [String: EchoAttentionChannelSummary] = [:]
+    unreadCount: Int,
+    channelAttention: [String: EchoAttentionChannelSummary] = [:],
+    serverNotificationLevelByServerID: [String: String] = [:]
   ) {
     self.unreadCount = unreadCount
     self.channelAttention = channelAttention
+    self.serverNotificationLevelByServerID = serverNotificationLevelByServerID
   }
 
   public func summary(for channelID: String) -> EchoAttentionChannelSummary? {
     channelAttention[channelID]
   }
+
+  public func notificationLevel(forServerID serverID: String) -> String? {
+    let key = serverID.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !key.isEmpty else { return nil }
+    return serverNotificationLevelByServerID[key]
+  }
+
+  /// Unread mention-class pings, used for the DM Notifications widget badge.
+  public var mentionPingCount: Int {
+    channelAttention.values.reduce(0) { count, summary in
+      guard summary.hasMentionPing else { return count }
+      return count + max(1, summary.unreadCount)
+    }
+  }
+}
+
+/// Hydrated `GET /attention/mentions` row — web `EchoMentionNotificationRow`.
+public struct EchoMentionNotificationRow: Decodable, Equatable, Sendable, Identifiable {
+  public var id: String { key }
+  public let key: String
+  public let channelID: String
+  public let channelKind: String
+  public let serverID: String?
+  public let messageID: String
+  public let authorID: String
+  public let authorName: String
+  public let authorAvatar: String?
+  public let content: String
+  public let timestamp: Date?
+  public let mentionKinds: [String]
+
+  enum CodingKeys: String, CodingKey {
+    case key
+    case channelID = "channelId"
+    case channelKind
+    case serverID = "serverId"
+    case messageID = "messageId"
+    case authorID = "authorId"
+    case authorName
+    case authorAvatar
+    case content
+    case timestamp
+    case mentionKinds
+  }
+
+  public init(
+    key: String,
+    channelID: String,
+    channelKind: String,
+    serverID: String? = nil,
+    messageID: String,
+    authorID: String,
+    authorName: String,
+    authorAvatar: String? = nil,
+    content: String,
+    timestamp: Date? = nil,
+    mentionKinds: [String] = []
+  ) {
+    self.key = key
+    self.channelID = channelID
+    self.channelKind = channelKind
+    self.serverID = serverID
+    self.messageID = messageID
+    self.authorID = authorID
+    self.authorName = authorName
+    self.authorAvatar = authorAvatar
+    self.content = content
+    self.timestamp = timestamp
+    self.mentionKinds = mentionKinds
+  }
+
+  public init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    key = try values.decode(String.self, forKey: .key)
+    channelID = try values.decode(String.self, forKey: .channelID)
+    channelKind = try values.decodeIfPresent(String.self, forKey: .channelKind) ?? "dm"
+    serverID = try values.decodeIfPresent(String.self, forKey: .serverID)
+    messageID = try values.decode(String.self, forKey: .messageID)
+    authorID = try values.decode(String.self, forKey: .authorID)
+    authorName = try values.decodeIfPresent(String.self, forKey: .authorName) ?? "Unknown"
+    authorAvatar = try values.decodeIfPresent(String.self, forKey: .authorAvatar)
+    content = try values.decodeIfPresent(String.self, forKey: .content) ?? ""
+    mentionKinds = try values.decodeIfPresent([String].self, forKey: .mentionKinds) ?? []
+    if let raw = try values.decodeIfPresent(String.self, forKey: .timestamp) {
+      timestamp = EchoPoll.parseDate(raw) ?? (try? Date(raw, strategy: .iso8601))
+    } else {
+      timestamp = nil
+    }
+  }
+}
+
+struct EchoMentionNotificationsResponse: Decodable {
+  let rows: [EchoMentionNotificationRow]
 }
 
 public struct EchoOutgoingPoll: Encodable, Equatable, Sendable {

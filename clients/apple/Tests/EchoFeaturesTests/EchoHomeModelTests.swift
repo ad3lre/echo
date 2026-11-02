@@ -94,6 +94,23 @@ struct EchoHomeModelTests {
     #expect(model.currentUserPresence == "online")
   }
 
+  @Test func selfPresenceStaysOptimisticAgainstServerEcho() async {
+    EchoOptimisticSelfPresence.lastChosen = nil
+    let profile = EchoUserProfile(id: "user-me", name: "Me", username: "me")
+    let snapshot = EchoHomeSnapshot(profile: profile, conversations: [])
+    let model = makeModel(snapshot: snapshot)
+
+    model.applySelfPresence("idle")
+    #expect(model.currentUserPresence == "idle")
+
+    model.applyRealtime(.presence(userID: "user-me", status: "online"))
+    #expect(model.currentUserPresence == "idle")
+
+    model.applyRealtime(.presence(userID: "user-me", status: "idle"))
+    #expect(model.currentUserPresence == "idle")
+    EchoOptimisticSelfPresence.lastChosen = nil
+  }
+
   @Test func reconnectUsesLightweightRefresh() async {
     let profile = EchoUserProfile(id: "user-me", name: "Me", username: "me")
     let snapshot = EchoHomeSnapshot(profile: profile, conversations: [])
@@ -111,6 +128,7 @@ struct EchoHomeModelTests {
     client: StubHomeLoading? = nil,
     settingsClient: StubHomeSocialReading = StubHomeSocialReading()
   ) -> EchoHomeModel {
+    EchoOptimisticSelfPresence.lastChosen = nil
     let auth = EchoAuthenticationModel(
       baseURL: URL(string: "https://example.com")!,
       sessionStore: InMemorySessionStore(),
@@ -150,6 +168,13 @@ private final class StubHomeLoading: EchoHomeLoading, @unchecked Sendable {
   {
     presenceMapCount += 1
     return [:]
+  }
+
+  func loadPresenceBatch(accessToken _: String, userIDs _: [String]) async throws
+    -> EchoPresenceBatch
+  {
+    presenceMapCount += 1
+    return .empty
   }
 }
 

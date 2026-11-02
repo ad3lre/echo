@@ -61,7 +61,7 @@ struct EchoProfileBanner: View {
       }
       .frame(width: size.width, height: size.height)
       .compositingGroup()
-      .clipped()
+      .modifier(EchoBannerClip(clips: !showsRefractionBleed))
     }
   }
 
@@ -123,5 +123,16 @@ struct EchoProfileBanner: View {
 
   private var fallbackColor: some View {
     Color(hex: profile.bannerColor) ?? EchoTheme.Color.ink(0.08)
+  }
+}
+
+private struct EchoBannerClip: ViewModifier {
+  let clips: Bool
+  func body(content: Content) -> some View {
+    if clips {
+      content.clipped()
+    } else {
+      content
+    }
   }
 }

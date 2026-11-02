@@ -5,7 +5,7 @@ import SwiftUI
 import UserNotifications
 
 final class EchoMacOSAppDelegate: NSObject, NSApplicationDelegate,
-  UNUserNotificationCenterDelegate
+  @preconcurrency UNUserNotificationCenterDelegate
 {
   func applicationDidFinishLaunching(_ notification: Notification) {
     EchoHTTPClient.prepareBackgroundTransfers()
@@ -46,11 +46,14 @@ final class EchoMacOSAppDelegate: NSObject, NSApplicationDelegate,
       userInfo: notification.request.content.userInfo)
     let channelID = EchoNotificationPayload.channelID(
       from: notification.request.content.userInfo)
+    // UNUserNotificationCenter may call this off the main actor; hop for
+    // EchoForegroundNotifications, then finish with a Sendable-safe capture.
+    nonisolated(unsafe) let finish = completionHandler
     Task { @MainActor in
       if EchoForegroundNotifications.shouldPresentBanner(channelID: channelID) {
-        completionHandler([.banner, .list, .badge, .sound])
+        finish([.banner, .list, .badge, .sound])
       } else {
-        completionHandler([.badge])
+        finish([.badge])
       }
     }
   }
@@ -80,6 +83,17 @@ struct EchoMacOSApp: App {
     WindowGroup {
       EchoRootView()
         .environment(authentication)
+        .frame(minWidth: 960, minHeight: 640)
+        .onOpenURL { EchoDeepLinkRouter.shared.handle($0, apiBaseURL: EchoAPIConfiguration.baseURL()) }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) {
+          EchoDeepLinkRouter.shared.handle($0, apiBaseURL: EchoAPIConfiguration.baseURL())
+        }
+    }
+    .defaultSize(width: 1280, height: 800)
+    .windowStyle(.titleBar)
+    .windowToolbarStyle(.unifiedCompact)
+    .commands {
+      CommandGroup(replacing: .newItem) {}
     }
   }
 }

@@ -77,7 +77,7 @@ struct EchoVideoAttachmentPreview: View {
             }
         }
       }
-      .frame(maxWidth: 300, alignment: .leading)
+      .frame(maxWidth: EchoChatMediaMetrics.boxMaxWidth, alignment: .leading)
       .aspectRatio(16 / 9, contentMode: .fit)
       .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
@@ -87,6 +87,7 @@ struct EchoVideoAttachmentPreview: View {
         ?? EchoCopy.string("Play video")
     )
     .accessibilityHint(EchoCopy.string("Opens the media viewer"))
+    .onAppear { EchoChatMediaRetentionTouch.queue(attachment.storageKey) }
     .task(id: posterTaskID) {
       await loadPoster()
     }
@@ -107,14 +108,30 @@ struct EchoVideoAttachmentPreview: View {
     }
     isLoadingPoster = true
     defer { isLoadingPoster = false }
-    guard
-      let url = await EchoMediaURLResolver.resolve(
+    let model = EchoChatVideoPlaybackModel(
+      sourceURL: attachment.url,
+      storageKey: attachment.storageKey,
+      baseURL: baseURL,
+      auth: auth
+    )
+    model.start()
+    // Prefer a ready HLS/progressive URL for first-frame grab; fall back after a short wait.
+    for _ in 0..<8 {
+      if model.phase == .ready || model.phase == .failed { break }
+      try? await Task.sleep(for: .milliseconds(250))
+      if Task.isCancelled || key != posterTaskID { return }
+    }
+    model.stop()
+    var url = await model.resolvePlayableURL(accessToken: accessToken)
+    if url == nil {
+      url = await EchoMediaURLResolver.resolve(
         source: attachment.url,
         baseURL: baseURL,
         storageKey: attachment.storageKey,
         accessToken: accessToken,
         auth: auth)
-    else { return }
+    }
+    guard let url else { return }
     guard let image = await EchoVideoPosterCache.shared.generate(url: url, cacheKey: key)
     else { return }
     guard key == posterTaskID, !Task.isCancelled else { return }

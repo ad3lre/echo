@@ -2,7 +2,6 @@ import EchoDomain
 import EchoNetworking
 import SwiftUI
 
-
 struct EchoExploreTagChip: View {
   let title: String
   let count: Int?
@@ -18,14 +17,10 @@ struct EchoExploreTagChip: View {
             .foregroundStyle(EchoTheme.Color.ink(selected ? 0.70 : 0.40))
         }
       }
-      .font(.system(size: 12, weight: .semibold, design: .rounded))
-      .foregroundStyle(EchoTheme.Color.ink(selected ? 0.96 : 0.55))
-      .padding(.horizontal, 12)
-      .frame(height: 34)
-      .background(
-        selected ? EchoTheme.Color.ink(0.14) : EchoTheme.Color.ink(0.06),
-        in: Capsule(style: .continuous)
-      )
+      .font(.system(size: 12, weight: selected ? .bold : .semibold, design: .rounded))
+      .foregroundStyle(EchoTheme.Color.ink(selected ? 0.94 : 0.48))
+      .padding(.horizontal, 10)
+      .frame(height: 30)
     }
     .buttonStyle(.plain)
   }
@@ -47,6 +42,15 @@ struct EchoExploreFeaturedCard: View {
   }
 
   var body: some View {
+    Button(action: onJoin) {
+      featuredCardBody
+    }
+    .buttonStyle(.echoScrollFriendly)
+    .disabled(isJoining)
+    .accessibilityLabel(isJoined ? EchoCopy.string("Open") : EchoCopy.string("Join"))
+  }
+
+  private var featuredCardBody: some View {
     VStack(alignment: .leading, spacing: 0) {
       EchoServerBannerStrip(
         bannerURL: listed.server.bannerURL ?? listed.server.iconURL,
@@ -85,16 +89,11 @@ struct EchoExploreFeaturedCard: View {
             .font(.system(size: 11, weight: .regular, design: .rounded))
             .foregroundStyle(EchoTheme.Color.ink(0.48))
             .lineLimit(2)
-          HStack {
-            Text(memberLabel(listed.memberCount))
-              .font(.system(size: 10, weight: .bold, design: .rounded))
-              .foregroundStyle(EchoTheme.Color.ink(0.42))
-              .textCase(.uppercase)
-              .tracking(0.8)
-            Spacer(minLength: 0)
-            EchoExploreActionButton(
-              isJoined: isJoined, isJoining: isJoining, action: onJoin)
-          }
+          Text(memberLabel(listed.memberCount))
+            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .foregroundStyle(EchoTheme.Color.ink(0.42))
+            .textCase(.uppercase)
+            .tracking(0.8)
         }
       }
       .padding(12)
@@ -144,7 +143,7 @@ struct EchoExploreServerCard: View {
           bannerURL: displayBannerURL,
           baseURL: baseURL,
           accessToken: accessToken,
-          height: 96
+          height: 144
         ) {
           bannerFallback
         }
@@ -171,52 +170,58 @@ struct EchoExploreServerCard: View {
           baseURL: baseURL,
           accessToken: accessToken,
           bannerURL: listed.server.bannerURL,
-          cornerRadius: 16
+          cornerRadius: 18
         )
-        .frame(width: 52, height: 52)
+        .frame(width: 72, height: 72)
         .overlay(
-          RoundedRectangle(cornerRadius: 16, style: .continuous)
+          RoundedRectangle(cornerRadius: 18, style: .continuous)
             .stroke(EchoTheme.Color.canvas, lineWidth: 3)
         )
-        .padding(.leading, 14)
-        .offset(y: 18)
+        .padding(.leading, 16)
+        .offset(y: 28)
       }
 
-      VStack(alignment: .leading, spacing: 10) {
-        HStack(alignment: .top, spacing: 12) {
-          VStack(alignment: .leading, spacing: 4) {
-            Text(listed.name)
-              .font(.system(size: 17, weight: .semibold, design: .rounded))
-              .foregroundStyle(EchoTheme.Color.ink(0.94))
-              .lineLimit(2)
-            HStack(spacing: 8) {
-              Text(memberLabel(listed.memberCount))
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(EchoTheme.Color.ink(0.42))
-              if listed.voiceParticipantCount > 0 {
-                Text(voiceLabel(listed.voiceParticipantCount))
-                  .font(.system(size: 12, weight: .semibold, design: .rounded))
-                  .foregroundStyle(Color.cyan.opacity(0.9))
-              }
-            }
-          }
+      VStack(alignment: .leading, spacing: 0) {
+        HStack(alignment: .bottom) {
           Spacer(minLength: 0)
-          EchoExploreActionButton(
-            isJoined: isJoined, isJoining: isJoining, action: onJoin)
+          Text(memberLabel(listed.memberCount))
+            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .foregroundStyle(EchoTheme.Color.ink(0.62))
+            .textCase(.uppercase)
+            .tracking(0.8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+              EchoTheme.Color.ink(0.06),
+              in: Capsule()
+            )
+            .overlay(Capsule().stroke(EchoTheme.Color.ink(0.08), lineWidth: 1))
         }
-        .padding(.top, 22)
+        .padding(.top, 10)
+
+        Text(listed.name)
+          .font(.system(size: 18, weight: .bold, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.ink(0.94))
+          .lineLimit(2)
+          .padding(.top, 12)
 
         Text(listed.blurb)
           .font(.system(size: 13, weight: .regular, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.52))
           .lineLimit(3)
+          .padding(.top, 8)
+
+        if listed.voiceParticipantCount > 0 {
+          Text(voiceLabel(listed.voiceParticipantCount))
+            .font(.system(size: 12, weight: .semibold, design: .rounded))
+            .foregroundStyle(Color.cyan.opacity(0.9))
+            .padding(.top, 8)
+        }
 
         if !listed.tags.isEmpty {
           ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-              ForEach(listed.tags.prefix(6), id: \.self) { tag in
-                // Web `.explore-server-tag`: ~72% fg on a light chip — ink(0.50)
-                // on ink(0.06) was unreadable on dark elevated cards.
+              ForEach(listed.tags.prefix(4), id: \.self) { tag in
                 Text(EchoExploreDirectory.QuickFilter(tag: tag, count: 0).label)
                   .font(.system(size: 11, weight: .semibold, design: .rounded))
                   .foregroundStyle(EchoTheme.Color.ink(isLight ? 0.58 : 0.82))
@@ -226,19 +231,23 @@ struct EchoExploreServerCard: View {
                     EchoTheme.Color.ink(isLight ? 0.07 : 0.14),
                     in: Capsule()
                   )
-                  .overlay(
-                    Capsule().stroke(
-                      EchoTheme.Color.ink(isLight ? 0.06 : 0.16),
-                      lineWidth: 1
-                    )
-                  )
               }
             }
           }
+          .padding(.top, 12)
         }
+
+        Rectangle()
+          .fill(EchoTheme.Color.ink(0.08))
+          .frame(height: 1)
+          .padding(.top, 16)
+        EchoExploreActionButton(
+          isJoined: isJoined, isJoining: isJoining, action: onJoin
+        )
+        .padding(.top, 14)
       }
-      .padding(.horizontal, 14)
-      .padding(.bottom, 14)
+      .padding(.horizontal, 16)
+      .padding(.bottom, 16)
     }
     .background {
       // Solid elevated fill — per-card materials were a major Explore switch hitch.
@@ -278,32 +287,34 @@ struct EchoExploreActionButton: View {
 
   var body: some View {
     Button(action: action) {
-      Group {
+      HStack {
+        Spacer(minLength: 0)
         if isJoining {
           ProgressView().controlSize(.small)
+            .tint(isJoined ? EchoTheme.Color.ink(0.72) : EchoTheme.Color.onAccent)
         } else {
           Text(isJoined ? EchoCopy.string("Open") : EchoCopy.string("Join"))
             .font(.system(size: 13, weight: .semibold, design: .rounded))
+          Image(systemName: "arrow.right")
+            .font(.system(size: 11, weight: .bold))
+            .opacity(0.8)
         }
+        Spacer(minLength: 0)
       }
-      .foregroundStyle(isJoined ? EchoTheme.Color.ink(0.92) : EchoTheme.Color.onAccent)
-      .frame(minWidth: 72, minHeight: 44)
-      .padding(.horizontal, 4)
+      .foregroundStyle(isJoined ? EchoTheme.Color.ink(0.88) : EchoTheme.Color.onAccent)
+      .frame(maxWidth: .infinity)
+      .frame(height: 40)
       .background(
-        isJoined
-          ? EchoTheme.Color.ink(0.14)
-          : EchoTheme.Color.actionHighlight,
-        in: Capsule(style: .continuous)
+        isJoined ? EchoTheme.Color.ink(0.08) : EchoTheme.Color.signInBlue,
+        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
       )
       .overlay {
         if isJoined {
-          Capsule(style: .continuous)
-            .strokeBorder(EchoTheme.Color.ink(0.22), lineWidth: 1)
+          RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .stroke(EchoTheme.Color.ink(0.12), lineWidth: 1)
         }
       }
-      .contentShape(Capsule(style: .continuous))
     }
-    // Yield pans to Explore’s vertical + featured horizontal scrolls; taps still fire.
     .buttonStyle(.echoScrollFriendly)
     .disabled(isJoining)
     .accessibilityLabel(isJoined ? EchoCopy.string("Open") : EchoCopy.string("Join"))

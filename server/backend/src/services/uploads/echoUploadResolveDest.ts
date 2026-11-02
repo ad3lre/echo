@@ -1,12 +1,10 @@
 import type pg from 'pg';
-import { ECHO_MSG_NOT_SERVER_MEMBER } from '../../api/errors';
 import {
   canUserPostMessage,
   isMemberOfServer,
   isEchoServerOwner,
 } from '../../domain/permissions/echoPermissions';
 import { getPaperCapabilitiesForUser } from '../../domain/echoStore/members/access';
-import { getUserCommunicationTimeoutState } from '../../domain/echoStore';
 import { hasServerPermission } from '../../domain/echoPolicy';
 import { isUserBannedFromServer } from '../../domain/echoStore/members/access';
 import { canManageServerEmojis } from '../../domain/echoStore/emoji/emojiLibrary';
@@ -446,46 +444,17 @@ export async function resolveEchoUploadStorageKey(
     }
     storageKey = `echo/server-application-attachments/${serverId}/${userId}/${objectKey}`;
   } else if (serverId) {
-    if (!isAllowedChatUploadContentType(contentType)) {
-      return {
-        ok: false,
-        error: {
-          status: 400,
-          code: 'INVALID_BODY',
-          message: 'Unsupported content type for chat upload',
-        },
-      };
-    }
-    const okMem = await isMemberOfServer(pool, serverId, userId);
-    if (!okMem) {
-      return {
-        ok: false,
-        error: {
-          status: 403,
-          code: 'FORBIDDEN',
-          message: ECHO_MSG_NOT_SERVER_MEMBER,
-          detail: 'NOT_SERVER_MEMBER',
-        },
-      };
-    }
-    const timeoutState = await getUserCommunicationTimeoutState(
-      pool,
-      serverId,
-      userId,
-    );
-    if (timeoutState.active) {
-      return {
-        ok: false,
-        error: {
-          status: 403,
-          code: 'FORBIDDEN',
-          message:
-            'You are in a communication timeout in this server and cannot upload here until it ends.',
-          detail: 'COMMUNICATION_TIMEOUT',
-        },
-      };
-    }
-    storageKey = `echo/${serverId}/${userId}/${objectKey}`;
+    // Legacy `echo/{serverId}/{userId}/…` chat keys bypassed private-channel
+    // read ACLs. New chat uploads must use channelId → echo/channels/….
+    return {
+      ok: false,
+      error: {
+        status: 400,
+        code: 'INVALID_BODY',
+        message:
+          'Chat uploads require channelId (legacy serverId-only keys are no longer accepted)',
+      },
+    };
   } else {
     return {
       ok: false,
@@ -493,7 +462,7 @@ export async function resolveEchoUploadStorageKey(
         status: 400,
         code: 'INVALID_BODY',
         message:
-          'channelId (preferred), serverId (legacy / emoji / server branding), user_avatar/user_banner, user_ringtone, or bug_report purpose',
+          'channelId (preferred), serverId with purpose (emoji / server branding), user_avatar/user_banner, user_ringtone, or bug_report purpose',
       },
     };
   }

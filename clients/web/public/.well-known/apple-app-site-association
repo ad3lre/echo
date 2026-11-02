@@ -4,7 +4,8 @@
     "details": [
       {
         "appIDs": [
-          "K2V5TD6F83.com.echo.ios"
+          "K2V5TD6F83.com.echo.ios",
+          "K2V5TD6F83.com.echo.macos"
         ],
         "components": [
           {

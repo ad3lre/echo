@@ -401,6 +401,8 @@ export {
   respondEchoE2eePairing,
   revokeEchoE2eeDevice,
   upsertEchoE2eeDevice,
+  EchoE2eeIdentityKeyConflictError,
+  userHasActiveEchoE2eeDevice,
   type EchoE2eeDeviceListRow,
   type EchoE2eeDeviceOwnership,
   type EchoE2eeDeviceUpsertInput,
@@ -496,13 +498,13 @@ export {
   joinEchoServerFromDirectory,
   listEchoDirectoryServers,
   listEchoServerIdsForUser,
-  listEchoServerMembers,
   listEchoServersForUser,
   type JoinEchoInviteResult,
   updateEchoServerPreferences,
   type JoinEchoDirectoryResult,
   type UpdateEchoServerPreferencesResult,
 } from './servers/servers';
+export { listEchoServerMembers } from './servers/serverMembersList';
 export { listEchoServerMemberUserIdsCached } from './servers/serverMemberIds';
 
 export {

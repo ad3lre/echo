@@ -19,7 +19,9 @@ enum EchoMarkdownParser {
       if let fence = fenceOpening(line) {
         var body: [String] = []
         index += 1
-        while index < lines.count, !isFenceClosing(lines[index], character: fence.character, minimumLength: fence.length) {
+        while index < lines.count,
+          !isFenceClosing(lines[index], character: fence.character, minimumLength: fence.length)
+        {
           body.append(lines[index])
           index += 1
         }
@@ -27,7 +29,10 @@ enum EchoMarkdownParser {
         if fence.isEscaped {
           result.append(contentsOf: blocks(body.joined(separator: "\n")))
         } else {
-          result.append(.code(language: fence.language, text: EchoMarkdownMentions.restore(body.joined(separator: "\n"))))
+          result.append(
+            .code(
+              language: fence.language,
+              text: EchoMarkdownMentions.restore(body.joined(separator: "\n"))))
         }
         continue
       }
@@ -155,7 +160,8 @@ enum EchoMarkdownParser {
   ) -> AttributedString {
     guard !source.isEmpty else { return AttributedString() }
     if !mentions.isEmpty {
-      return inline(EchoMarkdownMentions.mark(source, mentions: mentions), revealSpoilers: revealSpoilers)
+      return inline(
+        EchoMarkdownMentions.mark(source, mentions: mentions), revealSpoilers: revealSpoilers)
     }
     if source.contains("\n") {
       var output = AttributedString()
@@ -193,6 +199,10 @@ enum EchoMarkdownParser {
     case text(AttributedString)
     case math(source: String, display: Bool)
     case customEmoji(EchoCustomEmojiRef)
+    case appIcon(filename: String)
+    case externalLink(url: URL, display: String)
+    /// Web Magic Time chip (viewer-local clock when author TZ differs).
+    case magicTime(label: String, tip: String)
   }
 
   static func inlineSegments(
@@ -202,7 +212,8 @@ enum EchoMarkdownParser {
     knownShortcodes: Set<String> = []
   ) -> [InlineSegment] {
     if !mentions.isEmpty {
-      return inlineSegments(EchoMarkdownMentions.mark(source, mentions: mentions),
+      return inlineSegments(
+        EchoMarkdownMentions.mark(source, mentions: mentions),
         revealSpoilers: revealSpoilers, knownShortcodes: knownShortcodes)
     }
     if let token = EchoMarkdownCustomEmoji.firstToken(in: source) {
@@ -211,6 +222,16 @@ enum EchoMarkdownParser {
         open: token.open,
         close: token.close,
         middle: .customEmoji(token.ref),
+        mentions: mentions,
+        revealSpoilers: revealSpoilers,
+        knownShortcodes: knownShortcodes)
+    }
+    if let icon = EchoMarkdownAppIcon.firstToken(in: source) {
+      return splitSegments(
+        source: source,
+        open: icon.open,
+        close: icon.close,
+        middle: .appIcon(filename: icon.filename),
         mentions: mentions,
         revealSpoilers: revealSpoilers,
         knownShortcodes: knownShortcodes)
@@ -226,7 +247,8 @@ enum EchoMarkdownParser {
         knownShortcodes: knownShortcodes)
     }
     guard let math = EchoMarkdownMath.firstInline(in: source) else {
-      return [.text(inline(source, mentions: mentions, revealSpoilers: revealSpoilers))]
+      return EchoLinkChrome.splitAutolinks(
+        inline(source, mentions: mentions, revealSpoilers: revealSpoilers))
     }
     return splitSegments(
       source: source,
@@ -292,9 +314,6 @@ enum EchoMarkdownParser {
     let close: Range<String.Index>
   }
 
-
-
-
   private static func firstCustomSpan(in source: String) -> CustomSpan? {
     let tokens: [(String, CustomKind)] = [("__", .underline), ("==", .highlight), ("||", .spoiler)]
     var best: CustomSpan?
@@ -351,7 +370,7 @@ enum EchoMarkdownParser {
   }
 
   private static func sanitizeLinks(in value: AttributedString) -> AttributedString {
-    var result = value
+    var result = EchoLinkChrome.linkifyBareURLs(in: value)
     for run in result.runs {
       guard let link = run.link else { continue }
       guard let scheme = link.scheme?.lowercased(),
@@ -411,7 +430,6 @@ enum EchoMarkdownParser {
       || (line.contains("|") && next.map { isTableSeparatorLine($0) } == true)
   }
 
-
   private static func footnoteDefinitionLine(at index: Int, lines: [String]) -> (
     label: String, text: String, nextIndex: Int
   )? {
@@ -445,12 +463,6 @@ enum EchoMarkdownParser {
     return value
   }
 
-
-
-
-
-
-
   private static func stripHTMLTags(_ source: String) -> String {
     // Require a real HTML tag name (letters then whitespace/`>`/`/`), so Discord-
     // style custom emoji tokens like `<a:name:id>` / `<:name:id>` are preserved.
@@ -475,7 +487,9 @@ enum EchoMarkdownParser {
     return (character, length, rest.isEmpty ? nil : rest, escaped)
   }
 
-  private static func isFenceClosing(_ line: String, character: Character, minimumLength: Int) -> Bool {
+  private static func isFenceClosing(_ line: String, character: Character, minimumLength: Int)
+    -> Bool
+  {
     let trimmed = line.trimmingCharacters(in: .whitespaces)
     guard trimmed.count >= minimumLength else { return false }
     return trimmed.allSatisfy { $0 == character }

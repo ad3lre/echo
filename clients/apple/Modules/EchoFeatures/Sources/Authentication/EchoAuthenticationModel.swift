@@ -257,6 +257,21 @@ public final class EchoAuthenticationModel {
     }
   }
 
+  /// Applies a passkey / SSO result from AutoFill-assisted authorization.
+  func applyExternalAuthResult(
+    _ result: (user: EchoAuthenticatedUser, session: EchoNativeSession)
+  ) async -> Bool {
+    errorMessage = nil
+    return await applyAuthResult(result)
+  }
+
+  func presentAuthError(_ message: String) {
+    errorMessage = message
+  }
+
+  /// Client used by AutoFill / passkey coordinators (Associated Domains RP).
+  var passkeyAuthClient: EchoAuthenticationClient { authenticationClient }
+
   func register(username: String, email: String, password: String, displayName: String)
     async -> Bool
   {
@@ -265,6 +280,9 @@ public final class EchoAuthenticationModel {
         username: username, email: email, password: password, displayName: displayName)
     }
   }
+
+  /// UserDefaults key — opt-in cold-start unlock (default off; web-chill desktop).
+  public static let requireSessionUnlockKey = "echo.settings.requireSessionUnlock"
 
   /// Restores and rotates the server session on a cold launch.
   func restoreStoredSessionIfNeeded() async {
@@ -279,12 +297,21 @@ public final class EchoAuthenticationModel {
           return
         }
       #else
-        let context = LAContext()
-        context.localizedCancelTitle = EchoCopy.string("Use password instead")
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else { return }
-        try await context.evaluatePolicy(
-          .deviceOwnerAuthentication, localizedReason: EchoCopy.string("Unlock your Echo session"))
-        guard let stored = try sessionStore.loadSession(authenticationContext: context) else {
+        let requireUnlock = UserDefaults.standard.bool(forKey: Self.requireSessionUnlockKey)
+        let authContext: LAContext?
+        if requireUnlock {
+          let context = LAContext()
+          context.localizedCancelTitle = EchoCopy.string("Use password instead")
+          guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else { return }
+          try await context.evaluatePolicy(
+            .deviceOwnerAuthentication,
+            localizedReason: EchoCopy.string("Unlock your Echo session"))
+          authContext = context
+        } else {
+          authContext = nil
+        }
+        guard let stored = try sessionStore.loadSession(authenticationContext: authContext)
+        else {
           return
         }
       #endif

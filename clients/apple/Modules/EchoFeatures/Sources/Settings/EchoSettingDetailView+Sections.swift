@@ -1,6 +1,16 @@
 import SwiftUI
 
 extension EchoSettingDetailView {
+  /// Self-contained pages (device-local shortcuts, E2EE device list).
+  @ViewBuilder
+  var utilitySection: some View {
+    if route == .keybinds {
+      EchoKeybindsSettingsView()
+    } else {
+      EchoE2eeDevicesView(accessToken: accessToken, baseURL: baseURL)
+    }
+  }
+
   @ViewBuilder
   func accountSections(model: EchoSettingDetailModel) -> some View {
     @Bindable var model = model
@@ -95,6 +105,11 @@ extension EchoSettingDetailView {
         subtitle: EchoCopy.string("Use Face ID or Touch ID for faster sign-in"),
         icon: "person.badge.key.fill", tint: .purple
       ) { showPasskeyRegistration = true }
+      EchoSettingToggle(
+        title: EchoCopy.string("Require unlock on open"),
+        subtitle: EchoCopy.string(
+          "Ask for Face ID, Touch ID, or device passcode when opening Echo"),
+        icon: "lock.fill", tint: .indigo, isOn: $requireSessionUnlock)
     }
     EchoDetailSection(title: EchoCopy.string("Active sessions")) {
       ForEach(model.sessions) { session in

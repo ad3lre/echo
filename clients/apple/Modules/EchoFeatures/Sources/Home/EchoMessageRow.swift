@@ -25,15 +25,39 @@ struct EchoMessageRow: View {
   var onEdit: (() -> Void)? = nil
   var onDelete: (() -> Void)? = nil
   var onReport: (() -> Void)? = nil
+  var moderation: EchoMessageModerationActions? = nil
   var onReact: (() -> Void)? = nil
+  var onForward: (() -> Void)? = nil
+  var onJumpToForwarded: (() -> Void)? = nil
   var onToggleReaction: ((String) -> Void)? = nil
+  /// Pings / replies to the viewer (web `message-mentioned`).
+  var highlightsMention = false
+  /// Guild member / group-DM roster entry for authors the payload left bare.
+  var resolvedAuthor: EchoResolvedAuthor? = nil
+  @State private var votersRequest: EchoReactionVotersRequest?
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(EchoShellChrome.self) private var shellChrome
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.echoConsumeComposerKeyboardTap) private var consumeComposerKeyboardTap
 
   var body: some View {
+    if message.isSystemMessage {
+      Text(message.content)
+        .font(displayPrefs.uiFont(size: 13, weight: .medium))
+        .foregroundStyle(displayPrefs.ink(0.48))
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 8)
+        .accessibilityLabel(message.content)
+    } else {
+      messageBubble
+    }
+  }
+
+  private var messageBubble: some View {
     let metrics = displayPrefs.densityMetrics
-    HStack(alignment: .top, spacing: 10) {
+    return HStack(alignment: .top, spacing: 10) {
       if showsHeader {
         authorAvatar
       } else {
@@ -48,6 +72,9 @@ struct EchoMessageRow: View {
           if showsHeader {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
               authorNameLabel
+              if message.bridgeFromDiscord {
+                EchoDiscordSyncedBadge()
+              }
               if isPinned {
                 Image(systemName: "pin.fill")
                   .font(.system(size: 9, weight: .bold))
@@ -86,12 +113,25 @@ struct EchoMessageRow: View {
             )
           }
 
+          if let forwarded = message.forwardedFrom {
+            EchoForwardedMessageHeader(
+              forwarded: forwarded, baseURL: baseURL, accessToken: accessToken,
+              onJump: onJumpToForwarded.map { jump in
+                {
+                  if consumeComposerKeyboardTap() { return }
+                  jump()
+                }
+              })
+          }
+
           if !displayContent.isEmpty {
             EchoMarkdownView(
               markdown: displayContent,
               mentions: message.mentions,
               apiBaseURL: baseURL,
-              accessToken: accessToken
+              accessToken: accessToken,
+              magicTime: magicTimeContext,
+              embeds: message.embeds
             )
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             .opacity(message.delivery == .uploading ? 0.78 : 1)
@@ -120,11 +160,33 @@ struct EchoMessageRow: View {
             isUploading: message.delivery == .uploading)
         }
 
+        if !message.embeds.isEmpty {
+          EchoMessageLinkEmbeds(
+            embeds: message.embeds, baseURL: baseURL, accessToken: accessToken)
+        }
+
+        if !message.isSystemMessage {
+          EchoMessageJumpEmbeds(content: message.content, embeds: message.embeds, baseURL: baseURL)
+        }
+
+        if !message.isSystemMessage, message.content.contains("://") {
+          EchoMessageInviteEmbeds(
+            content: message.content, baseURL: baseURL, accessToken: accessToken)
+        }
+
+        if let components = message.components {
+          EchoMessageComponentsView(
+            components: components, baseURL: baseURL, accessToken: accessToken,
+            channelID: message.channelID, messageID: message.id,
+            canFillImageSlots: message.isCurrentUser && message.delivery == .sent)
+        }
+
         if let poll = message.poll {
           EchoPollDisplay(
             poll: poll,
             currentUserID: currentUserID,
             resolveVoterName: resolveVoterName,
+            discordSynced: message.bridgeFromDiscord,
             onVote: { optionID in
               if consumeComposerKeyboardTap() { return }
               onPollVote(optionID)
@@ -140,7 +202,8 @@ struct EchoMessageRow: View {
             baseURL: baseURL,
             accessToken: accessToken,
             onToggle: { emoji in onToggleReaction?(emoji) },
-            onAdd: onReact
+            onAdd: onReact,
+            onShowVoters: { emoji in votersRequest = EchoReactionVotersRequest(initialEmoji: emoji) }
           )
         }
       }
@@ -159,6 +222,17 @@ struct EchoMessageRow: View {
       metrics.messageBottom(
         showsHeader: showsHeader, messageSpacing: displayPrefs.messageSpacing)
     )
+    .echoMentionHighlight(highlightsMention)
+    .echoMessageActionBar(
+      enabled: message.delivery == .sent && (onToggleReaction != nil || onReact != nil),
+      isOwnMessage: message.isCurrentUser,
+      baseURL: baseURL,
+      accessToken: accessToken,
+      onQuickReact: { emoji in onToggleReaction?(emoji) },
+      onAddReaction: onReact,
+      onReply: onReply,
+      onEdit: onEdit
+    )
     .contextMenu {
       if message.delivery == .sent {
         if let onReact {
@@ -173,6 +247,13 @@ struct EchoMessageRow: View {
             onReply()
           } label: {
             Label(EchoCopy.string("Reply"), systemImage: "arrowshape.turn.up.left")
+          }
+        }
+        if let onForward {
+          Button {
+            onForward()
+          } label: {
+            Label(EchoCopy.string("Forward"), systemImage: "arrowshape.turn.up.right")
           }
         }
         if let onEdit {
@@ -194,6 +275,12 @@ struct EchoMessageRow: View {
             Label(EchoCopy.string("Copy text"), systemImage: "doc.on.doc")
           }
         }
+        EchoMessageMenuExtras(
+          message: message, conversation: conversation, baseURL: baseURL,
+          accessToken: accessToken, attachments: displayAttachments,
+          onViewReactions: { votersRequest = EchoReactionVotersRequest(initialEmoji: nil) },
+          onViewProfile: onAuthorProfileTap,
+          shellChrome: shellChrome)
         if let onTogglePin {
           Button {
             onTogglePin()
@@ -217,8 +304,15 @@ struct EchoMessageRow: View {
             Label(EchoCopy.string("Report message"), systemImage: "exclamationmark.bubble")
           }
         }
+        if let moderation {
+          EchoMessageModerationMenu(actions: moderation)
+        }
       }
     }
+    .echoReactionVotersSheet(
+      item: $votersRequest, message: message, conversation: conversation, baseURL: baseURL,
+      accessToken: accessToken, currentUserID: currentUserID, resolveVoterName: resolveVoterName
+    )
     .accessibilityElement(children: .combine)
     .accessibilityLabel(
       "\(EchoMessageTimelineModel.authorDisplayName(message: message, conversation: conversation)): \(displayContent.isEmpty ? (message.poll?.question ?? EchoCopy.string("Attachment")) : displayContent)"
@@ -283,12 +377,22 @@ struct EchoMessageRow: View {
       return url
     }
     if message.isCurrentUser { return nil }
-    return conversation.avatarURL
+    if let url = resolvedAuthor?.avatarURL, !url.isEmpty { return url }
+    // The conversation avatar belongs to the 1:1 peer only — never to guild / group authors.
+    return conversation.isGroup ? nil : conversation.avatarURL
   }
 
   /// Strip Tenor/Giphy page URLs that already render as inline GIFs.
   private var displayContent: String {
     EchoGifHostLinks.contentWithoutInlineGifHostURLs(message.content, embeds: message.embeds)
+  }
+
+  /// Web Magic Time — only when author TZ is known and differs from the viewer.
+  private var magicTimeContext: EchoMagicTimeContext? {
+    EchoMagicTimeContext.make(
+      messageTimestamp: message.timestamp,
+      senderTimeZone: resolvedAuthor?.timeZone,
+      isSystemMessage: message.isSystemMessage)
   }
 
   /// Attachments plus synthetic GIF tiles from Tenor/Giphy embeds.
@@ -304,7 +408,10 @@ struct EchoMessageRow: View {
   }
 
   private var authorDisplayName: String {
-    EchoMessageTimelineModel.authorDisplayName(message: message, conversation: conversation)
+    if message.authorDisplayName?.isEmpty ?? true, let name = resolvedAuthor?.name, !name.isEmpty {
+      return name
+    }
+    return EchoMessageTimelineModel.authorDisplayName(message: message, conversation: conversation)
   }
 
   @ViewBuilder
@@ -379,7 +486,12 @@ struct EchoMessageAttachmentsView: View {
   let baseURL: URL
   var accessToken: String? = nil
   var isUploading = false
-  @State private var viewerSession: EchoMediaViewerSession?
+  #if os(iOS)
+    @State private var viewerSession: EchoMediaViewerSession?
+  #endif
+  #if os(macOS)
+    @Environment(EchoMediaViewerHost.self) private var mediaViewerHost
+  #endif
   @Environment(\.echoConsumeComposerKeyboardTap) private var consumeComposerKeyboardTap
 
   private var imageAttachments: [EchoMessageAttachment] {
@@ -402,7 +514,7 @@ struct EchoMessageAttachmentsView: View {
           isUploading: isUploading,
           onOpen: { index in
             if consumeComposerKeyboardTap() { return }
-            viewerSession = EchoMediaViewerSession.images(imageAttachments, startingAt: index)
+            presentViewer(EchoMediaViewerSession.images(imageAttachments, startingAt: index))
           })
       }
 
@@ -415,16 +527,17 @@ struct EchoMessageAttachmentsView: View {
             accessToken: accessToken
           ) {
             if consumeComposerKeyboardTap() { return }
-            viewerSession = EchoMediaViewerSession.media(
-              attachments, startingAt: attachment)
+            presentViewer(
+              EchoMediaViewerSession.media(attachments, startingAt: attachment))
           }
           .opacity(isUploading ? 0.72 : 1)
           .overlay { uploadingChrome(cornerRadius: 12) }
           .disabled(isUploading)
         } else if attachment.isAudio {
           EchoAudioAttachmentView(
-            attachment: attachment, baseURL: baseURL, accessToken: accessToken)
-            .opacity(isUploading ? 0.72 : 1)
+            attachment: attachment, baseURL: baseURL, accessToken: accessToken
+          )
+          .opacity(isUploading ? 0.72 : 1)
         } else {
           attachmentFallback(attachment)
             .opacity(isUploading ? 0.72 : 1)
@@ -439,15 +552,15 @@ struct EchoMessageAttachmentsView: View {
           viewerSession = nil
         }
       }
+    #endif
+  }
+
+  private func presentViewer(_ session: EchoMediaViewerSession?) {
+    guard let session else { return }
+    #if os(iOS)
+      viewerSession = session
     #else
-      .sheet(item: $viewerSession) { session in
-        EchoMediaViewer(
-          session: session, baseURL: baseURL, accessToken: accessToken
-        ) {
-          viewerSession = nil
-        }
-        .frame(minWidth: 720, minHeight: 480)
-      }
+      mediaViewerHost.present(session, baseURL: baseURL, accessToken: accessToken)
     #endif
   }
 

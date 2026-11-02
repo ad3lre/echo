@@ -315,6 +315,18 @@ enum EchoTheme {
     static let serverStarAccent = SwiftUI.Color(red: 0.25, green: 0.55, blue: 1.0)
     /// Mention ping dot (web `--server-ping-personal` / #f43f5e).
     static let mentionPing = SwiftUI.Color(red: 0.957, green: 0.247, blue: 0.369)
+    /// Role ping (web `--server-ping-role` / #9333ea).
+    static let rolePing = SwiftUI.Color(red: 0.576, green: 0.200, blue: 0.918)
+    /// Broadcast / @everyone ping (web `--server-ping-broadcast` / #d97706).
+    static let broadcastPing = SwiftUI.Color(red: 0.851, green: 0.467, blue: 0.024)
+    /// Web `--message-mentioned-bg` — wash behind messages that ping / reply to the viewer.
+    static var mentionedBackground: SwiftUI.Color {
+      adaptive(light: (0.961, 0.620, 0.043, 0.08), dark: (0.910, 0.765, 0.380, 0.06))
+    }
+    /// Web `--message-mentioned-border` — 2pt leading rule on those messages.
+    static var mentionedBorder: SwiftUI.Color {
+      adaptive(light: (0.851, 0.467, 0.024, 0.45), dark: (0.910, 0.765, 0.380, 0.50))
+    }
     /// Server owner crown accent.
     static let ownerCrown = SwiftUI.Color(red: 0.95, green: 0.75, blue: 0.2)
     static var presenceOffline: SwiftUI.Color {

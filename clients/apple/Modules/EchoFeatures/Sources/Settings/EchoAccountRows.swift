@@ -23,19 +23,26 @@ struct EchoSettingValueRow: View {
     self.action = action
   }
 
+  @Environment(\.echoDesktopSettings) private var desktop
+
   var body: some View {
     Button(action: action) {
-      HStack(spacing: 12) {
-        Image(systemName: icon)
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(tint)
-          .frame(width: 36, height: 36)
-          .background(
-            tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-        VStack(alignment: .leading, spacing: 3) {
-          Text(title).font(.system(size: 15, weight: .semibold, design: .rounded))
+      HStack(spacing: desktop ? 14 : 12) {
+        if !desktop {
+          Image(systemName: icon)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: 36, height: 36)
+            .background(
+              tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+        VStack(alignment: .leading, spacing: desktop ? 4 : 3) {
+          Text(title).font(
+            .system(
+              size: desktop ? 14 : 15, weight: .semibold,
+              design: desktop ? .default : .rounded))
           Text(value)
-            .font(.system(size: 12, design: .rounded))
+            .font(.system(size: 12, design: desktop ? .default : .rounded))
             .foregroundStyle(.secondary)
             .lineLimit(1)
         }
@@ -49,9 +56,10 @@ struct EchoSettingValueRow: View {
                 ? EchoCopy.string("Verified") : EchoCopy.string("Not verified"))
         }
         Image(systemName: "chevron.right")
-          .font(.system(size: 12, weight: .bold))
-          .foregroundStyle(tint.opacity(0.72))
+          .font(.system(size: 11, weight: .semibold))
+          .foregroundStyle(EchoTheme.Color.ink(0.35))
       }
+      .padding(.vertical, desktop ? 10 : 0)
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
@@ -62,6 +70,7 @@ struct EchoSettingValueRow: View {
 struct EchoSessionRow: View {
   let session: EchoAuthSession
   let onRevoke: () -> Void
+  @Environment(\.echoDesktopSettings) private var desktop
 
   private var deviceName: String {
     let userAgent = session.userAgent ?? ""
@@ -86,46 +95,74 @@ struct EchoSessionRow: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 11) {
-      HStack(spacing: 12) {
-        Image(
-          systemName: session.userAgent?.localizedCaseInsensitiveContains("mac") == true
-            ? "laptopcomputer" : "iphone"
-        )
-        .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(.blue)
-        .frame(width: 36, height: 36)
-        .background(.blue.opacity(0.14), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-        VStack(alignment: .leading, spacing: 3) {
-          Text(deviceName)
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
-            .foregroundStyle(EchoTheme.Color.ink(0.92))
-            .lineLimit(1)
-          Text(detail)
-            .font(.system(size: 12, design: .rounded))
-            .foregroundStyle(EchoTheme.Color.ink(0.48))
-            .lineLimit(1)
+    if desktop {
+      HStack(alignment: .center, spacing: 12) {
+        sessionIdentity
+        Spacer(minLength: 8)
+        Button(role: .destructive, action: onRevoke) {
+          Text(
+            session.sessionIDs.count > 1
+              ? EchoCopy.format("Revoke all %lld sessions", session.sessionIDs.count)
+              : EchoCopy.string("Revoke")
+          )
+          .font(.system(size: 12, weight: .bold))
+          .foregroundStyle(EchoTheme.Color.ink(0.55))
+          .textCase(.uppercase)
+          .tracking(1.2)
         }
-        Spacer(minLength: 0)
+        .buttonStyle(.plain)
       }
-      Button(role: .destructive, action: onRevoke) {
-        Label(
-          session.sessionIDs.count > 1
-            ? EchoCopy.format("Revoke all %lld sessions", session.sessionIDs.count)
-            : EchoCopy.string("Revoke session"),
-          systemImage: "rectangle.portrait.and.arrow.right"
-        )
-        .font(.system(size: 12, weight: .semibold, design: .rounded))
-        .frame(maxWidth: .infinity, minHeight: 34)
-        .background(
-          .red.opacity(0.11), in: RoundedRectangle(cornerRadius: 11, style: .continuous)
-        )
-        .overlay {
-          RoundedRectangle(cornerRadius: 11, style: .continuous)
-            .stroke(.red.opacity(0.20), lineWidth: 1)
+      .padding(.vertical, 8)
+    } else {
+      VStack(alignment: .leading, spacing: 11) {
+        HStack(spacing: 12) {
+          Image(
+            systemName: session.userAgent?.localizedCaseInsensitiveContains("mac") == true
+              ? "laptopcomputer" : "iphone"
+          )
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(.blue)
+          .frame(width: 36, height: 36)
+          .background(
+            .blue.opacity(0.14), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+          sessionIdentity
+          Spacer(minLength: 0)
         }
+        Button(role: .destructive, action: onRevoke) {
+          Label(
+            session.sessionIDs.count > 1
+              ? EchoCopy.format("Revoke all %lld sessions", session.sessionIDs.count)
+              : EchoCopy.string("Revoke session"),
+            systemImage: "rectangle.portrait.and.arrow.right"
+          )
+          .font(.system(size: 12, weight: .semibold, design: .rounded))
+          .frame(maxWidth: .infinity, minHeight: 34)
+          .background(
+            .red.opacity(0.11), in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+          )
+          .overlay {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+              .stroke(.red.opacity(0.20), lineWidth: 1)
+          }
+        }
+        .buttonStyle(.plain)
       }
-      .buttonStyle(.plain)
+    }
+  }
+
+  private var sessionIdentity: some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Text(deviceName)
+        .font(
+          .system(
+            size: 14, weight: .semibold, design: desktop ? .default : .rounded)
+        )
+        .foregroundStyle(EchoTheme.Color.ink(0.92))
+        .lineLimit(1)
+      Text(detail)
+        .font(.system(size: 12, design: desktop ? .default : .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.48))
+        .lineLimit(1)
     }
   }
 }

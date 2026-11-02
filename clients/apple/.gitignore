@@ -4,3 +4,5 @@ build/
 DerivedData/
 *.xcuserstate
 xcuserdata/
+
+echo.media.urlcache/

@@ -67,10 +67,16 @@ struct EchoDuoLayout: Equatable, Sendable {
   }
 
   /// Inner Duo canvas (or close enough): wide aspect that hosts a vertical fold.
+  /// macOS desktop windows are never fold canvases — treating them as such
+  /// synthesized a 40pt gutter between list and detail.
   var isFoldCapableCanvas: Bool {
-    guard size.width >= 560 else { return false }
-    let aspect = size.width / max(size.height, 1)
-    return aspect >= 1.28 || (division != nil && size.width >= 560)
+    #if os(macOS)
+      return false
+    #else
+      guard size.width >= 560 else { return false }
+      let aspect = size.width / max(size.height, 1)
+      return aspect >= 1.28 || (division != nil && size.width >= 560)
+    #endif
   }
 
   /// System vertical bar (Duo cover / inner) — asymmetric container safe area.
@@ -91,16 +97,21 @@ struct EchoDuoLayout: Equatable, Sendable {
   }
 
   /// Floating tab rail on the trailing edge (Duo vertical bar + landscape).
+  /// macOS uses a dedicated leading server rail instead.
   var usesTrailingTabBar: Bool {
-    switch pose {
-    case .compact:
-      return hasVerticalSystemBar
-    case .landscapePhone, .flatOpen, .book, .regularWide:
-      return true
-    case .tabletop:
-      // Keep chrome reachable on the lower interactive half — bottom pill.
+    #if os(macOS)
       return false
-    }
+    #else
+      switch pose {
+      case .compact:
+        return hasVerticalSystemBar
+      case .landscapePhone, .flatOpen, .book, .regularWide:
+        return true
+      case .tabletop:
+        // Keep chrome reachable on the lower interactive half — bottom pill.
+        return false
+      }
+    #endif
   }
 
   /// Prefer even grid columns with a hinge gutter (inactive or active fold).
@@ -113,6 +124,12 @@ struct EchoDuoLayout: Equatable, Sendable {
     switch pose {
     case .book, .flatOpen: 0.42
     case .tabletop: 0.46
+    case .regularWide:
+      #if os(macOS)
+        0.28
+      #else
+        0.38
+      #endif
     default: 0.38
     }
   }

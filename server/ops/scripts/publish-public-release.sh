@@ -60,6 +60,13 @@ fi
 
 git fetch "$GITLAB_REMOTE" "$MAIN_BRANCH" "$BRANCH" --quiet
 
+# Release line must not ship a tree that fails the OSV / SBOM gate.
+# (ci:precheck already covers pushes to main; this catches publish-only paths.)
+if [[ "${ECHO_SKIP_OSV:-}" != "1" ]]; then
+  echo "publish-public-release: running bun run check:osv …"
+  (cd "$ROOT" && bun run check:osv)
+fi
+
 find_main_for_tree() {
   local tree="$1"
   local c

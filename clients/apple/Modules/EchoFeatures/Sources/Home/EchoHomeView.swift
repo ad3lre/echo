@@ -7,46 +7,55 @@ import SwiftUI
   import UIKit
 #endif
 
-/// The authenticated home surface backed exclusively by Echo REST data.
 public struct EchoHomeView: View {
   @Environment(\.openURL) private var openURL
-  @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.scenePhase) var scenePhase
   @Environment(\.colorScheme) private var colorScheme
-  @Environment(EchoAuthenticationModel.self) private var auth
-  @Environment(EchoDisplayPreferences.self) private var displayPrefs
-  @Environment(EchoShellChrome.self) private var shellChrome
+  @Environment(EchoAuthenticationModel.self) var auth
+  @Environment(EchoDisplayPreferences.self) var displayPrefs
+  @Environment(EchoShellChrome.self) var shellChrome
   let baseURL: URL
   let userID: String
   let onSignOut: () -> Void
-  let realtime: EchoRealtimeSession
-  @State private var homeModel: EchoHomeModel?
-  @State private var showingProfileMenu = false
-  @State private var showingProfileEdit = false
-  @State private var showingSettings = false
-  @State private var showingInbox = false
-  @State private var selectedConversation: EchoDirectMessage?
-  @State private var searchText = ""
-  @FocusState private var searchFocused: Bool
-  /// Survives the UIKit resign race: tapping a control while the search field
-  /// is focused clears `@FocusState` before the button action runs. First tap
-  /// should only dismiss the keyboard; the next tap navigates.
+  var realtime: EchoRealtimeSession
+  /// Joined servers for mention notification chips / labels (web serverNameById).
+  var serversModel: EchoServersModel? = nil
+  @State var homeModel: EchoHomeModel?
+  @State var showingProfileMenu = false
+  @State var showingProfileEdit = false
+  @State var conversationBeforeProfileEdit: EchoDirectMessage?
+  @State var showingSettings = false
+  @State var showingInbox = false
+  @State var showingFriends = false
+  @State var showingGroupCreate = false
+  @State var groupCreatePreselectedIDs: [String] = []
+  @State var showingMessageRequests = false
+  @State var selectedMessageRequest: EchoMessageRequest?
+  @State var selectedConversation: EchoDirectMessage?
+  @State var searchText = ""
+  @FocusState var searchFocused: Bool
   @State private var searchKeyboardArmed = false
   @State private var pendingNotificationChannelID: String?
   @State private var pendingNotificationURL: URL?
-  @State private var sheetAccessToken = ""
-  @State private var callModel: EchoCallModel?
-  @State private var hiddenInboxEpoch = 0
+  @State var sheetAccessToken = ""
+  @State var callModel: EchoCallModel?
+  @State var hiddenInboxEpoch = 0
+  @State var dmProfileTarget: EchoUserProfile?
+  @State var attention = EchoAttentionSync.shared
+  @State private var selectedGuildEventCard: EchoGuildEventActivityCard?
 
   init(
     baseURL: URL,
     userID: String,
     realtime: EchoRealtimeSession,
-    onSignOut: @escaping () -> Void
+    onSignOut: @escaping () -> Void,
+    serversModel: EchoServersModel? = nil
   ) {
     self.baseURL = baseURL
     self.userID = userID
     self.realtime = realtime
     self.onSignOut = onSignOut
+    self.serversModel = serversModel
   }
 
   public var body: some View {
@@ -56,46 +65,46 @@ public struct EchoHomeView: View {
 
   @ViewBuilder
   private var homeStack: some View {
-    VStack(spacing: 0) {
-      if let homeModel {
-        if showingProfileEdit, let profile = homeModel.snapshot?.profile {
-          EchoProfileEditView(
-            profile: profile,
-            baseURL: baseURL,
-            accessToken: sheetAccessToken,
-            currentPresence: homeModel.currentUserPresence,
-            onBannerEffectsChange: { refraction, blur, blackout in
-              homeModel.applyBannerEffects(
-                refraction: refraction, blur: blur, blackout: blackout)
-            },
-            onExit: {
-              withAnimation(.easeInOut(duration: 0.22)) {
-                showingProfileEdit = false
-              }
-              // Full reload so display name / avatar / banner / bio match a save.
-              // Banner-effect toggles were already patched optimistically.
-              Task { await homeModel.reload() }
-            }
-          )
-          .transition(.opacity)
-        } else if let snapshot = homeModel.snapshot {
-          homeSnapshotContent(homeModel, snapshot: snapshot)
-        } else if homeModel.isLoading {
-          EchoHomeLoadingView()
-        } else {
-          EchoHomeUnavailableView(
-            message: homeModel.errorMessage
-              ?? EchoCopy.string("Echo could not load your messages."),
-            retry: { Task { await homeModel.reload() } }
-          )
-        }
-      } else {
+    homePrimaryContent
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(EchoHomeBackground().ignoresSafeArea())
+      #if os(iOS)
+        .ignoresSafeArea(.container, edges: .top)
+      #endif
+  }
+
+  @ViewBuilder
+  private var homePrimaryContent: some View {
+    if let homeModel {
+      if showingProfileEdit, let profile = homeModel.snapshot?.profile,
+        !shellChrome.layout.usesSplitChrome
+      {
+        EchoProfileEditView(
+          profile: profile,
+          baseURL: baseURL,
+          accessToken: sheetAccessToken,
+          currentPresence: homeModel.currentUserPresence,
+          onBannerEffectsChange: { refraction, blur, blackout in
+            homeModel.applyBannerEffects(
+              refraction: refraction, blur: blur, blackout: blackout)
+          },
+          onExit: endProfileEdit
+        )
+        .transition(.opacity)
+      } else if let snapshot = homeModel.snapshot {
+        homeSnapshotContent(homeModel, snapshot: snapshot)
+      } else if homeModel.isLoading {
         EchoHomeLoadingView()
+      } else {
+        EchoHomeUnavailableView(
+          message: homeModel.errorMessage
+            ?? EchoCopy.string("Echo could not load your messages."),
+          retry: { Task { await homeModel.reload() } }
+        )
       }
+    } else {
+      EchoHomeLoadingView()
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(EchoHomeBackground().ignoresSafeArea())
-    .ignoresSafeArea(.container, edges: .top)
   }
 
   private func homeLifecycle<Content: View>(_ content: Content) -> some View {
@@ -108,6 +117,9 @@ public struct EchoHomeView: View {
         let model = homeModel ?? EchoHomeModel(baseURL: baseURL, auth: auth, userID: userID)
         homeModel = model
         model.auth = auth
+        model.guildMemberRoleIDs = { [serversModel, userID] serverID in
+          Set(serversModel?.roleIDs(for: serverID, userID: userID) ?? [])
+        }
         if callModel == nil {
           callModel = EchoCallModel(
             baseURL: baseURL, realtime: realtime, currentUserID: userID
@@ -118,6 +130,9 @@ public struct EchoHomeView: View {
         await prepareSheetToken()
         EchoAttentionSync.shared.configure(baseURL: baseURL)
         await model.loadIfNeeded()
+        if let chosen = EchoOptimisticSelfPresence.lastChosen {
+          model.applySelfPresence(chosen)
+        }
         realtime.setPresenceStatus(model.currentUserPresence)
         openPendingNotificationIfPossible()
       }
@@ -126,6 +141,7 @@ public struct EchoHomeView: View {
           homeModel?.applyRealtime(event)
           applyRealtimeToSelectedConversation(event)
           applyRealtimeToCalling(event)
+          applyRealtimeToServers(event)
         }
         defer { realtime.removeHandler(handlerID) }
         await EchoRealtimeWait.untilCancelled()
@@ -141,166 +157,71 @@ public struct EchoHomeView: View {
       .environment(realtime)
   }
 
-  private func homeObservers<Content: View>(_ content: Content) -> some View {
-    content
-      .onChange(of: scenePhase) { _, phase in
-        realtime.setSceneActive(phase == .active)
-        if phase == .background {
-          EchoBackgroundRefresh.schedule()
-        }
-        if phase == .active {
-          Task { await homeModel?.refreshLightweight() }
-        }
-      }
-      .onChange(of: homeModel?.currentUserPresence) { _, status in
-        if let status { realtime.setPresenceStatus(status) }
-      }
-      .echoRetryOnNetworkRecovery {
-        retryHomeIfUnavailable()
-        if let token = auth.activeSession?.accessToken {
-          Task { await realtime.connect(accessToken: token) }
-        }
-      }
-      .onChange(of: auth.activeSession?.accessToken) { _, newToken in
-        if let newToken, !newToken.isEmpty {
-          sheetAccessToken = newToken
-        }
-      }
-      .onReceive(NotificationCenter.default.publisher(for: .echoNotificationSelected)) {
-        notification in
-        receiveNotificationSelection(notification.userInfo)
-      }
-      .onReceive(NotificationCenter.default.publisher(for: .echoRemoteNotificationReceived)) { _ in
-        Task { await EchoAttentionSync.shared.refresh(auth: auth) }
-      }
-      .onChange(of: homeModel?.snapshot?.conversations.map(\.id)) { _, _ in
-        openPendingNotificationIfPossible()
-      }
-      .onChange(of: homeModel?.snapshot?.personalNotes?.channelID) { _, _ in
-        openPendingNotificationIfPossible()
-      }
-      .onChange(of: searchFocused) { _, focused in
-        handleSearchFocusChange(focused)
-        shellChrome.listSearchActive = focused
-      }
-      .onChange(of: shellChrome.resignListSearchRequest) { _, _ in
-        dismissHomeSearchKeyboard()
-      }
-      .onDisappear {
-        if searchFocused {
-          shellChrome.listSearchActive = false
-        }
-      }
-      .onChange(of: showingProfileEdit) { _, showing in
-        if showing { dismissHomeSearchKeyboard() }
-      }
-      .onChange(of: showingProfileMenu) { _, showing in
-        if showing { dismissHomeSearchKeyboard() }
-      }
-      .onChange(of: showingSettings) { _, showing in
-        if showing { dismissHomeSearchKeyboard() }
-      }
-      .onChange(of: showingInbox) { _, showing in
-        if showing { dismissHomeSearchKeyboard() }
-      }
-      .onChange(of: selectedConversation?.id) { _, id in
-        if id != nil { dismissHomeSearchKeyboard() }
-      }
-  }
-
   private func homePresentations<Content: View>(_ content: Content) -> some View {
     content
-      .sheet(isPresented: $showingProfileMenu) {
-        EchoProfileMenu(
-          profile: homeModel?.snapshot?.profile,
-          onEditProfile: {
-            showingProfileMenu = false
-            dismissHomeSearchKeyboard()
-            Task {
-              await prepareSheetToken()
-              withAnimation(.easeInOut(duration: 0.22)) {
-                showingProfileEdit = true
-              }
+      #if os(iOS)
+        .sheet(isPresented: $showingProfileMenu) {
+          EchoProfileMenu(
+            profile: homeModel?.snapshot?.profile,
+            onEditProfile: { openProfileEditFromMenu() },
+            onSettings: { openSettingsFromMenu() },
+            onSignOut: {
+              showingProfileMenu = false
+              onSignOut()
             }
-          },
-          onSettings: {
-            showingProfileMenu = false
-            dismissHomeSearchKeyboard()
-            Task {
-              await prepareSheetToken()
-              showingSettings = true
-            }
-          },
-          onSignOut: {
-            showingProfileMenu = false
-            onSignOut()
-          }
-        )
-        .presentationDetents([.height(270)])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(.clear)
-      }
-      .sheet(isPresented: $showingSettings) {
-        EchoSettingsView(
-          baseURL: baseURL,
-          accessToken: sheetAccessToken,
-          profile: homeModel?.snapshot?.profile,
-          onSignOut: onSignOut
-        )
-        .environment(auth)
-        .environment(displayPrefs)
-        .echoApplyLiveAppearance(displayPrefs, systemScheme: colorScheme)
-      }
+          )
+          .presentationDetents([.height(270)])
+          .presentationDragIndicator(.visible)
+          .presentationBackground(.clear)
+        }
+        .sheet(isPresented: $showingSettings) {
+          EchoSettingsView(
+            baseURL: baseURL,
+            accessToken: sheetAccessToken,
+            profile: homeModel?.snapshot?.profile,
+            onSignOut: onSignOut
+          )
+          .environment(auth)
+          .environment(displayPrefs)
+          .echoApplyLiveAppearance(displayPrefs, systemScheme: colorScheme)
+        }
+      #endif
       .background { homeInboxPresentation }
+      .background { homeFriendsPresentation }
+      .background { homeGroupCreatePresentation }
+      .background { homeDmProfilePresentation }
       .background { homeConversationPresentation }
       .overlay {
         if let callModel, callModel.isPresented, selectedConversation == nil {
-          EchoCallView(model: callModel, baseURL: baseURL, accessToken: liveMediaAccessToken)
-            .transition(.opacity)
+          EchoCallStage(model: callModel, baseURL: baseURL, accessToken: liveMediaAccessToken)
             .zIndex(20)
         }
       }
   }
 
-  @ViewBuilder
-  private var homeInboxPresentation: some View {
-    Color.clear
-      .frame(width: 0, height: 0)
-      #if os(iOS)
-        .fullScreenCover(
-          isPresented: $showingInbox,
-          onDismiss: { Task { await homeModel?.refreshInboxNotificationCount() } }
-        ) {
-          EchoInboxView(
-            personalNotes: homeModel?.snapshot?.personalNotes,
-            baseURL: baseURL,
-            accessToken: sheetAccessToken,
-            userID: userID
-          )
-          .environment(auth)
-          .environment(realtime)
-        }
+  private func openProfileEditFromMenu() {
+    showingProfileMenu = false
+    Task {
+      await prepareSheetToken()
+      beginProfileEdit()
+    }
+  }
+
+  private func openSettingsFromMenu() {
+    showingProfileMenu = false
+    dismissHomeSearchKeyboard()
+    Task {
+      await prepareSheetToken()
+      #if os(macOS)
+        shellChrome.requestOpenSettings()
       #else
-        .sheet(
-          isPresented: $showingInbox,
-          onDismiss: { Task { await homeModel?.refreshInboxNotificationCount() } }
-        ) {
-          EchoInboxView(
-            personalNotes: homeModel?.snapshot?.personalNotes,
-            baseURL: baseURL,
-            accessToken: sheetAccessToken,
-            userID: userID
-          )
-          .environment(auth)
-          .environment(realtime)
-        }
+        showingSettings = true
       #endif
+    }
   }
 
   @ViewBuilder
   private var homeConversationPresentation: some View {
-    // Landscape / Duo: conversation sits beside the list (see homeSnapshotContent).
-    // Portrait keeps the full-screen cover.
     if shellChrome.layout.usesSplitChrome {
       Color.clear.frame(width: 0, height: 0)
     } else {
@@ -318,19 +239,7 @@ public struct EchoHomeView: View {
     }
   }
 
-  private func conversationCover(_ conversation: EchoDirectMessage) -> some View {
-    EchoConversationView(
-      conversation: conversation,
-      baseURL: baseURL,
-      userID: userID,
-      selfAvatarURL: homeModel?.snapshot?.profile.avatarURL,
-      callModel: callModel
-    )
-    .environment(auth)
-    .environment(realtime)
-  }
-
-  private func retryHomeIfUnavailable() {
+  func retryHomeIfUnavailable() {
     Task { await homeModel?.retryIfUnavailable() }
   }
 
@@ -345,129 +254,218 @@ public struct EchoHomeView: View {
     let trailingPad =
       shellChrome.layout.verticalSystemBarEdge == .leading ? 0 : railPad
 
-    EchoDuoArrangement(showsSecondary: shellChrome.layout.usesSplitChrome) {
-      VStack(spacing: 0) {
-        homeListColumn(homeModel, snapshot: snapshot)
-      }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-    } secondary: {
-      if let conversation = selectedConversation {
-        EchoConversationView(
-          conversation: conversation,
-          baseURL: baseURL,
-          userID: userID,
-          selfAvatarURL: snapshot.profile.avatarURL,
-          callModel: callModel,
-          onRequestExit: { selectedConversation = nil }
-        )
-        .environment(auth)
-        .environment(realtime)
-        .id(conversation.id)
-      } else {
-        homeSplitEmptyDetail
-      }
+    Group {
+      #if os(macOS)
+        if shellChrome.macDmListPanelOpen {
+          EchoMacHSplit(
+            minPrimary: 360,
+            maxPrimary: 520,
+            defaultPrimary: 360,
+            storageKey: "echo.mac.homeListWidth",
+            onCollapse: { shellChrome.setMacDmListPanelOpen(false) }
+          ) {
+            homeListColumn(homeModel, snapshot: snapshot)
+              .frame(maxWidth: .infinity, maxHeight: .infinity)
+          } secondary: {
+            homeSplitDetail(snapshot: snapshot)
+          }
+        } else {
+          homeSplitDetail(snapshot: snapshot)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .transition(.opacity)
+        }
+      #else
+        EchoDuoArrangement(showsSecondary: shellChrome.layout.usesSplitChrome) {
+          homeListColumn(homeModel, snapshot: snapshot)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } secondary: {
+          homeSplitDetail(snapshot: snapshot)
+        }
+      #endif
     }
     .padding(.leading, leadingPad)
     .padding(.trailing, trailingPad)
-  }
-
-  private var homeSplitEmptyDetail: some View {
-    VStack(spacing: 10) {
-      Image("EchoTabMessageFilled", bundle: .main)
-        .renderingMode(.template)
-        .resizable()
-        .scaledToFit()
-        .frame(width: 36, height: 36)
-        .foregroundStyle(EchoTheme.Color.ink(0.32))
-      Text(EchoCopy.string("Select a conversation"))
-        .font(.system(size: 18, weight: .semibold, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.88))
-      Text(EchoCopy.string("Pick someone from the list to start chatting."))
-        .font(.system(size: 14, weight: .regular, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.46))
-        .multilineTextAlignment(.center)
-    }
-    .padding(32)
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    #if os(macOS)
+      .animation(.easeOut(duration: 0.18), value: shellChrome.macDmListPanelOpen)
+    #endif
   }
 
   @ViewBuilder
   private func homeListColumn(
     _ homeModel: EchoHomeModel, snapshot: EchoHomeSnapshot
   ) -> some View {
-    EchoProfileHeader(
-      profile: snapshot.profile,
-      baseURL: baseURL,
-      accessToken: liveMediaAccessToken,
-      compact: shellChrome.layout.usesSplitChrome,
-      onProfileTap: {
-        if consumeSearchKeyboardTap() { return }
-        Task {
-          await prepareSheetToken()
-          withAnimation(.easeInOut(duration: 0.22)) {
-            showingProfileEdit = true
+    if showingProfileEdit {
+      EchoProfileEditView(
+        profile: snapshot.profile,
+        baseURL: baseURL,
+        accessToken: sheetAccessToken,
+        currentPresence: homeModel.currentUserPresence,
+        onBannerEffectsChange: { refraction, blur, blackout in
+          homeModel.applyBannerEffects(
+            refraction: refraction, blur: blur, blackout: blackout)
+        },
+        onExit: endProfileEdit
+      )
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    } else {
+      VStack(spacing: 0) {
+        EchoProfileHeader(
+          profile: snapshot.profile,
+          baseURL: baseURL,
+          accessToken: liveMediaAccessToken,
+          compact: shellChrome.layout.usesSplitChrome,
+          onProfileTap: {
+            if consumeSearchKeyboardTap() { return }
+            Task {
+              await prepareSheetToken()
+              beginProfileEdit()
+            }
+          },
+          onMenuTap: {
+            if consumeSearchKeyboardTap() { return }
+            #if os(macOS)
+              openProfileEditFromMenu()
+            #else
+              showingProfileMenu = true
+            #endif
           }
+        )
+        EchoDirectMessageList(
+          conversations: filteredConversations(snapshot.conversations),
+          searchText: $searchText,
+          searchFocused: $searchFocused,
+          baseURL: baseURL,
+          accessToken: liveMediaAccessToken,
+          bottomContentInset: shellChrome.layout.contentBottomInset(
+            tabBarVisible: !shellChrome.suppressTabBar),
+          onRefresh: {
+            await homeModel.reload()
+            openPendingNotificationIfPossible()
+          },
+          onConsumeKeyboardTap: { consumeSearchKeyboardTap() },
+          onOpen: { conversation in
+            Task {
+              await prepareSheetToken()
+              showingFriends = false
+              showingInbox = false
+              showingMessageRequests = false
+              selectedConversation = conversation
+            }
+          },
+          inboxNotificationCount: attention.snapshot.mentionPingCount,
+          onOpenInbox: {
+            if consumeSearchKeyboardTap() { return }
+            Task {
+              await prepareSheetToken()
+              showingFriends = false
+              showingMessageRequests = false
+              selectedConversation = nil
+              showingInbox = true
+            }
+          },
+          selectedConversationID: selectedConversation?.id,
+          isFriendsSelected: showingFriends,
+          isNotificationsSelected: showingInbox,
+          isMessageRequestsSelected: showingMessageRequests
+            || selectedMessageRequest != nil,
+          messageRequestCount: homeModel.messageRequests.count,
+          onOpenMessageRequests: {
+            if consumeSearchKeyboardTap() { return }
+            Task {
+              await prepareSheetToken()
+              showingFriends = false
+              showingInbox = false
+              selectedConversation = nil
+              selectedMessageRequest = nil
+              showingMessageRequests = true
+            }
+          },
+          personalNotes: snapshot.personalNotes,
+          onOpenPersonalNotes: {
+            if let notes = snapshot.personalNotes {
+              Task {
+                await prepareSheetToken()
+                showingFriends = false
+                showingInbox = false
+                showingMessageRequests = false
+                selectedConversation = notes
+              }
+            }
+          },
+          onOpenFriends: {
+            if consumeSearchKeyboardTap() { return }
+            Task {
+              await prepareSheetToken()
+              showingInbox = false
+              showingMessageRequests = false
+              selectedConversation = nil
+              showingFriends = true
+            }
+          },
+          canMarkAllDMsRead: hasUnreadDirectMessages,
+          onMarkAllDMsRead: markAllDirectMessagesRead,
+          rowActions: { dmRowActions(for: $0) },
+          unreadCountForChannel: { channelID in
+            attention.snapshot.summary(for: channelID)?.unreadCount ?? 0
+          },
+          guildEventActivityCards: homeModel.guildEventActivityCards,
+          onOpenGuildEvent: { card in
+            if consumeSearchKeyboardTap() { return }
+            selectedGuildEventCard = card
+          },
+          onCollapse: {
+            #if os(macOS)
+              shellChrome.setMacDmListPanelOpen(false)
+            #endif
+          }
+        )
+        .modifier(messageRequestsPresentation(homeModel: homeModel))
+        .sheet(item: $selectedGuildEventCard) { card in
+          EchoGuildEventActivityDetailSheet(
+            card: card,
+            baseURL: baseURL,
+            accessToken: liveMediaAccessToken,
+            onClose: { selectedGuildEventCard = nil },
+            onOpenLocation: {
+              selectedGuildEventCard = nil
+              shellChrome.requestOpenGuild(
+                serverID: card.serverID,
+                channelID: card.channelID,
+                messageID: nil)
+            },
+            onRSVPChanged: { status in
+              if status == .declined {
+                homeModel.removeGuildEventActivityCard(eventID: card.eventID)
+              } else {
+                Task { await homeModel.refreshGuildEventActivityCards() }
+              }
+            }
+          )
         }
-      },
-      onMenuTap: {
-        if consumeSearchKeyboardTap() { return }
-        showingProfileMenu = true
       }
-    )
-    EchoDirectMessageList(
-      conversations: filteredConversations(snapshot.conversations),
-      searchText: $searchText,
-      searchFocused: $searchFocused,
-      baseURL: baseURL,
-      accessToken: liveMediaAccessToken,
-      bottomContentInset: shellChrome.layout.contentBottomInset(
-        tabBarVisible: !shellChrome.suppressTabBar),
-      onRefresh: {
-        await homeModel.reload()
-        openPendingNotificationIfPossible()
-      },
-      onConsumeKeyboardTap: { consumeSearchKeyboardTap() },
-      onOpen: { conversation in
-        Task {
-          await prepareSheetToken()
-          selectedConversation = conversation
-        }
-      },
-      inboxNotificationCount: homeModel.inboxNotificationCount,
-      onOpenInbox: {
-        if consumeSearchKeyboardTap() { return }
-        Task {
-          await prepareSheetToken()
-          showingInbox = true
-        }
-      }
-    )
+    }
   }
 
-  private func handleSearchFocusChange(_ focused: Bool) {
+  func handleSearchFocusChange(_ focused: Bool) {
     if focused {
       searchKeyboardArmed = true
       return
     }
-    // Keep armed briefly so the tap that dismissed focus can still consume it.
     Task { @MainActor in
       try? await Task.sleep(for: .milliseconds(120))
       if !searchFocused { searchKeyboardArmed = false }
     }
   }
 
-  /// First tap while search was focused: dismiss keyboard only (return true).
-  /// Second tap: return false so the caller can navigate.
   @discardableResult
-  private func consumeSearchKeyboardTap() -> Bool {
+  func consumeSearchKeyboardTap() -> Bool {
     guard searchKeyboardArmed || searchFocused else { return false }
     searchKeyboardArmed = false
     dismissHomeSearchKeyboard()
     return true
   }
 
-  /// Drop search focus so returning from edit/inbox/DM does not re-pop the keyboard.
-  private func dismissHomeSearchKeyboard() {
+  func dismissHomeSearchKeyboard() {
     searchKeyboardArmed = false
     shellChrome.listSearchActive = false
     guard searchFocused else {
@@ -512,32 +510,52 @@ public struct EchoHomeView: View {
         peerUserID: signal.actorUserID,
         displayName: EchoCopy.string("Echo caller"))
       callModel.receive(signal: signal, conversation: known ?? fallback)
+    case .voiceMediaKey(let channelID, _, _):
+      callModel.handleVoiceMediaKeySync(channelID: channelID)
     case .voiceMlsMessage(let channelID, _):
-      callModel.handleVoiceMlsMessage(channelID: channelID)
+      callModel.handleVoiceMediaKeySync(channelID: channelID)
     default:
       break
     }
   }
 
-  private func prepareSheetToken() async {
+  private func applyRealtimeToServers(_ event: EchoRealtimeEvent) {
+    guard let serversModel else { return }
+    switch event {
+    case .voiceRosterDelta(
+      let serverID, let channelID, let userID, let action, let fromChannelID, let stageSpeaker
+    ):
+      serversModel.applyVoiceRosterDelta(
+        serverID: serverID,
+        channelID: channelID,
+        userID: userID,
+        action: action,
+        fromChannelID: fromChannelID,
+        stageSpeaker: stageSpeaker)
+    case .discordVoiceMirrorRoster(let rows):
+      serversModel.mergeDiscordVoiceMirror(rows)
+    default:
+      break
+    }
+  }
+
+  func prepareSheetToken() async {
     sheetAccessToken =
       (try? await auth.ensureAccessToken()) ?? auth.activeSession?.accessToken ?? ""
   }
 
-  /// Prefer the live session token for media on the home surface; fall back to
-  /// the sheet snapshot used by modals that still need an explicit token.
-  private var liveMediaAccessToken: String {
+  var liveMediaAccessToken: String {
     if let token = auth.activeSession?.accessToken, !token.isEmpty { return token }
     return sheetAccessToken
   }
 
-  private func receiveNotificationSelection(_ userInfo: [AnyHashable: Any]?) {
+  func receiveNotificationSelection(_ userInfo: [AnyHashable: Any]?) {
     pendingNotificationChannelID = EchoNotificationPayload.channelID(from: userInfo)
     if let value = userInfo?["url"] as? String { pendingNotificationURL = URL(string: value) }
     openPendingNotificationIfPossible()
   }
 
-  private func openPendingNotificationIfPossible() {
+  func openPendingNotificationIfPossible() {
     guard let snapshot = homeModel?.snapshot else { return }
     if let channelID = pendingNotificationChannelID,
       let conversation = conversation(matching: channelID, in: snapshot)
@@ -562,8 +580,6 @@ public struct EchoHomeView: View {
         pendingNotificationChannelID = nil
         pendingNotificationURL = nil
       }
-      // Leave pending values in place when relative lookup fails so a later
-      // snapshot update can still open the conversation.
       return
     }
 
@@ -581,43 +597,13 @@ public struct EchoHomeView: View {
     pendingNotificationURL = nil
   }
 
-  private func conversation(matching channelID: String, in snapshot: EchoHomeSnapshot)
-    -> EchoDirectMessage?
-  {
-    if let conversation = snapshot.conversations.first(where: { $0.channelID == channelID }) {
-      return conversation
+  func publishSelfProfileChrome() {
+    guard let profile = homeModel?.snapshot?.profile else { return }
+    var info: [String: Any] = ["name": profile.name]
+    if let avatar = profile.avatarURL { info["avatarURL"] = avatar }
+    if let presence = homeModel?.currentUserPresence {
+      info["presence"] = presence
     }
-    if snapshot.personalNotes?.channelID == channelID {
-      return snapshot.personalNotes
-    }
-    return nil
-  }
-
-  private func dmChannelID(fromPath path: String) -> String? {
-    let parts = path.split(separator: "/").map(String.init)
-    guard parts.count >= 4,
-      parts[0] == "channels",
-      parts[1] == "@me",
-      parts[2] == "c",
-      !parts[3].isEmpty
-    else { return nil }
-    return parts[3]
-  }
-
-  private func isAllowedNotificationURL(_ url: URL) -> Bool {
-    guard let scheme = url.scheme?.lowercased(), scheme == "https" else { return false }
-    guard let host = url.host?.lowercased(), !host.isEmpty else { return false }
-    var allowed: Set<String> = ["chat-echo.com", "www.chat-echo.com"]
-    if let apiHost = baseURL.host?.lowercased(), !apiHost.isEmpty {
-      allowed.insert(apiHost)
-    }
-    return allowed.contains(host)
-  }
-
-  private func filteredConversations(_ conversations: [EchoDirectMessage]) -> [EchoDirectMessage] {
-    _ = hiddenInboxEpoch
-    let visible = EchoHiddenDmInboxStore.shared.visibleConversations(
-      conversations, selfUserID: userID)
-    return EchoHomeModel.filteredConversations(visible, query: searchText)
+    NotificationCenter.default.post(name: .echoSelfProfileChrome, object: nil, userInfo: info)
   }
 }

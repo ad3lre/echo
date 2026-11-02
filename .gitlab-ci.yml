@@ -127,3 +127,20 @@ security-dep-audit:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - bun run check:dep-audit
+
+security-osv:
+  stage: quality
+  image: *bun_image
+  variables:
+    CI: 'true'
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - bun run check:osv
+  artifacts:
+    when: always
+    paths:
+      - security/sbom/echo.cdx.json
+      - security/sbom/echo.vdr.json
+    expire_in: 30 days

@@ -55,6 +55,15 @@ export function normalizeEchoE2eeDeviceUpsertInput(
   };
 }
 
+export class EchoE2eeIdentityKeyConflictError extends Error {
+  constructor() {
+    super(
+      'E2EE device identity key cannot be changed; revoke and register a new device',
+    );
+    this.name = 'EchoE2eeIdentityKeyConflictError';
+  }
+}
+
 export async function upsertEchoE2eeDevice(
   pool: pg.Pool,
   userId: string,
@@ -67,6 +76,25 @@ export async function upsertEchoE2eeDevice(
       `SELECT pg_advisory_xact_lock(hashtext('echo_e2ee_device_protocol_id'), hashtext($1))`,
       [userId],
     );
+    const existing = await client.query<{
+      identity_key: string;
+      revoked_at: Date | null;
+    }>(
+      `SELECT identity_key, revoked_at
+       FROM echo_e2ee_devices
+       WHERE user_id = $1 AND device_id = $2
+       LIMIT 1
+       FOR UPDATE`,
+      [userId, input.deviceId],
+    );
+    const row = existing.rows[0];
+    if (
+      row &&
+      !row.revoked_at &&
+      String(row.identity_key ?? '').trim() !== input.identityKey.trim()
+    ) {
+      throw new EchoE2eeIdentityKeyConflictError();
+    }
     await client.query(
       `
     INSERT INTO echo_e2ee_devices (
@@ -96,10 +124,16 @@ export async function upsertEchoE2eeDevice(
     )
     ON CONFLICT (user_id, device_id) DO UPDATE
     SET
-      identity_key = EXCLUDED.identity_key,
+      -- Never silently swap identity keys on an active device (session-hijack MITM).
+      -- Revoked devices may re-register with a fresh identity key.
+      identity_key = CASE
+        WHEN echo_e2ee_devices.revoked_at IS NOT NULL THEN EXCLUDED.identity_key
+        ELSE echo_e2ee_devices.identity_key
+      END,
       signed_prekey = EXCLUDED.signed_prekey,
       one_time_prekeys = EXCLUDED.one_time_prekeys,
-      registration_id = COALESCE(EXCLUDED.registration_id, echo_e2ee_devices.registration_id)
+      registration_id = COALESCE(EXCLUDED.registration_id, echo_e2ee_devices.registration_id),
+      revoked_at = NULL
     `,
       [
         userId,
@@ -120,6 +154,27 @@ export async function upsertEchoE2eeDevice(
     throw err;
   } finally {
     client.release();
+  }
+}
+
+/** True when the user has at least one non-revoked E2EE device (voice readiness). */
+export async function userHasActiveEchoE2eeDevice(
+  pool: pg.Pool,
+  userId: string,
+): Promise<boolean> {
+  const uid = userId.trim();
+  if (!uid) return false;
+  try {
+    const r = await pool.query(
+      `SELECT 1 FROM echo_e2ee_devices
+       WHERE user_id = $1 AND revoked_at IS NULL
+       LIMIT 1`,
+      [uid],
+    );
+    return (r.rowCount ?? 0) > 0;
+  } catch (e) {
+    if (isPostgresUndefinedRelationError(e)) return false;
+    throw e;
   }
 }
 

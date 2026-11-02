@@ -26,6 +26,9 @@ public struct EchoRootView: View {
 
   @State private var displayPrefs = EchoDisplayPreferences()
   @State private var authPage: EchoAuthPage = .welcome
+  #if os(macOS)
+    @State private var mediaViewerHost = EchoMediaViewerHost()
+  #endif
 
   public init() {}
 
@@ -62,6 +65,9 @@ public struct EchoRootView: View {
           }
         }
         .task(id: session.accessToken) {
+          EchoChatMediaRetentionTouch.configure(auth: model, baseURL: model.apiBaseURL)
+          await EchoCallRingtoneStore.shared.refreshCustoms(
+            baseURL: model.apiBaseURL, auth: model)
           await EchoPushRegistration.shared.start(
             baseURL: model.apiBaseURL, accessToken: session.accessToken)
           await syncLocaleFromProfile(accessToken: session.accessToken)
@@ -73,6 +79,18 @@ public struct EchoRootView: View {
         authFlow
       }
     }
+    #if os(macOS)
+      .overlay {
+        if let session = mediaViewerHost.session, let baseURL = mediaViewerHost.baseURL {
+          EchoMediaViewer(
+            session: session, baseURL: baseURL, accessToken: mediaViewerHost.accessToken
+          ) {
+            mediaViewerHost.session = nil
+          }
+        }
+      }
+      .environment(mediaViewerHost)
+    #endif
     .onChange(of: model.activeSession?.userID, initial: true) { _, userID in
       let account = userID.map { "\(model.apiBaseURL.absoluteString)|\($0)" }
       EchoSoundPlayback.activate(accountID: account)
@@ -80,10 +98,11 @@ public struct EchoRootView: View {
       Task { await EchoMediaCaches.clear() }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    // The launch and entry surfaces own the entire window, including the
-    // areas behind the status bar and home indicator. Each child adds its
-    // own safe-area padding where interactive content needs it.
-    .ignoresSafeArea(.container, edges: .all)
+    // iPhone owns the full screen behind status / home indicator. macOS must
+    // respect the title-bar safe area so profile banners aren’t clipped.
+    #if os(iOS)
+      .ignoresSafeArea(.container, edges: .all)
+    #endif
     .echoApplyLiveAppearance(displayPrefs, systemScheme: colorScheme)
     .echoRespectReducedMotion()
     // Environment must wrap modifiers that read `EchoDisplayPreferences`
@@ -98,8 +117,8 @@ public struct EchoRootView: View {
     }
     #if os(iOS)
       .statusBarHidden(true)
+      .persistentSystemOverlays(.hidden)
     #endif
-    .persistentSystemOverlays(.hidden)
     .onChange(of: scenePhase) { _, phase in
       guard phase == .active else { return }
       EchoNetworkPath.startMonitoring()
@@ -119,9 +138,9 @@ public struct EchoRootView: View {
       if model.canRetryConnectivityRestore {
         Button(EchoCopy.string("Try again")) {
           Task {
-        await EchoPendingPushCleanup.retry()
-        await model.retryAfterNetworkRecovery()
-      }
+            await EchoPendingPushCleanup.retry()
+            await model.retryAfterNetworkRecovery()
+          }
         }
       }
     } message: {
@@ -135,12 +154,20 @@ public struct EchoRootView: View {
       switch authPage {
       case .welcome:
         EchoWelcomeView(
-          unlockTitle: model.hasStoredSession
-            ? EchoCopy.format("Unlock with %@", model.biometricLabel) : nil,
-          onUnlock: model.hasStoredSession
-            ? {
+          unlockTitle: {
+            let requireUnlock = UserDefaults.standard.bool(
+              forKey: EchoAuthenticationModel.requireSessionUnlockKey)
+            guard requireUnlock, model.hasStoredSession else { return nil }
+            return EchoCopy.format("Unlock with %@", model.biometricLabel)
+          }(),
+          onUnlock: {
+            let requireUnlock = UserDefaults.standard.bool(
+              forKey: EchoAuthenticationModel.requireSessionUnlockKey)
+            guard requireUnlock, model.hasStoredSession else { return nil }
+            return {
               Task { await model.restoreStoredSessionIfNeeded() }
-            } : nil
+            }
+          }()
         ) { page in
           animateAuth { authPage = page }
         }
@@ -197,7 +224,9 @@ public struct EchoRootView: View {
       do {
         _ = try await model.ensureAccessToken(forceRefresh: true)
       } catch {
-        guard !Task.isCancelled, model.activeSession?.refreshToken == session.refreshToken else { return }
+        guard !Task.isCancelled, model.activeSession?.refreshToken == session.refreshToken else {
+          return
+        }
         do { try await Task.sleep(for: .seconds(5)) } catch { return }
       }
     }

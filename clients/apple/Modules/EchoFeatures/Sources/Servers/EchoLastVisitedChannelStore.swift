@@ -7,7 +7,9 @@ final class EchoLastVisitedChannelStore {
 
   private let defaults: UserDefaults
   private let storageKey = "echo-last-visited-server-channel-v1"
+  private let lastServerKey = "echo-last-visited-server-v1"
   private var map: [String: String] = [:]
+  private(set) var lastServerID: String?
 
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
@@ -16,6 +18,7 @@ final class EchoLastVisitedChannelStore {
     {
       map = decoded
     }
+    lastServerID = defaults.string(forKey: lastServerKey)
   }
 
   func channelID(for serverID: String) -> String? {
@@ -28,7 +31,16 @@ final class EchoLastVisitedChannelStore {
     let cid = channelID.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty, !cid.isEmpty else { return }
     map[sid] = cid
+    lastServerID = sid
+    defaults.set(sid, forKey: lastServerKey)
     persist()
+  }
+
+  func rememberServer(_ serverID: String) {
+    let sid = serverID.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    lastServerID = sid
+    defaults.set(sid, forKey: lastServerKey)
   }
 
   private func persist() {

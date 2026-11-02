@@ -12,6 +12,7 @@ struct EchoConversationSearchView: View {
   let baseURL: URL
   let userID: String
   let onSelectMessage: (EchoMessage) -> Void
+  var onClose: (() -> Void)? = nil
 
   @Environment(\.dismiss) private var dismiss
   @Environment(EchoAuthenticationModel.self) private var auth
@@ -108,33 +109,17 @@ struct EchoConversationSearchView: View {
           .accessibilityLabel(EchoCopy.string("Clear search"))
         }
       }
-      .padding(.horizontal, 13)
-      .frame(height: 44)
-      .background(
-        EchoTheme.Color.elevatedMid, in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-      )
-      .overlay {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .stroke(
-            searchFocused ? EchoTheme.Color.indigo.opacity(0.85) : EchoTheme.Color.ink(0.09),
-            lineWidth: 1)
-      }
+      .padding(.horizontal, 4)
+      .frame(height: 36)
 
       Button {
-        dismiss()
+        closeSearch()
       } label: {
-        Image(systemName: "chevron.right")
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(EchoTheme.Color.ink(0.78))
-          .frame(width: 40, height: 44)
-          .background(
-            EchoTheme.Color.elevatedMid, in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-          )
-          .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-              .stroke(EchoTheme.Color.ink(0.09), lineWidth: 1)
-          }
-          .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        Image(systemName: "xmark")
+          .font(.system(size: 12, weight: .bold))
+          .foregroundStyle(EchoTheme.Color.ink(0.48))
+          .frame(width: 28, height: 28)
+          .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
       .accessibilityLabel(EchoCopy.string("Close"))
@@ -143,6 +128,14 @@ struct EchoConversationSearchView: View {
     .padding(.top, 10)
     .padding(.bottom, 2)
     .animation(.easeOut(duration: 0.18), value: searchFocused)
+  }
+
+  private func closeSearch() {
+    if let onClose {
+      onClose()
+    } else {
+      dismiss()
+    }
   }
 
   private func dismissSearchKeyboard() {
@@ -193,7 +186,7 @@ struct EchoConversationSearchView: View {
               baseURL: baseURL
             ) {
               onSelectMessage(message)
-              dismiss()
+              closeSearch()
             }
             .onAppear {
               guard message.id == model.results.last?.id else { return }
@@ -224,9 +217,9 @@ private struct EchoSearchEmptyState: View {
     VStack(spacing: 12) {
       Image(systemName: systemImage)
         .font(.system(size: 26, weight: .medium))
-        .foregroundStyle(EchoTheme.Color.indigoSoft)
+        .foregroundStyle(EchoTheme.Color.ink(0.42))
         .frame(width: 58, height: 58)
-        .background(EchoTheme.Color.indigo.opacity(0.14), in: Circle())
+        .background(EchoTheme.Color.ink(0.08), in: Circle())
       Text(title)
         .font(.system(size: 17, weight: .semibold, design: .rounded))
         .foregroundStyle(EchoTheme.Color.ink(0.92))
@@ -270,8 +263,8 @@ private struct EchoSearchFailureState: View {
       Button(EchoCopy.string("Try again")) {
         Task { await retry() }
       }
-      .buttonStyle(.borderedProminent)
-      .tint(EchoTheme.Color.indigo)
+      .buttonStyle(.plain)
+      .foregroundStyle(EchoTheme.Color.ink(0.88))
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
   }

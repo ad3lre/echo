@@ -94,6 +94,33 @@ struct EchoComposerCustomEmojiTests {
     #expect(attributed.string.contains("\u{FFFC}"))
   }
 
+  @Test func dataURLCustomEmojiWarmsAttachmentBitmap() {
+    // 1×1 PNG
+    let pngBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    let dataURL = "data:image/png;base64,\(pngBase64)"
+    let token = "<:pixel:dataemoji1>"
+    EchoCustomEmojiCatalog.shared.ingest([
+      EchoEmojiPack(
+        id: "pack",
+        name: "Pack",
+        source: "echo",
+        position: 0,
+        emojis: [
+          EchoCustomEmoji(
+            id: "dataemoji1", name: "pixel", animated: false, imageURL: dataURL)
+        ])
+    ])
+    EchoComposerEmojiImages.warm(
+      token: token, source: dataURL, apiBaseURL: URL(string: "https://chat-echo.com")!)
+    #expect(EchoComposerEmojiImages.image(forToken: token) != nil)
+
+    let attributed = EchoInlineMarkdownStyle.attributed(
+      token, apiBaseURL: URL(string: "https://chat-echo.com")!)
+    #expect(EchoInlineMarkdownStyle.plainText(from: attributed) == token)
+    #expect(attributed.string.contains("\u{FFFC}"))
+  }
+
   @Test func selectionMappingSurvivesTokenCompression() {
     let token = "<:wave:123456789012345678>"
     let source = "ab\(token)cd"

@@ -22,10 +22,21 @@ protocol EchoVoiceE2EEPreparing: Sendable {
     peerUserID: String?,
     authorizedUserIDs: [String]
   ) async throws -> EchoVoiceE2EEPrepareResult
+
+  func prepareGuild(
+    serverID: String,
+    channelID: String,
+    accessToken: String,
+    viewerUserID: String,
+    authorizedUserIDs: [String]
+  ) async throws -> EchoVoiceE2EEPrepareResult
 }
 
 /// Runs Element Call–style media-key prepare inside an offscreen WKWebView so
 /// Apple derives the same LiveKit sender keys as the web client.
+///
+/// When the server has voice E2EE disabled, prepare returns empty material
+/// (not an error) so the call can continue unencrypted.
 struct EchoVoiceE2EEMlsPreparer: EchoVoiceE2EEPreparing {
   let baseURL: URL
 
@@ -50,14 +61,43 @@ struct EchoVoiceE2EEMlsPreparer: EchoVoiceE2EEPreparing {
         authorizedUserIDs: authorized,
         baseURL: baseURL)
     } catch {
-      // When the server disables voice E2EE, prepare returns/throws disabled —
-      // treat that as "no material" so transport-only calls proceed.
-      let message = error.localizedDescription.lowercased()
-      if message.contains("voice e2ee is not enabled") || message.contains("voice_e2ee_disabled") {
-        return EchoVoiceE2EEPrepareResult(encryption: nil, deviceID: deviceID)
-      }
-      throw error
+      return try Self.mapDisabled(error, deviceID: deviceID)
     }
+  }
+
+  func prepareGuild(
+    serverID: String,
+    channelID: String,
+    accessToken: String,
+    viewerUserID: String,
+    authorizedUserIDs: [String]
+  ) async throws -> EchoVoiceE2EEPrepareResult {
+    let deviceID = EchoMlsKeychain.deviceID(forUserID: viewerUserID)
+    var authorized = authorizedUserIDs
+    authorized.append(viewerUserID)
+    do {
+      return try await EchoMlsJsRuntime.shared.prepareDM(
+        channelID: channelID,
+        accessToken: accessToken,
+        viewerUserID: viewerUserID,
+        deviceID: deviceID,
+        peerUserID: nil,
+        authorizedUserIDs: authorized,
+        baseURL: baseURL,
+        serverID: serverID)
+    } catch {
+      return try Self.mapDisabled(error, deviceID: deviceID)
+    }
+  }
+
+  private static func mapDisabled(_ error: Error, deviceID: String) throws
+    -> EchoVoiceE2EEPrepareResult
+  {
+    let message = error.localizedDescription.lowercased()
+    if message.contains("voice e2ee is not enabled") || message.contains("voice_e2ee_disabled") {
+      return EchoVoiceE2EEPrepareResult(encryption: nil, deviceID: deviceID)
+    }
+    throw error
   }
 }
 
@@ -68,6 +108,16 @@ struct EchoVoiceE2EEUnavailablePreparer: EchoVoiceE2EEPreparing {
     accessToken: String,
     viewerUserID: String,
     peerUserID: String?,
+    authorizedUserIDs: [String]
+  ) async throws -> EchoVoiceE2EEPrepareResult {
+    EchoVoiceE2EEPrepareResult(encryption: nil, deviceID: nil)
+  }
+
+  func prepareGuild(
+    serverID: String,
+    channelID: String,
+    accessToken: String,
+    viewerUserID: String,
     authorizedUserIDs: [String]
   ) async throws -> EchoVoiceE2EEPrepareResult {
     EchoVoiceE2EEPrepareResult(encryption: nil, deviceID: nil)

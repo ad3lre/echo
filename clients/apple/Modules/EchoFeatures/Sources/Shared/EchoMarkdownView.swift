@@ -17,6 +17,9 @@ struct EchoMarkdownView: View {
   /// Used to decide whether markdown images may auto-fetch (Echo hosts only).
   var apiBaseURL: URL = EchoAPIConfiguration.defaultBaseURL
   var accessToken: String? = nil
+  var magicTime: EchoMagicTimeContext? = nil
+  /// Unfurl embeds for macOS link hover preview (web `MessageLinkHoverPreview`).
+  var embeds: [EchoMessageEmbed] = []
   private let blocks: [EchoMarkdownBlock]
   private let emojiOnly: Bool
 
@@ -24,12 +27,16 @@ struct EchoMarkdownView: View {
     markdown: String,
     mentions: [EchoMessageMention] = [],
     apiBaseURL: URL = EchoAPIConfiguration.defaultBaseURL,
-    accessToken: String? = nil
+    accessToken: String? = nil,
+    magicTime: EchoMagicTimeContext? = nil,
+    embeds: [EchoMessageEmbed] = []
   ) {
     self.markdown = markdown
     self.mentions = []
     self.apiBaseURL = apiBaseURL
     self.accessToken = accessToken
+    self.magicTime = magicTime
+    self.embeds = embeds
     blocks = EchoMarkdownBlockCache.blocks(EchoMarkdownMentions.mark(markdown, mentions: mentions))
     emojiOnly = EchoEmojiOnlySizing.isEmojiOnlyUpTo12(markdown)
   }
@@ -42,7 +49,9 @@ struct EchoMarkdownView: View {
           mentions: mentions,
           apiBaseURL: apiBaseURL,
           accessToken: accessToken,
-          emojiOnly: emojiOnly)
+          emojiOnly: emojiOnly,
+          magicTime: magicTime,
+          embeds: embeds)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)

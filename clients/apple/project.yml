@@ -58,10 +58,16 @@ targets:
         UIBackgroundModes: [audio, fetch, remote-notification]
         BGTaskSchedulerPermittedIdentifiers: [com.echo.ios.refresh]
     entitlements:
-      # Release uses the paid-program entitlement set. Debug installs on the free
-      # Personal Team use an empty entitlements file + `.adelmac` bundle id.
-      # See docs/operations/ios-passkeys.md.
+      # Release uses the paid-program entitlement set (SIWA / APNs / Associated
+      # Domains). Debug installs on the free Personal Team use an empty
+      # entitlements file + `.adelmac` bundle id — see ios-passkeys.md.
       path: Resources/iOS/EchoiOS.entitlements
+      properties:
+        com.apple.developer.aps-environment: $(APS_ENVIRONMENT)
+        com.apple.developer.applesignin: [Default]
+        com.apple.developer.associated-domains:
+          - webcredentials:chat-echo.com
+          - applinks:chat-echo.com
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.echo.ios
@@ -78,8 +84,6 @@ targets:
           CODE_SIGN_ENTITLEMENTS: Resources/iOS/EchoiOS.entitlements
           APS_ENVIRONMENT: production
           ECHO_API_BASE_URL: https://chat-echo.com
-          # Paid-program capabilities (ignored on Personal Team Debug installs).
-          # Kept in Resources/iOS/EchoiOS.entitlements for Release / App Store.
     dependencies:
       - { package: EchoAppleModules, product: EchoDomain }
       - { package: EchoAppleModules, product: EchoNetworking }
@@ -105,13 +109,22 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        NSMicrophoneUsageDescription: Echo uses your microphone when you join a voice call.
+        NSCameraUsageDescription: Echo uses your camera for video calls.
         NSPhotoLibraryUsageDescription: Echo shows your photo library so you can select photos to attach to messages. Echo does not save photos back to your library.
     entitlements:
+      # Keep in sync with Resources/macOS/EchoMacOS.entitlements — Shared Web
+      # Credentials + Universal Links so Safari passkeys/passwords offer on Mac.
       path: Resources/macOS/EchoMacOS.entitlements
       properties:
         com.apple.developer.aps-environment: $(APS_ENVIRONMENT)
         com.apple.developer.applesignin: [Default]
-        com.apple.developer.associated-domains: [webcredentials:chat-echo.com]
+        com.apple.developer.associated-domains:
+          - webcredentials:chat-echo.com
+          - applinks:chat-echo.com
+          - webcredentials:chat-echo.com?mode=developer
+          - applinks:chat-echo.com?mode=developer
+
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.echo.macos

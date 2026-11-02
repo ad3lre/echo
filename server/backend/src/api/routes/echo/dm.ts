@@ -18,6 +18,7 @@ import {
   removeEchoGroupDmMember,
   userMayJoinDmLiveKitRoom,
   echoDmVoiceE2eeRequired,
+  userHasActiveEchoE2eeDevice,
 } from '../../../domain/echoStore';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { config } from '../../../config';
@@ -635,9 +636,20 @@ export default async function echoDmRoutes(
           'You cannot join a call in this conversation.',
         );
       }
-      // Element Call–style media keys are peer-distributed; mint only reports
-      // whether DM voice E2EE is required (no epoch/MLS gate).
+      // Element Call–style media keys are peer-distributed; require a registered
+      // LibSignal device before minting when DM voice E2EE is required.
       const voiceE2eeRequired = await echoDmVoiceE2eeRequired(pool, channelId);
+      if (voiceE2eeRequired) {
+        const hasDevice = await userHasActiveEchoE2eeDevice(pool, uid);
+        if (!hasDevice) {
+          return sendError(
+            reply,
+            403,
+            'VOICE_E2EE_DEVICE_REQUIRED',
+            'Register an E2EE device before joining an encrypted call.',
+          );
+        }
+      }
       const roomName = liveKitRoomName(ECHO_DM_REALM_SERVER_ID, channelId);
       const pfpMeta = pfpForLiveKitParticipantMetadata(
         getAuthUser(req).pfp ?? '',

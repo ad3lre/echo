@@ -144,6 +144,8 @@ export type EchoChannelCapabilitiesDto = {
   canMentionEveryone: boolean;
   canUseExternalEmoji: boolean;
   canManageChannel: boolean;
+  canManageMessages?: boolean;
+  canBypassSlowmode?: boolean;
   communicationTimeoutActive?: boolean;
   communicationTimeoutUntil?: string | null;
   communicationTimeoutUntilEpochMs?: number | null;

@@ -2841,6 +2841,40 @@ export async function purgeEchoMessagesDeletedBefore(
   return r.rowCount ?? 0;
 }
 
+/**
+ * Channel ids on a server whose messages reference a legacy upload storage key
+ * (image/video/attachments/content_json). Used by upload read ACL fallback.
+ */
+export async function listEchoMessageChannelIdsReferencingStorageKey(
+  pool: pg.Pool,
+  serverId: string,
+  storageKey: string,
+  limit = 20,
+): Promise<string[]> {
+  const escaped = storageKey
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_');
+  const likeNeedle = `%${escaped}%`;
+  const r = await pool.query<{ channel_id: string }>(
+    `SELECT DISTINCT m.channel_id
+     FROM echo_messages m
+     INNER JOIN echo_channels c ON c.id = m.channel_id
+     WHERE c.server_id = $1
+       AND (
+         (m.image_url IS NOT NULL AND m.image_url LIKE $2 ESCAPE '\\')
+         OR (m.video_url IS NOT NULL AND m.video_url LIKE $2 ESCAPE '\\')
+         OR (m.attachments IS NOT NULL AND m.attachments::text LIKE $2 ESCAPE '\\')
+         OR (m.content_json IS NOT NULL AND m.content_json::text LIKE $2 ESCAPE '\\')
+       )
+     LIMIT $3`,
+    [serverId, likeNeedle, Math.max(1, Math.min(100, limit))],
+  );
+  return r.rows
+    .map((row) => row.channel_id?.trim() ?? '')
+    .filter((id) => id.length > 0);
+}
+
 /** Backfill: replace storage key / URL fragments in message media columns. */
 export async function replaceEchoMessageStorageKeyReferences(
   pool: pg.Pool,

@@ -4,20 +4,6 @@ import Foundation
 import LiveKit
 import Observation
 
-enum EchoCallPhase: Equatable {
-  case idle
-  case incoming
-  case dialing
-  case connecting
-  case active
-  case reconnecting
-  case ending
-  case failed
-}
-
-/// How long to wait for accept before giving up (matches web `3 * 60_000`).
-private let echoCallRingTimeoutNanoseconds: UInt64 = 180_000_000_000
-
 @MainActor
 @Observable
 final class EchoCallModel {
@@ -26,7 +12,7 @@ final class EchoCallModel {
   private let tokenProvider: @MainActor () async -> String?
   private let currentUserID: String
   private let systemCalls: EchoSystemCallCoordinator
-  private let transport: any EchoCallTransporting
+  let transport: any EchoCallTransporting
   private let e2ee: any EchoVoiceE2EEPreparing
 
   private(set) var phase: EchoCallPhase = .idle
@@ -40,11 +26,12 @@ final class EchoCallModel {
   private(set) var isEncrypted = false
   private(set) var isCameraEnabled = false
   private(set) var isScreenSharing = false
-  /// LiveKit camera / screen tracks for in-call video tiles (nil when unused).
   private(set) var localCameraTrack: VideoTrack?
   private(set) var localScreenTrack: VideoTrack?
   private(set) var remoteCameraTrack: VideoTrack?
   private(set) var remoteScreenTrack: VideoTrack?
+  private(set) var isExpanded = false
+  private(set) var speakingIdentities: Set<String> = []
 
   private var callID: UUID?
   private var correlationID: String?
@@ -112,6 +99,9 @@ final class EchoCallModel {
         self.remoteScreenTrack = snapshot.remoteScreen
       }
     }
+    self.transport.onSpeakingChange = { [weak self] ids in
+      Task { @MainActor in self?.speakingIdentities = ids }
+    }
     systemCalls.onAnswer = { [weak self] id in
       Task { @MainActor in await self?.answerFromSystem(id: id) }
     }
@@ -128,12 +118,12 @@ final class EchoCallModel {
 
   var isPresented: Bool { phase != .idle }
   var isIncoming: Bool { phase == .incoming }
-
+  var isLocalSpeaking: Bool { speakingIdentities.contains(currentUserID) }
+  func setExpanded(_ value: Bool) { isExpanded = value }
   func startCall(to conversation: EchoDirectMessage) async {
     guard phase == .idle else { return }
     await teardownTask?.value
     guard phase == .idle else { return }
-    // Mic before UI / ring / CallKit so TCC doesn’t interrupt playback.
     do {
       try await EchoCallMediaPermissions.ensureMicrophoneAccess()
     } catch {
@@ -149,8 +139,6 @@ final class EchoCallModel {
       try await systemCalls.startOutgoing(id: id, handle: conversation.displayName)
       guard callID == id, phase == .dialing else { return }
       systemCalls.reportConnecting(id: id)
-      // CallKit may have taken the audio session — re-attach ringback on it
-      // without restarting the same track from zero when already looping.
       syncCallRingtone()
       realtime.inviteToCall(channelID: conversation.channelID, correlationID: correlation)
       connect()
@@ -201,11 +189,16 @@ final class EchoCallModel {
     }
   }
 
-  /// Mid-call MLS delivery-log update (`echo:workspace_event` / `voice_mls_message`).
-  func handleVoiceMlsMessage(channelID: String) {
+  /// Mid-call voice media-key notify (`echo:workspace_event` / `voice_media_key`).
+  func handleVoiceMediaKeySync(channelID: String) {
     guard let conversation, conversation.channelID == channelID else { return }
     guard phase == .active || phase == .connecting || phase == .reconnecting else { return }
     Task { await syncVoiceMlsKeys() }
+  }
+
+  /// Legacy alias for `voice_mls_message` workspace events.
+  func handleVoiceMlsMessage(channelID: String) {
+    handleVoiceMediaKeySync(channelID: channelID)
   }
 
   private func syncVoiceMlsKeys() async {
@@ -320,10 +313,9 @@ final class EchoCallModel {
     }
   }
 
-  /// Publish armed camera / screen share only once the call is live — starting
-  /// capture mid-ring used to interrupt the ringtone audio session.
+  /// Publish video once live — starting capture mid-ring interrupted ringtone.
   private var canPublishLocalVideo: Bool {
-    transportIsConnected && (phase == .active || phase == .reconnecting)
+    transportIsConnected && (phase == .active || phase == .reconnecting || phase == .connecting)
   }
 
   private func publishLocalVideoIfReady() async {
@@ -423,8 +415,9 @@ final class EchoCallModel {
 
   private func setMuted(_ muted: Bool, callID expectedID: UUID?) async {
     guard expectedID == callID else { return }
-    guard phase == .active || phase == .reconnecting || phase == .connecting
-      || phase == .dialing
+    guard
+      phase == .active || phase == .reconnecting || phase == .connecting
+        || phase == .dialing
     else { return }
     do {
       if transportIsConnected {
@@ -527,21 +520,20 @@ final class EchoCallModel {
     case .disconnected:
       transportIsConnected = false
       if phase != .ending && phase != .failed && phase != .idle {
-        // Notify the peer — otherwise they can stay ringing / connected alone.
         Task { await finish(reportSystemEnd: true, emitSignal: true, reason: .ended) }
       }
     }
   }
 
   private func activateIfReady() {
-    guard phase != .idle, phase != .ending, phase != .failed, transportIsConnected, remoteAccepted else { return }
+    guard phase != .idle, phase != .ending, phase != .failed, transportIsConnected, remoteAccepted
+    else { return }
     ringTimeoutTask?.cancel()
     ringTimeoutTask = nil
     EchoCallRingtoneStore.shared.stopIncomingLoop()
     phase = .active
     if startedAt == nil { startedAt = Date() }
     if isOutgoing, let callID { systemCalls.reportConnected(id: callID) }
-    // Flush any video / screen share armed during dialing or connecting.
     Task { await publishLocalVideoIfReady() }
   }
 
@@ -644,6 +636,7 @@ final class EchoCallModel {
     remoteAccepted = false
     isOutgoing = false
     liveRemoteIdentities = []
+    isExpanded = false
+    speakingIdentities = []
   }
-
 }

@@ -35,6 +35,8 @@ extension EchoMessageTimelineModel {
         messages[current] = messages[current].mergingFanoutReactions(
           reactions, currentUserID: userID)
       }
+      // Web `recordReaction` only after a successful toggle.
+      EchoReactionFavoritesStore.shared.record(key)
     } catch {
       if let current = messages.firstIndex(where: { $0.id == messageID }) {
         messages[current] = previous
@@ -137,12 +139,15 @@ extension EchoMessageTimelineModel {
     case .pins(let channelID, let messageIDs) where channelID == conversation.channelID:
       pinnedMessageIDs = messageIDs
       pinErrorMessage = nil
-    case .messageUpdated(let channelID, let messageID, let content, let editedAt, let mentions)
+    case .messageUpdated(
+      let channelID, let messageID, let content, let editedAt, let mentions, let imageSlots)
     where channelID == conversation.channelID:
       if let index = messages.firstIndex(where: { $0.id == messageID }) {
         messages[index] = messages[index].replacingEditedContent(
-          content, mentions: mentions, editedAt: editedAt)
+          content, mentions: mentions, editedAt: editedAt, imageSlots: imageSlots)
       }
+    case .messageFailed(let channelID, _) where channelID == conversation.channelID:
+      failPendingStickerSends()
     case .messageDeleted(let channelID, let messageID)
     where channelID == conversation.channelID:
       messages.removeAll { $0.id == messageID }
@@ -153,17 +158,32 @@ extension EchoMessageTimelineModel {
         messages[index] = messages[index].mergingFanoutReactions(
           reactions, currentUserID: userID)
       }
-    case .typing(let channelID, let userID, let displayName)
-    where channelID == conversation.channelID && userID != self.userID:
-      typingDisplayName = displayName
-      typingExpiryTask?.cancel()
-      typingExpiryTask = Task { @MainActor in
-        try? await Task.sleep(for: .seconds(9))
-        guard !Task.isCancelled else { return }
-        if typingDisplayName == displayName { typingDisplayName = nil }
-      }
+    case .typing(let channelID, let userID, let displayName, let avatarURL)
+    where channelID == conversation.channelID:
+      typingUsers = EchoChannelTyping.ingest(
+        typingUsers,
+        userID: userID,
+        displayName: displayName,
+        avatarURL: avatarURL,
+        excludeUserID: self.userID)
+      scheduleTypingPrune()
     default:
       break
+    }
+  }
+
+  func scheduleTypingPrune() {
+    typingExpiryTask?.cancel()
+    guard let expiry = EchoChannelTyping.nextExpiry(in: typingUsers) else {
+      typingUsers = []
+      return
+    }
+    let delay = max(0.05, expiry.timeIntervalSinceNow)
+    typingExpiryTask = Task { @MainActor in
+      try? await Task.sleep(for: .seconds(delay))
+      guard !Task.isCancelled else { return }
+      typingUsers = EchoChannelTyping.active(typingUsers, excludeUserID: userID)
+      scheduleTypingPrune()
     }
   }
 
@@ -292,7 +312,8 @@ extension EchoMessageTimelineModel {
           kind: asset.kind,
           filename: asset.filename,
           mimeType: asset.mimeType,
-          fileSize: asset.data.count))
+          fileSize: asset.data.count,
+          spoiler: asset.spoiler))
     }
     if let gif = submission.gif {
       attachments.append(
@@ -300,12 +321,14 @@ extension EchoMessageTimelineModel {
           url: gif.thumbnailURL.isEmpty ? gif.url : gif.thumbnailURL,
           kind: "gif",
           filename: gif.title.isEmpty ? EchoCopy.string("GIF") : gif.title,
-          mimeType: "image/gif"))
+          mimeType: "image/gif",
+          spoiler: submission.gifSpoiler))
     }
     return attachments
   }
 
-  private var selfAuthorDisplayName: String {
+  // Internal (not file-private): `send` in EchoMessageTimelineModel.swift reads these.
+  var selfAuthorDisplayName: String {
     if let username = auth.activeSession?.username?
       .trimmingCharacters(in: .whitespacesAndNewlines),
       !username.isEmpty
@@ -321,7 +344,7 @@ extension EchoMessageTimelineModel {
     return EchoCopy.string("You")
   }
 
-  private var resolvedSelfAuthorAvatarURL: String? {
+  var resolvedSelfAuthorAvatarURL: String? {
     if let url = Self.normalizedAvatarURL(selfAuthorAvatarURL) { return url }
     return messages.reversed().lazy
       .first(where: { $0.isCurrentUser })

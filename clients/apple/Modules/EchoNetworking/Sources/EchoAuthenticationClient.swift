@@ -184,18 +184,11 @@ public struct EchoAuthenticationClient: Sendable {
   }
 
   public func passkeyLoginOptions(username: String?) async throws -> Data {
-    var body: [String: String] = [:]
-    if let username {
-      let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
-      if !trimmed.isEmpty {
-        if trimmed.contains("@") {
-          body["email"] = trimmed
-        } else {
-          body["username"] = trimmed
-        }
-      }
-    }
-    return try await sendJSON(path: "/api/v1/auth/passkey/login/options", body: body)
+    // Server schema is an empty object (discoverable credentials). Username is
+    // unused — keep the parameter so call sites stay stable.
+    _ = username
+    return try await sendJSON(
+      path: "/api/v1/auth/passkey/login/options", body: [String: String]())
   }
 
   public func passkeyLoginVerify(challengeId: String, credentialData: Data) async throws -> (

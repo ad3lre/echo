@@ -9,6 +9,8 @@ public protocol EchoHomeLoading: Sendable {
   func load(accessToken: String, userID: String) async throws -> EchoHomeSnapshot
   /// Batch presence lookup for peers already on the home surface.
   func loadPresenceMap(accessToken: String, userIDs: [String]) async throws -> [String: String]
+  /// Presence statuses plus optional `lastOnlineAt` (privacy-gated).
+  func loadPresenceBatch(accessToken: String, userIDs: [String]) async throws -> EchoPresenceBatch
 }
 
 /// Social/presence reads that the home surface needs alongside DM threads.
@@ -42,7 +44,9 @@ public protocol EchoMessageTimelineLoading: Sendable {
     content: String,
     attachments: [EchoMessageAttachment],
     poll: EchoOutgoingPoll?,
-    replyTo: EchoMessageReplyTo?
+    replyTo: EchoMessageReplyTo?,
+    mentions: [EchoMessageMention],
+    contentJSON: EchoJSONValue?
   ) async throws -> EchoMessage
 
   func votePoll(
@@ -82,12 +86,15 @@ public protocol EchoMessageTimelineLoading: Sendable {
     messageID: String
   ) async throws -> [String]
 
-  /// Author-only edit — PATCH returns 204; timeline applies `message:updated`.
+  /// Author-only edit — PATCH returns 204; timeline applies `message:updated`. Carries the
+  /// re-resolved `mentions[]` + v2 `contentJson` exactly like a send (web `message:edit`).
   func editMessage(
     accessToken: String,
     channelID: String,
     messageID: String,
-    content: String
+    content: String,
+    mentions: [EchoMessageMention],
+    contentJSON: EchoJSONValue?
   ) async throws
 
   /// Soft-delete — DELETE returns 204; timeline applies `message:deleted`.
@@ -125,8 +132,22 @@ public protocol EchoMessageSearchLoading: Sendable {
   ) async throws -> EchoMessageSearchPage
 }
 
+/// Guild-wide search (`GET /servers/:id/messages/search`) — web members SearchBar.
+public protocol EchoServerMessageSearchLoading: Sendable {
+  func searchServerMessages(
+    accessToken: String,
+    serverID: String,
+    currentUserID: String?,
+    query: String,
+    before: String?,
+    limit: Int,
+    criteria: EchoMessageSearchCriteria
+  ) async throws -> EchoMessageSearchPage
+}
+
 extension EchoHomeClient: EchoHomeLoading {}
 extension EchoHomeClient: EchoMessageTimelineLoading {}
 extension EchoHomeClient: EchoMessageSearchLoading {}
+extension EchoHomeClient: EchoServerMessageSearchLoading {}
 extension EchoSettingsClient: EchoHomeSocialReading {}
 extension EchoSettingsClient: EchoInboxFriendServing {}

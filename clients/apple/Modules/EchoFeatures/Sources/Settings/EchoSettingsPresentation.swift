@@ -4,9 +4,21 @@ import SwiftUI
   import UIKit
 #endif
 
+private struct EchoDesktopSettingsKey: EnvironmentKey {
+  static let defaultValue = false
+}
+
+extension EnvironmentValues {
+  var echoDesktopSettings: Bool {
+    get { self[EchoDesktopSettingsKey.self] }
+    set { self[EchoDesktopSettingsKey.self] = newValue }
+  }
+}
+
 struct EchoDetailSection<Content: View>: View {
   let title: String
   @ViewBuilder let content: () -> Content
+  @Environment(\.echoDesktopSettings) private var desktop
 
   init(title: String, @ViewBuilder content: @escaping () -> Content) {
     self.title = title
@@ -14,22 +26,35 @@ struct EchoDetailSection<Content: View>: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: desktop ? 10 : 8) {
       Text(title.uppercased())
-        .font(.system(size: 11, weight: .bold, design: .rounded))
-        .tracking(1.8)
-        .foregroundStyle(EchoTheme.Color.ink(0.42))
-        .padding(.horizontal, 4)
-      VStack(alignment: .leading, spacing: 14) {
+        .font(.system(size: desktop ? 11 : 11, weight: .bold, design: .rounded))
+        .tracking(desktop ? 1.4 : 1.8)
+        .foregroundStyle(EchoTheme.Color.ink(desktop ? 0.46 : 0.42))
+        .padding(.horizontal, desktop ? 2 : 4)
+      VStack(alignment: .leading, spacing: desktop ? 0 : 14) {
         content()
       }
-      .padding(14)
+      .padding(desktop ? 4 : 14)
       .frame(maxWidth: .infinity, alignment: .leading)
-      .echoGlassBackground(cornerRadius: 22)
+      .modifier(EchoDetailSectionSurface(desktop: desktop))
       .overlay {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
-          .stroke(EchoTheme.Color.ink(0.09), lineWidth: 1)
+        if !desktop {
+          RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .stroke(EchoTheme.Color.ink(0.09), lineWidth: 1)
+        }
       }
+    }
+  }
+}
+
+private struct EchoDetailSectionSurface: ViewModifier {
+  let desktop: Bool
+  func body(content: Content) -> some View {
+    if desktop {
+      content
+    } else {
+      content.echoGlassBackground(cornerRadius: 22)
     }
   }
 }
@@ -61,46 +86,83 @@ struct EchoDetailHeader: View {
   }
 }
 
+enum EchoSettingDetailChrome: Equatable {
+  /// Phone push stack — Back returns to the settings list.
+  case stack
+  /// Desktop sidebar host — Exit closes settings (web SettingsModal).
+  case desktop
+}
+
 /// Header used by settings detail tabs. The detail navigation bar is hidden so
-/// Echo owns the visual title and the trailing back affordance as one stable row.
+/// Echo owns the visual title and the trailing back/exit affordance as one stable row.
 struct EchoSettingDetailHeader: View {
   let title: String
   let description: String
   let icon: String
   let tint: Color
-  let onBack: () -> Void
+  var chrome: EchoSettingDetailChrome = .stack
+  var groupLabel: String? = nil
+  let onDismiss: () -> Void
 
   var body: some View {
-    HStack(spacing: 13) {
-      Image(systemName: icon)
-        .font(.system(size: 18, weight: .semibold))
-        .foregroundStyle(tint)
-        .frame(width: 46, height: 46)
-        .background(tint.opacity(0.16), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-      VStack(alignment: .leading, spacing: 3) {
+    HStack(alignment: .top, spacing: 13) {
+      if chrome == .stack {
+        Image(systemName: icon)
+          .font(.system(size: 18, weight: .semibold))
+          .foregroundStyle(tint)
+          .frame(width: 46, height: 46)
+          .background(
+            tint.opacity(0.16), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+      }
+      VStack(alignment: .leading, spacing: chrome == .desktop ? 6 : 3) {
+        if chrome == .desktop, let groupLabel, !groupLabel.isEmpty {
+          Text(groupLabel.uppercased())
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .tracking(1.6)
+            .foregroundStyle(EchoTheme.Color.signInBlue.opacity(0.85))
+        }
         Text(title)
-          .font(.system(size: 25, weight: .bold, design: .rounded))
+          .font(
+            .system(
+              size: chrome == .desktop ? 28 : 25, weight: .bold, design: .rounded)
+          )
           .foregroundStyle(EchoTheme.Color.fg)
         Text(description)
-          .font(.system(size: 13, design: .rounded))
+          .font(.system(size: chrome == .desktop ? 14 : 13, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.48))
-          .lineLimit(1)
+          .lineLimit(chrome == .desktop ? 3 : 1)
+          .fixedSize(horizontal: false, vertical: true)
       }
       Spacer(minLength: 8)
-      Button(action: onBack) {
-        Label(EchoCopy.string("Back"), systemImage: "chevron.left")
-          .labelStyle(.titleAndIcon)
-          .font(.system(size: 14, weight: .semibold, design: .rounded))
-          .foregroundStyle(EchoTheme.Color.ink(0.9))
-          .padding(.horizontal, 13)
-          .frame(height: 40)
-          .background(EchoTheme.Color.ink(0.075), in: Capsule())
-          .overlay { Capsule().stroke(EchoTheme.Color.ink(0.10), lineWidth: 1) }
+      Button(action: onDismiss) {
+        if chrome == .desktop {
+          Text(EchoCopy.string("Exit"))
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
+            .foregroundStyle(EchoTheme.Color.ink(0.72))
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+            .background(
+              EchoTheme.Color.ink(0.06),
+              in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+        } else {
+          Label(EchoCopy.string("Back"), systemImage: "chevron.left")
+            .labelStyle(.titleAndIcon)
+            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .foregroundStyle(EchoTheme.Color.ink(0.9))
+            .padding(.horizontal, 13)
+            .frame(height: 40)
+            .background(EchoTheme.Color.ink(0.075), in: Capsule())
+            .overlay { Capsule().stroke(EchoTheme.Color.ink(0.10), lineWidth: 1) }
+        }
       }
       .buttonStyle(.plain)
-      .accessibilityLabel(EchoCopy.string("Back to Settings"))
+      .accessibilityLabel(
+        chrome == .desktop
+          ? EchoCopy.string("Exit settings") : EchoCopy.string("Back to Settings"))
     }
-    .frame(minHeight: 58)
+    .padding(.bottom, chrome == .desktop ? 18 : 0)
+    .frame(minHeight: chrome == .desktop ? 72 : 58)
   }
 }
 

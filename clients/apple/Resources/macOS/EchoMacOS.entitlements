@@ -11,6 +11,10 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>webcredentials:chat-echo.com</string>
+		<string>applinks:chat-echo.com</string>
+		<!-- Lets Debug builds resolve association without waiting on Apple’s CDN cache. -->
+		<string>webcredentials:chat-echo.com?mode=developer</string>
+		<string>applinks:chat-echo.com?mode=developer</string>
 	</array>
 </dict>
 </plist>

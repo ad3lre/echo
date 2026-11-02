@@ -15,40 +15,41 @@ struct EchoRemoteImage<Placeholder: View>: View {
   @StateObject private var loader = EchoImageLoader()
 
   var body: some View {
-    Group {
-      if let bitmap = loader.bitmap {
-        #if os(iOS)
-          if bitmap.isAnimated {
-            EchoAnimatedUIImage(image: bitmap.uiImage, contentMode: contentMode)
-          } else {
-            bitmap.image.resizable().aspectRatio(contentMode: contentMode)
-          }
-        #else
-          bitmap.image.resizable().aspectRatio(contentMode: contentMode)
-        #endif
-      } else if let cached = EchoDecodedImageCache.shared.bitmap(for: url) {
-        // Prefetch hit before `.task` runs — zero placeholder frames.
-        #if os(iOS)
-          if cached.isAnimated {
-            EchoAnimatedUIImage(image: cached.uiImage, contentMode: contentMode)
-          } else {
-            cached.image.resizable().aspectRatio(contentMode: contentMode)
-          }
-        #else
-          cached.image.resizable().aspectRatio(contentMode: contentMode)
-        #endif
+    let painted = loader.bitmap ?? EchoDecodedImageCache.shared.bitmap(for: url)
+    ZStack {
+      if let bitmap = painted {
+        paintedImage(bitmap)
       } else {
-        placeholder().overlay {
-          if loader.isLoading {
-            ProgressView().tint(EchoTheme.Color.ink(0.55))
-          }
-        }
+        placeholder()
+      }
+      // Never animate the spinner away — otherwise it can linger ~¼–½s after
+      // the bitmap is already on screen (macOS ProgressView + implicit fades).
+      if painted == nil, loader.isLoading {
+        ProgressView()
+          .tint(EchoTheme.Color.ink(0.55))
+          .transaction { $0.animation = nil }
       }
     }
+    .transaction { $0.animation = nil }
+    .animation(nil, value: painted != nil)
+    .animation(nil, value: loader.isLoading)
     .task(id: url) {
       loader.maxPixelSize = maxPixelSize
       loader.load(url: url)
     }
+  }
+
+  @ViewBuilder
+  private func paintedImage(_ bitmap: EchoDecodedBitmap) -> some View {
+    #if os(iOS)
+      if bitmap.isAnimated {
+        EchoAnimatedUIImage(image: bitmap.uiImage, contentMode: contentMode)
+      } else {
+        bitmap.image.resizable().aspectRatio(contentMode: contentMode)
+      }
+    #else
+      bitmap.image.resizable().aspectRatio(contentMode: contentMode)
+    #endif
   }
 }
 

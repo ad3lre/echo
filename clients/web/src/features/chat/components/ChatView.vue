@@ -141,13 +141,6 @@ function keepLatestMessageVisible(smooth = false, force = false) {
 
 provide('keepLatestMessageVisible', keepLatestMessageVisible);
 
-function collapseMarkdownPreview() {
-  markdownPreviewState.value = {
-    ...markdownPreviewState.value,
-    expanded: false,
-  };
-}
-
 const expandedMarkdownPreviewRootRef = ref<HTMLElement | null>(null);
 
 const markdownExpandedHeadingToc = computed(() =>
@@ -965,15 +958,6 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
             />
           </div>
         </div>
-        <div class="flex-shrink-0 px-4 pb-2">
-          <button
-            type="button"
-            class="chat-focus-ring chat-markdown-expanded-collapse text-xs text-muted hover:text-foreground px-2 py-1 rounded"
-            @click="collapseMarkdownPreview"
-          >
-            {{ echoT('b39.chatView.collapsePreview') }}
-          </button>
-        </div>
       </div>
 
       <div
@@ -1100,10 +1084,6 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
 .chat-markdown-expanded-toc-row:hover {
   background: var(--vue-auto-003);
   color: var(--text);
-}
-
-.chat-markdown-expanded-collapse:hover {
-  background: var(--vue-auto-003);
 }
 
 /* Reuse markdown preview content styles for expanded view */

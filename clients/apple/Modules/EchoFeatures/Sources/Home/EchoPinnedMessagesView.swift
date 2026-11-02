@@ -8,6 +8,8 @@ struct EchoPinnedMessagesView: View {
   let baseURL: URL
   var accessToken: String? = nil
   let onSelectMessage: (String) -> Void
+  var onClose: (() -> Void)? = nil
+  var compactDropdown = false
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
@@ -21,7 +23,7 @@ struct EchoPinnedMessagesView: View {
             ForEach(model.pinnedMessagesForSheet) { message in
               Button {
                 onSelectMessage(message.id)
-                dismiss()
+                closePins()
               } label: {
                 pinRow(message)
               }
@@ -54,7 +56,7 @@ struct EchoPinnedMessagesView: View {
         .foregroundStyle(EchoTheme.Color.ink(0.96))
       Spacer(minLength: 0)
       Button {
-        dismiss()
+        closePins()
       } label: {
         Image(systemName: "xmark")
           .font(.system(size: 14, weight: .semibold))
@@ -66,8 +68,16 @@ struct EchoPinnedMessagesView: View {
       .accessibilityLabel(EchoCopy.string("Close"))
     }
     .padding(.horizontal, 18)
-    .padding(.top, 16)
-    .padding(.bottom, 12)
+    .padding(.top, compactDropdown ? 10 : 16)
+    .padding(.bottom, compactDropdown ? 8 : 12)
+  }
+
+  private func closePins() {
+    if let onClose {
+      onClose()
+    } else {
+      dismiss()
+    }
   }
 
   private var emptyState: some View {

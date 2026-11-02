@@ -15,16 +15,28 @@ struct EchoDuoLayoutTests {
     let layout = EchoDuoLayout(size: CGSize(width: 844, height: 390))
     #expect(layout.pose == .landscapePhone || layout.pose == .flatOpen)
     #expect(layout.usesSplitChrome)
-    #expect(layout.usesTrailingTabBar)
+    #if os(macOS)
+      // Desktop macOS uses the leading server rail, not a trailing phone tab bar.
+      #expect(layout.usesTrailingTabBar == false)
+    #else
+      #expect(layout.usesTrailingTabBar)
+    #endif
   }
 
   @Test func foldCapableWideSynthesizesInactiveDivision() {
     let layout = EchoDuoLayout(size: CGSize(width: 900, height: 600))
-    #expect(layout.isFoldCapableCanvas)
-    #expect(layout.division != nil)
-    #expect(layout.division?.isActive == false)
-    #expect(layout.prefersEvenColumns)
-    #expect(layout.pose == .flatOpen)
+    #if os(macOS)
+      // Desktop windows are never fold canvases (avoids a synthetic 40pt gutter).
+      // Wide landscape desktop falls through to landscapePhone (no fold aspect).
+      #expect(layout.isFoldCapableCanvas == false)
+      #expect(layout.pose == .landscapePhone || layout.pose == .regularWide)
+    #else
+      #expect(layout.isFoldCapableCanvas)
+      #expect(layout.division != nil)
+      #expect(layout.division?.isActive == false)
+      #expect(layout.prefersEvenColumns)
+      #expect(layout.pose == .flatOpen)
+    #endif
   }
 
   @Test func tallWideSuggestsTabletop() {
@@ -43,7 +55,11 @@ struct EchoDuoLayoutTests {
     )
     #expect(layout.hasVerticalSystemBar)
     #expect(layout.verticalSystemBarEdge == .trailing)
-    #expect(layout.usesTrailingTabBar)
+    #if os(macOS)
+      #expect(layout.usesTrailingTabBar == false)
+    #else
+      #expect(layout.usesTrailingTabBar)
+    #endif
   }
 
   @Test func activeVerticalDivisionIsBook() {

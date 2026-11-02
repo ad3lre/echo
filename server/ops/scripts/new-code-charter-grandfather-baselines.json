@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26",
+  "generatedAt": "2026-10-31",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -98,8 +98,8 @@
       "maxNestingSpaces": 10
     },
     "bot/src/server.ts": {
-      "lines": 174,
-      "longestFunction": 147,
+      "lines": 187,
+      "longestFunction": 160,
       "deepNestingLines": 10,
       "maxNestingSpaces": 16
     },
@@ -326,7 +326,7 @@
       "maxNestingSpaces": 18
     },
     "clients/web/src/api/echo/types.ts": {
-      "lines": 441,
+      "lines": 443,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
@@ -2558,7 +2558,7 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/dm/components/DmNotificationsView.vue": {
-      "lines": 540,
+      "lines": 549,
       "longestFunction": 13,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -3056,8 +3056,8 @@
       "maxNestingSpaces": 6
     },
     "clients/web/src/features/layout/components/AppLayoutDmSection.vue": {
-      "lines": 692,
-      "longestFunction": 3,
+      "lines": 702,
+      "longestFunction": 8,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
     },
@@ -3248,7 +3248,7 @@
       "maxNestingSpaces": 8
     },
     "clients/web/src/features/layout/components/ServerList.vue": {
-      "lines": 649,
+      "lines": 650,
       "longestFunction": 9,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
@@ -3278,7 +3278,7 @@
       "maxNestingSpaces": 4
     },
     "clients/web/src/features/layout/components/server-rail/ServerRailCenterColumn.vue": {
-      "lines": 566,
+      "lines": 570,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
@@ -8144,13 +8144,13 @@
       "maxNestingSpaces": 10
     },
     "server/backend/src/api/routes/echo/dm.ts": {
-      "lines": 665,
+      "lines": 677,
       "longestFunction": 5,
       "deepNestingLines": 18,
       "maxNestingSpaces": 18
     },
     "server/backend/src/api/routes/echo/e2ee.ts": {
-      "lines": 408,
+      "lines": 412,
       "longestFunction": 8,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
@@ -8282,9 +8282,9 @@
       "maxNestingSpaces": 14
     },
     "server/backend/src/api/routes/echo/uploads.ts": {
-      "lines": 2046,
+      "lines": 2067,
       "longestFunction": 114,
-      "deepNestingLines": 70,
+      "deepNestingLines": 77,
       "maxNestingSpaces": 16
     },
     "server/backend/src/api/routes/echo/userRingtones.ts": {
@@ -8300,7 +8300,7 @@
       "maxNestingSpaces": 12
     },
     "server/backend/src/api/routes/echo/voice.ts": {
-      "lines": 1290,
+      "lines": 1305,
       "longestFunction": 10,
       "deepNestingLines": 18,
       "maxNestingSpaces": 14
@@ -8918,7 +8918,7 @@
       "maxNestingSpaces": 4
     },
     "server/backend/src/domain/echoMessagesDal.ts": {
-      "lines": 2873,
+      "lines": 2907,
       "longestFunction": 126,
       "deepNestingLines": 5,
       "maxNestingSpaces": 15
@@ -9074,13 +9074,13 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/domain/echoStore/index.ts": {
-      "lines": 650,
+      "lines": 652,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 2
     },
     "server/backend/src/domain/echoStore/members/access.ts": {
-      "lines": 1330,
+      "lines": 1343,
       "longestFunction": 127,
       "deepNestingLines": 1,
       "maxNestingSpaces": 13
@@ -9314,8 +9314,8 @@
       "maxNestingSpaces": 17
     },
     "server/backend/src/domain/echoStore/voice/e2ee.ts": {
-      "lines": 657,
-      "longestFunction": 69,
+      "lines": 712,
+      "longestFunction": 92,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -10010,7 +10010,7 @@
       "maxNestingSpaces": 10
     },
     "server/backend/src/services/echoPersistedMessageCreate.ts": {
-      "lines": 897,
+      "lines": 893,
       "longestFunction": 446,
       "deepNestingLines": 8,
       "maxNestingSpaces": 14
@@ -10298,8 +10298,8 @@
       "maxNestingSpaces": 8
     },
     "server/backend/src/services/uploads/echoUploadResolveDest.ts": {
-      "lines": 521,
-      "longestFunction": 443,
+      "lines": 490,
+      "longestFunction": 414,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
     },

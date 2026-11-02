@@ -2,9 +2,7 @@ import EchoDomain
 import Foundation
 
 /// Loads the authenticated home surface from the real Echo REST contract.
-///
-/// This client deliberately has no fixture or fallback data: an empty server
-/// response renders an empty state, and transport failures remain retryable.
+/// Empty responses stay empty; transport failures remain retryable.
 public struct EchoHomeClient: Sendable {
   private let baseURL: URL
   private let session: URLSession
@@ -40,7 +38,8 @@ public struct EchoHomeClient: Sendable {
     // A self-DM is a Personal Notes thread. We already loaded the current
     // user's profile above, so never issue a second profile request for it.
     profiles[userID] = currentProfile
-    let presence = try await fetchPresence(accessToken: accessToken, userIDs: peerIDs)
+    let presence = try await fetchPresenceBatch(accessToken: accessToken, userIDs: peerIDs)
+      .presence
     let allConversations = buildConversations(
       threads: threadRows,
       profiles: profiles,
@@ -97,85 +96,6 @@ public struct EchoHomeClient: Sendable {
     )
   }
 
-  /// Searches messages in one conversation. The server owns visibility and
-  /// ordering; the client only maps the wire rows into the native message model.
-  public func searchMessages(
-    accessToken: String,
-    channelID: String,
-    currentUserID: String?,
-    query: String,
-    before: String? = nil,
-    limit: Int = 24,
-    criteria: EchoMessageSearchCriteria = EchoMessageSearchCriteria()
-  ) async throws -> EchoMessageSearchPage {
-    let pageLimit = min(max(limit, 1), 50)
-    let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-    var queryItems: [URLQueryItem] = [
-      URLQueryItem(name: "limit", value: String(pageLimit))
-    ]
-    if !trimmedQuery.isEmpty {
-      queryItems.append(URLQueryItem(name: "q", value: trimmedQuery))
-    }
-    if let before, !before.isEmpty {
-      queryItems.append(URLQueryItem(name: "before", value: before))
-    }
-    if let authorID = criteria.authorID?.trimmingCharacters(in: .whitespacesAndNewlines),
-      !authorID.isEmpty
-    {
-      queryItems.append(URLQueryItem(name: "authorId", value: authorID))
-    }
-    if let mentions = criteria.mentions?.trimmingCharacters(in: .whitespacesAndNewlines),
-      !mentions.isEmpty
-    {
-      queryItems.append(URLQueryItem(name: "mentions", value: mentions))
-    }
-    if let hasType = criteria.hasType {
-      queryItems.append(URLQueryItem(name: "hasType", value: hasType.rawValue))
-    }
-    if criteria.hasAttachment {
-      queryItems.append(URLQueryItem(name: "hasAttachment", value: "1"))
-    }
-    let response: EchoHomeMessagesResponse = try await request(
-      path: "/channels/\(escaped(channelID))/messages/search",
-      queryItems: queryItems,
-      accessToken: accessToken
-    )
-    let messages = response.messages.compactMap {
-      $0.message(channelID: channelID, currentUserID: currentUserID)
-    }
-    return EchoMessageSearchPage(
-      messages: messages,
-      hasMoreBefore: response.messages.count >= pageLimit
-    )
-  }
-
-  public func sendMessage(
-    accessToken: String,
-    channelID: String,
-    currentUserID: String,
-    content: String,
-    attachments: [EchoMessageAttachment] = [],
-    poll: EchoOutgoingPoll? = nil,
-    replyTo: EchoMessageReplyTo? = nil
-  ) async throws -> EchoMessage {
-    let payload = EchoHomeOutgoingMessagePayload(
-      content: content,
-      id: UUID().uuidString,
-      attachments: attachments.isEmpty ? nil : attachments,
-      poll: poll,
-      replyTo: replyTo)
-    let response: EchoHomeMessageResponse = try await sendJSON(
-      path: "/api/v1/echo/channels/\(escaped(channelID))/messages",
-      method: "POST",
-      body: try JSONEncoder().encode(payload),
-      accessToken: accessToken)
-    guard
-      let message = response.message.message(
-        channelID: channelID, currentUserID: currentUserID)
-    else { throw EchoHomeClientError.invalidResponse }
-    return message
-  }
-
   public func votePoll(
     accessToken: String,
     channelID: String,
@@ -196,7 +116,27 @@ public struct EchoHomeClient: Sendable {
       path: "/attention/summary", accessToken: accessToken)
     let channels = payload.channelAttentionByChannelID ?? [:]
     let unreadCount = channels.values.reduce(0) { $0 + max(0, $1.unreadCount) }
-    return EchoAttentionSnapshot(unreadCount: unreadCount, channelAttention: channels)
+    let levels = (payload.serverNotificationLevelByServerID ?? [:]).reduce(
+      into: [String: String]()
+    ) { result, entry in
+      let key = entry.key.trimmingCharacters(in: .whitespacesAndNewlines)
+      let value = entry.value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      guard !key.isEmpty, !value.isEmpty else { return }
+      result[key] = value
+    }
+    return EchoAttentionSnapshot(
+      unreadCount: unreadCount,
+      channelAttention: channels,
+      serverNotificationLevelByServerID: levels)
+  }
+
+  public func loadMentionNotifications(accessToken: String, limit: Int = 80) async throws
+    -> [EchoMentionNotificationRow]
+  {
+    let payload: EchoMentionNotificationsResponse = try await request(
+      path: "/attention/mentions",
+      queryItems: [URLQueryItem(name: "limit", value: String(limit))], accessToken: accessToken)
+    return payload.rows
   }
 
   public func markChannelRead(
@@ -242,20 +182,6 @@ public struct EchoHomeClient: Sendable {
       body: Data(),
       accessToken: accessToken)
     return response.messageIds
-  }
-
-  public func editMessage(
-    accessToken: String,
-    channelID: String,
-    messageID: String,
-    content: String
-  ) async throws {
-    let body = try JSONEncoder().encode(["content": content])
-    try await sendEmpty(
-      path: "/api/v1/echo/channels/\(escaped(channelID))/messages/\(escaped(messageID))",
-      method: "PATCH",
-      body: body,
-      accessToken: accessToken)
   }
 
   public func deleteMessage(
@@ -410,7 +336,27 @@ public struct EchoHomeClient: Sendable {
   public func loadPresenceMap(accessToken: String, userIDs: [String]) async throws -> [String:
     String]
   {
-    try await fetchPresence(accessToken: accessToken, userIDs: userIDs)
+    try await loadPresenceBatch(accessToken: accessToken, userIDs: userIDs).presence
+  }
+
+  public func loadPresenceBatch(accessToken: String, userIDs: [String]) async throws
+    -> EchoPresenceBatch
+  {
+    try await fetchPresenceBatch(accessToken: accessToken, userIDs: userIDs)
+  }
+
+  /// Opens (or reuses) a 1:1 DM thread with `peerUserID`.
+  public func openDirectMessage(peerUserID: String, accessToken: String) async throws -> String {
+    struct Payload: Decodable {
+      let channelId: String
+    }
+    let body = try JSONEncoder().encode(["peerUserId": peerUserID])
+    let result: Payload = try await sendJSON(
+      path: "/api/v1/echo/dm/open",
+      method: "POST",
+      body: body,
+      accessToken: accessToken)
+    return result.channelId
   }
 
   private func fetchProfiles(accessToken: String, userIDs: [String]) async throws -> [String:
@@ -455,12 +401,13 @@ public struct EchoHomeClient: Sendable {
     return response.threads.filter { !$0.channelID.isEmpty }
   }
 
-  private func fetchPresence(accessToken: String, userIDs: [String]) async throws -> [String:
-    String]
+  private func fetchPresenceBatch(accessToken: String, userIDs: [String]) async throws
+    -> EchoPresenceBatch
   {
     let uniqueIDs = Array(Set(userIDs)).filter { !$0.isEmpty }
-    guard !uniqueIDs.isEmpty else { return [:] }
+    guard !uniqueIDs.isEmpty else { return .empty }
     var presence: [String: String] = [:]
+    var lastOnlineAt: [String: String] = [:]
     for start in stride(from: 0, to: uniqueIDs.count, by: 200) {
       let batch = uniqueIDs[start..<min(start + 200, uniqueIDs.count)]
       let query = batch.map(escapedQuery).joined(separator: ",")
@@ -468,8 +415,13 @@ public struct EchoHomeClient: Sendable {
         path: "/presence", queryItems: [URLQueryItem(name: "ids", value: query)],
         accessToken: accessToken)
       presence.merge(response.presence ?? [:]) { _, newer in newer }
+      for (userID, stamp) in response.lastOnlineAt ?? [:] {
+        let trimmed = stamp.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { continue }
+        lastOnlineAt[userID] = trimmed
+      }
     }
-    return presence
+    return EchoPresenceBatch(presence: presence, lastOnlineAt: lastOnlineAt)
   }
 
   private func buildConversations(
@@ -497,7 +449,7 @@ public struct EchoHomeClient: Sendable {
     }
   }
 
-  private func request<Response: Decodable>(
+  func request<Response: Decodable>(
     path: String,
     queryItems: [URLQueryItem] = [],
     accessToken: String
@@ -535,7 +487,7 @@ public struct EchoHomeClient: Sendable {
     }
   }
 
-  private func sendJSON<Response: Decodable>(
+  func sendJSON<Response: Decodable>(
     path: String,
     method: String,
     body: Data,
@@ -550,7 +502,7 @@ public struct EchoHomeClient: Sendable {
     }
   }
 
-  private func sendEmpty(
+  func sendEmpty(
     path: String,
     method: String,
     body: Data,
@@ -595,7 +547,7 @@ public struct EchoHomeClient: Sendable {
     #endif
   }
 
-  private func escaped(_ value: String) -> String {
+  func escaped(_ value: String) -> String {
     value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
   }
 

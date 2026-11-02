@@ -6,16 +6,24 @@ struct EchoPollDisplay: View {
   let currentUserID: String
   var currentUserDisplayName: String = EchoCopy.string("You")
   var resolveVoterName: (String) -> String = { _ in "Unknown" }
+  /// Bridged Discord polls are display-only (web `PollDisplay` `readOnly`).
+  var discordSynced = false
   let onVote: (String) -> Void
 
   @State private var showingVoters = false
 
   private var totalVotes: Int { poll.totalVotes }
-  private var showTallies: Bool { poll.hasEnded || poll.hasVoted(userID: currentUserID) }
-  private var showWhoVoted: Bool { !poll.anonymous }
+  private var readOnly: Bool { discordSynced }
+  private var showTallies: Bool {
+    readOnly || poll.hasEnded || poll.hasVoted(userID: currentUserID)
+  }
+  private var showWhoVoted: Bool { !poll.anonymous && !readOnly }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
+      if discordSynced {
+        EchoDiscordSyncedBadge()
+      }
       Text(poll.question)
         .font(.system(size: 14, weight: .semibold, design: .rounded))
         .foregroundStyle(EchoTheme.Color.ink(0.94))
@@ -29,7 +37,9 @@ struct EchoPollDisplay: View {
             optionRow(option)
           }
           .buttonStyle(.plain)
-          .disabled(poll.hasEnded || poll.isSelected(optionID: option.id, userID: currentUserID))
+          .disabled(
+            readOnly || poll.hasEnded
+              || poll.isSelected(optionID: option.id, userID: currentUserID))
           .accessibilityLabel(option.text)
         }
       }

@@ -83,10 +83,6 @@ final class EchoiOSAppDelegate: NSObject, UIApplicationDelegate,
   }
 }
 
-extension Notification.Name {
-  static let echoAPNsRegistrationFailed = Notification.Name("EchoAPNsRegistrationFailed")
-}
-
 @main
 struct EchoiOSApp: App {
   @UIApplicationDelegateAdaptor(EchoiOSAppDelegate.self) private var appDelegate
@@ -99,6 +95,11 @@ struct EchoiOSApp: App {
     WindowGroup {
       EchoRootView()
         .environment(authentication)
+        // Universal links (`applinks:chat-echo.com`): invites, channels, explore.
+        .onOpenURL { EchoDeepLinkRouter.shared.handle($0, apiBaseURL: EchoAPIConfiguration.baseURL()) }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) {
+          EchoDeepLinkRouter.shared.handle($0, apiBaseURL: EchoAPIConfiguration.baseURL())
+        }
     }
   }
 }

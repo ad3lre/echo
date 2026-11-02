@@ -246,11 +246,7 @@ async function validateEchoUploadAttachmentOwnership(opts: {
   }
   if (urls.length === 0) return { ok: true };
 
-  const serverId = await getEchoChannelServerId(opts.pool, opts.channelId);
   const allowedPrefixes = [`echo/channels/${opts.channelId}/${opts.userId}/`];
-  if (serverId) {
-    allowedPrefixes.push(`echo/${serverId}/${opts.userId}/`);
-  }
   for (const url of urls) {
     const storageKey = extractEchoStorageKeyFromPublicUrl(url);
     if (!storageKey) continue;

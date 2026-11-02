@@ -66,11 +66,19 @@ public enum EchoRealtimeEvent: Equatable, Sendable {
   case message(EchoMessage)
   case pollUpdated(channelID: String, messageID: String, poll: EchoPoll)
   case presence(userID: String, status: String)
-  case typing(channelID: String, userID: String, displayName: String)
+  case typing(channelID: String, userID: String, displayName: String, avatarURL: String?)
   case dmActivity(channelID: String, message: EchoMessage, lastActivityAt: Date?)
   case dmCall(EchoDmCallSignal)
-  /// MLS delivery-log append for an active voice channel (`voice_mls_message`).
+  /// Element Call–style media-key announce for an active voice channel (`voice_media_key`).
+  case voiceMediaKey(channelID: String, serverID: String?, senderUserID: String?)
+  /// Legacy MLS delivery-log notify (`voice_mls_message`); still triggers inbox sync.
   case voiceMlsMessage(channelID: String, serverID: String?)
+  /// Guild voice roster mutation (`voice_roster_delta` on `echo:workspace_event`).
+  case voiceRosterDelta(
+    serverID: String, channelID: String, userID: String, action: String,
+    fromChannelID: String?, stageSpeaker: Bool?)
+  /// Discord display-only voice occupants (`discord_voice_mirror_roster`).
+  case discordVoiceMirrorRoster([EchoDiscordVoiceMirrorChannelRoster])
   /// Authoritative pin order for a channel (`message:pins`, newest first).
   case pins(channelID: String, messageIDs: [String])
   /// Partial body edit (`message:updated`).
@@ -79,13 +87,21 @@ public enum EchoRealtimeEvent: Equatable, Sendable {
     messageID: String,
     content: String,
     editedAt: Date,
-    mentions: [EchoMessageMention]?)
+    mentions: [EchoMessageMention]?,
+    /// Fresh `imageSlot` blocks when the payload carried `contentJson` (slot fills).
+    imageSlots: [EchoImageSlot]?)
   /// Soft-delete (`message:deleted`).
   case messageDeleted(channelID: String, messageID: String)
   /// Reaction aggregates (`message:reactions`).
   case messageReactions(
     channelID: String, messageID: String, reactions: [EchoMessageReaction])
   case messageFailed(channelID: String?, detail: String?)
+  /// Authoritative VC game-room snapshot (`game:snapshot`); `view` is the per-viewer JSON.
+  case gameSnapshot(roomID: String, gameKey: String, rev: Int, view: Data)
+  /// Game-room rejection (`game:error`), e.g. `not_in_room`.
+  case gameError(reason: String)
+  /// Transient room cue (`game:event`), e.g. Skriggles canvas relay (`kind == "relay"`).
+  case gameEvent(roomID: String, kind: String, data: Data)
 }
 
 public enum EchoRealtimeClientError: Error, LocalizedError, Sendable, Equatable {
@@ -139,4 +155,23 @@ public protocol EchoRealtimeClient: AnyObject, Sendable {
     reason: EchoDmCallEndReason
   )
   func ping(timeout: Duration) async -> Bool
+  /// VC game rooms tunnel through this socket (`game:join` / `game:leave` / `game:action`).
+  func joinGameRoom(roomID: String, gameKey: String)
+  func leaveGameRoom(roomID: String)
+  func sendGameAction(roomID: String, type: String, payload: [String: any Sendable])
+  /// Socket `message` emit for sends REST cannot carry (guild `stickerIds`). `false` = not sent.
+  func sendMessage(
+    channelID: String, content: String, clientMessageID: String, stickerIDs: [String],
+    replyTo: EchoMessageReplyTo?
+  ) -> Bool
+}
+
+extension EchoRealtimeClient {
+  public func joinGameRoom(roomID: String, gameKey: String) {}
+  public func leaveGameRoom(roomID: String) {}
+  public func sendGameAction(roomID: String, type: String, payload: [String: any Sendable]) {}
+  public func sendMessage(
+    channelID: String, content: String, clientMessageID: String, stickerIDs: [String],
+    replyTo: EchoMessageReplyTo?
+  ) -> Bool { false }
 }

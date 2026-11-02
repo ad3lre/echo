@@ -28,8 +28,7 @@ struct EchoProfileEditView: View {
   let accessToken: String
   var currentPresence: String? = nil
   /// Optimistic home-chrome patch — applied immediately on toggle (web parity).
-  var onBannerEffectsChange:
-    ((_ refraction: Bool, _ blur: Bool, _ blackout: Bool) -> Void)? = nil
+  var onBannerEffectsChange: ((_ refraction: Bool, _ blur: Bool, _ blackout: Bool) -> Void)? = nil
   let onExit: () -> Void
   @State private var displayName = ""
   @State private var bio = ""
@@ -51,7 +50,9 @@ struct EchoProfileEditView: View {
   @State private var committedBlackoutEnabled = false
   @State private var effectsSaveTask: Task<Void, Never>?
   @State private var presenceSaveTask: Task<Void, Never>?
-  @State private var selectedTab: EditTab = .profile
+  #if os(iOS)
+    @State private var selectedTab: EditTab = .profile
+  #endif
 
   var body: some View {
     GeometryReader { proxy in
@@ -60,61 +61,39 @@ struct EchoProfileEditView: View {
       #if os(iOS)
         let topInset = proxy.safeAreaInsets.top > 0 ? proxy.safeAreaInsets.top : 47
       #else
-        let topInset = proxy.safeAreaInsets.top
+        let topInset: CGFloat = 0
       #endif
       ZStack(alignment: .top) {
         VStack(spacing: 0) {
           profileHero(topInset: topInset)
-
-          ProfileEditTabBar(selection: $selectedTab)
-            .padding(.horizontal, 22)
-            .padding(.top, 4)
-            .padding(.bottom, 6)
-
-          // Avoid `.tabViewStyle(.page)` here — it often fails to honor programmatic
-          // selection from the custom tab bar (Banner appears selected but content
-          // stays on Profile). Explicit branching is reliable.
-          Group {
-            switch selectedTab {
-            case .profile:
-              ScrollView(showsIndicators: false) {
-                profileFields
-                  .padding(.horizontal, 22)
-                  .padding(.bottom, 28)
-              }
-              .scrollDismissesKeyboard(.interactively)
-            case .banner:
-              ScrollView(showsIndicators: false) {
-                bannerEffectsFields
-                  .padding(.horizontal, 22)
-                  .padding(.bottom, 28)
-              }
-              .scrollDismissesKeyboard(.interactively)
-            }
-          }
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .animation(.easeInOut(duration: 0.18), value: selectedTab)
+          editorBody
         }
 
-        // Banner fills under the notch; keep the leave control in the same
-        // vertical band as before, trailing so it stays clear of Dynamic Island.
         HStack {
           Spacer(minLength: 0)
           Button(action: onExit) {
             Image(systemName: "arrow.left")
               .font(.system(size: 15, weight: .bold))
               .foregroundStyle(.white)
-              .frame(width: 40, height: 40)
+              .frame(width: leaveButtonSide, height: leaveButtonSide)
               .background(.black.opacity(0.38), in: Circle())
           }
           .buttonStyle(.plain)
           .accessibilityLabel(EchoCopy.string("Close edit profile"))
         }
-        .padding(.top, topInset + 12)
-        .padding(.horizontal, 16)
+        #if os(macOS)
+          // Match conversation header: 8pt top, 14pt trailing.
+          .padding(.top, 8)
+          .padding(.horizontal, 14)
+        #else
+          .padding(.top, topInset + 12)
+          .padding(.horizontal, 16)
+        #endif
       }
     }
-    .ignoresSafeArea(edges: .top)
+    #if os(iOS)
+      .ignoresSafeArea(edges: .top)
+    #endif
     .simultaneousGesture(
       TapGesture().onEnded {
         dismissKeyboard()
@@ -162,9 +141,11 @@ struct EchoProfileEditView: View {
       guard !Task.isCancelled, item == avatarItem else { return }
       avatarData = data
     }
-    .onChange(of: selectedTab) { _, _ in
-      dismissKeyboard()
-    }
+    #if os(iOS)
+      .onChange(of: selectedTab) { _, _ in
+        dismissKeyboard()
+      }
+    #endif
     .alert(
       EchoCopy.string("Profile update failed"),
       isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
@@ -208,7 +189,7 @@ struct EchoProfileEditView: View {
             Color.indigo.opacity(0.55)
           }
         }
-        .frame(height: 226 + topInset)
+        .frame(height: bannerHeroHeight + topInset)
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
       }
@@ -246,6 +227,75 @@ struct EchoProfileEditView: View {
     .padding(.bottom, 20)
   }
 
+  @ViewBuilder
+  private var editorBody: some View {
+    #if os(macOS)
+      ScrollView(showsIndicators: false) {
+        VStack(spacing: 0) {
+          profileFields
+          profileDivider
+          bannerSectionHeader
+          bannerEffectsFields
+        }
+        .padding(.horizontal, 22)
+        .padding(.bottom, 28)
+      }
+      .scrollDismissesKeyboard(.interactively)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    #else
+      ProfileEditTabBar(selection: $selectedTab)
+        .padding(.horizontal, 22)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
+
+      Group {
+        switch selectedTab {
+        case .profile:
+          ScrollView(showsIndicators: false) {
+            profileFields
+              .padding(.horizontal, 22)
+              .padding(.bottom, 28)
+          }
+          .scrollDismissesKeyboard(.interactively)
+        case .banner:
+          ScrollView(showsIndicators: false) {
+            bannerEffectsFields
+              .padding(.horizontal, 22)
+              .padding(.bottom, 28)
+          }
+          .scrollDismissesKeyboard(.interactively)
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .animation(.easeInOut(duration: 0.18), value: selectedTab)
+    #endif
+  }
+
+  private var bannerSectionHeader: some View {
+    Text(EchoCopy.string("Banner"))
+      .font(.system(size: 12, weight: .medium, design: .rounded))
+      .foregroundStyle(EchoTheme.Color.ink(0.4))
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.top, 18)
+      .padding(.bottom, 4)
+  }
+
+  private var bannerHeroHeight: CGFloat {
+    #if os(macOS)
+      200
+    #else
+      226
+    #endif
+  }
+
+  private var leaveButtonSide: CGFloat {
+    #if os(macOS)
+      44
+    #else
+      40
+    #endif
+  }
+
   private var profileFields: some View {
     VStack(spacing: 0) {
       ProfileInlineField(title: EchoCopy.string("Display name")) {
@@ -261,9 +311,9 @@ struct EchoProfileEditView: View {
         TextField(EchoCopy.string("What’s up?"), text: $status)
       }
       profileDivider
-        ProfilePresencePicker(selection: presenceStatus) { next in
-          selectPresence(next)
-        }
+      ProfilePresencePicker(selection: presenceStatus) { next in
+        selectPresence(next)
+      }
     }
   }
 
@@ -327,7 +377,8 @@ struct EchoProfileEditView: View {
   private func toggleBannerBlur() {
     let previous = (
       refraction: bannerRefractionEnabled, blur: bannerBlurEnabled,
-      blackout: bannerBlackoutEnabled)
+      blackout: bannerBlackoutEnabled
+    )
     bannerBlurEnabled.toggle()
     publishBannerEffectsOptimistically()
     enqueueBannerEffectsPersist(previous: previous)
@@ -336,7 +387,8 @@ struct EchoProfileEditView: View {
   private func toggleBannerBlackout() {
     let previous = (
       refraction: bannerRefractionEnabled, blur: bannerBlurEnabled,
-      blackout: bannerBlackoutEnabled)
+      blackout: bannerBlackoutEnabled
+    )
     bannerBlackoutEnabled.toggle()
     publishBannerEffectsOptimistically()
     enqueueBannerEffectsPersist(previous: previous)
@@ -345,7 +397,8 @@ struct EchoProfileEditView: View {
   private func toggleBannerRefraction() {
     let previous = (
       refraction: bannerRefractionEnabled, blur: bannerBlurEnabled,
-      blackout: bannerBlackoutEnabled)
+      blackout: bannerBlackoutEnabled
+    )
     bannerRefractionEnabled.toggle()
     publishBannerEffectsOptimistically()
     enqueueBannerEffectsPersist(previous: previous)
@@ -361,7 +414,8 @@ struct EchoProfileEditView: View {
   ) {
     let next = (
       refraction: bannerRefractionEnabled, blur: bannerBlurEnabled,
-      blackout: bannerBlackoutEnabled)
+      blackout: bannerBlackoutEnabled
+    )
     let pending = effectsSaveTask
     effectsSaveTask = Task {
       await pending?.value
@@ -485,4 +539,3 @@ struct EchoProfileEditView: View {
     }
   }
 }
-

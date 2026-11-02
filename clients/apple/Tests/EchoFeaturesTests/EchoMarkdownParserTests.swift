@@ -9,7 +9,7 @@ struct EchoMarkdownParserTests {
     #expect(EchoSettingsRoute.account.id == .account)
     #expect(EchoSettingsRoute.account.title == "Account")
     #expect(EchoSettingsRoute.dataPrivacy.title == "Data & Privacy")
-    #expect(EchoSettingsRoute.allCases.map(\.id).count == 18)
+    #expect(EchoSettingsRoute.allCases.map(\.id).count == 20)
   }
 
   @Test func parsesEchoBlockExtensions() {
@@ -133,6 +133,17 @@ struct EchoMarkdownParserTests {
     }
     #expect(emoji.name == "cheese")
     #expect(emoji.id == nil)
+  }
+
+  @Test func parsesAppIconTokens() {
+    let segments = EchoMarkdownParser.inlineSegments("Hello <icon:Voice Chat.svg> world")
+    #expect(segments.count == 3)
+    guard case .appIcon(let filename) = segments[1] else {
+      Issue.record("expected app icon segment")
+      return
+    }
+    #expect(filename == "Voice Chat.svg")
+    #expect(EchoMarkdownAppIcon.fallbackLabel(for: "hashtag.svg") == ":hashtag:")
   }
 
   @Test func preservesCustomEmojiTokensWhenStrippingHTML() {

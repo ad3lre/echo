@@ -56,7 +56,7 @@ export function requireBotWebhookPostSignature(
   reply: FastifyReply,
   secret: string,
 ): boolean {
-  if (!config.isProduction) return true;
+  // Always verify HMAC when a secret is configured (not only in production).
   const rawBody = webhookRawBody(req);
   const tsHdr = req.headers['x-echo-signature-ts'];
   const sigHdr = req.headers['x-echo-signature'];

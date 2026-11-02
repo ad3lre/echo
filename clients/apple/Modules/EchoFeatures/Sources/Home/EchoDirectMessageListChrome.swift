@@ -15,63 +15,132 @@ struct EchoDirectMessageList: View {
   let onOpen: (EchoDirectMessage) -> Void
   let inboxNotificationCount: Int
   let onOpenInbox: () -> Void
+  /// Desktop: selected conversation highlight (web list selection).
+  var selectedConversationID: String? = nil
+  var isFriendsSelected = false
+  var isNotificationsSelected = false
+  var isMessageRequestsSelected = false
+  /// Pending DM message-request count (web Messages rail badge).
+  var messageRequestCount = 0
+  var onOpenMessageRequests: (() -> Void)? = nil
+  /// Desktop: open personal notes instead of the phone Inbox tray.
+  var personalNotes: EchoDirectMessage? = nil
+  var onOpenPersonalNotes: (() -> Void)? = nil
+  var onOpenFriends: (() -> Void)? = nil
+  /// Messages-rail “Mark all as read” (web `handleDmRailMarkAllRead`).
+  var canMarkAllDMsRead = false
+  var onMarkAllDMsRead: (() -> Void)? = nil
+  /// Context menu + swipe actions per row (mark read, favorite, remove, profile).
+  var rowActions: ((EchoDirectMessage) -> EchoDmRowActions)? = nil
+  /// Per-channel unread from attention summary (`channelAttentionByChannelId`).
+  var unreadCountForChannel: (String) -> Int = { _ in 0 }
+  /// Workspace “Going” RSVP cards (web `GuildEventActivityStrip`).
+  var guildEventActivityCards: [EchoGuildEventActivityCard] = []
+  var onOpenGuildEvent: ((EchoGuildEventActivityCard) -> Void)? = nil
+  /// Desktop: collapse the DM inbox column (web `b10.dm.collapsePanel`).
+  var onCollapse: (() -> Void)? = nil
   @State private var hasScrolled = false
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
   @Environment(\.colorScheme) private var colorScheme
 
+  private var usesDesktopSocialChrome: Bool {
+    #if os(macOS)
+      true
+    #else
+      false
+    #endif
+  }
+
+  /// Match DM row highlight width: desktop keeps a hair of inset, phone keeps the
+  /// original 22pt gutter so the search field doesn’t hug the screen edge.
+  private var socialChromeInset: CGFloat {
+    usesDesktopSocialChrome ? 8 : 22
+  }
+
   var body: some View {
     VStack(spacing: 0) {
       HStack(spacing: 8) {
-        HStack(spacing: 10) {
-          Image(systemName: "magnifyingglass")
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(EchoTheme.Color.ink(0.42))
-          TextField(EchoCopy.string("Search conversations"), text: $searchText)
-            .font(.system(size: 15, weight: .regular, design: .rounded))
-            .foregroundStyle(EchoTheme.Color.fg)
-            .tint(EchoTheme.Color.fg)
-            .textFieldStyle(.plain)
-            .focused($searchFocused)
-            .submitLabel(.search)
-            #if os(iOS)
-              .textInputAutocapitalization(.never)
-            #endif
-            .autocorrectionDisabled()
-            // While focused, a tap on the field dismisses — it must not keep
-            // rebinding the caret / keyboard (conversation-search parity).
-            .overlay {
-              if searchFocused {
-                Color.clear
-                  .contentShape(Rectangle())
-                  .onTapGesture { dismissSearchKeyboard() }
-              }
+        conversationSearchField
+
+        if onOpenFriends != nil {
+          EchoHomeActionButton(
+            systemName: "person.2.fill",
+            accessibilityLabel: EchoCopy.string("Friends"),
+            isSelected: isFriendsSelected,
+            action: {
+              if onConsumeKeyboardTap() { return }
+              onOpenFriends?()
             }
+          )
         }
-        .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity)
-        .frame(height: 48)
-        .background(
-          EchoTheme.Color.ink(0.065), in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-        )
-        .overlay(
-          RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(
-            searchFocused ? EchoTheme.Color.indigo.opacity(0.55) : EchoTheme.Color.ink(0.08))
-        )
+
+        if let onMarkAllDMsRead, canMarkAllDMsRead {
+          EchoHomeActionButton(
+            systemName: "envelope.open.fill",
+            accessibilityLabel: EchoCopy.string("Mark all as read"),
+            action: {
+              if onConsumeKeyboardTap() { return }
+              onMarkAllDMsRead()
+            }
+          )
+        }
 
         EchoHomeActionButton(
-          systemName: "tray.fill",
-          accessibilityLabel: EchoCopy.string("Inbox"),
+          systemName: "bell.fill",
+          accessibilityLabel: EchoCopy.string("Notifications"),
           notificationCount: inboxNotificationCount,
+          isSelected: isNotificationsSelected,
           action: {
             if onConsumeKeyboardTap() { return }
             onOpenInbox()
           }
         )
+
+        #if os(macOS)
+          if let onCollapse {
+            EchoHomeActionButton(
+              systemName: "sidebar.leading",
+              accessibilityLabel: EchoCopy.string("Collapse messages"),
+              action: {
+                if onConsumeKeyboardTap() { return }
+                onCollapse()
+              }
+            )
+          }
+        #endif
       }
-      .padding(.horizontal, 22)
+      .padding(.horizontal, socialChromeInset)
       .padding(.top, 10)
-      .padding(.bottom, 17)
+      .padding(.bottom, usesDesktopSocialChrome ? 10 : 17)
       // Search chrome sits on the same continuous wash as the profile shelf.
+
+      // Only surface the rail entry when there is at least one pending request.
+      if onOpenMessageRequests != nil, messageRequestCount > 0 {
+        EchoDirectMessagePinnedRow(
+          systemName: "envelope.badge.fill",
+          title: EchoCopy.string("Message requests"),
+          subtitle: EchoCopy.string("Pending conversations"),
+          badge: messageRequestCount,
+          isSelected: isMessageRequestsSelected,
+          usesAccentAvatar: false
+        ) {
+          if onConsumeKeyboardTap() { return }
+          onOpenMessageRequests?()
+        }
+        .padding(.horizontal, socialChromeInset)
+        .padding(.bottom, 10)
+      }
+
+      if !guildEventActivityCards.isEmpty {
+        EchoGuildEventActivityStrip(
+          cards: guildEventActivityCards,
+          baseURL: baseURL,
+          accessToken: accessToken,
+          onOpen: { card in onOpenGuildEvent?(card) }
+        )
+        .padding(.horizontal, socialChromeInset)
+        .padding(.bottom, 8)
+      }
 
       ZStack(alignment: .top) {
         ScrollView(showsIndicators: false) {
@@ -95,14 +164,21 @@ struct EchoDirectMessageList: View {
                   conversation: conversation,
                   baseURL: baseURL,
                   accessToken: accessToken,
+                  isSelected: selectedConversationID == conversation.id,
+                  unreadCount: unreadCountForChannel(conversation.channelID),
                   onTap: {
                     if onConsumeKeyboardTap() { return }
                     onOpen(conversation)
                   }
                 )
+                .echoDmRowActions(
+                  rowActions?(conversation), conversation: conversation,
+                  onOpen: { onOpen(conversation) })
               }
             }
           }
+          // Match Friends / search chrome width — same side gutter as the pinned rows.
+          .padding(.horizontal, socialChromeInset)
           .padding(.bottom, bottomContentInset)
           .background {
             GeometryReader { proxy in
@@ -139,6 +215,55 @@ struct EchoDirectMessageList: View {
     .onDisappear { dismissSearchKeyboard() }
   }
 
+  /// Full chrome is the hit target — padding around the TextField used to miss
+  /// clicks near the left/right edges of the search capsule.
+  private var conversationSearchField: some View {
+    HStack(spacing: 10) {
+      Image(systemName: "magnifyingglass")
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundStyle(EchoTheme.Color.ink(0.42))
+        .allowsHitTesting(false)
+      TextField(EchoCopy.string("Search conversations"), text: $searchText)
+        .font(.system(size: 15, weight: .regular, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.fg)
+        .tint(EchoTheme.Color.fg)
+        .textFieldStyle(.plain)
+        .focused($searchFocused)
+        .submitLabel(.search)
+        #if os(iOS)
+          .textInputAutocapitalization(.never)
+        #endif
+        .autocorrectionDisabled()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+    .padding(.horizontal, 16)
+    .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
+    .background(
+      EchoTheme.Color.ink(searchFocused ? 0.085 : 0.065),
+      in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(
+        searchFocused ? EchoTheme.Color.indigo.opacity(0.55) : EchoTheme.Color.ink(0.08))
+    )
+    .echoPointerHoverFill(
+      isSelected: searchFocused,
+      selectedFill: Color.clear,
+      hoverFill: EchoTheme.Color.ink(0.04),
+      idleFill: Color.clear,
+      cornerRadius: 16
+    )
+    .contentShape(Rectangle())
+    .overlay {
+      // Expand the clickable region past the caret-sized TextField bounds.
+      if !searchFocused {
+        Color.clear
+          .contentShape(Rectangle())
+          .onTapGesture { searchFocused = true }
+      }
+    }
+  }
+
   private func dismissSearchKeyboard() {
     guard searchFocused else { return }
     searchFocused = false
@@ -148,264 +273,3 @@ struct EchoDirectMessageList: View {
     #endif
   }
 }
-
-struct EchoHomeActionButton: View {
-  let systemName: String
-  let accessibilityLabel: String
-  var notificationCount = 0
-  let action: () -> Void
-  @Environment(EchoDisplayPreferences.self) private var displayPrefs
-  @Environment(\.colorScheme) private var colorScheme
-
-  private var isHighlighted: Bool { notificationCount > 0 }
-
-  var body: some View {
-    Button(action: action) {
-      ZStack(alignment: .topTrailing) {
-        Image(systemName: systemName)
-          .font(.system(size: 17, weight: .semibold))
-          .foregroundStyle(isHighlighted ? EchoTheme.Color.onAccent : displayPrefs.ink(0.82))
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-        if isHighlighted {
-          Text(notificationCount > 99 ? "99+" : String(notificationCount))
-            .font(.system(size: notificationCount > 9 ? 8 : 10, weight: .bold, design: .rounded))
-            .foregroundStyle(EchoTheme.Color.onAccent)
-            .padding(.horizontal, notificationCount > 9 ? 4 : 0)
-            .frame(minWidth: 18, minHeight: 18)
-            .background(EchoTheme.Color.badge, in: Capsule())
-            .overlay(Capsule().stroke(EchoTheme.Color.badgeStroke, lineWidth: 2))
-            .offset(x: 6, y: -6)
-        }
-      }
-      .frame(width: 54, height: 48)
-      .background(
-        isHighlighted
-          ? displayPrefs.actionHighlight(colorScheme: colorScheme).opacity(0.92)
-          : EchoTheme.Color.ink(displayPrefs.inkOpacity(0.065)),
-        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-          .stroke(
-            isHighlighted
-              ? EchoTheme.Color.ink(displayPrefs.hairlineOpacity(0.19))
-              : EchoTheme.Color.ink(displayPrefs.hairlineOpacity(0.08)))
-      )
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-    .accessibilityLabel(
-      isHighlighted
-        ? EchoCopy.format("%@, %lld notifications", accessibilityLabel, notificationCount)
-        : accessibilityLabel
-    )
-    .accessibilityAddTraits(.isButton)
-  }
-}
-
-struct EchoDirectMessageScrollOffsetKey: PreferenceKey {
-  static let defaultValue: CGFloat = 0
-
-  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-    value = nextValue()
-  }
-}
-
-struct EchoDirectMessageRow: View {
-  let conversation: EchoDirectMessage
-  let baseURL: URL
-  var accessToken: String? = nil
-  let onTap: () -> Void
-  @Environment(EchoDisplayPreferences.self) private var displayPrefs
-
-  var body: some View {
-    let metrics = displayPrefs.densityMetrics
-    Button(action: onTap) {
-      HStack(spacing: 13) {
-        EchoConversationAvatar(
-          conversation: conversation, baseURL: baseURL, accessToken: accessToken
-        )
-        .frame(width: 52, height: 52)
-
-        VStack(alignment: .leading, spacing: 5) {
-          HStack(spacing: 7) {
-            Text(conversation.displayName)
-              .font(displayPrefs.uiFont(size: 16, weight: .semibold))
-              .foregroundStyle(displayPrefs.ink(0.94))
-              .lineLimit(1)
-            Spacer(minLength: 0)
-            if let date = conversation.lastMessageAt {
-              Text(relativeDateLabel(date))
-                .font(displayPrefs.uiFont(size: 12, weight: .medium))
-                .foregroundStyle(displayPrefs.ink(0.34))
-            }
-          }
-
-          Text(
-            conversation.lastMessage
-              ?? (conversation.lastMessageAt == nil ? EchoCopy.string("No messages yet") : " ")
-          )
-          .font(displayPrefs.uiFont(size: 14))
-          .foregroundStyle(displayPrefs.ink(0.48))
-          .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-      }
-      .padding(.horizontal, metrics.dmRowPaddingX + 10)
-      .padding(.vertical, metrics.dmRowPaddingY)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(conversation.displayName)
-    .accessibilityValue(
-      conversation.lastMessage ?? EchoCopy.string("No messages yet")
-    )
-    .accessibilityHint(EchoCopy.string("Open conversation"))
-  }
-}
-
-struct EchoConversationAvatar: View {
-  let conversation: EchoDirectMessage
-  let baseURL: URL
-  var accessToken: String? = nil
-  @Environment(\.colorScheme) private var colorScheme
-  @Environment(EchoDisplayPreferences.self) private var displayPrefs
-
-  var body: some View {
-    ZStack {
-      Circle().fill(EchoTheme.Color.ink(0.08))
-      if conversation.avatarURLs.count > 1 {
-        EchoGroupAvatar(
-          conversation: conversation, baseURL: baseURL, accessToken: accessToken)
-      } else if conversation.avatarURL != nil {
-        EchoMediaImage(
-          source: conversation.avatarURL,
-          baseURL: baseURL,
-          accessToken: accessToken,
-          maxPixelSize: EchoAvatarPrefetcher.avatarMaxPixelSize
-        ) {
-          EchoGeneratedAvatar(
-            name: conversation.displayName,
-            seed: conversation.displayName
-          )
-        }
-        .clipShape(Circle())
-      } else {
-        EchoGeneratedAvatar(
-          name: conversation.displayName,
-          seed: conversation.displayName
-        )
-      }
-    }
-    .overlay(alignment: .bottomTrailing) {
-      if conversation.avatarURLs.count <= 1 {
-        EchoPresenceIndicator(
-          status: conversation.presenceStatus,
-          size: 14,
-          borderColor: displayPrefs.canvas(colorScheme: colorScheme)
-        )
-        .offset(x: -1, y: -1)
-      }
-    }
-  }
-
-}
-
-struct EchoGroupAvatar: View {
-  let conversation: EchoDirectMessage
-  let baseURL: URL
-  var accessToken: String? = nil
-
-  var body: some View {
-    GeometryReader { proxy in
-      let size = proxy.size.width / 2
-      LazyVGrid(
-        columns: [GridItem(.flexible(), spacing: 1), GridItem(.flexible(), spacing: 1)], spacing: 1
-      ) {
-        ForEach(Array(conversation.avatarURLs.prefix(4).enumerated()), id: \.offset) {
-          index, source in
-          EchoMediaImage(
-            source: source,
-            baseURL: baseURL,
-            accessToken: accessToken,
-            maxPixelSize: EchoAvatarPrefetcher.avatarMaxPixelSize
-          ) {
-            EchoGeneratedAvatar(
-              name: conversation.displayName, seed: "\(conversation.channelID)-\(index)")
-          }
-          .frame(width: size, height: size)
-          .clipped()
-        }
-      }
-    }
-    .clipShape(Circle())
-  }
-}
-
-struct EchoHomeLoadingView: View {
-  var body: some View {
-    VStack(spacing: 18) {
-      ProgressView().tint(EchoTheme.Color.ink(0.78)).scaleEffect(1.1)
-      EchoCopy.text("Loading your Echo")
-        .font(.system(size: 14, weight: .medium, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.54))
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-  }
-}
-
-struct EchoHomeUnavailableView: View {
-  let message: String
-  let retry: () -> Void
-
-  var body: some View {
-    VStack(spacing: 16) {
-      Image(systemName: "wifi.exclamationmark")
-        .font(.system(size: 24, weight: .medium))
-        .foregroundStyle(EchoTheme.Color.ink(0.58))
-      Text(message)
-        .font(.system(size: 15, weight: .regular, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.58))
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: 280)
-      Button(EchoCopy.string("Try again"), action: retry)
-        .buttonStyle(.borderedProminent)
-        .tint(.indigo)
-    }
-    .frame(maxWidth: .infinity, minHeight: 520)
-    .padding(28)
-  }
-}
-
-@MainActor
-func relativeDateLabel(_ date: Date) -> String {
-  EchoRelativeDateFormatter.string(from: date)
-}
-
-@MainActor
-enum EchoRelativeDateFormatter {
-  private static let formatter = RelativeDateTimeFormatter()
-
-  static func string(from date: Date) -> String {
-    formatter.localizedString(for: date, relativeTo: Date())
-  }
-}
-
-#if DEBUG
-  #Preview("Home loading") {
-    ZStack {
-      EchoTheme.Color.canvas.ignoresSafeArea()
-      EchoHomeLoadingView()
-    }
-  }
-
-  #Preview("Home unavailable") {
-    ZStack {
-      EchoTheme.Color.canvas.ignoresSafeArea()
-      EchoHomeUnavailableView(message: EchoCopy.string("Couldn’t reach Echo.")) {}
-    }
-  }
-#endif

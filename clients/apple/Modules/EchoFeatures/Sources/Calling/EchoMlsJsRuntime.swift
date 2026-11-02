@@ -23,13 +23,15 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
     deviceID: String,
     peerUserID: String?,
     authorizedUserIDs: [String] = [],
-    baseURL: URL
+    baseURL: URL,
+    serverID: String? = nil
   ) async throws -> EchoVoiceE2EEPrepareResult {
     return try await withTaskCancellationHandler {
       try Task.checkCancellation()
       return try await prepareUncancelled(
         channelID: channelID, accessToken: accessToken, viewerUserID: viewerUserID,
-        deviceID: deviceID, peerUserID: peerUserID, authorizedUserIDs: authorizedUserIDs, baseURL: baseURL)
+        deviceID: deviceID, peerUserID: peerUserID, authorizedUserIDs: authorizedUserIDs,
+        baseURL: baseURL, serverID: serverID)
     } onCancel: {
       Task { @MainActor in self.cancelPreparation() }
     }
@@ -37,7 +39,7 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
 
   private func prepareUncancelled(
     channelID: String, accessToken: String, viewerUserID: String, deviceID: String,
-    peerUserID: String?, authorizedUserIDs: [String], baseURL: URL
+    peerUserID: String?, authorizedUserIDs: [String], baseURL: URL, serverID: String?
   ) async throws -> EchoVoiceE2EEPrepareResult {
     try await ensureReady(baseURL: baseURL)
     try Task.checkCancellation()
@@ -50,13 +52,16 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
       guard !id.isEmpty, seen.insert(id).inserted else { return nil }
       return id
     }
-    let input: [String: Any] = [
+    var input: [String: Any] = [
       "channelId": channelID,
       "token": accessToken,
       "viewerUserId": viewerUserID,
       "deviceId": deviceID,
       "authorizedUserIds": uniqueAuthorized,
     ]
+    if let serverID, !serverID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      input["serverId"] = serverID
+    }
     let inputData = try JSONSerialization.data(withJSONObject: input)
     let inputJSON = String(data: inputData, encoding: .utf8) ?? "{}"
     let requestID = UUID()
@@ -166,7 +171,7 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
       let data = json.data(using: .utf8),
       let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     else { return nil }
-    return try Self.parseEncryption(payload)
+    return EchoVoiceE2EEPrepareJSON.encryption(from: payload)
   }
 
   private func ensureReady(baseURL: URL) async throws {
@@ -339,17 +344,9 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
       failPrepare(id: id, message: error)
       return
     }
-    guard let json = body["result"] as? String,
-      let data = json.data(using: .utf8),
-      let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-      let waiter = prepareWaiters.removeValue(forKey: id)
-    else {
-      failPrepare(id: id, message: "Invalid MLS prepare result")
-      return
-    }
+    guard let waiter = prepareWaiters.removeValue(forKey: id) else { return }
     do {
-      let deviceID = (payload["deviceId"] as? String) ?? ""
-      waiter.resume(returning: try Self.parsePrepareResult(payload, deviceID: deviceID))
+      waiter.resume(returning: try EchoVoiceE2EEPrepareJSON.decode(body["result"]))
     } catch {
       waiter.resume(throwing: error)
     }
@@ -389,7 +386,11 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
     request.httpMethod = method
     request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Accept")
-    request.setValue("ios", forHTTPHeaderField: "X-Echo-Client")
+    #if os(iOS)
+      request.setValue("ios", forHTTPHeaderField: "X-Echo-Client")
+    #else
+      request.setValue("desktop", forHTTPHeaderField: "X-Echo-Client")
+    #endif
     if let body {
       request.httpBody = Data(body.utf8)
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -401,31 +402,76 @@ final class EchoMlsJsRuntime: NSObject, WKNavigationDelegate, WKScriptMessageHan
     )
   }
 
-  private static func parsePrepareResult(_ payload: [String: Any], deviceID: String) throws
-    -> EchoVoiceE2EEPrepareResult
-  {
-    let encryption = try parseEncryption(payload)
-    let resolvedDevice =
-      (payload["deviceId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    return EchoVoiceE2EEPrepareResult(
-      encryption: encryption,
-      deviceID: (resolvedDevice?.isEmpty == false) ? resolvedDevice : deviceID)
+  private static func jsStringLiteral(_ value: String) -> String {
+    EchoMlsJS.stringLiteral(value)
+  }
+}
+
+/// Decodes the WKWebView voice-E2EE prepare callback into LiveKit key material.
+///
+/// JSON `null` / empty `senderKeys` means the server has voice E2EE disabled —
+/// that is a successful "no material" result, not a hard failure. The old MLS
+/// path treated null as `Invalid MLS prepare result` and blocked plain calls.
+enum EchoVoiceE2EEPrepareJSON {
+  static func decode(_ raw: Any?) throws -> EchoVoiceE2EEPrepareResult {
+    if raw == nil || raw is NSNull {
+      return EchoVoiceE2EEPrepareResult(encryption: nil, deviceID: nil)
+    }
+    guard let json = raw as? String else {
+      throw Self.invalidResultError
+    }
+    let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty || trimmed == "null" {
+      return EchoVoiceE2EEPrepareResult(encryption: nil, deviceID: nil)
+    }
+    guard let data = trimmed.data(using: .utf8),
+      let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+      throw Self.invalidResultError
+    }
+    return prepareResult(from: payload)
   }
 
-  private static func parseEncryption(_ payload: [String: Any]) throws -> EchoCallMediaEncryption {
-    let keyIndex = payload["keyIndex"] as? Int ?? 0
+  static func prepareResult(from payload: [String: Any], fallbackDeviceID: String = "")
+    -> EchoVoiceE2EEPrepareResult
+  {
+    let resolved =
+      (payload["deviceId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let deviceID = resolved.isEmpty ? fallbackDeviceID : resolved
+    return EchoVoiceE2EEPrepareResult(
+      encryption: encryption(from: payload),
+      deviceID: deviceID.isEmpty ? nil : deviceID)
+  }
+
+  static func encryption(from payload: [String: Any]) -> EchoCallMediaEncryption? {
+    let keyIndex: Int = {
+      if let value = payload["keyIndex"] as? Int { return value }
+      if let value = payload["keyIndex"] as? Double { return Int(value) }
+      if let value = payload["keyIndex"] as? NSNumber { return value.intValue }
+      return 0
+    }()
     let keysObject = payload["senderKeys"] as? [String: String] ?? [:]
     var senderKeys: [String: Data] = [:]
     for (identity, b64) in keysObject {
       guard let data = Data(base64Encoded: b64), !data.isEmpty else { continue }
       senderKeys[identity] = data
     }
-    guard !senderKeys.isEmpty else { throw EchoCallTransportError.encryptedMediaUnavailable }
+    if let sharedB64 = payload["sharedKey"] as? String,
+      let shared = Data(base64Encoded: sharedB64), !shared.isEmpty
+    {
+      return EchoCallMediaEncryption(
+        keyIndex: keyIndex, sharedKey: shared, senderKeys: senderKeys)
+    }
+    guard !senderKeys.isEmpty else { return nil }
     return EchoCallMediaEncryption(keyIndex: keyIndex, senderKeys: senderKeys)
   }
 
-  private static func jsStringLiteral(_ value: String) -> String {
-    EchoMlsJS.stringLiteral(value)
+  private static var invalidResultError: NSError {
+    NSError(
+      domain: "EchoMls", code: 1,
+      userInfo: [
+        NSLocalizedDescriptionKey: "Couldn’t prepare encrypted call. Please try again."
+      ])
   }
 }
 

@@ -1,6 +1,15 @@
-# iOS Passkeys
+# iOS / macOS Passkeys & Shared Web Credentials
 
-Echo iOS passkeys depend on both app entitlements and the public webcredentials association file.
+Echo native passkeys and “you have an account here” AutoFill depend on:
+
+1. App entitlements (`webcredentials:` + `applinks:`)
+2. The public AASA file on `chat-echo.com`
+3. AutoFill-assisted authorization on the sign-in form (`EchoPasskeyAutoFill`)
+
+Safari passkeys / passwords for `chat-echo.com` are then offered when focusing username or password:
+
+- **iOS** — AutoFill-assisted passkey + password sheet (`performAutoFillAssistedRequests` via `EchoPasskeyAutoFill`).
+- **macOS** — Password AutoFill is field-driven (`textContentType` + `webcredentials:`). Passkeys use **Sign in with Passkey** (Apple does not expose AutoFill-assisted passkey requests on macOS).
 
 ## App entitlement
 
@@ -20,7 +29,9 @@ Echo iOS passkeys depend on both app entitlements and the public webcredentials 
 </array>
 ```
 
-These capabilities require a **paid** Apple Developer Program membership. macOS uses [`clients/apple/Resources/macOS/EchoMacOS.entitlements`](../../clients/apple/Resources/macOS/EchoMacOS.entitlements) for Shared Web Credentials.
+These capabilities require a **paid** Apple Developer Program membership. macOS uses [`clients/apple/Resources/macOS/EchoMacOS.entitlements`](../../clients/apple/Resources/macOS/EchoMacOS.entitlements) (includes `?mode=developer` entries for Debug association without waiting on Apple’s CDN).
+
+**Signing note:** Ad-hoc / unsigned Debug installs (`CODE_SIGN_IDENTITY="-"`) strip Associated Domains — AutoFill will not see the website. Use a development-team-signed build pointed at `https://chat-echo.com` (or a backend whose WebAuthn RP ID is `chat-echo.com`) to exercise the prompt.
 
 ## Sign in with Apple token revoke (account deletion)
 
@@ -42,13 +53,28 @@ Set all of:
 
 ```json
 {
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "<APPLE_TEAM_ID>.com.echo.ios",
+          "<APPLE_TEAM_ID>.com.echo.macos"
+        ],
+        "components": [
+          { "/": "/channels/*" },
+          { "/": "/explore" },
+          { "/": "/*" }
+        ]
+      }
+    ]
+  },
   "webcredentials": {
     "apps": ["<APPLE_TEAM_ID>.com.echo.ios", "<APPLE_TEAM_ID>.com.echo.macos"]
   }
 }
 ```
 
-Replace `<APPLE_TEAM_ID>` with the Apple Developer Team ID used to sign builds (e.g. `7HBQV8236H`). If a bundle identifier changes, update both `clients/apple/project.yml` and the Associated Domains capability together.
+The Apple apps route `/channels/*`, `/explore`, `/invite/*` and vanity invite slugs through `EchoDeepLinkRouter` (`onOpenURL` / `onContinueUserActivity`). Replace `<APPLE_TEAM_ID>` with the Apple Developer Team ID used to sign builds (e.g. `7HBQV8236H`). If a bundle identifier changes, update both `clients/apple/project.yml` and the Associated Domains capability together.
 
 Verify locally after a frontend build: `bun run verify:aasa`. Optional live check: `ECHO_AASA_VERIFY_URL=https://chat-echo.com bun run verify:aasa`.
 

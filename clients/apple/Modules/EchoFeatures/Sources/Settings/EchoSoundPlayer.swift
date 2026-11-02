@@ -97,6 +97,79 @@ final class EchoSoundPlayer {
     loopingRingtoneID = nil
   }
 
+  func previewRemoteRingtone(id: String, url: URL, volume: Double) {
+    let clamped = max(0, min(1, volume))
+    if loopingRingtoneID != nil || (ringtonePlayer?.isPlaying == true) {
+      startRemoteRingtoneLoop(id: id, url: url, volume: clamped)
+      return
+    }
+    Task {
+      guard let local = await Self.cachedRemoteFile(url: url, id: id) else { return }
+      await MainActor.run {
+        stopRingtone()
+        do {
+          prepareSession(forRingtone: true)
+          let player = try AVAudioPlayer(contentsOf: local)
+          player.numberOfLoops = 0
+          player.volume = Float(clamped)
+          player.prepareToPlay()
+          ringtonePlayer = player
+          loopingRingtoneID = nil
+          _ = player.play()
+        } catch {}
+      }
+    }
+  }
+
+  func startRemoteRingtoneLoop(id: String, url: URL, volume: Double) {
+    let clamped = max(0, min(1, volume))
+    if isPlayingAnyRingtoneLoop, loopingRingtoneID == id {
+      setRingtoneVolume(clamped)
+      return
+    }
+    Task {
+      guard let local = await Self.cachedRemoteFile(url: url, id: id) else { return }
+      await MainActor.run {
+        if isPlayingAnyRingtoneLoop, loopingRingtoneID == id {
+          setRingtoneVolume(clamped)
+          return
+        }
+        stopRingtone()
+        do {
+          prepareSession(forRingtone: true)
+          let player = try AVAudioPlayer(contentsOf: local)
+          player.numberOfLoops = -1
+          player.volume = Float(clamped)
+          player.prepareToPlay()
+          ringtonePlayer = player
+          loopingRingtoneID = id
+          guard player.play() else {
+            prepareSession(forRingtone: true)
+            _ = player.play()
+            return
+          }
+        } catch {}
+      }
+    }
+  }
+
+  private static func cachedRemoteFile(url: URL, id: String) async -> URL? {
+    let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+      .appendingPathComponent("EchoRingtones", isDirectory: true)
+    guard let dir else { return nil }
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let ext = url.pathExtension.isEmpty ? "m4a" : url.pathExtension
+    let dest = dir.appendingPathComponent("\(id).\(ext)")
+    if FileManager.default.fileExists(atPath: dest.path) { return dest }
+    do {
+      let (data, _) = try await URLSession.shared.data(from: url)
+      try data.write(to: dest, options: .atomic)
+      return dest
+    } catch {
+      return nil
+    }
+  }
+
   private func playOneShot(url: URL, volume: Double) {
     do {
       prepareSession(forRingtone: false)

@@ -102,7 +102,7 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
 - `POST` `/uploads/presign` — presigned `PUT` to S3-compatible storage when `ECHO_S3_*` is set; otherwise **503** `UPLOADS_NOT_CONFIGURED`
   - **Body (JSON):** `key` (required, safe filename fragment), `contentType`, `contentLength` (bytes, 1…25 MiB), plus one auth scope:
   - **`channelId`** (preferred for chat media): authorized via `canUserPostMessage` (guild channels and DMs). Object key prefix `echo/channels/{channelId}/{userId}/…`. Allowed content types: chat images (png, jpeg, gif, webp) and video (mp4, webm, quicktime).
-  - **`serverId`** without `purpose`, or `purpose: legacy_server`: member-only (`isMemberOfServer`) and suppressed by active guild communication timeout; key `echo/{serverId}/{userId}/…` (legacy).
+  - **`serverId`** without `purpose` / `purpose: legacy_server`: **rejected** (legacy `echo/{serverId}/{userId}/…` chat keys are no longer minted). Existing legacy objects remain readable only by the uploader or via upload-intent channel ACL.
     - **`purpose: server_emoji`** + **`serverId`**: user may manage server custom emojis; key `echo/emoji/{serverId}/{userId}/…`.
     - **`purpose: user_avatar`** or **`user_banner`**: authenticated user only; must **not** send `channelId` or `serverId`; keys `echo/avatars/{userId}/…` / `echo/banners/{userId}/…`.
     - **`purpose: user_ringtone`**: custom call ringtone audio (≤6 MiB); authenticated user only; keys `echo/ringtones/{userId}/…`. Register with `POST` `/ringtones` after upload.

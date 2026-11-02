@@ -1,18 +1,25 @@
+import EchoDomain
 import EchoNetworking
 import Observation
 import SwiftUI
 
-private enum EchoExpressionTab: String, CaseIterable, Identifiable {
+enum EchoExpressionTab: String, CaseIterable, Identifiable {
   case emoji = "Emoji"
+  case icons = "Icons"
+  case stickers = "Stickers"
   case gifs = "GIFs"
   case images = "Images"
+  case favorites = "Favorites"
 
   var id: Self { self }
   var icon: String {
     switch self {
     case .emoji: "face.smiling"
+    case .icons: "square.grid.2x2"
+    case .stickers: "star.square"
     case .gifs: "rectangle.on.rectangle.angled"
     case .images: "photo.on.rectangle"
+    case .favorites: "star"
     }
   }
 }
@@ -92,14 +99,20 @@ private final class EchoExpressionPickerModel {
 
   let unicodeCategories = EchoEmojiCatalog.load()
   private let client: EchoHomeClient
+  private let baseURL: URL
   private let accessToken: String
   private let defaultsKey = "echo.composer.recent-emojis"
   private var loadedLibrary = false
 
   init(baseURL: URL, accessToken: String) {
     client = EchoHomeClient(baseURL: baseURL)
+    self.baseURL = baseURL
     self.accessToken = accessToken
     recents = UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []
+    // Seed from the session-wide prefetch so custom packs paint with unicode.
+    let catalog = EchoCustomEmojiCatalog.shared
+    packs = catalog.packs
+    loadedLibrary = catalog.isLoaded
   }
 
   var filteredUnicodeCategories: [EchoUnicodeEmojiCategory] {
@@ -132,16 +145,25 @@ private final class EchoExpressionPickerModel {
   }
 
   func loadLibrary() async {
-    guard !loadedLibrary, !isLoadingLibrary else { return }
-    isLoadingLibrary = true
-    defer { isLoadingLibrary = false }
-    do {
-      packs = try await client.loadEmojiLibrary(accessToken: accessToken)
-      guard !Task.isCancelled else { return }
-      EchoCustomEmojiCatalog.shared.ingest(packs)
+    let catalog = EchoCustomEmojiCatalog.shared
+    if !catalog.packs.isEmpty {
+      packs = catalog.packs
+    }
+    if catalog.isLoaded {
       loadedLibrary = true
       errorMessage = nil
-    } catch {
+      return
+    }
+    guard !isLoadingLibrary else { return }
+    isLoadingLibrary = true
+    defer { isLoadingLibrary = false }
+    await catalog.refresh(baseURL: baseURL, accessToken: accessToken)
+    guard !Task.isCancelled else { return }
+    packs = catalog.packs
+    if catalog.isLoaded {
+      loadedLibrary = true
+      errorMessage = nil
+    } else if packs.isEmpty {
       errorMessage = "Custom emoji couldn’t be loaded."
     }
   }
@@ -177,11 +199,17 @@ struct EchoExpressionPicker: View {
   var selectedPhotoIDs: [String] = []
   /// When true, only the emoji tab is shown (message reactions).
   var emojiOnly: Bool = false
+  /// Guild id — enables the Stickers tab (DMs have no sticker library).
+  var serverID: String?
+  /// `/gif` slash command opens the picker on its GIFs tab.
+  var startsOnGIFs: Bool = false
+  var onSticker: ((EchoServerSticker) -> Void)?
   let onEmoji: (String) -> Void
   let onGIF: (EchoGIF) -> Void
   let onPhoto: (EchoComposerPhotoLibrary.Item) -> Void
 
   @State private var model: EchoExpressionPickerModel
+  @State var favoritesStore = EchoMediaFavoritesStore.shared
 
   init(
     baseURL: URL,
@@ -189,6 +217,9 @@ struct EchoExpressionPicker: View {
     photos: EchoComposerPhotoLibrary,
     selectedPhotoIDs: [String] = [],
     emojiOnly: Bool = false,
+    serverID: String? = nil,
+    startsOnGIFs: Bool = false,
+    onSticker: ((EchoServerSticker) -> Void)? = nil,
     onEmoji: @escaping (String) -> Void,
     onGIF: @escaping (EchoGIF) -> Void,
     onPhoto: @escaping (EchoComposerPhotoLibrary.Item) -> Void
@@ -198,15 +229,34 @@ struct EchoExpressionPicker: View {
     self.photos = photos
     self.selectedPhotoIDs = selectedPhotoIDs
     self.emojiOnly = emojiOnly
+    self.serverID = serverID
+    self.startsOnGIFs = startsOnGIFs
+    self.onSticker = onSticker
     self.onEmoji = onEmoji
     self.onGIF = onGIF
     self.onPhoto = onPhoto
-    _model = State(
-      initialValue: EchoExpressionPickerModel(baseURL: baseURL, accessToken: accessToken))
+    let initial = EchoExpressionPickerModel(baseURL: baseURL, accessToken: accessToken)
+    if startsOnGIFs && !emojiOnly { initial.tab = .gifs }
+    _model = State(initialValue: initial)
   }
 
   private var visibleTabs: [EchoExpressionTab] {
-    emojiOnly ? [.emoji] : EchoExpressionTab.allCases
+    if emojiOnly { return [.emoji] }
+    return EchoExpressionTab.allCases.filter { $0 != .stickers || stickersAvailable }
+  }
+
+  private var stickersAvailable: Bool {
+    onSticker != nil && !(serverID?.isEmpty ?? true)
+  }
+
+  var searchPlaceholder: String {
+    switch model.tab {
+    case .emoji: EchoCopy.string("Search emoji")
+    case .icons: EchoCopy.string("Search icons")
+    case .stickers: EchoCopy.string("Search stickers")
+    case .favorites: EchoCopy.string("Search favorites")
+    default: EchoCopy.string("Search GIFs")
+    }
   }
 
   var body: some View {
@@ -219,27 +269,26 @@ struct EchoExpressionPicker: View {
               model.tab = tab
               model.query = ""
             } label: {
-              Label(tab.rawValue, systemImage: tab.icon)
+              Label(EchoCopy.string(key: tab.rawValue), systemImage: tab.icon)
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
                 .foregroundStyle(model.tab == tab ? EchoTheme.Color.fg : EchoTheme.Color.ink(0.48))
-                .background(
-                  model.tab == tab ? EchoTheme.Color.ink(0.09) : .clear,
-                  in: RoundedRectangle(cornerRadius: 9))
+                .echoPointerHoverFill(
+                  isSelected: model.tab == tab,
+                  selectedFill: EchoTheme.Color.ink(0.09),
+                  hoverFill: EchoTheme.Color.ink(0.06),
+                  cornerRadius: 9)
             }
             .buttonStyle(.plain)
           }
         }
       }
 
-      if model.tab != .images {
+      if model.tab != .images && model.tab != .favorites && model.tab != .icons {
         HStack(spacing: 8) {
           Image(systemName: "magnifyingglass").foregroundStyle(EchoTheme.Color.ink(0.35))
-          TextField(
-            model.tab == .emoji ? EchoCopy.string("Search emoji") : EchoCopy.string("Search GIFs"),
-            text: $model.query
-          )
+          TextField(searchPlaceholder, text: $model.query)
           .textFieldStyle(.plain)
           .font(.system(size: 14, design: .rounded))
         }
@@ -249,21 +298,27 @@ struct EchoExpressionPicker: View {
       }
 
       Group {
-        switch emojiOnly ? .emoji : model.tab {
+        switch emojiOnly ? EchoExpressionTab.emoji : model.tab {
         case .emoji: emojiContent
+        case .icons: iconsContent
+        case .stickers: stickerContent
         case .gifs: gifContent
         case .images: imageContent
+        case .favorites: favoritesContent
         }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    .padding(9)
+    .padding(8)
     .background(
       EchoTheme.Color.elevatedDeep.opacity(0.99),
-      in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+      in: RoundedRectangle(cornerRadius: 12, style: .continuous)
     )
-    .overlay { RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(EchoTheme.Color.ink(0.08)) }
-    .echoShadow(color: .black.opacity(0.34), radius: 16, y: 7)
+    #if os(iOS)
+      .overlay {
+        RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(EchoTheme.Color.ink(0.08))
+      }
+    #endif
     .task { await model.loadLibrary() }
     .task(id: model.tab) { if model.tab == .images { await photos.load() } }
     .task(id: "\(model.tab)|\(model.query)") {
@@ -299,6 +354,23 @@ struct EchoExpressionPicker: View {
     }
   }
 
+  /// Web `EmojiPopout` Icons tab → `linkTokenAppIcon`.
+  private var iconsContent: some View {
+    EchoAppIconPickerGrid { filename in
+      onEmoji(Self.appIconToken(filename))
+    }
+    .padding(.horizontal, 4)
+  }
+
+  static func appIconToken(_ filename: String) -> String {
+    let safe = filename
+      .replacingOccurrences(of: "<", with: "")
+      .replacingOccurrences(of: ">", with: "")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    let clipped = String(safe.prefix(200))
+    return "<icon:\(clipped.isEmpty ? "icon.svg" : clipped)>"
+  }
+
   private func categoryRail(proxy: ScrollViewProxy) -> some View {
     ScrollView(showsIndicators: false) {
       VStack(spacing: 5) {
@@ -307,24 +379,30 @@ struct EchoExpressionPicker: View {
           Button {
             withAnimation { proxy.scrollTo("pack-\(pack.id)", anchor: .top) }
           } label: {
-            if let emoji = pack.emojis.first {
-              EchoMediaImage(source: emoji.imageURL, baseURL: baseURL, accessToken: accessToken) {
+            Group {
+              if let emoji = pack.emojis.first {
+                EchoMediaImage(source: emoji.imageURL, baseURL: baseURL, accessToken: accessToken) {
+                  Image(systemName: "sparkles")
+                }
+                .frame(width: 22, height: 22)
+              } else {
                 Image(systemName: "sparkles")
               }
-              .frame(width: 22, height: 22)
-            } else {
-              Image(systemName: "sparkles")
             }
+            .frame(width: 34, height: 34)
+            .echoPointerHoverFill(hoverFill: EchoTheme.Color.ink(0.08), cornerRadius: 8)
           }
-          .buttonStyle(.plain).frame(width: 34, height: 34)
+          .buttonStyle(.plain)
         }
         ForEach(model.unicodeCategories) { category in
           Button {
             withAnimation { proxy.scrollTo(category.slug, anchor: .top) }
           } label: {
             Text(category.emojis.first?.emoji ?? "•").font(.system(size: 19))
+              .frame(width: 34, height: 34)
+              .echoPointerHoverFill(hoverFill: EchoTheme.Color.ink(0.08), cornerRadius: 8)
           }
-          .buttonStyle(.plain).frame(width: 34, height: 34)
+          .buttonStyle(.plain)
         }
       }
     }
@@ -337,8 +415,10 @@ struct EchoExpressionPicker: View {
       withAnimation { proxy.scrollTo(target, anchor: .top) }
     } label: {
       Image(systemName: icon).font(.system(size: 15)).foregroundStyle(EchoTheme.Color.ink(0.62))
+        .frame(width: 34, height: 34)
+        .echoPointerHoverFill(hoverFill: EchoTheme.Color.ink(0.08), cornerRadius: 8)
     }
-    .buttonStyle(.plain).frame(width: 34, height: 34)
+    .buttonStyle(.plain)
   }
 
   private func unicodeSection(_ title: String, id: String, emojis: [EchoUnicodeEmoji]) -> some View
@@ -352,6 +432,7 @@ struct EchoExpressionPicker: View {
             onEmoji(item.emoji)
           } label: {
             Text(item.emoji).font(.system(size: 25)).frame(width: 31, height: 31)
+              .echoPointerHoverFill(hoverFill: EchoTheme.Color.ink(0.08), cornerRadius: 8)
           }
           .buttonStyle(.plain).accessibilityLabel(item.name)
         }
@@ -372,13 +453,17 @@ struct EchoExpressionPicker: View {
             } label: {
               EchoMediaImage(source: custom.imageURL, baseURL: baseURL, accessToken: accessToken) {
                 Image(systemName: "face.smiling").foregroundStyle(EchoTheme.Color.ink(0.25))
-              }.frame(width: 29, height: 29)
+              }
+              .frame(width: 29, height: 29)
+              .frame(width: 31, height: 31)
+              .echoPointerHoverFill(hoverFill: EchoTheme.Color.ink(0.08), cornerRadius: 8)
             }.buttonStyle(.plain).accessibilityLabel(custom.name)
           } else if !token.hasPrefix("<") {
             Button {
               onEmoji(token)
             } label: {
               Text(token).font(.system(size: 25)).frame(width: 31, height: 31)
+                .echoPointerHoverFill(hoverFill: EchoTheme.Color.ink(0.08), cornerRadius: 8)
             }.buttonStyle(.plain)
           }
         }
@@ -396,7 +481,10 @@ struct EchoExpressionPicker: View {
           } label: {
             EchoMediaImage(source: emoji.imageURL, baseURL: baseURL, accessToken: accessToken) {
               Image(systemName: "face.smiling").foregroundStyle(EchoTheme.Color.ink(0.25))
-            }.frame(width: 29, height: 29)
+            }
+            .frame(width: 29, height: 29)
+            .frame(width: 31, height: 31)
+            .echoPointerHoverFill(hoverFill: EchoTheme.Color.ink(0.08), cornerRadius: 8)
           }
           .buttonStyle(.plain).accessibilityLabel(emoji.name)
         }
@@ -404,7 +492,16 @@ struct EchoExpressionPicker: View {
     }
   }
 
-  private var gifContent: some View {
+  @ViewBuilder
+  private var stickerContent: some View {
+    if let serverID, let onSticker {
+      EchoStickerPickerPane(
+        serverID: serverID, baseURL: baseURL, accessToken: accessToken, query: model.query,
+        onPick: onSticker)
+    }
+  }
+
+  var gifContent: some View {
     Group {
       if model.isLoadingGIFs && model.gifs.isEmpty {
         ProgressView().tint(EchoTheme.Color.ink(0.7))
@@ -415,16 +512,7 @@ struct EchoExpressionPicker: View {
         ScrollView(showsIndicators: false) {
           LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 5) {
             ForEach(model.gifs) { gif in
-              Button {
-                onGIF(gif)
-              } label: {
-                EchoMediaImage(source: gif.thumbnailURL, baseURL: baseURL, accessToken: accessToken)
-                {
-                  Rectangle().fill(EchoTheme.Color.ink(0.05))
-                }
-                .frame(height: 92).clipShape(RoundedRectangle(cornerRadius: 8))
-              }.buttonStyle(.plain).accessibilityLabel(
-                gif.title.isEmpty ? EchoCopy.string("GIF") : gif.title)
+              gifTileWithFavorite(gif)
             }
           }
         }
@@ -449,10 +537,22 @@ struct EchoExpressionPicker: View {
 
   private func insertCustomEmoji(_ emoji: EchoCustomEmoji) {
     let token = emoji.messageToken
-    EchoComposerEmojiImages.warm(
-      token: token, source: emoji.imageURL, apiBaseURL: baseURL)
+    // Prefer catalog-resolved source (public CDN / data:) so composer attachments
+    // match what EchoMediaImage already painted in the picker grid.
+    let source =
+      EchoCustomEmojiCatalog.shared.imageSource(
+        name: emoji.name, id: emoji.id, animated: emoji.animated, apiBaseURL: baseURL)
+      ?? emoji.imageURL
+    EchoComposerEmojiImages.warm(token: token, source: source, apiBaseURL: baseURL)
     EchoComposerEmojiImages.prefetch(
-      token: token, source: emoji.imageURL, apiBaseURL: baseURL, accessToken: accessToken)
+      token: token, source: source, apiBaseURL: baseURL, accessToken: accessToken)
+    // Also warm the raw library URL — picker cache may be keyed on that string.
+    if source != emoji.imageURL {
+      EchoComposerEmojiImages.warm(
+        token: token, source: emoji.imageURL, apiBaseURL: baseURL)
+      EchoComposerEmojiImages.prefetch(
+        token: token, source: emoji.imageURL, apiBaseURL: baseURL, accessToken: accessToken)
+    }
     model.record(token)
     onEmoji(token)
   }

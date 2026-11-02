@@ -51,21 +51,37 @@ struct EchoMediaImage<Placeholder: View>: View {
           url: url, contentMode: contentMode, maxPixelSize: maxPixelSize, placeholder: placeholder)
       } else if resolvedURL(source, baseURL: baseURL) != nil {
         placeholder().overlay {
-          ProgressView().tint(EchoTheme.Color.ink(0.55))
+          ProgressView()
+            .tint(EchoTheme.Color.ink(0.55))
+            .transaction { $0.animation = nil }
         }
+        .transaction { $0.animation = nil }
       } else {
         placeholder()
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .animation(nil, value: displayURL?.absoluteString)
     .task(id: resolveTaskID) {
-      fetchURL = await EchoMediaURLResolver.resolve(
+      // If disk already has bytes, paint via EchoRemoteImage immediately —
+      // don't keep the resolve spinner up while signing finishes.
+      if let original = resolvedURL(source, baseURL: baseURL),
+        await EchoImageDataCache.shared.hasData(for: original)
+      {
+        fetchURL = original
+      }
+      let resolved = await EchoMediaURLResolver.resolve(
         source: source,
         baseURL: baseURL,
         storageKey: storageKey,
         accessToken: accessToken,
         auth: auth)
+      if let resolved {
+        fetchURL = resolved
+        EchoChatMediaRetentionTouch.queue(storageKey)
+      }
     }
+    .onAppear { EchoChatMediaRetentionTouch.queue(storageKey) }
   }
 
   private var resolveTaskID: String {
@@ -81,12 +97,13 @@ enum EchoMediaURLResolver {
     baseURL: URL,
     storageKey: String?,
     accessToken: String?,
-    auth: EchoAuthenticationModel
+    auth: EchoAuthenticationModel,
+    scope: String = "object"
   ) async -> URL? {
     guard let original = resolvedURL(source, baseURL: baseURL) else { return nil }
     let raw = source ?? original.absoluteString
     // Disk already has bytes for this asset — skip a sign round-trip on cold launch.
-    if await EchoImageDataCache.shared.hasData(for: original) {
+    if scope == "object", await EchoImageDataCache.shared.hasData(for: original) {
       return original
     }
     guard echoMediaURLNeedsSigning(raw, storageKey: storageKey) else {
@@ -104,27 +121,47 @@ enum EchoMediaURLResolver {
 
     do {
       return try await signedURL(
-        for: original, baseURL: baseURL, storageKey: storageKey, accessToken: initialToken)
+        for: original, baseURL: baseURL, storageKey: storageKey, accessToken: initialToken,
+        scope: scope)
     } catch {
       if EchoAuthenticationModel.isUnauthorized(error),
         let refreshed = try? await auth.ensureAccessToken(forceRefresh: true),
         !refreshed.isEmpty
       {
         return try? await signedURL(
-          for: original, baseURL: baseURL, storageKey: storageKey, accessToken: refreshed)
+          for: original, baseURL: baseURL, storageKey: storageKey, accessToken: refreshed,
+          scope: scope)
       }
       return original
     }
   }
 
+  /// Web `hlsPackPrefixForSourceKey` — directory prefix for HLS pack signing (`scope: prefix`).
+  static func hlsPackPrefix(forSourceStorageKey key: String) -> String? {
+    let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return nil }
+    let videoExts: Set<String> = [
+      "mp4", "webm", "mov", "m4v", "mkv", "avi", "mpeg", "mpg", "ogv",
+    ]
+    var base = trimmed
+    if let dot = base.lastIndex(of: "."),
+      videoExts.contains(String(base[base.index(after: dot)...]).lowercased())
+    {
+      base = String(base[..<dot])
+    }
+    return "\(base)/hls/"
+  }
+
   private static func signedURL(
-    for original: URL, baseURL: URL, storageKey: String?, accessToken: String
+    for original: URL, baseURL: URL, storageKey: String?, accessToken: String,
+    scope: String
   ) async throws -> URL {
     let signed = try await EchoSignedURLCache.shared.resolve(
       baseURL: baseURL,
       accessToken: accessToken,
       publicURL: original.absoluteString,
-      storageKey: storageKey)
+      storageKey: storageKey,
+      scope: scope)
     guard let signedURL = URL(string: signed),
       EchoURLPolicy.isAllowedMediaURL(signedURL, apiBaseURL: baseURL)
     else {

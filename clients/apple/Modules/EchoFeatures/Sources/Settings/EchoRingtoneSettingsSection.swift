@@ -23,7 +23,7 @@ struct EchoRingtoneSettingsSection: View {
               Text(EchoCopy.string("Default ringtone"))
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(.primary)
-              Text(store.selectedEntry.label)
+              Text(store.selectedLabel)
                 .font(.system(size: 12, design: .rounded))
                 .foregroundStyle(.secondary)
             }
@@ -73,7 +73,7 @@ struct EchoRingtoneSettingsSection: View {
 
         EchoSettingAction(
           title: EchoCopy.string("Preview ringtone"),
-          subtitle: EchoCopy.string("Play the selected built-in ringtone once"),
+          subtitle: EchoCopy.string("Play the selected ringtone once"),
           icon: "play.fill",
           tint: .pink
         ) {

@@ -51,7 +51,7 @@ export function buildEchoWebhookHeaders(
   };
   const deliveryId = opts?.deliveryId ?? randomUUID();
   headers['x-echo-delivery-id'] = deliveryId;
-  /** Always sign when a secret exists; dev API skips verification, production requires it. */
+  /** Always sign when a secret exists; the API verifies HMAC whenever a secret is configured. */
   const shouldSign = opts?.sign ?? Boolean(secret);
   if (shouldSign) {
     const { ts, signature } = signEchoWebhookBody(secret, rawBody);

@@ -295,6 +295,7 @@ private final class EchoAudioAttachmentPlayback {
     next.defaultRate = Float(playbackRate)
     attachObservers(to: next)
     player = next
+    EchoChatMediaRetentionTouch.queue(attachment.storageKey)
     Task { await self.refreshDuration(from: item) }
     Task {
       if let peaks = await EchoAudioWaveformBars.peaks(from: url) {

@@ -12,33 +12,17 @@ struct EchoWelcomeView: View {
     GeometryReader { proxy in
       ZStack {
         EchoWelcomeBackdrop(size: proxy.size)
-
-        VStack(spacing: 0) {
-          Spacer(minLength: 12)
-
-          EchoConversationStack()
-            .scaleEffect(0.94)
-            .frame(height: min(250, proxy.size.height * 0.30))
-            .reveal(appeared, offset: 12)
-
-          Spacer(minLength: 20)
-
-          hero.reveal(appeared, offset: 16)
-
-          Spacer(minLength: 28)
-
-          actions
-            .padding(.horizontal, 24)
-            .frame(maxWidth: 420)
-            .reveal(appeared, offset: 20)
-
-          Spacer(minLength: max(24, proxy.safeAreaInsets.bottom + 12))
-        }
-        .frame(width: proxy.size.width, height: proxy.size.height)
+        #if os(macOS)
+          macContent(size: proxy.size)
+        #else
+          phoneContent(size: proxy.size, bottomInset: proxy.safeAreaInsets.bottom)
+        #endif
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .safeAreaPadding(.top, 8)
+    #if os(iOS)
+      .safeAreaPadding(.top, 8)
+    #endif
     .onAppear {
       guard !appeared else { return }
       if displayPrefs.prefersReducedMotion {
@@ -49,13 +33,94 @@ struct EchoWelcomeView: View {
     }
   }
 
-  private var hero: some View {
-    VStack(spacing: 10) {
+  #if os(macOS)
+    @ViewBuilder
+    private func macContent(size: CGSize) -> some View {
+      let useSplit = size.width >= 920
+      if useSplit {
+        HStack(spacing: 0) {
+          brandStage(height: min(320, size.height * 0.42))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .reveal(appeared, offset: 14)
+
+          Divider()
+            .background(EchoTheme.Color.ink(0.10))
+
+          railColumn
+            .frame(width: min(460, max(380, size.width * 0.34)))
+            .frame(maxHeight: .infinity)
+            .padding(.horizontal, 36)
+            .padding(.vertical, 40)
+        }
+      } else {
+        VStack(spacing: 28) {
+          Spacer(minLength: 24)
+          brandStage(height: min(240, size.height * 0.28))
+            .reveal(appeared, offset: 12)
+          railColumn
+            .frame(maxWidth: 420)
+            .padding(.horizontal, 32)
+            .reveal(appeared, offset: 18)
+          Spacer(minLength: 32)
+        }
+        .frame(width: size.width, height: size.height)
+      }
+    }
+
+    private var railColumn: some View {
+      VStack(alignment: .leading, spacing: 0) {
+        Spacer(minLength: 12)
+        hero(alignment: .leading, titleSize: 42)
+          .reveal(appeared, offset: 16)
+        Spacer(minLength: 28)
+        actions(maxButtonWidth: .infinity, compact: false)
+          .reveal(appeared, offset: 20)
+        Spacer(minLength: 12)
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+  #endif
+
+  #if os(iOS)
+    private func phoneContent(size: CGSize, bottomInset: CGFloat) -> some View {
+      VStack(spacing: 0) {
+        Spacer(minLength: 12)
+
+        brandStage(height: min(250, size.height * 0.30))
+          .reveal(appeared, offset: 12)
+
+        Spacer(minLength: 20)
+
+        hero(alignment: .center, titleSize: 46)
+          .reveal(appeared, offset: 16)
+
+        Spacer(minLength: 28)
+
+        actions(maxButtonWidth: .infinity, compact: true)
+          .padding(.horizontal, 24)
+          .frame(maxWidth: 420)
+          .reveal(appeared, offset: 20)
+
+        Spacer(minLength: max(24, bottomInset + 12))
+      }
+      .frame(width: size.width, height: size.height)
+    }
+  #endif
+
+  private func brandStage(height: CGFloat) -> some View {
+    EchoConversationStack()
+      .scaleEffect(0.94)
+      .frame(height: height)
+      .frame(maxWidth: .infinity)
+  }
+
+  private func hero(alignment: HorizontalAlignment, titleSize: CGFloat) -> some View {
+    VStack(alignment: alignment, spacing: 10) {
       EchoCopy.text("Welcome back")
-        .font(.system(size: 46, weight: .heavy, design: .rounded))
+        .font(.system(size: titleSize, weight: .heavy, design: .rounded))
         .tracking(-0.8)
         .foregroundStyle(EchoTheme.Color.fg)
-        .multilineTextAlignment(.center)
+        .multilineTextAlignment(alignment == .leading ? .leading : .center)
         .minimumScaleFactor(0.7)
         .lineLimit(1)
         .echoShadow(color: .black.opacity(0.35), radius: 24, y: 6)
@@ -68,12 +133,13 @@ struct EchoWelcomeView: View {
       .font(.system(size: 18, weight: .semibold, design: .rounded))
       .foregroundStyle(EchoTheme.Color.ink(0.66))
     }
-    .padding(.horizontal, 24)
+    .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .center)
+    .padding(.horizontal, alignment == .leading ? 0 : 24)
     .accessibilityElement(children: .combine)
   }
 
-  private var actions: some View {
-    VStack(spacing: 6) {
+  private func actions(maxButtonWidth: CGFloat?, compact: Bool) -> some View {
+    VStack(spacing: compact ? 6 : 10) {
       Button { onSelect(.signIn) } label: {
         HStack(spacing: 11) {
           EchoLogoMark(size: 24)
@@ -81,7 +147,7 @@ struct EchoWelcomeView: View {
         }
         .font(.system(size: 17, weight: .bold, design: .rounded))
         .foregroundStyle(EchoTheme.Color.fg)
-        .frame(maxWidth: .infinity, minHeight: 56)
+        .frame(maxWidth: maxButtonWidth ?? .infinity, minHeight: compact ? 56 : 52)
         .background(
           EchoTheme.Color.signInBlue.opacity(0.22),
           in: RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -89,19 +155,22 @@ struct EchoWelcomeView: View {
         .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
       }
       .buttonStyle(EchoWelcomePressStyle())
+      #if os(macOS)
+        .keyboardShortcut(.defaultAction)
+      #endif
 
       Button { onSelect(.register) } label: {
         EchoCopy.text("Create an account")
           .font(.system(size: 16, weight: .semibold, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.78))
-          .frame(maxWidth: .infinity, minHeight: 46)
+          .frame(maxWidth: maxButtonWidth ?? .infinity, minHeight: compact ? 46 : 44)
           .contentShape(Rectangle())
       }
       .buttonStyle(EchoWelcomePressStyle())
 
       if let unlockTitle, let onUnlock {
         Button(action: onUnlock) {
-          Label(unlockTitle, systemImage: "faceid")
+          Label(unlockTitle, systemImage: unlockSystemImage)
             .font(.system(size: 14, weight: .semibold, design: .rounded))
             .foregroundStyle(EchoTheme.Color.ink(0.52))
             .frame(minHeight: 36)
@@ -110,6 +179,14 @@ struct EchoWelcomeView: View {
         .buttonStyle(EchoWelcomePressStyle())
       }
     }
+  }
+
+  private var unlockSystemImage: String {
+    #if os(macOS)
+      "touchid"
+    #else
+      "faceid"
+    #endif
   }
 }
 

@@ -6,6 +6,27 @@ import Foundation
   import AppKit
 #endif
 
+/// Shared composer field geometry — text, placeholder, and 44pt controls share this.
+enum EchoComposerFieldMetrics {
+  static let minHeight: CGFloat = 44
+  static let maxHeight: CGFloat = 104
+  static let controlSide: CGFloat = 44
+
+  static var lineHeight: CGFloat {
+    #if os(iOS)
+      ceil(UIFont.systemFont(ofSize: EchoTheme.Typography.composer).lineHeight)
+    #else
+      ceil(
+        NSLayoutManager().defaultLineHeight(
+          for: NSFont.systemFont(ofSize: EchoTheme.Typography.composer)))
+    #endif
+  }
+
+  /// Top/bottom inset so a single line sits in the middle of `minHeight`.
+  static var verticalInset: CGFloat {
+    max(0, floor((minHeight - lineHeight) / 2))
+  }
+}
 
 enum EchoInlineMarkdownStyle {
   #if os(iOS)

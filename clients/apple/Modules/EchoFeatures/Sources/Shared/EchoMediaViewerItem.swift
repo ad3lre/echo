@@ -1,6 +1,39 @@
 import EchoDomain
 import Foundation
 
+/// Web `imageViewerZoom` — fit is contain at 1, open slightly pulled back.
+enum EchoMediaViewerZoom {
+  static let initial: CGFloat = 0.9
+  static let min: CGFloat = 0.25
+  static let max: CGFloat = 4
+  static let panThreshold: CGFloat = initial + 0.001
+  /// Trackpad two-finger pan is a bit floaty at 1:1; dampen toward mouse-drag feel.
+  static let trackpadPanFactor: CGFloat = 0.55
+
+  static func clamp(_ zoom: CGFloat) -> CGFloat {
+    guard zoom.isFinite else { return initial }
+    return Swift.min(max, Swift.max(min, zoom))
+  }
+
+  /// Max pan so zoomed content stays within a defined viewport (Photos-style).
+  static func maxPanOffset(viewport: CGSize, zoom: CGFloat) -> CGSize {
+    let z = clamp(zoom)
+    guard z > panThreshold, viewport.width > 0, viewport.height > 0 else { return .zero }
+    return CGSize(
+      width: Swift.max(0, (viewport.width * z - viewport.width) / 2),
+      height: Swift.max(0, (viewport.height * z - viewport.height) / 2)
+    )
+  }
+
+  static func clampedPan(_ pan: CGSize, viewport: CGSize, zoom: CGFloat) -> CGSize {
+    let limit = maxPanOffset(viewport: viewport, zoom: zoom)
+    return CGSize(
+      width: Swift.min(limit.width, Swift.max(-limit.width, pan.width)),
+      height: Swift.min(limit.height, Swift.max(-limit.height, pan.height))
+    )
+  }
+}
+
 /// One page in the native media viewer (images, GIFs, or video).
 struct EchoMediaViewerItem: Identifiable, Equatable, Sendable {
   enum Kind: Equatable, Sendable {
@@ -71,7 +104,10 @@ struct EchoMediaViewerSession: Identifiable, Equatable {
       return EchoMediaViewerItem(attachment: att)
     }
     guard !items.isEmpty else { return nil }
-    let index = items.firstIndex { $0.url == attachment.url && $0.kind == (attachment.isVideo ? .video : .image) } ?? 0
+    let index =
+      items.firstIndex {
+        $0.url == attachment.url && $0.kind == (attachment.isVideo ? .video : .image)
+      } ?? 0
     return EchoMediaViewerSession(items: items, initialIndex: index)
   }
 }

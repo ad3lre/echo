@@ -12,6 +12,7 @@ import {
   canUserSpeakInStageChannel,
   cancelEchoStageSpeakRequest,
   getEchoChannelVoiceE2eeEnabled,
+  userHasActiveEchoE2eeDevice,
   insertEchoAudit,
   joinEchoVoiceChannel,
   leaveEchoVoiceChannel,
@@ -413,13 +414,27 @@ export default async function echoVoiceRoutes(
           ? Boolean(modRow.rows[0].server_deafened)
           : false,
       });
-      // Element Call–style media keys are peer-distributed; mint only reports
-      // whether this channel requires LiveKit frame E2EE (no epoch/MLS gate).
+      // Element Call–style media keys are peer-distributed; require a registered
+      // LibSignal device before minting when the channel mandates frame E2EE.
       const voiceE2eeRequired = await getEchoChannelVoiceE2eeEnabled(
         pool,
         serverId,
         channelId,
       );
+      if (voiceE2eeRequired) {
+        const hasDevice = await userHasActiveEchoE2eeDevice(
+          pool,
+          getAuthUser(req).id,
+        );
+        if (!hasDevice) {
+          return sendError(
+            reply,
+            403,
+            'VOICE_E2EE_DEVICE_REQUIRED',
+            'Register an E2EE device before joining an encrypted voice channel.',
+          );
+        }
+      }
 
       const pfpMeta = pfpForLiveKitParticipantMetadata(
         getAuthUser(req).pfp ?? '',

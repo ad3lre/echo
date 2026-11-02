@@ -1,0 +1,14 @@
+{
+  "document": {
+    "title": "Echo Vulnerability Disclosure Report",
+    "product": "echo",
+    "version": "0.1.8",
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "tool": "osv-scanner@2.7.0",
+    "spec": "Echo VDR (OSV-backed; accompanies CycloneDX SBOM)"
+  },
+  "status": "clean",
+  "vulnerabilityCount": 0,
+  "blockingCount": 0,
+  "vulnerabilities": []
+}

@@ -3,6 +3,30 @@ import EchoNetworking
 import Foundation
 import Observation
 
+/// Client-chosen self presence. Server echoes that disagree are ignored until they match.
+@MainActor
+enum EchoOptimisticSelfPresence {
+  static var lastChosen: String?
+
+  static func canonical(_ raw: String) -> String {
+    switch raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "online": "online"
+    case "idle", "away": "idle"
+    case "do_not_disturb", "dnd", "busy": "do_not_disturb"
+    default: raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+  }
+
+  static func remember(_ status: String) {
+    lastChosen = canonical(status)
+  }
+
+  static func shouldAccept(_ incoming: String) -> Bool {
+    guard let lastChosen else { return true }
+    return canonical(incoming) == lastChosen
+  }
+}
+
 @MainActor
 @Observable
 final class EchoHomeModel {
@@ -18,11 +42,22 @@ final class EchoHomeModel {
   private(set) var errorMessage: String?
   private(set) var inboxNotificationCount = 0
   private(set) var currentUserPresence = "offline"
+  /// DM-hub “Going” event cards from workspace `myEventRsvps`.
+  private(set) var guildEventActivityCards: [EchoGuildEventActivityCard] = []
+  /// Pending DM message requests (web Messages rail `Message requests`).
+  var messageRequests: [EchoMessageRequest] = []
+  var messageRequestError: String?
+  var respondingMessageRequestIDs = Set<String>()
   private var hasLoaded = false
   @ObservationIgnored private var pendingUnknownChannelReload: Task<Void, Never>?
   @ObservationIgnored private var loadGeneration = 0
   @ObservationIgnored private var lightRefreshGeneration = 0
   @ObservationIgnored private var avatarPrefetchTask: Task<Void, Never>?
+  @ObservationIgnored private var lastIncomingSoundMessageID: String?
+  @ObservationIgnored private let workspaceClient: EchoWorkspaceClient?
+  @ObservationIgnored var messageRequestClient: (any EchoMessageRequestServing)?
+  /// Optional guild role resolver for mention-class notification sounds.
+  @ObservationIgnored var guildMemberRoleIDs: ((String) -> Set<String>)?
 
   init(
     baseURL: URL,
@@ -36,6 +71,8 @@ final class EchoHomeModel {
     self.auth = auth
     self.userID = userID
     self.mediaBaseURL = baseURL
+    self.workspaceClient = EchoWorkspaceClient(baseURL: baseURL)
+    self.messageRequestClient = EchoMessageRequestClient(baseURL: baseURL)
   }
 
   /// Test seam that bypasses concrete networking clients.
@@ -51,6 +88,7 @@ final class EchoHomeModel {
     self.auth = auth
     self.userID = userID
     self.mediaBaseURL = nil
+    self.workspaceClient = nil
     self.snapshot = snapshot
     self.hasLoaded = snapshot != nil
   }
@@ -125,7 +163,11 @@ final class EchoHomeModel {
       async let inboxRefresh: Void = refreshInboxNotificationCount()
       async let presenceRefresh: Void = refreshCurrentUserPresence()
       async let attentionRefresh: Void = EchoAttentionSync.shared.refresh(auth: auth)
-      _ = await (inboxRefresh, presenceRefresh, attentionRefresh)
+      async let eventsRefresh: Void = refreshGuildEventActivityCards()
+      async let requestsRefresh: Void = loadMessageRequests()
+      _ = await (
+        inboxRefresh, presenceRefresh, attentionRefresh, eventsRefresh, requestsRefresh
+      )
     } catch {
       guard generation == loadGeneration else { return }
       errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -149,18 +191,61 @@ final class EchoHomeModel {
     inboxNotificationCount = requests.incoming.count
   }
 
+  /// Hydrate the Messages “Going” strip from workspace RSVPs.
+  func refreshGuildEventActivityCards() async {
+    guard let workspaceClient else { return }
+    guard
+      let rsvps = try? await auth.withAccessTokenRetry({ token in
+        try await workspaceClient.loadMyEventRsvps(accessToken: token)
+      })
+    else { return }
+    guildEventActivityCards = EchoGuildEventActivityCards.build(from: rsvps)
+  }
+
+  /// Drop a declined event from the Going strip without waiting on reload.
+  func removeGuildEventActivityCard(eventID: String) {
+    guildEventActivityCards.removeAll { $0.eventID == eventID }
+  }
+
+  /// Insert / bump a DM after accepting a message request.
+  func upsertConversation(_ conversation: EchoDirectMessage) {
+    guard let snapshot else { return }
+    self.snapshot = snapshot.insertingConversation(conversation)
+  }
+
+  /// Surface a transient failure after an optimistic sheet dismiss (e.g. group create).
+  func surfaceError(_ message: String) {
+    let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return }
+    errorMessage = trimmed
+  }
+
   func refreshCurrentUserPresence() async {
     do {
       if let presence = try await auth.withAccessTokenRetry({ token in
         try await settingsClient.loadPresence(userID: userID, accessToken: token)
       }) {
-        currentUserPresence = presence
-      } else {
+        acceptRemoteSelfPresence(presence)
+      } else if EchoOptimisticSelfPresence.lastChosen == nil {
         currentUserPresence = "offline"
       }
     } catch {
       // Leave the last known presence in place on transport failures.
     }
+  }
+
+  /// Optimistic self-presence from the Mac rail status tray (web SelfProfilePopout).
+  func applySelfPresence(_ status: String) {
+    let trimmed = status.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return }
+    let canonical = EchoOptimisticSelfPresence.canonical(trimmed)
+    EchoOptimisticSelfPresence.remember(canonical)
+    currentUserPresence = canonical
+  }
+
+  private func acceptRemoteSelfPresence(_ status: String) {
+    guard EchoOptimisticSelfPresence.shouldAccept(status) else { return }
+    currentUserPresence = EchoOptimisticSelfPresence.canonical(status)
   }
 
   private func refreshPeerPresence() async {
@@ -178,7 +263,8 @@ final class EchoHomeModel {
       })
     else { return }
     guard generation == lightRefreshGeneration, load == loadGeneration,
-      var next = self.snapshot, !Task.isCancelled else { return }
+      var next = self.snapshot, !Task.isCancelled
+    else { return }
     for (peerUserID, status) in presence {
       next = next.applyingPresence(peerUserID: peerUserID, status: status)
     }
@@ -188,15 +274,16 @@ final class EchoHomeModel {
   func applyRealtime(_ event: EchoRealtimeEvent) {
     switch event {
     case .presence(let userID, let status):
-      if userID == self.userID { currentUserPresence = status }
+      if userID == self.userID { acceptRemoteSelfPresence(status) }
       snapshot = snapshot?.applyingPresence(peerUserID: userID, status: status)
     case .dmActivity(let channelID, let message, let lastActivityAt):
       applyActivity(
         channelID: channelID, message: message, at: lastActivityAt ?? message.timestamp)
+      playIncomingChatSoundIfNeeded(message, isDmChannel: true)
       Task { await EchoAttentionSync.shared.refresh(auth: auth) }
     case .message(let message):
       applyActivity(channelID: message.channelID, message: message, at: message.timestamp)
-      playIncomingDmSoundIfNeeded(message)
+      playIncomingChatSoundIfNeeded(message, isDmChannel: isDirectMessageChannel(message.channelID))
       Task { await EchoAttentionSync.shared.refresh(auth: auth) }
     case .connected:
       guard hasLoaded, snapshot != nil else { return }
@@ -219,9 +306,42 @@ final class EchoHomeModel {
     }
   }
 
-  private func playIncomingDmSoundIfNeeded(_ message: EchoMessage) {
-    guard message.authorID != userID else { return }
-    EchoSoundPlayback.play(.dmPing)
+  private func isDirectMessageChannel(_ channelID: String) -> Bool {
+    snapshot?.conversations.contains { $0.channelID == channelID } == true
+      || snapshot?.personalNotes?.channelID == channelID
+  }
+
+  private func playIncomingChatSoundIfNeeded(_ message: EchoMessage, isDmChannel: Bool) {
+    guard lastIncomingSoundMessageID != message.id else { return }
+    let profile = snapshot?.profile
+    let attention = EchoAttentionSync.shared.snapshot
+    let serverID = attention.summary(for: message.channelID)?.serverID
+    let level: String? = {
+      guard !isDmChannel else { return nil }
+      if let serverID, let stored = attention.notificationLevel(forServerID: serverID) {
+        return stored
+      }
+      // Unknown server prefs: match prior default (do not silence).
+      return EchoServerNotificationLevel.all
+    }()
+    let roleIDs: Set<String> = {
+      guard !isDmChannel, let serverID, let guildMemberRoleIDs else { return [] }
+      return guildMemberRoleIDs(serverID)
+    }()
+    guard
+      let sound = EchoIncomingChatSound.option(
+        authorID: message.authorID,
+        currentUserID: userID,
+        currentUsername: profile?.username,
+        currentDisplayName: profile?.name,
+        isDmChannel: isDmChannel,
+        mentions: message.mentions,
+        replyTo: message.replyTo,
+        serverNotificationLevel: level,
+        memberRoleIDs: roleIDs)
+    else { return }
+    lastIncomingSoundMessageID = message.id
+    EchoSoundPlayback.play(sound)
   }
 
   private func scheduleUnknownChannelReload() {

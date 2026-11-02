@@ -52,52 +52,109 @@ struct EchoAuthScreen: View {
 
   var body: some View {
     GeometryReader { proxy in
-      ScrollView(showsIndicators: false) {
-        VStack(spacing: 0) {
-          HStack {
-            Button(action: {
-              if model.isChallengePending {
-                model.cancelMfa()
-                mfaCode = ""
-                emailIpCode = ""
-              } else {
-                onBack()
-              }
-            }) {
-              Image(systemName: "chevron.left")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(EchoTheme.Color.ink(0.82))
-                .frame(width: 38, height: 38)
-                .background(EchoTheme.Color.ink(0.07), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(
-              model.isChallengePending
-                ? EchoCopy.string("Cancel verification")
-                : EchoCopy.string("Back")
-            )
-            Spacer()
-            EchoAuthFlowTrack(mode: mode, isVerifying: model.isChallengePending)
-          }
-          .padding(.top, 22)
-
-          if model.isEmailVerifyPending {
-            emailVerifyContent(proxy: proxy)
-          } else if model.isEmailIpPending {
-            emailIpContent(proxy: proxy)
-          } else if model.isMfaPending {
-            mfaContent(proxy: proxy)
-          } else {
-            signInContent(proxy: proxy)
-          }
-        }
-        .padding(.horizontal, 28)
-        .frame(minHeight: proxy.size.height)
-      }
-      .safeAreaPadding(.top, 12)
-      .safeAreaPadding(.bottom, 12)
+      #if os(macOS)
+        macShell(proxy: proxy)
+      #else
+        phoneShell(proxy: proxy)
+      #endif
     }
     .background(Color.clear)
+    .echoPasskeyAutoFill(
+      model: model,
+      enabled: mode == .signIn && !model.isChallengePending,
+      username: $username,
+      password: $password
+    )
+  }
+
+  #if os(macOS)
+    private func macShell(proxy: GeometryProxy) -> some View {
+      let useSplit = proxy.size.width >= 920
+      return Group {
+        if useSplit {
+          HStack(spacing: 0) {
+            EchoAuthBrandPane()
+              .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+              .background(EchoTheme.Color.ink(0.10))
+
+            formScroll(proxy: proxy, horizontalPadding: 36, topChrome: 18)
+              .frame(width: min(480, max(400, proxy.size.width * 0.36)))
+              .frame(maxHeight: .infinity)
+              .background(EchoTheme.Color.ink(0.03))
+          }
+        } else {
+          formScroll(proxy: proxy, horizontalPadding: 32, topChrome: 18)
+            .frame(maxWidth: 460)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+      }
+    }
+  #endif
+
+  private func phoneShell(proxy: GeometryProxy) -> some View {
+    formScroll(proxy: proxy, horizontalPadding: 28, topChrome: 22)
+      .safeAreaPadding(.top, 12)
+      .safeAreaPadding(.bottom, 12)
+  }
+
+  private func formScroll(
+    proxy: GeometryProxy, horizontalPadding: CGFloat, topChrome: CGFloat
+  ) -> some View {
+    ScrollView(showsIndicators: false) {
+      VStack(spacing: 0) {
+        HStack {
+          Button(action: {
+            if model.isChallengePending {
+              model.cancelMfa()
+              mfaCode = ""
+              emailIpCode = ""
+            } else {
+              onBack()
+            }
+          }) {
+            Image(systemName: "chevron.left")
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundStyle(EchoTheme.Color.ink(0.82))
+              .frame(width: 38, height: 38)
+              .background(EchoTheme.Color.ink(0.07), in: Circle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(
+            model.isChallengePending
+              ? EchoCopy.string("Cancel verification")
+              : EchoCopy.string("Back")
+          )
+          #if os(macOS)
+            .keyboardShortcut(.cancelAction)
+          #endif
+          Spacer()
+          EchoAuthFlowTrack(mode: mode, isVerifying: model.isChallengePending)
+        }
+        .padding(.top, topChrome)
+
+        if model.isEmailVerifyPending {
+          emailVerifyContent(proxy: proxy)
+        } else if model.isEmailIpPending {
+          emailIpContent(proxy: proxy)
+        } else if model.isMfaPending {
+          mfaContent(proxy: proxy)
+        } else {
+          signInContent(proxy: proxy)
+        }
+      }
+      .padding(.horizontal, horizontalPadding)
+      .frame(minHeight: proxy.size.height)
+    }
+  }
+
+  private var formHeroTop: CGFloat {
+    #if os(macOS)
+      28
+    #else
+      64
+    #endif
   }
 
   @ViewBuilder
@@ -124,7 +181,7 @@ struct EchoAuthScreen: View {
         .multilineTextAlignment(.center)
         .padding(.top, 8)
       }
-      .padding(.top, 64)
+      .padding(.top, formHeroTop)
 
       Button {
         Task { await model.resendEmailVerification() }
@@ -162,7 +219,7 @@ struct EchoAuthScreen: View {
         .multilineTextAlignment(.center)
         .padding(.top, 8)
       }
-      .padding(.top, 64)
+      .padding(.top, formHeroTop)
 
       EchoAuthField(
         title: EchoCopy.string("Email code"), text: $emailIpCode, isSecure: false
@@ -216,7 +273,7 @@ struct EchoAuthScreen: View {
         .multilineTextAlignment(.center)
         .padding(.top, 8)
       }
-      .padding(.top, 64)
+      .padding(.top, formHeroTop)
 
       EchoAuthField(
         title: EchoCopy.string("Authentication or recovery code"), text: $mfaCode, isSecure: false
@@ -235,6 +292,9 @@ struct EchoAuthScreen: View {
       .accessibilityLabel(EchoCopy.string("Verify"))
       .disabled(mfaCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isWorking)
       .opacity(mfaCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
+      #if os(macOS)
+        .keyboardShortcut(.defaultAction)
+      #endif
       .padding(.top, 18)
       .padding(.bottom, max(28, proxy.safeAreaInsets.bottom + 18))
     }
@@ -243,17 +303,19 @@ struct EchoAuthScreen: View {
   @ViewBuilder
   private func signInContent(proxy: GeometryProxy) -> some View {
     VStack(spacing: 0) {
-      VStack(spacing: 0) {
+      VStack(alignment: macFormAlignment, spacing: 0) {
         Text(mode.title)
-          .font(.system(size: 28, weight: .semibold, design: .rounded))
+          .font(.system(size: macTitleSize, weight: .semibold, design: .rounded))
           .foregroundStyle(EchoTheme.Color.fg)
+          .frame(maxWidth: .infinity, alignment: macTextAlignment)
         Text(mode.subtitle)
           .font(.system(size: 14, weight: .regular))
           .foregroundStyle(EchoTheme.Color.ink(0.60))
-          .multilineTextAlignment(.center)
+          .multilineTextAlignment(macMultilineAlignment)
+          .frame(maxWidth: .infinity, alignment: macTextAlignment)
           .padding(.top, 8)
       }
-      .padding(.top, 64)
+      .padding(.top, formHeroTop)
 
       EchoSignInWithAppleControl(mode: mode) { result, rawNonce in
         Task { await model.completeAppleSignIn(result, rawNonce: rawNonce) }
@@ -310,6 +372,9 @@ struct EchoAuthScreen: View {
       )
       .disabled(!canSubmit || model.isWorking)
       .opacity(canSubmit ? 1 : 0.45)
+      #if os(macOS)
+        .keyboardShortcut(.defaultAction)
+      #endif
       .padding(.top, 18)
 
       if !isRegistration {
@@ -343,7 +408,80 @@ struct EchoAuthScreen: View {
       }
     }
   }
+
+  private var macFormAlignment: HorizontalAlignment {
+    #if os(macOS)
+      .leading
+    #else
+      .center
+    #endif
+  }
+
+  private var macTextAlignment: Alignment {
+    #if os(macOS)
+      .leading
+    #else
+      .center
+    #endif
+  }
+
+  private var macMultilineAlignment: TextAlignment {
+    #if os(macOS)
+      .leading
+    #else
+      .center
+    #endif
+  }
+
+  private var macTitleSize: CGFloat {
+    #if os(macOS)
+      26
+    #else
+      28
+    #endif
+  }
 }
+
+#if os(macOS)
+  /// Left brand pane for desktop auth — mirrors the web welcome-back hero rail.
+  private struct EchoAuthBrandPane: View {
+    var body: some View {
+      GeometryReader { proxy in
+        ZStack {
+          RadialGradient(
+            colors: [EchoTheme.Color.signInBlue.opacity(0.28), .clear],
+            center: UnitPoint(x: 0.45, y: 0.35),
+            startRadius: 0,
+            endRadius: max(proxy.size.width, proxy.size.height) * 0.7
+          )
+          RadialGradient(
+            colors: [EchoTheme.Color.violetDeep.opacity(0.22), .clear],
+            center: UnitPoint(x: 0.85, y: 0.85),
+            startRadius: 0,
+            endRadius: max(proxy.size.width, proxy.size.height) * 0.55
+          )
+          VStack(spacing: 22) {
+            EchoConversationStack()
+              .scaleEffect(1.05)
+              .frame(height: min(280, proxy.size.height * 0.42))
+            HStack(spacing: 8) {
+              EchoLogoMark(size: 28)
+              EchoCopy.text("Echo")
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(EchoTheme.Color.fg)
+            }
+            EchoCopy.text("A better place to talk.")
+              .font(.system(size: 15, weight: .medium, design: .rounded))
+              .foregroundStyle(EchoTheme.Color.ink(0.58))
+          }
+          .padding(.horizontal, 32)
+        }
+        .frame(width: proxy.size.width, height: proxy.size.height)
+      }
+      .accessibilityHidden(true)
+    }
+  }
+#endif
 
 /// Per-flow progress only — sign-in and register each own a two-step track
 /// (credentials → verify). They are not one shared welcome/login/register path.

@@ -161,6 +161,7 @@ struct EchoMemberListSection: Identifiable, Equatable {
   let id: String
   let title: String
   let colorHex: String
+  let roleIconURL: String?
   let sortKey: Int
   let isUnhoisted: Bool
   let members: [EchoServerMember]
@@ -171,14 +172,20 @@ struct EchoMemberListSection: Identifiable, Equatable {
     assignedRoleIDs: [String],
     catalog: [EchoServerRole],
     preferLight: Bool
-  ) -> (id: String, title: String, colorHex: String, sortKey: Int, isUnhoisted: Bool) {
+  ) -> (
+    id: String, title: String, colorHex: String, roleIconURL: String?, sortKey: Int,
+    isUnhoisted: Bool
+  ) {
     let metas = catalog.filter { assignedRoleIDs.contains($0.id) }
     let hoisted = metas.filter(\.hoist)
     guard let top = hoisted.max(by: { $0.position < $1.position }) else {
-      return (unhoistedID, "Members", "#94a3b8", -1, true)
+      return (unhoistedID, "Members", "#94a3b8", nil, -1, true)
     }
     let title = top.name == "@everyone" ? "Member" : top.name
-    return (top.id, title, top.displayColor(preferLight: preferLight), top.position, false)
+    return (
+      top.id, title, top.displayColor(preferLight: preferLight), top.roleIconURL, top.position,
+      false
+    )
   }
 
   static func buildSections(
@@ -189,7 +196,8 @@ struct EchoMemberListSection: Identifiable, Equatable {
     hideGuests: Bool
   ) -> [EchoMemberListSection] {
     var buckets: [String: (
-      title: String, color: String, sortKey: Int, isUnhoisted: Bool, members: [EchoServerMember]
+      title: String, color: String, icon: String?, sortKey: Int, isUnhoisted: Bool,
+      members: [EchoServerMember]
     )] = [:]
     for member in members {
       if hideGuests && member.isGuest { continue }
@@ -199,8 +207,8 @@ struct EchoMemberListSection: Identifiable, Equatable {
         preferLight: preferLight
       )
       var bucket = buckets[picked.id] ?? (
-        title: picked.title, color: picked.colorHex, sortKey: picked.sortKey,
-        isUnhoisted: picked.isUnhoisted, members: []
+        title: picked.title, color: picked.colorHex, icon: picked.roleIconURL,
+        sortKey: picked.sortKey, isUnhoisted: picked.isUnhoisted, members: []
       )
       bucket.members.append(member)
       buckets[picked.id] = bucket
@@ -213,6 +221,7 @@ struct EchoMemberListSection: Identifiable, Equatable {
         id: id,
         title: bucket.title,
         colorHex: bucket.color,
+        roleIconURL: bucket.icon,
         sortKey: bucket.sortKey,
         isUnhoisted: bucket.isUnhoisted,
         members: sorted

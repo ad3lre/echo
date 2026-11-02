@@ -37,10 +37,23 @@ export function startBotInternalServer(client: Client) {
   const envSecret = process.env.ECHO_DISCORD_BOT_WEBHOOK_SECRET?.trim() ?? '';
   const secret =
     envSecret || (!isProduction ? DEV_DISCORD_BOT_WEBHOOK_SECRET : '');
+  const isLoopback =
+    host === '127.0.0.1' || host === '::1' || host === 'localhost';
 
   if (!secret) {
     console.warn(
       '[bot-server] ECHO_DISCORD_BOT_WEBHOOK_SECRET not set; internal server will reject all requests.',
+    );
+  }
+  // Known-in-repo default secret must never authenticate a network-reachable bind.
+  if (secret === DEV_DISCORD_BOT_WEBHOOK_SECRET && !isLoopback) {
+    throw new Error(
+      '[bot-server] Refusing non-loopback bind with the default Discord bot webhook secret. Set ECHO_DISCORD_BOT_WEBHOOK_SECRET to a strong value, or bind 127.0.0.1.',
+    );
+  }
+  if (!isLoopback && !envSecret) {
+    throw new Error(
+      '[bot-server] Non-loopback bind requires ECHO_DISCORD_BOT_WEBHOOK_SECRET.',
     );
   }
 

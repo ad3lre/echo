@@ -1,3 +1,4 @@
+import CoreGraphics
 import EchoDomain
 import SwiftUI
 
@@ -13,6 +14,7 @@ enum EchoSettingsRoute: String, CaseIterable, Hashable, Identifiable {
   case notifications = "Notifications"
   case sounds = "Sounds"
   case dataPrivacy = "Data & Privacy"
+  case encryptionDevices = "Encryption devices"
   case discord = "Discord"
   case google = "Google"
   case youtube = "YouTube"
@@ -20,6 +22,7 @@ enum EchoSettingsRoute: String, CaseIterable, Hashable, Identifiable {
   case accessibility = "Accessibility"
   case voiceVideo = "Voice & Video"
   case timeLanguage = "Time & Language"
+  case keybinds = "Keybinds"
   case advanced = "Advanced"
   case echoPlus = "Echo+"
   case subscriptions = "Subscriptions"
@@ -94,22 +97,24 @@ struct EchoSettingsRowView: View {
   }
 }
 
-private struct EchoSettingsBrandIcon: View {
+struct EchoSettingsBrandIcon: View {
   let row: EchoSettingsRow
+  /// Compact mark for desktop sidebar nav (web settings-nav-item__icon).
+  var compact = false
 
   var body: some View {
     Group {
       switch row.route {
       case .discord:
         EchoBrandImage(name: "Discord", template: true)
-          .padding(7)
+          .padding(compact ? 0 : 7)
           .foregroundStyle(row.tint)
       case .google:
-        EchoBrandImage(name: "Google", template: false)
-          .padding(8)
+        EchoBrandImage(name: "Google", template: false, punchWhitePlate: true)
+          .padding(compact ? 0 : 2)
       default:
         Image(systemName: row.icon)
-          .font(.system(size: 16, weight: .medium))
+          .font(.system(size: compact ? 14 : 16, weight: .medium))
           .foregroundStyle(row.tint)
       }
     }
@@ -122,6 +127,7 @@ private struct EchoSettingsBrandIcon: View {
 private struct EchoBrandImage: View {
   let name: String
   var template: Bool = false
+  var punchWhitePlate: Bool = false
 
   var body: some View {
     image
@@ -132,19 +138,91 @@ private struct EchoBrandImage: View {
   private var image: Image {
     #if canImport(UIKit)
       if let ui = UIImage(named: name, in: .module, compatibleWith: nil) {
-        let rendered = ui.withRenderingMode(template ? .alwaysTemplate : .alwaysOriginal)
+        let source = punchWhitePlate ? ui.echoPunchingNearWhite() : ui
+        let rendered = source.withRenderingMode(template ? .alwaysTemplate : .alwaysOriginal)
         return Image(uiImage: rendered)
       }
       return Image(systemName: "app.fill")
     #elseif canImport(AppKit)
       if let ns = Bundle.module.image(forResource: name) {
-        let image = Image(nsImage: ns)
+        let source = punchWhitePlate ? ns.echoPunchingNearWhite() : ns
+        let image = Image(nsImage: source)
         return template ? image.renderingMode(.template) : image.renderingMode(.original)
       }
       return Image(systemName: "app.fill")
     #else
       return Image(systemName: "app.fill")
     #endif
+  }
+}
+
+#if canImport(UIKit)
+  extension UIImage {
+    fileprivate func echoPunchingNearWhite() -> UIImage {
+      guard let cg = cgImage else { return self }
+      guard let punched = cg.echoPunchingNearWhite() else { return self }
+      return UIImage(cgImage: punched, scale: scale, orientation: imageOrientation)
+    }
+  }
+#elseif canImport(AppKit)
+  extension NSImage {
+    fileprivate func echoPunchingNearWhite() -> NSImage {
+      var rect = CGRect(origin: .zero, size: size)
+      guard let cg = cgImage(forProposedRect: &rect, context: nil, hints: nil) else {
+        return self
+      }
+      guard let punched = cg.echoPunchingNearWhite() else { return self }
+      return NSImage(cgImage: punched, size: size)
+    }
+  }
+#endif
+
+extension CGImage {
+  fileprivate func echoPunchingNearWhite() -> CGImage? {
+    let width = self.width
+    let height = self.height
+    let bytesPerPixel = 4
+    let bytesPerRow = width * bytesPerPixel
+    var data = Data(count: height * bytesPerRow)
+    let drawn = data.withUnsafeMutableBytes { raw -> Bool in
+      guard let ptr = raw.baseAddress else { return false }
+      guard
+        let ctx = CGContext(
+          data: ptr,
+          width: width,
+          height: height,
+          bitsPerComponent: 8,
+          bytesPerRow: bytesPerRow,
+          space: CGColorSpaceCreateDeviceRGB(),
+          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+      else { return false }
+      ctx.draw(self, in: CGRect(x: 0, y: 0, width: width, height: height))
+      let buf = ptr.bindMemory(to: UInt8.self, capacity: width * height * bytesPerPixel)
+      for i in 0..<(width * height) {
+        let offset = i * bytesPerPixel
+        if buf[offset] > 240, buf[offset + 1] > 240, buf[offset + 2] > 240 {
+          buf[offset + 3] = 0
+        }
+      }
+      return true
+    }
+    guard drawn else { return nil }
+    return data.withUnsafeMutableBytes { raw in
+      guard let ptr = raw.baseAddress else { return nil }
+      guard
+        let ctx = CGContext(
+          data: ptr,
+          width: width,
+          height: height,
+          bitsPerComponent: 8,
+          bytesPerRow: bytesPerRow,
+          space: CGColorSpaceCreateDeviceRGB(),
+          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+      else { return nil }
+      return ctx.makeImage()
+    }
   }
 }
 

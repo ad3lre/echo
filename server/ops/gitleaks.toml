@@ -54,12 +54,25 @@ paths = [
 ]
 
 # Targeted suppression of known, intentionally fake test fixture values.
+# Also covers schedule/full-history scans of the public release line, where
+# older commits still contain fixtures / i18n `keypath=` / UserDefaults key
+# strings that gitleaks' generic rules flag (push-range scans miss them).
 regexes = [
   '''jwt-0123456789abcdef0123456789abcdef01234567''',
+  '''eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiIxMjM0NTYifQ\.c2lnbmF0dXJlX3BhcnQ''',
   '''postgresql://echo:echo_dev@(127\.0\.0\.1|localhost|postgres)(:\d+)?/echo''',
   '''POSTGRES_PASSWORD:\s*echo_dev''',
   '''dev-only-livekit-secret-change-me-0000000000''',
   '''devsecretdevsecretdevsecret1234''',
+  '''forward-0123456789abcdef0123456789abcdef012345''',
+  '''Echo\.dGVzdA\.testsecretpart1234567890abcdef''',
+  '''abcd-efgh-1234''',
+  '''^123456789012345678$''',
+  # i18n keypath values / Apple prefs keys mistaken for API credentials
+  # (allowlist matches the captured secret, not the surrounding `key=` / `keypath=`).
+  '''^[a-z][0-9]{2}(\.[a-zA-Z0-9]+)+$''',
+  '''echo\.notifications\.pendingRemoval\.v\d+''',
+  '''echo\.notificationSoundPrefs\.v\d+''',
 ]
 stopwords = [
   'echo_dev',

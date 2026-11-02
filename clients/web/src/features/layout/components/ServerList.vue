@@ -360,6 +360,7 @@ function openSelfProfile(event: MouseEvent) {
         :visible-servers="visibleServersForRail"
         :selected-server-id="selectedServerId"
         :are-servers-expanded="areServersExpanded"
+        :servers-always-on="railUiPrefs.serversAlwaysOn"
         :reorder-enabled="reorderEnabled"
         :rail-drag-source-index="railDragSourceIndex"
         :rail-drop-line-before="railDropLineBefore"

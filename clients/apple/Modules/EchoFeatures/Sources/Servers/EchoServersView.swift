@@ -25,8 +25,15 @@ struct EchoServersView: View {
   @State private var isSearching = false
   @State private var searchText = ""
   @FocusState private var searchFieldFocused: Bool
+  @State private var attention = EchoAttentionSync.shared
+  @State private var markAllServersNote: String?
 
   private var activeModel: EchoServersModel? { model ?? localModel }
+
+  private var canMarkAllServersRead: Bool {
+    EchoServerMarkRead.hasUnreadGuildChannels(
+      channelAttention: attention.snapshot.channelAttention)
+  }
 
   private var scrollBottomInset: CGFloat {
     shellChrome.layout.contentBottomInset(tabBarVisible: !shellChrome.suppressTabBar)
@@ -47,11 +54,15 @@ struct EchoServersView: View {
     // Portrait: channel list overlays the server list (tab bar can peek).
     // Landscape / Duo: persistent list column beside channels.
     return Group {
-      if shellChrome.layout.usesSplitChrome {
-        serversSplitBody
-      } else {
-        serversStackedBody
-      }
+      #if os(macOS)
+        macServersBody
+      #else
+        if shellChrome.layout.usesSplitChrome {
+          serversSplitBody
+        } else {
+          serversStackedBody
+        }
+      #endif
     }
     .alert(
       EchoCopy.string("Leave server?"),
@@ -103,12 +114,24 @@ struct EchoServersView: View {
       }
     }
     .onChange(of: selectedServer?.id) { _, id in
+      shellChrome.activeServerID = id
       // Portrait overlay: leave search when diving into a server.
       // Landscape split keeps the list (and search) beside channels.
       if id != nil, !shellChrome.layout.usesSplitChrome {
         closeServersSearch()
       } else {
         syncListSearchChrome()
+      }
+    }
+    .onChange(of: shellChrome.serversBackRequest) { _, _ in
+      #if os(macOS)
+        selectedServer = nil
+        shellChrome.activeServerID = nil
+      #endif
+    }
+    .onDisappear {
+      if selectedServer == nil {
+        shellChrome.activeServerID = nil
       }
     }
     .padding(.leading, scrollLeadingInset)
@@ -124,6 +147,41 @@ struct EchoServersView: View {
     }
     shellChrome.listSearchActive = isSearching || searchFieldFocused
   }
+
+  #if os(macOS)
+    @ViewBuilder
+    private var macServersBody: some View {
+      if let selected = selectedServer, let activeModel {
+        let server = activeModel.servers.first(where: { $0.id == selected.id }) ?? selected
+        EchoServerChannelsView(
+          server: server,
+          model: activeModel,
+          baseURL: baseURL,
+          userID: userID,
+          accessToken: accessToken,
+          onClose: {
+            selectedServer = nil
+            shellChrome.activeServerID = nil
+          }
+        )
+        .environment(auth)
+        .environment(displayPrefs)
+        .environment(shellChrome)
+        .id(server.id)
+      } else {
+        VStack(spacing: 8) {
+          Text(EchoCopy.string("Select a server"))
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(EchoTheme.Color.ink(0.78))
+          Text(EchoCopy.string("Open a community from the rail to start chatting."))
+            .font(.system(size: 13))
+            .foregroundStyle(EchoTheme.Color.ink(0.46))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(EchoHomeBackground().ignoresSafeArea())
+      }
+    }
+  #endif
 
   private var serversStackedBody: some View {
     ZStack {
@@ -334,6 +392,21 @@ struct EchoServersView: View {
           .accessibilityAddTraits(.isHeader)
           .frame(maxWidth: .infinity, alignment: .leading)
 
+        if canMarkAllServersRead {
+          Button {
+            Task { await markAllServersRead() }
+          } label: {
+            Image(systemName: "envelope.open.fill")
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundStyle(EchoTheme.Color.ink(0.70))
+              .frame(width: 40, height: 40)
+              .background(EchoTheme.Color.ink(0.07), in: Circle())
+              .contentShape(Circle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(EchoCopy.string("Mark all as read"))
+        }
+
         Button {
           withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
             isSearching = true
@@ -360,6 +433,32 @@ struct EchoServersView: View {
     .padding(.top, 6)
     .padding(.bottom, 10)
     .animation(.spring(response: 0.32, dampingFraction: 0.88), value: isSearching)
+    .alert(
+      EchoCopy.string("Mark all as read"),
+      isPresented: Binding(
+        get: { markAllServersNote != nil },
+        set: { if !$0 { markAllServersNote = nil } })
+    ) {
+      Button(EchoCopy.string("OK"), role: .cancel) { markAllServersNote = nil }
+    } message: {
+      Text(markAllServersNote ?? "")
+    }
+  }
+
+  private func markAllServersRead() async {
+    let ids = activeModel?.orderedServers.map(\.id) ?? []
+    let result = await EchoServerMarkRead.markAllServers(
+      serverIDs: ids, baseURL: baseURL, auth: auth, userID: userID)
+    switch result {
+    case .ok:
+      break
+    case .empty:
+      markAllServersNote = EchoCopy.string("Nothing to mark as read.")
+    case .failed:
+      markAllServersNote = EchoCopy.string("Echo couldn’t mark servers as read.")
+    case .unauthenticated:
+      markAllServersNote = EchoCopy.string("Sign in to mark servers as read.")
+    }
   }
 
   private func filteredServers(_ model: EchoServersModel) -> [EchoServerSummary] {
@@ -399,7 +498,13 @@ struct EchoServersView: View {
         Text(EchoCopy.string("No servers yet"))
           .font(.system(size: 20, weight: .semibold, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.92))
-        Text(EchoCopy.string("Join one from Explore, or create a community on the web."))
+        #if os(macOS)
+          let emptyHint = EchoCopy.string("Join or create one from Explore.")
+        #else
+          let emptyHint = EchoCopy.string(
+            "Join one from Explore, or create a community on the web.")
+        #endif
+        Text(emptyHint)
           .font(.system(size: 14, weight: .regular, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.48))
           .multilineTextAlignment(.center)
@@ -450,14 +555,17 @@ struct EchoServersView: View {
                 leaveTarget = server
                 showingLeaveConfirm = true
               } label: {
-                Label(EchoCopy.string("Leave server"), systemImage: "rectangle.portrait.and.arrow.right")
+                Label(
+                  EchoCopy.string("Leave server"), systemImage: "rectangle.portrait.and.arrow.right"
+                )
               }
             }
           }
         }
       }
-      // Recycle rows on Style → Theme so Sunny brown ink can’t stick mid-list.
-      .id(displayPrefs.appearanceGeneration)
+      // Observe theme flips for ink redraw without remounting (remount wiped
+      // the open server / conversation selection).
+      .opacity(displayPrefs.appearanceGeneration >= 0 ? 1 : 1)
       .listStyle(.plain)
       .scrollContentBackground(.hidden)
       .scrollDismissesKeyboard(.immediately)

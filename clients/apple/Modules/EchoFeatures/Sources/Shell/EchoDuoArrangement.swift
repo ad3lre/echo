@@ -110,20 +110,30 @@ struct EchoDuoArrangement<Primary: View, Secondary: View>: View {
 
   @ViewBuilder
   private func foldGutter(axis: Axis, thickness: CGFloat) -> some View {
-    let ink = EchoTheme.Color.ink(0.06)
-    if axis == .vertical {
-      Rectangle()
-        .fill(ink)
-        .frame(width: max(1, thickness))
-        .frame(maxHeight: .infinity)
+    #if os(macOS)
+      // Borderless desktop — spacing only, no painted rule.
+      Color.clear
+        .frame(width: axis == .vertical ? 0 : nil, height: axis == .horizontal ? 0 : nil)
+        .frame(maxWidth: axis == .horizontal ? .infinity : nil)
+        .frame(maxHeight: axis == .vertical ? .infinity : nil)
         .accessibilityHidden(true)
-    } else {
-      Rectangle()
-        .fill(ink)
-        .frame(height: max(1, thickness))
-        .frame(maxWidth: .infinity)
-        .accessibilityHidden(true)
-    }
+    #else
+      let drawn = max(1, thickness)
+      let ink = EchoTheme.Color.ink(0.08)
+      if axis == .vertical {
+        Rectangle()
+          .fill(ink)
+          .frame(width: drawn)
+          .frame(maxHeight: .infinity)
+          .accessibilityHidden(true)
+      } else {
+        Rectangle()
+          .fill(ink)
+          .frame(height: drawn)
+          .frame(maxWidth: .infinity)
+          .accessibilityHidden(true)
+      }
+    #endif
   }
 }
 

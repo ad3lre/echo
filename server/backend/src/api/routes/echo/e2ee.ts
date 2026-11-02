@@ -27,6 +27,7 @@ import {
   respondEchoE2eePairing,
   revokeEchoE2eeDevice,
   upsertEchoE2eeDevice,
+  EchoE2eeIdentityKeyConflictError,
 } from '../../../domain/echoStore';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
 import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
@@ -62,6 +63,9 @@ export default async function echoE2eeRoutes(
       } catch (e) {
         if (isPostgresUndefinedRelationError(e))
           return replyE2eeInfraMissing(reply);
+        if (e instanceof EchoE2eeIdentityKeyConflictError) {
+          return sendError(reply, 409, 'E2EE_IDENTITY_KEY_CONFLICT', e.message);
+        }
         throw e;
       }
       // Notify all sessions for this user to refresh device list / state.

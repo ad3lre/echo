@@ -9,6 +9,8 @@ struct EchoMarkdownBlockView: View {
   let apiBaseURL: URL
   var accessToken: String? = nil
   var emojiOnly: Bool = false
+  var magicTime: EchoMagicTimeContext? = nil
+  var embeds: [EchoMessageEmbed] = []
 
   var body: some View {
     switch block {
@@ -19,7 +21,9 @@ struct EchoMarkdownBlockView: View {
         apiBaseURL: apiBaseURL,
         accessToken: accessToken,
         size: emojiOnly ? EchoEmojiOnlySizing.glyphPointSize : EchoTheme.Typography.messageBody,
-        emojiOnly: emojiOnly)
+        emojiOnly: emojiOnly,
+        magicTime: magicTime,
+        embeds: embeds)
     case .heading(let level, let text):
       EchoMarkdownInlineText(
         text: text,
@@ -28,21 +32,23 @@ struct EchoMarkdownBlockView: View {
         accessToken: accessToken,
         size: headingSize(level),
         weight: .semibold,
-        opacity: 0.96
+        opacity: 0.96,
+        magicTime: magicTime,
+        embeds: embeds
       )
       .padding(.top, 4)
     case .quote(let text, let alert):
       EchoMarkdownQuote(
         text: text, alert: alert, mentions: mentions, apiBaseURL: apiBaseURL,
-        accessToken: accessToken)
+        accessToken: accessToken, magicTime: magicTime, embeds: embeds)
     case .unordered(let items):
       EchoMarkdownList(
         items: items, start: nil, mentions: mentions, apiBaseURL: apiBaseURL,
-        accessToken: accessToken)
+        accessToken: accessToken, magicTime: magicTime, embeds: embeds)
     case .ordered(let start, let items):
       EchoMarkdownList(
         items: items, start: start, mentions: mentions, apiBaseURL: apiBaseURL,
-        accessToken: accessToken)
+        accessToken: accessToken, magicTime: magicTime, embeds: embeds)
     case .code(let language, let text):
       ScrollView(.horizontal, showsIndicators: false) {
         Text(text)
@@ -63,7 +69,7 @@ struct EchoMarkdownBlockView: View {
     case .table(let headers, let rows):
       EchoMarkdownTable(
         headers: headers, rows: rows, mentions: mentions, apiBaseURL: apiBaseURL,
-        accessToken: accessToken)
+        accessToken: accessToken, magicTime: magicTime, embeds: embeds)
     case .math(let source, let display):
       EchoNativeMathView(source: EchoMarkdownMentions.restore(source), display: display)
     case .footnoteReference(let label, let number):
@@ -77,7 +83,8 @@ struct EchoMarkdownBlockView: View {
           .font(.system(size: 11, weight: .semibold, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.5))
         EchoMarkdownInlineText(
-          text: text, mentions: mentions, apiBaseURL: apiBaseURL, accessToken: accessToken)
+          text: text, mentions: mentions, apiBaseURL: apiBaseURL, accessToken: accessToken,
+          magicTime: magicTime, embeds: embeds)
       }
       .padding(.top, 2)
     case .rawHTML(let html):
@@ -164,7 +171,10 @@ struct EchoInlineCustomEmoji: View {
   var pointSize: CGFloat = 22
   /// Leading/trailing advance so custom emoji don’t collide with neighboring text.
   var sidePadding: CGFloat = 2
+  /// Web emoji inspect — off inside the inspect card itself and in snippets.
+  var inspectEnabled: Bool = true
 
+  @State private var showingInspect = false
   private var catalog: EchoCustomEmojiCatalog { .shared }
 
   var body: some View {
@@ -192,6 +202,18 @@ struct EchoInlineCustomEmoji: View {
     // Edge-to-edge emoji bitmaps sit flush against adjacent glyphs (author
     // names, mentions, prose) unless we keep a hair of advance width.
     .padding(.horizontal, sidePadding)
+    .contentShape(Rectangle())
+    .onTapGesture {
+      guard inspectEnabled else { return }
+      showingInspect = true
+    }
+    .popover(isPresented: $showingInspect, arrowEdge: .bottom) {
+      EchoEmojiInspectCard(
+        info: EchoEmojiInspect.resolveCustom(resolved, catalog: catalog),
+        apiBaseURL: apiBaseURL,
+        accessToken: accessToken)
+    }
+    .accessibilityHint(inspectEnabled ? EchoCopy.string("Show emoji details") : "")
   }
 
   private var resolvedRef: EchoCustomEmojiRef {
@@ -430,6 +452,8 @@ private struct EchoMarkdownQuote: View {
   let mentions: [EchoMessageMention]
   var apiBaseURL: URL = EchoAPIConfiguration.defaultBaseURL
   var accessToken: String? = nil
+  var magicTime: EchoMagicTimeContext? = nil
+  var embeds: [EchoMessageEmbed] = []
 
   var body: some View {
     HStack(alignment: .top, spacing: 9) {
@@ -443,7 +467,8 @@ private struct EchoMarkdownQuote: View {
             .foregroundStyle(alert.tint)
         }
         EchoMarkdownInlineText(
-          text: text, mentions: mentions, apiBaseURL: apiBaseURL, accessToken: accessToken)
+          text: text, mentions: mentions, apiBaseURL: apiBaseURL, accessToken: accessToken,
+          magicTime: magicTime, embeds: embeds)
       }
     }
     .padding(.vertical, 3)
@@ -456,6 +481,8 @@ private struct EchoMarkdownList: View {
   let mentions: [EchoMessageMention]
   var apiBaseURL: URL = EchoAPIConfiguration.defaultBaseURL
   var accessToken: String? = nil
+  var magicTime: EchoMagicTimeContext? = nil
+  var embeds: [EchoMessageEmbed] = []
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
@@ -475,10 +502,11 @@ private struct EchoMarkdownList: View {
               .foregroundStyle(EchoTheme.Color.ink(0.54))
             EchoMarkdownInlineText(
               text: String(item.dropFirst(3)), mentions: mentions, apiBaseURL: apiBaseURL,
-              accessToken: accessToken)
+              accessToken: accessToken, magicTime: magicTime, embeds: embeds)
           } else {
             EchoMarkdownInlineText(
-              text: item, mentions: mentions, apiBaseURL: apiBaseURL, accessToken: accessToken)
+              text: item, mentions: mentions, apiBaseURL: apiBaseURL, accessToken: accessToken,
+              magicTime: magicTime, embeds: embeds)
           }
         }
       }
@@ -492,17 +520,19 @@ private struct EchoMarkdownTable: View {
   let mentions: [EchoMessageMention]
   var apiBaseURL: URL = EchoAPIConfiguration.defaultBaseURL
   var accessToken: String? = nil
+  var magicTime: EchoMagicTimeContext? = nil
+  var embeds: [EchoMessageEmbed] = []
 
   var body: some View {
     ScrollView(.horizontal, showsIndicators: false) {
       VStack(alignment: .leading, spacing: 0) {
         EchoMarkdownTableRow(
           cells: headers, emphasized: true, mentions: mentions, apiBaseURL: apiBaseURL,
-          accessToken: accessToken)
+          accessToken: accessToken, magicTime: magicTime, embeds: embeds)
         ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
           EchoMarkdownTableRow(
             cells: row, emphasized: false, mentions: mentions, apiBaseURL: apiBaseURL,
-            accessToken: accessToken)
+            accessToken: accessToken, magicTime: magicTime, embeds: embeds)
         }
       }
       .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -517,6 +547,8 @@ private struct EchoMarkdownTableRow: View {
   let mentions: [EchoMessageMention]
   var apiBaseURL: URL = EchoAPIConfiguration.defaultBaseURL
   var accessToken: String? = nil
+  var magicTime: EchoMagicTimeContext? = nil
+  var embeds: [EchoMessageEmbed] = []
 
   var body: some View {
     HStack(alignment: .top, spacing: 0) {
@@ -527,7 +559,9 @@ private struct EchoMarkdownTableRow: View {
           apiBaseURL: apiBaseURL,
           accessToken: accessToken,
           size: 13,
-          weight: emphasized ? .semibold : .regular
+          weight: emphasized ? .semibold : .regular,
+          magicTime: magicTime,
+          embeds: embeds
         )
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

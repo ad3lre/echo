@@ -145,6 +145,15 @@ enum EchoRingtoneCatalog {
     if entries.contains(where: { $0.id == bare }) {
       return t.hasPrefix("builtin:") ? t : storageID(forBuiltin: bare)
     }
+    // Custom server ringtone ids (web `selectedId`) — preserve for cross-device sync.
+    if !t.hasPrefix("builtin:") {
+      return t
+    }
     return defaultStorageID()
+  }
+
+  static func isBuiltinStorageID(_ id: String) -> Bool {
+    let bare = id.hasPrefix("builtin:") ? String(id.dropFirst("builtin:".count)) : id
+    return entries.contains(where: { $0.id == bare })
   }
 }

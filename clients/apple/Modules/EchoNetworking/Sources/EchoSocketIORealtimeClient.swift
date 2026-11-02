@@ -1,3 +1,4 @@
+import EchoDomain
 import Foundation
 @preconcurrency import SocketIO
 import os
@@ -116,6 +117,41 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
     emit("dm_call:end", payload)
   }
 
+  /// Same shape as web `socketOutboundChatSend`: `id` is the client message id, stickers go as ids
+  /// (the server resolves name/format/url from the guild library; DMs have no sticker library).
+  public func sendMessage(
+    channelID: String, content: String, clientMessageID: String, stickerIDs: [String],
+    replyTo: EchoMessageReplyTo?
+  ) -> Bool {
+    guard isConnected else { return false }
+    var payload: [String: Any] = [
+      "channelId": channelID, "content": content, "id": clientMessageID,
+      "correlationId": UUID().uuidString.lowercased(),
+    ]
+    if !stickerIDs.isEmpty { payload["stickerIds"] = stickerIDs }
+    if let replyTo, let data = try? JSONEncoder().encode(replyTo),
+      let json = try? JSONSerialization.jsonObject(with: data)
+    {
+      payload["replyTo"] = json
+    }
+    emit("message", payload)
+    return true
+  }
+
+  public func joinGameRoom(roomID: String, gameKey: String) {
+    emit("game:join", ["roomId": roomID, "gameKey": gameKey])
+  }
+
+  public func leaveGameRoom(roomID: String) {
+    emit("game:leave", ["roomId": roomID])
+  }
+
+  public func sendGameAction(roomID: String, type: String, payload: [String: any Sendable]) {
+    var message: [String: Any] = ["roomId": roomID, "type": type]
+    if !payload.isEmpty { message["payload"] = payload }
+    emit("game:action", message)
+  }
+
   public func ping(timeout: Duration) async -> Bool {
     let timeoutSeconds = Self.seconds(timeout)
     return await withCheckedContinuation { continuation in
@@ -224,7 +260,7 @@ public final class EchoSocketIORealtimeClient: EchoRealtimeClient, @unchecked Se
       "message", "message_ack", "message_failed", "poll:updated",
       "presence:update", "channel:typing", "dm:activity", "dm:call",
       "message:pins", "message:updated", "message:deleted", "message:reactions",
-      "echo:workspace_event",
+      "echo:workspace_event", "game:snapshot", "game:event", "game:error",
     ]
     for name in names {
       socket.on(name) { [weak self] data, _ in

@@ -156,7 +156,7 @@ struct EchoNetworkingModelTests {
       #expect(request.url?.path == "/api/v1/echo/users/user-1/profile")
       let data = Data(
         """
-        {"id":"user-1","name":"Maya","username":"maya","pfp":"/maya.png","bio":"Building Echo.","bannerImage":"/banner.png","bannerColor":"#4338ca","badges":["og"],"bannerPositionY":32,"bannerRefractionEnabled":true,"bannerBlurEnabled":true,"bannerBlackoutEnabled":false}
+        {"id":"user-1","name":"Maya","username":"maya","pfp":"/maya.png","bio":"Building Echo.","bannerImage":"/banner.png","bannerColor":"#4338ca","badges":["og"],"bannerPositionY":32,"bannerRefractionEnabled":true,"bannerBlurEnabled":true,"bannerBlackoutEnabled":false,"timeZone":"America/Chicago"}
         """.utf8)
       return (
         HTTPURLResponse(
@@ -177,6 +177,7 @@ struct EchoNetworkingModelTests {
     #expect(profile.bannerRefractionEnabled)
     #expect(profile.bannerBlurEnabled)
     #expect(!profile.bannerBlackoutEnabled)
+    #expect(profile.timeZone == "America/Chicago")
   }
 
   @Test func incomingFriendRequestsResolveTheirSenderProfiles() async throws {
@@ -432,7 +433,7 @@ struct EchoNetworkingModelTests {
       #expect(request.url?.path == "/api/v1/echo/attention/summary")
       let body = Data(
         """
-        {"channelAttentionByChannelId":{"ch-a":{"channelId":"ch-a","kind":"dm","lastReadMessageId":null,"unreadCount":2},"ch-b":{"channelId":"ch-b","kind":"dm","lastReadMessageId":"m1","unreadCount":3}}}
+        {"channelAttentionByChannelId":{"ch-a":{"channelId":"ch-a","kind":"dm","lastReadMessageId":null,"unreadCount":2},"ch-b":{"channelId":"ch-b","kind":"dm","lastReadMessageId":"m1","unreadCount":3},"ch-g":{"channelId":"ch-g","kind":"server","serverId":"srv-1","unreadCount":1}},"serverNotificationLevelByServerId":{"srv-1":"none","srv-2":"mentions_direct"}}
         """.utf8)
       return (
         HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
@@ -442,8 +443,11 @@ struct EchoNetworkingModelTests {
     let snapshot = try await EchoHomeClient(
       baseURL: URL(string: "https://example.com")!, session: session
     ).loadAttention(accessToken: "token")
-    #expect(snapshot.unreadCount == 5)
+    #expect(snapshot.unreadCount == 6)
     #expect(snapshot.channelAttention["ch-a"]?.unreadCount == 2)
+    #expect(snapshot.notificationLevel(forServerID: "srv-1") == "none")
+    #expect(snapshot.notificationLevel(forServerID: "srv-2") == "mentions_direct")
+    #expect(snapshot.summary(for: "ch-g")?.serverID == "srv-1")
   }
 
   @Test func blocksAndReportsUsersUsingTheEchoContract() async throws {

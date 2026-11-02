@@ -13,16 +13,34 @@ struct EchoConversationTimeline: View {
   let scrollTargetMessageID: String?
   /// Composer panel / keyboard chrome — re-stick when this bumps.
   var stickToBottomTick: Int = 0
-  var onPeerProfileTap: (() -> Void)? = nil
+  /// Opens the author's profile (DM peer panel, guild quick profile, or full profile).
+  var onAuthorProfile: ((EchoMessage) -> Void)? = nil
+  /// Guild / group-DM roster lookup when the message payload left the author bare.
+  var resolveAuthor: ((String) -> EchoResolvedAuthor?)? = nil
   var onReply: ((EchoMessage) -> Void)? = nil
   var onEdit: ((EchoMessage) -> Void)? = nil
   var onDelete: ((EchoMessage) -> Void)? = nil
   var onReport: ((EchoMessage) -> Void)? = nil
   var onReact: ((EchoMessage) -> Void)? = nil
+  var onForward: ((EchoMessage) -> Void)? = nil
   var onToggleReaction: ((EchoMessage, String) -> Void)? = nil
   var onJumpToReply: ((String) -> Void)? = nil
+  /// Moderator menu (delete others' messages, timeout / kick / ban) — `nil` outside guilds.
+  var moderationFor: ((EchoMessage) -> EchoMessageModerationActions?)? = nil
+  /// Notification Settings → Mention highlights (web `mentionHighlights`).
+  var mentionHighlightsEnabled: Bool = true
+  /// Guild channels keep the generic empty chrome; DMs/groups use the history intro.
+  var isGuildChannel = false
+  /// Web `dmHistoryIntro` — shown when the DM/group thread has no messages.
+  var historyIntro: EchoDmHistoryIntro.Content? = nil
+  var historyIntroBusy = false
+  var onHistoryIntroAction: ((EchoDmHistoryIntro.FriendAction) -> Void)? = nil
   /// Follow the latest message only while the user is already pinned near bottom.
   @State private var followLatest = true
+  /// Web `pendingNewWhileAway` — new tails while scrolled up (Jump FAB badge).
+  @State private var pendingNewWhileAway = 0
+  /// Snapshot for pending-new delta (count + last id).
+  @State private var lastKnownTail: (count: Int, lastID: String?) = (0, nil)
   /// Web-parity: leave the top trigger zone before another older-page load.
   @State private var loadOlderArmed = true
   /// Viewport height for short-thread bottom / empty-state centering (minHeight only).
@@ -34,9 +52,10 @@ struct EchoConversationTimeline: View {
       ScrollView(.vertical, showsIndicators: false) {
         LazyVStack(alignment: .leading, spacing: 0) {
           if model.isLoading && model.messages.isEmpty {
-            ProgressView("Loading messages")
+            ProgressView()
               .tint(EchoTheme.Color.ink(0.78))
               .foregroundStyle(EchoTheme.Color.ink(0.55))
+              .accessibilityLabel(EchoCopy.string("Loading messages"))
               .frame(maxWidth: .infinity)
           } else if let errorMessage = model.errorMessage, model.messages.isEmpty {
             EchoConversationErrorView(message: errorMessage) {
@@ -44,17 +63,16 @@ struct EchoConversationTimeline: View {
             }
             .frame(maxWidth: .infinity)
           } else if model.messages.isEmpty {
-            ContentUnavailableView(
-              EchoCopy.string("No messages yet"),
-              systemImage: "bubble.left.and.bubble.right",
-              description: EchoCopy.text("Your conversation is ready when you are.")
-            )
-            .foregroundStyle(EchoTheme.Color.ink(0.62))
-            .frame(maxWidth: .infinity)
+            // Intro / empty chrome is an overlay so it stays vertically centered;
+            // keep a 1pt stub so the scroll view still measures a content size.
+            Color.clear.frame(height: 1).id("dm-history-intro")
           } else {
             olderHistoryChrome
 
             ForEach(Array(model.messages.enumerated()), id: \.element.id) { index, message in
+              if showsDaySeparator(at: index), let day = message.timestamp {
+                EchoDaySeparator(date: day, isFirst: index == 0)
+              }
               EchoMessageRow(
                 message: message,
                 conversation: conversation,
@@ -68,25 +86,38 @@ struct EchoConversationTimeline: View {
                 },
                 onDismissFailed: message.delivery == .failed
                   ? { model.dismissFailedSend(id: message.id) } : nil,
-                onAuthorProfileTap: canOpenAuthorProfile(message) ? onPeerProfileTap : nil,
+                onAuthorProfileTap: canOpenAuthorProfile(message)
+                  ? { onAuthorProfile?(message) } : nil,
                 isPinned: model.isPinned(message.id),
                 onTogglePin: message.delivery == .sent
                   ? { Task { await model.togglePin(messageID: message.id) } } : nil,
-                onReply: message.delivery == .sent
+                onReply: message.delivery == .sent && !message.isSystemMessage
                   ? { onReply?(message) } : nil,
                 onJumpToReply: message.replyTo.map { reply in
                   { onJumpToReply?(reply.messageID) }
                 },
                 onEdit: message.delivery == .sent && message.isCurrentUser
+                  && !message.isSystemMessage
                   ? { onEdit?(message) } : nil,
                 onDelete: message.delivery == .sent && message.isCurrentUser
+                  && !message.isSystemMessage
                   ? { onDelete?(message) } : nil,
                 onReport: message.delivery == .sent && !message.isCurrentUser
+                  && !message.isSystemMessage
                   ? { onReport?(message) } : nil,
-                onReact: message.delivery == .sent
+                moderation: moderationFor?(message),
+                onReact: message.delivery == .sent && !message.isSystemMessage
                   ? { onReact?(message) } : nil,
+                onForward: message.delivery == .sent && !message.isSystemMessage
+                  ? { onForward?(message) } : nil,
+                onJumpToForwarded: message.forwardedFrom.flatMap { fwd in
+                  fwd.channelID == conversation.channelID && !fwd.messageID.isEmpty
+                    ? { onJumpToReply?(fwd.messageID) } : nil
+                },
                 onToggleReaction: message.delivery == .sent
-                  ? { emoji in onToggleReaction?(message, emoji) } : nil
+                  ? { emoji in onToggleReaction?(message, emoji) } : nil,
+                highlightsMention: highlightsMention(message),
+                resolvedAuthor: resolveAuthor?(message.authorID)
               )
               // Keep each row column-width so tall chats cannot grow a
               // horizontal content size that left-shifts the thread.
@@ -96,6 +127,7 @@ struct EchoConversationTimeline: View {
                 if message.id == model.messages.last?.id {
                   // Scrolled back to (or still on) the latest row — resume live follow.
                   followLatest = true
+                  pendingNewWhileAway = 0
                 }
                 guard index == 0, model.hasMoreBefore, loadOlderArmed else { return }
                 loadOlderArmed = false
@@ -141,6 +173,62 @@ struct EchoConversationTimeline: View {
       // back down. Follow mode uses explicit `scrollTo` only.
       .scrollDismissesKeyboard(.interactively)
       .frame(maxHeight: .infinity)
+      .overlay {
+        if !model.isLoading, model.errorMessage == nil, model.messages.isEmpty {
+          if let historyIntro,
+            EchoDmHistoryIntro.shouldShow(
+              isGuildChannel: isGuildChannel,
+              isLoading: false,
+              hasError: false,
+              messageCount: 0)
+          {
+            EchoDmHistoryIntroCard(
+              content: historyIntro,
+              baseURL: baseURL,
+              accessToken: accessToken,
+              onPrimaryAction: historyIntro.primaryAction.map { action in
+                { onHistoryIntroAction?(action) }
+              },
+              isActionBusy: historyIntroBusy
+            )
+            .padding(.horizontal, 18)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+          } else if historyIntro == nil {
+            VStack(spacing: 10) {
+              Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(EchoTheme.Color.ink(0.32))
+              Text(EchoCopy.string("No messages yet"))
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundStyle(EchoTheme.Color.ink(0.82))
+              Text(EchoCopy.string("Your conversation is ready when you are."))
+                .font(.system(size: 14, weight: .regular, design: .rounded))
+                .foregroundStyle(EchoTheme.Color.ink(0.46))
+                .multilineTextAlignment(.center)
+            }
+            .padding(32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
+          }
+        }
+      }
+      .overlay(alignment: .bottom) {
+        if EchoTimelineJumpUi.shouldShow(
+          followLatest: followLatest,
+          pendingNewWhileAway: pendingNewWhileAway,
+          messageCount: model.messages.count)
+        {
+          EchoTimelineJumpFab(pendingNewWhileAway: pendingNewWhileAway) {
+            followLatest = true
+            pendingNewWhileAway = 0
+            if let lastID = model.messages.last?.id {
+              pinToLatest(lastID, proxy: proxy)
+            }
+          }
+          .padding(.bottom, 12)
+          .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+      }
       .background {
         GeometryReader { geo in
           Color.clear.preference(
@@ -159,8 +247,12 @@ struct EchoConversationTimeline: View {
         pinToLatest(lastID, proxy: proxy)
       }
       .onChange(of: model.messages.last?.id, initial: true) { _, lastID in
+        noteTailGrowth()
         guard let lastID, followLatest else { return }
         pinToLatest(lastID, proxy: proxy)
+      }
+      .onChange(of: model.messages.count) { _, _ in
+        noteTailGrowth()
       }
       .onChange(of: model.isLoading) { _, loading in
         guard !loading, followLatest, let lastID = model.messages.last?.id else { return }
@@ -170,7 +262,7 @@ struct EchoConversationTimeline: View {
         guard followLatest, let lastID = model.messages.last?.id else { return }
         pinToLatest(lastID, proxy: proxy)
       }
-      .onChange(of: scrollTargetMessageID) { _, messageID in
+      .onChange(of: scrollTargetMessageID, initial: true) { _, messageID in
         guard let messageID else { return }
         followLatest = false
         Task {
@@ -227,6 +319,27 @@ struct EchoConversationTimeline: View {
     }
   }
 
+  /// Web `installPendingNewWhileAwayWatch` — bump badge when tails append while away.
+  private func noteTailGrowth() {
+    let nextCount = model.messages.count
+    let nextLastID = model.messages.last?.id
+    defer { lastKnownTail = (nextCount, nextLastID) }
+    let previous = lastKnownTail
+    // First observation / channel open — seed without counting history as "new".
+    guard previous.count > 0 || previous.lastID != nil else { return }
+    guard !followLatest else {
+      pendingNewWhileAway = 0
+      return
+    }
+    let delta = EchoTimelineJumpUi.pendingDelta(
+      previousCount: previous.count,
+      previousLastID: previous.lastID,
+      nextCount: nextCount,
+      nextLastID: nextLastID)
+    guard delta > 0 else { return }
+    pendingNewWhileAway += delta
+  }
+
   /// Fixed-height slot while older history exists so the spinner appearing /
   /// disappearing does not itself shift message rows.
   @ViewBuilder
@@ -249,10 +362,18 @@ struct EchoConversationTimeline: View {
     }
   }
 
+  private func showsDaySeparator(at index: Int) -> Bool {
+    guard model.messages.indices.contains(index) else { return false }
+    let current = model.messages[index].timestamp
+    let previous = index > 0 ? model.messages[index - 1].timestamp : nil
+    return EchoDaySeparatorLabel.shouldShow(at: index, previous: previous, current: current)
+  }
+
   private func showsHeader(at index: Int) -> Bool {
     guard index > 0 else { return true }
     let current = model.messages[index]
     let previous = model.messages[index - 1]
+    if current.isSystemMessage || previous.isSystemMessage { return true }
     guard current.authorID == previous.authorID else { return true }
     guard let currentDate = current.timestamp, let previousDate = previous.timestamp else {
       return false
@@ -261,8 +382,21 @@ struct EchoConversationTimeline: View {
   }
 
   private func canOpenAuthorProfile(_ message: EchoMessage) -> Bool {
-    guard onPeerProfileTap != nil, conversation.peerUserID != nil else { return false }
+    guard onAuthorProfile != nil else { return false }
     return !message.isCurrentUser && !EchoUserIdentity.matches(message.authorID, userID)
+      && !message.isSystemMessage
+  }
+
+  private func highlightsMention(_ message: EchoMessage) -> Bool {
+    let replyTargetAuthorID = message.replyTo.flatMap { reply in
+      model.messages.first(where: { $0.id == reply.messageID })?.authorID ?? reply.authorID
+    }
+    return EchoMentionHighlight.shouldHighlight(
+      message: message,
+      currentUserID: userID,
+      currentUsername: conversation.username,
+      replyTargetAuthorID: replyTargetAuthorID,
+      mentionHighlights: mentionHighlightsEnabled)
   }
 
   private func voterName(_ userID: String) -> String {
@@ -278,17 +412,3 @@ private struct EchoTimelineViewportHeightKey: PreferenceKey {
   }
 }
 
-private struct EchoTypingIndicator: View {
-  let name: String?
-
-  var body: some View {
-    if let name, !name.isEmpty {
-      Text(EchoCopy.format("%@ is typing…", name))
-        .font(.system(size: 12, weight: .medium, design: .rounded))
-        .foregroundStyle(EchoTheme.Color.ink(0.48))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 22)
-        .padding(.bottom, 4)
-    }
-  }
-}

@@ -8,29 +8,58 @@ import SwiftUI
   import AppKit
 #endif
 
-/// Web-style pending attachment strip: real image/GIF thumbnails with remove controls.
+/// Web-style pending attachment strip: thumbnails, remove, and spoiler toggle.
 struct EchoComposerPendingPreview: View {
   let assets: [EchoComposerAsset]
   let gif: EchoGIF?
+  var gifSpoiler = false
   let baseURL: URL
   let accessToken: String
   let onRemoveAsset: (UUID) -> Void
   let onRemoveGIF: () -> Void
+  var onToggleAssetSpoiler: ((UUID) -> Void)? = nil
+  var onToggleGIFSpoiler: (() -> Void)? = nil
+  var onToggleAllSpoilers: (() -> Void)? = nil
+  var allSpoilers = false
+
+  private var hasMedia: Bool { !assets.isEmpty || gif != nil }
 
   var body: some View {
-    if !assets.isEmpty || gif != nil {
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 8) {
-          ForEach(assets) { asset in
-            if asset.isVisual {
-              visualTile(asset)
-            } else {
-              documentTile(asset)
+    if hasMedia {
+      VStack(alignment: .leading, spacing: 6) {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 8) {
+            ForEach(assets) { asset in
+              if asset.isVisual {
+                visualTile(asset)
+              } else {
+                documentTile(asset)
+              }
+            }
+            if let gif {
+              gifTile(gif)
             }
           }
-          if let gif {
-            gifTile(gif)
+        }
+        if onToggleAllSpoilers != nil {
+          Button(action: { onToggleAllSpoilers?() }) {
+            Label(
+              allSpoilers
+                ? EchoCopy.string("Mark not spoiler")
+                : EchoCopy.string("Mark as spoiler"),
+              systemImage: allSpoilers ? "eye" : "eye.slash"
+            )
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(
+              allSpoilers ? EchoTheme.Color.broadcastPing : EchoTheme.Color.ink(0.72)
+            )
           }
+          .buttonStyle(.plain)
+          .accessibilityLabel(
+            allSpoilers
+              ? EchoCopy.string("Mark not spoiler")
+              : EchoCopy.string("Mark as spoiler")
+          )
         }
       }
       .accessibilityElement(children: .contain)
@@ -44,15 +73,32 @@ struct EchoComposerPendingPreview: View {
         .frame(width: 64, height: 64)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
-          RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .stroke(EchoTheme.Color.ink(0.10), lineWidth: 1)
+          if asset.spoiler {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+              .fill(.ultraThinMaterial)
+            Image(systemName: "eye.slash.fill")
+              .font(.system(size: 14, weight: .bold))
+              .foregroundStyle(EchoTheme.Color.broadcastPing)
+          }
         }
+        .overlay {
+          RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .stroke(
+              asset.spoiler ? EchoTheme.Color.broadcastPing : EchoTheme.Color.ink(0.10),
+              lineWidth: asset.spoiler ? 2 : 1
+            )
+        }
+        .onTapGesture { onToggleAssetSpoiler?(asset.id) }
       removeButton(EchoCopy.format("Remove %@", asset.filename)) {
         onRemoveAsset(asset.id)
       }
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(asset.filename)
+    .accessibilityLabel(
+      asset.spoiler
+        ? EchoCopy.format("Spoiler, %@", asset.filename)
+        : asset.filename
+    )
   }
 
   private func gifTile(_ gif: EchoGIF) -> some View {
@@ -69,8 +115,20 @@ struct EchoComposerPendingPreview: View {
       .clipped()
       .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
       .overlay {
+        if gifSpoiler {
+          RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(.ultraThinMaterial)
+          Image(systemName: "eye.slash.fill")
+            .font(.system(size: 14, weight: .bold))
+            .foregroundStyle(EchoTheme.Color.broadcastPing)
+        }
+      }
+      .overlay {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .stroke(EchoTheme.Color.ink(0.10), lineWidth: 1)
+          .stroke(
+            gifSpoiler ? EchoTheme.Color.broadcastPing : EchoTheme.Color.ink(0.10),
+            lineWidth: gifSpoiler ? 2 : 1
+          )
       }
       .overlay(alignment: .bottomLeading) {
         Text(EchoCopy.string("GIF"))
@@ -81,6 +139,7 @@ struct EchoComposerPendingPreview: View {
           .background(.black.opacity(0.55), in: Capsule())
           .padding(5)
       }
+      .onTapGesture { onToggleGIFSpoiler?() }
       removeButton(
         EchoCopy.format("Remove %@", gif.title.isEmpty ? EchoCopy.string("GIF") : gif.title)
       ) {
@@ -93,14 +152,22 @@ struct EchoComposerPendingPreview: View {
     HStack(spacing: 8) {
       Image(systemName: documentIcon(for: asset))
         .font(.system(size: 14, weight: .semibold))
-        .foregroundStyle(EchoTheme.Color.indigoSoft)
+        .foregroundStyle(
+          asset.spoiler ? EchoTheme.Color.broadcastPing : EchoTheme.Color.indigoSoft
+        )
         .frame(width: 28, height: 28)
-        .background(EchoTheme.Color.ink(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background(
+          EchoTheme.Color.ink(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
       Text(asset.filename)
         .font(.system(size: 12, weight: .medium, design: .rounded))
         .foregroundStyle(EchoTheme.Color.ink(0.84))
         .lineLimit(1)
         .frame(maxWidth: 120, alignment: .leading)
+      if asset.spoiler {
+        Image(systemName: "eye.slash.fill")
+          .font(.system(size: 11, weight: .bold))
+          .foregroundStyle(EchoTheme.Color.broadcastPing)
+      }
       Button {
         onRemoveAsset(asset.id)
       } label: {
@@ -118,8 +185,12 @@ struct EchoComposerPendingPreview: View {
     .background(EchoTheme.Color.ink(0.065), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     .overlay {
       RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .stroke(EchoTheme.Color.ink(0.08), lineWidth: 1)
+        .stroke(
+          asset.spoiler ? EchoTheme.Color.broadcastPing : EchoTheme.Color.ink(0.08),
+          lineWidth: asset.spoiler ? 2 : 1
+        )
     }
+    .onTapGesture { onToggleAssetSpoiler?(asset.id) }
   }
 
   private func removeButton(_ label: String, action: @escaping () -> Void) -> some View {

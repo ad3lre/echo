@@ -3,9 +3,9 @@ import Foundation
 
 /// Workspace directory + membership APIs used by the native Servers / Explore tabs.
 public struct EchoWorkspaceClient: Sendable {
-  private let baseURL: URL
-  private let session: URLSession
-  private let clientIdentifier: String
+  public let baseURL: URL
+  let session: URLSession
+  let clientIdentifier: String
 
   public init(
     baseURL: URL,
@@ -24,15 +24,40 @@ public struct EchoWorkspaceClient: Sendable {
       let id = row.id.trimmingCharacters(in: .whitespacesAndNewlines)
       let name = row.name.trimmingCharacters(in: .whitespacesAndNewlines)
       guard !id.isEmpty, !name.isEmpty else { return nil }
+      let tags = (row.tags ?? []).compactMap { tag -> String? in
+        let normalized = tag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized.isEmpty ? nil : normalized
+      }
       return EchoServerSummary(
         id: id,
         name: name,
         iconURL: nonempty(row.iconUrl),
         bannerURL: nonempty(row.bannerUrl),
         description: nonempty(row.description),
-        ownerID: nonempty(row.ownerId)
+        ownerID: nonempty(row.ownerId),
+        vanityCode: nonempty(row.vanityCode),
+        tags: tags,
+        listedInDirectory: row.listedInDirectory ?? true,
+        inviteJoinEnabled: row.inviteJoinEnabled ?? true,
+        bannerBlurEnabled: row.bannerBlurEnabled ?? false,
+        bannerBlackoutEnabled: row.bannerBlackoutEnabled ?? false,
+        bannerPositionY: Self.clampedBannerY(row.bannerPositionY),
+        automodSpamEnabled: row.automodSpamEnabled ?? false,
+        raidProtectionEnabled: row.raidProtectionEnabled ?? false,
+        raidJoinThresholdCount: max(2, row.raidJoinThresholdCount ?? 10),
+        raidJoinWindowSeconds: max(10, row.raidJoinWindowSeconds ?? 60),
+        applicationsEnabled: row.applicationsEnabled ?? false,
+        allowGlobalGuests: row.allowGlobalGuests ?? true,
+        verificationRequireEmail: row.verificationRequireEmail ?? false,
+        welcomeChannelID: nonempty(row.welcomeChannelId),
+        discordGuildID: nonempty(row.discordGuildId)
       )
     }
+  }
+
+  private static func clampedBannerY(_ raw: Double?) -> Double {
+    guard let raw, raw.isFinite else { return 50 }
+    return min(100, max(0, raw))
   }
 
   public func loadDirectoryServers() async throws -> [EchoDirectoryServer] {
@@ -79,7 +104,30 @@ public struct EchoWorkspaceClient: Sendable {
         categoryName: row.categoryName ?? "",
         categoryPosition: row.categoryPosition ?? 0,
         position: row.position ?? 0,
-        iconKey: nonempty(row.iconKey)
+        iconKey: nonempty(row.iconKey),
+        nsfw: row.nsfw ?? false,
+        slowmodeSeconds: row.slowmodeSeconds ?? 0,
+        userLimit: row.userLimit ?? 0,
+        bitrateBps: row.bitrateBps,
+        voiceE2eeEnabled: row.voiceE2eeEnabled ?? false,
+        autoDeleteAfterSeconds: row.autoDeleteAfterSeconds,
+        autoDeleteSyncedToCategory: row.autoDeleteSyncedToCategory ?? true,
+        categoryAutoDeleteAfterSeconds: row.categoryAutoDeleteAfterSeconds,
+        messageFormatTemplate: row.messageFormatTemplate ?? "",
+        messageFormatHard: row.messageFormatHard ?? false,
+        parentChannelID: nonempty(row.parentChannelId),
+        forumCreatorPerms: row.forumCreatorDefaultPerms?.perms ?? .fallback,
+        paperCommentsEnabled: row.paperCommentsEnabled ?? true,
+        paperShowAuthorGutter: row.paperShowAuthorGutter ?? true,
+        voiceParticipantIDs: (row.voiceParticipantIds ?? []).map {
+          $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty },
+        discordVoiceMirrorOnly: row.discordVoiceMirrorOnly ?? false,
+        voiceServerMuteByUserID: row.voiceServerMuteByUserId ?? [:],
+        voiceServerDeafenByUserID: row.voiceServerDeafenByUserId ?? [:],
+        voiceStageSpeakerByUserID: row.voiceStageSpeakerByUserId ?? [:],
+        channelPermissions: EchoChannelPermissionOverrides.state(
+          from: row.permissionOverrides?.dict)
       )
     }
     .sorted {
@@ -108,7 +156,8 @@ public struct EchoWorkspaceClient: Sendable {
         avatarURL: nonempty(row.pfp),
         joinedAt: nonempty(row.joinedAt),
         isGuest: row.isGuest ?? false,
-        communicationTimeoutUntil: nonempty(row.communicationTimeoutUntil)
+        communicationTimeoutUntil: nonempty(row.communicationTimeoutUntil),
+        timeZone: nonempty(row.timeZone)
       )
     }
     .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -131,7 +180,14 @@ public struct EchoWorkspaceClient: Sendable {
       canBanMembers: caps.canBanMembers ?? caps.canModerateMembers,
       canTimeoutMembers: caps.canTimeoutMembers ?? caps.canModerateMembers,
       canChangeNicknames: caps.canChangeNicknames ?? false,
-      canManageNicknames: caps.canManageNicknames ?? false
+      canManageNicknames: caps.canManageNicknames ?? false,
+      canCreateChannel: caps.canCreateChannel ?? false,
+      canCreateInvite: caps.canCreateInvite ?? false,
+      canManageMessages: caps.canManageMessages ?? false,
+      canMentionEveryone: caps.canMentionEveryone ?? false,
+      canMuteVoiceMembers: caps.canMuteVoiceMembers ?? false,
+      canDeafenVoiceMembers: caps.canDeafenVoiceMembers ?? false,
+      canMoveVoiceMembers: caps.canMoveVoiceMembers ?? false
     )
     let roles = response.roles.compactMap { row -> EchoServerRole? in
       let id = row.id.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -154,7 +210,8 @@ public struct EchoWorkspaceClient: Sendable {
         rankInCategory: row.rankInCategory ?? 0,
         roleScope: scope.isEmpty ? "global" : scope,
         permissions: row.permissions ?? [],
-        roleIconURL: nonempty(row.roleIconUrl)
+        roleIconURL: nonempty(row.roleIconUrl),
+        roleIconEmojiID: nonempty(row.roleIconEmojiId)
       )
     }
     var assignments: [String: [String]] = [:]
@@ -240,6 +297,21 @@ public struct EchoWorkspaceClient: Sendable {
     return (id.isEmpty ? serverID : id, response.alreadyMember ?? false)
   }
 
+  @discardableResult
+  public func joinWithInvite(code: String, accessToken: String) async throws -> String {
+    let extracted = Self.inviteToken(from: code)
+    let escaped =
+      extracted.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? extracted
+    let response: JoinResponse = try await sendJSON(
+      path: "/invites/\(escaped)/join",
+      method: "POST",
+      body: Data("{}".utf8),
+      accessToken: accessToken
+    )
+    let id = response.serverId.trimmingCharacters(in: .whitespacesAndNewlines)
+    return id.isEmpty ? extracted : id
+  }
+
   public func leaveServer(serverID: String, accessToken: String) async throws {
     let escaped =
       serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
@@ -252,7 +324,83 @@ public struct EchoWorkspaceClient: Sendable {
     )
   }
 
+  public func fetchServerInviteLink(serverID: String, accessToken: String) async throws -> String {
+    let escaped =
+      serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
+    let response: InviteLinkResponse = try await request(
+      path: "/servers/\(escaped)/invite-link", accessToken: accessToken)
+    let url = response.inviteUrl?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if !url.isEmpty { return url }
+    throw EchoHomeClientError.invalidResponse
+  }
+
+  public func createServerInvite(serverID: String, accessToken: String) async throws -> String {
+    let escaped =
+      serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
+    let response: InviteLinkResponse = try await sendJSON(
+      path: "/servers/\(escaped)/invites",
+      method: "POST",
+      body: Data("{}".utf8),
+      accessToken: accessToken
+    )
+    let url = response.inviteUrl?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if !url.isEmpty { return url }
+    throw EchoHomeClientError.invalidResponse
+  }
+
+  public func createChannel(
+    serverID: String,
+    name: String,
+    type: String,
+    categoryID: String,
+    accessToken: String
+  ) async throws {
+    let sid = serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
+    var payload: [String: Any] = [
+      "name": name,
+      "type": type,
+    ]
+    if !categoryID.isEmpty { payload["categoryId"] = categoryID }
+    let body = try JSONSerialization.data(withJSONObject: payload)
+    _ = try await send(
+      path: "/servers/\(sid)/channels",
+      method: "POST",
+      body: body,
+      accessToken: accessToken,
+      requireAuth: true
+    )
+  }
+
+  public func createCategory(serverID: String, name: String, accessToken: String) async throws {
+    let sid = serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
+    let body = try JSONSerialization.data(withJSONObject: ["name": name])
+    _ = try await send(
+      path: "/servers/\(sid)/categories",
+      method: "POST",
+      body: body,
+      accessToken: accessToken,
+      requireAuth: true
+    )
+  }
+
+  public func deleteServer(serverID: String, accessToken: String) async throws {
+    let escaped =
+      serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
+    _ = try await send(
+      path: "/servers/\(escaped)",
+      method: "DELETE",
+      body: nil,
+      accessToken: accessToken,
+      requireAuth: true
+    )
+  }
+
   // MARK: - Transport
+
+  private struct InviteLinkResponse: Decodable {
+    let vanityCode: String?
+    let inviteUrl: String?
+  }
 
   private struct ServersResponse: Decodable {
     let servers: [ServerRow]
@@ -263,8 +411,24 @@ public struct EchoWorkspaceClient: Sendable {
     let name: String
     let iconUrl: String?
     let bannerUrl: String?
+    let bannerPositionY: Double?
     let description: String?
     let ownerId: String?
+    let vanityCode: String?
+    let tags: [String]?
+    let listedInDirectory: Bool?
+    let inviteJoinEnabled: Bool?
+    let bannerBlurEnabled: Bool?
+    let bannerBlackoutEnabled: Bool?
+    let automodSpamEnabled: Bool?
+    let raidProtectionEnabled: Bool?
+    let raidJoinThresholdCount: Int?
+    let raidJoinWindowSeconds: Int?
+    let applicationsEnabled: Bool?
+    let allowGlobalGuests: Bool?
+    let verificationRequireEmail: Bool?
+    let welcomeChannelId: String?
+    let discordGuildId: String?
   }
 
   private struct DirectoryResponse: Decodable {
@@ -298,6 +462,26 @@ public struct EchoWorkspaceClient: Sendable {
     let categoryPosition: Int?
     let position: Int?
     let iconKey: String?
+    let nsfw: Bool?
+    let slowmodeSeconds: Int?
+    let userLimit: Int?
+    let bitrateBps: Int?
+    let voiceE2eeEnabled: Bool?
+    let autoDeleteAfterSeconds: Int?
+    let autoDeleteSyncedToCategory: Bool?
+    let categoryAutoDeleteAfterSeconds: Int?
+    let messageFormatTemplate: String?
+    let messageFormatHard: Bool?
+    let parentChannelId: String?
+    let forumCreatorDefaultPerms: EchoLossyForumCreatorPerms?
+    let paperCommentsEnabled: Bool?
+    let paperShowAuthorGutter: Bool?
+    let voiceParticipantIds: [String]?
+    let discordVoiceMirrorOnly: Bool?
+    let voiceServerMuteByUserId: [String: Bool]?
+    let voiceServerDeafenByUserId: [String: Bool]?
+    let voiceStageSpeakerByUserId: [String: Bool]?
+    let permissionOverrides: EchoLossyBoolDict?
   }
 
   private struct MembersResponse: Decodable {
@@ -312,6 +496,7 @@ public struct EchoWorkspaceClient: Sendable {
     let joinedAt: String?
     let isGuest: Bool?
     let communicationTimeoutUntil: String?
+    let timeZone: String?
   }
 
   private struct RoleUiBootstrapResponse: Decodable {
@@ -330,6 +515,13 @@ public struct EchoWorkspaceClient: Sendable {
     let canTimeoutMembers: Bool?
     let canChangeNicknames: Bool?
     let canManageNicknames: Bool?
+    let canCreateChannel: Bool?
+    let canCreateInvite: Bool?
+    let canManageMessages: Bool?
+    let canMentionEveryone: Bool?
+    let canMuteVoiceMembers: Bool?
+    let canDeafenVoiceMembers: Bool?
+    let canMoveVoiceMembers: Bool?
   }
 
   private struct RoleRow: Decodable {
@@ -348,6 +540,7 @@ public struct EchoWorkspaceClient: Sendable {
     let roleScope: String?
     let permissions: [String]?
     let roleIconUrl: String?
+    let roleIconEmojiId: String?
   }
 
   private struct RoleAssignBody: Encodable {
@@ -371,7 +564,7 @@ public struct EchoWorkspaceClient: Sendable {
     return trimmed.isEmpty ? nil : trimmed
   }
 
-  private func request<Response: Decodable>(path: String, accessToken: String) async throws
+  func request<Response: Decodable>(path: String, accessToken: String) async throws
     -> Response
   {
     let data = try await send(
@@ -385,7 +578,7 @@ public struct EchoWorkspaceClient: Sendable {
     return try JSONDecoder().decode(Response.self, from: data)
   }
 
-  private func sendJSON<Response: Decodable>(
+  func sendJSON<Response: Decodable>(
     path: String, method: String, body: Data, accessToken: String
   ) async throws -> Response {
     let data = try await send(
@@ -393,15 +586,25 @@ public struct EchoWorkspaceClient: Sendable {
     return try JSONDecoder().decode(Response.self, from: data)
   }
 
-  private func send(
+  /// Keeps `?query` out of the percent-encoded path segment.
+  private func apiURL(for route: String) -> URL {
+    let parts = route.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+    let base = baseURL.appending(path: "/api/v1/echo\(parts.first.map(String.init) ?? "")")
+    guard parts.count == 2,
+      var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
+    else { return base }
+    components.percentEncodedQuery = String(parts[1])
+    return components.url ?? base
+  }
+
+  func send(
     path: String,
     method: String,
     body: Data?,
     accessToken: String?,
     requireAuth: Bool
   ) async throws -> Data {
-    let url = baseURL.appending(path: "/api/v1/echo\(path)")
-    var request = URLRequest(url: url)
+    var request = URLRequest(url: apiURL(for: path))
     request.httpMethod = method
     request.httpBody = body
     request.setValue("application/json", forHTTPHeaderField: "Accept")

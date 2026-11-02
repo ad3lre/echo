@@ -16,6 +16,10 @@ final class EchoExploreModel {
   /// Join failures (shown even when the directory list is already loaded).
   private(set) var joinErrorMessage: String?
   private(set) var joiningIDs = Set<String>()
+  /// Non-error status (e.g. application submitted) shown in the Explore banner.
+  private(set) var noticeMessage: String?
+  /// Set when a join returned `APPLICATION_REQUIRED`; Explore presents the form.
+  var applicationContext: EchoJoinApplicationContext?
 
   var searchQuery = "" {
     didSet { if searchQuery != oldValue { refreshResults() } }
@@ -151,6 +155,28 @@ final class EchoExploreModel {
 
   func clearJoinError() {
     joinErrorMessage = nil
+    noticeMessage = nil
+  }
+
+  func joinInvite(_ raw: String) async -> String? {
+    joinErrorMessage = nil
+    do {
+      let token = try await auth.ensureAccessToken()
+      let id = try await client.joinWithInvite(code: raw, accessToken: token)
+      joinedIDs.insert(id)
+      rebuildCatalog()
+      return id
+    } catch {
+      if (error as? EchoHomeClientError)?.isApplicationRequired == true,
+        let context = await client.loadInviteApplicationContext(
+          inviteToken: EchoWorkspaceClient.inviteToken(from: raw))
+      {
+        applicationContext = context
+        return nil
+      }
+      joinErrorMessage = EchoCopy.string("Echo couldn’t join that server. Tap Join to try again.")
+      return nil
+    }
   }
 
   func join(_ listed: EchoExploreDirectory.ListedServer) async -> Bool {
@@ -167,8 +193,82 @@ final class EchoExploreModel {
       rebuildCatalog()
       return true
     } catch {
+      if (error as? EchoHomeClientError)?.isApplicationRequired == true,
+        await presentDirectoryApplication(listed)
+      {
+        return false
+      }
       joinErrorMessage = EchoCopy.string("Echo couldn’t join that server. Tap Join to try again.")
       return false
+    }
+  }
+
+  // MARK: - Applications + create
+
+  private func presentDirectoryApplication(
+    _ listed: EchoExploreDirectory.ListedServer
+  ) async -> Bool {
+    guard let token = try? await auth.ensureAccessToken(),
+      let form = try? await client.loadJoinApplicationForm(serverID: listed.id, accessToken: token)
+    else { return false }
+    applicationContext = EchoJoinApplicationContext(
+      serverID: listed.id, serverName: listed.server.name, iconURL: listed.server.iconURL,
+      source: .directory, inviteToken: nil, form: form)
+    return true
+  }
+
+  /// Returns `nil` on success, otherwise a message to show inside the modal.
+  func submitApplication(
+    _ context: EchoJoinApplicationContext, answers: [String: EchoApplicationAnswer]
+  ) async -> String? {
+    do {
+      let token = try await auth.ensureAccessToken()
+      try await client.submitApplication(
+        serverID: context.serverID, source: context.source, inviteToken: context.inviteToken,
+        answers: answers, accessToken: token)
+      applicationContext = nil
+      noticeMessage = EchoCopy.string(
+        "Application sent. You’ll get access if a moderator approves it.")
+      return nil
+    } catch {
+      return echoSettingsErrorMessage(
+        error, fallback: EchoCopy.string("Echo couldn’t send your application."))
+    }
+  }
+
+  /// Uploads a file answer for the join form; throws so the modal can show the message inline.
+  func uploadApplicationFile(
+    _ context: EchoJoinApplicationContext, question: EchoApplicationQuestion,
+    file: EchoPickedFile
+  ) async throws -> EchoApplicationUpload {
+    let token = try await auth.ensureAccessToken()
+    return try await client.uploadApplicationAttachment(
+      serverID: context.serverID, data: file.data, filename: file.filename,
+      mimeType: file.mimeType, maxBytes: question.maxBytes, accessToken: token)
+  }
+
+  /// `POST /servers` then (optionally) sets the icon, matching web create + branding patch.
+  func createServer(name: String, iconData: Data?) async -> (id: String?, error: String?) {
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return (nil, EchoCopy.string("Enter a server name.")) }
+    do {
+      let token = try await auth.ensureAccessToken()
+      let created = try await client.createServer(name: trimmed, accessToken: token)
+      if let iconData {
+        try? await client.patchServerPreferences(
+          serverID: created.serverID,
+          patch: EchoServerPreferencesPatch(
+            iconURL: "data:image/png;base64,\(iconData.base64EncodedString())"),
+          accessToken: token)
+      }
+      joinedIDs.insert(created.serverID)
+      return (created.serverID, nil)
+    } catch {
+      return (
+        nil,
+        echoSettingsErrorMessage(
+          error, fallback: EchoCopy.string("Echo couldn’t create that server."))
+      )
     }
   }
 }

@@ -126,7 +126,8 @@ Everything in `server/ops/scripts/githooks/` is **advisory**: `--no-verify`, a f
 
 - Protected branches **`main`** and **`release/1.0.0`**: force push **disallowed**, direct push limited to maintainers/the release identity, merge requests required where practical, code-owner approval on (see `CODEOWNERS`).
 - The `github` mirror/deploy credential lives only in the scheduled mirror job/runner, never on developer machines.
-- `.gitlab-ci.yml` `security` and `security-dep-audit` jobs required to pass for merges.
+- `.gitlab-ci.yml` `security`, `security-dep-audit`, and `security-osv` jobs required to pass for merges.
+- SBOM + VDR: see [sbom-vdr.md](./sbom-vdr.md) (`bun run check:osv` on push / publish).
 
 **GitHub (public)**
 

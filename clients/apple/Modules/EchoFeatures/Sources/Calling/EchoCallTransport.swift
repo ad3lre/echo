@@ -8,11 +8,22 @@ enum EchoCallTransportState: Sendable {
   case disconnected
 }
 
+/// One remote LiveKit participant's published video (guild voice grid; DM calls
+/// keep using the single-peer `remoteCamera` / `remoteScreen` fields).
+struct EchoRemoteVideoTile: Identifiable, @unchecked Sendable {
+  let identity: String
+  var camera: VideoTrack?
+  var screen: VideoTrack?
+  var id: String { identity }
+}
+
 struct EchoCallVideoTrackSnapshot: @unchecked Sendable {
   var localCamera: VideoTrack?
   var localScreen: VideoTrack?
   var remoteCamera: VideoTrack?
   var remoteScreen: VideoTrack?
+  /// Per-participant remote video, sorted by identity for stable grid order.
+  var remoteTiles: [EchoRemoteVideoTile] = []
 
   static let empty = EchoCallVideoTrackSnapshot()
 }
@@ -46,6 +57,7 @@ protocol EchoCallTransporting: AnyObject, Sendable {
   /// Fired when a remote LiveKit participant leaves (MLS roster reconcile).
   var onRemoteParticipantDisconnected: (@Sendable (String) -> Void)? { get set }
   var onVideoTracksChange: (@Sendable (EchoCallVideoTrackSnapshot) -> Void)? { get set }
+  var onSpeakingChange: (@Sendable (Set<String>) -> Void)? { get set }
   func connect(session: EchoLiveKitSession, encryption: EchoCallMediaEncryption?) async throws
   func rotateEncryption(_ encryption: EchoCallMediaEncryption) async throws
   func setMuted(_ muted: Bool) async throws
@@ -54,6 +66,19 @@ protocol EchoCallTransporting: AnyObject, Sendable {
   func setCameraEnabled(_ enabled: Bool) async throws
   func setScreenShareEnabled(_ enabled: Bool) async throws
   func disconnect() async
+}
+
+/// Reliable LiveKit data channel (guild VC activities: YouTube sync, presence).
+/// Kept separate from `EchoCallTransporting` so DM call fakes stay unchanged.
+protocol EchoCallDataTransporting: AnyObject, Sendable {
+  /// Fired for every remote data packet with the sender's LiveKit identity.
+  var onDataReceived: (@Sendable (Data, String) -> Void)? { get set }
+  func publishData(_ data: Data, reliable: Bool) async throws
+}
+
+/// Per-participant playback gain (DM + guild calls). Separate so call fakes stay unchanged.
+protocol EchoCallVolumeTransporting: AnyObject, Sendable {
+  func setRemoteVolume(identity: String, percent: Double)
 }
 
 enum EchoCallTransportError: Error, LocalizedError {
@@ -76,19 +101,27 @@ enum EchoCallTransportError: Error, LocalizedError {
 /// LiveKit adapter for native calls. Software AEC/NS keeps feedback control but
 /// deliberately selects LiveKit's media-tuned `.playAndRecord` + `.default`
 /// route rather than iOS's bandwidth-reducing voice-chat signal path.
-final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelegate,
-  @unchecked Sendable
+final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, EchoCallDataTransporting,
+  EchoCallVolumeTransporting, RoomDelegate, @unchecked Sendable
 {
   var onStateChange: (@Sendable (EchoCallTransportState) -> Void)?
   var onParticipantCountChange: (@Sendable (Int) -> Void)?
   var onRemoteParticipantConnected: (@Sendable (String) -> Void)?
   var onRemoteParticipantDisconnected: (@Sendable (String) -> Void)?
   var onVideoTracksChange: (@Sendable (EchoCallVideoTrackSnapshot) -> Void)?
+  var onSpeakingChange: (@Sendable (Set<String>) -> Void)?
+  var onDataReceived: (@Sendable (Data, String) -> Void)?
 
   private let room = Room()
   private var outputGain = 1.0
+  /// LiveKit identity → web-style percent override (0…200, absent = 100).
+  private var participantVolumes = EchoRemoteVolume.load()
+  private let volumeLock = NSLock()
   private var isDeafened = false
   private var keyProvider: BaseKeyProvider?
+  /// Voice & Video settings last pushed into LiveKit (diffed on `UserDefaults` changes mid-call).
+  private var appliedSettings = EchoVoiceDevicePreferences.Snapshot.load()
+  private var settingsObserver: NSObjectProtocol?
 
   override init() {
     super.init()
@@ -120,10 +153,13 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
       min(
         max(preferences.object(forKey: "echo.settings.voice.outputVolume") as? Double ?? 100, 0),
         100) / 100
+    // "Minimal" voice processing (web `native`) captures without software DSP.
+    let minimal = EchoVoiceDevicePreferences.Snapshot.load(defaults: preferences).processingMode
+      == "native"
     let capture = AudioCaptureOptions(
-      echoCancellation: echoCancellation,
-      autoGainControl: automaticGain,
-      noiseSuppression: noiseSuppression,
+      echoCancellation: echoCancellation && !minimal,
+      autoGainControl: automaticGain && !minimal,
+      noiseSuppression: noiseSuppression && !minimal,
       highpassFilter: false,
       typingNoiseDetection: false,
       echoCancellationMode: .software,
@@ -141,6 +177,9 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
       encryptionOptions: encryptionOptions)
 
     try await room.connect(url: session.url, token: session.token, roomOptions: options)
+    EchoVoiceDevicePreferences.applyAudio(defaults: preferences)
+    EchoVoiceDevicePreferences.applyProcessing(defaults: preferences)
+    startObservingSettings()
     try await room.localParticipant.setMicrophone(
       enabled: true,
       captureOptions: capture,
@@ -192,7 +231,9 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
   }
 
   func setCameraEnabled(_ enabled: Bool) async throws {
-    _ = try await room.localParticipant.setCamera(enabled: enabled)
+    _ = try await room.localParticipant.setCamera(
+      enabled: enabled,
+      captureOptions: enabled ? EchoVoiceDevicePreferences.cameraOptions() : nil)
     publishVideoTracks()
   }
 
@@ -202,7 +243,13 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
     publishVideoTracks()
   }
 
+  func publishData(_ data: Data, reliable: Bool = true) async throws {
+    try await room.localParticipant.publish(
+      data: data, options: DataPublishOptions(reliable: reliable))
+  }
+
   func disconnect() async {
+    stopObservingSettings()
     await room.disconnect()
     keyProvider = nil
     isDeafened = false
@@ -236,6 +283,7 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
 
   func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant) {
     publishParticipantCount()
+    publishVideoTracks()
     let identity = participant.identity?.stringValue ?? ""
     if !identity.isEmpty {
       onRemoteParticipantDisconnected?(identity)
@@ -244,10 +292,31 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
 
   func room(
     _ room: Room,
+    participant: RemoteParticipant?,
+    didReceiveData data: Data,
+    forTopic topic: String,
+    encryptionType: EncryptionType
+  ) {
+    // Server-originated packets have no participant; activities are peer-to-peer.
+    guard let identity = participant?.identity?.stringValue, !identity.isEmpty else { return }
+    onDataReceived?(data, identity)
+  }
+
+  func room(_ room: Room, didUpdateSpeakingParticipants participants: [Participant]) {
+    let ids = Set(
+      participants.filter(\.isSpeaking).compactMap { $0.identity?.stringValue }.filter {
+        !$0.isEmpty
+      })
+    onSpeakingChange?(ids)
+  }
+
+  func room(
+    _ room: Room,
     participant: RemoteParticipant,
     didSubscribeTrack publication: RemoteTrackPublication
   ) {
-    applyRemoteVolume(to: publication.track as? RemoteAudioTrack)
+    applyRemoteVolume(
+      to: publication.track as? RemoteAudioTrack, identity: participant.identity?.stringValue)
     if publication.kind == .video { publishVideoTracks() }
   }
 
@@ -292,34 +361,114 @@ final class EchoLiveKitCallTransport: NSObject, EchoCallTransporting, RoomDelega
     }
     var remoteCamera: VideoTrack?
     var remoteScreen: VideoTrack?
+    var remoteTiles: [EchoRemoteVideoTile] = []
     for participant in room.remoteParticipants.values {
+      var tile = EchoRemoteVideoTile(identity: participant.identity?.stringValue ?? "")
       for publication in participant.videoTracks {
         guard let track = publication.track as? VideoTrack else { continue }
         if publication.source == .screenShareVideo {
           remoteScreen = track
+          tile.screen = track
         } else {
           remoteCamera = track
+          tile.camera = track
         }
       }
+      if !tile.identity.isEmpty, tile.camera != nil || tile.screen != nil {
+        remoteTiles.append(tile)
+      }
     }
+    remoteTiles.sort { $0.identity < $1.identity }
     onVideoTracksChange?(
       EchoCallVideoTrackSnapshot(
         localCamera: localCamera,
         localScreen: localScreen,
         remoteCamera: remoteCamera,
-        remoteScreen: remoteScreen))
+        remoteScreen: remoteScreen,
+        remoteTiles: remoteTiles))
+  }
+
+  // MARK: Live settings (web `switchActiveDevice` / `setVideoQuality`)
+
+  private func startObservingSettings() {
+    stopObservingSettings()
+    appliedSettings = .load()
+    settingsObserver = NotificationCenter.default.addObserver(
+      forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      Task { await self?.applyLiveSettings() }
+    }
+  }
+
+  private func stopObservingSettings() {
+    if let settingsObserver { NotificationCenter.default.removeObserver(settingsObserver) }
+    settingsObserver = nil
+  }
+
+  /// Re-applies only what changed: mic / speaker routing, mic gain, output volume, processing
+  /// mode, and camera device / quality (restarts the capturer). Stereo input and
+  /// "attenuate others" have no LiveKit Swift equivalent and are intentionally not mapped.
+  func applyLiveSettings() async {
+    let next = EchoVoiceDevicePreferences.Snapshot.load()
+    let previous = appliedSettings
+    guard next != previous else { return }
+    appliedSettings = next
+    if next.input != previous.input || next.output != previous.output
+      || next.sensitivity != previous.sensitivity
+    {
+      EchoVoiceDevicePreferences.applyAudio()
+    }
+    if next.processingMode != previous.processingMode {
+      EchoVoiceDevicePreferences.applyProcessing()
+    }
+    if next.outputVolume != previous.outputVolume {
+      outputGain = min(max(next.outputVolume ?? 100, 0), 100) / 100
+      applyRemoteVolumes()
+    }
+    if next.camera != previous.camera || next.videoQuality != previous.videoQuality {
+      await restartCameraCapture()
+    }
+  }
+
+  private func restartCameraCapture() async {
+    let camera = room.localParticipant.localVideoTracks.first { $0.source == .camera }
+    guard let capturer = (camera?.track as? LocalVideoTrack)?.capturer as? CameraCapturer
+    else { return }
+    _ = try? await capturer.set(options: EchoVoiceDevicePreferences.cameraOptions())
+    publishVideoTracks()
+  }
+
+  /// Per-participant playback gain (web `setRemoteParticipantVolume`); persisted by identity.
+  func setRemoteVolume(identity: String, percent: Double) {
+    let id = identity.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !id.isEmpty else { return }
+    volumeLock.lock()
+    if let clean = EchoRemoteVolume.sanitize(percent) {
+      participantVolumes[id] = clean
+    } else {
+      participantVolumes.removeValue(forKey: id)
+    }
+    let snapshot = participantVolumes
+    volumeLock.unlock()
+    EchoRemoteVolume.persist(snapshot)
+    applyRemoteVolumes()
   }
 
   private func applyRemoteVolumes() {
     for participant in room.remoteParticipants.values {
       for publication in participant.audioTracks {
-        applyRemoteVolume(to: publication.track as? RemoteAudioTrack)
+        applyRemoteVolume(
+          to: publication.track as? RemoteAudioTrack,
+          identity: participant.identity?.stringValue)
       }
     }
   }
 
-  private func applyRemoteVolume(to track: RemoteAudioTrack?) {
-    track?.volume = isDeafened ? 0 : outputGain
+  private func applyRemoteVolume(to track: RemoteAudioTrack?, identity: String?) {
+    volumeLock.lock()
+    let override = identity.flatMap { participantVolumes[$0] }
+    volumeLock.unlock()
+    track?.volume = isDeafened ? 0 : outputGain * EchoRemoteVolume.multiplier(percent: override)
   }
 
   private func makeEncryptionOptions(_ encryption: EchoCallMediaEncryption?) throws

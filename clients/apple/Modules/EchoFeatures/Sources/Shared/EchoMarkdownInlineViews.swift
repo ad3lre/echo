@@ -13,7 +13,13 @@ struct EchoMarkdownInlineText: View {
   var emojiOnly: Bool = false
   /// Reply / inbox snippets: keep one line, hug math width, no selection/spoilers.
   var snippet: Bool = false
+  var magicTime: EchoMagicTimeContext? = nil
+  var embeds: [EchoMessageEmbed] = []
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(\.echoMentionActivate) private var activateMention
+  @AppStorage(EchoTimeLanguagePreferences.timezoneStorageKey) private var timezoneIdentifier =
+    "system"
+  @AppStorage(EchoAppLocale.storageKey) private var localeIdentifier = "en-US"
   @State private var spoilersRevealed = false
   private var emojiCatalog: EchoCustomEmojiCatalog { .shared }
 
@@ -25,13 +31,40 @@ struct EchoMarkdownInlineText: View {
     return max(displayPrefs.scaled(18), resolvedSize + 4)
   }
 
+  private var resolvedMagicTime: EchoMagicTimeContext? {
+    // Re-read prefs when AppStorage changes so chips refresh after Time & language edits.
+    _ = timezoneIdentifier
+    _ = localeIdentifier
+    guard let magicTime else { return nil }
+    let viewer = EchoTimeLanguagePreferences.viewerTimeZoneIdentifier
+    guard viewer != magicTime.senderTimeZone else { return nil }
+    return EchoMagicTimeContext(
+      messageTimestamp: magicTime.messageTimestamp,
+      senderTimeZone: magicTime.senderTimeZone,
+      viewerTimeZone: viewer,
+      viewerLocale: EchoTimeLanguagePreferences.viewerLocaleIdentifier)
+  }
+
   var body: some View {
     let shortcodes = Set(emojiCatalog.byName.keys)
-    let segments = EchoMarkdownParser.inlineSegments(
-      text,
-      mentions: mentions,
-      revealSpoilers: spoilersRevealed || snippet,
-      knownShortcodes: shortcodes)
+    let tip = EchoCopy.string(
+      "Magic Time shows this message’s time in your timezone. Times are interpreted in the sender’s timezone setting for the day the message was sent.")
+    let segments: [EchoMarkdownParser.InlineSegment] = {
+      if let ctx = resolvedMagicTime, !snippet {
+        return EchoMagicTimeMarkdown.inlineSegments(
+          text,
+          mentions: mentions,
+          revealSpoilers: spoilersRevealed || snippet,
+          knownShortcodes: shortcodes,
+          context: ctx,
+          tip: tip)
+      }
+      return EchoMarkdownParser.inlineSegments(
+        text,
+        mentions: mentions,
+        revealSpoilers: spoilersRevealed || snippet,
+        knownShortcodes: shortcodes)
+    }()
     Group {
       if segments.count == 1, case .text(let value) = segments[0] {
         Text(styled(value))
@@ -57,14 +90,25 @@ struct EchoMarkdownInlineText: View {
         }
       } else {
         EchoEmojiFlowLayout(spacing: 0) {
-          ForEach(Array(EchoMarkdownFlowWords.split(segments).enumerated()), id: \.offset) { _, segment in
+          ForEach(Array(EchoMarkdownFlowWords.split(segments).enumerated()), id: \.offset) {
+            _, segment in
             segmentView(segment)
-              .layoutValue(key: EchoInlineLineBreakKey.self, value: EchoMarkdownFlowWords.isLineBreak(segment))
+              .layoutValue(
+                key: EchoInlineLineBreakKey.self, value: EchoMarkdownFlowWords.isLineBreak(segment))
           }
         }
       }
     }
     .tracking(displayPrefs.dyslexiaTracking)
+    .environment(
+      \.openURL,
+      OpenURLAction { url in
+        // Mention pills never reach the system opener; other links keep their handler.
+        guard let target = EchoMentionTarget(url: url) else { return .systemAction }
+        activateMention?(target)
+        return .handled
+      }
+    )
     .modifier(EchoMarkdownSelectionModifier(enabled: !snippet))
     .fixedSize(horizontal: false, vertical: true)
     .contentShape(Rectangle())
@@ -77,7 +121,14 @@ struct EchoMarkdownInlineText: View {
   }
 
   private func styled(_ value: AttributedString) -> AttributedString {
-    EchoMarkdownDisplayStyle.attributed(
+    var value = value
+    // Snippets (reply / inbox rows) sit inside a row button — pills stay plain there.
+    if snippet || activateMention == nil {
+      for run in value.runs where run.link.map({ EchoMentionTarget(url: $0) != nil }) == true {
+        value[run.range].link = nil
+      }
+    }
+    return EchoMarkdownDisplayStyle.attributed(
       value,
       size: resolvedSize,
       weight: weight,
@@ -109,8 +160,73 @@ struct EchoMarkdownInlineText: View {
         accessToken: accessToken,
         pointSize: customEmojiPointSize,
         // Jumbo emoji-only rows already space via EchoEmojiFlowLayout.
+        sidePadding: emojiOnly ? 0 : (snippet ? 1.5 : 2),
+        inspectEnabled: !snippet)
+    case .appIcon(let filename):
+      EchoInlineAppIcon(
+        filename: filename,
+        pointSize: customEmojiPointSize,
         sidePadding: emojiOnly ? 0 : (snippet ? 1.5 : 2))
+    case .externalLink(let url, let display):
+      EchoMarkdownExternalLink(
+        url: url, display: display, size: resolvedSize, snippet: snippet, embeds: embeds)
+    case .magicTime(let label, let tip):
+      EchoMagicTimeChip(label: label, tip: tip, size: resolvedSize)
     }
+  }
+}
+
+/// Web `.echo-magic-time-chip` — viewer-local clock with hover/focus tip.
+private struct EchoMagicTimeChip: View {
+  let label: String
+  let tip: String
+  var size: CGFloat = EchoTheme.Typography.messageBody
+  @State private var showingTip = false
+
+  var body: some View {
+    Text(label)
+      .font(.system(size: max(11, size * 0.92), weight: .semibold, design: .rounded))
+      .foregroundStyle(EchoTheme.Color.ink(0.88))
+      .padding(.horizontal, 6)
+      .padding(.vertical, 2)
+      .background(EchoTheme.Color.ink(0.10), in: RoundedRectangle(cornerRadius: 6))
+      .help(tip)
+      .onTapGesture { showingTip.toggle() }
+      .popover(isPresented: $showingTip, arrowEdge: .bottom) {
+        Text(tip)
+          .font(.system(size: 12, weight: .regular, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.ink(0.78))
+          .padding(12)
+          .frame(maxWidth: 260)
+      }
+      .accessibilityLabel(label)
+      .accessibilityHint(tip)
+  }
+}
+
+/// Web `app-inline-icon` — bundled catalog glyph for `<icon:…>` tokens.
+private struct EchoInlineAppIcon: View {
+  let filename: String
+  var pointSize: CGFloat = 18
+  var sidePadding: CGFloat = 2
+
+  var body: some View {
+    Group {
+      if let asset = EchoIconCatalog.assetName(forFilenameOrKey: filename) {
+        Image(asset, bundle: .module)
+          .resizable()
+          .renderingMode(.template)
+          .scaledToFit()
+          .foregroundStyle(EchoTheme.Color.ink(0.82))
+          .frame(width: pointSize, height: pointSize)
+      } else {
+        Text(EchoMarkdownAppIcon.fallbackLabel(for: filename))
+          .font(.system(size: max(10, pointSize * 0.72), weight: .medium, design: .rounded))
+          .foregroundStyle(EchoTheme.Color.ink(0.55))
+      }
+    }
+    .padding(.horizontal, sidePadding)
+    .accessibilityLabel(EchoMarkdownAppIcon.fallbackLabel(for: filename))
   }
 }
 
@@ -140,7 +256,9 @@ struct EchoEmojiFlowLayout: Layout {
     var width: CGFloat = 0
     for subview in subviews {
       if subview[EchoInlineLineBreakKey.self] {
-        x = 0; y += max(rowHeight, 1) + spacing; rowHeight = 0
+        x = 0
+        y += max(rowHeight, 1) + spacing
+        rowHeight = 0
         continue
       }
       let size = subview.sizeThatFits(ProposedViewSize(width: maxWidth, height: nil))
@@ -164,7 +282,9 @@ struct EchoEmojiFlowLayout: Layout {
     var rowHeight: CGFloat = 0
     for subview in subviews {
       if subview[EchoInlineLineBreakKey.self] {
-        x = bounds.minX; y += max(rowHeight, 1) + spacing; rowHeight = 0
+        x = bounds.minX
+        y += max(rowHeight, 1) + spacing
+        rowHeight = 0
         continue
       }
       let size = subview.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
@@ -181,4 +301,3 @@ struct EchoEmojiFlowLayout: Layout {
     }
   }
 }
-

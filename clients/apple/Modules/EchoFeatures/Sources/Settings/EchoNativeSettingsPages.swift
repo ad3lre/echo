@@ -131,6 +131,7 @@ struct EchoReportAbuseView: View {
   @State private var isSubmitting = false
   @State private var submitted = false
   @State private var error: String?
+  @State private var showingBugReport = false
 
   private enum ReportTargetType: String, CaseIterable, Identifiable {
     case user
@@ -232,6 +233,23 @@ struct EchoReportAbuseView: View {
         .disabled(isSubmitting || submitted)
         if let error { Text(error).font(.footnote).foregroundStyle(.red) }
       }
+
+      EchoDetailSection(title: EchoCopy.string("Report a bug")) {
+        EchoCopy.text(
+          "Something broken in Echo? Describe it and optionally attach a screenshot so the team can fix it."
+        )
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        EchoSettingAction(
+          title: EchoCopy.string("Report a bug"),
+          subtitle: EchoCopy.string("Send a description and screenshot to Echo"),
+          icon: "ladybug.fill",
+          tint: .orange
+        ) { showingBugReport = true }
+      }
+    }
+    .sheet(isPresented: $showingBugReport) {
+      EchoBugReportSheet(accessToken: accessToken, baseURL: baseURL)
     }
   }
 

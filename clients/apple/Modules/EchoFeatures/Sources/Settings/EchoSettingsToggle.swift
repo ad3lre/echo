@@ -9,7 +9,39 @@ struct EchoSettingToggle: View {
   var showsIcon = true
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
 
+  @Environment(\.echoDesktopSettings) private var desktop
+
   var body: some View {
+    if desktop {
+      desktopRow
+    } else {
+      phoneRow
+    }
+  }
+
+  private var desktopRow: some View {
+    HStack(alignment: .center, spacing: 16) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(title)
+          .font(.system(size: 14, weight: .semibold))
+          .foregroundStyle(EchoTheme.Color.fg)
+        Text(subtitle)
+          .font(.system(size: 12))
+          .foregroundStyle(EchoTheme.Color.ink(0.48))
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      Spacer(minLength: 16)
+      Toggle("", isOn: $isOn)
+        .labelsHidden()
+        .toggleStyle(.switch)
+        .controlSize(.small)
+    }
+    .padding(.vertical, 12)
+    .accessibilityAddTraits(isOn ? .isSelected : [])
+    .accessibilityValue(isOn ? EchoCopy.string("On") : EchoCopy.string("Off"))
+  }
+
+  private var phoneRow: some View {
     Button {
       if displayPrefs.prefersReducedMotion {
         isOn.toggle()

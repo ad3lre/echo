@@ -111,53 +111,16 @@ struct EchoInboxIntro: View {
   }
 }
 
-struct EchoInboxRequestSection: View {
-  let title: String
-  let systemName: String
-  let tint: Color
-  let preview: EchoInboxPreview
-
+struct EchoFriendsIntro: View {
   var body: some View {
-    VStack(alignment: .leading, spacing: 9) {
-      HStack(alignment: .firstTextBaseline) {
-        Text(title)
-          .font(.system(size: 11, weight: .semibold, design: .rounded))
-          .tracking(2.2)
-          .foregroundStyle(EchoTheme.Color.ink(0.38))
-        Spacer(minLength: 0)
-        Button(EchoCopy.string("View all")) {}
-          .font(.system(size: 12, weight: .medium, design: .rounded))
-          .foregroundStyle(tint.opacity(0.95))
-          .disabled(true)
-          .opacity(0.42)
-      }
-
-      VStack(alignment: .leading, spacing: 12) {
-        HStack(spacing: 13) {
-          Image(systemName: systemName)
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(tint)
-            .frame(width: 40, height: 40)
-            .background(tint.opacity(0.16), in: RoundedRectangle(cornerRadius: 13))
-          VStack(alignment: .leading, spacing: 3) {
-            Text(preview.title)
-              .font(.system(size: 16, weight: .semibold, design: .rounded))
-              .foregroundStyle(EchoTheme.Color.ink(0.92))
-            Text(preview.subtitle)
-              .font(.system(size: 13, weight: .regular, design: .rounded))
-              .foregroundStyle(EchoTheme.Color.ink(0.45))
-          }
-          Spacer(minLength: 0)
-        }
-      }
-      .padding(14)
-      .background(
-        EchoTheme.Color.ink(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-          .stroke(EchoTheme.Color.ink(0.075), lineWidth: 1)
-      )
+    VStack(alignment: .leading, spacing: 6) {
+      EchoCopy.text("Friends")
+        .font(.system(size: 25, weight: .semibold, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.95))
+      EchoCopy.text("Find people on Echo and manage friend requests — separate from your inbox.")
+        .font(.system(size: 14, weight: .regular, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.52))
+        .fixedSize(horizontal: false, vertical: true)
     }
   }
 }
@@ -313,15 +276,6 @@ struct EchoInboxEmptyRequestRow: View {
       Spacer(minLength: 0)
     }
     .padding(14)
-  }
-}
-
-struct EchoInboxPreview {
-  let title: String
-  let subtitle: String
-
-  static func empty(title: String, subtitle: String) -> Self {
-    Self(title: title, subtitle: subtitle)
   }
 }
 

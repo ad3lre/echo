@@ -110,8 +110,10 @@ enum EchoChannelIconResolver {
       return resolved
     }
     let type = channel.type.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    // Voice/stage (and other typed channels) must keep their type icon even when
+    // a custom `iconKey` fails to resolve — otherwise they fall through to #.
+    if let typeDefault = typeDefault(type) { return typeDefault }
     if key.isEmpty {
-      if let typeDefault = typeDefault(type) { return typeDefault }
       if let heuristic = heuristic(for: channel.name) { return heuristic }
       return catalogOrLegacy("hashtag.svg", legacy: "EchoChannelHashtag")
     }
@@ -141,7 +143,8 @@ enum EchoChannelIconResolver {
       return catalogOrLegacy("message.svg", legacy: "EchoChannelMessage")
     case "hashtag", "hash":
       return catalogOrLegacy("hashtag.svg", legacy: "EchoChannelHashtag")
-    case "volumeup", "volume":
+    case "volumeup", "volume", "volume2", "speaker", "speakerwave", "speakerwave2",
+      "voice", "sound":
       return catalogOrLegacy("volume up.svg", legacy: "EchoChannelVolume")
     case "sparkle", "sparkles":
       return catalogOrLegacy("sparkle.svg", legacy: "EchoChannelSparkle")
@@ -150,7 +153,8 @@ enum EchoChannelIconResolver {
     case "file":
       return catalogOrLegacy("file.svg", legacy: "EchoChannelFile")
     case "messagealt":
-      return catalogOrLegacy("MESSAGE-STYLED-RIGHT-ALIGNMENT-SEMI.svg", legacy: "EchoChannelMessage")
+      return catalogOrLegacy(
+        "MESSAGE-STYLED-RIGHT-ALIGNMENT-SEMI.svg", legacy: "EchoChannelMessage")
     case "explore", "rocketoutline":
       return catalogOrLegacy("rocket-outline.svg", legacy: "EchoTabExplore")
     case "explorefilled", "rocketfilled":
@@ -204,11 +208,13 @@ enum EchoChannelIconResolver {
 
   private static func typeDefault(_ type: String) -> Resolved? {
     switch type {
-    case "voice": return catalogOrLegacy("volume up.svg", legacy: "EchoChannelVolume")
-    case "stage": return catalogOrLegacy("sofa.svg", legacy: "EchoChannelSofa")
+    // Prefer bundled legacy assets for voice/stage — catalog SVGs have bitten us
+    // with case-mismatched filenames that render as empty icons.
+    case "voice": return .asset("EchoChannelVolume")
+    case "stage": return .asset("EchoChannelSofa")
     case "forum": return catalogOrLegacy("message.svg", legacy: "EchoChannelMessage")
     case "paper": return catalogOrLegacy("file.svg", legacy: "EchoChannelFile")
-    case "selfroles": return catalogFilename("USER-AVATAR-TAG.svg")
+    case "selfroles": return catalogFilename("USER-AVATAR-TAG.svg") ?? .system("person.badge.key")
     default: return nil
     }
   }
@@ -295,8 +301,35 @@ enum EchoChannelIconResolver {
   }
 
   private static func catalogFilename(_ file: String) -> Resolved? {
-    guard let name = EchoIconCatalog.assetName(forFilenameOrKey: file) else { return nil }
-    return .catalog(name)
+    if let name = EchoIconCatalog.assetName(forFilenameOrKey: file) {
+      return .catalog(name)
+    }
+    // Keep a visible glyph when the catalog map/asset is missing.
+    switch file.lowercased() {
+    case "list.svg": return .system("list.bullet")
+    case "volume up.svg", "volume.svg": return .system("speaker.wave.2.fill")
+    case "bell-school.svg": return .system("bell.fill")
+    case "sofa.svg": return .system("sofa.fill")
+    case "music note.svg": return .system("music.note")
+    case "camera.svg": return .system("camera.fill")
+    case "laptop code.svg": return .system("laptopcomputer")
+    case "rocket.svg", "rocket-outline.svg", "rocket-filled.svg": return .system("airplane")
+    case "globe.svg": return .system("globe")
+    case "leaf.svg": return .system("leaf.fill")
+    case "puzzle.svg": return .system("puzzlepiece.fill")
+    case "mug-hot.svg": return .system("cup.and.saucer.fill")
+    case "crown.svg": return .system("crown.fill")
+    case "telescope.svg": return .system("binoculars.fill")
+    case "speedometer.svg": return .system("gauge.with.dots.needle.33percent")
+    case "youtube.svg": return .system("play.rectangle.fill")
+    case "math-calculator.svg", "math-chart-bar.svg": return .system("function")
+    case "hobby-game-controller.svg": return .system("gamecontroller.fill")
+    case "hobby-trophy.svg": return .system("trophy.fill")
+    case "users avatar.svg", "multiple-users-silhouette.svg": return .system("person.2.fill")
+    case "user-avatar-tag.svg": return .system("person.badge.key")
+    case "image-gallery-styled.svg": return .system("photo.on.rectangle")
+    default: return nil
+    }
   }
 
   private static func catalogOrLegacy(_ file: String, legacy: String) -> Resolved {

@@ -139,8 +139,23 @@ struct EchoMessageTimelineModelTests {
     let model = makeModel(conversation: conversation, client: client, hasStarted: true)
 
     model.applyRealtime(
-      .typing(channelID: "channel-1", userID: "user-2", displayName: "Maya"))
+      .typing(
+        channelID: "channel-1", userID: "user-2", displayName: "Maya",
+        avatarURL: "https://cdn/m.png"))
     #expect(model.typingDisplayName == "Maya")
+    #expect(model.typingUsers.map(\.userID) == ["user-2"])
+    #expect(model.typingUsers.first?.avatarURL == "https://cdn/m.png")
+
+    model.applyRealtime(
+      .typing(channelID: "channel-1", userID: "user-3", displayName: "Alex", avatarURL: nil))
+    #expect(model.typingUsers.map(\.displayName) == ["Alex", "Maya"])
+    #expect(
+      EchoChannelTyping.label(for: model.typingUsers)
+        == EchoCopy.format("%@ and %@ are typing…", "Alex", "Maya"))
+
+    model.applyRealtime(
+      .typing(channelID: "channel-1", userID: model.userID, displayName: "Me", avatarURL: nil))
+    #expect(model.typingUsers.map(\.userID) == ["user-3", "user-2"])
   }
 
   @Test func authorAndVoterDisplayNameFallbacks() {
@@ -335,6 +350,8 @@ private final class StubTimelineLoading: EchoMessageTimelineLoading, @unchecked 
   private(set) var voteCount = 0
   private(set) var uploadCount = 0
   private(set) var sendCount = 0
+  private(set) var lastMentions: [EchoMessageMention] = []
+  private(set) var lastEdit: (content: String, mentions: [EchoMessageMention], contentJSON: EchoJSONValue?)?
   private(set) var pinCount = 0
   private(set) var unpinCount = 0
   var pinnedIDs: [String] = []
@@ -379,9 +396,12 @@ private final class StubTimelineLoading: EchoMessageTimelineLoading, @unchecked 
     content: String,
     attachments _: [EchoMessageAttachment],
     poll _: EchoOutgoingPoll?,
-    replyTo: EchoMessageReplyTo?
+    replyTo: EchoMessageReplyTo?,
+    mentions: [EchoMessageMention],
+    contentJSON _: EchoJSONValue?
   ) async throws -> EchoMessage {
     sendCount += 1
+    lastMentions = mentions
     return EchoMessage(
       id: "sent", channelID: channelID, authorID: currentUserID, content: content,
       isCurrentUser: true, replyTo: replyTo)
@@ -445,8 +465,11 @@ private final class StubTimelineLoading: EchoMessageTimelineLoading, @unchecked 
   }
 
   func editMessage(
-    accessToken _: String, channelID _: String, messageID _: String, content _: String
-  ) async throws {}
+    accessToken _: String, channelID _: String, messageID _: String, content: String,
+    mentions: [EchoMessageMention], contentJSON: EchoJSONValue?
+  ) async throws {
+    lastEdit = (content, mentions, contentJSON)
+  }
 
   func deleteMessage(
     accessToken _: String, channelID _: String, messageID _: String

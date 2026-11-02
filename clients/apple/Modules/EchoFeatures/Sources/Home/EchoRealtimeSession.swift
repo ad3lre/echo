@@ -1,3 +1,4 @@
+import EchoDomain
 import EchoNetworking
 import Foundation
 import Observation
@@ -133,6 +134,26 @@ final class EchoRealtimeSession {
     reason: EchoDmCallEndReason
   ) {
     client.endCall(channelID: channelID, correlationID: correlationID, reason: reason)
+  }
+
+  func sendMessage(
+    channelID: String, content: String, clientMessageID: String, stickerIDs: [String],
+    replyTo: EchoMessageReplyTo?
+  ) -> Bool {
+    client.sendMessage(
+      channelID: channelID, content: content, clientMessageID: clientMessageID,
+      stickerIDs: stickerIDs, replyTo: replyTo)
+  }
+
+  func joinGameRoom(roomID: String, gameKey: String) {
+    guard client.isConnected else { return }
+    client.joinGameRoom(roomID: roomID, gameKey: gameKey)
+  }
+
+  func leaveGameRoom(roomID: String) { client.leaveGameRoom(roomID: roomID) }
+
+  func sendGameAction(roomID: String, type: String, payload: [String: any Sendable] = [:]) {
+    client.sendGameAction(roomID: roomID, type: type, payload: payload)
   }
 
   private func handle(_ event: EchoRealtimeEvent) {

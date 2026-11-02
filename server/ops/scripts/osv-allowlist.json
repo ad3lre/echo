@@ -1,0 +1,4 @@
+{
+  "$schema-note": "Accepted OSV / GHSA ids that check-osv-sbom.mjs will ignore. Add an entry ONLY when a finding cannot be fixed yet. Each entry needs reason + expires (YYYY-MM-DD).",
+  "advisories": {}
+}

@@ -98,18 +98,20 @@ import SwiftUI
   }
 #else
   /// macOS: plain opacity swap (no UIKit host).
+  /// Do **not** `.id(appearanceEpoch)` — remounting wiped the open conversation
+  /// / server selection whenever Style → Theme flipped.
   struct EchoPersistentTabHost<Content: View>: View {
     var isActive: Bool
     var appearanceEpoch: Int = 0
     var content: Content
 
     var body: some View {
+      // Observe epoch so ink redraws without destroying navigation state.
       let _ = appearanceEpoch
       content
         .opacity(isActive ? 1 : 0)
         .allowsHitTesting(isActive)
         .accessibilityHidden(!isActive)
-        .id(appearanceEpoch)
     }
   }
 #endif

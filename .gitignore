@@ -213,6 +213,9 @@ compose.override.yaml
 # Local security / pentest artifacts (regenerate with scripts/har-sanitize.mjs if needed)
 /artifacts/
 
+# Pinned tool caches (osv-scanner binaries, etc.)
+/server/ops/.cache/
+
 # Scanner JSON dumps under logs/ (VPS logs stay under /logs/vps/, already ignored)
 /logs/*.json
 

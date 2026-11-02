@@ -10,6 +10,8 @@ struct EchoCallView: View {
   @Bindable var model: EchoCallModel
   let baseURL: URL
   let accessToken: String
+  /// Trailing half-panel (web/Discord). Full view is optional via expand.
+  var compact = false
   @Bindable private var ringtoneStore = EchoCallRingtoneStore.shared
   @State private var showingRingtonePanel = false
   @State private var ringPulse = false
@@ -30,18 +32,21 @@ struct EchoCallView: View {
 
   var body: some View {
     ZStack {
-      EchoTheme.Color.canvas.ignoresSafeArea()
+      EchoTheme.Color.canvas.ignoresSafeArea(edges: compact ? [] : .all)
       background
 
       if videoSurface.hasAnyVideo {
         videoSurface
-          .ignoresSafeArea()
+          .ignoresSafeArea(edges: compact ? [] : .all)
           .transition(.opacity)
       }
 
       VStack(spacing: 0) {
         topBar
-          .padding(.top, 18)
+          .padding(.top, compact ? 12 : 18)
+          #if os(iOS)
+            .safeAreaPadding(.top)
+          #endif
         if showingRingtonePanel, isRinging {
           EchoCallRingtonePanel(
             store: ringtoneStore,
@@ -54,16 +59,20 @@ struct EchoCallView: View {
           .padding(.top, 10)
           .transition(.move(edge: .top).combined(with: .opacity))
         }
-        Spacer(minLength: 36)
+        Spacer(minLength: compact ? 16 : 36)
         if !videoSurface.hasAnyVideo {
           identity
         }
         Spacer()
         controls
-          .padding(.bottom, 54)
+          .padding(.bottom, compact ? 18 : 54)
+          #if os(iOS)
+            .safeAreaPadding(.bottom)
+          #endif
       }
-      .padding(.horizontal, 28)
+      .padding(.horizontal, compact ? 18 : 28)
     }
+    .clipShape(RoundedRectangle(cornerRadius: compact ? 18 : 0, style: .continuous))
     .preferredColorScheme(.dark)
     .animation(.easeInOut(duration: 0.22), value: showingRingtonePanel)
     .onChange(of: isRinging) { _, ringing in
@@ -98,6 +107,25 @@ struct EchoCallView: View {
           .background(.white.opacity(0.12), in: Capsule())
       }
       Spacer()
+      Button {
+        model.setExpanded(!model.isExpanded)
+      } label: {
+        Image(
+          systemName: model.isExpanded
+            ? "arrow.down.right.and.arrow.up.left"
+            : "arrow.up.left.and.arrow.down.right"
+        )
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(.white.opacity(0.82))
+        .frame(width: 36, height: 36)
+        .background(.white.opacity(0.12), in: Circle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(
+        model.isExpanded
+          ? EchoCopy.string("Exit full view")
+          : EchoCopy.string("Full view")
+      )
       if isRinging {
         Button {
           withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
@@ -139,14 +167,17 @@ struct EchoCallView: View {
             EchoGeneratedAvatar(name: conversation.displayName, seed: conversation.channelID)
           }
           .clipShape(Circle())
-          .frame(width: 124, height: 124)
+          .frame(width: compact ? 84 : 124, height: compact ? 84 : 124)
           .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
           .echoShadow(color: .black.opacity(0.38), radius: 26, y: 14)
+          .echoRemoteVolumeControl(
+            volume: model.phase == .active ? model.remoteVolumeBinding : nil,
+            name: conversation.displayName)
         }
         .onAppear { ringPulse = true }
 
         Text(conversation.displayName)
-          .font(.system(size: 29, weight: .semibold, design: .rounded))
+          .font(.system(size: compact ? 20 : 29, weight: .semibold, design: .rounded))
           .foregroundStyle(.white)
           .lineLimit(2)
           .multilineTextAlignment(.center)

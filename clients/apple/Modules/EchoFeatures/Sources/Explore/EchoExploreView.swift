@@ -20,6 +20,11 @@ struct EchoExploreView: View {
   @State private var localModel: EchoExploreModel?
   @State private var accessToken = ""
   @FocusState private var searchFocused: Bool
+  #if os(macOS)
+    @State private var showingJoinInvite = false
+    @State private var inviteCode = ""
+    @State private var showingCreateServer = false
+  #endif
 
   private var activeModel: EchoExploreModel? { model ?? localModel }
 
@@ -38,16 +43,22 @@ struct EchoExploreView: View {
   }
 
   /// Duo / wide: even column counts so cards don’t straddle the fold.
+  /// macOS desktop mirrors web Explore density (up to 3–4 cards across).
   private var exploreColumnCount: Int {
-    let layout = shellChrome.layout
-    guard layout.usesSplitChrome else { return 1 }
-    let width = max(layout.size.width - scrollTrailingInset - 36, 320)
-    let raw = Int(width / 300)
-    let count = max(2, min(4, raw))
-    if layout.prefersEvenColumns, count % 2 == 1 {
-      return max(2, count - 1)
-    }
-    return count
+    #if os(macOS)
+      let width = max(shellChrome.layout.size.width - 48, 480)
+      return max(2, min(4, Int(width / 280)))
+    #else
+      let layout = shellChrome.layout
+      guard layout.usesSplitChrome else { return 1 }
+      let width = max(layout.size.width - scrollTrailingInset - 36, 320)
+      let raw = Int(width / 300)
+      let count = max(2, min(4, raw))
+      if layout.prefersEvenColumns, count % 2 == 1 {
+        return max(2, count - 1)
+      }
+      return count
+    #endif
   }
 
   var body: some View {
@@ -66,6 +77,9 @@ struct EchoExploreView: View {
       #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
       #endif
+      #if os(macOS)
+        .toolbar(.hidden)
+      #endif
       .echoNavigationChrome(blendsWithCanvas: true)
       #if os(iOS)
         .toolbar(searchFocused ? .hidden : .automatic, for: .navigationBar)
@@ -83,6 +97,30 @@ struct EchoExploreView: View {
       if searchFocused {
         shellChrome.listSearchActive = false
       }
+    }
+    #if os(macOS)
+      .sheet(isPresented: $showingJoinInvite) {
+        joinInviteSheet
+      }
+    #endif
+    .overlay {
+      if let activeModel, let context = activeModel.applicationContext {
+        EchoServerApplicationModal(context: context, model: activeModel)
+        .id(context.serverID)
+      }
+      #if os(macOS)
+        if showingCreateServer, let activeModel {
+          EchoCreateServerModal(
+            onCreate: { await activeModel.createServer(name: $0, iconData: $1) },
+            onCreated: { serverID in
+              showingCreateServer = false
+              Task { await activeModel.reload() }
+              onOpenServer?(serverID)
+            },
+            onClose: { showingCreateServer = false }
+          )
+        }
+      #endif
     }
     .task {
       accessToken = (try? await auth.ensureAccessToken()) ?? ""
@@ -120,12 +158,17 @@ struct EchoExploreView: View {
       VStack(spacing: 0) {
         if let joinError = model.joinErrorMessage {
           joinErrorBanner(joinError, model: model)
+        } else if let notice = model.noticeMessage {
+          joinErrorBanner(notice, model: model, icon: "checkmark.circle.fill")
         }
         ScrollView(showsIndicators: false) {
           // Top-level LazyVStack — a plain VStack was forcing every card to build
           // on first Explore visit (big tab-switch hitch).
           // Search + recommended stay first; Featured sits under the filters.
           LazyVStack(alignment: .leading, spacing: 18) {
+            #if os(macOS)
+              macExploreHero
+            #endif
             controlsSection(model)
             if !model.featured.isEmpty {
               featuredSection(model)
@@ -134,11 +177,18 @@ struct EchoExploreView: View {
           }
           // Theme flips bake into row ink via EchoTheme — recycle lazy rows so
           // Sunny brown names don’t stick until the user scrolls.
-          .id(displayPrefs.appearanceGeneration)
-          .padding(.horizontal, 18)
-          .padding(.top, 4)
+          .opacity(displayPrefs.appearanceGeneration >= 0 ? 1 : 1)
+          #if os(macOS)
+            .padding(.horizontal, 28)
+            .padding(.top, 12)
+            .frame(maxWidth: 1200, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .top)
+          #else
+            .padding(.horizontal, 18)
+            .padding(.top, 4)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+          #endif
           .padding(.bottom, scrollBottomInset)
-          .frame(maxWidth: .infinity, alignment: .topLeading)
           .contentShape(Rectangle())
           .simultaneousGesture(
             TapGesture().onEnded { dismissSearchKeyboard() }
@@ -150,9 +200,11 @@ struct EchoExploreView: View {
     }
   }
 
-  private func joinErrorBanner(_ message: String, model: EchoExploreModel) -> some View {
+  private func joinErrorBanner(
+    _ message: String, model: EchoExploreModel, icon: String = "exclamationmark.circle.fill"
+  ) -> some View {
     HStack(alignment: .top, spacing: 10) {
-      Image(systemName: "exclamationmark.circle.fill")
+      Image(systemName: icon)
         .font(.system(size: 15, weight: .semibold))
         .foregroundStyle(EchoTheme.Color.ink(0.55))
       Text(message)
@@ -206,6 +258,14 @@ struct EchoExploreView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
+  private var recommendedTitleSize: CGFloat {
+    #if os(macOS)
+      16
+    #else
+      20
+    #endif
+  }
+
   private func featuredSection(_ model: EchoExploreModel) -> some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack {
@@ -213,15 +273,19 @@ struct EchoExploreView: View {
           .font(.system(size: 16, weight: .semibold, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.94))
         Spacer()
-        Text(EchoCopy.string("Swipe"))
-          .font(.system(size: 11, weight: .semibold, design: .rounded))
-          .foregroundStyle(EchoTheme.Color.ink(0.38))
-          .textCase(.uppercase)
-          .tracking(1.2)
+        #if os(iOS)
+          Text(EchoCopy.string("Swipe"))
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .foregroundStyle(EchoTheme.Color.ink(0.38))
+            .textCase(.uppercase)
+            .tracking(1.2)
+        #endif
       }
 
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 12) {
+      #if os(macOS)
+        let columns = Array(
+          repeating: GridItem(.flexible(), spacing: 14), count: min(3, exploreColumnCount))
+        LazyVGrid(columns: columns, spacing: 14) {
           ForEach(model.featured) { listed in
             EchoExploreFeaturedCard(
               listed: listed,
@@ -234,17 +298,36 @@ struct EchoExploreView: View {
                 Task { await join(listed, model: model) }
               }
             )
-            .frame(width: 280)
-            // Keep the whole card (banner + footer) in the scroll hit region.
             .contentShape(Rectangle())
           }
         }
-        // Trailing slack so the last card isn’t flush against the edge.
-        .padding(.trailing, 4)
-        .contentShape(Rectangle())
-      }
-      // Nested in the vertical Explore scroll — prefer horizontal pans here.
-      .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+      #else
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 12) {
+            ForEach(model.featured) { listed in
+              EchoExploreFeaturedCard(
+                listed: listed,
+                baseURL: baseURL,
+                accessToken: accessToken,
+                isJoined: listed.alreadyMember || model.joinedIDs.contains(listed.id),
+                isJoining: model.joiningIDs.contains(listed.id),
+                onJoin: {
+                  dismissSearchKeyboard()
+                  Task { await join(listed, model: model) }
+                }
+              )
+              .frame(width: 280)
+              // Keep the whole card (banner + footer) in the scroll hit region.
+              .contentShape(Rectangle())
+            }
+          }
+          // Trailing slack so the last card isn’t flush against the edge.
+          .padding(.trailing, 4)
+          .contentShape(Rectangle())
+        }
+        // Nested in the vertical Explore scroll — prefer horizontal pans here.
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+      #endif
     }
   }
 
@@ -252,7 +335,7 @@ struct EchoExploreView: View {
     VStack(alignment: .leading, spacing: 12) {
       VStack(alignment: .leading, spacing: 4) {
         Text(EchoCopy.string("Recommended communities"))
-          .font(.system(size: 20, weight: .semibold, design: .rounded))
+          .font(.system(size: recommendedTitleSize, weight: .semibold, design: .rounded))
           .foregroundStyle(EchoTheme.Color.ink(0.94))
         Text(model.resultCountLabel)
           .font(.system(size: 13, weight: .regular, design: .rounded))
@@ -287,11 +370,15 @@ struct EchoExploreView: View {
             }
           }
         }
-        .padding(.horizontal, 14)
-        .frame(height: 44)
-        .background(
-          EchoTheme.Color.ink(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-        )
+        .padding(.horizontal, 2)
+        .frame(height: 36)
+        #if os(iOS)
+          .padding(.horizontal, 12)
+          .frame(height: 44)
+          .background(
+            EchoTheme.Color.ink(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+          )
+        #endif
 
         if !model.searchQuery.isEmpty || model.selectedTag != nil {
           Button(EchoCopy.string("Clear")) {
@@ -431,6 +518,116 @@ struct EchoExploreView: View {
       }
     }
   }
+
+  #if os(macOS)
+    private var macExploreHero: some View {
+      VStack(alignment: .leading, spacing: 16) {
+        HStack(spacing: 8) {
+          Image("EchoTabExploreFilled", bundle: .main)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 12, height: 12)
+            .foregroundStyle(EchoTheme.Color.ink(0.45))
+          Text(EchoCopy.string("Explore"))
+          Text(EchoCopy.string("/"))
+            .foregroundStyle(EchoTheme.Color.ink(0.28))
+          Text(EchoCopy.string("Public servers"))
+        }
+        .font(.system(size: 11, weight: .semibold, design: .rounded))
+        .tracking(1.6)
+        .textCase(.uppercase)
+        .foregroundStyle(EchoTheme.Color.ink(0.42))
+
+        Text(EchoCopy.string("Find your next corner of Echo."))
+          .font(.system(size: 36, weight: .bold, design: .rounded))
+          .tracking(-0.6)
+          .foregroundStyle(EchoTheme.Color.fg)
+          .fixedSize(horizontal: false, vertical: true)
+
+        Text(
+          EchoCopy.string(
+            "Scroll communities until one clicks. Land somewhere that feels like yours, and keep it open on desktop without the usual clutter."
+          )
+        )
+        .font(.system(size: 15, design: .rounded))
+        .foregroundStyle(EchoTheme.Color.ink(0.52))
+        .frame(maxWidth: 640, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+
+        HStack(spacing: 10) {
+          Button {
+            showingCreateServer = true
+          } label: {
+            Text(EchoCopy.string("Create server"))
+              .font(.system(size: 14, weight: .semibold, design: .rounded))
+              .foregroundStyle(EchoTheme.Color.onAccent)
+              .frame(maxWidth: .infinity)
+              .padding(.vertical, 12)
+              .background(
+                EchoTheme.Color.signInBlue,
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+              )
+          }
+          .buttonStyle(.plain)
+
+          Button {
+            showingJoinInvite = true
+          } label: {
+            Text(EchoCopy.string("Join with invite"))
+              .font(.system(size: 14, weight: .semibold, design: .rounded))
+              .foregroundStyle(EchoTheme.Color.fg)
+              .frame(maxWidth: .infinity)
+              .padding(.vertical, 12)
+              .background(
+                EchoTheme.Color.ink(0.08),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+              )
+          }
+          .buttonStyle(.plain)
+        }
+        .frame(maxWidth: 420)
+        .padding(.top, 4)
+      }
+      .padding(.bottom, 8)
+    }
+
+    private var joinInviteSheet: some View {
+      VStack(alignment: .leading, spacing: 16) {
+        Text(EchoCopy.string("Join with invite"))
+          .font(.system(size: 18, weight: .semibold))
+        TextField(EchoCopy.string("Invite code or link"), text: $inviteCode)
+          .textFieldStyle(.roundedBorder)
+        HStack {
+          Spacer()
+          Button(EchoCopy.string("Cancel")) {
+            showingJoinInvite = false
+          }
+          Button(EchoCopy.string("Join")) {
+            Task { await submitInvite() }
+          }
+          .disabled(inviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+          .keyboardShortcut(.defaultAction)
+        }
+      }
+      .padding(24)
+      .frame(width: 420)
+    }
+
+    private func submitInvite() async {
+      let code = inviteCode.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !code.isEmpty, let activeModel else { return }
+      if let serverID = await activeModel.joinInvite(code) {
+        showingJoinInvite = false
+        inviteCode = ""
+        onOpenServer?(serverID)
+      } else if activeModel.applicationContext != nil {
+        // `APPLICATION_REQUIRED` — the application modal takes over.
+        showingJoinInvite = false
+        inviteCode = ""
+      }
+    }
+  #endif
 
   private func join(
     _ listed: EchoExploreDirectory.ListedServer, model: EchoExploreModel

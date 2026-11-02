@@ -87,6 +87,8 @@ final class EchoSettingDetailModel {
     case .timeLanguage: EchoCopy.string("Formatting and locale")
     case .dataPrivacy:
       EchoCopy.string("Export your account data. Friend preferences are under Friends.")
+    case .keybinds: EchoCopy.string("Keyboard shortcuts for Echo")
+    case .encryptionDevices: EchoCopy.string("Review and revoke encrypted devices")
     default: EchoCopy.string("Echo account and app controls")
     }
   }

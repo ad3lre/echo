@@ -37,41 +37,66 @@ struct EchoSettingChoice: View {
     options.first(where: { $0.0 == value })?.1 ?? value
   }
 
+  @Environment(\.echoDesktopSettings) private var desktop
+
   var body: some View {
-    Button {
-      isPresented = true
-    } label: {
-      HStack(spacing: 12) {
-        Image(systemName: icon)
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(tint)
-          .frame(width: 36, height: 36)
-          .background(
-            tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-        VStack(alignment: .leading, spacing: 3) {
+    if desktop {
+      HStack(alignment: .center, spacing: 16) {
+        VStack(alignment: .leading, spacing: 4) {
           Text(title)
-            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .font(.system(size: 14, weight: .semibold))
           Text(subtitle)
-            .font(.system(size: 12, design: .rounded))
+            .font(.system(size: 12))
             .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
         }
-        Spacer(minLength: 8)
-        HStack(spacing: 5) {
-          Text(selectedLabel)
-            .font(.system(size: 13, weight: .semibold, design: .rounded))
-            .foregroundStyle(tint)
-            .lineLimit(1)
-          Image(systemName: "chevron.up.chevron.down")
-            .font(.system(size: 10, weight: .bold))
-            .foregroundStyle(.secondary)
+        Spacer(minLength: 16)
+        Picker("", selection: $value) {
+          ForEach(options, id: \.0) { option in
+            Text(option.1).tag(option.0)
+          }
         }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .frame(minWidth: 120)
       }
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-    .sheet(isPresented: $isPresented) {
-      EchoChoiceSheet(
-        title: title, subtitle: subtitle, icon: icon, tint: tint, value: $value, options: options)
+      .padding(.vertical, 10)
+    } else {
+      Button {
+        isPresented = true
+      } label: {
+        HStack(spacing: 12) {
+          Image(systemName: icon)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: 36, height: 36)
+            .background(
+              tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+          VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+              .font(.system(size: 15, weight: .semibold, design: .rounded))
+            Text(subtitle)
+              .font(.system(size: 12, design: .rounded))
+              .foregroundStyle(.secondary)
+          }
+          Spacer(minLength: 8)
+          HStack(spacing: 5) {
+            Text(selectedLabel)
+              .font(.system(size: 13, weight: .semibold, design: .rounded))
+              .foregroundStyle(tint)
+              .lineLimit(1)
+            Image(systemName: "chevron.up.chevron.down")
+              .font(.system(size: 10, weight: .bold))
+              .foregroundStyle(.secondary)
+          }
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .sheet(isPresented: $isPresented) {
+        EchoChoiceSheet(
+          title: title, subtitle: subtitle, icon: icon, tint: tint, value: $value, options: options)
+      }
     }
   }
 }

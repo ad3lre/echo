@@ -51,9 +51,11 @@ actor EchoSignedURLCache {
     baseURL: URL,
     accessToken: String,
     publicURL: String,
-    storageKey: String?
+    storageKey: String?,
+    scope: String = "object"
   ) async throws -> String {
-    let key = cacheKey(storageKey: storageKey, publicURL: publicURL, accessToken: accessToken)
+    let key = cacheKey(
+      storageKey: storageKey, publicURL: publicURL, accessToken: accessToken, scope: scope)
     if let hit = values[key], hit.expiresAt > Date() {
       return hit.url
     }
@@ -66,6 +68,7 @@ actor EchoSignedURLCache {
       return try await client.signURL(
         storageKey: storageKey,
         publicURL: publicURL,
+        scope: scope,
         accessToken: accessToken)
     }
     inFlight[key] = task
@@ -82,7 +85,9 @@ actor EchoSignedURLCache {
     inFlight.removeAll()
   }
 
-  private func cacheKey(storageKey: String?, publicURL: String, accessToken: String) -> String {
+  private func cacheKey(
+    storageKey: String?, publicURL: String, accessToken: String, scope: String
+  ) -> String {
     // Fingerprint the token so in-flight coalescing never shares a sign across sessions.
     let tokenTag = String(accessToken.suffix(24))
     let base: String
@@ -91,7 +96,7 @@ actor EchoSignedURLCache {
     } else {
       base = "url:\(publicURL)"
     }
-    return "\(base)|\(tokenTag)"
+    return "\(base)|\(scope)|\(tokenTag)"
   }
 }
 
@@ -102,6 +107,7 @@ enum EchoMediaCaches {
     await EchoSignedURLCache.shared.clear()
     await EchoImageDataCache.shared.clear()
     EchoDecodedImageCache.shared.clear()
+    EchoPDFThumbnailCache.shared.clear()
     await EchoUserProfileCache.shared.clear()
   }
 }
@@ -443,31 +449,40 @@ final class EchoImageLoader: ObservableObject {
     // task more than once in a single update pass; doing it inside the task
     // leaves a small race where both loads can cancel and restart each other.
     isLoading = true
-    requestTask = Task { [weak self] in
+    requestTask = Task { @MainActor [weak self] in
       guard let self else { return }
-      defer {
-        if generation == self.loadGeneration {
-          isLoading = false
-        }
-      }
 
       if let cached = EchoDecodedImageCache.shared.bitmap(for: url) {
         guard generation == self.loadGeneration else { return }
+        // Bitmap first so the spinner never outlives the painted image.
         bitmap = cached
+        isLoading = false
         return
       }
 
       do {
         let data = try await EchoImageDataCache.shared.data(for: url)
-        guard !Task.isCancelled, generation == self.loadGeneration else { return }
+        guard !Task.isCancelled, generation == self.loadGeneration else {
+          if generation == self.loadGeneration { isLoading = false }
+          return
+        }
         let decoded = await Task.detached(priority: .userInitiated) {
           echoDownsampledPlatformImage(data, maxPixelSize: maxPixels)
         }.value
-        guard !Task.isCancelled, generation == self.loadGeneration, let decoded else { return }
+        guard !Task.isCancelled, generation == self.loadGeneration else {
+          if generation == self.loadGeneration { isLoading = false }
+          return
+        }
+        guard let decoded else {
+          if generation == self.loadGeneration { isLoading = false }
+          return
+        }
         EchoDecodedImageCache.shared.insert(decoded, for: url)
+        // Bitmap first so the spinner never outlives the painted image.
         bitmap = decoded
+        isLoading = false
       } catch {
-        guard !Task.isCancelled else { return }
+        if generation == self.loadGeneration { isLoading = false }
       }
     }
   }

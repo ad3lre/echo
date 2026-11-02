@@ -38,6 +38,8 @@ const props = defineProps<{
   visibleServers: Server[];
   selectedServerId: string | null;
   areServersExpanded: boolean;
+  /** When true, hide the community folder control (servers are already listed). */
+  serversAlwaysOn?: boolean;
   reorderEnabled: boolean;
   railDragSourceIndex: number | null;
   railDropLineBefore: number | null;
@@ -158,6 +160,7 @@ const emit = defineEmits<{
           "
         >
           <button
+            v-if="!props.serversAlwaysOn"
             type="button"
             class="explore-trigger relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
             :title="echoT('b17.rail.servers')"
@@ -291,6 +294,7 @@ const emit = defineEmits<{
         </div>
         <div class="flex w-full shrink-0 flex-col items-center">
           <button
+            v-if="!props.serversAlwaysOn"
             type="button"
             class="explore-trigger relative flex h-12 w-full shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
             :title="echoT('b17.rail.servers')"

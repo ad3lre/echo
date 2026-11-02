@@ -190,9 +190,14 @@ public enum EchoNotificationError: LocalizedError, Sendable {
 
 extension Notification.Name {
   public static let echoAPNsDeviceToken = Notification.Name("EchoAPNsDeviceToken")
+  public static let echoAPNsRegistrationFailed = Notification.Name("EchoAPNsRegistrationFailed")
   public static let echoNotificationSelected = Notification.Name("EchoNotificationSelected")
   public static let echoRemoteNotificationReceived = Notification.Name(
     "EchoRemoteNotificationReceived")
+  /// Home → Mac rail: display name + avatar for the bottom self chip.
+  public static let echoSelfProfileChrome = Notification.Name("EchoSelfProfileChrome")
+  /// Rail / popout chose a presence — Home applies it without waiting on the server.
+  public static let echoSelfPresenceChosen = Notification.Name("EchoSelfPresenceChosen")
 }
 
 public enum EchoNotificationPayload {

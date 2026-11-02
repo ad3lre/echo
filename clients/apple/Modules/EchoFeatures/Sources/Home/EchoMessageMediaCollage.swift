@@ -1,6 +1,11 @@
 import EchoDomain
 import SwiftUI
 
+/// Web `CHAT_MEDIA_BOX_MAX_WIDTH_PX` / CSS `min(100%, 40rem)`.
+enum EchoChatMediaMetrics {
+  static let boxMaxWidth: CGFloat = 640
+}
+
 /// Fixed 16:9 collage box for images/GIFs in a message — web `MessageMediaCollage` parity.
 struct EchoMessageMediaCollage: View {
   let images: [EchoMessageAttachment]
@@ -8,8 +13,8 @@ struct EchoMessageMediaCollage: View {
   var accessToken: String? = nil
   var isUploading = false
   var onOpen: ((Int) -> Void)? = nil
-  /// Caps collage width (web message bubble ~300; search results can go wider).
-  var maxWidth: CGFloat = 300
+  /// Caps collage width. Search results pass `.infinity` to use the row.
+  var maxWidth: CGFloat = EchoChatMediaMetrics.boxMaxWidth
 
   private let gap: CGFloat = 3
 
@@ -43,7 +48,8 @@ struct EchoMessageMediaCollage: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .background(
           EchoTheme.Color.ink(0.04),
-          in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+          in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
         .overlay { uploadingChrome }
       }
       .aspectRatio(16 / 9, contentMode: .fit)
@@ -127,7 +133,9 @@ struct EchoMessageMediaCollage: View {
     return CGSize(width: width, height: height)
   }
 
-  private func cellWidth(_ cell: EchoMediaCollageCellPlan, canvas: CGSize, plan: EchoMediaCollagePlan)
+  private func cellWidth(
+    _ cell: EchoMediaCollageCellPlan, canvas: CGSize, plan: EchoMediaCollagePlan
+  )
     -> CGFloat
   {
     let gaps = CGFloat(plan.columnCount - 1) * gap
@@ -135,7 +143,9 @@ struct EchoMessageMediaCollage: View {
     return unit * CGFloat(cell.columnSpan) + gap * CGFloat(max(0, cell.columnSpan - 1))
   }
 
-  private func cellHeight(_ cell: EchoMediaCollageCellPlan, canvas: CGSize, plan: EchoMediaCollagePlan)
+  private func cellHeight(
+    _ cell: EchoMediaCollageCellPlan, canvas: CGSize, plan: EchoMediaCollagePlan
+  )
     -> CGFloat
   {
     let gaps = CGFloat(plan.rowCount - 1) * gap
@@ -143,7 +153,9 @@ struct EchoMessageMediaCollage: View {
     return unit * CGFloat(cell.rowSpan) + gap * CGFloat(max(0, cell.rowSpan - 1))
   }
 
-  private func cellOriginX(_ cell: EchoMediaCollageCellPlan, canvas: CGSize, plan: EchoMediaCollagePlan)
+  private func cellOriginX(
+    _ cell: EchoMediaCollageCellPlan, canvas: CGSize, plan: EchoMediaCollagePlan
+  )
     -> CGFloat
   {
     let gaps = CGFloat(plan.columnCount - 1) * gap
@@ -151,7 +163,9 @@ struct EchoMessageMediaCollage: View {
     return CGFloat(cell.column) * (unit + gap)
   }
 
-  private func cellOriginY(_ cell: EchoMediaCollageCellPlan, canvas: CGSize, plan: EchoMediaCollagePlan)
+  private func cellOriginY(
+    _ cell: EchoMediaCollageCellPlan, canvas: CGSize, plan: EchoMediaCollagePlan
+  )
     -> CGFloat
   {
     let gaps = CGFloat(plan.rowCount - 1) * gap

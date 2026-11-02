@@ -65,6 +65,37 @@ struct EchoMessageSearchModelTests {
     model.clearFilters()
     #expect(model.criteria.isEmpty)
   }
+
+  @Test func applyInlineFiltersMapsTokensOntoChips() async {
+    let auth = EchoAuthenticationModel(
+      baseURL: URL(string: "https://example.com")!,
+      sessionStore: InMemorySessionStore(),
+      activeSession: EchoSession(
+        accessToken: "token",
+        refreshToken: "refresh",
+        expiresInSec: 3600,
+        username: "adel",
+        userID: "me"))
+    let client = RecordingSearchClient()
+    let model = EchoMessageSearchModel(
+      conversation: EchoDirectMessage(
+        id: "dm-1", channelID: "dm-1", peerUserID: "peer", displayName: "Maya",
+        username: "maya"),
+      baseURL: URL(string: "https://chat-echo.com")!,
+      auth: auth,
+      userID: "me",
+      client: client)
+
+    await model.search("hello from:@Maya has:image mentions:@adel")
+    #expect(model.authorScope == .peer)
+    #expect(model.hasType == .image)
+    #expect(model.mentionsMe)
+    #expect(model.activeQuery == "hello")
+    #expect(client.lastQuery == "hello")
+    #expect(client.lastCriteria?.authorID == "peer")
+    #expect(client.lastCriteria?.hasType == .image)
+    #expect(client.lastCriteria?.mentions == "adel")
+  }
 }
 
 private final class FakeSearchClient: EchoMessageSearchLoading, @unchecked Sendable {
@@ -78,6 +109,25 @@ private final class FakeSearchClient: EchoMessageSearchLoading, @unchecked Senda
     criteria: EchoMessageSearchCriteria
   ) async throws -> EchoMessageSearchPage {
     EchoMessageSearchPage(messages: [], hasMoreBefore: false)
+  }
+}
+
+private final class RecordingSearchClient: EchoMessageSearchLoading, @unchecked Sendable {
+  var lastQuery: String?
+  var lastCriteria: EchoMessageSearchCriteria?
+
+  func searchMessages(
+    accessToken: String,
+    channelID: String,
+    currentUserID: String?,
+    query: String,
+    before: String?,
+    limit: Int,
+    criteria: EchoMessageSearchCriteria
+  ) async throws -> EchoMessageSearchPage {
+    lastQuery = query
+    lastCriteria = criteria
+    return EchoMessageSearchPage(messages: [], hasMoreBefore: false)
   }
 }
 

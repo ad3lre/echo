@@ -292,6 +292,15 @@ const props = defineProps<{
   onOpenVoiceAudioSettings?: () => void;
 }>();
 
+async function markAllMentionNotificationsRead() {
+  const seen = new Set<string>();
+  for (const row of props.dmMentionNotifications) {
+    if (seen.has(row.channelId)) continue;
+    seen.add(row.channelId);
+    await props.onMarkMentionNotificationRead(row);
+  }
+}
+
 /**
  * Non-null only when all three conditions are true:
  *  1. The main surface is an active DM thread.
@@ -427,6 +436,7 @@ async function handleDmCallLeave() {
       :is-persisted-echo-dm-thread="isPersistedEchoDmThread"
       @open-row="onOpenMentionNotification"
       @mark-row-read="onMarkMentionNotificationRead"
+      @mark-all-read="markAllMentionNotificationsRead"
       @update:read-preset="onUpdateDmNotificationsReadPreset"
       @update:source-key="onUpdateDmNotificationsSourceKey"
       @back-to-messages="returnFromMessageRequests"

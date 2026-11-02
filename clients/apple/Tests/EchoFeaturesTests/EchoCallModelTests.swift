@@ -9,15 +9,19 @@ import Testing
 struct EchoCallModelTests {
   @Test func endingDuringUncancellablePreparationNeverJoinsTheRoom() async {
     let realtime = EchoRealtimeSession(
-      baseURL: URL(string: "https://chat-echo.com")!, currentUserID: "me", client: FakeRealtimeClient())
-    let calling = FakeCallingClient(session: EchoLiveKitSession(
-      url: "wss://voice.example", token: "join", roomName: "room", bitrateBps: nil, voiceE2EE: nil))
+      baseURL: URL(string: "https://chat-echo.com")!, currentUserID: "me",
+      client: FakeRealtimeClient())
+    let calling = FakeCallingClient(
+      session: EchoLiveKitSession(
+        url: "wss://voice.example", token: "join", roomName: "room", bitrateBps: nil, voiceE2EE: nil
+      ))
     let transport = FakeCallTransport()
     let preparation = ControlledCallPreparation()
     let model = EchoCallModel(
       baseURL: URL(string: "https://chat-echo.com")!, realtime: realtime, currentUserID: "me",
       tokenProvider: { "access" }, client: calling, transport: transport, e2ee: preparation)
-    await model.startCall(to: EchoDirectMessage(id: "dm", channelID: "dm", peerUserID: "peer", displayName: "Peer"))
+    await model.startCall(
+      to: EchoDirectMessage(id: "dm", channelID: "dm", peerUserID: "peer", displayName: "Peer"))
     await preparation.waitUntilStarted()
     let ending = Task { await model.decline() }
     for _ in 0..<100 where model.phase != .ending { await Task.yield() }
@@ -237,6 +241,16 @@ private struct FixedE2EEPreparer: EchoVoiceE2EEPreparing {
   ) async throws -> EchoVoiceE2EEPrepareResult {
     EchoVoiceE2EEPrepareResult(encryption: encryption, deviceID: deviceID)
   }
+
+  func prepareGuild(
+    serverID: String,
+    channelID: String,
+    accessToken: String,
+    viewerUserID: String,
+    authorizedUserIDs: [String]
+  ) async throws -> EchoVoiceE2EEPrepareResult {
+    EchoVoiceE2EEPrepareResult(encryption: encryption, deviceID: deviceID)
+  }
 }
 
 private final class FakeCallingClient: EchoCallingServing, @unchecked Sendable {
@@ -253,6 +267,27 @@ private final class FakeCallingClient: EchoCallingServing, @unchecked Sendable {
     createCount += 1
     return session
   }
+
+  func createGuildSession(
+    serverID: String,
+    channelID: String,
+    accessToken: String,
+    e2eeDeviceID: String?
+  ) async throws -> EchoLiveKitSession {
+    session
+  }
+
+  func joinGuildVoice(serverID: String, channelID: String, accessToken: String) async throws {}
+
+  func leaveGuildVoice(serverID: String, channelID: String?, accessToken: String) async throws {}
+
+  func loadGuildVoiceParticipants(
+    serverID: String,
+    channelID: String,
+    accessToken: String
+  ) async throws -> [String] {
+    []
+  }
 }
 
 private final class FakeCallTransport: EchoCallTransporting, @unchecked Sendable {
@@ -261,6 +296,7 @@ private final class FakeCallTransport: EchoCallTransporting, @unchecked Sendable
   var onRemoteParticipantConnected: (@Sendable (String) -> Void)?
   var onRemoteParticipantDisconnected: (@Sendable (String) -> Void)?
   var onVideoTracksChange: (@Sendable (EchoCallVideoTrackSnapshot) -> Void)?
+  var onSpeakingChange: (@Sendable (Set<String>) -> Void)?
   private(set) var connectCount = 0
   private(set) var lastEncryption: EchoCallMediaEncryption?
   private(set) var cameraEnabled: Bool?
@@ -344,13 +380,27 @@ private final class FakeRealtimeClient: EchoRealtimeClient, @unchecked Sendable 
 @MainActor private final class ControlledCallPreparation: EchoVoiceE2EEPreparing {
   private var pending: CheckedContinuation<EchoVoiceE2EEPrepareResult, Error>?
   private var started: CheckedContinuation<Void, Never>?
-  func prepareDM(channelID: String, accessToken: String, viewerUserID: String,
-    peerUserID: String?, authorizedUserIDs: [String]) async throws -> EchoVoiceE2EEPrepareResult {
+  func prepareDM(
+    channelID: String, accessToken: String, viewerUserID: String,
+    peerUserID: String?, authorizedUserIDs: [String]
+  ) async throws -> EchoVoiceE2EEPrepareResult {
     try await withCheckedThrowingContinuation { continuation in
       pending = continuation
       started?.resume()
       started = nil
     }
+  }
+
+  func prepareGuild(
+    serverID: String,
+    channelID: String,
+    accessToken: String,
+    viewerUserID: String,
+    authorizedUserIDs: [String]
+  ) async throws -> EchoVoiceE2EEPrepareResult {
+    try await prepareDM(
+      channelID: channelID, accessToken: accessToken, viewerUserID: viewerUserID,
+      peerUserID: nil, authorizedUserIDs: authorizedUserIDs)
   }
   func waitUntilStarted() async {
     if pending != nil { return }

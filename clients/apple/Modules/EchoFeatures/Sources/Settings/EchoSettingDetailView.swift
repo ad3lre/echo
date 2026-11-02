@@ -12,6 +12,8 @@ struct EchoSettingDetailView: View {
   let baseURL: URL
   let accessToken: String
   let onSignOut: () -> Void
+  var chrome: EchoSettingDetailChrome = .stack
+  var onClose: (() -> Void)? = nil
   @AppStorage(EchoDisplayPreferences.Keys.reduceMotion) private var reduceMotion = false
   @AppStorage(EchoDisplayPreferences.Keys.largerText) private var largerText = false
   @AppStorage("echo.settings.time24Hour") private var uses24HourTime = false
@@ -24,6 +26,10 @@ struct EchoSettingDetailView: View {
   @AppStorage(EchoDisplayPreferences.Keys.messageSpacing) private var showMessageSpacing = true
   @AppStorage(EchoDisplayPreferences.Keys.dyslexiaFont) private var dyslexiaFont = false
   @AppStorage(EchoDisplayPreferences.Keys.solidGlass) private var solidGlass = false
+  @AppStorage(EchoServerRailPreferences.Keys.serversAlwaysOn) private var serversAlwaysOn = false
+  @AppStorage(EchoServerRailPreferences.Keys.extendedServerList) private var extendedServerList =
+    false
+  @AppStorage(EchoAuthenticationModel.requireSessionUnlockKey) var requireSessionUnlock = false
   @AppStorage("echo.settings.voice.echoCancellation") private var echoCancellation = true
   @AppStorage("echo.settings.voice.noiseSuppression") private var noiseSuppression = true
   @AppStorage("echo.settings.voice.automaticGainControl") private var automaticGainControl = true
@@ -33,6 +39,9 @@ struct EchoSettingDetailView: View {
   @AppStorage("echo.settings.voice.inputDevice") private var inputDevice = "default"
   @AppStorage("echo.settings.voice.outputDevice") private var outputDevice = "default"
   @AppStorage("echo.settings.video.cameraDevice") private var cameraDevice = "default"
+  @AppStorage("echo.settings.voice.processingMode") private var voiceProcessingMode = "browser"
+  @AppStorage("echo.settings.voice.attenuateOthers") private var attenuateWhileOthersSpeak = true
+  @AppStorage("echo.settings.voice.stereoInput") private var stereoInput = false
   @AppStorage(EchoAppLocale.storageKey) private var localeIdentifier = "en-US"
   @AppStorage("echo.settings.timezone") private var timezoneIdentifier = "system"
   // These controls intentionally remain device-local, matching the web client's
@@ -58,6 +67,8 @@ struct EchoSettingDetailView: View {
     baseURL: URL,
     accessToken: String,
     onSignOut: @escaping () -> Void,
+    chrome: EchoSettingDetailChrome = .stack,
+    onClose: (() -> Void)? = nil,
     client: EchoSettingsClient? = nil
   ) {
     self.route = route
@@ -66,6 +77,8 @@ struct EchoSettingDetailView: View {
     self.baseURL = baseURL
     self.accessToken = accessToken
     self.onSignOut = onSignOut
+    self.chrome = chrome
+    self.onClose = onClose
     _model = State(
       initialValue: EchoSettingDetailModel(
         route: route,
@@ -78,14 +91,34 @@ struct EchoSettingDetailView: View {
 
   var title: String { route.title }
 
+  private var groupLabel: String? {
+    EchoSettingsCatalog.sections.first { section in
+      section.rows.contains { $0.route == route }
+    }?.title
+  }
+
+  private func dismissDetail() {
+    if chrome == .desktop, let onClose {
+      onClose()
+    } else {
+      dismiss()
+    }
+  }
+
   var body: some View {
     @Bindable var model = model
     let _ = displayPrefs.applyForcedColorScheme(systemScheme: colorScheme)
     return ScrollView(.vertical, showsIndicators: false) {
       LazyVStack(alignment: .leading, spacing: 14) {
         EchoSettingDetailHeader(
-          title: title, description: model.detailDescription, icon: icon, tint: tint,
-          onBack: { dismiss() })
+          title: title,
+          description: model.detailDescription,
+          icon: icon,
+          tint: tint,
+          chrome: chrome,
+          groupLabel: groupLabel,
+          onDismiss: dismissDetail
+        )
         switch route {
         case .notifications:
           EchoDetailSection(title: EchoCopy.string("Message alerts")) {
@@ -134,11 +167,16 @@ struct EchoSettingDetailView: View {
             masterVolume: $model.notificationSettings.soundEffectsMasterVolume)
           ForEach(EchoSoundGroup.allCases) { group in
             EchoDetailSection(title: group.title) {
-              LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
-                spacing: 10
-              ) {
-                ForEach(EchoSoundOption.allCases.filter { $0.group == group }) { sound in
+              VStack(alignment: .leading, spacing: 0) {
+                ForEach(
+                  Array(EchoSoundOption.allCases.filter { $0.group == group }.enumerated()),
+                  id: \.element.id
+                ) { index, sound in
+                  if index > 0 {
+                    Rectangle()
+                      .fill(EchoTheme.Color.ink(0.08))
+                      .frame(height: 1)
+                  }
                   EchoSoundWidget(
                     sound: sound,
                     isEnabled: model.soundBinding(sound.id),
@@ -181,8 +219,9 @@ struct EchoSettingDetailView: View {
               ])
             EchoSettingToggle(
               title: EchoCopy.string("Sync with system appearance"),
-              subtitle: EchoCopy.string("Follow iPhone Light and Dark Mode"),
-              icon: "circle.lefthalf.filled", tint: .indigo, isOn: $syncTheme)
+              subtitle: EchoCopy.string("Follow system Light and Dark Mode"),
+              icon: "circle.lefthalf.filled", tint: .indigo, isOn: $syncTheme
+            )
             .onChange(of: syncTheme) { _, enabled in
               // Keep Amoled/Sunny swatch while syncing — OS only swaps light↔dark
               // (web resolveEffective*Variant). Migrate legacy "system" storage.
@@ -199,6 +238,32 @@ struct EchoSettingDetailView: View {
             )
             .font(.footnote).foregroundStyle(.secondary)
           }
+          #if os(macOS)
+            EchoDetailSection(title: EchoCopy.string("Server rail")) {
+              EchoSettingToggle(
+                title: EchoCopy.string("Keep servers on the rail"),
+                subtitle: EchoCopy.string(
+                  "Show guild icons even when Chat or Explore is selected"),
+                icon: "rectangle.stack.fill", tint: .indigo, isOn: $serversAlwaysOn
+              )
+              .onChange(of: serversAlwaysOn) { _, next in
+                EchoServerRailPreferences.shared.serversAlwaysOn = next
+              }
+              EchoSettingToggle(
+                title: EchoCopy.string("Extended server list"),
+                subtitle: EchoCopy.string(
+                  "Show up to 10 communities on the rail instead of 5"),
+                icon: "rectangle.grid.1x2", tint: .cyan, isOn: $extendedServerList
+              )
+              .onChange(of: extendedServerList) { _, next in
+                EchoServerRailPreferences.shared.extendedServerList = next
+              }
+              EchoCopy.text(
+                "By default the rail shows up to five communities while you’re in Servers. Overflow lives under Other servers."
+              )
+              .font(.footnote).foregroundStyle(.secondary)
+            }
+          #endif
         case .accessibility:
           EchoDetailSection(title: EchoCopy.string("Readability")) {
             EchoSettingSlider(
@@ -270,13 +335,13 @@ struct EchoSettingDetailView: View {
               title: EchoCopy.string("Input device"),
               subtitle: EchoCopy.string("Choose the microphone Echo uses"), icon: "mic.fill",
               tint: .blue, value: $inputDevice,
-              options: [("default", "System default"), ("built-in-mic", "Built-in microphone")])
+              options: EchoAVDeviceCatalog.options(.audioInput, selected: inputDevice))
             EchoSettingChoice(
               title: EchoCopy.string("Output device"),
               subtitle: EchoCopy.string("Choose where Echo plays audio"),
               icon: "speaker.wave.2.fill",
               tint: .purple, value: $outputDevice,
-              options: [("default", "System default"), ("built-in-speaker", "Built-in speaker")])
+              options: EchoAVDeviceCatalog.options(.audioOutput, selected: outputDevice))
             EchoSettingToggle(
               title: EchoCopy.string("Echo cancellation"),
               subtitle: EchoCopy.string("Reduce feedback while you speak"),
@@ -297,19 +362,43 @@ struct EchoSettingDetailView: View {
               title: EchoCopy.string("Output volume"), icon: "speaker.wave.2", tint: .purple,
               value: $outputVolume,
               range: 0...100)
+            EchoMicTestSection(outputVolume: outputVolume)
           }
           EchoDetailSection(title: EchoCopy.string("Camera")) {
             EchoSettingChoice(
               title: EchoCopy.string("Camera"),
               subtitle: EchoCopy.string("Choose the camera Echo uses"), icon: "camera.fill",
               tint: .red, value: $cameraDevice,
-              options: [("default", "System default"), ("built-in-camera", "Built-in camera")])
+              options: EchoAVDeviceCatalog.options(.camera, selected: cameraDevice))
             EchoSettingChoice(
               title: EchoCopy.string("Video quality"),
               subtitle: EchoCopy.string("Balance clarity and bandwidth"),
               icon: "rectangle.inset.filled.and.person.filled",
               tint: .pink, value: $videoQuality,
-              options: [("720p", "720p (HD)"), ("480p", "480p (SD)"), ("360p", "360p")])
+              options: [
+                ("720p", "720p (HD)"), ("480p", "480p (SD)"), ("360p", "360p"),
+                ("180p", "180p"),
+              ])
+          }
+          EchoDetailSection(title: EchoCopy.string("Processing")) {
+            EchoSettingChoice(
+              title: EchoCopy.string("Voice processing"),
+              subtitle: EchoCopy.string("Krisp-class, standard, or minimal native capture"),
+              icon: "waveform",
+              tint: .mint, value: $voiceProcessingMode,
+              options: [
+                ("krisp", EchoCopy.string("Enhanced")),
+                ("browser", EchoCopy.string("Standard")),
+                ("native", EchoCopy.string("Minimal")),
+              ])
+            EchoSettingToggle(
+              title: EchoCopy.string("Attenuate while others speak"),
+              subtitle: EchoCopy.string("Lower your output when someone else is talking"),
+              icon: "speaker.slash.fill", tint: .indigo, isOn: $attenuateWhileOthersSpeak)
+            EchoSettingToggle(
+              title: EchoCopy.string("Stereo input"),
+              subtitle: EchoCopy.string("Keep left/right from a stereo microphone"),
+              icon: "headphones", tint: .teal, isOn: $stereoInput)
           }
         case .friends:
           EchoDetailSection(title: EchoCopy.string("Privacy")) {
@@ -422,26 +511,35 @@ struct EchoSettingDetailView: View {
           EchoFormattingGuideView()
         case .reportAbuse:
           EchoReportAbuseView(accessToken: accessToken, baseURL: baseURL)
+        case .keybinds, .encryptionDevices:
+          utilitySection
         }
       }
-      .padding(.horizontal, 16)
+      .padding(.horizontal, chrome == .desktop ? 48 : 16)
       // Keep content clear of the navigation bar while letting the system own
       // the safe area and title placement.
       .padding(.bottom, 28)
+      .padding(.top, chrome == .desktop ? 22 : 0)
+      .frame(maxWidth: chrome == .desktop ? 720 : .infinity, alignment: .leading)
+      .frame(maxWidth: .infinity, alignment: .top)
     }
-    .safeAreaPadding(.top, 34)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    .safeAreaPadding(.top, chrome == .desktop ? 0 : 34)
     .navigationTitle(EchoCopy.string(""))
     .navigationBarBackButtonHidden(true)
     #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
-    #endif
-    #if os(iOS)
       .toolbar(.hidden, for: .navigationBar)
-    #endif
-    .background(EchoSettingsBackdrop().ignoresSafeArea())
-    #if os(iOS)
       .echoSettingsSwipeBack()
     #endif
+    .background {
+      if chrome == .desktop {
+        EchoTheme.Color.canvas.ignoresSafeArea()
+      } else {
+        EchoSettingsBackdrop().ignoresSafeArea()
+      }
+    }
+    .environment(\.echoDesktopSettings, chrome == .desktop)
     .task {
       await model.loadRemoteState(
         syncLocale: { localeIdentifier = $0 },

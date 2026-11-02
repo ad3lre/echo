@@ -10,6 +10,8 @@ struct EchoMessageReactionsView: View {
   var accessToken: String? = nil
   var onToggle: (String) -> Void
   var onAdd: (() -> Void)?
+  /// Long-press / context menu on a chip opens the voters list (web `MessageReactionsVotersModal`).
+  var onShowVoters: ((String) -> Void)? = nil
   @Environment(\.echoConsumeComposerKeyboardTap) private var consumeComposerKeyboardTap
 
   var body: some View {
@@ -53,6 +55,15 @@ struct EchoMessageReactionsView: View {
             )
           }
           .buttonStyle(.plain)
+          .contextMenu {
+            if let onShowVoters {
+              Button {
+                onShowVoters(reaction.emoji)
+              } label: {
+                Label(EchoCopy.string("View reactions"), systemImage: "person.2")
+              }
+            }
+          }
           .accessibilityLabel(
             "\(reaction.count) \(reaction.emoji)"
               + (reaction.includes(userID: currentUserID)

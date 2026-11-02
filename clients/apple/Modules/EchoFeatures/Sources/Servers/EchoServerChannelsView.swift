@@ -6,50 +6,6 @@ import SwiftUI
   import UIKit
 #endif
 
-
-struct EchoServerRow: View {
-  let server: EchoServerSummary
-  let baseURL: URL
-  var accessToken: String? = nil
-  var isStarred = false
-
-  var body: some View {
-    HStack(spacing: 14) {
-      EchoServerIcon(
-        iconURL: server.iconURL,
-        name: server.name,
-        baseURL: baseURL,
-        accessToken: accessToken,
-        bannerURL: server.bannerURL
-      )
-      .frame(width: 48, height: 48)
-
-      VStack(alignment: .leading, spacing: 3) {
-        HStack(spacing: 6) {
-          Text(server.name)
-            .font(.system(size: 16, weight: .semibold, design: .rounded))
-            .foregroundStyle(EchoTheme.Color.ink(0.94))
-            .lineLimit(1)
-          if isStarred {
-            Image(systemName: "star.fill")
-              .font(.system(size: 12, weight: .bold))
-              .foregroundStyle(EchoTheme.Color.serverStarAccent)
-              .accessibilityLabel(EchoCopy.string("Starred"))
-          }
-        }
-        if let description = server.description, !description.isEmpty {
-          Text(description)
-            .font(.system(size: 13, weight: .regular, design: .rounded))
-            .foregroundStyle(EchoTheme.Color.ink(0.48))
-            .lineLimit(2)
-        }
-      }
-      Spacer(minLength: 0)
-    }
-    .padding(.vertical, 6)
-  }
-}
-
 struct EchoServerChannelsView: View {
   let server: EchoServerSummary
   let model: EchoServersModel
@@ -59,20 +15,29 @@ struct EchoServerChannelsView: View {
   var onClose: () -> Void = {}
 
   @Environment(\.colorScheme) private var colorScheme
-  @Environment(EchoAuthenticationModel.self) private var auth
+  @Environment(EchoAuthenticationModel.self) var auth
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
-  @Environment(EchoShellChrome.self) private var shellChrome
+  @Environment(EchoShellChrome.self) var shellChrome
   @State private var showingMembers = false
+  @State var showingServerSearch = false
+  @State var showingServerSettings = false
+  @State var showingServerMenu = false
+  @State var showingLeaveConfirm = false
+  @State var extraServerSheet: EchoServerExtraSheet?
+  @State var editingChannel: EchoGuildChannel?
+  @State var channelPendingDelete: EchoGuildChannel?
+  @State var editingCategory: EchoCategoryTarget?
   @State private var selectedMemberProfile: EchoUserProfile?
-  @State private var selectedGuildChat: EchoGuildChatLaunch?
+  @State var selectedGuildChat: EchoGuildChatLaunch?
   /// When a guild chat is open: `true` = full chat, `false` = ~22% peek on the right
   /// (channel list still interactive — web-style “slide to channels”).
-  @State private var chatFocused = true
+  @State var chatFocused = true
   @State private var collapsedCategoryIDs: Set<String> = []
-  @State private var lastVisitedChannelID: String?
+  @State var lastVisitedChannelID: String?
   /// Bumps when collapse toggles so the list re-renders.
   @State private var listEpoch = 0
-  @State private var attention = EchoAttentionSync.shared
+  @State var attention = EchoAttentionSync.shared
+  @State var voiceSession: EchoGuildVoiceSession?
 
   /// Hide shell tabs only while a guild chat is fully focused (immersive phone).
   /// Duo / wide split keeps tabs reachable — panes already share the fold.
@@ -94,75 +59,135 @@ struct EchoServerChannelsView: View {
   }
 
   var body: some View {
-    let _ = listEpoch
-    let _ = attention.snapshot.unreadCount
-    let channels = model.channels(for: server.id).filter(\.isTextLike)
-    Group {
-      if usesDuoChatPanes, let launch = selectedGuildChat {
-        duoChatArrangement(launch, channels: channels)
-      } else {
-        phoneChannelsStack(channels: channels)
+    serverActionChrome {
+      let _ = listEpoch
+      let _ = attention.snapshot.unreadCount
+      let channels = model.channels(for: server.id).filter(\.isListable).filter {
+        EchoRolePreviewPermissions.canViewChannel(
+          preview: shellChrome.rolePreview, serverID: server.id, channel: $0)
       }
-    }
-    // Leading-edge swipe → server list (channel list / chat peek only).
-    .simultaneousGesture(serverListBackSwipe)
-    .onAppear { syncShellChrome() }
-    .onChange(of: chatFocused) { _, _ in syncShellChrome() }
-    .onChange(of: shellChrome.serversBackRequest) { _, _ in
-      handleServersTabReselect()
-    }
-    .onDisappear {
-      shellChrome.immersiveGuildChat = false
-    }
-    .sheet(isPresented: $showingMembers) {
-      EchoServerMembersView(
-        server: server,
-        model: model,
-        baseURL: baseURL,
-        accessToken: accessToken,
-        onSelectMember: { member in
-          showingMembers = false
-          selectedMemberProfile = EchoUserProfile(
-            id: member.userID,
-            name: member.name,
-            username: member.username,
-            avatarURL: member.avatarURL
+      Group {
+        #if os(macOS)
+          macDesktopGuildBody(channels: channels)
+        #else
+          if usesDuoChatPanes, let launch = selectedGuildChat {
+            duoChatArrangement(launch, channels: channels)
+          } else {
+            phoneChannelsStack(channels: channels)
+          }
+        #endif
+      }
+      #if os(iOS)
+        .simultaneousGesture(serverListBackSwipe)
+      #endif
+      .onAppear { syncShellChrome() }
+      .background { bindProfileVoiceJoinObservers() }
+      .echoShortcuts(id: voiceSession.map(ObjectIdentifier.init), voiceShortcuts)
+      .onChange(of: chatFocused) { _, _ in syncShellChrome() }
+      .onChange(of: shellChrome.serversBackRequest) { _, _ in
+        #if os(macOS)
+          leaveToServerList()
+        #else
+          handleServersTabReselect()
+        #endif
+      }
+      .onDisappear {
+        shellChrome.immersiveGuildChat = false
+      }
+      .sheet(isPresented: $showingMembers) {
+        EchoServerMembersView(
+          server: server,
+          model: model,
+          baseURL: baseURL,
+          accessToken: accessToken,
+          onSelectMember: { member in
+            showingMembers = false
+            selectedMemberProfile = EchoUserProfile(
+              id: member.userID,
+              name: member.name,
+              username: member.username,
+              avatarURL: member.avatarURL
+            )
+          },
+          speakingIDs: voiceSession?.speakingIDs ?? []
+        )
+      }
+      .sheet(isPresented: $showingServerSearch) {
+        EchoServerMessageSearchView(
+          server: server,
+          channels: model.channels(for: server.id),
+          members: model.members(for: server.id),
+          baseURL: baseURL,
+          userID: userID,
+          onClose: { showingServerSearch = false }
+        )
+      }
+      #if os(iOS)
+        .fullScreenCover(item: $selectedMemberProfile) { profile in
+          EchoFullProfileView(
+            profile: profile,
+            presenceStatus: nil,
+            baseURL: baseURL,
+            accessToken: accessToken ?? "",
+            serversModel: model
           )
         }
-      )
-    }
-    #if os(iOS)
-      .fullScreenCover(item: $selectedMemberProfile) { profile in
-        EchoFullProfileView(
-          profile: profile,
-          presenceStatus: nil,
-          baseURL: baseURL,
-          accessToken: accessToken ?? ""
-        )
+      #else
+        .sheet(item: $selectedMemberProfile) { profile in
+          EchoFullProfileView(
+            profile: profile,
+            presenceStatus: nil,
+            baseURL: baseURL,
+            accessToken: accessToken ?? "",
+            serversModel: model
+          )
+        }
+      #endif
+      .task {
+        collapsedCategoryIDs = EchoChannelCollapseStore.shared.collapsedIDs(for: server.id)
+        lastVisitedChannelID = EchoLastVisitedChannelStore.shared.channelID(for: server.id)
+        if voiceSession == nil {
+          voiceSession = makeVoiceSession()
+        }
+        await model.loadChannels(for: server.id)
+        await attention.refresh(auth: auth)
+        if let voiceSession {
+          await voiceSession.refreshOccupancy(
+            serverID: server.id, channels: model.channels(for: server.id))
+        }
+        // Cross-server jumps mount this view first, then hand over the target channel.
+        if let jump = shellChrome.pendingMessageJump { openGuildChannelIfPresent(jump.channelID) }
+        consumePendingChannelOpen()
+        await consumeProfileVoiceJoinIfReady()
+        #if os(macOS)
+          if selectedGuildChat == nil { openDefaultDesktopChannel() }
+        #endif
       }
-    #else
-      .sheet(item: $selectedMemberProfile) { profile in
-        EchoFullProfileView(
-          profile: profile,
-          presenceStatus: nil,
-          baseURL: baseURL,
-          accessToken: accessToken ?? ""
-        )
+      .onChange(of: shellChrome.pendingMessageJump) { _, jump in
+        guard let jump else { return }
+        openGuildChannelIfPresent(jump.channelID)
       }
-    #endif
-    .task {
-      collapsedCategoryIDs = EchoChannelCollapseStore.shared.collapsedIDs(for: server.id)
-      lastVisitedChannelID = EchoLastVisitedChannelStore.shared.channelID(for: server.id)
-      await model.loadChannels(for: server.id)
-      await attention.refresh(auth: auth)
-    }
-    .onChange(of: selectedGuildChat?.id) { _, id in
-      if id == nil {
-        chatFocused = true
-        Task { await attention.refresh(auth: auth) }
+      .onChange(of: shellChrome.pendingChannelOpen) { _, _ in consumePendingChannelOpen() }
+      .onChange(of: selectedGuildChat?.id) { _, id in
+        if id == nil {
+          chatFocused = true
+          Task { await attention.refresh(auth: auth) }
+        } else if let channelID = selectedGuildChat?.channel.id {
+          Task { await model.refreshChannelCapabilities(channelID: channelID) }
+        }
+        syncShellChrome()
       }
-      syncShellChrome()
+      .onChange(of: model.channels(for: server.id)) { _, channels in
+        syncJoinedVoiceServerModeration(channels)
+      }
     }
+  }
+
+  private func syncJoinedVoiceServerModeration(_ channels: [EchoGuildChannel]) {
+    guard let session = voiceSession, let cid = session.joinedChannelID,
+      let channel = channels.first(where: { $0.id == cid })
+    else { return }
+    session.syncServerModeration(from: channel)
   }
 
   private func syncShellChrome() {
@@ -186,23 +211,12 @@ struct EchoServerChannelsView: View {
         leaveServerButton
       }
     } secondary: {
-      EchoConversationView(
-        conversation: launch.conversation,
-        baseURL: baseURL,
-        userID: userID,
-        callModel: nil,
-        guildContext: EchoGuildConversationContext(
-          server: launch.server,
-          channel: launch.channel
-        ),
-        onRequestExit: {
-          withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.86)) {
-            selectedGuildChat = nil
-            chatFocused = true
-          }
+      guildSurface(launch) {
+        withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.86)) {
+          selectedGuildChat = nil
+          chatFocused = true
         }
-      )
-      .environment(auth)
+      }
     }
   }
 
@@ -222,40 +236,56 @@ struct EchoServerChannelsView: View {
   }
 
   private var leaveServerButton: some View {
-    // Host expands for layout; only the padded control receives hits so
-    // near-misses around the X still work without eating the whole screen.
-    Color.clear
-      .allowsHitTesting(false)
-      .overlay(alignment: .topTrailing) {
-        Button {
-          leaveToServerList()
-        } label: {
-          Image(systemName: "xmark")
-            .font(.system(size: 15, weight: .bold))
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
-            .frame(width: 48, height: 48)
-            .contentShape(Rectangle())
+    #if os(macOS)
+      EmptyView()
+    #else
+      Color.clear
+        .allowsHitTesting(false)
+        .overlay(alignment: .topLeading) {
+          Button {
+            leaveToServerList()
+          } label: {
+            Image(systemName: "chevron.left")
+              .font(.system(size: 17, weight: .semibold))
+              .foregroundStyle(.white)
+              .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
+              .frame(width: 44, height: 44)
+              .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(EchoCopy.string("Back to servers"))
+          .padding(.top, 4)
+          .padding(.leading, 6)
+          .safeAreaPadding(.top)
+          .opacity(canLeaveServerSurface ? 1 : 0)
+          .allowsHitTesting(canLeaveServerSurface)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(EchoCopy.string("Back to servers"))
-        .padding(.top, 4)
-        .padding(.trailing, 8)
-        .safeAreaPadding(.top)
-        .opacity(canLeaveServerSurface ? 1 : 0)
-        .allowsHitTesting(canLeaveServerSurface)
-      }
+    #endif
+  }
+
+  var serverBannerHeight: CGFloat {
+    #if os(macOS)
+      128
+    #else
+      168
+    #endif
   }
 
   @ViewBuilder
-  private func channelColumn(channels: [EchoGuildChannel]) -> some View {
-    // No GeometryReader around the hero — GR + ignoresSafeArea was parking the
-    // banner mid-screen with a dead black band under the notch.
+  func channelColumn(channels: [EchoGuildChannel]) -> some View {
     ZStack(alignment: .top) {
       EchoHomeBackground().ignoresSafeArea()
 
       VStack(spacing: 0) {
         serverHero
+
+        EchoServerNotificationBanner(
+          level: attention.snapshot.notificationLevel(forServerID: server.id)
+        ) {
+          openServerMenuAction(.notifications)
+        }
+
+        EchoServerEventsStrip(server: server, baseURL: baseURL) { openGuildChannelIfPresent($0) }
 
         ScrollView(showsIndicators: false) {
           LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
@@ -263,12 +293,32 @@ struct EchoServerChannelsView: View {
           }
           .frame(maxWidth: .infinity, alignment: .topLeading)
           .padding(.top, 10)
-          .padding(.bottom, 40)
+          .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+        voiceConnectedDock
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-      .ignoresSafeArea(.container, edges: .top)
+      #if os(iOS)
+        .ignoresSafeArea(.container, edges: .top)
+      #endif
+
+      if showingServerMenu {
+        serverMenuOverlay
+      }
+    }
+    .onChange(of: server.id) { _, _ in
+      showingServerMenu = false
+      extraServerSheet = nil
+    }
+    .task(id: server.id) {
+      while !Task.isCancelled {
+        try? await Task.sleep(nanoseconds: 8_000_000_000)
+        guard let voiceSession else { continue }
+        await voiceSession.refreshOccupancy(
+          serverID: server.id, channels: model.channels(for: server.id))
+      }
     }
   }
 
@@ -285,11 +335,28 @@ struct EchoServerChannelsView: View {
     leaveToServerList()
   }
 
-  private func leaveToServerList() {
+  func leaveToServerList() {
     shellChrome.immersiveGuildChat = false
     selectedGuildChat = nil
     chatFocused = true
     onClose()
+  }
+
+  func consumePendingChannelOpen() {
+    guard let open = shellChrome.pendingChannelOpen,
+      model.channels(for: server.id).contains(where: { $0.id == open.channelID })
+    else { return }
+    shellChrome.pendingChannelOpen = nil
+    openGuildChannelIfPresent(open.channelID)
+  }
+
+  func openGuildChannelIfPresent(_ channelID: String) {
+    let channels = model.channels(for: server.id)
+    guard let channel = channels.first(where: { $0.id == channelID }) else { return }
+    EchoLastVisitedChannelStore.shared.remember(serverID: server.id, channelID: channel.id)
+    lastVisitedChannelID = channel.id
+    selectedGuildChat = EchoGuildChatLaunch(server: server, channel: channel)
+    chatFocused = true
   }
 
   private var serverListBackSwipe: some Gesture {
@@ -314,22 +381,11 @@ struct EchoServerChannelsView: View {
       let peekWidth = width * 0.22
       let peekOffset = max(0, width - peekWidth)
       ZStack {
-        EchoConversationView(
-          conversation: launch.conversation,
-          baseURL: baseURL,
-          userID: userID,
-          callModel: nil,
-          guildContext: EchoGuildConversationContext(
-            server: launch.server,
-            channel: launch.channel
-          ),
-          onRequestExit: {
-            withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.86)) {
-              chatFocused = false
-            }
+        guildSurface(launch) {
+          withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.86)) {
+            chatFocused = false
           }
-        )
-        .environment(auth)
+        }
         .frame(width: width, height: proxy.size.height)
         .offset(x: chatFocused ? 0 : peekOffset)
         .shadow(
@@ -370,7 +426,7 @@ struct EchoServerChannelsView: View {
         .padding(.top, 20)
         .frame(maxWidth: .infinity, alignment: .topLeading)
     } else if channels.isEmpty {
-      Text(EchoCopy.string("No text channels yet."))
+      Text(EchoCopy.string("No channels yet."))
         .font(.system(size: 15, weight: .regular, design: .rounded))
         .foregroundStyle(EchoTheme.Color.ink(0.48))
         .padding(.horizontal, 18)
@@ -386,7 +442,7 @@ struct EchoServerChannelsView: View {
           }
           if !collapsedCategoryIDs.contains(section.id) {
             ForEach(section.channels) { channel in
-              channelRow(channel)
+              channelBlock(channel)
             }
           }
         }
@@ -397,147 +453,72 @@ struct EchoServerChannelsView: View {
 
   private func categoryHeader(_ section: ChannelSection) -> some View {
     let collapsed = collapsedCategoryIDs.contains(section.id)
-    return Button {
-      EchoChannelCollapseStore.shared.toggle(serverID: server.id, categoryID: section.id)
-      collapsedCategoryIDs = EchoChannelCollapseStore.shared.collapsedIDs(for: server.id)
-      listEpoch &+= 1
-    } label: {
-      HStack(spacing: 6) {
-        // Web `channel-category-caret` — rotates when collapsed.
-        Image(systemName: "chevron.down")
-          .font(.system(size: 11, weight: .bold))
-          .foregroundStyle(EchoTheme.Color.ink(0.55))
-          .frame(width: 14, height: 20)
-          .rotationEffect(.degrees(collapsed ? -90 : 0))
-          .animation(.easeOut(duration: 0.14), value: collapsed)
-        Text(section.title.uppercased())
-          // Web: `text-[12px] font-bold uppercase tracking-wider text-fg-soft`
-          .font(.system(size: 12, weight: .bold))
-          .tracking(0.72)
-          .foregroundStyle(EchoTheme.Color.ink(0.62))
-          .lineLimit(1)
-        Spacer(minLength: 0)
+    let categoryID = section.channels.first?.categoryID ?? ""
+    let canManage = !categoryID.isEmpty && model.canManageCategories(server)
+    let target = EchoCategoryTarget(id: categoryID, name: section.title)
+    return HStack(spacing: 4) {
+      Button {
+        EchoChannelCollapseStore.shared.toggle(serverID: server.id, categoryID: section.id)
+        collapsedCategoryIDs = EchoChannelCollapseStore.shared.collapsedIDs(for: server.id)
+        listEpoch &+= 1
+      } label: {
+        HStack(spacing: 6) {
+          // Web `channel-category-caret` — rotates when collapsed.
+          Image(systemName: "chevron.down")
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(EchoTheme.Color.ink(0.55))
+            .frame(width: 14, height: 20)
+            .rotationEffect(.degrees(collapsed ? -90 : 0))
+            .animation(.easeOut(duration: 0.14), value: collapsed)
+          Text(section.title.uppercased())
+            // Web: `text-[12px] font-bold uppercase tracking-wider text-fg-soft`
+            .font(.system(size: 12, weight: .bold))
+            .tracking(0.72)
+            .foregroundStyle(EchoTheme.Color.ink(0.62))
+            .lineLimit(1)
+          Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .frame(minHeight: 28, alignment: .leading)
+        .contentShape(Rectangle())
       }
-      .padding(.horizontal, 8)
-      .frame(minHeight: 28, alignment: .leading)
-      .contentShape(Rectangle())
+      .buttonStyle(.plain)
+      .accessibilityLabel(
+        collapsed
+          ? EchoCopy.format("Expand %@", section.title)
+          : EchoCopy.format("Collapse %@", section.title)
+      )
+      if canManage {
+        Button {
+          editingCategory = target
+        } label: {
+          Image(systemName: "gearshape")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(EchoTheme.Color.ink(0.45))
+            .frame(width: 24, height: 24)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(EchoCopy.format("%@ settings", section.title))
+      }
     }
-    .buttonStyle(.plain)
+    .contextMenu {
+      if canManage {
+        Button {
+          editingCategory = target
+        } label: {
+          Label(EchoCopy.string("Category settings"), systemImage: "gearshape")
+        }
+      }
+    }
     .padding(.top, 8)
     .padding(.bottom, 2)
-    .accessibilityLabel(
-      collapsed
-        ? EchoCopy.format("Expand %@", section.title)
-        : EchoCopy.format("Collapse %@", section.title)
-    )
-  }
-
-  private func channelRow(_ channel: EchoGuildChannel) -> some View {
-    let summary = attention.snapshot.summary(for: channel.id)
-    let unread = (summary?.unreadCount ?? 0) > 0
-    let mention = summary?.hasMentionPing == true
-    let isActive = selectedGuildChat?.channel.id == channel.id
-    let isLastVisited =
-      !isActive && lastVisitedChannelID == channel.id
-
-    return Button {
-      EchoLastVisitedChannelStore.shared.remember(
-        serverID: server.id, channelID: channel.id)
-      lastVisitedChannelID = channel.id
-      let launch = EchoGuildChatLaunch(server: server, channel: channel)
-      withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.86)) {
-        selectedGuildChat = launch
-        chatFocused = true
-      }
-    } label: {
-      HStack(spacing: 10) {
-        // Left gutter: mention (red) / unread (soft) / last-visited pillar / active fill.
-        ZStack {
-          if unread {
-            // Web: mention uses `--server-ping-personal` (#f43f5e); plain unread is text/accent mix.
-            Circle()
-              .fill(mention ? EchoTheme.Color.mentionPing : unreadMutedDot)
-              .frame(width: 6, height: 6)
-              .shadow(
-                color: (mention
-                  ? EchoTheme.Color.mentionPing
-                  : EchoTheme.Color.ink(0.55)).opacity(0.35),
-                radius: 4)
-          } else if isLastVisited {
-            Capsule(style: .continuous)
-              .fill(EchoTheme.Color.ink(0.28))
-              .frame(width: 3, height: 16)
-          }
-        }
-        .frame(width: 10)
-
-        EchoChannelIcon(
-          channel: channel, baseURL: baseURL, accessToken: accessToken, size: 22
-        )
-        .opacity(rowIconOpacity(isActive: isActive, unread: unread))
-
-        Text(channel.name)
-          .font(
-            .system(
-              size: 17,
-              weight: unread ? .bold : (isActive ? .semibold : .medium)
-            )
-          )
-          .foregroundStyle(rowNameColor(isActive: isActive, unread: unread))
-          .lineLimit(1)
-        Spacer(minLength: 0)
-      }
-      .padding(.leading, 2)
-      .padding(.trailing, 8)
-      .padding(.vertical, 9)
-      .frame(minHeight: 42, alignment: .leading)
-      .background {
-        if isActive {
-          RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(EchoTheme.Color.ink(0.10))
-        } else if isLastVisited {
-          RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(EchoTheme.Color.ink(0.05))
-        }
-      }
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-    .accessibilityLabel(channel.name)
-    .accessibilityValue(
-      isActive
-        ? EchoCopy.string("Current channel")
-        : (unread
-          ? (mention ? EchoCopy.string("Mention") : EchoCopy.string("Unread"))
-          : "")
-    )
-  }
-
-  private var unreadMutedDot: Color {
-    // Web: color-mix(text 82%, accent 18%).
-    EchoTheme.Color.ink(0.82).opacity(0.9)
-  }
-
-  private func rowIconOpacity(isActive: Bool, unread: Bool) -> Double {
-    // Web mobile uses `pointer-coarse:!opacity-100` so channel icons stay lit.
-    #if os(iOS)
-      return 1
-    #else
-      if isActive { return 1 }
-      if unread { return 0.78 }
-      return 0.45
-    #endif
-  }
-
-  private func rowNameColor(isActive: Bool, unread: Bool) -> Color {
-    if isActive || unread { return EchoTheme.Color.ink(0.94) }
-    return EchoTheme.Color.ink(0.50)
   }
 
   /// Tall enough that the title sits below the status bar once the column
   /// bleeds under the notch (`ignoresSafeArea` on the parent VStack).
   private var serverHero: some View {
-    let bannerHeight: CGFloat = 168
+    let bannerHeight = serverBannerHeight
     return ZStack(alignment: .bottomLeading) {
       // Match the notch band to the banner artwork (not the home canvas wash).
       bannerFallback
@@ -570,16 +551,34 @@ struct EchoServerChannelsView: View {
       )
       .allowsHitTesting(false)
 
-      Text(server.name)
-        .font(.system(size: 22, weight: .bold, design: .rounded))
-        .foregroundStyle(.white)
-        .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
-        .lineLimit(2)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // Keep the title clear of the trailing close control.
-        .padding(.trailing, 52)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 14)
+      HStack(alignment: .center, spacing: 8) {
+        Text(server.name)
+          .font(.system(size: 14.5, weight: .bold))
+          .tracking(0.6)
+          .textCase(.uppercase)
+          .foregroundStyle(.white)
+          .shadow(color: .black.opacity(0.45), radius: 8, y: 1)
+          .lineLimit(1)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        Button {
+          showingServerSearch = true
+        } label: {
+          Image(systemName: "magnifyingglass")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.92))
+            .frame(width: 28, height: 28)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(EchoCopy.format("Search %@", server.name))
+        if server.id != "echo" {
+          EchoServerMenuTrigger(isOpen: showingServerMenu) {
+            showingServerMenu.toggle()
+          }
+        }
+      }
+      .padding(.horizontal, 16)
+      .padding(.bottom, 12)
     }
     .frame(maxWidth: .infinity)
     .frame(height: bannerHeight)

@@ -24,8 +24,17 @@ final class EchoMessageTimelineModel {
   var hasMoreBefore = true
   var errorMessage: String?
   var pinErrorMessage: String?
-  var typingDisplayName: String?
+  /// Concurrent peer typers for this conversation (web channel typing store).
+  var typingUsers: [EchoTypingUser] = []
   @ObservationIgnored var typingExpiryTask: Task<Void, Never>?
+
+  /// Convenience for single-typer call sites / older tests.
+  var typingDisplayName: String? {
+    EchoChannelTyping.active(typingUsers, excludeUserID: userID).first?.displayName
+  }
+  /// Socket sticker send (`EchoRealtimeSession.sendMessage`); wired by the conversation view.
+  @ObservationIgnored var emitSticker:
+    (@MainActor (_ clientID: String, _ stickerID: String, _ replyTo: EchoMessageReplyTo?) -> Bool)?
   @ObservationIgnored var markReadTask: Task<Void, Never>?
   @ObservationIgnored var pendingMarkReadID: String?
 
@@ -162,6 +171,10 @@ final class EchoMessageTimelineModel {
   }
 
   func send(_ submission: EchoComposerSubmission) async throws {
+    if let sticker = submission.sticker {
+      try sendSticker(sticker, replyTo: submission.replyTo)
+      return
+    }
     let clientID = "local-\(UUID().uuidString.lowercased())"
     let optimisticAttachments = Self.optimisticAttachments(from: submission)
     let optimistic = EchoMessage(
@@ -173,6 +186,7 @@ final class EchoMessageTimelineModel {
       content: submission.text,
       timestamp: Date(),
       isCurrentUser: true,
+      mentions: submission.mentions,
       attachments: optimisticAttachments,
       replyTo: submission.replyTo,
       delivery: .uploading)
@@ -185,14 +199,25 @@ final class EchoMessageTimelineModel {
       let message = try await auth.withAccessTokenRetry { token in
         var attachments: [EchoMessageAttachment] = []
         for asset in submission.assets {
-          let attachment = try await client.uploadAttachment(
+          let uploaded = try await client.uploadAttachment(
             accessToken: token,
             channelID: conversation.channelID,
             data: asset.data,
             filename: asset.filename,
             mimeType: asset.mimeType,
             kind: asset.kind)
-          attachments.append(attachment)
+          attachments.append(
+            EchoMessageAttachment(
+              id: uploaded.id,
+              url: uploaded.url,
+              kind: uploaded.kind,
+              filename: uploaded.filename,
+              mimeType: uploaded.mimeType,
+              fileSize: uploaded.fileSize,
+              spoiler: asset.spoiler,
+              width: uploaded.width,
+              height: uploaded.height,
+              storageKey: uploaded.storageKey))
         }
         if let gif = submission.gif {
           attachments.append(
@@ -200,7 +225,8 @@ final class EchoMessageTimelineModel {
               url: gif.url,
               kind: "gif",
               filename: gif.title.isEmpty ? EchoCopy.string("GIF") : gif.title,
-              mimeType: "image/gif"))
+              mimeType: "image/gif",
+              spoiler: submission.gifSpoiler))
         }
         return try await client.sendMessage(
           accessToken: token,
@@ -209,7 +235,9 @@ final class EchoMessageTimelineModel {
           content: submission.text,
           attachments: attachments,
           poll: submission.poll,
-          replyTo: submission.replyTo)
+          replyTo: submission.replyTo,
+          mentions: submission.mentions,
+          contentJSON: submission.contentJSON)
       }
       removeOptimistic(id: clientID)
       upsertMany([message], reconcile: false)
@@ -258,8 +286,9 @@ final class EchoMessageTimelineModel {
   }
 
   /// Author edit — optimistic body, then REST PATCH (realtime confirms `editedAt`).
-  func edit(messageID: String, content: String) async throws {
-    let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+  /// `rich` carries the re-resolved mention spans + `contentJson` (web `message:edit`).
+  func edit(messageID: String, rich: EchoOutgoingRichContent) async throws {
+    let trimmed = rich.content.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty,
       let index = messages.firstIndex(where: { $0.id == messageID }),
       messages[index].isCurrentUser,
@@ -267,14 +296,16 @@ final class EchoMessageTimelineModel {
     else { return }
     let previous = messages[index]
     messages[index] = previous.replacingEditedContent(
-      trimmed, mentions: previous.mentions, editedAt: Date())
+      trimmed, mentions: rich.mentions, editedAt: Date())
     do {
       try await auth.withAccessTokenRetry { token in
         try await client.editMessage(
           accessToken: token,
           channelID: conversation.channelID,
           messageID: messageID,
-          content: trimmed)
+          content: trimmed,
+          mentions: rich.mentions,
+          contentJSON: rich.contentJSON)
       }
     } catch {
       if let current = messages.firstIndex(where: { $0.id == messageID }) {
@@ -284,10 +315,11 @@ final class EchoMessageTimelineModel {
     }
   }
 
-  /// Soft-delete own message (optimistic remove; restore on failure).
-  func delete(messageID: String) async throws {
+  /// Soft-delete (optimistic remove; restore on failure). `asModerator` lets MANAGE_MESSAGES /
+  /// MODERATE_MEMBERS holders delete other authors' messages — the server enforces the grant.
+  func delete(messageID: String, asModerator: Bool = false) async throws {
     guard let index = messages.firstIndex(where: { $0.id == messageID }),
-      messages[index].isCurrentUser,
+      messages[index].isCurrentUser || asModerator,
       messages[index].delivery == .sent
     else { return }
     let previous = messages[index]
@@ -306,9 +338,9 @@ final class EchoMessageTimelineModel {
   }
 
   /// Soft-delete with user-visible failure copy (restores the row on error).
-  func deleteWithFeedback(messageID: String) async -> String? {
+  func deleteWithFeedback(messageID: String, asModerator: Bool = false) async -> String? {
     do {
-      try await delete(messageID: messageID)
+      try await delete(messageID: messageID, asModerator: asModerator)
       return nil
     } catch {
       return (error as? LocalizedError)?.errorDescription

@@ -44,7 +44,7 @@ enum EchoMarkdownDisplayStyle {
       // Preserve link / spoiler / highlight colors already set by the parser.
       if result[run.range].link != nil {
         if result[run.range].foregroundColor == nil {
-          result[run.range].foregroundColor = .blue
+          result[run.range].foregroundColor = EchoTheme.Color.linkBlue
         }
       } else if result[run.range].foregroundColor == nil {
         result[run.range].foregroundColor = baseColor

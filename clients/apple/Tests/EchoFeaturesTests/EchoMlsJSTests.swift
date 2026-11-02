@@ -51,4 +51,31 @@ struct EchoMlsJSTests {
     )
     #expect(EchoMlsJS.userFacingError("VOICE_E2EE_DISABLED") == "VOICE_E2EE_DISABLED")
   }
+
+  @Test func prepareJSONNullMeansVoiceE2eeDisabledNotHardFailure() throws {
+    let fromNull = try EchoVoiceE2EEPrepareJSON.decode("null")
+    #expect(fromNull.encryption == nil)
+    #expect(fromNull.deviceID == nil)
+    #expect(fromNull.hasMaterial == false)
+
+    let fromNSNull = try EchoVoiceE2EEPrepareJSON.decode(NSNull())
+    #expect(fromNSNull.hasMaterial == false)
+
+    let fromEmptyKeys = try EchoVoiceE2EEPrepareJSON.decode(
+      #"{"keyIndex":0,"deviceId":"dev-1","channelKey":"","senderKeys":{}}"#)
+    #expect(fromEmptyKeys.encryption == nil)
+    #expect(fromEmptyKeys.deviceID == "dev-1")
+    #expect(fromEmptyKeys.hasMaterial == false)
+  }
+
+  @Test func prepareJSONDecodesSenderKeys() throws {
+    let key = Data(repeating: 0xAB, count: 16)
+    let b64 = key.base64EncodedString()
+    let result = try EchoVoiceE2EEPrepareJSON.decode(
+      #"{"keyIndex":3,"deviceId":"dev-2","senderKeys":{"user-a":"\#(b64)"}}"#)
+    #expect(result.deviceID == "dev-2")
+    #expect(result.encryption?.keyIndex == 3)
+    #expect(result.encryption?.senderKeys["user-a"] == key)
+    #expect(result.hasMaterial == true)
+  }
 }

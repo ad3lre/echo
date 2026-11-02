@@ -30,6 +30,8 @@ public struct EchoUserProfile: Codable, Equatable, Hashable, Sendable, Identifia
   public let bannerBlurEnabled: Bool
   /// Dark scrim over the banner for depth contrast (web `bannerBlackoutEnabled`).
   public let bannerBlackoutEnabled: Bool
+  /// IANA zone from the account (web Magic Time / `MessageAuthor.timeZone`).
+  public let timeZone: String?
 
   public init(
     id: String,
@@ -43,7 +45,8 @@ public struct EchoUserProfile: Codable, Equatable, Hashable, Sendable, Identifia
     bannerPositionY: Double? = nil,
     bannerRefractionEnabled: Bool = false,
     bannerBlurEnabled: Bool = false,
-    bannerBlackoutEnabled: Bool = false
+    bannerBlackoutEnabled: Bool = false,
+    timeZone: String? = nil
   ) {
     self.id = id
     self.name = name
@@ -57,6 +60,7 @@ public struct EchoUserProfile: Codable, Equatable, Hashable, Sendable, Identifia
     self.bannerRefractionEnabled = bannerRefractionEnabled
     self.bannerBlurEnabled = bannerBlurEnabled
     self.bannerBlackoutEnabled = bannerBlackoutEnabled
+    self.timeZone = timeZone
   }
 
   public init(from decoder: Decoder) throws {
@@ -75,6 +79,9 @@ public struct EchoUserProfile: Codable, Equatable, Hashable, Sendable, Identifia
     bannerBlurEnabled = try container.decodeIfPresent(Bool.self, forKey: .bannerBlurEnabled) ?? false
     bannerBlackoutEnabled =
       try container.decodeIfPresent(Bool.self, forKey: .bannerBlackoutEnabled) ?? false
+    let rawTZ = try container.decodeIfPresent(String.self, forKey: .timeZone)?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    timeZone = (rawTZ?.isEmpty == false) ? rawTZ : nil
   }
 
   /// Copy with selected banner-effect flags updated (settings toggles).
@@ -95,6 +102,7 @@ public struct EchoUserProfile: Codable, Equatable, Hashable, Sendable, Identifia
       bannerPositionY: bannerPositionY,
       bannerRefractionEnabled: refraction ?? bannerRefractionEnabled,
       bannerBlurEnabled: blur ?? bannerBlurEnabled,
-      bannerBlackoutEnabled: blackout ?? bannerBlackoutEnabled)
+      bannerBlackoutEnabled: blackout ?? bannerBlackoutEnabled,
+      timeZone: timeZone)
   }
 }

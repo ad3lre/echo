@@ -151,20 +151,29 @@ private struct Echo3DCardView: View {
     }
   }
 #elseif os(macOS)
+  /// AppKit `NSView.isOpaque` is get-only; without this override SceneKit fills
+  /// the rectangular bounds with white around the rounded card silhouette.
+  private final class EchoTransparentSCNView: SCNView {
+    override var isOpaque: Bool { false }
+  }
+
   private struct Echo3DCardRepresentable: NSViewRepresentable {
     let variant: EchoConversationCard.Variant
 
-    func makeNSView(context: Context) -> SCNView {
-      let view = SCNView()
+    func makeNSView(context: Context) -> EchoTransparentSCNView {
+      let view = EchoTransparentSCNView()
       view.scene = Echo3DCardScene.make(variant: variant)
       view.backgroundColor = .clear
+      view.wantsLayer = true
+      view.layer?.isOpaque = false
+      view.layer?.backgroundColor = NSColor.clear.cgColor
       view.allowsCameraControl = false
       view.autoenablesDefaultLighting = false
       view.antialiasingMode = .multisampling4X
       return view
     }
 
-    func updateNSView(_ view: SCNView, context: Context) {
+    func updateNSView(_ view: EchoTransparentSCNView, context: Context) {
       // Keep the SceneKit scene alive across SwiftUI updates; its variant is
       // fixed for the lifetime of this representable.
     }
@@ -395,7 +404,9 @@ private enum Echo3DCardScene {
     material.specular.contents = platformColor(red: 0.34, green: 0.44, blue: 0.62)
     material.roughness.contents = 0.42
     material.metalness.contents = 0.10
-    material.transparency = variant == .active ? 1.0 : 0.96
+    // Keep cards fully opaque — partial transparency composites against the
+    // SCNView clear color and can flash white corner fringes on macOS.
+    material.transparency = 1.0
     material.fresnelExponent = 1.6
     return [material]
   }

@@ -48,6 +48,31 @@ public protocol EchoCallingServing: Sendable {
     accessToken: String,
     e2eeDeviceID: String?
   ) async throws -> EchoLiveKitSession
+
+  func createGuildSession(
+    serverID: String,
+    channelID: String,
+    accessToken: String,
+    e2eeDeviceID: String?
+  ) async throws -> EchoLiveKitSession
+
+  func joinGuildVoice(
+    serverID: String,
+    channelID: String,
+    accessToken: String
+  ) async throws
+
+  func leaveGuildVoice(
+    serverID: String,
+    channelID: String?,
+    accessToken: String
+  ) async throws
+
+  func loadGuildVoiceParticipants(
+    serverID: String,
+    channelID: String,
+    accessToken: String
+  ) async throws -> [String]
 }
 
 /// Authenticated REST boundary for the LiveKit room credential. Signaling stays
@@ -55,6 +80,13 @@ public protocol EchoCallingServing: Sendable {
 public struct EchoCallingClient: EchoCallingServing, Sendable {
   private let baseURL: URL
   private let session: URLSession
+  private var clientIdentifier: String {
+    #if os(iOS)
+      "ios"
+    #else
+      "desktop"
+    #endif
+  }
 
   public init(baseURL: URL, session: URLSession = EchoHTTPClient.session) {
     self.baseURL = baseURL
@@ -80,7 +112,7 @@ public struct EchoCallingClient: EchoCallingServing, Sendable {
     request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Accept")
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.setValue("ios", forHTTPHeaderField: "X-Echo-Client")
+    request.setValue(clientIdentifier, forHTTPHeaderField: "X-Echo-Client")
     if let deviceID = e2eeDeviceID?.trimmingCharacters(in: .whitespacesAndNewlines),
       !deviceID.isEmpty
     {
@@ -103,6 +135,139 @@ public struct EchoCallingClient: EchoCallingServing, Sendable {
     else { throw EchoHomeClientError.invalidResponse }
     return result
   }
+
+  public func createGuildSession(
+    serverID: String,
+    channelID: String,
+    accessToken: String,
+    e2eeDeviceID: String? = nil
+  ) async throws -> EchoLiveKitSession {
+    let sid = serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
+    let cid = channelID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? channelID
+    return try await postLiveKitSession(
+      path: "/api/v1/echo/servers/\(sid)/channels/\(cid)/voice/livekit-session",
+      accessToken: accessToken,
+      e2eeDeviceID: e2eeDeviceID
+    )
+  }
+
+  public func joinGuildVoice(
+    serverID: String,
+    channelID: String,
+    accessToken: String
+  ) async throws {
+    let sid = serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
+    let cid = channelID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? channelID
+    try await postEmpty(
+      path: "/api/v1/echo/servers/\(sid)/channels/\(cid)/voice/join",
+      accessToken: accessToken
+    )
+  }
+
+  public func leaveGuildVoice(
+    serverID: String,
+    channelID: String?,
+    accessToken: String
+  ) async throws {
+    let sid = serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
+    var path = "/api/v1/echo/servers/\(sid)/voice/leave"
+    if let channelID, !channelID.isEmpty {
+      let cid =
+        channelID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? channelID
+      path += "?channelId=\(cid)"
+    }
+    try await postEmpty(path: path, accessToken: accessToken)
+  }
+
+  public func loadGuildVoiceParticipants(
+    serverID: String,
+    channelID: String,
+    accessToken: String
+  ) async throws -> [String] {
+    let sid = serverID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? serverID
+    let cid = channelID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? channelID
+    guard
+      let url = URL(
+        string: "/api/v1/echo/servers/\(sid)/channels/\(cid)/voice/participants",
+        relativeTo: baseURL
+      )?.absoluteURL
+    else { throw EchoHomeClientError.invalidResponse }
+    var request = URLRequest(url: url)
+    request.httpMethod = "GET"
+    request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    request.setValue(clientIdentifier, forHTTPHeaderField: "X-Echo-Client")
+    let (data, response) = try await EchoHTTPClient.data(for: request, session: session)
+    guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+      throw EchoHomeClientError.invalidResponse
+    }
+    let payload = try JSONDecoder().decode(GuildVoiceParticipantsPayload.self, from: data)
+    return payload.participants
+  }
+
+  private func postLiveKitSession(
+    path: String,
+    accessToken: String,
+    e2eeDeviceID: String?
+  ) async throws -> EchoLiveKitSession {
+    guard let url = URL(string: path, relativeTo: baseURL)?.absoluteURL else {
+      throw EchoHomeClientError.invalidResponse
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue(clientIdentifier, forHTTPHeaderField: "X-Echo-Client")
+    if let deviceID = e2eeDeviceID?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !deviceID.isEmpty
+    {
+      request.httpBody = try JSONEncoder().encode(["e2eeDeviceId": deviceID])
+    }
+    let (data, response) = try await EchoHTTPClient.data(for: request, session: session)
+    guard let http = response as? HTTPURLResponse else {
+      throw EchoHomeClientError.invalidResponse
+    }
+    guard (200..<300).contains(http.statusCode) else {
+      let payload = try? JSONDecoder().decode(EchoCallingErrorPayload.self, from: data)
+      throw EchoHomeClientError.server(
+        statusCode: http.statusCode,
+        code: payload?.code,
+        message: payload?.message ?? payload?.detail)
+    }
+    guard let result = try? JSONDecoder().decode(EchoLiveKitSession.self, from: data),
+      !result.url.isEmpty, !result.token.isEmpty, !result.roomName.isEmpty
+    else { throw EchoHomeClientError.invalidResponse }
+    return result
+  }
+
+  private func postEmpty(path: String, accessToken: String) async throws {
+    guard let url = URL(string: path, relativeTo: baseURL)?.absoluteURL else {
+      throw EchoHomeClientError.invalidResponse
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.httpBody = Data("{}".utf8)
+    request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue(clientIdentifier, forHTTPHeaderField: "X-Echo-Client")
+    let (data, response) = try await EchoHTTPClient.data(for: request, session: session)
+    guard let http = response as? HTTPURLResponse else {
+      throw EchoHomeClientError.invalidResponse
+    }
+    guard (200..<300).contains(http.statusCode) else {
+      let payload = try? JSONDecoder().decode(EchoCallingErrorPayload.self, from: data)
+      throw EchoHomeClientError.server(
+        statusCode: http.statusCode,
+        code: payload?.code,
+        message: payload?.message ?? payload?.detail)
+    }
+  }
+}
+
+private struct GuildVoiceParticipantsPayload: Decodable {
+  let participants: [String]
 }
 
 private struct EchoCallingErrorPayload: Decodable {

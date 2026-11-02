@@ -29,6 +29,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Echo uses your microphone when you join a voice call.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Echo uses your camera for video calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Echo shows your photo library so you can select photos to attach to messages. Echo does not save photos back to your library.</string>
 </dict>

@@ -254,6 +254,13 @@ public struct EchoMessageAttachment: Codable, Equatable, Sendable, Identifiable 
       || name.hasSuffix(".wav") || name.hasSuffix(".ogg") || name.hasSuffix(".flac")
   }
 
+  /// `application/pdf` (or a `.pdf` name) — previewed in-app with PDFKit.
+  public var isPDF: Bool {
+    if mimeType?.lowercased().contains("pdf") == true { return true }
+    let name = (filename ?? URL(string: url)?.path ?? url).lowercased()
+    return name.hasSuffix(".pdf")
+  }
+
   public var isDocument: Bool {
     if isImage || isVideo || isAudio { return false }
     let kind = kind.lowercased()
@@ -345,41 +352,6 @@ public struct EchoMessageReaction: Codable, Equatable, Sendable, Identifiable, H
   }
 }
 
-/// Subset of wire `embeds[]` needed to render Tenor/Giphy inline GIFs on Apple.
-public struct EchoMessageEmbed: Codable, Equatable, Sendable {
-  public struct Media: Codable, Equatable, Sendable {
-    public let url: String
-    public let width: Int?
-    public let height: Int?
-
-    public init(url: String, width: Int? = nil, height: Int? = nil) {
-      self.url = url
-      self.width = width
-      self.height = height
-    }
-  }
-
-  public let url: String?
-  public let title: String?
-  public let provider: String?
-  public let image: Media?
-  public let thumbnail: Media?
-
-  public init(
-    url: String? = nil,
-    title: String? = nil,
-    provider: String? = nil,
-    image: Media? = nil,
-    thumbnail: Media? = nil
-  ) {
-    self.url = url
-    self.title = title
-    self.provider = provider
-    self.image = image
-    self.thumbnail = thumbnail
-  }
-}
-
 public struct EchoMessage: Identifiable, Equatable, Sendable {
   public let id: String
   public let channelID: String
@@ -397,6 +369,13 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
   public let replyTo: EchoMessageReplyTo?
   public let reactions: [EchoMessageReaction]
   public let delivery: EchoMessageDelivery
+  public let isSystemMessage: Bool
+  /// Present when this message forwards another (web `message.forwardedFrom`).
+  public let forwardedFrom: EchoForwardedFrom?
+  /// Discord-style button rows / v2 text blocks (`components` or composer `contentJson`).
+  public let components: EchoMessageComponents?
+  /// Mirrored from a linked Discord channel (`bridgeFromDiscord` on the wire).
+  public let bridgeFromDiscord: Bool
 
   public init(
     id: String,
@@ -414,7 +393,11 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     poll: EchoPoll? = nil,
     replyTo: EchoMessageReplyTo? = nil,
     reactions: [EchoMessageReaction] = [],
-    delivery: EchoMessageDelivery = .sent
+    delivery: EchoMessageDelivery = .sent,
+    isSystemMessage: Bool = false,
+    forwardedFrom: EchoForwardedFrom? = nil,
+    components: EchoMessageComponents? = nil,
+    bridgeFromDiscord: Bool = false
   ) {
     self.id = id
     self.channelID = channelID
@@ -432,6 +415,10 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     self.replyTo = replyTo
     self.reactions = reactions
     self.delivery = delivery
+    self.isSystemMessage = isSystemMessage
+    self.forwardedFrom = forwardedFrom
+    self.components = components
+    self.bridgeFromDiscord = bridgeFromDiscord
   }
 
   public func replacingPoll(_ poll: EchoPoll) -> EchoMessage {
@@ -449,9 +436,17 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
   public func replacingEditedContent(
     _ content: String,
     mentions: [EchoMessageMention]? = nil,
-    editedAt: Date?
+    editedAt: Date?,
+    imageSlots: [EchoImageSlot]? = nil
   ) -> EchoMessage {
-    copy(content: content, editedAt: editedAt, mentions: mentions ?? self.mentions)
+    copy(
+      content: content, editedAt: editedAt, mentions: mentions ?? self.mentions,
+      components: imageSlots.map { slots in
+        components?.replacingImageSlots(slots)
+          ?? EchoMessageComponents(
+            textBlocks: [], rows: [], inlineRowIDs: [], imageSlots: slots
+          ).replacingImageSlots(slots)
+      })
   }
 
   /// Live `message:reactions` fan-out often strips `userIds`; keep self-highlight.
@@ -481,7 +476,8 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
     mentions: [EchoMessageMention]? = nil,
     poll: EchoPoll? = nil,
     reactions: [EchoMessageReaction]? = nil,
-    delivery: EchoMessageDelivery? = nil
+    delivery: EchoMessageDelivery? = nil,
+    components: EchoMessageComponents?? = nil
   ) -> EchoMessage {
     EchoMessage(
       id: id,
@@ -499,7 +495,11 @@ public struct EchoMessage: Identifiable, Equatable, Sendable {
       poll: poll ?? self.poll,
       replyTo: replyTo,
       reactions: reactions ?? self.reactions,
-      delivery: delivery ?? self.delivery
+      delivery: delivery ?? self.delivery,
+      isSystemMessage: isSystemMessage,
+      forwardedFrom: forwardedFrom,
+      components: components ?? self.components,
+      bridgeFromDiscord: bridgeFromDiscord
     )
   }
 

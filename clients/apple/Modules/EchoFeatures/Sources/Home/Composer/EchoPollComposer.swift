@@ -6,6 +6,7 @@ struct EchoPollComposerSheet: View {
   @Environment(\.dismiss) private var dismiss
   @State private var draft = EchoComposerPollDraft()
   @State private var emojiPickerOptionID: UUID?
+  @State private var showingTimeLimitMenu = false
 
   private let timeLimits: [(minutes: Int?, label: String)] = [
     (nil, "No time limit"),
@@ -17,6 +18,11 @@ struct EchoPollComposerSheet: View {
     (4_320, "3 days"),
     (10_080, "1 week"),
   ]
+
+  private var selectedTimeLimitLabel: String {
+    timeLimits.first(where: { $0.minutes == draft.durationMinutes })?.label
+      ?? "No time limit"
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -36,10 +42,6 @@ struct EchoPollComposerSheet: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
             .background(fieldFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay {
-              RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(EchoTheme.Color.ink(0.08), lineWidth: 1)
-            }
 
           HStack {
             fieldLabel("Options")
@@ -66,10 +68,6 @@ struct EchoPollComposerSheet: View {
                       EchoTheme.Color.ink(0.05),
                       in: RoundedRectangle(cornerRadius: 9, style: .continuous)
                     )
-                    .overlay {
-                      RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(EchoTheme.Color.ink(0.08), lineWidth: 1)
-                    }
                     .opacity(option.emoji.isEmpty ? 0.45 : 1)
                 }
                 .buttonStyle(.plain)
@@ -89,10 +87,6 @@ struct EchoPollComposerSheet: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 .background(fieldFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay {
-                  RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(EchoTheme.Color.ink(0.08), lineWidth: 1)
-                }
 
                 if draft.options.count > 2 {
                   Button {
@@ -140,13 +134,53 @@ struct EchoPollComposerSheet: View {
           .buttonStyle(.plain)
 
           fieldLabel("Time limit")
-          Picker("Time limit", selection: $draft.durationMinutes) {
-            ForEach(timeLimits, id: \.label) { limit in
-              Text(limit.label).tag(limit.minutes)
+          Button {
+            showingTimeLimitMenu.toggle()
+          } label: {
+            HStack(spacing: 8) {
+              Text(EchoCopy.string(key: selectedTimeLimitLabel))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundStyle(EchoTheme.Color.fg)
+                .lineLimit(1)
+              Spacer(minLength: 0)
+              Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(EchoTheme.Color.ink(0.42))
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(fieldFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
           }
-          .pickerStyle(.menu)
-          .tint(EchoTheme.Color.ink(0.86))
+          .buttonStyle(.plain)
+          .popover(isPresented: $showingTimeLimitMenu, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+              ForEach(timeLimits, id: \.label) { limit in
+                Button {
+                  draft.durationMinutes = limit.minutes
+                  showingTimeLimitMenu = false
+                } label: {
+                  HStack {
+                    Text(EchoCopy.string(key: limit.label))
+                      .font(.system(size: 14, weight: .medium, design: .rounded))
+                      .foregroundStyle(EchoTheme.Color.fg)
+                    Spacer(minLength: 8)
+                    if draft.durationMinutes == limit.minutes {
+                      Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(accent)
+                    }
+                  }
+                  .padding(.horizontal, 14)
+                  .padding(.vertical, 10)
+                  .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+              }
+            }
+            .padding(.vertical, 6)
+            .frame(minWidth: 200)
+            .background(EchoTheme.Color.elevatedMid)
+          }
         }
         .padding(.top, 22)
       }
@@ -177,26 +211,46 @@ struct EchoPollComposerSheet: View {
     .padding(22)
     .frame(maxWidth: 440)
     .background(
-      EchoTheme.Color.elevatedMid, in: RoundedRectangle(cornerRadius: 18)
+      EchoTheme.Color.elevatedMid, in: RoundedRectangle(cornerRadius: 18, style: .continuous)
     )
-    .sheet(
-      item: Binding(
-        get: { emojiPickerOptionID.map(EmojiPickerTarget.init) },
-        set: { emojiPickerOptionID = $0?.id }
-      )
-    ) { target in
-      EchoPollOptionEmojiPicker(
-        current: draft.options.first { $0.id == target.id }?.emoji ?? ""
-      ) { emoji in
-        if let index = draft.options.firstIndex(where: { $0.id == target.id }) {
-          draft.options[index].emoji = emoji
+    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    .echoShadow(color: .black.opacity(0.28), radius: 28, y: 12)
+    #if os(iOS)
+      .sheet(
+        item: Binding(
+          get: { emojiPickerOptionID.map(EmojiPickerTarget.init) },
+          set: { emojiPickerOptionID = $0?.id }
+        )
+      ) { target in
+        EchoPollOptionEmojiPicker(
+          current: draft.options.first { $0.id == target.id }?.emoji ?? ""
+        ) { emoji in
+          if let index = draft.options.firstIndex(where: { $0.id == target.id }) {
+            draft.options[index].emoji = emoji
+          }
+          emojiPickerOptionID = nil
         }
-        emojiPickerOptionID = nil
-      }
-      #if os(iOS)
         .presentationDetents([.height(280)])
-      #endif
-    }
+      }
+    #endif
+    #if os(macOS)
+      .popover(
+        item: Binding(
+          get: { emojiPickerOptionID.map(EmojiPickerTarget.init) },
+          set: { emojiPickerOptionID = $0?.id }
+        )
+      ) { target in
+        EchoPollOptionEmojiPicker(
+          current: draft.options.first { $0.id == target.id }?.emoji ?? ""
+        ) { emoji in
+          if let index = draft.options.firstIndex(where: { $0.id == target.id }) {
+            draft.options[index].emoji = emoji
+          }
+          emojiPickerOptionID = nil
+        }
+        .frame(width: 320, height: 280)
+      }
+    #endif
   }
 
   private var accent: Color { EchoTheme.Color.indigoVivid }

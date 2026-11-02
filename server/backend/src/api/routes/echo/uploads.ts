@@ -731,18 +731,13 @@ export default async function echoUploadsRoutes(
             'channelId required for vc_watch_together presign',
           );
         }
-        const hostClaim = await claimVcWatchTogetherChannelHost(pool, {
-          channelId,
-          hostUserId: userId,
-          sessionId,
-        });
-        if (!hostClaim.ok) {
+        // Authorize before claiming the host lock so failed uploads cannot squat.
+        if (!(await canUserUploadToEchoChannel(pool, userId, channelId))) {
           return sendError(
             reply,
-            409,
-            'WATCH_TOGETHER_HOST_TAKEN',
-            'Another user is already hosting Watch Together in this channel',
-            hostClaim.hostUserId,
+            403,
+            'FORBIDDEN',
+            'Cannot host Watch Together in this channel',
           );
         }
         if (
@@ -782,38 +777,60 @@ export default async function echoUploadsRoutes(
             dest.error.detail,
           );
         }
-        const storageKey = dest.storageKey;
-        await insertEchoUploadIntent(pool, {
-          storageKey,
-          uploaderId: userId,
-          channelId: channelId || undefined,
-          serverId: serverId || undefined,
-          purpose,
-          contentType,
-          declaredByteLength: contentLength,
+        const hostClaim = await claimVcWatchTogetherChannelHost(pool, {
+          channelId,
+          hostUserId: userId,
+          sessionId,
         });
-        const token = signLocalUploadToken({
-          storageKey,
-          userId,
-          contentType,
-          contentLength,
-        });
-        const uploadUrl = '/api/v1/echo/uploads/local/put';
-        const publicUrl = localPublicUrlForStorageKey(storageKey);
-        return reply
-          .code(200)
-          .header('Cache-Control', 'private, no-store')
-          .send({
-            uploadMode: 'local' as const,
-            uploadUrl,
-            publicUrl,
-            key: storageKey,
-            headers: {
-              'Content-Type': contentType,
-              Authorization: `Bearer ${token}`,
-            },
-            publicUrlPrefixes: getEchoUploadPublicUrlPrefixes(),
+        if (!hostClaim.ok) {
+          return sendError(
+            reply,
+            409,
+            'WATCH_TOGETHER_HOST_TAKEN',
+            'Another user is already hosting Watch Together in this channel',
+            hostClaim.hostUserId,
+          );
+        }
+        try {
+          const storageKey = dest.storageKey;
+          await insertEchoUploadIntent(pool, {
+            storageKey,
+            uploaderId: userId,
+            channelId: channelId || undefined,
+            serverId: serverId || undefined,
+            purpose,
+            contentType,
+            declaredByteLength: contentLength,
           });
+          const token = signLocalUploadToken({
+            storageKey,
+            userId,
+            contentType,
+            contentLength,
+          });
+          const uploadUrl = '/api/v1/echo/uploads/local/put';
+          const publicUrl = localPublicUrlForStorageKey(storageKey);
+          return reply
+            .code(200)
+            .header('Cache-Control', 'private, no-store')
+            .send({
+              uploadMode: 'local' as const,
+              uploadUrl,
+              publicUrl,
+              key: storageKey,
+              headers: {
+                'Content-Type': contentType,
+                Authorization: `Bearer ${token}`,
+              },
+              publicUrlPrefixes: getEchoUploadPublicUrlPrefixes(),
+            });
+        } catch (err) {
+          await releaseVcWatchTogetherChannelHost(pool, {
+            channelId,
+            hostUserId: userId,
+          });
+          throw err;
+        }
       }
 
       const useLocalDisk =
@@ -1804,6 +1821,10 @@ export default async function echoUploadsRoutes(
         byteLength,
       });
       if (!admitted) {
+        await releaseVcWatchTogetherChannelHost(pool, {
+          channelId,
+          hostUserId: userId,
+        });
         return sendError(
           reply,
           400,

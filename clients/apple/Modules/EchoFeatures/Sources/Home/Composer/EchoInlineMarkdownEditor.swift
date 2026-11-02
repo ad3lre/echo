@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 #if os(iOS)
   import UIKit
@@ -45,9 +46,9 @@ enum EchoComposerEmojiImages {
     token: String, name: String, source: String?, apiBaseURL: URL, pointSize: CGFloat
   ) -> PlatformImage {
     if let cached = cache[token] { return cached }
-    if let warmed = warmedFromDecodedCache(source: source, apiBaseURL: apiBaseURL) {
-      cache[token] = warmed
-      return warmed
+    if let immediate = immediateBitmap(source: source, apiBaseURL: apiBaseURL) {
+      cache[token] = immediate
+      return immediate
     }
     return placeholder(named: name, size: pointSize)
   }
@@ -55,8 +56,8 @@ enum EchoComposerEmojiImages {
   /// Seed the attachment cache immediately (e.g. picker already showed this URL).
   static func warm(token: String, source: String?, apiBaseURL: URL) {
     guard cache[token] == nil else { return }
-    if let warmed = warmedFromDecodedCache(source: source, apiBaseURL: apiBaseURL) {
-      cache[token] = warmed
+    if let immediate = immediateBitmap(source: source, apiBaseURL: apiBaseURL) {
+      cache[token] = immediate
       notifyUpdated(token: token)
     }
   }
@@ -65,12 +66,19 @@ enum EchoComposerEmojiImages {
     token: String, source: String?, apiBaseURL: URL, accessToken: String?
   ) {
     guard cache[token] == nil, !inFlight.contains(token) else { return }
-    guard let source, resolvedURL(source, baseURL: apiBaseURL) != nil else { return }
-    if let warmed = warmedFromDecodedCache(source: source, apiBaseURL: apiBaseURL) {
-      cache[token] = warmed
+    guard let source, !source.isEmpty else { return }
+
+    // data: URLs (and already-decoded picker bitmaps) must resolve sync — the
+    // network path below never sees them because resolvedURL rejects data:.
+    if let immediate = immediateBitmap(source: source, apiBaseURL: apiBaseURL) {
+      cache[token] = immediate
       notifyUpdated(token: token)
       return
     }
+
+    let hasNetworkURL = resolvedURL(source, baseURL: apiBaseURL) != nil
+    guard hasNetworkURL else { return }
+
     inFlight.insert(token)
     Task { @MainActor in
       defer { inFlight.remove(token) }
@@ -78,10 +86,10 @@ enum EchoComposerEmojiImages {
         let url = try await resolveFetchURL(
           source: source, apiBaseURL: apiBaseURL, accessToken: accessToken)
         if let warmed = EchoDecodedImageCache.shared.bitmap(for: url) {
-          cache[token] = attachmentBitmap(from: warmed)
-          notifyUpdated(token: token)
+          store(attachmentBitmap(from: warmed), for: token)
           return
         }
+        // Reuse bytes the picker / chat already fetched (same stable cache key).
         let data = try await EchoImageDataCache.shared.data(for: url)
         let size = EchoTheme.Typography.composer * 1.25 * platformScale
         let decoded = await Task.detached(priority: .userInitiated) {
@@ -89,19 +97,29 @@ enum EchoComposerEmojiImages {
         }.value
         guard let decoded else { return }
         EchoDecodedImageCache.shared.insert(decoded, for: url)
-        cache[token] = attachmentBitmap(from: decoded)
-        notifyUpdated(token: token)
+        store(attachmentBitmap(from: decoded), for: token)
       } catch {
-        // Leave placeholder in place.
+        // Leave placeholder in place; a later insert/re-render can retry.
       }
     }
   }
 
-  private static func warmedFromDecodedCache(source: String?, apiBaseURL: URL) -> PlatformImage? {
+  /// Sync sources: data: URLs + EchoDecodedImageCache hits from the picker.
+  private static func immediateBitmap(source: String?, apiBaseURL: URL) -> PlatformImage? {
+    if let dataURL = EchoDataURL(source), dataURL.mimeType != "image/svg+xml",
+      let image = platformBitmap(from: dataURL.data)
+    {
+      return image
+    }
     guard let url = resolvedURL(source, baseURL: apiBaseURL),
       let bitmap = EchoDecodedImageCache.shared.bitmap(for: url)
     else { return nil }
     return attachmentBitmap(from: bitmap)
+  }
+
+  private static func store(_ image: PlatformImage, for token: String) {
+    cache[token] = image
+    notifyUpdated(token: token)
   }
 
   private static func resolveFetchURL(
@@ -115,17 +133,22 @@ enum EchoComposerEmojiImages {
     else {
       return original
     }
-    let signed = try await EchoSignedURLCache.shared.resolve(
-      baseURL: apiBaseURL,
-      accessToken: accessToken,
-      publicURL: original.absoluteString,
-      storageKey: nil)
-    guard let signedURL = URL(string: signed),
-      EchoURLPolicy.isAllowedMediaURL(signedURL, apiBaseURL: apiBaseURL)
-    else {
+    do {
+      let signed = try await EchoSignedURLCache.shared.resolve(
+        baseURL: apiBaseURL,
+        accessToken: accessToken,
+        publicURL: original.absoluteString,
+        storageKey: nil)
+      guard let signedURL = URL(string: signed),
+        EchoURLPolicy.isAllowedMediaURL(signedURL, apiBaseURL: apiBaseURL)
+      else {
+        return original
+      }
+      return signedURL
+    } catch {
+      // Fall back to the unsigned URL — public emoji CDN does not need a signature.
       return original
     }
-    return signedURL
   }
 
   private static func attachmentBitmap(from decoded: EchoDecodedBitmap) -> PlatformImage {
@@ -134,6 +157,14 @@ enum EchoComposerEmojiImages {
       return decoded.uiImage.images?.first ?? decoded.uiImage
     #else
       return decoded.nsImage
+    #endif
+  }
+
+  private static func platformBitmap(from data: Data) -> PlatformImage? {
+    #if os(iOS)
+      UIImage(data: data)
+    #else
+      NSImage(data: data)
     #endif
   }
 
@@ -240,8 +271,11 @@ extension Notification.Name {
       view.delegate = context.coordinator
       view.backgroundColor = .clear
       view.isScrollEnabled = false
-      view.textContainerInset = .zero
+      view.font = UIFont.systemFont(ofSize: EchoTheme.Typography.composer)
       view.textContainer.lineFragmentPadding = 0
+      view.textContainerInset = UIEdgeInsets(
+        top: EchoComposerFieldMetrics.verticalInset, left: 0,
+        bottom: EchoComposerFieldMetrics.verticalInset, right: 0)
       view.keyboardDismissMode = .interactive
       view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
       view.accessibilityLabel = "Message"
@@ -254,6 +288,10 @@ extension Notification.Name {
     func updateUIView(_ view: UITextView, context: Context) {
       context.coordinator.parent = self
       context.coordinator.textView = view
+      view.textContainer.lineFragmentPadding = 0
+      view.textContainerInset = UIEdgeInsets(
+        top: EchoComposerFieldMetrics.verticalInset, left: 0,
+        bottom: EchoComposerFieldMetrics.verticalInset, right: 0)
       if context.coordinator.lastColorScheme != colorScheme {
         context.coordinator.lastColorScheme = colorScheme
         context.coordinator.render(text, in: view, preferredTokenOffset: consumePendingOffset())
@@ -290,10 +328,37 @@ extension Notification.Name {
           object: nil)
       }
 
-      @objc private func emojiImagesDidUpdate() {
+      @objc private func emojiImagesDidUpdate(_ note: Notification) {
         DispatchQueue.main.async { [weak self] in
           guard let self, let view = self.textView else { return }
+          // Prefer patching live attachments so the letter placeholder flips to
+          // the bitmap without a full attributed rebuild when possible.
+          if let token = note.object as? String,
+            let image = EchoComposerEmojiImages.image(forToken: token)
+          {
+            self.patchEmojiAttachments(in: view.attributedText, token: token, image: image)
+          }
           self.render(self.parent.text, in: view)
+        }
+      }
+
+      private func patchEmojiAttachments(
+        in attributed: NSAttributedString, token: String, image: UIImage
+      ) {
+        guard let mutable = attributed.mutableCopy() as? NSMutableAttributedString else { return }
+        let full = NSRange(location: 0, length: mutable.length)
+        var didPatch = false
+        mutable.enumerateAttribute(.attachment, in: full) { value, _, _ in
+          guard let attachment = value as? EchoComposerEmojiAttachment,
+            attachment.token == token
+          else { return }
+          attachment.image = EchoComposerEmojiImages.horizontallyPadded(image, pad: 2)
+          didPatch = true
+        }
+        if didPatch, let view = textView {
+          let selected = view.selectedRange
+          view.attributedText = mutable
+          view.selectedRange = selected
         }
       }
 
@@ -345,8 +410,10 @@ extension Notification.Name {
         let measured = view.sizeThatFits(
           CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)
         ).height
-        let target = min(104, max(20, ceil(measured)))
-        view.isScrollEnabled = target >= 104
+        let target = min(
+          EchoComposerFieldMetrics.maxHeight,
+          max(EchoComposerFieldMetrics.minHeight, ceil(measured)))
+        view.isScrollEnabled = target >= EchoComposerFieldMetrics.maxHeight
         guard abs(parent.height - target) > 0.5 else { return }
         Task { @MainActor [weak self] in self?.parent.height = target }
       }
@@ -362,24 +429,38 @@ extension Notification.Name {
     var accessToken: String? = nil
     var onBeginEditing: (() -> Void)? = nil
     var onEndEditing: (() -> Void)? = nil
+    /// Return `true` when the image was accepted as an attachment.
+    var onPasteImage: ((Data, String, String) -> Bool)? = nil
+    /// Arrow / Return / Tab / Esc while a suggestion popup is open; `true` = consumed.
+    var onMenuKey: ((EchoComposerMenuKey) -> Bool)? = nil
     @Environment(\.colorScheme) private var colorScheme
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
       let scroll = NSScrollView()
-      let view = NSTextView()
+      let view = EchoComposerNSTextView()
       view.delegate = context.coordinator
+      view.onPasteImage = onPasteImage
       view.drawsBackground = false
       view.isRichText = true
       view.isVerticallyResizable = true
       view.isHorizontallyResizable = false
-      view.textContainerInset = .zero
+      view.font = NSFont.systemFont(ofSize: EchoTheme.Typography.composer)
+      view.textContainer?.lineFragmentPadding = 0
+      view.textContainerInset = NSSize(width: 0, height: EchoComposerFieldMetrics.verticalInset)
       view.textContainer?.widthTracksTextView = true
       view.autoresizingMask = [.width]
+      view.registerForDraggedTypes([.fileURL, .tiff, .png])
       scroll.documentView = view
       scroll.drawsBackground = false
       scroll.hasVerticalScroller = false
+      scroll.hasHorizontalScroller = false
+      scroll.borderType = .noBorder
+      scroll.automaticallyAdjustsContentInsets = false
+      scroll.contentInsets = NSEdgeInsets()
+      scroll.contentView.automaticallyAdjustsContentInsets = false
+      scroll.contentView.contentInsets = NSEdgeInsets()
       context.coordinator.textView = view
       context.coordinator.lastColorScheme = colorScheme
       context.coordinator.observeImageUpdates()
@@ -389,8 +470,15 @@ extension Notification.Name {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
       context.coordinator.parent = self
-      guard let view = scroll.documentView as? NSTextView else { return }
+      guard let view = scroll.documentView as? EchoComposerNSTextView else { return }
       context.coordinator.textView = view
+      view.onPasteImage = onPasteImage
+      view.textContainer?.lineFragmentPadding = 0
+      view.textContainerInset = NSSize(width: 0, height: EchoComposerFieldMetrics.verticalInset)
+      scroll.automaticallyAdjustsContentInsets = false
+      scroll.contentInsets = NSEdgeInsets()
+      scroll.contentView.automaticallyAdjustsContentInsets = false
+      scroll.contentView.contentInsets = NSEdgeInsets()
       if context.coordinator.lastColorScheme != colorScheme {
         context.coordinator.lastColorScheme = colorScheme
         context.coordinator.render(
@@ -429,11 +517,31 @@ extension Notification.Name {
           object: nil)
       }
 
-      @objc private func emojiImagesDidUpdate() {
+      @objc private func emojiImagesDidUpdate(_ note: Notification) {
         DispatchQueue.main.async { [weak self] in
           guard let self, let view = self.textView else { return }
+          if let token = note.object as? String,
+            let image = EchoComposerEmojiImages.image(forToken: token)
+          {
+            self.patchEmojiAttachments(token: token, image: image, view: view)
+          }
           self.render(self.parent.text, in: view)
         }
+      }
+
+      private func patchEmojiAttachments(token: String, image: NSImage, view: NSTextView) {
+        guard let storage = view.textStorage else { return }
+        let full = NSRange(location: 0, length: storage.length)
+        let selected = view.selectedRange()
+        storage.beginEditing()
+        storage.enumerateAttribute(.attachment, in: full) { value, _, _ in
+          guard let attachment = value as? EchoComposerEmojiAttachment,
+            attachment.token == token
+          else { return }
+          attachment.image = EchoComposerEmojiImages.horizontallyPadded(image, pad: 2)
+        }
+        storage.endEditing()
+        view.setSelectedRange(selected)
       }
 
       func textDidBeginEditing(_ notification: Notification) {
@@ -442,6 +550,18 @@ extension Notification.Name {
 
       func textDidEndEditing(_ notification: Notification) {
         parent.onEndEditing?()
+      }
+
+      func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        guard let handler = parent.onMenuKey else { return false }
+        switch selector {
+        case #selector(NSResponder.moveUp(_:)): return handler(.up)
+        case #selector(NSResponder.moveDown(_:)): return handler(.down)
+        case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertTab(_:)):
+          return handler(.confirm)
+        case #selector(NSResponder.cancelOperation(_:)): return handler(.dismiss)
+        default: return false
+        }
       }
 
       func textViewDidChangeSelection(_ notification: Notification) {
@@ -485,8 +605,12 @@ extension Notification.Name {
           return
         }
         layoutManager.ensureLayout(for: textContainer)
-        let measured = layoutManager.usedRect(for: textContainer).height
-        let target = min(104, max(20, ceil(measured)))
+        let used = layoutManager.usedRect(for: textContainer).height
+        let content = max(used, EchoComposerFieldMetrics.lineHeight)
+        let measured = content + EchoComposerFieldMetrics.verticalInset * 2
+        let target = min(
+          EchoComposerFieldMetrics.maxHeight,
+          max(EchoComposerFieldMetrics.minHeight, ceil(measured)))
         guard abs(parent.height - target) > 0.5 else { return }
         Task { @MainActor [weak self] in self?.parent.height = target }
       }

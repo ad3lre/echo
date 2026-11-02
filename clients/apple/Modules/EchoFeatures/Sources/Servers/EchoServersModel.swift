@@ -6,17 +6,38 @@ import SwiftUI
 @MainActor
 @Observable
 final class EchoServersModel {
-  private let client: EchoWorkspaceClient
-  private let auth: EchoAuthenticationModel
+  let client: EchoWorkspaceClient
+  let auth: EchoAuthenticationModel
   private let stars = EchoStarredServersStore.shared
   private let mru = EchoServerMruStore.shared
 
   private(set) var servers: [EchoServerSummary] = []
   private(set) var channelsByServer: [String: [EchoGuildChannel]] = [:]
+  /// Discord display-only occupants keyed by Echo channel id (`discord_voice_mirror_roster`).
+  private(set) var discordVoiceMirrorRosterByChannelID: [String: [EchoDiscordVoiceMirrorMember]] =
+    [:]
+
+  func replaceChannels(_ channels: [EchoGuildChannel], for serverID: String) {
+    channelsByServer[serverID] = channels
+  }
+
+  func mergeDiscordVoiceMirror(_ rows: [EchoDiscordVoiceMirrorChannelRoster]) {
+    guard !rows.isEmpty else { return }
+    var next = discordVoiceMirrorRosterByChannelID
+    for row in rows {
+      next[row.echoChannelID] = row.members
+    }
+    discordVoiceMirrorRosterByChannelID = next
+  }
+
+  func discordMirrorMembers(for channelID: String) -> [EchoDiscordVoiceMirrorMember] {
+    discordVoiceMirrorRosterByChannelID[channelID] ?? []
+  }
   private(set) var membersByServer: [String: [EchoServerMember]] = [:]
   private(set) var rolesByServer: [String: [EchoServerRole]] = [:]
   private(set) var assignmentsByServer: [String: [String: [String]]] = [:]
   private(set) var capabilitiesByServer: [String: EchoServerCapabilities] = [:]
+  var channelCapabilities: [String: EchoChannelCapabilities] = [:]
   private(set) var isLoading = false
   private(set) var isLoadingChannels = false
   private(set) var isLoadingMembers = false
@@ -24,8 +45,8 @@ final class EchoServersModel {
   private(set) var errorMessage: String?
   private(set) var channelErrorMessage: String?
   private(set) var membersErrorMessage: String?
-  private(set) var actionErrorMessage: String?
-  private(set) var memberActionErrorMessage: String?
+  var actionErrorMessage: String?
+  var memberActionErrorMessage: String?
 
   /// Bumps when star / MRU order or role assignments change so views refresh.
   private(set) var starEpoch = 0
@@ -121,7 +142,8 @@ final class EchoServersModel {
       if let home = error as? EchoHomeClientError,
         case .server(_, let code, let message) = home
       {
-        if code == "OWNER_CANNOT_LEAVE" || message?.localizedCaseInsensitiveContains("owner") == true
+        if code == "OWNER_CANNOT_LEAVE"
+          || message?.localizedCaseInsensitiveContains("owner") == true
         {
           actionErrorMessage = EchoCopy.string(
             "Transfer ownership before leaving this server.")
@@ -129,6 +151,276 @@ final class EchoServersModel {
         }
       }
       actionErrorMessage = EchoCopy.string("Echo couldn’t leave that server.")
+    }
+  }
+
+  func updateOverview(_ server: EchoServerSummary, name: String, description: String) async -> Bool
+  {
+    await patchPreferences(
+      server,
+      EchoServerPreferencesPatch(name: name, description: description),
+      requireNonEmptyName: true
+    )
+  }
+
+  @discardableResult
+  func patchPreferences(
+    _ server: EchoServerSummary,
+    _ patch: EchoServerPreferencesPatch,
+    requireNonEmptyName: Bool = false
+  ) async -> Bool {
+    actionErrorMessage = nil
+    if requireNonEmptyName {
+      let trimmedName = (patch.name ?? server.name).trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !trimmedName.isEmpty else {
+        actionErrorMessage = EchoCopy.string("Enter a server name.")
+        return false
+      }
+    }
+    var normalized = patch
+    if let name = patch.name {
+      normalized.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    do {
+      let token = try await auth.ensureAccessToken()
+      try await client.patchServerPreferences(
+        serverID: server.id, patch: normalized, accessToken: token)
+      if let index = servers.firstIndex(where: { $0.id == server.id }) {
+        servers[index] = Self.applying(normalized, to: servers[index])
+      }
+      return true
+    } catch {
+      actionErrorMessage = EchoCopy.string("Echo couldn’t save server settings.")
+      return false
+    }
+  }
+
+  func transferOwnership(_ server: EchoServerSummary, to newOwnerID: String) async -> Bool {
+    actionErrorMessage = nil
+    let trimmed = newOwnerID.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+      actionErrorMessage = EchoCopy.string("Pick a member to transfer ownership to.")
+      return false
+    }
+    do {
+      let token = try await auth.ensureAccessToken()
+      try await client.transferServerOwnership(
+        serverID: server.id, newOwnerID: trimmed, accessToken: token)
+      if let index = servers.firstIndex(where: { $0.id == server.id }) {
+        let current = servers[index]
+        servers[index] = EchoServerSummary(
+          id: current.id,
+          name: current.name,
+          iconURL: current.iconURL,
+          bannerURL: current.bannerURL,
+          description: current.description,
+          ownerID: trimmed,
+          vanityCode: current.vanityCode,
+          tags: current.tags,
+          listedInDirectory: current.listedInDirectory,
+          inviteJoinEnabled: current.inviteJoinEnabled,
+          bannerBlurEnabled: current.bannerBlurEnabled,
+          bannerBlackoutEnabled: current.bannerBlackoutEnabled,
+          bannerPositionY: current.bannerPositionY,
+          automodSpamEnabled: current.automodSpamEnabled,
+          raidProtectionEnabled: current.raidProtectionEnabled,
+          raidJoinThresholdCount: current.raidJoinThresholdCount,
+          raidJoinWindowSeconds: current.raidJoinWindowSeconds,
+          applicationsEnabled: current.applicationsEnabled,
+          allowGlobalGuests: current.allowGlobalGuests,
+          verificationRequireEmail: current.verificationRequireEmail,
+          welcomeChannelID: current.welcomeChannelID,
+          discordGuildID: current.discordGuildID
+        )
+      }
+      return true
+    } catch {
+      actionErrorMessage = EchoCopy.string("Echo couldn’t transfer ownership.")
+      return false
+    }
+  }
+
+  func createRole(
+    _ server: EchoServerSummary, name: String, color: String = "#94a3b8"
+  ) async -> String? {
+    actionErrorMessage = nil
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+      actionErrorMessage = EchoCopy.string("Enter a role name.")
+      return nil
+    }
+    do {
+      let token = try await auth.ensureAccessToken()
+      let roleID = try await client.createRole(
+        serverID: server.id, name: trimmed, color: color, accessToken: token)
+      await loadMembers(for: server.id)
+      return roleID
+    } catch {
+      actionErrorMessage = EchoCopy.string("Echo couldn’t create that role.")
+      return nil
+    }
+  }
+
+  func updateRole(
+    _ server: EchoServerSummary,
+    roleID: String,
+    name: String? = nil,
+    color: String? = nil,
+    permissions: [String]? = nil,
+    hoist: Bool? = nil,
+    roleIcon: EchoRoleIconPatch? = nil
+  ) async -> Bool {
+    actionErrorMessage = nil
+    do {
+      let token = try await auth.ensureAccessToken()
+      try await client.patchRole(
+        serverID: server.id,
+        roleID: roleID,
+        name: name,
+        color: color,
+        permissions: permissions,
+        hoist: hoist,
+        roleIcon: roleIcon,
+        accessToken: token
+      )
+      await loadMembers(for: server.id)
+      return true
+    } catch {
+      actionErrorMessage = EchoCopy.string("Echo couldn’t save that role.")
+      return false
+    }
+  }
+
+  func deleteRole(_ server: EchoServerSummary, roleID: String) async -> Bool {
+    actionErrorMessage = nil
+    do {
+      let token = try await auth.ensureAccessToken()
+      try await client.deleteRole(serverID: server.id, roleID: roleID, accessToken: token)
+      await loadMembers(for: server.id)
+      return true
+    } catch {
+      actionErrorMessage = EchoCopy.string("Echo couldn’t delete that role.")
+      return false
+    }
+  }
+
+  func reorderRoles(_ server: EchoServerSummary, roleIDs: [String]) async -> Bool {
+    actionErrorMessage = nil
+    do {
+      let token = try await auth.ensureAccessToken()
+      try await client.reorderRoles(
+        serverID: server.id, roleIDs: roleIDs, accessToken: token)
+      await loadMembers(for: server.id)
+      return true
+    } catch {
+      actionErrorMessage = EchoCopy.string("Echo couldn’t reorder roles.")
+      return false
+    }
+  }
+
+  private static func applying(
+    _ patch: EchoServerPreferencesPatch, to server: EchoServerSummary
+  ) -> EchoServerSummary {
+    EchoServerSummary(
+      id: server.id,
+      name: patch.name ?? server.name,
+      iconURL: patch.iconURL ?? server.iconURL,
+      bannerURL: patch.bannerURL ?? server.bannerURL,
+      description: patch.description ?? server.description,
+      ownerID: server.ownerID,
+      vanityCode: patch.vanityCode ?? server.vanityCode,
+      tags: patch.tags ?? server.tags,
+      listedInDirectory: patch.listedInDirectory ?? server.listedInDirectory,
+      inviteJoinEnabled: patch.inviteJoinEnabled ?? server.inviteJoinEnabled,
+      bannerBlurEnabled: patch.bannerBlurEnabled ?? server.bannerBlurEnabled,
+      bannerBlackoutEnabled: patch.bannerBlackoutEnabled ?? server.bannerBlackoutEnabled,
+      bannerPositionY: patch.bannerPositionY ?? server.bannerPositionY,
+      automodSpamEnabled: patch.automodSpamEnabled ?? server.automodSpamEnabled,
+      raidProtectionEnabled: patch.raidProtectionEnabled ?? server.raidProtectionEnabled,
+      raidJoinThresholdCount: patch.raidJoinThresholdCount ?? server.raidJoinThresholdCount,
+      raidJoinWindowSeconds: patch.raidJoinWindowSeconds ?? server.raidJoinWindowSeconds,
+      applicationsEnabled: patch.applicationsEnabled ?? server.applicationsEnabled,
+      allowGlobalGuests: patch.allowGlobalGuests ?? server.allowGlobalGuests,
+      verificationRequireEmail: patch.verificationRequireEmail
+        ?? server.verificationRequireEmail,
+      welcomeChannelID: patch.clearWelcomeChannel
+        ? nil : (patch.welcomeChannelID ?? server.welcomeChannelID),
+      discordGuildID: server.discordGuildID
+    )
+  }
+
+  func delete(_ server: EchoServerSummary) async -> Bool {
+    actionErrorMessage = nil
+    do {
+      let token = try await auth.ensureAccessToken()
+      try await client.deleteServer(serverID: server.id, accessToken: token)
+      servers.removeAll { $0.id == server.id }
+      channelsByServer[server.id] = nil
+      membersByServer[server.id] = nil
+      rolesByServer[server.id] = nil
+      assignmentsByServer[server.id] = nil
+      capabilitiesByServer[server.id] = nil
+      stars.remove(server.id)
+      starEpoch &+= 1
+      return true
+    } catch {
+      actionErrorMessage = EchoCopy.string("Echo couldn’t delete that server.")
+      return false
+    }
+  }
+
+  func createChannel(
+    _ server: EchoServerSummary, name: String, type: String, categoryID: String
+  ) async -> Bool {
+    actionErrorMessage = nil
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+      actionErrorMessage = EchoCopy.string("Enter a channel name.")
+      return false
+    }
+    do {
+      let token = try await auth.ensureAccessToken()
+      try await client.createChannel(
+        serverID: server.id, name: trimmed, type: type, categoryID: categoryID,
+        accessToken: token)
+      await loadChannels(for: server.id)
+      return true
+    } catch {
+      actionErrorMessage = EchoCopy.string("Echo couldn’t create that channel.")
+      return false
+    }
+  }
+
+  func createCategory(_ server: EchoServerSummary, name: String) async -> Bool {
+    actionErrorMessage = nil
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+      actionErrorMessage = EchoCopy.string("Enter a category name.")
+      return false
+    }
+    do {
+      let token = try await auth.ensureAccessToken()
+      try await client.createCategory(
+        serverID: server.id, name: trimmed, accessToken: token)
+      await loadChannels(for: server.id)
+      return true
+    } catch {
+      actionErrorMessage = EchoCopy.string("Echo couldn’t create that category.")
+      return false
+    }
+  }
+
+  func inviteURL(for server: EchoServerSummary) async -> String? {
+    do {
+      let token = try await auth.ensureAccessToken()
+      if let url = try? await client.fetchServerInviteLink(
+        serverID: server.id, accessToken: token)
+      {
+        return url
+      }
+      return try await client.createServerInvite(serverID: server.id, accessToken: token)
+    } catch {
+      return nil
     }
   }
 
@@ -266,8 +558,9 @@ final class EchoServersModel {
     server: EchoServerSummary, targetUserID: String, roleID: String, assign: Bool
   ) async {
     guard !isRoleMutationBusy else { return }
-    guard canMutateRole(
-      server: server, targetUserID: targetUserID, roleID: roleID, assign: assign)
+    guard
+      canMutateRole(
+        server: server, targetUserID: targetUserID, roleID: roleID, assign: assign)
     else { return }
     isRoleMutationBusy = true
     memberActionErrorMessage = nil
@@ -298,47 +591,12 @@ final class EchoServersModel {
     }
   }
 
-  func kick(server: EchoServerSummary, member: EchoServerMember) async {
-    await moderate(server: server, member: member, action: "kick")
-  }
-
-  func ban(server: EchoServerSummary, member: EchoServerMember) async {
-    await moderate(server: server, member: member, action: "ban")
-  }
-
-  func timeout(server: EchoServerSummary, member: EchoServerMember, minutes: Int = 60) async {
-    await moderate(
-      server: server, member: member, action: "timeout",
-      meta: ["timeoutMinutes": "\(minutes)"])
-  }
-
-  private func moderate(
-    server: EchoServerSummary,
-    member: EchoServerMember,
-    action: String,
-    meta: [String: String]? = nil
-  ) async {
-    memberActionErrorMessage = nil
-    do {
-      let token = try await auth.ensureAccessToken()
-      try await client.moderateMember(
-        serverID: server.id,
-        action: action,
-        targetUserID: member.userID,
-        accessToken: token,
-        meta: meta
-      )
-      if action == "kick" || action == "ban" {
-        membersByServer[server.id]?.removeAll { $0.userID == member.userID }
-        var map = assignmentsByServer[server.id] ?? [:]
-        map[member.userID] = nil
-        assignmentsByServer[server.id] = map
-        roleEpoch &+= 1
-      } else {
-        await loadMembers(for: server.id)
-      }
-    } catch {
-      memberActionErrorMessage = EchoCopy.string("Echo couldn’t complete that moderation action.")
-    }
+  /// Drop local roster/assignments after a successful kick or ban (same-module extensions).
+  func removeMemberAfterKickOrBan(serverID: String, userID: String) {
+    membersByServer[serverID]?.removeAll { $0.userID == userID }
+    var map = assignmentsByServer[serverID] ?? [:]
+    map[userID] = nil
+    assignmentsByServer[serverID] = map
+    roleEpoch &+= 1
   }
 }

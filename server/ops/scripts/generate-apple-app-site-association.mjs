@@ -86,7 +86,7 @@ const aasa = {
     apps: [],
     details: [
       {
-        appIDs: [iosAppId],
+        appIDs: webcredentialApps,
         components: [
           {
             '/': '/channels/*',

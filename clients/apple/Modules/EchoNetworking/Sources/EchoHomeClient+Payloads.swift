@@ -14,9 +14,11 @@ struct EchoHomeProfilePayload: Decodable {
   let bannerRefractionEnabled: Bool?
   let bannerBlurEnabled: Bool?
   let bannerBlackoutEnabled: Bool?
+  let timeZone: String?
 
   var profile: EchoUserProfile {
-    EchoUserProfile(
+    let tz = timeZone?.trimmingCharacters(in: .whitespacesAndNewlines)
+    return EchoUserProfile(
       id: id,
       name: name,
       username: username,
@@ -28,7 +30,8 @@ struct EchoHomeProfilePayload: Decodable {
       bannerPositionY: bannerPositionY,
       bannerRefractionEnabled: bannerRefractionEnabled ?? false,
       bannerBlurEnabled: bannerBlurEnabled ?? false,
-      bannerBlackoutEnabled: bannerBlackoutEnabled ?? false)
+      bannerBlackoutEnabled: bannerBlackoutEnabled ?? false,
+      timeZone: (tz?.isEmpty == false) ? tz : nil)
   }
 }
 
@@ -82,14 +85,18 @@ struct EchoHomeThreadPayload: Decodable {
 
 struct EchoHomeAttentionResponse: Decodable {
   let channelAttentionByChannelID: [String: EchoAttentionChannelSummary]?
+  let serverNotificationLevelByServerID: [String: String]?
 
   enum CodingKeys: String, CodingKey {
     case channelAttentionByChannelID = "channelAttentionByChannelId"
+    case serverNotificationLevelByServerID = "serverNotificationLevelByServerId"
   }
 }
 
 struct EchoHomePresenceResponse: Decodable {
   let presence: [String: String]?
+  /// Present only when peers opted into show-last-online (web `lastOnlineAt`).
+  let lastOnlineAt: [String: String]?
 }
 
 struct EchoHomeMessagesResponse: Decodable {
@@ -122,6 +129,18 @@ struct EchoHomeOutgoingMessagePayload: Encodable {
   let attachments: [EchoMessageAttachment]?
   let poll: EchoOutgoingPoll?
   let replyTo: EchoMessageReplyTo?
+  /// Client-computed mention spans — the server never derives these for v1 bodies.
+  var mentions: [EchoMessageMention]? = nil
+  /// v2 TipTap doc (image slots / button rows); server derives plain text + components.
+  var contentJson: EchoJSONValue? = nil
+  var contentSchemaVersion: Int? = nil
+}
+
+struct EchoHomeEditMessagePayload: Encodable {
+  let content: String
+  var mentions: [EchoMessageMention]? = nil
+  var contentJson: EchoJSONValue? = nil
+  var contentSchemaVersion: Int? = nil
 }
 
 struct EchoHomeUploadPresignRequest: Encodable {

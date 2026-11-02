@@ -37,6 +37,12 @@ Automated coverage: `server/backend/src/tests/platform/productionConfigGates.tes
 
 `docs/operations/PRODUCTION_SECURITY_CHECKLIST.md` historically mentioned `ALLOW_MOCK_API` and `/api/v1/mock/*`. Verify against the running tree if you still rely on that text.
 
+## SBOM / VDR / OSV (push + release)
+
+Every `ci:precheck` / security pipeline run regenerates
+[`security/sbom/`](../../security/sbom/) and fails on known OSV advisories.
+See [sbom-vdr.md](./sbom-vdr.md).
+
 ## CodeQL (release branch scans)
 
 Static analysis runs on `release/**` via `.github/workflows/codeql.yml` with `.github/codeql/codeql-config.yml` excluding tests, dev seed scripts, and the internal bot package.

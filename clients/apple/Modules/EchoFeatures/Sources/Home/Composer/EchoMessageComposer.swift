@@ -16,26 +16,47 @@ struct EchoMessageComposer: View {
   let baseURL: URL
   let accessToken: String
   let placeholder: String
+  /// Conversation / channel id for per-channel draft persistence (`echo-composer-drafts-v1`).
+  var channelID: String = ""
+  /// Guild id enables stickers in the expression picker (nil for DMs).
+  var serverID: String? = nil
+  /// Mention catalog, slowmode bypass, and media / poll gates for this channel.
+  var access = EchoComposerAccess()
+  /// Guild channel slowmode interval (0 = off) and when the user last posted here.
+  var slowmodeSeconds = 0
+  var lastSentAt: Date? = nil
+  /// Guild channel default message prefix (`messageFormatTemplate` / hard flag).
+  var messageFormatTemplate = ""
+  var messageFormatHard = false
   var onComposerTextChange: ((String) -> Void)? = nil
   @Binding var replyTo: EchoMessageReplyTo?
   /// When set, send becomes “save edit” for this message id.
   @Binding var editingMessage: EchoMessage?
   let onSend: @MainActor (EchoComposerSubmission) async throws -> Void
-  var onEdit: (@MainActor (String, String) async throws -> Void)? = nil
+  var onEdit: (@MainActor (String, EchoOutgoingRichContent) async throws -> Void)? = nil
   /// Bottom chrome height changed (panel / keyboard-adjacent) — stick timeline.
   var onBottomChromeChange: (() -> Void)? = nil
   /// Composer text field focus — arms first-tap keyboard rejection in the thread.
   var onEditingFocusChange: ((Bool) -> Void)? = nil
 
-  @State private var state = EchoComposerState()
-  @State private var photos = EchoComposerPhotoLibrary()
-  @State private var showingFileImporter = false
-  @State private var showingPoll = false
-  @State private var editorHeight: CGFloat = 20
+  @State var state = EchoComposerState()
+  @State var photos = EchoComposerPhotoLibrary()
+  @State var showingFileImporter = false
+  @State var showingPoll = false
+  @State var editorHeight: CGFloat = EchoComposerFieldMetrics.minHeight
   @State private var seededEditID: String?
+  @State private var isApplyingMessageFormat = false
+  @State var isRestoringDraft = false
+  @State var draftPersistTask: Task<Void, Never>?
+  @State var markdownPreviewMode = EchoComposerMarkdownPreviewPreference.read()
   @Environment(EchoDisplayPreferences.self) private var displayPrefs
+  @Environment(EchoShellChrome.self) var shellChrome
 
-  private var isEditing: Bool { editingMessage != nil }
+  var isEditing: Bool { editingMessage != nil }
+
+  private var messageFormatKey: String {
+    "\(messageFormatHard ? "1" : "0")|\(messageFormatTemplate)"
+  }
 
   var body: some View {
     @Bindable var state = state
@@ -47,6 +68,13 @@ struct EchoMessageComposer: View {
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal, 6)
       }
+
+      EchoSlowmodeBanner(
+        state: state,
+        interval: EchoSlowmode.effectiveInterval(
+          slowmodeSeconds, canBypass: access.canBypassSlowmode, isEditing: isEditing),
+        lastSentAt: EchoSlowmode.clockStart(
+          lastSentAt: lastSentAt, serverRejectedAt: state.slowmodeRejectedAt))
 
       if let editing = editingMessage {
         EchoComposerEditBar(preview: editing.previewText) {
@@ -65,20 +93,32 @@ struct EchoMessageComposer: View {
         .padding(.horizontal, 6)
       }
 
+      composerSuggestions
+
       EchoComposerPendingPreview(
         assets: state.assets,
         gif: state.selectedGIF,
+        gifSpoiler: state.gifSpoiler,
         baseURL: baseURL,
         accessToken: accessToken,
         onRemoveAsset: { state.removeAsset($0) },
-        onRemoveGIF: { state.selectedGIF = nil }
+        onRemoveGIF: { state.selectedGIF = nil },
+        onToggleAssetSpoiler: { state.toggleAssetSpoiler($0) },
+        onToggleGIFSpoiler: { state.gifSpoiler.toggle() },
+        onToggleAllSpoilers: { state.toggleAllSpoilers() },
+        allSpoilers: state.allPendingSpoilers
       )
 
-      if let panel = state.panel {
-        panelView(panel)
-          .frame(height: panel == .emoji ? 360 : 280)
-          .transition(.move(edge: .bottom).combined(with: .opacity))
-      }
+      #if os(iOS)
+        if let panel = state.panel {
+          panelView(panel)
+            .frame(height: panel == .emoji ? 360 : 280)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+      #endif
+
+      markdownPreviewChrome(mode: $markdownPreviewMode)
+      markdownPreviewSharePreference(mode: markdownPreviewMode)
 
       HStack(alignment: .bottom, spacing: 4) {
         if !isEditing {
@@ -88,39 +128,51 @@ struct EchoMessageComposer: View {
           ) {
             toggle(.attachments)
           }
+          #if os(macOS)
+            .popover(
+              isPresented: Binding(
+                get: { state.panel == .attachments },
+                set: { state.panel = $0 ? .attachments : nil }
+              )
+            ) {
+              panelView(.attachments)
+              .frame(width: 360, height: 320)
+            }
+          #endif
         }
 
-        ZStack(alignment: .leading) {
+        ZStack(alignment: .topLeading) {
           if state.text.isEmpty {
             Text(placeholder)
-              .font(displayPrefs.uiFont(size: EchoTheme.Typography.composer))
+              .font(.system(size: EchoTheme.Typography.composer))
               .foregroundStyle(displayPrefs.ink(0.34))
-              .padding(.leading, 1)
+              .padding(.top, EchoComposerFieldMetrics.verticalInset)
               .lineLimit(1)
               .truncationMode(.tail)
               .allowsHitTesting(false)
           }
-          EchoInlineMarkdownEditor(
-            text: $state.text,
-            height: $editorHeight,
-            tokenCaretUTF16: $state.tokenCaretUTF16,
-            pendingPreferredTokenOffset: $state.pendingPreferredTokenOffset,
-            apiBaseURL: baseURL,
-            accessToken: accessToken,
-            onBeginEditing: {
-              closeAttachmentPanelIfNeeded()
-              onEditingFocusChange?(true)
-            },
-            onEndEditing: { onEditingFocusChange?(false) }
-          )
-          .frame(height: editorHeight)
+          composerMarkdownEditor
+            .frame(minHeight: EchoComposerFieldMetrics.minHeight)
+            .frame(height: editorHeight)
         }
         .padding(.horizontal, 7)
-        .padding(.vertical, 8)
 
         composerButton(.emoji, selected: state.panel == .emoji, label: EchoCopy.string("Emoji")) {
           toggle(.emoji)
         }
+        #if os(macOS)
+          .popover(
+            isPresented: Binding(
+              get: { state.panel == .emoji },
+              set: { state.panel = $0 ? .emoji : nil }
+            )
+          ) {
+            panelView(.emoji)
+            .frame(width: 380, height: 420)
+          }
+        #endif
+
+        markdownPreviewToggleButton(mode: $markdownPreviewMode)
 
         Button {
           Task {
@@ -145,12 +197,13 @@ struct EchoMessageComposer: View {
               ? EchoTheme.Color.onAccent : EchoTheme.Color.ink(0.30)
           )
           .frame(width: 44, height: 44)
-          .background(
-            (isEditing ? canSaveEdit : state.canSend)
-              ? composerAccent : EchoTheme.Color.ink(0.045),
-            in: Circle()
-          )
           .contentShape(Circle())
+          .echoPointerHoverFill(
+            isSelected: isEditing ? canSaveEdit : state.canSend,
+            selectedFill: composerAccent,
+            hoverFill: EchoTheme.Color.ink(0.10),
+            idleFill: EchoTheme.Color.ink(0.045),
+            cornerRadius: 22)
         }
         .buttonStyle(.plain)
         .disabled(isEditing ? !canSaveEdit : !state.canSend)
@@ -173,16 +226,56 @@ struct EchoMessageComposer: View {
     // no solid band under the home indicator.
     .padding(.horizontal, 12)
     .padding(.top, 2)
-    .padding(.bottom, 2)
+    #if os(macOS)
+      .padding(.bottom, 20)
+    #else
+      .padding(.bottom, 2)
+    #endif
     .background(Color.clear)
     // Shorter than spring — large inset animation left rare gaps under messages.
     .animation(.easeOut(duration: 0.2), value: state.panel)
+    .onAppear {
+      restoreDraftIfNeeded()
+      applyChannelMessageFormat()
+      restoreMarkdownPreviewModeIfNeeded(mode: $markdownPreviewMode)
+    }
+    .onChange(of: channelID) { previous, next in
+      persistDraftNow(for: previous)
+      restoreDraftIfNeeded(for: next)
+      applyChannelMessageFormat()
+    }
+    .onChange(of: messageFormatKey) { _, _ in applyChannelMessageFormat() }
     .onChange(of: state.text) { previous, text in
+      restoreMarkdownPreviewModeIfNeeded(mode: $markdownPreviewMode)
+      if !isApplyingMessageFormat, !isEditing,
+        !messageFormatTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      {
+        if messageFormatHard {
+          isApplyingMessageFormat = true
+          defer { isApplyingMessageFormat = false }
+          if state.repairHardFormatIfNeeded(template: messageFormatTemplate) {
+            onComposerTextChange?(state.text)
+            refreshSuggestions()
+            scheduleDraftPersist()
+            return
+          }
+        } else if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+          applyChannelMessageFormat()
+        }
+      }
       onComposerTextChange?(text)
+      refreshSuggestions()
+      scheduleDraftPersist()
       // Selected photos then started typing → tuck the plus panel away.
       if state.panel == .attachments, text != previous {
         closeAttachmentPanelIfNeeded()
       }
+    }
+    .onChange(of: state.mentionTokens) { _, _ in scheduleDraftPersist() }
+    .onDisappear {
+      persistDraftNow(for: channelID)
+      draftPersistTask?.cancel()
+      draftPersistTask = nil
     }
     .onChange(of: state.panel) { _, _ in
       // Let safeAreaInset settle, then ask the timeline to re-stick.
@@ -190,6 +283,12 @@ struct EchoMessageComposer: View {
         await Task.yield()
         onBottomChromeChange?()
       }
+    }
+    .onChange(of: state.tokenCaretUTF16) { _, _ in refreshSuggestions() }
+    .onChange(of: shellChrome.pendingMentionInsert) { _, pending in
+      guard let pending, !isEditing else { return }
+      state.insertMention(pending.option, replacing: nil)
+      shellChrome.pendingMentionInsert = nil
     }
     .onChange(of: editingMessage?.id) { _, id in
       guard let editing = editingMessage, id != nil else {
@@ -199,11 +298,13 @@ struct EchoMessageComposer: View {
         return
       }
       guard seededEditID != editing.id else { return }
+      persistDraftNow(for: channelID)
       seededEditID = editing.id
       replyTo = nil
       state.replyTo = nil
       state.reset()
       state.text = editing.content
+      state.seedMentionTokens(from: editing)
       state.panel = nil
       onComposerTextChange?(editing.content)
     }
@@ -213,6 +314,14 @@ struct EchoMessageComposer: View {
       allowsMultipleSelection: true,
       onCompletion: importFiles
     )
+    #if os(macOS)
+      .onDrop(of: [.image, .fileURL], isTargeted: nil) { providers in
+        Task { @MainActor in
+          await ingestDropProviders(providers)
+        }
+        return true
+      }
+    #endif
     .sheet(isPresented: $showingPoll) {
       EchoPollComposerSheet { poll in
         showingPoll = false
@@ -222,6 +331,9 @@ struct EchoMessageComposer: View {
         state.panel = nil
         Task { await sendPoll(poll) }
       }
+      #if os(macOS)
+        .presentationBackground(.clear)
+      #endif
     }
   }
 
@@ -240,16 +352,30 @@ struct EchoMessageComposer: View {
     seededEditID = nil
     state.reset()
     onComposerTextChange?("")
+    restoreDraftIfNeeded()
+    applyChannelMessageFormat()
+  }
+
+  private func applyChannelMessageFormat() {
+    guard !isEditing else { return }
+    let template = messageFormatTemplate
+    guard !template.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || messageFormatHard
+    else { return }
+    isApplyingMessageFormat = true
+    defer { isApplyingMessageFormat = false }
+    if state.applyChannelMessageFormat(template: template, hard: messageFormatHard) {
+      onComposerTextChange?(state.text)
+    }
   }
 
   @MainActor
   private func saveEdit() async {
     guard canSaveEdit, let editing = editingMessage, let onEdit else { return }
-    let content = state.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let rich = state.richContent(forEdit: true)
     state.isSending = true
     state.errorMessage = nil
     do {
-      try await onEdit(editing.id, content)
+      try await onEdit(editing.id, rich.built)
       clearEdit()
     } catch {
       state.errorMessage =
@@ -275,6 +401,9 @@ struct EchoMessageComposer: View {
         accessToken: accessToken,
         photos: photos,
         selectedPhotoIDs: state.selectedPhotoIDs,
+        serverID: serverID,
+        startsOnGIFs: state.pickerStartsOnGIFs,
+        onSticker: { sticker in Task { await sendSticker(sticker) } },
         onEmoji: { state.insertEmoji($0) },
         onGIF: { gif in
           state.selectedGIF = gif
@@ -296,8 +425,12 @@ struct EchoMessageComposer: View {
     Button(action: action) {
       composerIcon(icon, selected: selected)
         .frame(width: 44, height: 44)
-        .background(selected ? composerAccent.opacity(0.72) : .clear, in: Circle())
         .contentShape(Rectangle())
+        .echoPointerHoverFill(
+          isSelected: selected,
+          selectedFill: composerAccent.opacity(0.72),
+          hoverFill: EchoTheme.Color.ink(0.08),
+          cornerRadius: 22)
     }
     .buttonStyle(.plain)
     .accessibilityLabel(label)
@@ -318,11 +451,12 @@ struct EchoMessageComposer: View {
   }
 
   private func toggle(_ panel: EchoComposerPanel) {
+    state.pickerStartsOnGIFs = false
     state.panel = state.panel == panel ? nil : panel
     state.errorMessage = nil
   }
 
-  private func closeAttachmentPanelIfNeeded() {
+  func closeAttachmentPanelIfNeeded() {
     guard state.panel == .attachments else { return }
     state.panel = nil
   }
@@ -360,7 +494,9 @@ struct EchoMessageComposer: View {
     do {
       let urls = try result.get()
       let capacity = state.remainingCapacity
-      if urls.count > capacity { state.errorMessage = EchoCopy.string("You can attach up to 10 files.") }
+      if urls.count > capacity {
+        state.errorMessage = EchoCopy.string("You can attach up to 10 files.")
+      }
       for url in urls.prefix(capacity) {
         let hasAccess = url.startAccessingSecurityScopedResource()
         defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
@@ -395,6 +531,10 @@ struct EchoMessageComposer: View {
 
   @MainActor
   private func sendPoll(_ poll: EchoOutgoingPoll) async {
+    if let block = outgoingBlock(contentTypes: [.poll]) {
+      state.errorMessage = EchoComposerOutgoingGate.message(for: block)
+      return
+    }
     state.isSending = true
     state.errorMessage = nil
     let reply = replyTo
@@ -404,8 +544,7 @@ struct EchoMessageComposer: View {
       replyTo = nil
       state.replyTo = nil
     } catch {
-      state.errorMessage =
-        (error as? LocalizedError)?.errorDescription ?? EchoCopy.string("Poll failed to send.")
+      state.errorMessage = sendFailureMessage(error, fallback: EchoCopy.string("Poll failed to send."))
     }
     state.isSending = false
   }
@@ -413,152 +552,68 @@ struct EchoMessageComposer: View {
   @MainActor
   private func send() async {
     guard state.canSend else { return }
+    if messageFormatHard {
+      _ = state.applyChannelMessageFormat(template: messageFormatTemplate, hard: true)
+    }
+    let rich = state.richContent()
+    let hasMedia = !state.assets.isEmpty || state.selectedGIF != nil
+    let types = EchoComposerOutgoingGate.contentTypes(
+      text: rich.text,
+      mentions: rich.built.mentions,
+      hasMedia: hasMedia,
+      hasPoll: state.poll?.outgoingPoll != nil)
+    if let block = outgoingBlock(contentTypes: types) {
+      state.errorMessage = EchoComposerOutgoingGate.message(for: block)
+      return
+    }
     let submission = EchoComposerSubmission(
-      text: state.text.trimmingCharacters(in: .whitespacesAndNewlines),
+      text: rich.text,
       assets: state.assets,
       gif: state.selectedGIF,
       poll: state.poll?.outgoingPoll,
-      replyTo: replyTo)
+      replyTo: replyTo,
+      mentions: rich.built.mentions,
+      contentJSON: rich.built.contentJSON,
+      gifSpoiler: state.gifSpoiler)
     let draftText = state.text
+    let draftMentions = state.mentionTokens
     let draftPoll = state.poll
+    let draftGifSpoiler = state.gifSpoiler
     state.reset()
     replyTo = nil
     onComposerTextChange?("")
+    clearPersistedDraft()
+    applyChannelMessageFormat()
     let clearedRevision = state.revision
     do {
       try await onSend(submission)
     } catch {
       if state.revision == clearedRevision, replyTo == nil {
         state.text = draftText
+        state.mentionTokens = draftMentions
         state.assets = submission.assets
         state.selectedGIF = submission.gif
+        state.gifSpoiler = draftGifSpoiler
         state.poll = draftPoll
         replyTo = submission.replyTo
         state.replyTo = submission.replyTo
         onComposerTextChange?(draftText)
+        scheduleDraftPersist()
       }
-      state.errorMessage =
-        (error as? LocalizedError)?.errorDescription ?? EchoCopy.string("Message failed to send.")
+      state.errorMessage = sendFailureMessage(
+        error, fallback: EchoCopy.string("Message failed to send."))
     }
   }
-}
 
-/// Native vector counterpart of the dark-shell web Emotes asset.
-/// The source SVG uses #3c3d4a chrome and #110b19 ink in a 36-point canvas.
-private struct EchoWebEmotesIcon: View {
-  var body: some View {
-    Canvas { context, size in
-      let chrome = EchoTheme.Color.composerChrome
-      let ink = EchoTheme.Color.composerInk
-      let scale = min(size.width, size.height) / 36
-      let origin = CGPoint(
-        x: (size.width - 36 * scale) / 2,
-        y: (size.height - 36 * scale) / 2)
-      func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-        CGPoint(x: origin.x + x * scale, y: origin.y + y * scale)
-      }
-
-      let face = Path(
-        ellipseIn: CGRect(
-          x: origin.x + 4 * scale, y: origin.y + 3.5 * scale,
-          width: 28 * scale, height: 28 * scale))
-      context.fill(face, with: .color(chrome))
-
-      var leftEye = Path()
-      leftEye.move(to: point(11.7, 14.5))
-      leftEye.addCurve(
-        to: point(16.2, 14.5),
-        control1: point(12.8, 11.6),
-        control2: point(15.1, 11.6))
-      var rightEye = Path()
-      rightEye.move(to: point(19.8, 14.5))
-      rightEye.addCurve(
-        to: point(24.3, 14.5),
-        control1: point(20.9, 11.6),
-        control2: point(23.2, 11.6))
-      var smile = Path()
-      smile.move(to: point(11.8, 20.3))
-      smile.addCurve(
-        to: point(24.2, 20.3),
-        control1: point(15.2, 24.3),
-        control2: point(20.8, 24.3))
-      let stroke = StrokeStyle(lineWidth: 1.7 * scale, lineCap: .butt, lineJoin: .round)
-      context.stroke(leftEye, with: .color(ink), style: stroke)
-      context.stroke(rightEye, with: .color(ink), style: stroke)
-      context.stroke(smile, with: .color(ink), style: stroke)
-    }
-    .frame(width: 24, height: 24)
-  }
-}
-
-private struct EchoAttachmentPanel: View {
-  @Bindable var photos: EchoComposerPhotoLibrary
-  var selectedPhotoIDs: [String]
-  let onChoosePhoto: (EchoComposerPhotoLibrary.Item) -> Void
-  let onChooseFiles: () -> Void
-  let onCreatePoll: () -> Void
-
-  private let accent = EchoTheme.Color.indigo
-
-  var body: some View {
-    VStack(spacing: 0) {
-      HStack(spacing: 3) {
-        panelChip("photo.on.rectangle.angled", "Photos", active: true)
-        panelChip("folder", "Files", action: onChooseFiles)
-        panelChip("chart.bar", "Poll", action: onCreatePoll)
-      }
-      .padding(4)
-      .background(EchoTheme.Color.ink(0.045), in: Capsule())
-      .overlay {
-        Capsule().stroke(EchoTheme.Color.ink(0.06), lineWidth: 1)
-      }
-      .padding(.bottom, 10)
-
-      EchoComposerPhotoLibraryPane(
-        photos: photos, selectedPhotoIDs: selectedPhotoIDs, onChoose: onChoosePhoto
-      )
-      .padding(6)
-      .background(
-        Color.black.opacity(0.22),
-        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-      )
-      .overlay {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .stroke(EchoTheme.Color.ink(0.05), lineWidth: 1)
-      }
-    }
-    .padding(12)
-    .background(
-      EchoTheme.Color.elevatedDeep.opacity(0.98),
-      in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-    )
-    .overlay {
-      RoundedRectangle(cornerRadius: 20, style: .continuous)
-        .stroke(EchoTheme.Color.ink(0.08), lineWidth: 1)
-    }
-    .echoShadow(color: .black.opacity(0.34), radius: 16, y: 7)
-  }
-
-  private func panelChip(
-    _ icon: String, _ title: String, active: Bool = false, action: @escaping () -> Void = {}
-  ) -> some View {
-    Button(action: action) {
-      HStack(spacing: 6) {
-        Image(systemName: icon)
-          .font(.system(size: 12, weight: .semibold))
-        Text(title)
-          .font(.system(size: 12, weight: .semibold, design: .rounded))
-          .lineLimit(1)
-          .minimumScaleFactor(0.85)
-      }
-      .foregroundStyle(active ? EchoTheme.Color.onAccent : EchoTheme.Color.ink(0.58))
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 8)
-      .background(active ? accent : .clear, in: Capsule())
-      .contentShape(Capsule())
-    }
-    .buttonStyle(.plain)
-    .accessibilityAddTraits(active ? .isSelected : [])
-    .accessibilityLabel(title)
+  private func outgoingBlock(contentTypes: [EchoComposerOutgoingGate.ContentType])
+    -> EchoComposerOutgoingGate.BlockCode?
+  {
+    EchoComposerOutgoingGate.blockReason(
+      canSendMessages: access.sendLock == nil,
+      canCreatePolls: access.pollAllowed,
+      canUploadFiles: access.mediaAllowed,
+      canUseExternalEmoji: access.externalEmojiAllowed,
+      canMentionEveryone: access.allowBroadcastMentions,
+      contentTypes: contentTypes)
   }
 }

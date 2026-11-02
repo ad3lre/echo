@@ -12,6 +12,11 @@ final class EchoInboxModel {
   private(set) var incomingFriendRequests: [EchoIncomingFriendRequest] = []
   private(set) var friendRequestError: String?
   private(set) var respondingRequestIDs = Set<String>()
+  var messageRequests: [EchoMessageRequest] = []
+  var messageRequestError: String?
+  var respondingMessageRequestIDs = Set<String>()
+  /// Nil in the friend-only test seam; message requests then stay empty.
+  @ObservationIgnored var messageRequestClient: (any EchoMessageRequestServing)?
 
   init(
     baseURL: URL,
@@ -20,6 +25,7 @@ final class EchoInboxModel {
   ) {
     self.client = client ?? EchoSettingsClient(baseURL: baseURL)
     self.auth = auth
+    messageRequestClient = EchoMessageRequestClient(baseURL: baseURL)
   }
 
   /// Test seam that bypasses concrete networking clients.

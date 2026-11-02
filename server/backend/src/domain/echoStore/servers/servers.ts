@@ -239,35 +239,6 @@ export async function listEchoServerIdsForUser(
   return out;
 }
 
-export async function listEchoServerMembers(
-  pool: pg.Pool,
-  serverId: string,
-): Promise<
-  {
-    userId: string;
-    name: string;
-    pfp: string;
-  }[]
-> {
-  const r = await pool.query(
-    `
-    SELECT m.user_id,
-           COALESCE(NULLIF(TRIM(u.display_name), ''), NULLIF(TRIM(u.username), ''), 'Unknown') AS name,
-           COALESCE(u.pfp, '') AS pfp
-    FROM echo_server_members m
-    INNER JOIN auth_users u ON u.id = m.user_id
-    WHERE m.server_id = $1
-    ORDER BY LOWER(COALESCE(NULLIF(TRIM(u.display_name), ''), NULLIF(TRIM(u.username), ''), 'Unknown')) ASC, m.user_id ASC
-    `,
-    [serverId],
-  );
-  return r.rows.map((row: Record<string, unknown>) => ({
-    userId: String(row.user_id),
-    name: String(row.name ?? 'Unknown'),
-    pfp: String(row.pfp ?? ''),
-  }));
-}
-
 type EchoDirectoryServerRow = {
   id: string;
   name: string;

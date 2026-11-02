@@ -340,6 +340,10 @@ export type EchoChannelCapabilities = {
   canMentionEveryone: boolean;
   canUseExternalEmoji: boolean;
   canManageChannel: boolean;
+  /** MANAGE_MESSAGES on this channel (delete others' messages, pin, …). */
+  canManageMessages: boolean;
+  /** Skips text slowmode (BYPASS_SLOWMODE / MANAGE_MESSAGES / MANAGE_CHANNELS) — mirrors `slowmodeBypass` on insert. */
+  canBypassSlowmode: boolean;
   communicationTimeoutActive: boolean;
   communicationTimeoutUntil: string | null;
   communicationTimeoutUntilEpochMs: number | null;
@@ -827,6 +831,8 @@ export async function getEchoChannelCapabilitiesForUser(
       canMentionEveryone: false,
       canUseExternalEmoji: false,
       canManageChannel: false,
+      canManageMessages: false,
+      canBypassSlowmode: false,
       communicationTimeoutActive: false,
       communicationTimeoutUntil: null,
       communicationTimeoutUntilEpochMs: null,
@@ -852,6 +858,8 @@ export async function getEchoChannelCapabilitiesForUser(
       canMentionEveryone: ok,
       canUseExternalEmoji: ok,
       canManageChannel: false,
+      canManageMessages: false,
+      canBypassSlowmode: false,
       communicationTimeoutActive: false,
       communicationTimeoutUntil: null,
       communicationTimeoutUntilEpochMs: null,
@@ -886,6 +894,11 @@ export async function getEchoChannelCapabilitiesForUser(
         perms.has('USE_EXTERNAL_STICKERS') ||
         perms.has('USE_EXPRESSIONS')),
     canManageChannel,
+    canManageMessages: canViewChannel && perms.has('MANAGE_MESSAGES'),
+    canBypassSlowmode:
+      perms.has('BYPASS_SLOWMODE') ||
+      perms.has('MANAGE_MESSAGES') ||
+      perms.has('MANAGE_CHANNELS'),
     communicationTimeoutActive: timeoutState.active,
     communicationTimeoutUntil: timeoutState.timeoutUntil,
     communicationTimeoutUntilEpochMs: timeoutState.timeoutUntilEpochMs,

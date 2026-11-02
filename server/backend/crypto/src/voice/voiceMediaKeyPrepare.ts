@@ -222,8 +222,12 @@ export async function prepareVoiceMediaKeys(opts: {
 }): Promise<VoiceMediaKeyPrepareResult> {
   const uid = opts.viewerUserId.trim();
   const dev = await getOrCreateLocalE2eeDevice(uid, opts.token);
-  // Prefer Keychain / caller device id when it matches registered device.
-  const senderDeviceId = opts.preferredDeviceId?.trim() || dev.deviceId;
+  // Prefer Keychain / caller device id only when it matches the registered
+  // LibSignal device — otherwise announce with a phantom id and peers cannot
+  // decrypt. Stale Apple MLS-era Keychain UUIDs must not win.
+  const preferred = opts.preferredDeviceId?.trim() ?? '';
+  const senderDeviceId =
+    preferred && preferred === dev.deviceId ? preferred : dev.deviceId;
   const peers = opts.memberUserIds
     .map((id) => id.trim())
     .filter((id) => id && id !== uid);

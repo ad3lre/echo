@@ -8,22 +8,35 @@ import Observation
 final class EchoCustomEmojiCatalog {
   static let shared = EchoCustomEmojiCatalog()
 
+  /// Pack order for the expression picker (same payload as `loadEmojiLibrary`).
+  private(set) var packs: [EchoEmojiPack] = []
   private(set) var byID: [String: EchoCustomEmoji] = [:]
   private(set) var byName: [String: EchoCustomEmoji] = [:]
   private var loadedForToken: String?
   private var accountID: String?
+  private var inFlight: Task<Void, Never>?
+
+  var isLoaded: Bool { loadedForToken != nil }
 
   func activate(accountID: String?) {
     guard self.accountID != accountID else { return }
     self.accountID = accountID
     loadedForToken = nil
+    packs = []
     byID = [:]
     byName = [:]
+    inFlight?.cancel()
+    inFlight = nil
   }
 
   func ingest(_ packs: [EchoEmojiPack]) {
-    var nextID: [String: EchoCustomEmoji] = byID
-    var nextName: [String: EchoCustomEmoji] = byName
+    // Replace pack list (full library payloads) while merging emoji indexes so
+    // partial test/helper ingests still enrich lookup maps.
+    if !packs.isEmpty {
+      self.packs = packs.sorted { $0.position < $1.position }
+    }
+    var nextID = byID
+    var nextName = byName
     for emoji in packs.flatMap(\.emojis) {
       nextID[emoji.id] = emoji
       let key = emoji.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -33,20 +46,31 @@ final class EchoCustomEmojiCatalog {
     byName = nextName
   }
 
+  /// Ensures the library is fetched once per access token. Concurrent callers share one request.
   func refresh(baseURL: URL, accessToken: String) async {
     let token = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !token.isEmpty, token != loadedForToken else { return }
-    let account = accountID
-    do {
-      let packs = try await EchoHomeClient(baseURL: baseURL).loadEmojiLibrary(accessToken: token)
-      guard account == accountID, !Task.isCancelled else { return }
-      byID = [:]
-      byName = [:]
-      ingest(packs)
-      loadedForToken = token
-    } catch {
-      // Keep any previously ingested packs from the picker.
+    guard !token.isEmpty else { return }
+    if token == loadedForToken { return }
+    if let inFlight {
+      await inFlight.value
+      if token == loadedForToken { return }
     }
+    let account = accountID
+    let task = Task { @MainActor in
+      do {
+        let packs = try await EchoHomeClient(baseURL: baseURL).loadEmojiLibrary(accessToken: token)
+        guard account == self.accountID, !Task.isCancelled else { return }
+        byID = [:]
+        byName = [:]
+        ingest(packs)
+        loadedForToken = token
+      } catch {
+        // Keep any previously ingested packs from the picker.
+      }
+    }
+    inFlight = task
+    await task.value
+    if inFlight == task { inFlight = nil }
   }
 
   func emoji(id: String) -> EchoCustomEmoji? {
